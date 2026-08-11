@@ -408,10 +408,6 @@ fn resolve_playable_action_set(
     use ambition_characters::actor::character_catalog::PlayableKitSource;
 
     match source {
-        Some(PlayableKitSource::HostCode) => (
-            crate::avatar::bundles::default_player_action_set(base_abilities),
-            RangedExecution::ChargedProjectile,
-        ),
         Some(PlayableKitSource::Authored) => {
             // A known authored row with a missing preset is malformed content.
             // The startup validator reports it; runtime remains fail-safe and
@@ -422,8 +418,17 @@ fn resolve_playable_action_set(
             )
         }
         None => (
-            // Unknown ids use one explicit compatibility fallback. This is
-            // intentionally distinct from a known-but-invalid Authored row.
+            // **UNKNOWN IDS**, and only unknown ids, use one explicit
+            // compatibility fallback. Intentionally distinct from a
+            // known-but-invalid `Authored` row, which stays peaceful.
+            //
+            // ⭐ `PlayableKitSource::HostCode` had an arm here too, identical to
+            // this one, and it is DELETED (2026-08-11, GPT 5.6 §5). A row saying
+            // "engine code owns my kit" is a thing no character says any more:
+            // the protagonist authors its repertoire, Smash's duelists authored
+            // one and then asked for a different one anyway, and the pocket
+            // runner never fights. What survives is this — a defined answer for
+            // an id nobody wrote down, which is a different question.
             crate::avatar::bundles::default_player_action_set(base_abilities),
             RangedExecution::ChargedProjectile,
         ),
@@ -790,8 +795,6 @@ pub fn apply_worn_character_gameplay(
         ),
     )>,
 ) {
-    use ambition_characters::actor::character_catalog::PlayableKitSource;
-
     for (
         entity,
         character,
@@ -1050,8 +1053,9 @@ pub fn apply_worn_character_gameplay(
         }
 
         if abilities.is_changed() {
-            let source = catalog.playable_kit_source(id);
-            if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
+            // Only an UNKNOWN id rebuilds from abilities now — `HostCode` was
+            // the other half of this condition and no longer exists.
+            if catalog.playable_kit_source(id).is_none() {
                 // Same rule as the re-derive above: absence means "build one",
                 // into the SAME binding minted at the top of this iteration.
                 let moveset_slot = match moveset.as_deref_mut() {
@@ -1174,7 +1178,6 @@ pub fn gate_worn_player_control(
     >,
 ) {
     use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
-    use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::SpecialActionSpec;
 
     for (

@@ -873,6 +873,17 @@ impl ActorClusterSeed {
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
             is_aerial,
+            // ⭐⭐ **WHAT THIS CHARACTER'S PROJECTILE LOOKS LIKE.**
+            //
+            // ⛔ **the field was destructured here and DROPPED**, which the
+            // compiler had been reporting as an unused binding — and the warning
+            // was the tell for a live bug, not noise. `CharacterDefinition::
+            // ranged_vfx` had exactly ONE reader in the repository and it was a
+            // TEST, so a character-first robot still fired the unadorned rock
+            // that D83 was closed for. `brain_effects` reads
+            // `tuning.ranged_visual` when it spawns the shot; the archetype road
+            // filled that in and this road left it empty.
+            ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
             ..Default::default()
         };
         Self {
@@ -1211,6 +1222,64 @@ mod tests {
             abilities: None,
             ranged_vfx: None,
         }
+    }
+
+    /// **A CHARACTER-FIRST BODY FIRES ITS OWN PROJECTILE, NOT A ROCK.**
+    ///
+    /// ⛔⛔ **D83 was closed for the archetype road and left open for this one**,
+    /// and the tell was a compiler warning nobody read as a symptom.
+    /// `new_character_in` destructured `ranged_vfx` off the blueprint and never
+    /// used it, so `ActorTuning::ranged_visual` — the field `brain_effects` reads
+    /// when it spawns the shot — stayed EMPTY for every character-first body.
+    ///
+    /// ⚠ **`CharacterDefinition::ranged_vfx` had exactly one reader in the
+    /// repository and it was a TEST** asserting the value is authored. It was:
+    /// authored, carried, and dropped one step from use. An "is it authored"
+    /// assertion cannot see that.
+    ///
+    /// The poison is the same shape as the bug — a character that authors NO art
+    /// must still get the empty default, or this fix hands every body somebody
+    /// else's Hadouken.
+    #[test]
+    fn a_characters_authored_projectile_art_reaches_its_tuning() {
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                "(autonomous_profiles: {}, brain_presets: {}, action_set_presets: {}, characters: {})",
+            ),
+        );
+        let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let seed_for = |vfx: Option<&str>| {
+            let mut blueprint = test_blueprint(
+                "gunner",
+                "Gunner",
+                10,
+                Default::default(),
+                Default::default(),
+                false,
+            );
+            blueprint.ranged_vfx = vfx;
+            ActorClusterSeed::new_character_in(
+                &authored,
+                &catalog,
+                "gunner",
+                blueprint,
+                ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 32.0)),
+                ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+                &[],
+            )
+        };
+
+        assert_eq!(
+            seed_for(Some("hadouken")).config.tuning.ranged_visual,
+            "hadouken",
+            "the character's authored projectile art never reached the body, so \
+             its shot is drawn as the default rock"
+        );
+        assert_eq!(
+            seed_for(None).config.tuning.ranged_visual,
+            "",
+            "a character that authors NO projectile art was given one"
+        );
     }
 
     use super::*;

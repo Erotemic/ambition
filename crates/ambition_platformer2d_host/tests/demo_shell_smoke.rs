@@ -41,10 +41,11 @@ const FIXTURE_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // This fixture intentionally exercises the host-built protagonist
-            // kit. Declare that ownership explicitly; malformed Authored rows
-            // must never gain host capabilities by falling through.
-            playable_kit: HostCode,
+            // ⚠ this fixture used to declare `playable_kit: HostCode` to exercise
+            // the host-built protagonist kit. That variant is deleted -- no
+            // character says engine code owns its repertoire any more -- so the
+            // row states what it actually is: a peaceful shell character.
+            playable_kit: Authored,
             tags: ["player"],
         ),
     },

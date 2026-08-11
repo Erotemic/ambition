@@ -512,20 +512,26 @@ impl CharacterBarks {
 /// body's code-built kit; its `default_action_set` still exists (for its Hall
 /// pedestal or when it is spawned as an NPC) but does NOT define the playable kit.
 ///
-/// A standalone game whose default protagonist wants its OWN authored profile
-/// simply leaves this `Authored` (the default). Only a game that layers a code
-/// kit on its protagonist (Ambition's robot) marks that row `HostCode`. This
-/// selector does not replace the body's movement/progression `AbilitySet`; it
-/// owns the ActionSet, derived moveset, and direct combat adjuncts such as the
-/// host charge-projectile capability.
+/// ⛔ **IT HAS ONE VARIANT, AND THAT IS THE POINT** (2026-08-11). A `HostCode`
+/// variant sat beside `Authored` and meant *engine code owns this row's playable
+/// kit* — which Ambition's robot used, and which made the protagonist's
+/// repertoire unauthorable. It is DELETED: the robot authors its own kit, Smash's
+/// duelists authored one and then said `HostCode` on the next line anyway, and
+/// the pocket runner never fights.
+///
+/// ⚠ the enum survives its second variant because the QUESTION survives: a row
+/// still declares that its playable kit is its own, and a future composition may
+/// need another answer. What it may not declare is that some other crate has one
+/// for it.
+///
+/// ⚠ this selector does not replace the body's movement/progression
+/// `AbilitySet`; it owns the ActionSet, derived moveset, and direct combat
+/// adjuncts.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum PlayableKitSource {
     /// The worn action/combat kit is the row's `default_action_set`.
     #[default]
     Authored,
-    /// The worn body uses its host-code-built action/combat kit; the catalog
-    /// action set does not define the playable kit for this row.
-    HostCode,
 }
 
 /// Optional independently published portrait product for dialogue and other

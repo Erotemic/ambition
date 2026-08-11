@@ -1807,7 +1807,12 @@ const SMASH_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "duelist",
             default_action_set: "duelist",
-            playable_kit: HostCode,
+            // ⭐ **AUTHORED, 2026-08-11.** This said `HostCode` while the line
+            // above authored a `duelist` action set — so the row declared a kit
+            // and then asked engine code to build a different one. `HostCode`
+            // exists to be deleted (GPT 5.6 §5); a row that already authors its
+            // kit is the cheapest adopter to remove.
+            playable_kit: Authored,
             tags: ["player", "smash"],
             fallback_dialogue: ["Off the edge is the only way out."],
         ),

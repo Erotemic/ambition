@@ -35,7 +35,12 @@ const POCKET_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            playable_kit: HostCode,
+            // ⭐ **AUTHORED, 2026-08-11** (GPT 5.6 §5). The pocket demo is a
+            // provider-acceptance fixture — it proves a provider can stand up a
+            // room and a character, not that it can fight — so the row's own
+            // peaceful kit is the honest answer and `HostCode` was borrowing the
+            // protagonist's combat to say nothing with it.
+            playable_kit: Authored,
             tags: ["player", "provider_acceptance"],
         ),
     },

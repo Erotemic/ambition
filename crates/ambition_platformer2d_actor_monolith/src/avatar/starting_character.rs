@@ -1143,6 +1143,9 @@ pub struct WornControlGateSet;
 
 pub fn gate_worn_player_control(
     catalog: Res<CharacterCatalog>,
+    // **The prepared cast**, so this gate can ask a CHARACTER how it fires.
+    // See the charge gate below for why the catalog alone stopped being enough.
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut players: Query<
         (
             &WornCharacter,
@@ -1221,13 +1224,30 @@ pub fn gate_worn_player_control(
             control.0.shield_held = false;
         }
 
-        // Use the row declaration as the same-tick source of truth. The marker is
+        // Use the identity as the same-tick source of truth. The marker is
         // synchronized by `apply_worn_character_gameplay`, but Commands are
         // deferred; consulting the identity prevents a one-tick projectile leak
         // on an Authored re-wear before that removal is applied.
+        //
+        // ⛔⛔ **THIS ASKED THE ROW WHETHER IT SAID `HostCode`, AND THAT BROKE THE
+        // HADOUKEN THE HOUR THE ROBOT STOPPED SAYING IT** (2026-08-11). Robot v3
+        // authors its kit now, so the row reads `Authored`, so this gate cleared
+        // the protagonist's projectile presses every frame — no test failed,
+        // because pressing the projectile button as the protagonist is not
+        // covered anywhere. Exactly the silent regression §4's rename was meant
+        // to prevent, arriving through a reader nobody had counted.
+        //
+        // ⭐ the question is HOW THIS CHARACTER FIRES, which is now an authored
+        // fact: `ranged_execution`. The unknown-id arm stays — an id nobody
+        // authored still gets the compat charge kit, and it must not be gated off
+        // a kit it was just handed.
         let source = catalog.playable_kit_source(worn.id());
-        let allows_charge_projectiles =
-            source == Some(PlayableKitSource::HostCode) || source.is_none();
+        let allows_charge_projectiles = prepared
+            .as_deref()
+            .and_then(|prepared| prepared.get(worn.id()))
+            .map_or(source.is_none(), |prepared| {
+                prepared.ranged_execution.charges_projectiles()
+            });
         if !allows_charge_projectiles || !has_charge_marker {
             control.0.projectile_pressed = false;
             control.0.projectile_held = false;

@@ -799,6 +799,105 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     assert!(!gated.projectile_released);
 }
 
+/// **A CHARACTER THAT CHARGES KEEPS ITS PROJECTILE PRESS.**
+///
+/// ⛔⛔ **the regression for a bug this campaign SHIPPED for one commit**
+/// (2026-08-11). `gate_worn_player_control` asked whether the catalog row said
+/// `playable_kit: HostCode` and cleared every projectile press if it did not.
+/// The hour Robot v3 started authoring its own kit — the row flipping to
+/// `Authored` — that gate began silently disabling the Hadouken. Nothing failed:
+/// **pressing the projectile button as the protagonist was covered nowhere**, so
+/// a full green suite said the protagonist could still fire.
+///
+/// ⭐ the gate asks the CHARACTER how it fires now (`ranged_execution`), which is
+/// what §4 made an authored fact for. Two terms, because the permissive half
+/// alone would pass with the gate deleted: a charging character keeps the press,
+/// and a `MovesetVerb` character still loses it.
+#[test]
+fn an_authored_charging_character_keeps_its_projectile_press() {
+    use crate::character_runtime::{CharacterBindings, CharacterDefinition};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActionSet, ActorControl};
+    use bevy::prelude::*;
+
+    let charge_frame = || {
+        let mut frame = ActorControlFrame::neutral();
+        frame.projectile_pressed = true;
+        frame.projectile_held = true;
+        frame.projectile_released = true;
+        frame
+    };
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, gate_worn_player_control);
+
+    // Two characters, identical but for how they fire.
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    for (id, execution) in [
+        ("gunner", crate::avatar::RangedExecution::ChargedProjectile),
+        ("swordfighter", crate::avatar::RangedExecution::MovesetVerb),
+    ] {
+        registry.insert_prepared(
+            crate::character_runtime::prepare_and_finalize_against_for_test(
+                CharacterDefinition::new(id, id, "test")
+                    .with_ranged_execution(execution)
+                    .with_action_set(ActionSet {
+                        ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(600.0, 1)),
+                        ..ActionSet::default()
+                    }),
+                &CharacterBindings::default(),
+                None,
+            )
+            .prepared,
+        );
+    }
+    app.insert_resource(registry);
+
+    let spawn = |app: &mut App, id: &str| {
+        app.world_mut()
+            .spawn((
+                crate::actor::PlayerEntity,
+                WornCharacter::new(id),
+                MotionModel::default(),
+                crate::actor::BodyAbilities::new(
+                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
+                ),
+                ActionSet {
+                    ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(600.0, 1)),
+                    ..ActionSet::default()
+                },
+                ambition_characters::brain::ChargesProjectiles,
+                ActorControl(charge_frame()),
+            ))
+            .id()
+    };
+    let gunner = spawn(&mut app, "gunner");
+    let swordfighter = spawn(&mut app, "swordfighter");
+    app.update();
+
+    let read = |app: &App, e: Entity| {
+        app.world()
+            .get::<ActorControl>(e)
+            .unwrap()
+            .0
+            .projectile_held
+    };
+    assert!(
+        read(&app, gunner),
+        "a character that AUTHORS a charged projectile lost its press — this is \
+         the Hadouken going quiet the moment the robot stopped saying `HostCode`"
+    );
+    // ⛔ the poison: the gate must still strip the press from a character that
+    // does not charge, or it is not a gate.
+    assert!(
+        !read(&app, swordfighter),
+        "a character that fires through its MOVESET kept the charge press, so \
+         one button would be owned twice"
+    );
+}
+
 /// The gate CONSUMES the shared resolver: a body whose scheme puts a
 /// `Technique` on the Attack slot has its melee device edge ROUTED into the
 /// sanctioned `ResolvedTechniqueEdges` (and the raw verb cleared) — proving the

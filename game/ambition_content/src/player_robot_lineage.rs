@@ -235,7 +235,56 @@ fn definition_from(
     // ⚠ the ACTION SET is still the host's (`playable_kit: HostCode`): what the
     // robot may DO is progression-gated, and what its swings ARE is not.
     if incarnation.id == V3.id {
-        definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
+        definition = definition
+            .with_moveset(crate::player_robot_moveset::player_robot_moveset())
+            // ⭐⭐ **AND THE VERBS ITS BODY HAS** (Jon's redirect §18).
+            //
+            // ⛔ **the protagonist authored none**, so a match seating it took
+            // the *migration bridge*: `seat_abilities` hands an unauthored
+            // character the MODE's declared set verbatim, because almost nothing
+            // in the repo states its own verbs and removing that row today would
+            // strip the Smash cast bare. The bridge is documented as meant to
+            // shrink, and it shrinks one character at a time — this is the
+            // first, and it is the right first because it is the one body both
+            // games are supposed to share.
+            //
+            // ⚠ **no behaviour change in Smash, by construction**: the stage
+            // declares a subset of this, and `authored ∩ mask` is the mask. What
+            // changes is WHY — the robot may shield because the robot can
+            // shield, not because nobody asked it.
+            //
+            // ⛔ **`fly` is deliberately absent.** It is a dev toggle, not
+            // something the robot does; authoring it would make a debug
+            // affordance part of the character every game receives. Same for
+            // `reset`.
+            .with_abilities(ambition_platformer2d_core::AbilitySet {
+                move_horizontal: true,
+                jump: true,
+                variable_jump: true,
+                double_jump: true,
+                fast_fall: true,
+                wall_jump: true,
+                wall_cling: true,
+                wall_climb: true,
+                dash: true,
+                double_dash: true,
+                blink: true,
+                precision_blink: true,
+                blink_through_soft_walls: true,
+                blink_through_hard_walls: true,
+                attack: true,
+                pogo: true,
+                directional_primary: true,
+                directional_special: true,
+                rebound: true,
+                ledge_grab: true,
+                swim: true,
+                glide: true,
+                dodge: true,
+                shield: true,
+                interact: true,
+                ..ambition_platformer2d_core::AbilitySet::NONE
+            });
     }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),

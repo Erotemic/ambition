@@ -406,6 +406,35 @@ mod tests {
         assert_eq!(set.verbs.len(), 11, "the full directional repertoire");
     }
 
+    /// **The protagonist states its own verbs, so a match stops guessing.**
+    ///
+    /// ⛔ **it authored none**, and an unauthored character takes the migration
+    /// bridge in `seat_abilities`: the MODE's declared set, stamped on verbatim.
+    /// That bridge exists because almost nothing in the repo authors verbs yet,
+    /// and it is documented as meant to shrink — this is the first character out
+    /// of it, and the right first, because it is the one body both games share.
+    ///
+    /// ⚠ **`fly` and `reset` are deliberately absent**, and asserting that is
+    /// the point: they are dev toggles, and a character that authored them would
+    /// hand a debug affordance to every game that seats it.
+    #[test]
+    fn the_robot_authors_its_verbs_rather_than_taking_a_match_s_word_for_them() {
+        let v3 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V3);
+        let verbs = v3.abilities.expect("v3 states what its body can do");
+        assert!(verbs.jump && verbs.dash && verbs.attack && verbs.shield && verbs.dodge);
+        assert!(verbs.blink, "blinking is what the robot IS");
+        assert!(
+            !verbs.fly && !verbs.reset,
+            "a dev toggle became part of the character, so every game that seats \
+             the robot now receives it"
+        );
+
+        // ⚠ and a RETIRED incarnation still authors nothing — it is a body the
+        // player used to be, not one anything seats.
+        let v2 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V2);
+        assert!(v2.abilities.is_none());
+    }
+
     /// **The repertoire is a SMASH table, and it says so in its d-air.**
     ///
     /// ⛔ **this is the row that blocks attaching it to the protagonist**

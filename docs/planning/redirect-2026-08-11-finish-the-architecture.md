@@ -1134,8 +1134,8 @@ Section 20's numbering is preserved.
 | 20 | Seat the real Robot v3 in Smash | ✔ — it was already on the grid; now it keeps its OWN moves there |
 | 21 | Remove `smash_duelist_*` shadow definitions | ▢ |
 | 22 | Delete `smash_fighter_kit()` | ▢ — no longer blanket: adopters are now the seats whose character authored nothing |
-| 23 | Delete the `fighter_abilities` manufacturing fallback | ▢ |
-| 24 | Puppy Slug forced seating stays capability-faithful | ▢ |
+| 23 | Delete the `fighter_abilities` manufacturing fallback | ▢ — the mask direction was already right; the BRIDGE lost its first adopter (the robot authors its verbs) |
+| 24 | Puppy Slug forced seating stays capability-faithful | ✔ — `a_match_cannot_grant_a_verb_the_character_does_not_have` already pins it, poison in the fixture |
 | 25 | Floor game / air dodge / ledge on Robot v3 | ▢ |
 | 26 | Ambition's bounded damage-dependent knockback | ▢ — but the RULESET seam it needs now carries `downward_hit` too |
 | 27 | Smash keeps the stronger growth + DI + stocks | ✔ — `SMASH_KNOCKBACK_GROWTH` 0.01 → 0.02, 2026-08-11 |

@@ -268,6 +268,21 @@ pub struct EnemySpawnSpec {
     /// the gameplay question. Ask [`Self::gameplay_character_id`] for that.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub character_id: Option<ambition_entity_catalog::CharacterId>,
+    /// **When this body comes back after it dies** (ADR 0022).
+    ///
+    /// ⭐ **a PLACEMENT fact with nowhere to be authored, until now.** Respawn
+    /// is the one thing in an enemy archetype row that is neither the
+    /// character's nor the controller's — the same creature is a permanent
+    /// casualty in a story room and a repopulating trash mob in a corridor, and
+    /// the row could only say one. It lived there because a placement had no
+    /// field for it, which is exactly the shape a migrated character exposes:
+    /// with the mites' rows deleted, their respawn policy arrives through the
+    /// `combatant` FALLBACK, and that is luck rather than authorship.
+    ///
+    /// `None` = "this placement did not say", which keeps today's answer: the
+    /// archetype's policy. Every existing level is that.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
 }
 
 impl EnemySpawnSpec {
@@ -275,6 +290,7 @@ impl EnemySpawnSpec {
         Self {
             brain,
             character_id: None,
+            respawn: None,
         }
     }
 
@@ -312,6 +328,15 @@ impl EnemySpawnSpec {
         character_id: impl Into<ambition_entity_catalog::CharacterId>,
     ) -> Self {
         self.character_id = Some(character_id.into());
+        self
+    }
+
+    /// Author when this placement's body comes back. See [`Self::respawn`].
+    pub fn with_respawn(
+        mut self,
+        respawn: ambition_entity_catalog::placements::RespawnPolicy,
+    ) -> Self {
+        self.respawn = Some(respawn);
         self
     }
 }

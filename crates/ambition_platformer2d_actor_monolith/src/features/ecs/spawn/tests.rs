@@ -710,6 +710,91 @@ mod authored_enemy_reads_its_character {
         assert_eq!(contact, 0);
     }
 
+    /// **A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.**
+    ///
+    /// ⭐ ADR 0022's rule, finally authorable where it belongs. Respawn is the
+    /// one fact in an enemy archetype row that is neither the character's nor
+    /// the controller's — the same creature is a permanent casualty in a story
+    /// room and a repopulating trash mob in a corridor — and it lived on the row
+    /// only because a placement had no field for it.
+    ///
+    /// ⛔ the reason it became urgent: a MIGRATED character has no row, so its
+    /// respawn arrived through the `combatant` fallback. That worked by luck.
+    #[test]
+    fn a_placement_authors_its_own_respawn_and_outranks_the_archetypes() {
+        use ambition_entity_catalog::placements::RespawnPolicy;
+
+        // The fixture archetype says nothing, so it defaults to DeadStaysDead —
+        // and the placement asks for the opposite, which is the only way to tell
+        // "the placement was read" from "the default stood".
+        let authored = spawn_respawn(Some(RespawnPolicy::OnRoomReenter));
+        assert_eq!(
+            authored,
+            RespawnPolicy::OnRoomReenter,
+            "the placement's policy did not reach the body"
+        );
+        let unauthored = spawn_respawn(None);
+        assert_eq!(
+            unauthored,
+            RespawnPolicy::DeadStaysDead,
+            "a placement that says nothing must keep the archetype's answer, or \
+             every level authored before the field existed changes meaning"
+        );
+    }
+
+    /// Spawn one enemy and report the respawn policy its body ended up with.
+    fn spawn_respawn(
+        respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
+    ) -> ambition_entity_catalog::placements::RespawnPolicy {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.respawn = respawn;
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            "Some Room Enemy",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(prepared());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<&ActorConfig>();
+        q.iter(world).next().expect("one enemy body").tuning.respawn
+    }
+
     /// The two roads, sharing one harness: `(max health, run speed, contact damage)`.
     fn spawn_with(
         prepared: crate::character_runtime::PreparedCharacterRegistry,

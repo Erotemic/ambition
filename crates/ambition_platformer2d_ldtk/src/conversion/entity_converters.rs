@@ -618,6 +618,27 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             payload.character_id = Some(ambition_entity_catalog::CharacterId::from(character_id));
         }
     }
+    // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one
+    // (ADR 0022). A migrated character has no archetype row to inherit a policy
+    // from, and the same creature is a permanent casualty in a story room and a
+    // repopulating trash mob in a corridor. Absent leaves the archetype's, which
+    // is every level authored before the field existed.
+    if let Some(respawn) = field_string(entity, "respawn") {
+        match parse_respawn_policy(respawn.trim()) {
+            Some(policy) => payload.respawn = Some(policy),
+            // ⛔ LOUD. A misspelled policy that silently meant "the archetype's"
+            // is the shape this repo has paid for repeatedly: it looks exactly
+            // like authoring nothing.
+            None if !respawn.trim().is_empty() => {
+                return Err(format!(
+                    "EnemySpawn `{name}` authors respawn `{}`, which is not one of \
+                     DeadStaysDead / OnRoomReenter / OnRest / InPlace(seconds)",
+                    respawn.trim()
+                ))
+            }
+            None => {}
+        }
+    }
     let mut emission = RoomEmission::enemy_spawn(
         ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, payload),
     );
@@ -629,6 +650,24 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         emission.mount_links.push((id, mount_id));
     }
     Ok(emission)
+}
+
+/// Parse an authored respawn policy. The vocabulary is the engine's
+/// [`RespawnPolicy`](ambition_entity_catalog::placements::RespawnPolicy), spelled
+/// as a level author would write it in an LDtk string field.
+fn parse_respawn_policy(text: &str) -> Option<ambition_entity_catalog::placements::RespawnPolicy> {
+    use ambition_entity_catalog::placements::RespawnPolicy;
+    match text {
+        "" => None,
+        "DeadStaysDead" => Some(RespawnPolicy::DeadStaysDead),
+        "OnRoomReenter" => Some(RespawnPolicy::OnRoomReenter),
+        "OnRest" => Some(RespawnPolicy::OnRest),
+        other => other
+            .strip_prefix("InPlace(")
+            .and_then(|rest| rest.strip_suffix(')'))
+            .and_then(|seconds| seconds.trim().parse::<f32>().ok())
+            .map(RespawnPolicy::InPlace),
+    }
 }
 
 pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

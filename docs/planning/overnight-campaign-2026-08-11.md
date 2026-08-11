@@ -66,10 +66,12 @@ a resuming session needs, shortest form:
   the first rows this campaign has deleted. Both are built character-first: the
   enemy road asks `is_complete_body()` and, when a character can carry a body,
   constructs from it and lets the body WEAR itself so its kit arrives through
-  the one persona writer. ⚠ one field still reaches a migrated enemy from the
-  file — `respawn`, via the `combatant` fallback — because an `EnemySpawn`
-  cannot author one; that is the next placement-authority fix, and the fallback
-  happens to carry the same policy the deleted rows did.
+  the one persona writer. ⭐ and `respawn` is now a PLACEMENT
+  field: `EnemySpawnSpec::respawn` (absent = the archetype's, which is every
+  level authored so far), read from an LDtk `respawn` string with a LOUD refusal
+  for a misspelling. A migrated enemy needs nothing from the file once its
+  placement authors one — the mites' eight sandbox spawns are the content edit
+  that finishes it.
 
 ## Campaign progress (live — update as slices land)
 

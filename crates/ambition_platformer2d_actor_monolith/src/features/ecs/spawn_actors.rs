@@ -1309,9 +1309,14 @@ pub(crate) fn spawn_enemy_with_faction_into(
             locomotion,
             definition.contact_damage,
         );
-        // The PLACEMENT's respawn policy, which is the one fact here that is
-        // neither the character's nor the controller's (ADR 0022).
-        enemy.config.tuning.respawn = spec.respawn;
+        // **The PLACEMENT's respawn policy** — the one fact here that is neither
+        // the character's nor the controller's (ADR 0022).
+        //
+        // ⚠ the fallback is the archetype's, and for a character whose row is
+        // DELETED that means the `combatant` row's. It is the last thread from
+        // this file to a migrated enemy; a placement that authors its own cuts
+        // it.
+        enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(spec.respawn);
         // What this body DOES when it dies, and what it may do — both the
         // character's, both already resolved on the definition.
         enemy.caps = crate::combat::CombatCapabilities::from(
@@ -1366,6 +1371,15 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // population of half-migrated characters.
     if let Some(definition) = named {
         enemy.adopt_character_intrinsics(definition);
+    }
+    // **The placement's respawn policy on BOTH roads.** `ActorTuning`'s own
+    // `adopting_archetype` already calls respawn placement-scoped and protects
+    // it from an archetype projection; this is the authoring half of the same
+    // rule, and leaving it on the character-first road alone would mean a fact
+    // an author wrote was honoured for migrated characters and ignored for
+    // everybody else.
+    if let Some(respawn) = authored.payload.respawn {
+        enemy.config.tuning.respawn = respawn;
     }
     spawn_solo_enemy_into(
         commands,

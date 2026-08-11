@@ -493,6 +493,28 @@ pub fn qualify_preset_like(reference: &str, local: &str) -> String {
     }
 }
 
+/// Qualify a local brain-profile reference into a PROVIDER's namespace.
+///
+/// ⭐ **the same rule as [`qualify_preset_like`], stated against the authority
+/// that actually owns the namespace.** That function infers the namespace from
+/// a neighbouring key (`entry.default_brain`), which works only where a catalog
+/// row is in hand — so a character's own prepared default needed a parallel
+/// catalog row merely to learn its own provider. A `CharacterDefinition` states
+/// its provider directly, and the assembled catalog namespaces every preset as
+/// `provider::name` with the SAME provider id a definition carries. That
+/// equality is guarded, not assumed: see
+/// `character_definitions_and_catalog_fragments_share_one_provider_namespace`.
+///
+/// An already-qualified reference is used exactly, so a character may point at
+/// another provider's profile deliberately; a raw one never silently falls
+/// through to some other provider's presets.
+pub fn qualify_in_provider(provider: &str, local: &str) -> String {
+    if local.contains("::") || provider.is_empty() {
+        return local.to_string();
+    }
+    format!("{provider}::{local}")
+}
+
 /// Resolve the initial brain for a placed NPC.
 ///
 /// `authored_override` is the raw `brain_override` field: `None`/empty/whitespace

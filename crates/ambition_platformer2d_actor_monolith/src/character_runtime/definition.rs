@@ -1300,30 +1300,29 @@ fn finalize_character(
         // interpret — otherwise "prepared" means "partly prepared", and the
         // catalog stays in the loop for a fact the character owns.
         //
-        // The namespace comes from the character's own catalog row — identical
-        // to what `resolve_initial_brain` used to compute at spawn, so this is
-        // a MOVE rather than a change of answer.
+        // ⭐ **the namespace is the DEFINITION's provider, and preparation no
+        // longer consults the catalog to learn it.** It used to read the
+        // character's catalog row and borrow the namespace off a neighbouring
+        // key (`entry.default_brain`), which meant a character needed a parallel
+        // catalog row to be told its own provider — the last thing keeping this
+        // fact in the catalog's hands.
         //
-        // ⛔ **no catalog row ⇒ no namespace ⇒ the reference stands verbatim,
-        // and synthesising one from `provider` is a trap I walked into.** An
-        // assembled catalog namespaces every preset key as `provider::name`, so
-        // the definition's own provider looks like the right source — but the
-        // two ids are only assumed equal, never checked, and a fixture prepared
-        // without a catalog turned `patrol_peaceful` into `test::patrol_peaceful`,
-        // a key that exists nowhere. Fabricating a namespace invents a fact.
-        //
-        // ▢ making the definition's provider authoritative is the next step and
-        // the thing that finally frees preparation from the catalog — it needs
-        // provider ids and catalog-fragment ids proven equal first.
+        // ⚠ **the earlier refusal to do this was right at the time and is now
+        // discharged.** Synthesising `test::patrol_peaceful` from a provider
+        // whose presets nobody had namespaced produced a key that existed
+        // nowhere, so the two id spaces stayed "assumed equal, never checked".
+        // They are checked now:
+        // `character_definitions_and_catalog_fragments_share_one_provider_namespace`
+        // asserts every registered definition's provider is a provider the
+        // catalog registry assembled under, for the shipped composition. A
+        // fixture that hits the old trap is a fixture that skipped assembly.
         default_brain_profile: default_brain_profile.map(|reference| {
-            let qualified = match catalog.and_then(|catalog| catalog.get(&id)) {
-                Some(entry) => ambition_characters::actor::character_catalog::qualify_preset_like(
-                    entry.default_brain.as_str(),
+            ambition_characters::actor::character_catalog::BrainPresetId::new(
+                ambition_characters::actor::character_catalog::qualify_in_provider(
+                    &provider,
                     reference.as_str(),
                 ),
-                None => reference.as_str().to_string(),
-            };
-            ambition_characters::actor::character_catalog::BrainPresetId::new(qualified)
+            )
         }),
         id: ambition_entity_catalog::CharacterId::new(id),
         display_name,

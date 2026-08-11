@@ -585,7 +585,11 @@ pub fn speak_conversation_cut_barks(
 #[cfg(test)]
 mod default_profile_tests {
     use super::*;
-    use ambition_characters::actor::character_catalog::parse_catalog;
+
+    /// The provider both authorities are registered under. ONE constant on
+    /// purpose: the whole point of the fixture is that a definition's provider
+    /// and its catalog fragment's provider are the same identifier.
+    const PROVIDER: &str = "test";
 
     const CATALOG: &str = r#"(
         brain_presets: {
@@ -605,6 +609,34 @@ mod default_profile_tests {
             ),
         },
     )"#;
+
+    /// **The fixture catalog, ASSEMBLED — not parsed.**
+    ///
+    /// ⛔ the difference is the whole test. A parsed fragment keeps its authored
+    /// keys raw (`patrol_peaceful`); assembly namespaces every preset as
+    /// `provider::name`, which is what the game actually runs against. While
+    /// this fixture skipped assembly, a definition whose provider qualified its
+    /// own profile produced a key no catalog had — and that was read as
+    /// evidence against qualifying by provider, when it was evidence the
+    /// fixture was not modelling production.
+    fn assembled_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+        let mut registry =
+            ambition_characters::actor::character_catalog::CharacterCatalogRegistry::default();
+        registry
+            .register(
+                ambition_characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
+                    PROVIDER,
+                    None::<String>,
+                    CATALOG,
+                )
+                .expect("the fixture catalog is valid"),
+            )
+            .expect("one fragment always registers");
+        registry
+            .assemble()
+            .expect("one fragment always assembles")
+            .catalog
+    }
 
     fn npc(brain_override: Option<&str>) -> Interactable {
         Interactable::new(
@@ -634,7 +666,7 @@ mod default_profile_tests {
         let mut definition = crate::character_runtime::CharacterDefinition::new(
             "npc_puppy_slug",
             "Puppy Slug",
-            "test",
+            PROVIDER,
         );
         definition.default_brain_profile =
             profile.map(ambition_characters::actor::character_catalog::BrainProfileRef::from);
@@ -653,9 +685,7 @@ mod default_profile_tests {
     /// the one path that spawns most of the cast.
     #[test]
     fn an_npc_takes_its_definitions_default_profile_over_the_catalog_rows() {
-        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-            parse_catalog(CATALOG),
-        );
+        let catalog = assembled_catalog();
         let (brain, binding) = resolve_npc_brain(
             &catalog,
             &registry_naming(Some("patrol_peaceful")),
@@ -672,8 +702,9 @@ mod default_profile_tests {
                 .as_ref()
                 .and_then(|(b, _)| b.default_preset.as_ref())
                 .map(|p| p.as_str()),
-            Some("patrol_peaceful"),
-            "and it is the binding's DEFAULT, so a later restore returns here"
+            Some("test::patrol_peaceful"),
+            "and it is the binding's DEFAULT, namespaced by the definition's own \
+             provider, so a later restore returns here"
         );
     }
 
@@ -683,9 +714,7 @@ mod default_profile_tests {
     /// silent behaviour change across the whole cast.
     #[test]
     fn a_definition_naming_nothing_leaves_the_catalog_row_in_charge() {
-        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-            parse_catalog(CATALOG),
-        );
+        let catalog = assembled_catalog();
         for registry in [
             registry_naming(None),
             crate::character_runtime::PreparedCharacterRegistry::default(),
@@ -698,9 +727,7 @@ mod default_profile_tests {
     /// And an authored placement override still outranks both.
     #[test]
     fn a_placement_override_outranks_the_definitions_default() {
-        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-            parse_catalog(CATALOG),
-        );
+        let catalog = assembled_catalog();
         let (brain, _) = resolve_npc_brain(
             &catalog,
             &registry_naming(Some("patrol_peaceful")),

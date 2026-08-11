@@ -128,16 +128,30 @@ autonomous_reconcile                1045
 2. ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
    appendix C ruling 4, and the compiler is the instrument: let it expose every
    remaining wrongly-owned field rather than predicting them.
-3. ▢ **A `BrainProfile` type** — a reusable autonomous-controller profile with
+3. ◐ **A `BrainProfile` type — THE TYPE LANDED 2026-08-11**
+   (`ambition_characters::brain::profile`). It replaced `CharacterBrainSpec`
+   outright rather than joining it, and took `aggro_radius`, `attack_range` and
+   `turns_at_walls` off `ActorTuning` on the way — those are decisions a DRIVER
+   makes. It is authorable with `deny_unknown_fields`. ▢ what remains is
+   ADOPTION: the archetype still projects one, and no character names one yet.
+   The `smash_can_blink/fly/shield` mirror of the body's capabilities came
+   across deliberately and is item 21's deletion. Originally:
+   a reusable autonomous-controller profile with
    the controller-policy subset of `ArchetypeSpec` (patrol/chase effort, aggro
    radius, attack range, brain template, smash hit band, turn-at-wall). ⭐ this
    is the single biggest unblocker left: the mites' rows cannot disappear
    without it, group B is entirely it, and `CharacterSpawnPlan`'s
    `autonomous_profile_override` has no reader without it.
-4. ▢ **Free preparation from the catalog** for the default profile's namespace:
-   prove provider ids and catalog-fragment ids are the same identifier, then
-   qualify with the definition's own `provider`. ⛔ do NOT assume they match —
-   a fixture already produced `test::patrol_peaceful`, a key that exists nowhere.
+4. ✔ **Free preparation from the catalog — DONE 2026-08-11.** The two id spaces
+   are the same one and it is now CHECKED rather than assumed:
+   `app_it -- character_provider_namespace` asserts every registered
+   definition's provider is a provider the catalog registry assembled under,
+   carries a poison so membership can say no, and was probed RED by giving one
+   registration site a made-up provider. Preparation qualifies with
+   `qualify_in_provider(&definition.provider, ..)` and reads no catalog row.
+   ⛔ the `test::patrol_peaceful` warning above is DISCHARGED, and the fixture
+   that produced it was the fault: it parsed its catalog instead of ASSEMBLING
+   it, and production namespaces every preset `provider::name`.
 5. ▢ **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
    several runtime accessors return. `CharacterId` should survive from authoring
    to runtime, converting only at serialization/presentation/debug boundaries.
@@ -323,8 +337,9 @@ traps that became RULES. The narrative of how each was found is in the commits.
   re-derives its kit THROUGH THE CATALOG — phase 2's endpoint arriving early.
   ⚠ the render layer is NOT the obstacle; both render systems also gate on
   `PlayerVisual`, which an enemy lacks.
-* ▢ **Preparation still consults the catalog** for the profile's namespace.
-  Freeing it needs provider ids and catalog-fragment ids proven equal.
+* ✔ **Preparation no longer consults the catalog** for the profile's namespace
+  (2026-08-11). The definition's own `provider` qualifies it, and the equality
+  it rested on is a guarded fact now — see checklist item A4.
 * ▢ **Prepared completeness (appendix C ruling 8) for death traits.** Right in
   principle, and flipping it today makes an exploding mite stop exploding:
   `adopt_character_intrinsics` only overwrites when the definition speaks, so a

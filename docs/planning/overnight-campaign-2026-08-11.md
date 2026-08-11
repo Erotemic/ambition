@@ -21,7 +21,7 @@ that file's 23-item checklist as the ordering authority.
 | P | Item | State |
 |---|---|---|
 | P0.1 | Explicit CharacterId missing from prepared registry must be an error | ▢ |
-| P0.2 | Resolve character-owned autonomous profile refs during preparation | ▢ |
+| P0.2 | Resolve character-owned autonomous profile refs during preparation | ✔ **DONE.** Preparation resolved the ref already; what was open is the half Jon names — *"should not need a parallel catalog row merely to know its namespace"*. It now qualifies with the DEFINITION's own provider (`qualify_in_provider`) and consults no catalog. The two id spaces were "assumed equal, never checked"; `character_provider_namespace` checks them on the shipped composition, and was probed RED by poisoning one registration site. The npc fixture that had argued against this change was repaired to ASSEMBLE its catalog (production namespaces every preset `provider::name`) rather than parse it raw |
 | P0.3 | Complete typed CharacterId through prepared registry/runtime/match seams | ▢ |
 | P0.4 | Inspect/narrow SpawnContext before adding more callers | ▢ |
 | P0.5 | Fix current-held-item death ownership | ▢ |
@@ -34,7 +34,7 @@ that file's 23-item checklist as the ordering authority.
 | P1.12 | Route encounter, summon, programmatic paths | ▢ |
 | P2.13 | Migrate clean Group-A character/archetype cases | ▢ |
 | P2.14 | Delete each migrated legacy row as it becomes unnecessary | ▢ |
-| P2.15 | Extract Group-B shared AI behavior into real BrainProfiles | ▢ |
+| P2.15 | Extract Group-B shared AI behavior into real BrainProfiles | ◐ **the TYPE exists** — `ambition_characters::brain::BrainProfile`, authorable, `deny_unknown_fields`, replacing `CharacterBrainSpec` outright and taking `aggro_radius`/`attack_range`/`turns_at_walls` off `ActorTuning`. ▢ the archetype still PROJECTS one; no character names a profile yet, which is what Group B needs |
 | P2.16 | Classify Group-C generic roles | ▢ |
 | P2.17 | Migrate provider roster fragments | ▢ |
 | P2.18 | Delete CharacterRoster/ArchetypeSpec infrastructure | ▢ |

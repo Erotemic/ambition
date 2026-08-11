@@ -437,7 +437,12 @@
             // pedestal / NPC face, NOT what the worn home box can do. Being the
             // content default is now unrelated to keeping the code kit — a demo
             // whose default authors its own kit (Sanic) gets that kit.
-            playable_kit: HostCode,
+            // ⭐ **AUTHORED since 2026-08-11** (GPT 5.6 §5). v3 states its own
+            // repertoire -- a swipe, a bolt and a bubble shield -- on its
+            // definition, and `ranged_execution: ChargedProjectile` keeps the
+            // Hadouken charging now that the charge is a character fact rather
+            // than a property of this row saying `HostCode`.
+            playable_kit: Authored,
             // The protagonist's blade, and ONLY the protagonist's: the sheet's
             // silhouette is sampled from v3's own hit polygon, so a character
             // with a different swing that named it would wear art cut for

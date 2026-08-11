@@ -258,6 +258,9 @@ pub fn simulation_world(
             initial_scratch,
             player_health,
             &starting_character.character_id,
+            // ⭐ the prepared cast, which this function already held and the
+            // bundle was not given — see the parameter's own note.
+            prepared_characters,
             &mut ranged,
         )
     };

@@ -106,6 +106,34 @@ impl ActionSet {
     pub fn can_attack(&self) -> bool {
         self.melee.is_some() || self.ranged.is_some()
     }
+
+    /// **This repertoire, narrowed to what the body may currently do.**
+    ///
+    /// ⭐ **the general form of what host code did for one character** (GPT 5.6
+    /// §5, 2026-08-11). `default_player_action_set` built the protagonist's kit
+    /// from scratch every time, gating melee on `attack` and the special on
+    /// `shield` — so *what actions the robot HAS* and *which of them are unlocked
+    /// right now* were one expression, in Rust, for one character.
+    ///
+    /// Splitting them is what lets a character AUTHOR its canonical repertoire
+    /// and progression filter it: the definition says the robot has a swipe, a
+    /// bolt and a bubble shield; this says today it has two of them.
+    ///
+    /// ⚠ **`ranged` is deliberately ungated**, and that is inherited rather than
+    /// chosen: there is no projectile ability in `AbilitySet`, so gating it here
+    /// would silently disarm every ranged character. When such a flag exists this
+    /// is the one place that changes.
+    ///
+    /// ⚠ `move_style` is a BODY fact and is never filtered — a body that may not
+    /// attack still walks the way it walks.
+    pub fn gated_by(&self, abilities: ambition_platformer2d_core::AbilitySet) -> Self {
+        Self {
+            melee: abilities.attack.then(|| self.melee.clone()).flatten(),
+            special: abilities.shield.then(|| self.special.clone()).flatten(),
+            ranged: self.ranged.clone(),
+            move_style: self.move_style,
+        }
+    }
 }
 
 /// What a plain `Attack` does to / with a held item — authored on the spec

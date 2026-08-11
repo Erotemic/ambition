@@ -501,17 +501,17 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 }
 
 /// **Closed gap (reviewer 2026-07-11):** a runtime re-wear FROM a known
-/// character TO a `HostCode` protagonist REBUILDS the code kit deterministically
-/// from the body's persisted `BodyAbilities` — it does NOT leave the prior
-/// character's kit. The kit is a function of identity + persisted abilities, not
-/// of mutation history, so this is also the snapshot-restore contract: restoring
-/// `WornCharacter("player")` onto a survivor rebuilds the protagonist kit.
+/// character TO another REBUILDS from the destination — it does NOT leave the
+/// prior character's kit. The kit is a function of identity + persisted
+/// abilities, not of mutation history, so this is also the snapshot-restore
+/// contract: restoring a `WornCharacter` onto a survivor rebuilds.
+///
+/// ⚠ renamed 2026-08-11: it said `..._to_a_host_code_protagonist_rebuilds_the_
+/// code_kit`, and there is no host-code protagonist any more.
 #[test]
-fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
+fn runtime_rewear_rebuilds_from_the_destination_character() {
     use crate::combat::moveset::ActorMoveset;
-    use ambition_characters::brain::{
-        ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
-    };
+    use ambition_characters::brain::{ActionSet, RangedActionSpec};
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -567,35 +567,34 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
         "Player Robot v3"
     );
     let set = app.world().get::<ActionSet>(e).unwrap();
+    // ⭐⭐ **THE INVARIANT, WHICH IS ABOUT STALENESS AND NOT ABOUT THE ROBOT.**
+    // The pistol must be GONE: a kit is a function of identity plus persisted
+    // abilities, never of mutation history, and that is also the snapshot-restore
+    // contract — restoring a `WornCharacter` onto a survivor must rebuild rather
+    // than inherit.
+    //
+    // ⛔ **what this used to assert instead was that the CODE KIT came back** —
+    // Swipe, Bolt, bubble_shield, synthesised by `default_player_action_set` from
+    // a row saying `playable_kit: HostCode`. Robot v3 authors its repertoire on
+    // its definition in `ambition_content` now, and this crate cannot depend on
+    // content to build it. That is the correct outcome, not a gap: the engine
+    // does not know the protagonist's moves. What it must still guarantee is that
+    // nothing of the PREVIOUS character survives the change.
     assert!(
-        matches!(set.melee, Some(MeleeActionSpec::Swipe(_))),
-        "the rebuilt protagonist kit has its Swipe melee"
-    );
-    assert!(
-        matches!(
+        !matches!(
             set.ranged,
             Some(RangedActionSpec {
-                style: RangedStyle::Bolt,
+                style: RangedStyle::Pistol,
                 ..
             })
         ),
-        "the pirate's pistol is gone — the code kit's Bolt is rebuilt"
+        "the pirate's pistol survived a re-wear, so this body's kit depends on \
+         what it used to be — and a restored snapshot would inherit it too"
     );
-    assert!(
-        matches!(set.special, Some(SpecialActionSpec::Special(_))),
-        "the code kit's bubble_shield special is rebuilt"
-    );
-    assert!(
-        app.world()
-            .get::<ambition_characters::brain::ChargesProjectiles>(e)
-            .is_some(),
-        "the host charge capability is rebuilt with the host kit"
-    );
-    assert!(
-        app.world()
-            .get::<ambition_projectiles::PlayerProjectileState>(e)
-            .is_some(),
-        "the per-body host charge state is reconstructed when absent"
+    assert_eq!(
+        *set,
+        ActionSet::peaceful(),
+        "the re-worn body kept something the destination row does not author"
     );
 }
 
@@ -1181,7 +1180,17 @@ fn wear(
         &mut identity,
         None,
         id,
-        ambition_platformer2d_core::AbilitySet::default(),
+        // ⛔ **A BODY THAT MAY ACT**, and this was `AbilitySet::default()` — which
+        // is `basic()`, whose `attack` and `shield` are BOTH false. An authored
+        // kit is narrowed by the body's abilities since 2026-08-11 (GPT 5.6 §5),
+        // so a fixture handing over an incapable body was asserting that a
+        // character keeps verbs its body cannot use. Every persona these tests
+        // derive is a fighter; production gives a fighter a body that fights.
+        ambition_platformer2d_core::AbilitySet {
+            attack: true,
+            shield: true,
+            ..ambition_platformer2d_core::AbilitySet::basic()
+        },
         // No match: this fixture is testing the AUTHORED persona.
         None,
     );

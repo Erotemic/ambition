@@ -595,7 +595,13 @@ fn apply_worn_character_kit(
                     action_set,
                     moveset,
                 }) => (
-                    action_set.clone(),
+                    // ⭐ **THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED**
+                    // (GPT 5.6 §5). `default_player_action_set` did this gating
+                    // inside the same expression that BUILT the kit, for one
+                    // character, in Rust. `gated_by` is that filter's general
+                    // form, so a character can author what it HAS and progression
+                    // decides what it may currently use.
+                    action_set.gated_by(base_abilities),
                     moveset.clone(),
                     // ⭐ **WHAT THE CHARACTER SAYS**, since 2026-08-11 (GPT 5.6 §4).
                     // This read `MovesetVerb` unconditionally, on the reasoning that

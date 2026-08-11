@@ -243,6 +243,18 @@ impl PlayerSimulationBundle {
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
+        // **THE PREPARED CAST**, when the caller has one.
+        //
+        // ⛔ this parameter did not exist and the call below passed `None` with
+        // the comment *"a from-scratch bundle predates the world it will live in,
+        // so there is no registry to consult here"* — a claim about the CALLER
+        // that stopped being true. `session::setup` holds
+        // `prepared_characters` and was already reading its generation four lines
+        // later. The cost was concrete: a character whose kit is authored on its
+        // DEFINITION rather than its catalog row was built with the row's kit, so
+        // the protagonist's own repertoire was invisible on the one path that
+        // spawns the protagonist (GPT 5.6 §5).
+        prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
         // ⭐ **HOW THIS BODY FIRES, handed back to the caller** (Jon's second
         // redirect, P0). The overlay resolves it and this used to DISCARD it —
         // which is why the protagonist needed a `RecharacterizeBody` on ordinary
@@ -261,10 +273,7 @@ impl PlayerSimulationBundle {
         // kit), so spawn and runtime can never disagree on what a character is.
         *ranged = crate::avatar::apply_worn_character_overlay(
             catalog,
-            // A from-scratch bundle predates the world it will live in, so there is
-            // no registry to consult here. The per-frame derivation above reaches
-            // the body on its first tick with the prepared moveset if one exists.
-            None,
+            prepared,
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,
@@ -386,21 +395,20 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "player_robot_v3",
+            None,
             &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert!(bundle.brain.is_player());
-        assert!(matches!(
-            bundle.action_set.melee,
-            Some(MeleeActionSpec::Swipe(_))
-        ));
-        assert!(matches!(
-            bundle.action_set.ranged,
-            Some(RangedActionSpec {
-                style: RangedStyle::Bolt,
-                ..
-            })
-        ));
+        // ⚠ the ROW's kit, which for this character is its Hall pedestal face —
+        // `default_action_set: "peaceful"`. Its playable repertoire is authored on
+        // its definition and reaches a body through the PREPARED cast, which this
+        // catalog-only fixture deliberately does not have.
+        assert!(
+            bundle.action_set.melee.is_none() && bundle.action_set.ranged.is_none(),
+            "a catalog-only build picked up a kit the ROW does not author, so \
+             something is still synthesising the protagonist's moves in engine code"
+        );
     }
 
     #[test]
@@ -416,6 +424,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
+            None,
             &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
@@ -445,6 +454,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "not_a_real_character",
+            None,
             &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert!(bundle.brain.is_player());

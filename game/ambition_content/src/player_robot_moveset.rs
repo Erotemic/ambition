@@ -541,3 +541,46 @@ pub fn theorem_chain_moveset() -> MovesetContract {
         }],
     }
 }
+
+/// **THE ROBOT'S CANONICAL REPERTOIRE — what actions it intrinsically HAS.**
+///
+/// ⭐⭐ **authored, since 2026-08-11** (GPT 5.6 §5). This lived in
+/// `default_player_action_set(abilities)`, a Rust function that built the
+/// protagonist's kit from scratch on every call and gated it by the live
+/// `AbilitySet` in the same expression. Two different questions shared one body
+/// of code: *what actions does this character have* (a character fact, and the
+/// only one on this list) and *which of them are unlocked right now* (runtime
+/// progression). `ActionSet::gated_by` is the second question's general form, so
+/// this is free to be the first question's plain answer.
+///
+/// ⚠ **the numbers are the host function's verbatim.** A migration that retuned
+/// on the way would be a retune wearing a migration's commit — and the windup in
+/// particular is a decision with a reason on it, quoted below.
+pub fn player_robot_action_set() -> ambition_characters::brain::ActionSet {
+    use ambition_characters::brain::{
+        ActionSet, MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
+    };
+    ActionSet {
+        // **NO WINDUP. The player's attack comes out on the press.** (Jon,
+        // 2026-07-31: *"the attack should come out immediately so it feels
+        // responsive."*) A windup is a promise made to an opponent — it exists so
+        // a fighter can be READ, which is right for a striker the player is meant
+        // to beat and wrong for the hand the player is holding. The Startup phase
+        // still exists and is zero seconds long, so the hit volume, the slash arc
+        // and the swing cue all land on the frame of the press.
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.0,
+            active_s: 0.10,
+            recover_s: 0.18,
+            damage: 1,
+            reach_px: 36.0,
+        })),
+        // The Hadouken. ⭐ HOW it fires — hold to build, release — is
+        // `ranged_execution: ChargedProjectile` on the definition, not a property
+        // of this slot: the slot says the robot throws something, the execution
+        // says the throw charges.
+        ranged: Some(RangedActionSpec::bolt(600.0, 1)),
+        move_style: MoveStyleSpec::Walk,
+        special: Some(SpecialActionSpec::Special("bubble_shield".to_string())),
+    }
+}

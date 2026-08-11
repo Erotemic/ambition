@@ -343,6 +343,16 @@ fn definition_from(
     }
     if incarnation.id == V3.id {
         definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
+        // ⭐⭐ **AND WHAT ACTIONS IT HAS**, not only what those actions ARE (GPT
+        // 5.6 §5). The moveset says the swing's timeline; this says the robot has
+        // a swing, a bolt and a bubble shield at all — the half that was
+        // `default_player_action_set` in host code, keyed off
+        // `playable_kit: HostCode` in the catalog row.
+        //
+        // ⚠ authoring it is what makes this character `PreparedKit::Authored`,
+        // and §4's `ranged_execution` is why that no longer costs it the charge.
+        definition =
+            definition.with_action_set(crate::player_robot_moveset::player_robot_action_set());
     }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),

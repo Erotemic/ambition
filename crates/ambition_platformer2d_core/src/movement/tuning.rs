@@ -106,6 +106,19 @@ pub const DODGE_ROLL_TIME: f32 = 0.22;
 pub const DODGE_ROLL_SPEED: f32 = 530.0;
 /// Cooldown after a dodge roll before the next one may start.
 pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
+/// **Air dodge** — the aerial evade's invulnerable window (seconds).
+///
+/// Shorter than the ground roll's: the roll ends on its feet and pays a
+/// cooldown, while the air dodge is spent for the whole trip through the air,
+/// so its commitment is the airtime rather than the clock.
+pub const AIR_DODGE_TIME: f32 = 0.20;
+/// Air-dodge travel speed along the stick, px/s. Below the roll's, because the
+/// air dodge may aim in any direction — including straight down, where the
+/// roll's 530 would read as a dive.
+pub const AIR_DODGE_SPEED: f32 = 440.0;
+/// Endlag after the air-dodge window closes: airborne, controllable, but
+/// evading nothing. This is the punish window that makes the option a choice.
+pub const AIR_DODGE_ENDLAG: f32 = 0.16;
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
@@ -362,6 +375,18 @@ pub struct MovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// **The aerial evade**: how long the i-frames last, how fast the body
+    /// travels along the stick, and the endlag it owes on the far side.
+    ///
+    /// `#[serde(default)]` so tuning files baked before the air dodge existed
+    /// keep parsing; a zero `air_dodge_time` means this body has no air dodge,
+    /// which is the state every body was in.
+    #[serde(default)]
+    pub air_dodge_time: f32,
+    #[serde(default)]
+    pub air_dodge_speed: f32,
+    #[serde(default)]
+    pub air_dodge_endlag: f32,
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
@@ -580,6 +605,13 @@ pub struct TraversalAbilityTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// See [`AbilityTuning::air_dodge_time`].
+    #[serde(default)]
+    pub air_dodge_time: f32,
+    #[serde(default)]
+    pub air_dodge_speed: f32,
+    #[serde(default)]
+    pub air_dodge_endlag: f32,
     pub parry_window_time: f32,
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
@@ -693,6 +725,9 @@ impl MovementTuning {
                 dodge_roll_time: self.dodge_roll_time,
                 dodge_roll_speed: self.dodge_roll_speed,
                 dodge_roll_cooldown: self.dodge_roll_cooldown,
+                air_dodge_time: self.air_dodge_time,
+                air_dodge_speed: self.air_dodge_speed,
+                air_dodge_endlag: self.air_dodge_endlag,
                 parry_window_time: self.parry_window_time,
                 ledge_momentum: self.ledge_momentum,
             },
@@ -771,6 +806,16 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_time: DODGE_ROLL_TIME,
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
+    // ⛔ **ZERO in the default tuning, and that is the decision, not an
+    // oversight.** An airborne dash press already MEANS something for a body
+    // with the dash ability — it is the protagonist's air dash, a traversal
+    // move — and a default-on air dodge would quietly take that press away from
+    // every exploration body in the game. The maneuver is body-generic in the
+    // kernel and AUTHORED per character, exactly like the shield, the ledge and
+    // the moveset: a fighter says `air_dodge_time: AIR_DODGE_TIME` and gets one.
+    air_dodge_time: 0.0,
+    air_dodge_speed: AIR_DODGE_SPEED,
+    air_dodge_endlag: AIR_DODGE_ENDLAG,
     parry_window_time: PARRY_WINDOW_TIME,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };

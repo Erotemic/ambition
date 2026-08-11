@@ -33,6 +33,16 @@ pub struct BodyMotionFacts {
     pub dashing: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
+    /// **Air-dodge i-frames are active** — a separate fact from
+    /// [`Self::dodge_rolling`] on purpose, so animation and debugging can tell
+    /// the aerial evade from the grounded one. Everything that only asks *"is
+    /// this body evading?"* should read [`Self::evading`] instead, which is the
+    /// term the damage rule takes.
+    pub air_dodging: bool,
+    /// The air dodge's window has closed but its endlag has not: the body is
+    /// committed and no longer invulnerable. Presentation and AI read this;
+    /// [`Self::evading`] deliberately does NOT include it.
+    pub air_dodge_endlag: bool,
     /// The blink telegraph is showing (precision aim or charge hold).
     pub blink_telegraph: bool,
     /// Precision blink aim specifically (drives the aim preview).
@@ -56,6 +66,14 @@ pub struct BodyMotionFacts {
 }
 
 impl BodyMotionFacts {
+    /// **Is this body inside an evade's invulnerable window?** — the ONE term
+    /// the damage rule takes, so a maneuver added later cannot grant i-frames at
+    /// five emit sites and miss the sixth. Adding an evade means extending this
+    /// method, not auditing every caller of `body_vulnerable`.
+    pub fn evading(&self) -> bool {
+        self.dodge_rolling || self.air_dodging
+    }
+
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
     pub fn from_model(model: &MotionModel) -> Self {
@@ -66,6 +84,8 @@ impl BodyMotionFacts {
         Self {
             dashing: state.dash_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
+            air_dodging: state.air_dodge_timer > 0.0,
+            air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,
             blink_telegraph: state.blink_aiming || state.blink_hold_active,
             blink_aiming: state.blink_aiming,
             blink_aim_offset: state.blink_aim_offset,

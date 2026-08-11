@@ -471,6 +471,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
+        &mut *clusters.dodge,
         tuning.air_jumps,
     );
     safety.last_safe_pos = transaction.safe_player_pos;

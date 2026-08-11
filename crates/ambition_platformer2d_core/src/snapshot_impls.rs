@@ -154,7 +154,10 @@ snapshot_pod!(crate::body_clusters::BodyFlightState {
 
 snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });
 
-snapshot_pod!(crate::body_clusters::BodyDodgeState { cooldown: f32 });
+snapshot_pod!(crate::body_clusters::BodyDodgeState {
+    cooldown: f32,
+    air_dodge_spent: bool
+});
 
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
@@ -225,6 +228,7 @@ snapshot_unit_enum!(crate::movement::MovementOp {
     // sibling crawl ops in `ops.rs` and at the end of the list here.
     CrawlAttach = 24,
     CrawlDetach = 25,
+    AirDodge = 26,
 });
 
 // The hang state machine (`Option<LedgeGrabState>`) is axis-policy maneuver

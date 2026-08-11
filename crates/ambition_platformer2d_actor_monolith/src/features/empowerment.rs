@@ -284,7 +284,7 @@ pub fn apply_contact_harm(
             }
             if !crate::combat::util::body_vulnerable(
                 victim_health.health.invulnerable,
-                facts.dodge_rolling,
+                facts.evading(),
                 shield,
                 combat,
             ) {

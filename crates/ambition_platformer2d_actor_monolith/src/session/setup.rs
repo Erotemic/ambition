@@ -204,6 +204,7 @@ pub fn simulation_world(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
         &mut initial_scratch.jump,
+        &mut initial_scratch.dodge,
         tuning.air_jumps,
     );
 

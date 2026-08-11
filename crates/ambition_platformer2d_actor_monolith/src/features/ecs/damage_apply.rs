@@ -446,7 +446,7 @@ pub(crate) fn handle_player_damage_events(
             .as_deref()
             .map(|health| health.health.invulnerable)
             .unwrap_or_default(),
-        facts.dodge_rolling,
+        facts.evading(),
         clusters.shield,
         combat,
     ) {
@@ -982,6 +982,7 @@ pub(crate) fn apply_player_knockback(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
+        &mut *clusters.dodge,
         tuning.air_jumps,
     );
     // CM8: THE one victim-side reaction. The player carries the rich hurt

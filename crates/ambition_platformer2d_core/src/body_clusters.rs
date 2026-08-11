@@ -452,6 +452,14 @@ pub const LEDGE_KNOCK_OFF_COOLDOWN: f32 = 0.35;
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyDodgeState {
     pub cooldown: f32,
+    /// **The air dodge has been spent in this airtime.**
+    ///
+    /// ⭐ the explicit refresh rule Jon's brief asks for: *"cannot be spammed
+    /// infinitely in one airtime … refreshes according to an explicit
+    /// landing/ledge/lifecycle rule"*. Cleared where every other aerial resource
+    /// is — on ground contact and on a ledge grab — rather than by a timer,
+    /// because "one per trip through the air" is the rule players learn.
+    pub air_dodge_spent: bool,
 }
 
 /// Shield/parry cluster.
@@ -649,16 +657,27 @@ pub fn reset_body_clusters(
     });
 }
 
-/// Refresh the dash charge count and air-jump count from the active
-/// `BodyAbilities` + the caller's authored base air-jump count.
+/// Refresh every AERIAL resource — dash charges, air jumps, and the air dodge —
+/// from the active `BodyAbilities` + the caller's authored base air-jump count.
+///
+/// ⭐ **the air dodge joined this function rather than getting a reset of its
+/// own**, and that placement is the point: "restores on landing" is a rule about
+/// a class of resource, not about one maneuver, and eighteen call sites already
+/// know this function is where that class comes back. A separate
+/// `dodge.air_dodge_spent = false` next to each of them is exactly the
+/// follow-up-call shape the [`a_reset_restores_the_air_jumps_the_caller_names`]
+/// regression exists to forbid — four of five sites remembered, one did not, and
+/// nothing said so.
 pub fn refresh_movement_resources_clusters(
     abilities: &BodyAbilities,
     dash: &mut BodyDashState,
     jump: &mut BodyJumpState,
+    dodge: &mut BodyDodgeState,
     base_air_jumps: u8,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(base_air_jumps);
+    dodge.air_dodge_spent = false;
 }
 
 /// Authoritative body-shape stance.

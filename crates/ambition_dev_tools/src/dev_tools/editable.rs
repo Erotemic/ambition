@@ -169,6 +169,11 @@ pub struct EditableMovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// The aerial evade, exposed here for the same reason the roll is: it is a
+    /// feel knob, and a feel knob the inspector cannot reach is one nobody tunes.
+    pub air_dodge_time: f32,
+    pub air_dodge_speed: f32,
+    pub air_dodge_endlag: f32,
     pub parry_window_time: f32,
     // Ledge momentum-carry boost. Seconds-after-grab during which a
     // getup option can claim incoming momentum; gains scale incoming
@@ -246,6 +251,9 @@ impl EditableMovementTuning {
             dodge_roll_time: self.dodge_roll_time,
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
+            air_dodge_time: self.air_dodge_time,
+            air_dodge_speed: self.air_dodge_speed,
+            air_dodge_endlag: self.air_dodge_endlag,
             parry_window_time: self.parry_window_time,
             ledge_momentum: ae::LedgeMomentumTuning {
                 window: self.ledge_boost_window,
@@ -307,6 +315,9 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             dodge_roll_time: value.dodge_roll_time,
             dodge_roll_speed: value.dodge_roll_speed,
             dodge_roll_cooldown: value.dodge_roll_cooldown,
+            air_dodge_time: value.air_dodge_time,
+            air_dodge_speed: value.air_dodge_speed,
+            air_dodge_endlag: value.air_dodge_endlag,
             parry_window_time: value.parry_window_time,
             ledge_boost_window: value.ledge_momentum.window,
             ledge_boost_x_gain: value.ledge_momentum.x_gain,
@@ -392,7 +403,7 @@ pub fn apply_player_body_profile(
 /// Apply a movement profile to the reflected tuning resource and refresh live
 /// movement resources that depend on the configured number of air jumps.
 ///
-/// `live_movement_refs` is `Some((abilities, dash, jump))` when there is a
+/// `live_movement_refs` is `Some((abilities, dash, jump, dodge))` when there is a
 /// live player to refresh; `None` (e.g. unit tests, no player yet) skips the
 /// refresh and only updates `editable_tuning`.
 pub fn apply_movement_profile(
@@ -402,12 +413,13 @@ pub fn apply_movement_profile(
         &ambition_platformer2d_core::BodyAbilities,
         &mut ambition_platformer2d_core::BodyDashState,
         &mut ambition_platformer2d_core::BodyJumpState,
+        &mut ambition_platformer2d_core::BodyDodgeState,
     )>,
 ) {
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
-    if let Some((abilities, dash, jump)) = live_movement_refs {
-        ae::refresh_movement_resources_clusters(abilities, dash, jump, tuning.air_jumps);
+    if let Some((abilities, dash, jump, dodge)) = live_movement_refs {
+        ae::refresh_movement_resources_clusters(abilities, dash, jump, dodge, tuning.air_jumps);
     }
 }
 

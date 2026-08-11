@@ -168,6 +168,19 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
+            // The aerial evade reads COOLER and thinner than the roll's dust —
+            // no ground to kick up, and the colour is the tell a player uses to
+            // recognize the maneuver mid-air.
+            ae::MovementOp::AirDodge => {
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 6,
+                    speed: 190.0,
+                    color: [0.62, 0.86, 1.0, 0.75],
+                    kind: ParticleKind::Spark,
+                });
+            }
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }

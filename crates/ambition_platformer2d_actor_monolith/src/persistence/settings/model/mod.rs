@@ -756,6 +756,7 @@ pub fn apply_action(
         &crate::actor::BodyAbilities,
         &mut crate::actor::BodyDashState,
         &mut crate::actor::BodyJumpState,
+        &mut crate::actor::BodyDodgeState,
     )>,
 ) -> SettingsOutcome {
     // Page-navigation rows (Open* + Back) share identical behavior:
@@ -805,7 +806,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
+                    live_movement_refs.map(|(_, a, d, j, o)| (a, d, j, o)),
                 );
             }
         }
@@ -873,13 +874,13 @@ pub fn apply_action(
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
-                if let Some((kinematics, _, _, _)) = live_movement_refs {
+                if let Some((kinematics, _, _, _, _)) = live_movement_refs {
                     apply_player_body_profile(kinematics, developer.player_body_profile);
                 }
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.player_body_profile = developer.player_body_profile.next();
-                if let Some((kinematics, _, _, _)) = live_movement_refs {
+                if let Some((kinematics, _, _, _, _)) = live_movement_refs {
                     apply_player_body_profile(kinematics, developer.player_body_profile);
                 }
             }
@@ -890,7 +891,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
+                    live_movement_refs.map(|(_, a, d, j, o)| (a, d, j, o)),
                 );
             }
             SettingsAction::Next | SettingsAction::Confirm => {
@@ -898,7 +899,7 @@ pub fn apply_action(
                 apply_movement_profile(
                     editable_tuning,
                     developer.movement_profile,
-                    live_movement_refs.map(|(_, a, d, j)| (a, d, j)),
+                    live_movement_refs.map(|(_, a, d, j, o)| (a, d, j, o)),
                 );
             }
         },

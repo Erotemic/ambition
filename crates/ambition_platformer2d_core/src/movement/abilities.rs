@@ -69,8 +69,25 @@ pub(super) fn apply_fly_toggle(
     }
 }
 
-/// Dodge roll: consume a buffered dash on the ground into an i-frame roll (the
-/// dodge ability claims the dash buffer before `apply_dash` would).
+/// **The evade, on the ground and in the air.** A buffered dash spent by a body
+/// that owns the dodge ability becomes a roll when its feet are down and an air
+/// dodge when they are not (the dodge ability claims the dash buffer before
+/// `apply_dash` would).
+///
+/// The two share the buffer, the ability gate and the i-frame *idea*, and
+/// nothing else — see [`AxisManeuverState::air_dodge_timer`] for why they do not
+/// share a timer. Their commitments differ in kind:
+///
+/// ```text
+///                  gate                travel            spent against
+/// ground roll      on_ground           facing/stick x     a cooldown clock
+/// air dodge        airborne, unspent   full 2D stick      this trip through the air
+/// ```
+///
+/// ⚠ **an air dodge with `air_dodge_time <= 0.0` is a body that has none.** The
+/// tuning defaults are `#[serde(default)]`, so every authored body baked before
+/// the maneuver existed keeps exactly the movement it had; a body opts in by
+/// authoring a window.
 pub(super) fn apply_dodge(
     kinematics: &mut BodyKinematics,
     dodge: &mut BodyDodgeState,
@@ -83,12 +100,14 @@ pub(super) fn apply_dodge(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if state.buffer_dash > 0.0
-        && abilities.abilities.dodge
-        && ground.on_ground
-        && dodge.cooldown <= 0.0
-    {
-        let local_stick = input.local_axis();
+    if state.buffer_dash <= 0.0 || !abilities.abilities.dodge {
+        return;
+    }
+    let local_stick = input.local_axis();
+    if ground.on_ground {
+        if dodge.cooldown > 0.0 {
+            return;
+        }
         let dir = if local_stick.x.abs() > 0.1 {
             local_stick.x.signum()
         } else {
@@ -102,7 +121,42 @@ pub(super) fn apply_dodge(
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
         state.buffer_dash = 0.0;
         events.op_clusters(combo_trace, MovementOp::DodgeRoll);
+        return;
     }
+    // ── airborne ────────────────────────────────────────────────────────────
+    // ⛔ the budget is checked BEFORE the buffer is consumed, so a body that has
+    // already dodged this airtime leaves the dash buffer standing rather than
+    // silently eating it — the buffered input goes on to mean what it would have
+    // meant without the dodge ability at all.
+    if dodge.air_dodge_spent
+        || tuning.abilities.air_dodge_time <= 0.0
+        || state.air_dodge_timer > 0.0
+        || state.air_dodge_endlag_timer > 0.0
+    {
+        return;
+    }
+    // The stick aims the evade in the body's own frame: sideways, up, down or
+    // any diagonal. A neutral stick dodges in place — a real option, not a
+    // degenerate one, because the invulnerability is the point and standing
+    // still keeps the body where its drift left it.
+    let aim = if local_stick.length_squared() > 0.01 {
+        local_stick.normalize()
+    } else {
+        bevy_math::Vec2::ZERO
+    };
+    // ⚠ **local `y` points toward the FEET**, the same convention
+    // `wants_drop_through` reads — so the stick's y composes with `down()`, not
+    // against it. Negating here would have aimed every "dodge down through the
+    // stage" upward, which is the exact input a recovering body uses.
+    kinematics.vel =
+        (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
+    state.air_dodge_timer = tuning.abilities.air_dodge_time;
+    state.air_dodge_endlag_timer = 0.0;
+    state.fast_falling = false;
+    state.phased_jump.clear();
+    dodge.air_dodge_spent = true;
+    state.buffer_dash = 0.0;
+    events.op_clusters(combo_trace, MovementOp::AirDodge);
 }
 
 /// The ONE shield-activation rule, shared by the player body and every actor body

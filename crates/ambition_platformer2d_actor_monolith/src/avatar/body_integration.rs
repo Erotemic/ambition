@@ -133,7 +133,7 @@ pub fn ledge_platform_carry(
 /// reports WHAT the world did to the body; the owner decides what it MEANS"*, and
 /// this is the owner. The reasoning is at the filter below.
 ///
-/// `invulnerable` and `dodge_rolling` are the two halves of
+/// `invulnerable` and `evading` are the two halves of
 /// [`crate::combat::util::body_vulnerable`] the clusters do not already carry.
 /// ⚠ they are passed as INPUTS rather than as a resolved `bool` on purpose: the
 /// predicate is applied in ONE place — here — so a second caller cannot invent a
@@ -145,7 +145,7 @@ pub fn integrate_home_body(
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
     invulnerable: ambition_characters::actor::Invulnerability,
-    dodge_rolling: bool,
+    evading: bool,
     // Has this participant's attempt already ended (`OutOfPlay`, ADR 0033)? An
     // input for the same reason `invulnerable` is one: the predicate for "may
     // the world act on this body" is applied HERE, in one place, so a second
@@ -262,7 +262,7 @@ pub fn integrate_home_body(
         let untouched = cause == ae::ResetCause::Hazard
             && !crate::combat::util::body_vulnerable(
                 invulnerable,
-                dodge_rolling,
+                evading,
                 clusters.shield,
                 combat,
             );

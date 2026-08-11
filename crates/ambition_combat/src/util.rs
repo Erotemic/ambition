@@ -160,8 +160,10 @@ use bevy::prelude::MessageWriter;
 /// (the projectile site dropped the parry term). i-frames / dodge-roll /
 /// parry / invincibility gate a PLAYER-side victim; the actor-side victim
 /// consumer applies its own (shield-directional) rule at consume time.
-/// `dodge_rolling` is the semantic fact (`BodyMotionFacts::dodge_rolling`) —
-/// the roll timer itself is policy-private (ADR 0024).
+/// `evading` is the semantic fact (`BodyMotionFacts::evading`) covering EVERY
+/// evade window — the ground roll and the air dodge today — because the timers
+/// themselves are policy-private (ADR 0024) and because a per-maneuver argument
+/// here is an invitation for the next maneuver to reach five of six emit sites.
 /// `invulnerable` is the [`Invulnerability`] reason set off the body's
 /// `BodyHealth` — the SAME value `Health::damage` consults, so an emitter's
 /// early-out and the damage authority can never disagree.
@@ -172,11 +174,11 @@ use bevy::prelude::MessageWriter;
 /// vulnerable here and took the hit. One fact, one reader.
 pub fn body_vulnerable(
     invulnerable: Invulnerability,
-    dodge_rolling: bool,
+    evading: bool,
     shield: &BodyShieldState,
     combat: &BodyCombat,
 ) -> bool {
-    !invulnerable.any() && !dodge_rolling && !shield.parrying() && combat.vulnerable()
+    !invulnerable.any() && !evading && !shield.parrying() && combat.vulnerable()
 }
 
 /// THE one "is this body an intangible corpse?" rule (Jon 2026-07-22: "prevent

@@ -82,16 +82,17 @@ pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_P
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     FlightTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    PhasedGravityJumpTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
-    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD,
-    BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
-    DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
-    DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
-    FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED,
-    GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED,
-    MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE, PARRY_WINDOW_TIME, POGO_SPEED,
-    PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED,
-    RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
+    PhasedGravityJumpTuning, TraversalAbilityTuning, AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED,
+    AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME,
+    BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
+    DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
+    DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
+    FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
+    FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION,
+    JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE,
+    PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE,
+    PRECISION_BLINK_MAX_DOWNWARD_SPEED, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
+    WALL_SLIDE_SPEED,
 };
 
 #[cfg(test)]
@@ -298,6 +299,17 @@ fn update_body_simulation_inner(
         state.blink_grace_timer = dec(state.blink_grace_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
         state.dodge_roll_timer = dec(state.dodge_roll_timer);
+        // The air dodge hands off to its own endlag the tick its window closes,
+        // so "invulnerable" and "committed" are separable states rather than one
+        // fused timer — the punish window is the half a defender reads.
+        if state.air_dodge_timer > 0.0 {
+            state.air_dodge_timer = dec(state.air_dodge_timer);
+            if state.air_dodge_timer <= 0.0 {
+                state.air_dodge_endlag_timer = tuning.abilities.air_dodge_endlag;
+            }
+        } else {
+            state.air_dodge_endlag_timer = dec(state.air_dodge_endlag_timer);
+        }
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
@@ -306,10 +318,14 @@ fn update_body_simulation_inner(
         }
         if clusters.ground.on_ground {
             state.coyote_timer = tuning.locomotion.coyote_time;
+            // Landing ends an air dodge outright — window, endlag and budget.
+            state.air_dodge_timer = 0.0;
+            state.air_dodge_endlag_timer = 0.0;
             crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
                 clusters.jump,
+                clusters.dodge,
                 tuning.locomotion.air_jumps,
             );
         }

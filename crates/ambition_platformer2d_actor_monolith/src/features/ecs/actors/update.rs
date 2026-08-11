@@ -1260,7 +1260,7 @@ pub fn integrate_sim_bodies(
             health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
                 h.health.invulnerable
             }),
-            motion_facts.dodge_rolling,
+            motion_facts.evading(),
             out_of_play,
             &mut hurtbox,
             &mut frame_out,
@@ -1411,14 +1411,12 @@ pub fn apply_actor_contact_damage(
     // Pass 2 — resolve each victim through its published hurtbox.
     let victims = set.p1();
     for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, victim_health, facts, shield, combat)) =
-            victims.get(target_entity)
-        else {
+        let Ok((hurtbox, victim_health, facts, shield, combat)) = victims.get(target_entity) else {
             continue;
         };
         if !crate::combat::util::body_vulnerable(
             victim_health.health.invulnerable,
-            facts.dodge_rolling,
+            facts.evading(),
             shield,
             combat,
         ) {
@@ -1723,10 +1721,7 @@ fn build_enemy_brain_snapshot(
         // Semantic side-contact FACT from the shared movement kernel. The brain
         // decides whether it means "turn around"; integration never mutates
         // facing merely because a wall exists.
-        side_contact_normal: em
-            .wall
-            .on_wall
-            .then_some(em.wall.wall_normal_x.signum()),
+        side_contact_normal: em.wall.on_wall.then_some(em.wall.wall_normal_x.signum()),
         turns_at_walls: em.config.brain_profile.turns_at_walls && !em.config.tuning.surface_walker,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a

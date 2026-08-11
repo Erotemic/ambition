@@ -114,6 +114,18 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// **The AIR dodge's own clock** — seconds of the committed aerial evade.
+    ///
+    /// ⛔ **not `dodge_roll_timer`, and the separation is the design.** Both
+    /// grant i-frames, and reusing the roll's timer would have been the cheap
+    /// road; they are different maneuvers with different commitments, and a
+    /// body cannot animate, debug or tune them apart if the simulation cannot
+    /// tell them apart either. A ground roll travels along the floor and ends
+    /// standing; an air dodge spends the body's one aerial evade and ends in
+    /// endlag with gravity waiting.
+    pub air_dodge_timer: f32,
+    /// Endlag after an air dodge: control is back, the evade is not.
+    pub air_dodge_endlag_timer: f32,
     pub ledge_grab: Option<crate::LedgeGrabState>,
     pub gliding: bool,
     pub fast_falling: bool,
@@ -145,6 +157,8 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            air_dodge_timer: 0.0,
+            air_dodge_endlag_timer: 0.0,
             ledge_grab: None,
             gliding: false,
             fast_falling: false,

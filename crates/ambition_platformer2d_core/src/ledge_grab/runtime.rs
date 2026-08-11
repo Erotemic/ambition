@@ -294,6 +294,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
+            &mut *clusters.dodge,
             tuning.locomotion.air_jumps,
         );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
@@ -315,6 +316,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
+            &mut *clusters.dodge,
             tuning.locomotion.air_jumps,
         );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);

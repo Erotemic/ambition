@@ -183,6 +183,7 @@ fn min_app() -> App {
             &initial.abilities,
             &mut initial.dash,
             &mut initial.jump,
+            &mut initial.dodge,
             ae::DEFAULT_TUNING.air_jumps,
         );
         let health = ambition_characters::actor::Health::new(20);

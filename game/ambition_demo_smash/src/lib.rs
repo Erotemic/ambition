@@ -1875,6 +1875,16 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             definition.movement_tuning = Some(ambition_platformer2d::engine_core::MovementTuning {
                 slash_recoil: 0.0,
                 jump_squat_time: 3.0 / 60.0,
+                // **THE AIR DODGE, AUTHORED HERE** — the engine default is 0.0
+                // (no window) because an airborne dash press is the exploration
+                // protagonist's air dash and a default-on evade would take that
+                // press away from every wandering body in the game. A platform
+                // fighter is the body that wants it: one directional evade per
+                // trip through the air, refunded on landing, with endlag on the
+                // far side so it is a read rather than a panic button.
+                air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
+                air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
+                air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
                 ..ambition_platformer2d::engine_core::DEFAULT_TUNING
             });
             // **WHAT THIS FIGHTER'S BODY CAN DO — authored on the CHARACTER,

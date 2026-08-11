@@ -29,6 +29,7 @@ fn player_at(
         &scratch.abilities,
         &mut scratch.dash,
         &mut scratch.jump,
+        &mut scratch.dodge,
         ae::DEFAULT_TUNING.air_jumps,
     );
     scratch.kinematics.pos = pos;

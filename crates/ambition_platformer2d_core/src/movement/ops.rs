@@ -22,6 +22,10 @@ pub enum MovementOp {
     Dash,
     DoubleDash,
     DodgeRoll,
+    /// The AERIAL evade — see `apply_dodge`. Distinct from [`Self::DodgeRoll`]
+    /// so a listener (animation, fx, a causal trace) can tell a body that rolled
+    /// along the floor from one that spent its airtime.
+    AirDodge,
     FlyToggle,
     Blink,
     PrecisionBlink,
@@ -64,6 +68,7 @@ impl MovementOp {
             MovementOp::Dash => "D",
             MovementOp::DoubleDash => "DD",
             MovementOp::DodgeRoll => "DR",
+            MovementOp::AirDodge => "AD",
             MovementOp::FlyToggle => "F",
             MovementOp::Blink => "B",
             MovementOp::PrecisionBlink => "PB",
@@ -95,6 +100,7 @@ impl MovementOp {
             MovementOp::Dash => "dash",
             MovementOp::DoubleDash => "double dash",
             MovementOp::DodgeRoll => "dodge roll",
+            MovementOp::AirDodge => "air dodge",
             MovementOp::FlyToggle => "fly toggle",
             MovementOp::Blink => "blink",
             MovementOp::PrecisionBlink => "precision blink",

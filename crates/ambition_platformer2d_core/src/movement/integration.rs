@@ -247,6 +247,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
+            &mut *clusters.dodge,
             tuning.locomotion.air_jumps,
         );
         state.blink_grace_timer = 0.0;
@@ -276,6 +277,7 @@ pub(super) fn integrate_velocity_clusters(
                 clusters.abilities,
                 &mut *clusters.dash,
                 &mut *clusters.jump,
+                &mut *clusters.dodge,
                 tuning.locomotion.air_jumps,
             );
             clusters.ground.on_ground = false;

@@ -298,7 +298,23 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         //
         // Stated by the match rather than assumed by seating: a stage that wants
         // asymmetric fighters says something else here.
-        fighter_abilities: Some(ae::AbilitySet::basic()),
+        // ⛔ **`basic()` HAS NO `attack`, and a duel where nobody may swing is
+        // incoherent.** It stood because the swing did not come from the fighter
+        // at all: a seat was built out of the CPU archetype, and
+        // `versus_duelist`'s authored `melee` reached the body regardless of
+        // what the match said the body could do. Building a seat from its
+        // CHARACTER instead (campaign P1.11) took that away, and this is the
+        // fact that was hiding behind it — the mask never granted the verb its
+        // own fighters needed.
+        //
+        // ⚠ deliberately the SAME shape as the Smash stage's floor minus its
+        // platform-fighter extras: this stage is a duel on one screen, and its
+        // opponent brain does not use a dodge or a ledge.
+        fighter_abilities: Some(ae::AbilitySet {
+            attack: true,
+            fast_fall: true,
+            ..ae::AbilitySet::basic()
+        }),
         // S4: NOT a stocks match yet, and the `None` is a decision rather than a
         // gap. The shipped stage settles ROUNDS off health, and switching it to
         // stocks changes what a versus match IS — a product call, not a

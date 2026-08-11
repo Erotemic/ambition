@@ -719,6 +719,177 @@ impl ActorClusterSeed {
         (seed, render_size)
     }
 
+    /// **A FIGHTER'S BODY, BUILT FROM ITS CHARACTER.**
+    ///
+    /// ⭐ **the seat's body no longer comes from an enemy archetype.** A match
+    /// seat used to build through [`Self::new_in`], which starts
+    /// `roster.spec_for_brain(&brain)` and takes health, tuning, capabilities,
+    /// movement kit and aerial-ness off that row — so every fighter on the smash
+    /// grid was physically a `combatant`, wearing a character. Jon's brief calls
+    /// this out by name: *"No ordinary constructor should first build an
+    /// `ArchetypeSpec` creature and then patch the character over it."*
+    ///
+    /// This is the same shape as [`Self::new_peaceful_npc_in`], which has built
+    /// bodies without an archetype since it was written — proof the pattern was
+    /// available the whole time, for the one population that never went through
+    /// the roster.
+    ///
+    /// ```text
+    /// character   size, health, weight, art identity, aerial-ness
+    /// ruleset     death policy, stocks, ability mask   (applied by the match)
+    /// controller  the BrainProfile passed in           (policy, not a body)
+    /// ```
+    ///
+    /// ⚠ **the tuning is a FIGHTER default, not a character fact — yet.** Run
+    /// speed, contact damage and the rest still have no authoring surface on a
+    /// definition (campaign P1.8), so they are stated here, once, where a match
+    /// can see them, rather than borrowed from whichever archetype a seat
+    /// happened to name. Each becomes a character fact as its field lands.
+    pub(crate) fn new_fighter_in(
+        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+        catalog: &CharacterCatalog,
+        id: impl Into<String>,
+        character_id: &str,
+        display_name: impl Into<String>,
+        aabb: ae::Aabb,
+        max_health: i32,
+        brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
+        config_brain: ambition_entity_catalog::placements::CharacterBrain,
+    ) -> Self {
+        // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
+        // same character resolves it — one body per character, however it is
+        // spawned.
+        let ldtk_collision = aabb.half_size() * 2.0;
+        let sprite_body = crate::character_sprites::sprite_body_collision_for_character_id_in(
+            authored,
+            catalog,
+            character_id,
+            ldtk_collision,
+        );
+        let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
+        let is_aerial = matches!(
+            catalog.body_kind(character_id),
+            Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+        );
+        let pos = actor_spawn_center_for_collision(aabb, collision_size);
+        let tuning = crate::features::ecs::actor_tuning::ActorTuning {
+            max_health,
+            // A fighter is driven at full pace by whatever drives it. The
+            // autonomous PACING is the profile's (`patrol`/`chase` effort), and
+            // it is expressed as normalized intent against this capability —
+            // the same split a possessed NPC gets, for the same reason.
+            patrol_speed: ambition_platformer2d_core::MAX_RUN_SPEED * 0.5,
+            chase_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+            max_run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+            // A match seat is a combatant whoever drives it; the disposition the
+            // body carries is set by realization, and this is the tuning half.
+            attacks_player: true,
+            // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
+            // never a room's respawn policy.
+            respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
+            is_aerial,
+            ..Default::default()
+        };
+        Self {
+            kin: BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: collision_size,
+                facing: 1.0,
+            },
+            status: ActorStatus {
+                respawn_timer: 0.0,
+                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
+            },
+            health: ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(max_health.max(1)),
+            ),
+            surface: ActorSurfaceState {
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale: if is_aerial { 0.0 } else { 1.0 },
+            },
+            attack: BodyMelee::default(),
+            config: ActorConfig {
+                id: id.into(),
+                name: display_name.into(),
+                tuning,
+                brain_profile,
+                brain: config_brain,
+                spawn: ActorSpawnState {
+                    pos,
+                    size: collision_size,
+                },
+                sprite_override_npc_name: None,
+                // ⭐ the CHARACTER, stated rather than resolved from a display
+                // name. A seat knows exactly which character it is seating.
+                sprite_character_id: Some(character_id.to_string()),
+            },
+            motion: ActorMotionPath(None),
+            // The MATCH declares what a fighter may do (`seat_abilities`), so
+            // the seed grants nothing and the ruleset writes the real set in the
+            // same flush that builds the body.
+            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
+            // Death traits are the character's and arrive with the persona
+            // derive, like its moves — a seed that guessed them would be a
+            // second writer.
+            caps: crate::combat::CombatCapabilities::default(),
+            hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
+            // ⛔ INERT, and it is the point: no seat path reads `spec`, so a
+            // fighter carries an empty archetype rather than somebody else's.
+            spec: crate::combat::archetype_spec::ArchetypeSpec {
+                inherits: None,
+                movement: Default::default(),
+                movement_resolved: Default::default(),
+                max_health,
+                run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+                aggro_radius: 0.0,
+                attack_range: 0.0,
+                contact_strength: 0.0,
+                damage_amount: 0,
+                attack_cooldown_mult: 1.0,
+                mass: 1.0,
+                surface_walker: false,
+                turns_at_walls: true,
+                cling_breaks_on_hit: false,
+                is_aerial: Some(is_aerial),
+                is_sandbag: false,
+                explodes_on_death: false,
+                divides_on_death: false,
+                charge_crash_explodes: false,
+                never_dies: false,
+                respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
+                weight: 1.0,
+                death_policy: Default::default(),
+                dream_seed: None,
+                mount_class: None,
+                pilotable_mount_classes: Vec::new(),
+                mount_death_splash: None,
+                default_size: None,
+                brain_template: ambition_characters::brain::CharacterBrainTemplate::StandStill,
+                fighter_level: None,
+                melee: None,
+                ranged: None,
+                held_item: None,
+                smash_hit_band: None,
+                smash_heavy: false,
+                smash_dash_to_close: false,
+                smash_duelist: false,
+                can_blink: false,
+                can_fly: false,
+                can_shield: false,
+                can_dash: false,
+                provoke_forced_brute_min_aggro: None,
+                attacks_player: true,
+                body_contact_damage: false,
+                ranged_visual: String::new(),
+                signature_move: None,
+                move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            },
+        }
+    }
+
     /// Borrow the seed's fields (and the scratch's 18 ancillary clusters) as an
     /// [`ActorMut`] view, for the test / pre-spawn paths that drive the
     /// integration without a live ECS entity. The runtime path borrows the SAME

@@ -375,6 +375,27 @@ impl CharacterRoster {
         self.by_brain.keys().cloned().collect()
     }
 
+    /// **The CONTROLLER POLICY filed under `key`** — the archetype's other half,
+    /// on its own.
+    ///
+    /// ⭐ **a caller that wants a brain does not want a body.** A match seat
+    /// needs to know how a CPU decides; it used to get that by resolving a whole
+    /// archetype and building the fighter's body out of it, which is how every
+    /// fighter on the smash grid ended up physically a `combatant`. This answers
+    /// the controller question alone.
+    ///
+    /// ⚠ **a projection, and therefore temporary.** The endpoint is a registry
+    /// of authored [`BrainProfile`]s a character or a placement NAMES, at which
+    /// point this method's subject stops existing. `None` for an unregistered
+    /// key — no fallback, because a seat that asked for a policy nobody
+    /// registered must be refused rather than handed a generic one.
+    pub fn brain_profile_for(
+        &self,
+        key: &str,
+    ) -> Option<crate::features::ecs::actor_tuning::BrainProfile> {
+        self.by_brain.get(key).map(ArchetypeSpecExt::brain_profile)
+    }
+
     /// Whether this roster actually has an archetype for `key`.
     ///
     /// The question [`Self::spec_for_brain`] does not ask before falling back.

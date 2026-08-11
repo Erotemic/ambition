@@ -688,20 +688,39 @@ pub fn prepare_match(
         // ART still resolves from the character, which is exactly what
         // `art_identity` is for — a body whose id is not its costume's name.
         let body_id = format!("{}#seat{index}", participant.character);
-        // `new_in`, not the test-only `new`: production construction never has a
-        // hidden catalog fallback.
-        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
+        // ⭐ **CHARACTER-FIRST.** This built through `new_in`, which starts
+        // `roster.spec_for_brain(&brain)` — so every fighter on the grid was
+        // physically a `combatant` with a character painted over it, and the
+        // seat then took the health and the weight back one field at a time.
+        // Jon's brief forbids exactly that shape: *"No ordinary constructor
+        // should first build an `ArchetypeSpec` creature and then patch the
+        // character over it."*
+        //
+        // The CONTROLLER's policy is still resolved from the roster below and
+        // handed in as a value — a profile is a decision, and this constructor
+        // takes it rather than looking up a body to get one.
+        let profile = match &authority {
+            ControlAuthority::Brain { profile } => archetypes.brain_profile_for(profile),
+            // A human seat's body carries no autonomous policy at all. It used
+            // to inherit `combatant`'s, which nothing read and which said this
+            // body would chase somebody.
+            _ => None,
+        }
+        .unwrap_or_default();
+        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_fighter_in(
             authored_sheets,
             catalog,
-            archetypes,
             body_id.clone(),
-            definition.display_name.clone(),
             // ⭐ the id, not the display name. Two characters may legitimately
             // share a display name; only the id is unique.
-            Some(participant.character.as_str()),
+            participant.character.as_str(),
+            definition.display_name.clone(),
             aabb,
+            // The character's own pool, or the reference body's. `baseline`
+            // already folded the definition's authored maximum.
+            baseline.max_health_over(1),
+            profile,
             seed_brain,
-            &[],
         );
         // The seed's own pool stands for a character that authored none — which
         // used to be impossible to express, because an unauthored `Vitals`

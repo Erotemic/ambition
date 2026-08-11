@@ -21,14 +21,20 @@ that file's 23-item checklist as the ordering authority.
 Seven slices have landed since arming; the table below carries the detail. What
 a resuming session needs, shortest form:
 
-* **The architecture frontier is P1.** The three authorities now all EXIST as
-  types — `CharacterDefinition` (+`abilities`, +`authored_moveset`),
-  `BrainProfile`, `SpawnContext` — and the missing piece is the COMMON
-  CONSTRUCTOR: `ActorClusterSeed::new_in` still builds every body from
-  `roster.spec_for_brain(&brain)`, so the archetype is the source of health,
-  tuning, capabilities, movement kit and aerial-ness on every path.
-  ⇒ **the next architectural slice is a character-first constructor**, and
-  `PreparedMatch` is the caller to prove it on (Jon: do it EARLY).
+* **The architecture frontier is P1.** The three authorities all EXIST as types
+  — `CharacterDefinition` (+`abilities`, +`authored_moveset`), `BrainProfile`,
+  `SpawnContext` — and the MATCH path is character-first as of P1.11:
+  `ActorClusterSeed::new_fighter_in` builds a fighter with no archetype at all.
+  ⇒ **the next callers are the authored ENEMY and the NPC** (P1.9/P1.10), and
+  they are harder for a measured reason: an enemy's run speed, contact damage,
+  move style and melee still have NO authoring surface on a definition, so a
+  character-first enemy would be a body that cannot move or hurt anything. That
+  is P1.8, and it is the true gate on the deletions.
+* ⭐ **what the match slice exposed, and it is the shape to expect again**: the
+  versus stage's fighters could only swing because the CPU ARCHETYPE's authored
+  `melee` reached the body — the match's own ability mask (`basic()`) never
+  granted `attack`. Taking the archetype away made a two-year-old omission
+  visible in one test. Expect every character-first caller to expose one.
 * **What still blocks P0.1's hard error**, measured: 28 authored enemy
   placements name a `character_id` that is not a registered character —
   `ai_slop`, `solid_snake`, both snakes (Mary-O) and `sanic_badnik` (Sanic).
@@ -56,7 +62,7 @@ a resuming session needs, shortest form:
 | P1.8 | Make PreparedCharacterDefinition complete for intrinsic construction | ◐ **CAPABILITIES landed** — `CharacterDefinition::abilities` (an `AbilitySet`): the verbs a body has, authored on the character for the first time. Previously the ONLY authoring surface for a capability was the enemy archetype's four-flag movement kit. ▢ still missing for a complete body: contact damage, mass/aerial-ness, move style, run speed |
 | P1.9 | Route authored enemy through character-first construction | ▢ |
 | P1.10 | Route NPC through the same body constructor | ▢ |
-| P1.11 | Route PreparedMatch through it immediately after | ▢ |
+| P1.11 | Route PreparedMatch through it immediately after | ✔ **A SEAT'S BODY IS BUILT FROM ITS CHARACTER.** `ActorClusterSeed::new_fighter_in` takes no roster: size and art from the character's sprite, health and weight from its definition, aerial-ness from its catalog body kind, abilities from the ruleset mask, and the CPU's `BrainProfile` handed in as a VALUE (`CharacterRoster::brain_profile_for`) rather than resolved by building a creature. Every fighter on the grid used to be physically a `combatant` wearing a character |
 | P1.12 | Route encounter, summon, programmatic paths | ▢ |
 | P2.13 | Migrate clean Group-A character/archetype cases | ▢ |
 | P2.14 | Delete each migrated legacy row as it becomes unnecessary | ▢ |

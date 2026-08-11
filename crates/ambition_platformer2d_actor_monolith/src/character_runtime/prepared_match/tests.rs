@@ -2543,16 +2543,16 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     let mut heavy = CharacterDefinition::new("heavy", "Heavy", "demo");
     heavy.vitals.knockback_weight = Some(1.8);
     app.register_character(heavy);
-    // ⚠ the control, and it is the load-bearing half: a character that authors
-    // NO weight must keep whatever its construction gave it.
+    // ⚠ the control: a character that authors NO weight is the REFERENCE BODY.
     app.register_character(CharacterDefinition::new("light", "Light", "demo"));
-    // ⛔⛔ **AND THE ARCHETYPE'S WEIGHT MUST NOT BE 1.0, or the control cannot
-    // fail.** The default content-free roster authors no weight, so it defaults
-    // to the reference 1.0 — and an unconditional `seed.weight = authored
-    // .unwrap_or(1.0)` writes exactly that. The first version of this test
-    // passed under that poison: it could not tell "kept its archetype's weight"
-    // from "overwritten with the ambient default". A 1.4 archetype separates
-    // them.
+    // ⛔⛔ **the archetype's 1.4 is the POISON now, and it used to be the
+    // expectation.** This test read `1.4` for the unauthored fighter, because a
+    // seat was built out of an archetype and inherited its weight — so a
+    // character that had never said anything about how hard it is to launch
+    // weighed whatever creature the CPU's brain key happened to name. A seat is
+    // built from its CHARACTER now (campaign P1.11), so the archetype below is
+    // present precisely so that reading `1.4` again would mean the archetype had
+    // crept back in.
     app.insert_resource(crate::features::CharacterRoster::from_ron(
         r#"{ "combatant": (
                 max_health: 1, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
@@ -2585,8 +2585,9 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
         "the heavy authored 1.8 and the seed must carry it: {seen:?}"
     );
     assert_eq!(
-        seen[1].1, 1.4,
-        "the light authored nothing, so its ARCHETYPE's 1.4 must stand — 1.0 \
-         here means the applier overwrote it with the ambient default: {seen:?}"
+        seen[1].1, 1.0,
+        "the light authored no weight and must be the reference body. 1.4 here \
+         is the roster archetype's number, which means a fighter's body is being \
+         built out of whichever creature its brain key names again: {seen:?}"
     );
 }

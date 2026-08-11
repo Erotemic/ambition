@@ -18,61 +18,60 @@ that file's 23-item checklist as the ordering authority.
 
 ## ⇥ RESUME HERE (agent, keep current)
 
-Seven slices have landed since arming; the table below carries the detail. What
-a resuming session needs, shortest form:
+**Rewritten 2026-08-11 after a long session; everything above the previous
+version was stale within hours, so trust THIS block and the progress table, not
+memory.**
 
-* **The architecture frontier is P1.** The three authorities all EXIST as types
-  — `CharacterDefinition` (+`abilities`, +`authored_moveset`), `BrainProfile`,
-  `SpawnContext` — and the MATCH path is character-first as of P1.11:
-  `ActorClusterSeed::new_fighter_in` builds a fighter with no archetype at all.
-  ⇒ **the next callers are the authored ENEMY and the NPC** (P1.9/P1.10), and
-  they are harder for a measured reason: an enemy's run speed, contact damage,
-  move style and melee still have NO authoring surface on a definition, so a
-  character-first enemy would be a body that cannot move or hurt anything. That
-  is P1.8, and it is the true gate on the deletions.
-* ⭐ **what the match slice exposed, and it is the shape to expect again**: the
-  versus stage's fighters could only swing because the CPU ARCHETYPE's authored
-  `melee` reached the body — the match's own ability mask (`basic()`) never
-  granted `attack`. Taking the archetype away made a two-year-old omission
-  visible in one test. Expect every character-first caller to expose one.
-* **What still blocks P0.1's hard error**, measured: 28 authored enemy
-  placements name a `character_id` that is not a registered character —
-  `ai_slop`, `solid_snake`, both snakes (Mary-O) and `sanic_badnik` (Sanic).
-  Migrating those five into registered characters is what lets the caller refuse
-  instead of warn.
-* **What still blocks a character authoring its controller policy**: nothing in
-  the tree registers a `BrainProfile` yet. The archetype PROJECTS one; a
-  character can only name a catalog `brain_presets` key. Group B is exactly this.
-* ⇥⇥ **THE NEXT ARCHITECTURAL SLICE, measured 2026-08-11 and precise:** deleting
-  an archetype ROW is the only real deletion available, because `ArchetypeSpec`
-  requires `max_health`, `run_speed`, `patrol_effort`, `chase_effort`,
-  `aggro_radius`, `attack_range`, `contact_strength`, `damage_amount`,
-  `brain_template` and `move_style` — none of them `#[serde(default)]` — so a
-  half-migrated row cannot shed its migrated fields. A whole row needs three
-  things the character can now nearly all state:
-  ```text
-  body        vitals ✔  death traits ✔  locomotion ✔  contact damage ✔  action_set ✔
-  controller  brain_template, efforts, aggro_radius, attack_range, smash_hit_band   ▢
-  placement   respawn                                                              ▢
-  ```
-  ⇒ **the ONE missing piece is a character-authored `BrainProfile`.** Today
-  `CharacterDefinition::default_brain_profile` is a REFERENCE into the catalog's
-  `brain_presets` (the NPC road); the enemy road takes its profile from the
-  archetype projection. Either a definition may hold an inline `BrainProfile`,
-  or a registry maps a `BrainProfileRef` to one. Then the mites' rows go, and
-  they are the first two lines the ledger has lost.
-* ⭐ **THE LEDGER: `character_archetypes.ron` is 707 lines, down from 843.**
-  Five creatures have no archetype row in Ambition's file — the two mites, the
-  puppy slug, the sky parrot and AI Slop — and three demo rows were deleted and
-  then RESTORED as the empty-cast fallback D75 describes. Both are built character-first: the
-  enemy road asks `is_complete_body()` and, when a character can carry a body,
-  constructs from it and lets the body WEAR itself so its kit arrives through
-  the one persona writer. ⭐ and `respawn` is now a PLACEMENT
-  field: `EnemySpawnSpec::respawn` (absent = the archetype's, which is every
-  level authored so far), read from an LDtk `respawn` string with a LOUD refusal
-  for a misspelling. A migrated enemy needs nothing from the file once its
-  placement authors one — the mites' eight sandbox spawns are the content edit
-  that finishes it.
+* ⭐ **THE LEDGER: `character_archetypes.ron` is 600 lines / 13 rows, down from
+  843.** Deleted today, each with its migration in the same change: both mites,
+  the puppy slug, the sky parrot, AI Slop, the burning flying shark, the GIANT
+  GNU, the giant's HANDS, both SHARK RIDERS (`pirate_shark_rider`,
+  `pirate_heavy_shark_rider`) and the FINITE SANDBAG. Two provider fragments
+  went too — Sanic's entirely, Mary-O's down to the plane swarms alone.
+* ⭐ **the three authorities are all AUTHORABLE now.** A character states its
+  body (`vitals`, `locomotion`, `contact_damage`, `abilities`, `action_set`,
+  `held_item`, `mount`, `practice_target`, `dream_seed`, `death_traits`); a
+  `BrainProfile` states policy (`template`, distances, `patrol_effort`,
+  `chase_effort`, `attacks_player`, smash tactics) and can now be SHARED by name
+  through `CharacterCatalogData.autonomous_profiles` +
+  `CharacterDefinition::autonomous_profile_ref`; a placement states
+  `character_id`, `disposition` and `respawn` (every world's `EnemySpawn` has
+  the `respawn` fieldDef now).
+* ⛔⛔ **THE ONE BLOCKER THAT MATTERS: ledger D78.** Any character-first ENEMY
+  body in a room the rollback oracle simulates DESYNCS. Twelve probes bisected
+  it to the persona projection WRITING `ActionSet` mid-run; granting the same
+  value at construction instead is GREEN. It is NOT hostility, the crawler, the
+  slug, global ordering, an unaccounted component, an unregistered persona
+  output, or a cross-schedule derive — all measured, all in the row. Two fixes
+  were implemented and reverted. ⇒ this blocks the three intro "Puppy Slug"
+  placements and is the reason to be careful about migrating anything into a
+  rollback-tested room. **Read D78 before touching the persona seam.**
+* ⇥ **WHAT IS LEFT OF THE ROWS**, and it is mostly placement work now: four
+  Group-C roles (`small_skitter`, `large_brute`, `gradient_seeker`,
+  `ranged_skirmisher`) take the same recipe the goblin proved — lift the row's
+  controller half into a shared `autonomous_profiles` entry, give each placement
+  the character it actually is. `medium_striker` has 4 placements left,
+  `sandbag_infinite` needs a decision (a second catalog row, which would also
+  put a second dummy in the Hall), and `pirate_raider`/`pirate_heavy` are the
+  PROVOCATION path (P2.20), not a migration.
+* ⚠ **ONE PRODUCT QUESTION ONLY JON CAN ANSWER**: the sandbox `0140-0146` block
+  is a DEMO ROW of one-of-each archetype — `patrol cutter`, `small skitter`,
+  `guard striker`, `medium striker`, `gradient seeker`, `large brute` — with no
+  creature identity at all. Either characters get invented for them or the demo
+  row goes.
+* ⭐ **the recurring trap, hit FOUR times today**: a row authors
+  `patrol_effort` (0.4783, 0.5116, 0.6774, 1.0×3) and `BrainProfile` defaults to
+  0.5, so deleting a row without moving that number silently retunes the
+  creature. Same shape for `attacks_player`, `respawn`, `held_item` and
+  `is_sandbag`. **Diff the row's fields against the character's before deleting,
+  every time.**
+* ⚠ **pre-existing red, not from this campaign**, re-confirmed on a fully
+  stashed tree including the submodule:
+  `ambition_demo_mary_o_app::level_1_acceptance::a_small_mary_o_dies_to_one_hit_and_the_level_restarts`
+  ("a side contact with no armor left must kill her").
+* **Gate state**: `cargo check -p ambition_app --all-targets` clean,
+  `cargo test -p ambition_app --test app_it` 327 passed / 0 failed, workspace
+  `--all-targets` clean, nothing uncommitted.
 
 ## Campaign progress (live — update as slices land)
 

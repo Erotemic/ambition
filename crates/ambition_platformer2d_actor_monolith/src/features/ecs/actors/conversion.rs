@@ -127,7 +127,7 @@ pub fn enemy_component_snapshot(
 /// Flip an actor hostile IN PLACE — no cluster swap, no entity churn.
 ///
 /// On the first flip (the actor is still peaceful) this re-resolves the hostile
-/// archetype, overwrites the cluster `config` (tuning / brain_spec / brain /
+/// archetype, overwrites the cluster `config` (tuning / brain_profile / brain /
 /// caps) so the actor fights as that archetype, keeps its own sprite, resets HP
 /// to the hostile pool, and flips `ActorDisposition::Hostile` (the single source
 /// of truth — "enemy" is just hostile disposition now). An already-hostile actor
@@ -167,7 +167,7 @@ pub(crate) fn provoke_actor_in_place(
         // grounded brain never sets `velocity_target`). The Perfect Cell-ular
         // Automaton hits exactly this: floats peacefully, then descends to brawl.
         em.surface.gravity_scale = proj.gravity_scale;
-        em.config.brain_spec = proj.brain_spec;
+        em.config.brain_profile = proj.brain_profile;
         em.config.brain = proj.config_brain;
         // Take on the hostile archetype's HP pool (the peaceful seed spawned at
         // health=1; a provoked actor fights at full archetype HP).

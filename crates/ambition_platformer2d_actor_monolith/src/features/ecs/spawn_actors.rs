@@ -805,7 +805,7 @@ fn boss_actor_cluster(
         id: config.id.clone(),
         name: config.name.clone(),
         tuning,
-        brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec::default(),
+        brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.

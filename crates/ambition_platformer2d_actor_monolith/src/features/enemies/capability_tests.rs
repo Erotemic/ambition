@@ -257,7 +257,7 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         };
         assert_eq!(spec.respawn, policy, "{key} respawn policy");
 
-        let bs = spec.brain_spec();
+        let bs = spec.brain_profile();
         assert_eq!(
             bs.smash_heavy,
             matches!(key, "large_brute" | "large_colossus"),

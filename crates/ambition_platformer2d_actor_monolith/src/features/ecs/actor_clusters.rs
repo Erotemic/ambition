@@ -14,7 +14,7 @@
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
 //! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
 //!   damage-blink + post-hit i-frame → [`ambition_characters::actor::BodyCombat`])
-//! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
+//! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
 use crate::features::enemies::ArchetypeSpecExt;
@@ -67,7 +67,7 @@ pub const ACTOR_DAMAGE_IFRAME_S: f32 = 0.2;
 
 /// Authored configuration + identity for an actor (any disposition). Archetype-
 /// free by construction: the named roster enum is resolved at spawn and projected
-/// into generic kit data (`tuning` + `brain_spec` + the `CombatCapabilities`
+/// into generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
 /// component), so neither the per-frame integration nor the runtime brain
 /// rebuilds (provoke, dismount) call back into the content roster. `spawn` records
 /// the authored baseline `reset_to_spawn` restores.
@@ -81,7 +81,7 @@ pub struct ActorConfig {
     /// Generic brain-construction inputs (kit vocabulary), projected
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
-    pub brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec,
+    pub brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
@@ -549,7 +549,7 @@ impl ActorClusterSeed {
                 id: id.into(),
                 name,
                 tuning: spec.tuning(),
-                brain_spec: spec.brain_spec(),
+                brain_profile: spec.brain_profile(),
                 brain,
                 spawn: ActorSpawnState { pos, size },
                 sprite_override_npc_name: None,
@@ -695,7 +695,7 @@ impl ActorClusterSeed {
                 id: id.into(),
                 name: name.into(),
                 tuning,
-                brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec::default(),
+                brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
                 spawn: ActorSpawnState {
                     pos,

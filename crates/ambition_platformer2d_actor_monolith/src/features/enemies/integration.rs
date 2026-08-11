@@ -62,6 +62,7 @@ fn evaluate_enemy_ai_output(
     target_pos: ae::Vec2,
     brain: &ambition_entity_catalog::placements::CharacterBrain,
     tuning: &crate::features::ecs::actor_tuning::ActorTuning,
+    profile: &crate::features::ecs::actor_tuning::BrainProfile,
     attack: &crate::features::BodyMelee,
     alive: bool,
 ) -> ambition_characters::actor::ai::CharacterAiOutput {
@@ -76,14 +77,14 @@ fn evaluate_enemy_ai_output(
         ambition_entity_catalog::placements::CharacterBrain::Guard { leash_radius } => {
             *leash_radius
         }
-        _ => tuning.aggro_radius,
+        _ => profile.aggro_radius,
     };
     ambition_characters::actor::ai::evaluate_character_ai_output(
         ambition_characters::actor::ai::CharacterAiSnapshot {
             actor_pos: pos,
             player_pos: target_pos,
             aggro_radius: effective_aggro_radius,
-            attack_range: tuning.attack_range,
+            attack_range: profile.attack_range,
             attack_windup_remaining: attack.windup_remaining(),
             attack_active_remaining: attack.active_remaining(),
             attack_recover_remaining: recover_remaining,
@@ -173,6 +174,7 @@ impl<'a> ActorMut<'a> {
             target_pos,
             &self.config.brain,
             &self.config.tuning,
+            &self.config.brain_profile,
             self.attack,
             self.health.alive(),
         );
@@ -459,7 +461,7 @@ impl<'a> ActorMut<'a> {
     /// path was the one that never consulted the policy the kill hook and
     /// save-sync both read.
     pub fn reset_to_spawn(&mut self, motion_model: &mut crate::features::MotionModel) {
-        // Restore the authored spatial baseline. `tuning` / `brain_spec`
+        // Restore the authored spatial baseline. `tuning` / `brain_profile`
         // are projected once at spawn and never mutate at runtime (no
         // entity morphs its archetype in place), so they already hold the
         // baseline — there is nothing to re-project here.

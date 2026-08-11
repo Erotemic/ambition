@@ -30,10 +30,6 @@ pub struct ActorTuning {
     /// brains emit a normalized throttle of it; the integrator scales velocity
     /// back as `locomotion * max_run_speed`, uniformly with the player.
     pub max_run_speed: f32,
-    /// Distance (px) at which the actor notices the player.
-    pub aggro_radius: f32,
-    /// Distance (px) at which the actor commits to an attack.
-    pub attack_range: f32,
     /// Contact-damage knockback strength.
     pub contact_strength: f32,
     /// Damage dealt by an attack / body contact.
@@ -49,14 +45,6 @@ pub struct ActorTuning {
     /// once by [`Self::motion_model`]; runtime dispatch reads the body's
     /// explicit `MotionModel`, never this flag.
     pub surface_walker: bool,
-    /// **Autonomous simple walkers turn away from semantic side contacts.**
-    ///
-    /// This is authored on the character today but consumed by Patrol/Wanderer
-    /// brains through `BrainSnapshot`; the movement kernel only publishes the
-    /// wall contact fact and never changes facing. Human control, Smash fighter
-    /// AI, scripted control, and future remote/RL controllers therefore do not
-    /// inherit a hidden locomotion policy merely by inhabiting the same body.
-    pub turns_at_walls: bool,
     /// Surface-walker only: a hit knocks the actor off its surface (it
     /// falls with gravity for a moment, then re-attaches). `false` keeps
     /// it clinging when struck.
@@ -108,8 +96,6 @@ impl Default for ActorTuning {
             patrol_speed: 0.0,
             chase_speed: 0.0,
             max_run_speed: 0.0,
-            aggro_radius: 0.0,
-            attack_range: 0.0,
             contact_strength: 0.0,
             damage_amount: 0,
             // Multiplicative identity — a defaulted tuning must not
@@ -117,7 +103,6 @@ impl Default for ActorTuning {
             attack_cooldown_mult: 1.0,
             attacks_player: false,
             surface_walker: false,
-            turns_at_walls: true,
             cling_breaks_on_hit: false,
             respawn: RespawnPolicy::default(),
             // Reference body: the default tuning must not zero out the growth
@@ -175,79 +160,18 @@ impl ActorTuning {
 /// own the enemy-roster family without linking a renderer.
 pub use ambition_characters::brain::CharacterBrainTemplate;
 
-/// The generic brain-construction inputs projected from an actor's
-/// authored archetype at spawn, carried on the enemy config component so
-/// the runtime brain rebuilds (provoke-to-hostile, dismount) can
-/// reconstruct the brain WITHOUT naming the content archetype enum. The
-/// numeric inputs (aggro/chase/attack/attacks_player) live in
-/// [`ActorTuning`]; this carries the structural choices.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CharacterBrainSpec {
-    /// Which motion / AI policy template the brain instantiates.
-    pub template: CharacterBrainTemplate,
-    /// Smash-template hit band (px) — the radius the brain closes to
-    /// before emitting MeleeAttack. Authored per archetype; legacy
-    /// fallback is 36 px.
-    pub smash_hit_band: f32,
-    /// Smash-template heavy base: longer reach + slower chase
-    /// (`SmashCfg::BRUTE_DEFAULT`) vs the lighter striker default.
-    pub smash_heavy: bool,
-    /// Smash-template dash-to-close: a richer action set that dashes to
-    /// close a large gap (goblins).
-    pub smash_dash_to_close: bool,
-    /// Smash-template **duelist neutral game** (`SmashCfg::DUELIST_DEFAULT` base):
-    /// footsies (weave in/out of poke range), neutral hops, and a real retreat /
-    /// spacing rhythm, instead of the grunt's close-and-camp. The per-flag kit
-    /// (`smash_can_blink/_shield/_dash/_fly`) still layers on top. This is what
-    /// makes a "platform fighter" (the PCA, the player-robot) move and space
-    /// rather than mash at point-blank.
-    pub smash_duelist: bool,
-    /// Movement kit: the Smash brain blink-evades a perceived lunge. Projected
-    /// into `SmashCfg::can_blink` (the controller's *attempt*); the body's
-    /// `CombatCapabilities::can_blink` is the matching *enforce* gate.
-    pub smash_can_blink: bool,
-    /// Movement kit: grounded-base hybrid that flies to cover a long traversal
-    /// gap. Projected into `SmashCfg::can_fly` (attempt); the body's
-    /// `CombatCapabilities::can_fly` is the matching *enforce* gate.
-    pub smash_can_fly: bool,
-    /// Movement/defense kit: the Smash brain reactive-blocks a perceived lunge it
-    /// won't blink. Projected into `SmashCfg::can_shield` (the controller's
-    /// *attempt*); the body's `CombatCapabilities::can_shield` is the matching
-    /// *enforce* gate.
-    pub smash_can_shield: bool,
-    /// When provoked from peaceful, force an aggressive MeleeBrute brain
-    /// with at least this aggro radius (cove PirateHeavy crew).
-    /// `None` = use the template's default aggressive brain.
-    pub provoke_forced_brute_min_aggro: Option<f32>,
-    /// Which rung of the fighter ladder a [`CharacterBrainTemplate::Fighter`]
-    /// archetype plays at. Ignored by every other template.
-    pub fighter_level: u8,
-}
-
-impl CharacterBrainSpec {
-    /// Default melee smash hit-band (px) when an archetype authors none. Single
-    /// source of truth shared with `ArchetypeSpec::brain_spec`.
-    pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
-}
-
-impl Default for CharacterBrainSpec {
-    fn default() -> Self {
-        Self {
-            template: CharacterBrainTemplate::MeleeBrute,
-            smash_hit_band: Self::DEFAULT_SMASH_HIT_BAND,
-            smash_heavy: false,
-            smash_dash_to_close: false,
-            smash_duelist: false,
-            smash_can_blink: false,
-            smash_can_fly: false,
-            smash_can_shield: false,
-            provoke_forced_brute_min_aggro: None,
-            // The middle rung, so an archetype that names the fighter template
-            // and nothing else gets a fighter rather than a refusal.
-            fighter_level: 5,
-        }
-    }
-}
+/// **The reusable autonomous-controller profile** — DEFINED in
+/// `ambition_characters::brain::profile`, and it is not this crate's type.
+///
+/// ⭐ **it replaced `BrainProfile` outright** (campaign 2026-08-11, the
+/// controller authority). That struct was the same idea one crate too high and
+/// one concept too narrow: a *projection* of an archetype, reachable only by
+/// having an archetype, so two characters that fight alike could not share a
+/// policy without sharing a body. [`BrainProfile`] is authorable, reusable, and
+/// carries the three CharacterAI knobs that used to sit in [`ActorTuning`]
+/// (`aggro_radius`, `attack_range`, `turns_at_walls`) — those are decisions a
+/// DRIVER makes, not facts a body states.
+pub use ambition_characters::brain::BrainProfile;
 
 impl ActorTuning {
     /// The explicit movement policy this archetype's bodies carry from spawn.

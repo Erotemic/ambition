@@ -20,6 +20,7 @@ pub mod boss_pattern;
 /// The advanced fighter brain (fighter-brain.md): L1's situation classifier today.
 pub mod fighter;
 pub mod player;
+pub mod profile;
 pub mod smash;
 pub mod snapshot;
 pub mod state_machine;
@@ -41,6 +42,7 @@ pub use boss_pattern::{
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
+pub use profile::BrainProfile;
 #[allow(unused_imports)]
 pub use smash::{
     BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,
@@ -655,7 +657,7 @@ mod tests;
 /// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
 /// projected data without naming the content archetype enum. Authored
 /// per archetype in `character_archetypes.ron` and projected onto
-/// [`CharacterBrainSpec`] at spawn.
+/// [`BrainProfile`] at spawn.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub enum CharacterBrainTemplate {
     /// No motion / no AI — the actor only reacts to events (sandbag's

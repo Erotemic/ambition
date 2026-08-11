@@ -10,13 +10,13 @@ use super::super::enemies::ArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
-use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
+use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
+use crate::features::enemies::ArchetypeSpecExt;
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
-use crate::features::enemies::ArchetypeSpecExt;
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -78,10 +78,10 @@ pub(super) fn held_item_for_spec(
 /// Reads `brain_template()` off the consolidated `ArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
 pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
-    match enemy.brain_spec.template {
+    match enemy.brain_profile.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Fighter => {
-            let level = enemy.brain_spec.fighter_level;
+            let level = enemy.brain_profile.fighter_level;
             let cfg = ambition_characters::brain::fighter::FighterCfg::new(
                 ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
             );
@@ -106,7 +106,7 @@ pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
         CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
-            cfg: smash_cfg_from_spec(&enemy.brain_spec, &enemy.tuning),
+            cfg: smash_cfg_from_spec(&enemy.brain_profile, &enemy.tuning),
             state: SmashState {
                 rng_seed: seed_from_id(&enemy.id) as u64,
                 ..Default::default()
@@ -126,14 +126,14 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let cruise_speed = t.chase_speed * (0.55 + 0.25 * jitters.0);
     let dive_speed = (t.chase_speed * (1.7 + 0.5 * jitters.1)).max(360.0);
     // Dive altitude / range: a bit of spread so two parrots stack their dives.
-    let roam_radius = (110.0 + 60.0 * jitters.2).max(t.attack_range * 1.5);
+    let roam_radius = (110.0 + 60.0 * jitters.2).max(enemy.brain_profile.attack_range * 1.5);
     Brain::StateMachine(StateMachineCfg::Aerial {
         cfg: ambition_characters::brain::state_machine::AerialCfg {
             aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
             cruise_speed,
             dive_speed,
-            aggro_radius: t.aggro_radius,
-            attack_range: t.attack_range,
+            aggro_radius: enemy.brain_profile.aggro_radius,
+            attack_range: enemy.brain_profile.attack_range,
             roam_radius,
         },
         state: ambition_characters::brain::state_machine::AerialState::default(),
@@ -161,12 +161,12 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
     // attacked instead of kited.
     if action_set.ranged.is_some() && action_set.melee.is_none() {
         return (
-            skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, true),
+            skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, &enemy.brain_profile, true),
             action_set,
         );
     }
 
-    if let Some(min_aggro) = enemy.brain_spec.provoke_forced_brute_min_aggro {
+    if let Some(min_aggro) = enemy.brain_profile.provoke_forced_brute_min_aggro {
         let brain = forced_hostile_melee_brute_brain(enemy, min_aggro);
         return (brain, action_set);
     }
@@ -176,9 +176,10 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
 fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = t.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
+    let aggro_radius =
+        enemy.brain_profile.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
     let chase_speed = t.chase_speed * (0.9 + 0.2 * jitters.1);
-    let attack_range = t.attack_range.max(56.0) * (0.95 + 0.1 * jitters.2);
+    let attack_range = enemy.brain_profile.attack_range.max(56.0) * (0.95 + 0.1 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
             aggressiveness: 1.0,
@@ -193,9 +194,9 @@ fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) 
 pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = t.aggro_radius * (0.8 + 0.4 * jitters.0);
+    let aggro_radius = enemy.brain_profile.aggro_radius * (0.8 + 0.4 * jitters.0);
     let chase_speed = t.chase_speed * (0.85 + 0.3 * jitters.1);
-    let attack_range = t.attack_range * (0.9 + 0.2 * jitters.2);
+    let attack_range = enemy.brain_profile.attack_range * (0.9 + 0.2 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
             aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
@@ -208,7 +209,12 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 }
 
 pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig) -> Brain {
-    skirmisher_brain_from_tuning(&enemy.id, &enemy.tuning, enemy.tuning.attacks_player)
+    skirmisher_brain_from_tuning(
+        &enemy.id,
+        &enemy.tuning,
+        &enemy.brain_profile,
+        enemy.tuning.attacks_player,
+    )
 }
 
 fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
@@ -220,7 +226,7 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     Brain::StateMachine(StateMachineCfg::Sniper {
         cfg: SniperCfg {
             aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
-            aggro_radius: t.aggro_radius,
+            aggro_radius: enemy.brain_profile.aggro_radius,
             fire_cooldown_s,
         },
         state: SniperState {
@@ -232,14 +238,16 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(&enemy.id));
-    let aggro_radius = t.aggro_radius * (0.85 + 0.3 * jitters.0);
+    let aggro_radius = enemy.brain_profile.aggro_radius * (0.85 + 0.3 * jitters.0);
     let cruise_speed = t.chase_speed * (0.85 + 0.25 * jitters.1);
     let charge_speed = (cruise_speed * (2.0 + 0.4 * jitters.2)).max(360.0);
-    let bite_range = t.attack_range * (0.85 + 0.15 * jitters.3);
+    let bite_range = enemy.brain_profile.attack_range * (0.85 + 0.15 * jitters.3);
     let charge_duration_s = 0.38 + 0.18 * jitters.4;
     let charge_cooldown_s = 0.75 + 0.55 * jitters.1;
-    let standoff_px = (t.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
-    let vertical_wobble_px = (t.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
+    let standoff_px =
+        (enemy.brain_profile.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
+    let vertical_wobble_px =
+        (enemy.brain_profile.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
     let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
     Brain::StateMachine(StateMachineCfg::ChargeCrash {
         cfg: ChargeCrashCfg {
@@ -293,7 +301,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // This preserves the item as the authority: remove / change the held item
     // in data and this path changes without another Rust branch.
     let brain = if held_item.is_some_and(|item| item.grants_ranged()) {
-        skirmisher_brain_from_tuning(&rider.id, &rider.tuning, true)
+        skirmisher_brain_from_tuning(&rider.id, &rider.tuning, &rider.brain_profile, true)
     } else {
         forced_hostile_melee_brute_brain(rider, 540.0)
     };
@@ -303,13 +311,14 @@ pub(super) fn dismounted_rider_brain_and_action_set(
 fn skirmisher_brain_from_tuning(
     actor_id: &str,
     tuning: &ActorTuning,
+    profile: &BrainProfile,
     force_hostile: bool,
 ) -> Brain {
     let jitters = five_f32s_from_seed(seed_from_id(actor_id));
     let base_cooldown_s = 1.5;
     let fire_cooldown_s = base_cooldown_s * (0.75 + 0.5 * jitters.0);
     let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
-    let standoff_base = (tuning.attack_range * 0.35).max(120.0);
+    let standoff_base = (profile.attack_range * 0.35).max(120.0);
     let standoff_px = standoff_base * (0.8 + 0.4 * jitters.2);
     let orbit_phase = jitters.3 * std::f32::consts::TAU;
     let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
@@ -320,7 +329,7 @@ fn skirmisher_brain_from_tuning(
             } else {
                 0.0
             },
-            aggro_radius: tuning.aggro_radius,
+            aggro_radius: profile.aggro_radius,
             standoff_px,
             strafe_speed: tuning.chase_speed,
             fire_cooldown_s,
@@ -345,9 +354,9 @@ fn skirmisher_brain_from_tuning(
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> SmashCfg {
+fn smash_cfg_from_spec(profile: &BrainProfile, tuning: &ActorTuning) -> SmashCfg {
     // Heavy vs striker base + per-archetype hit band + dash-to-close are
-    // projected onto `CharacterBrainSpec` at spawn (`smash_hit_band`,
+    // projected onto `BrainProfile` at spawn (`smash_hit_band`,
     // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
     // data rather than matching the roster enum. The 36 px hit-band
     // fallback lives in the projection.
@@ -356,16 +365,16 @@ fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> Smash
     // fighter MOVE instead of camping point-blank; `attack_range` /
     // `engage_distance` are still overridden from the body's hit band below, so
     // the spacing weaves around the body's real reach.
-    let base = if spec.smash_duelist {
+    let base = if profile.smash_duelist {
         SmashCfg::DUELIST_DEFAULT
-    } else if spec.smash_heavy {
+    } else if profile.smash_heavy {
         SmashCfg::BRUTE_DEFAULT
     } else {
         SmashCfg::STRIKER_DEFAULT
     };
-    let hit_band = spec.smash_hit_band;
+    let hit_band = profile.smash_hit_band;
     SmashCfg {
-        aggro_radius: tuning.aggro_radius,
+        aggro_radius: profile.aggro_radius,
         attack_range: hit_band,
         // Engage band: the brain holds position once inside this radius even if
         // the swing is on cooldown. Slightly larger than `attack_range` so the
@@ -379,21 +388,21 @@ fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> Smash
         // Goblins dash to close a large gap (richer action set: melee +
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
-        dash_to_close: spec.smash_dash_to_close,
+        dash_to_close: profile.smash_dash_to_close,
         // Blink-evade kit (authored per archetype). The brain *attempts* a blink
         // on a perceived lunge; the body's `CombatCapabilities::can_blink` +
         // blink cooldown *enforce* it. `blink_cooldown_s` here is the brain's
         // reactive restraint (policy, I4); the body owns the physical floor (I3).
-        can_blink: spec.smash_can_blink,
-        blink_cooldown_s: if spec.smash_can_blink { 1.2 } else { 0.0 },
+        can_blink: profile.smash_can_blink,
+        blink_cooldown_s: if profile.smash_can_blink { 1.2 } else { 0.0 },
         // Grounded-base hybrid flyer: the brain *prefers* grounded and flies only
         // to cover a long traversal gap (the decision lives in `decide_flight`).
         // The body's `CombatCapabilities::can_fly` is the matching enforce gate.
-        can_fly: spec.smash_can_fly,
+        can_fly: profile.smash_can_fly,
         // Reactive block: the brain *attempts* a guard (raises `shield_held`,
         // stands ground) on a perceived lunge it won't blink; the body's
         // `CombatCapabilities::can_shield` is the matching enforce gate.
-        can_shield: spec.smash_can_shield,
+        can_shield: profile.smash_can_shield,
         ..base
     }
 }

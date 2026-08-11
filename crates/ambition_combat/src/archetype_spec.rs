@@ -262,7 +262,7 @@ pub struct ArchetypeSpec {
     // [`ae::AbilitySet`] (`movement_kit`) that both ports read: the body
     // unions it into its `AbilitySet` at spawn (`ActorBody::from_kit`, enforce)
     // and the Smash brain reads the same verbs to decide when to attempt them
-    // (`brain_spec`, attempt). No `smash_` prefix: these are body capabilities,
+    // (`brain_profile`, attempt). No `smash_` prefix: these are body capabilities,
     // not Smash-template tuning (cf. `smash_heavy`/`smash_duelist`, which ARE).
     /// Movement kit: this body can **blink** (short-range teleport).
     #[serde(default)]

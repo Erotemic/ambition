@@ -32,7 +32,7 @@ use super::mount::{MountSlot, Mounted, MountedBrainCache, RidingOn};
 use super::{CombatKit, HeldItem};
 use crate::abilities::traversal::possession::PossessionState;
 use crate::combat::CombatCapabilities;
-use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
+use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile};
 use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::enemies::{ArchetypeSpec, CharacterRoster};
 use crate::features::TemporaryControl;
@@ -56,7 +56,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// whether it was just challenged or rebuilt after a GGRS load.
 pub(crate) struct ProvokedArchetype {
     pub tuning: ActorTuning,
-    pub brain_spec: CharacterBrainSpec,
+    pub brain_profile: BrainProfile,
     pub gravity_scale: f32,
     pub max_health: i32,
     pub capabilities: CombatCapabilities,
@@ -86,15 +86,15 @@ pub(crate) fn project_provoked_archetype(
     // The archetype supplies COMBAT tuning; the placement keeps the fields it
     // owns (respawn policy — ADR 0022). See `ActorTuning::adopting_archetype`.
     let tuning = current_config.tuning.adopting_archetype(spec.tuning());
-    let brain_spec = spec.brain_spec();
+    let brain_profile = spec.brain_profile();
     let config_brain = CharacterBrain::Custom(archetype.to_string());
 
     // The brain builder selects the concrete hostile brain from the actor's
-    // config (id + the HOSTILE tuning/brain_spec), so hand it a config carrying
+    // config (id + the HOSTILE tuning/brain_profile), so hand it a config carrying
     // those. Every other field is irrelevant to the builder.
     let mut hostile_config = current_config.clone();
     hostile_config.tuning = tuning.clone();
-    hostile_config.brain_spec = brain_spec;
+    hostile_config.brain_profile = brain_profile;
     hostile_config.brain = config_brain.clone();
     let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
         &hostile_config,
@@ -120,7 +120,7 @@ pub(crate) fn project_provoked_archetype(
         brain,
         action_set,
         tuning,
-        brain_spec,
+        brain_profile,
     }
 }
 
@@ -132,7 +132,7 @@ pub(crate) fn project_provoked_archetype(
 /// `config.brain` read-model).
 pub(crate) struct PeacefulConfig {
     pub(crate) tuning: ActorTuning,
-    pub(crate) brain_spec: CharacterBrainSpec,
+    pub(crate) brain_profile: BrainProfile,
     pub(crate) capabilities: CombatCapabilities,
     pub(crate) action_set: ambition_characters::brain::ActionSet,
     pub(crate) config_brain: CharacterBrain,
@@ -166,7 +166,7 @@ pub(crate) fn peaceful_config(
     let config_brain = crate::features::brain_command::config_brain_for(resolved_brain);
     PeacefulConfig {
         tuning,
-        brain_spec: CharacterBrainSpec::default(),
+        brain_profile: BrainProfile::default(),
         capabilities: CombatCapabilities::default(),
         // Body CAPABILITY: the peaceful autonomous brain never presses attack, but
         // a possessing player can still throw the kit's punch/swing — the same
@@ -267,7 +267,7 @@ fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
     };
     if let Some(mut config) = em.get_mut::<ActorConfig>() {
         config.tuning = proj.tuning;
-        config.brain_spec = proj.brain_spec;
+        config.brain_profile = proj.brain_profile;
         config.brain = proj.config_brain;
         config.sprite_override_npc_name = proj.sprite_override_npc_name;
     }
@@ -298,7 +298,7 @@ fn restore_peaceful_config(world: &mut World, entity: Entity, character_id: Opti
     };
     if let Some(mut config) = em.get_mut::<ActorConfig>() {
         config.tuning = peaceful.tuning;
-        config.brain_spec = peaceful.brain_spec;
+        config.brain_profile = peaceful.brain_profile;
         config.brain = peaceful.config_brain;
         config.sprite_override_npc_name = None;
     }
@@ -704,7 +704,7 @@ mod tests {
             id: "npc".into(),
             name: "Npc".into(),
             tuning: ActorTuning::default(),
-            brain_spec: CharacterBrainSpec::default(),
+            brain_profile: BrainProfile::default(),
             brain: CharacterBrain::Passive,
             spawn: crate::features::enemies::ActorSpawnState {
                 pos: ae::Vec2::ZERO,

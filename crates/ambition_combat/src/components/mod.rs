@@ -280,7 +280,7 @@ impl Default for CombatTuning {
 }
 
 /// Which motion / AI state-machine template a brain instantiates.
-// `CharacterBrainTemplate`/`CharacterBrainSpec` moved to
+// `CharacterBrainTemplate`/`BrainProfile` moved to
 // `features::ecs::actor_tuning` (E2): actor archetype vocabulary.
 // `RespawnPolicy` moved to `ambition_entity_catalog::placements`
 // ([W-a]: the ADR-0022 authored schema half).

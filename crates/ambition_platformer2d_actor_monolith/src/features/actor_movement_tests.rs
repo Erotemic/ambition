@@ -102,7 +102,7 @@ fn tick_peaceful(
             .wall
             .on_wall
             .then_some(seed.body.0.wall.wall_normal_x.signum()),
-        turns_at_walls: seed.config.tuning.turns_at_walls && !seed.config.tuning.surface_walker,
+        turns_at_walls: seed.config.brain_profile.turns_at_walls && !seed.config.tuning.surface_walker,
         attack_kit: Vec::new(),
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,
@@ -310,7 +310,7 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
     );
     // S3c: it carries the reactive-block kit. One authored verb feeds BOTH
     // ports: the body's movement `AbilitySet` (enforce, via `movement_kit`) AND
-    // the brain's attempt (`SmashCfg::can_shield`, via `brain_spec`).
+    // the brain's attempt (`SmashCfg::can_shield`, via `brain_profile`).
     assert!(
         spec.can_shield,
         "the PCA boss has the reactive-block kit so it can guard a lunge it won't blink"
@@ -320,7 +320,7 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
         "the authored shield kit must appear in the body's movement AbilitySet"
     );
     assert!(
-        spec.brain_spec().smash_can_shield,
+        spec.brain_profile().smash_can_shield,
         "the authored shield kit must project onto the brain's attempt"
     );
     // S3d: it carries the dash kit (the body turns its dash-to-close decision
@@ -363,16 +363,16 @@ fn enemy_archetype_tunings_are_finite() {
         assert!(spec.max_health > 0);
         assert!(spec.tuning().patrol_speed.is_finite());
         assert!(spec.tuning().chase_speed.is_finite());
-        assert!(spec.tuning().aggro_radius.is_finite());
-        assert!(spec.tuning().aggro_radius >= 0.0);
-        assert!(spec.tuning().attack_range.is_finite());
-        assert!(spec.tuning().attack_range >= 0.0);
+        assert!(spec.brain_profile().aggro_radius.is_finite());
+        assert!(spec.brain_profile().aggro_radius >= 0.0);
+        assert!(spec.brain_profile().attack_range.is_finite());
+        assert!(spec.brain_profile().attack_range >= 0.0);
         assert!(spec.contact_strength.is_finite());
         assert!(spec.contact_strength >= 0.0);
         assert!(spec.damage_amount > 0);
         if spec.attacks_player {
             assert!(
-                spec.tuning().attack_range > 0.0,
+                spec.brain_profile().attack_range > 0.0,
                 "{key} reports it attacks but has zero attack_range",
             );
             assert!(
@@ -412,18 +412,18 @@ fn enemy_archetype_size_and_aggression_invariants() {
     // Aggro radius: low-aggression < high-aggression at same size.
     assert!(
         crate::features::enemies::test_spec("small_lurker")
-            .tuning()
+            .brain_profile()
             .aggro_radius
             < crate::features::enemies::test_spec("small_skitter")
-                .tuning()
+                .brain_profile()
                 .aggro_radius
     );
     assert!(
         crate::features::enemies::test_spec("large_colossus")
-            .tuning()
+            .brain_profile()
             .aggro_radius
             < crate::features::enemies::test_spec("large_brute")
-                .tuning()
+                .brain_profile()
                 .aggro_radius
     );
 
@@ -847,7 +847,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
     );
-    body.config.tuning.turns_at_walls = true;
+    body.config.brain_profile.turns_at_walls = true;
     body.kin.facing = 1.0;
     let mut model = body.config.tuning.motion_model();
 
@@ -894,7 +894,7 @@ fn stopping_in_open_space_preserves_facing() {
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
     );
-    body.config.tuning.turns_at_walls = true;
+    body.config.brain_profile.turns_at_walls = true;
     body.kin.facing = 1.0;
     body.kin.vel.x = 120.0;
     let mut model = body.config.tuning.motion_model();

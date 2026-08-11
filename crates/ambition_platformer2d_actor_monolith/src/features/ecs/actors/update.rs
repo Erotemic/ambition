@@ -1727,7 +1727,7 @@ fn build_enemy_brain_snapshot(
             .wall
             .on_wall
             .then_some(em.wall.wall_normal_x.signum()),
-        turns_at_walls: em.config.tuning.turns_at_walls && !em.config.tuning.surface_walker,
+        turns_at_walls: em.config.brain_profile.turns_at_walls && !em.config.tuning.surface_walker,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a
         // moveset itself, so this is body-derived truth arriving through the

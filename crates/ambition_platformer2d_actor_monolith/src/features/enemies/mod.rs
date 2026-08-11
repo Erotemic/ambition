@@ -138,11 +138,11 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
 /// ⛔ **an extension TRAIT because the orphan rule says so**, not as a style
 /// choice: `ArchetypeSpec` is defined in `ambition_combat` now, so an
 /// inherent `impl` for it can only be written there — and every one of these
-/// returns an ACTOR-crate type (`ActorTuning`, `CharacterBrainSpec`). The data
+/// returns an ACTOR-crate type (`ActorTuning`, `BrainProfile`). The data
 /// moved; the projections into this crate's runtime shapes stayed with the
 /// shapes.
 pub(crate) trait ArchetypeSpecExt {
-    fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec;
+    fn brain_profile(&self) -> crate::features::ecs::actor_tuning::BrainProfile;
     fn movement_kit(&self) -> ae::AbilitySet;
     fn held_item_spec(&self) -> Option<ambition_characters::brain::HeldItemSpec>;
     fn melee_spec(&self) -> Option<ambition_characters::brain::MeleeActionSpec>;
@@ -153,16 +153,30 @@ pub(crate) trait ArchetypeSpecExt {
 }
 
 impl ArchetypeSpecExt for ArchetypeSpec {
-    /// Project the generic brain-construction inputs (kit vocabulary) the
-    /// runtime brain rebuilds reconstruct without naming the roster.
-    fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
-        crate::features::ecs::actor_tuning::CharacterBrainSpec {
+    /// Project this archetype's CONTROLLER half — the reusable autonomous
+    /// policy, separated from the body the same row also describes.
+    ///
+    /// ⚠ **a projection is the migration, not the destination.** A profile
+    /// reachable only by holding an archetype is still one authority; the
+    /// endpoint is an authored profile a character NAMES, at which point these
+    /// rows lose their controller fields and this method loses its subject.
+    fn brain_profile(&self) -> crate::features::ecs::actor_tuning::BrainProfile {
+        crate::features::ecs::actor_tuning::BrainProfile {
             template: self.brain_template,
+            // ⭐ **the three CharacterAI knobs that used to live in
+            // `ActorTuning`.** They read as body numbers and are not: a radius
+            // at which a DRIVER notices, a range at which it commits, and
+            // whether a walker reverses at a wall are all decisions about how
+            // to play a body, and a human or scripted controller in the same
+            // body must not inherit them.
+            aggro_radius: self.aggro_radius,
+            attack_range: self.attack_range,
+            turns_at_walls: self.turns_at_walls,
             // The archetype's authored rung, or the middle one. A fighter
             // archetype that says nothing plays at 5 rather than refusing.
             fighter_level: self.fighter_level.unwrap_or(5),
             smash_hit_band: self.smash_hit_band.unwrap_or(
-                crate::features::ecs::actor_tuning::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND,
+                crate::features::ecs::actor_tuning::BrainProfile::DEFAULT_SMASH_HIT_BAND,
             ),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
@@ -179,7 +193,7 @@ impl ArchetypeSpecExt for ArchetypeSpec {
     /// (player, enemy, boss) shares. This is the single authored source both
     /// ports read: the body unions it into its live `AbilitySet` at spawn
     /// (`ActorBody::from_kit`), and the Smash brain reads the same verbs to
-    /// decide when to attempt them (`brain_spec`). Only the kit verbs are set;
+    /// decide when to attempt them (`brain_profile`). Only the kit verbs are set;
     /// locomotion (run/jump) and the `attack` verb are layered on by the body
     /// seed, and `is_aerial` flight is forced there too.
     fn movement_kit(&self) -> ae::AbilitySet {
@@ -234,14 +248,11 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             chase_speed: crate::character_runtime::NormalizedEffort::new(self.chase_effort)
                 .applied_to(self.run_speed),
             max_run_speed: self.run_speed,
-            aggro_radius: self.aggro_radius,
-            attack_range: self.attack_range,
             contact_strength: self.contact_strength,
             damage_amount: self.damage_amount,
             attack_cooldown_mult: self.attack_cooldown_mult,
             attacks_player: self.attacks_player,
             surface_walker: self.surface_walker,
-            turns_at_walls: self.turns_at_walls,
             cling_breaks_on_hit: self.cling_breaks_on_hit,
             // The ONE authored respawn policy (ADR 0022) — the kill hook and
             // the in-place revive tick both match on it.

@@ -124,7 +124,7 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 // away.** It lives in `ambition_demo_mary_o_app`'s `one_placement_one_actor`
 // now, and the move was forced rather than chosen: the tag pass reads
 // `ActorConfig.brain`, and a game crate cannot BUILD an `ActorConfig`. It has no
-// `Default`, its `tuning`/`brain_spec` come from an `ArchetypeSpec`, and
+// `Default`, its `tuning`/`brain_profile` come from an `ArchetypeSpec`, and
 // `ArchetypeSpec` is not re-exported through the `ambition_platformer2d`
 // umbrella — which is the E9 oracle, so reaching past it is not an option.
 //

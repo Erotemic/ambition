@@ -242,7 +242,7 @@ fn pirate_heavy_stops_within_her_melee_reach() {
         ae::Vec2::new(0.0, 1.0),
     );
     let reach_edge = hitbox.center().x + hitbox.half_size().x - pos.x;
-    let attack_range = spec.tuning().attack_range;
+    let attack_range = spec.brain_profile().attack_range;
     assert!(
         attack_range <= reach_edge,
         "PirateHeavy attack_range {attack_range} must stay within her swing far \

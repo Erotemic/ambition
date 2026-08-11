@@ -313,7 +313,7 @@ fn apply_catalog_mode(
     );
     if let Some(mut config) = config {
         config.tuning = peaceful.tuning;
-        config.brain_spec = peaceful.brain_spec;
+        config.brain_profile = peaceful.brain_profile;
         config.brain = peaceful.config_brain;
         config.sprite_override_npc_name = None;
     }

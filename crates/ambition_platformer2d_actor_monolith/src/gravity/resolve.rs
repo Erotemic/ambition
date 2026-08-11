@@ -156,7 +156,7 @@ mod tests {
             id: "aerial".into(),
             name: "aerial".into(),
             tuning,
-            brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec::default(),
+            brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
             spawn: ActorSpawnState {
                 pos: ae::Vec2::new(50.0, 50.0),

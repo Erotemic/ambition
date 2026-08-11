@@ -216,6 +216,23 @@ pub struct PreparedSeat {
     /// What will drive it, attached AFTER the body exists — never a fork in how
     /// the body is built.
     pub authority: ControlAuthority,
+    /// **The kit this MATCH gives this seat**, if it gives one — see
+    /// [`MatchParticipant::action_set`](super::staging::MatchParticipant::action_set).
+    ///
+    /// ⭐ **resolved at PREPARATION, which is the whole point** (ledger D85, and
+    /// Jon's second redirect P0). The roster is in scope exactly once — here —
+    /// and the seat used to be built with an EMPTY action set because only the
+    /// persona derive could see it, which is why ordinary seating still carries
+    /// `RecharacterizeBody` and asks to be finished. A prepared seat that knows
+    /// its own kit does not have to ask.
+    ///
+    /// ⚠ this is grant ONE of five (D85 names them: kit, `IdentityKit`,
+    /// `CombatKit`, the moveset, the motion-model switch and the physical
+    /// baseline). The applied-template stamp goes LAST, when the list is empty —
+    /// stamping first is how a stamp certifies work nobody does.
+    ///
+    /// `None` = this match says nothing, and the CHARACTER's own kit stands.
+    pub match_kit: Option<ambition_characters::brain::ActionSet>,
 }
 
 /// What every fighter in this match plays under.
@@ -791,6 +808,7 @@ pub fn prepare_match(
             faction: crate::combat::components::ActorFaction::Player,
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
+            match_kit: participant.action_set.clone(),
         });
     }
 
@@ -943,7 +961,19 @@ fn realize_seat(
     session_scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
     seat: &PreparedSeat,
 ) -> Entity {
-    let seed = seat.seed.clone();
+    let mut seed = seat.seed.clone();
+    // ⭐ **WHAT THIS BODY DOES WHEN IT DIES** — grant two of five (ledger D85).
+    //
+    // ⛔ **set on the SEED, not inserted beside it.** `CombatCapabilities` is
+    // already a member of the cluster bundle, so a second insert in the same
+    // spawn is a duplicate component and Bevy refuses the whole bundle — which
+    // is what a first attempt did, taking five seat tests down with it. The
+    // seed's own note says the persona brings this; a seat that will stop asking
+    // for a persona pass brings its own, and the enemy road already does exactly
+    // this at construction.
+    seed.caps = crate::combat::CombatCapabilities::from(
+        &seat.definition.death_traits.clone().unwrap_or_default(),
+    );
     let at = seed.kin.pos;
     let facing = seed.kin.facing;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
@@ -957,10 +987,21 @@ fn realize_seat(
     // unkillable, and the symptom was a swing that connected, played its sound
     // and did nothing.
     let disposition = crate::combat::components::ActorDisposition::Hostile;
-    // A default action set, matching what an enemy spawn does before its
-    // archetype fills one in. The character's real attacks arrive from
-    // `apply_worn_character_gameplay`, the ONE writer for a worn body's moves.
-    let action_set = ambition_characters::brain::ActionSet::default();
+    // ⭐ **THE SEAT'S REAL KIT, ON ITS CONSTRUCTION FRAME** — grant one of five
+    // (ledger D85). This was `ActionSet::default()`, empty, with a note saying
+    // the real attacks arrive from the persona derive; the MATCH's kit outranks
+    // the character's because a crossover stage is the one place allowed to arm
+    // somebody else's peaceful Hall NPC, and a seat the match says nothing about
+    // keeps what its character authored.
+    //
+    // ⚠ the derive still runs and still writes this — it resolves the same two
+    // inputs — and that duplication is deliberate and temporary: the stamp that
+    // silences it goes in only when all five grants have moved.
+    let action_set = seat
+        .match_kit
+        .clone()
+        .or_else(|| seat.definition.kit.action_set().cloned())
+        .unwrap_or_default();
     // **THE BRAIN THIS SEAT WILL HAVE, chosen once and spawned WITH the body.**
     //
     // ⛔ this used to be the archetype's brain unconditionally, with a follow-up

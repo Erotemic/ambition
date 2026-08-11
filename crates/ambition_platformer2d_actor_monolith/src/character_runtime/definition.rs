@@ -449,6 +449,19 @@ pub struct CharacterDefinition {
     /// lookup missed, and the archetype quietly stayed in charge — green
     /// everywhere, wrong in play.
     pub autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
+    /// **What this character's PROJECTILE looks like** — the cosmetic id its
+    /// ranged verb spawns (`"hadouken"`).
+    ///
+    /// ⛔ **it had no home outside an enemy ARCHETYPE row** (ledger D83).
+    /// `ActorTuning::ranged_visual` carries it at runtime and the archetype road
+    /// filled it; the character-first constructor wrote an empty string, so a
+    /// migrated robot fired an unadorned rock. The melee side of the same
+    /// question has been a character fact for a long time (the catalog's
+    /// `attack_vfx`), which is what makes the absence a gap rather than a design.
+    ///
+    /// `None` = this character's ranged verb draws whatever the projectile
+    /// itself authors, which is every character that has never had one.
+    pub ranged_vfx: Option<String>,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
     ///
@@ -525,6 +538,7 @@ impl CharacterDefinition {
             contact_damage: None,
             autonomous_profile: None,
             autonomous_profile_ref: None,
+            ranged_vfx: None,
             practice_target: false,
             held_item: None,
             mount: None,
@@ -580,6 +594,13 @@ impl CharacterDefinition {
     /// know, and the one who guesses wrong gets a silent miss.
     pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
         self.autonomous_profile_ref = Some(ambition_characters::brain::BrainProfileRef::new(key));
+        self
+    }
+
+    /// Author what this character's projectile looks like. See
+    /// [`Self::ranged_vfx`].
+    pub fn with_ranged_vfx(mut self, id: impl Into<String>) -> Self {
+        self.ranged_vfx = Some(id.into());
         self
     }
 
@@ -755,6 +776,8 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::autonomous_profile_ref`]. RESOLVED at
     /// preparation, so nothing downstream ever sees the name.
     autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
+    /// See [`CharacterDefinition::ranged_vfx`]. Carried.
+    ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
     practice_target: bool,
     /// See [`CharacterDefinition::held_item`]. Carried.
@@ -867,6 +890,9 @@ pub struct CharacterBodyBlueprint<'a> {
     pub held_item: Option<&'a str>,
     pub death_traits: Option<&'a ambition_characters::actor::CharacterDeathTraits>,
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// What this body's ranged verb LOOKS like. See
+    /// [`CharacterDefinition::ranged_vfx`].
+    pub ranged_vfx: Option<&'a str>,
 }
 
 /// **Why this character cannot build a body on its own**, named rather than
@@ -965,6 +991,7 @@ impl PreparedCharacterDefinition {
             held_item: self.held_item.as_deref(),
             death_traits: self.death_traits.as_ref(),
             abilities: self.abilities,
+            ranged_vfx: self.ranged_vfx.as_deref(),
         }
     }
 }
@@ -1047,6 +1074,8 @@ pub struct PreparedCharacterDefinition {
     ///
     /// [`BrainProfile`]: ambition_characters::brain::BrainProfile
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::ranged_vfx`].
+    pub ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::practice_target`].
     pub practice_target: bool,
     /// See [`CharacterDefinition::held_item`].
@@ -1523,6 +1552,7 @@ fn prepare_character(
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
         autonomous_profile_ref: definition.autonomous_profile_ref.clone(),
+        ranged_vfx: definition.ranged_vfx.clone(),
         practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
@@ -1618,6 +1648,7 @@ fn finalize_character(
         held_item,
         practice_target,
         autonomous_profile_ref,
+        ranged_vfx,
     } = overrides;
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
@@ -1762,6 +1793,7 @@ fn finalize_character(
             autonomous_profile_ref.as_ref(),
             profiles,
         ),
+        ranged_vfx,
         practice_target,
         held_item,
         dream_seed,
@@ -1941,15 +1973,43 @@ fn derive_moveset(
     action_set: &ambition_characters::brain::ActionSet,
     authored: Option<MovesetContract>,
 ) -> MovesetContract {
-    authored.unwrap_or_else(|| {
-        crate::combat::moveset::build_actor_moveset(
-            None,
-            action_set.melee.as_ref(),
-            action_set.ranged.as_ref(),
-            action_set.special.as_ref(),
-        )
-        .unwrap_or_default()
-    })
+    let derived = crate::combat::moveset::build_actor_moveset(
+        None,
+        action_set.melee.as_ref(),
+        action_set.ranged.as_ref(),
+        action_set.special.as_ref(),
+    )
+    .unwrap_or_default();
+    let Some(authored) = authored else {
+        return derived;
+    };
+    // ⭐⭐ **AUTHORED MOVES OVERLAY THE KIT'S, they do not REPLACE it** — the same
+    // rule `derive_persona_moveset` learned two hours earlier, in the sibling
+    // this pass forgot.
+    //
+    // ⛔ measured: Robot v2 authors ONE move (the theorem chain, bound to
+    // `special`) and takes its melee and its Hadouken from `robot_duelist_kit`.
+    // Under `authored.unwrap_or(derived)` the one authored move deleted both, so
+    // the exhibition robot stopped swinging entirely — `melee_swing_frames: 0`
+    // over three hundred frames, with nothing in the log to say a kit had been
+    // discarded.
+    //
+    // ⚠ authored wins on collision, in both halves: naming a move id or a verb
+    // the kit also produces is a deliberate statement about that one thing.
+    let authored_ids: std::collections::BTreeSet<&str> =
+        authored.moves.iter().map(|mv| mv.id.as_str()).collect();
+    let mut merged = MovesetContract {
+        moves: authored.moves.clone(),
+        verbs: derived.verbs,
+    };
+    merged.moves.extend(
+        derived
+            .moves
+            .into_iter()
+            .filter(|mv| !authored_ids.contains(mv.id.as_str())),
+    );
+    merged.verbs.extend(authored.verbs);
+    merged
 }
 
 /// One character, prepared and finalized, outside an `App`.

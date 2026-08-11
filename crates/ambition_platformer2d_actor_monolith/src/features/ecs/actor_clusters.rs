@@ -782,6 +782,7 @@ impl ActorClusterSeed {
             practice_target,
             autonomous_profile,
             abilities,
+            ranged_vfx,
             ..
         } = body;
         // ⚠ **a body with no policy still needs one to be paced against.** The
@@ -988,7 +989,11 @@ impl ActorClusterSeed {
                 provoke_forced_brute_min_aggro: None,
                 attacks_player: true,
                 body_contact_damage: false,
-                ranged_visual: String::new(),
+                // ⭐ **THE CHARACTER'S PROJECTILE ART.** This wrote an empty
+                // string, so a migrated body fired an unadorned rock while the
+                // archetype road drew the character's own signature — the last
+                // thing keeping `player_robot`'s eighty-line row alive (D83).
+                ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
                 signature_move: None,
                 move_style: locomotion.move_style,
             },
@@ -1239,6 +1244,7 @@ mod tests {
             held_item: None,
             death_traits: None,
             abilities: None,
+            ranged_vfx: None,
         }
     }
 

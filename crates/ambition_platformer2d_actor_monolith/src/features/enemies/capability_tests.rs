@@ -93,55 +93,12 @@ fn an_archetype_with_an_intrinsic_weapon_drops_one_and_says_nothing_about_which(
     );
 }
 
-/// The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the
-/// `player_robot` archetype carries the FULL player kit as body movement
-/// capabilities — blink / fly / shield / dash all appear in its
-/// [`ae::AbilitySet`] movement kit, and it has both a melee strike and the
-/// player's Hadouken ranged. This is what makes the player-robot droppable as a
-/// boss and fieldable as the spectator-arena's second combatant. (Authoring
-/// this is what forces the player kit to BE the body's `AbilitySet` — the same
-/// vocabulary the live player runs — not a parallel enemy-only mirror; the live
-/// player folds onto this same actor path in S6b.)
-#[test]
-fn player_robot_archetype_carries_the_full_player_kit() {
-    let spec = crate::features::enemies::test_spec("player_robot");
-    let kit = spec.movement_kit();
-    assert!(
-        kit.blink && kit.fly && kit.shield && kit.dash,
-        "the player-robot body has the full movement kit in its AbilitySet: {kit:?}",
-    );
-    assert!(spec.melee.is_some(), "player-robot has a melee strike");
-    assert!(
-        spec.ranged.is_some(),
-        "player-robot has the Hadouken ranged verb"
-    );
-    assert_eq!(
-        spec.ranged_visual, "hadouken",
-        "the player-robot fires the player's signature projectile",
-    );
-    assert_eq!(
-        spec.brain_template,
-        super::CharacterBrainTemplate::Smash,
-        "the player-robot is driven by the unified Smash brain (the strong brain)",
-    );
-    // Its authored `movement` patch resolves to the PLAYER's snappier physics
-    // (enemies rise to the player) — proving the per-archetype tuning data flows
-    // RON patch -> hierarchy resolution -> the runtime `ActorTuning`.
-    let movement = spec.tuning().movement;
-    assert_eq!(
-        movement.gravity, 2250.0,
-        "player-robot falls like the player"
-    );
-    assert_eq!(
-        movement.jump_speed, 630.0,
-        "player-robot jumps like the player"
-    );
-    assert_ne!(
-        movement,
-        crate::combat::BodyMovementTuning::BASELINE,
-        "the authored override differs from the generic baseline",
-    );
-}
+// ⛔ **`player_robot_archetype_carries_the_full_player_kit` was deleted here on
+// 2026-08-11 with the row it tested** (ledger D83). Its three claims are now the
+// CHARACTER's, and asserted where they live: the movement kit by
+// `player_robot_moveset::the_robot_authors_its_verbs_rather_than_taking_a_match_s_word_for_them`,
+// the melee and ranged verbs by the `robot_duelist_kit` catalog preset, and the
+// Hadouken by `the_robot_states_what_its_projectile_looks_like`.
 
 /// The Stochastic Parrot's DUAL nature — ONE character, two dispositions.
 ///

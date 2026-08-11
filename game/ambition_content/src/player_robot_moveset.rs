@@ -18,8 +18,8 @@
 //! Smash read it as a platform fighter.
 
 use ambition_platformer2d::entity_catalog::{
-    ClipBinding, EffectRef, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract,
-    VolumeShape, WindowTag,
+    ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveGates, MoveSpec, MoveWindow,
+    MovesetContract, VolumeShape, WindowTag,
 };
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
@@ -446,7 +446,73 @@ mod tests {
             v2.abilities.is_some_and(|verbs| verbs.blink && verbs.dash),
             "the exhibition robot lost the verbs its archetype row granted it"
         );
-        assert!(v2.moveset.is_none(), "v2 was handed v3's frame data");
+        assert!(
+            v2.moveset
+                .as_ref()
+                .is_some_and(|set| set.move_for_verb("special").is_some()),
+            "v2 lost the theorem chain, which is the only proof in the repo that \
+             a moveset expresses a multi-hit combo as data"
+        );
+        assert!(
+            v2.moveset
+                .as_ref()
+                .is_some_and(|set| set.move_for_verb("smash_forward").is_none()),
+            "v2 was handed v3's platform-fighter table"
+        );
+    }
+
+    /// **A MOVE CAN BE A COMBO, as data.**
+    ///
+    /// ⭐ **the claim the `player_robot` archetype row existed to make**, moved
+    /// here with it (ledger D83): TWO Active windows on ONE timeline, so the
+    /// system expresses a multi-hit combo as authored data rather than as a
+    /// chain of presses the runtime happens to allow. A combo that needed two
+    /// moves and a cancel would prove something else entirely.
+    ///
+    /// ⚠ the second hit has to HURT MORE, or the pair is a stutter rather than a
+    /// chain.
+    #[test]
+    fn the_theorem_chain_is_two_hits_on_one_timeline() {
+        use ambition_platformer2d::entity_catalog::WindowTag;
+        let set = theorem_chain_moveset();
+        let mv = set
+            .move_for_verb("special")
+            .expect("the chain is bound to the special verb");
+        assert_eq!(mv.id, "theorem_chain");
+        let hits: Vec<i32> = mv
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty())
+            .map(|w| w.volumes[0].damage)
+            .collect();
+        assert_eq!(
+            hits.len(),
+            2,
+            "a chain with one Active window is a swing: {hits:?}"
+        );
+        assert!(
+            hits[1] > hits[0],
+            "the follow-up does not hit harder than the poke, so the pair is a \
+             stutter rather than a chain: {hits:?}"
+        );
+    }
+
+    /// **The robot's projectile has its own look, stated by the character.**
+    ///
+    /// ⛔ this was `ranged_visual` on the archetype row, and the character-first
+    /// constructor wrote an empty string — so a migrated robot fired an
+    /// unadorned rock while the archetype road drew the Hadouken.
+    #[test]
+    fn the_robot_states_what_its_projectile_looks_like() {
+        for incarnation in crate::player_robot_lineage::LINEAGE {
+            let definition = crate::player_robot_lineage::definition(incarnation);
+            assert_eq!(
+                definition.ranged_vfx.as_deref(),
+                Some("hadouken"),
+                "`{}` fires an unadorned projectile",
+                incarnation.id
+            );
+        }
     }
 
     /// **The repertoire is a SMASH table, and it says so in its d-air.**
@@ -478,5 +544,99 @@ mod tests {
             "the d-air stopped pointing down, so it is no longer the spike the \
              pogo mode has to reinterpret: {launch:?}"
         );
+    }
+}
+
+/// **THEOREM CHAIN — the robot's two-hit signature**, a light poke into a
+/// heavier follow-up on ONE timeline.
+///
+/// ⭐ **the only proof in the repo that a moveset expresses multi-hit combos as
+/// DATA across characters** rather than as a boss one-off. It lived on the
+/// `player_robot` archetype row (ledger D83), which is the last thing keeping
+/// eighty lines of enemy-archetype alive; here it is a character's move, on the
+/// incarnation the exhibition duel actually fields.
+///
+/// ⚠ **v2's, not v3's.** The duel arena fields Robot v2 against the PCA, and v3
+/// carries the platform-fighter table instead. Two incarnations of one robot
+/// with different repertoires is what a lineage IS — the same reason v0 and v2
+/// keep their own silhouettes.
+pub fn theorem_chain_moveset() -> MovesetContract {
+    let volume = |offset: (f32, f32), half_extents: (f32, f32), damage: i32, knockback: f32| {
+        HitVolume {
+            shape: VolumeShape::Rect {
+                offset,
+                half_extents,
+            },
+            damage,
+            knockback,
+            // Flat, exactly as the row authored it. A migration that added growth
+            // on the way would be a retune wearing a migration's commit.
+            knockback_growth: 0.0,
+            launch_dir: None,
+            on_hit: None,
+            vfx: None,
+            hit_sfx: None,
+        }
+    };
+    let window = |start_s: f32, end_s: f32, tag: WindowTag, volumes: Vec<HitVolume>| MoveWindow {
+        start_s,
+        end_s,
+        tag,
+        volumes,
+        motion_scale: 1.0,
+        sustain_effect: None,
+    };
+    MovesetContract {
+        verbs: [("special".to_string(), "theorem_chain".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![MoveSpec {
+            id: "theorem_chain".to_string(),
+            clip: ClipBinding {
+                clip: "special".to_string(),
+                fallbacks: vec!["slash".to_string(), "idle".to_string()],
+            },
+            duration_s: 0.72,
+            windows: vec![
+                window(0.0, 0.14, WindowTag::Startup, Vec::new()),
+                // The light poke.
+                window(
+                    0.14,
+                    0.22,
+                    WindowTag::Active,
+                    vec![volume((30.0, 0.0), (26.0, 22.0), 2, 90.0)],
+                ),
+                window(0.22, 0.36, WindowTag::Recovery, Vec::new()),
+                // ⭐ the SECOND Active window on the SAME timeline — the whole
+                // point. A combo that needed two moves and a cancel would prove
+                // the runtime can chain presses, not that a move can be a combo.
+                window(
+                    0.36,
+                    0.46,
+                    WindowTag::Active,
+                    vec![volume((36.0, 0.0), (30.0, 24.0), 3, 160.0)],
+                ),
+                window(0.46, 0.72, WindowTag::Recovery, Vec::new()),
+            ],
+            events: vec![
+                MoveEvent {
+                    at_s: 0.14,
+                    kind: MoveEventKind::Sfx {
+                        cue: "player.theorem_1".to_string(),
+                    },
+                },
+                MoveEvent {
+                    at_s: 0.36,
+                    kind: MoveEventKind::Sfx {
+                        cue: "player.theorem_2".to_string(),
+                    },
+                },
+            ],
+            gates: MoveGates::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+        }],
     }
 }

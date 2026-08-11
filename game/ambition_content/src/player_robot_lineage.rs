@@ -317,6 +317,17 @@ fn definition_from(
             fly_toggle: true,
             ..ambition_platformer2d_core::AbilitySet::NONE
         });
+    // ⭐ **THE SIGNATURE PROJECTILE.** The robot fires a Hadouken, and that was a
+    // fact only an enemy ARCHETYPE row could state (ledger D83) — so a
+    // character-first robot fired an unadorned rock while the archetype road drew
+    // the real thing.
+    definition = definition.with_ranged_vfx("hadouken");
+    // ⭐ **THEOREM CHAIN, on the incarnation the duel fields.** v3 carries the
+    // platform-fighter table instead; two incarnations of one robot with
+    // different repertoires is what a lineage IS.
+    if incarnation.id == V2.id {
+        definition = definition.with_moveset(crate::player_robot_moveset::theorem_chain_moveset());
+    }
     if incarnation.id == V3.id {
         definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
     }

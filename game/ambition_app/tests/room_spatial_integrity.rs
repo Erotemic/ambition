@@ -138,10 +138,6 @@ fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
             "the fallback every unresolved brain key lands on",
         ),
         (
-            "player_robot",
-            "the protagonist body, spawned by the session",
-        ),
-        (
             "cellular_automaton_fighter",
             "the PCA boss body, spawned by the boss road",
         ),

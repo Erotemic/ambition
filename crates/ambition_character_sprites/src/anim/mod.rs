@@ -91,6 +91,18 @@ pub struct BodyAnimView {
     pub dead: bool,
     pub hit: bool,
     pub dodge_roll: bool,
+    /// **The AERIAL evade**, distinct from the ground roll on purpose: it picks
+    /// the `Roll` row, whose own fallback is `DodgeRoll`, so a sheet with one
+    /// curl still animates and a sheet with two shows two maneuvers. Jon's ask
+    /// on the air dodge was that animation be able to tell them apart, and a
+    /// shared flag would have made that impossible at the source.
+    pub air_dodge: bool,
+    /// Launched and helpless — the struck pose held through the arc.
+    pub tumbling: bool,
+    /// Prone on the floor after an unteched landing.
+    pub knocked_down: bool,
+    /// Standing up out of a knockdown or a tech (the invulnerable beat).
+    pub getting_up: bool,
     pub blink_in: bool,
     pub blocking: bool,
     /// Actor charge→thrust special (glider zoning); highest combat read after hit.
@@ -144,11 +156,23 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     if v.dead {
         return Death;
     }
-    if v.hit {
+    // ⭐ **the floor game outranks the hit flash.** A knocked-down body is still
+    // inside its hitstun, so reading `hit` first would draw the struck pose for
+    // the whole prone beat and the knockdown would be invisible.
+    if v.knocked_down {
+        return LandHard;
+    }
+    if v.getting_up {
+        return LandRecovery;
+    }
+    if v.hit || v.tumbling {
         return Hit;
     }
     if v.dodge_roll {
         return DodgeRoll;
+    }
+    if v.air_dodge {
+        return Roll;
     }
     if v.blink_in {
         return BlinkIn;
@@ -298,6 +322,12 @@ pub fn body_view_from_body(
         // The dodge↔ledge guard: a roll that is part of a ledge getup keeps the
         // dedicated `LedgeRoll` row instead of the grounded `DodgeRoll`.
         dodge_roll: facts.dodge_rolling && facts.ledge.is_none(),
+        air_dodge: facts.air_dodging,
+        tumbling: facts.tumbling && !facts.knocked_down,
+        knocked_down: facts.knocked_down,
+        // The getup beat is the invulnerable window that follows standing up or
+        // teching, and only while the body is NOT already prone again.
+        getting_up: facts.getup_invulnerable && !facts.knocked_down,
         blocking: shield.active && abilities.abilities.shield,
         blink_out: facts.blink_telegraph,
         ledge: ledge_read(facts.ledge),

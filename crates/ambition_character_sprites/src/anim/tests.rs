@@ -649,3 +649,59 @@ fn actors_animate_rich_cluster_abilities() {
         CharacterAnim::Hit,
     );
 }
+
+/// **The aerial evade does not draw the ground roll.** Jon's requirement on the
+/// air dodge was that its state be modelled *"explicitly enough that
+/// animation/debugging can distinguish it from a ground roll"* — this is the
+/// animation half. `Roll`'s own fallback is `DodgeRoll`, so a sheet with one
+/// curl still animates; a sheet with both shows two maneuvers.
+#[test]
+fn an_air_dodge_picks_its_own_row_and_falls_back_to_the_ground_roll() {
+    let mut view = BodyAnimView {
+        air_dodge: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&view), CharacterAnim::Roll);
+    assert_eq!(
+        CharacterAnim::Roll.base_pose(),
+        Some(CharacterAnim::DodgeRoll),
+        "a sheet without a roll row still curls"
+    );
+    view.dodge_roll = true;
+    assert_eq!(
+        pick_body_anim(&view),
+        CharacterAnim::DodgeRoll,
+        "the grounded roll outranks it when both are somehow set"
+    );
+}
+
+/// **A knocked-down body draws the knockdown, not the hit flash it is still
+/// inside.** Hitstun outlives the landing, so an ordering that read `hit` first
+/// would make the whole floor game invisible.
+#[test]
+fn the_floor_game_outranks_the_hit_row() {
+    let prone = BodyAnimView {
+        knocked_down: true,
+        hit: true,
+        tumbling: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&prone), CharacterAnim::LandHard);
+
+    let standing = BodyAnimView {
+        getting_up: true,
+        hit: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&standing), CharacterAnim::LandRecovery);
+
+    let flying = BodyAnimView {
+        tumbling: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        pick_body_anim(&flying),
+        CharacterAnim::Hit,
+        "a launched body holds the struck pose through its arc"
+    );
+}

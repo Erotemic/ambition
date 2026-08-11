@@ -25,7 +25,7 @@ pub mod validator;
 pub use binding::{
     qualify_in_provider, qualify_preset_like, resolve_initial_brain, AuthoredBrainContext,
     AutonomousSource, BossAutonomyId, BrainBinding, BrainBuildContext, BrainBuildError,
-    BrainPresetId, BrainProfileRef, HostileArchetypeId, PresetSource,
+    BrainPresetId, BrainPresetRef, HostileArchetypeId, PresetSource,
 };
 #[allow(
     unused_imports,
@@ -33,7 +33,7 @@ pub use binding::{
 )]
 #[cfg(feature = "content_pack")]
 pub use content_schema::{
-    character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRef, Character,
+    character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRefFacet, Character,
     ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY, CHARACTER_CATALOG_SCHEMA,
     CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
 };

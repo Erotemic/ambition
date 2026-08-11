@@ -74,7 +74,7 @@ impl std::fmt::Display for BrainPresetId {
 /// namespace resolves it; an id is the canonical key into `brain_presets`.
 ///
 /// ```text
-/// authored placement / definition   BrainProfileRef      "combatant"
+/// authored placement / definition   BrainPresetRef      "combatant"
 ///         ↓ qualify against the character's namespace
 /// resolved identity                 BrainPresetId        "hall::combatant"
 /// ```
@@ -88,9 +88,9 @@ impl std::fmt::Display for BrainPresetId {
 /// ⚠ not to be confused with `content_schema::BrainPresetRef`, which is a
 /// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct BrainProfileRef(pub String);
+pub struct BrainPresetRef(pub String);
 
-impl BrainProfileRef {
+impl BrainPresetRef {
     pub fn new(reference: impl Into<String>) -> Self {
         Self(reference.into())
     }
@@ -101,19 +101,19 @@ impl BrainProfileRef {
     }
 }
 
-impl From<&str> for BrainProfileRef {
+impl From<&str> for BrainPresetRef {
     fn from(s: &str) -> Self {
         Self(s.to_string())
     }
 }
 
-impl From<String> for BrainProfileRef {
+impl From<String> for BrainPresetRef {
     fn from(s: String) -> Self {
         Self(s)
     }
 }
 
-impl std::fmt::Display for BrainProfileRef {
+impl std::fmt::Display for BrainPresetRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
@@ -564,7 +564,7 @@ pub fn resolve_initial_brain(
     // and keeps the layering intact. The caller looks it up.
     //
     // ⚠ **a [`BrainPresetId`], and ALREADY RESOLVED.** Preparation qualifies the
-    // character's authored [`BrainProfileRef`] into its namespace once, so this
+    // character's authored [`BrainPresetRef`] into its namespace once, so this
     // parameter is a canonical key and is used verbatim below. An authored
     // PLACEMENT override is still a reference and is still qualified here — the
     // two arrive at different times, and only one of them has been prepared.

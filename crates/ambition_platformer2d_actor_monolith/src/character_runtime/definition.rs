@@ -328,10 +328,10 @@ pub struct CharacterDefinition {
     /// The type says which of the two it is: [`BrainProfileRef`] is what content
     /// writes, [`BrainPresetId`] is the canonical key it resolves to.
     ///
-    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainProfileRef
+    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainPresetRef
     /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
     pub default_brain_profile:
-        Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
+        Option<ambition_characters::actor::character_catalog::BrainPresetRef>,
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
@@ -652,7 +652,7 @@ impl CharacterDefinition {
     /// See [`Self::default_brain_profile`].
     pub fn with_default_brain_profile(
         mut self,
-        profile: impl Into<ambition_characters::actor::character_catalog::BrainProfileRef>,
+        profile: impl Into<ambition_characters::actor::character_catalog::BrainPresetRef>,
     ) -> Self {
         self.default_brain_profile = Some(profile.into());
         self
@@ -787,7 +787,7 @@ struct PreparedCharacterOverrides {
     /// unchanged — the catalog is not consulted, because the FOLD's job is to
     /// answer what a character IS and this is a default the resolver applies at
     /// spawn, where the placement's own override is also visible.
-    default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
+    default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetRef>,
     /// See [`CharacterDefinition::abilities`]. No catalog counterpart exists —
     /// a catalog row has never been able to state a body's verbs — so it
     /// carries straight through.
@@ -1135,7 +1135,7 @@ pub struct PreparedCharacterDefinition {
     /// `default_brain` in charge.
     ///
     /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
-    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainProfileRef
+    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainPresetRef
     pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,

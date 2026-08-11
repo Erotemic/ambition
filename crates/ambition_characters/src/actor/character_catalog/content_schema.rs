@@ -62,8 +62,17 @@ impl ContentKind for Character {
     const NOUN: &'static str = "character";
 }
 
-pub struct BrainPresetRef;
-impl ContentKind for BrainPresetRef {
+/// ⚠ **RENAMED from `BrainPresetRef` on 2026-08-11** — that name now belongs to
+/// the authored REFERENCE type in `binding`, which used to be called
+/// `BrainProfileRef` and collided with the new profile reference in
+/// `ambition_entity_catalog`. Three concepts, two names, one of them meaning
+/// something different in each place (Jon's second redirect, P3).
+///
+/// This one is a facet CHECKER: a zero-sized marker the content-pack validator
+/// resolves preset names through. The `Facet` suffix says which of the three it
+/// is at every use site.
+pub struct BrainPresetRefFacet;
+impl ContentKind for BrainPresetRefFacet {
     const SCHEMA: &'static str = BRAIN_PRESET_SCHEMA;
     const NOUN: &'static str = "brain preset";
 }
@@ -243,8 +252,10 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
                     )
                     .about(preset_id(facet, CHARACTER_SCHEMA, name))
                     .at_field("display_name")
-                    .fix("give one of them its own name — a display name is how a player \
-                          identifies a character, so two owners is a conflict, not a duplicate"),
+                    .fix(
+                        "give one of them its own name — a display name is how a player \
+                          identifies a character, so two owners is a conflict, not a duplicate",
+                    ),
             );
         }
     }
@@ -264,7 +275,9 @@ fn canonical<T: serde::Serialize>(value: &T) -> String {
 /// This is the runtime's load path. `ambition_content` composes its cast from
 /// here rather than from its own `parse_catalog`, so the bytes the compiler
 /// validated and the bytes the game runs are the same read.
-pub fn lowered_catalog(pack: &ambition_content_pack::PreparedContentPack) -> Option<&CharacterCatalogData> {
+pub fn lowered_catalog(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Option<&CharacterCatalogData> {
     pack.lowered::<CharacterCatalogData>(&SchemaId::new(CHARACTER_CATALOG_SCHEMA))
 }
 
@@ -285,8 +298,8 @@ pub fn character_catalog_schema() -> SchemaRegistration {
 mod tests {
     use super::*;
     use ambition_content_pack::{
-        AssetsUnchecked, CompileStage, ContentPackDraft, ContentPackManifest, FixedAssets,
-        ModuleNamespace, PackId, PackVersion, SchemaRegistry, SourceDeclaration, compile,
+        compile, AssetsUnchecked, CompileStage, ContentPackDraft, ContentPackManifest, FixedAssets,
+        ModuleNamespace, PackId, PackVersion, SchemaRegistry, SourceDeclaration,
     };
 
     const SMALL_CATALOG: &str = r#"(
@@ -391,7 +404,7 @@ mod tests {
         assert_eq!(pack.resolved_references.len(), 2);
         assert!(
             pack.resolve::<Character>("mole").is_some()
-                && pack.resolve::<BrainPresetRef>("peaceful").is_some()
+                && pack.resolve::<BrainPresetRefFacet>("peaceful").is_some()
         );
         assert!(
             pack.resolve::<Character>("peaceful").is_none(),
@@ -404,7 +417,10 @@ mod tests {
     fn a_character_naming_a_preset_that_does_not_exist_is_refused_as_a_preset() {
         let draft = draft(
             "missing_preset",
-            &SMALL_CATALOG.replace(r#"default_brain: "peaceful""#, r#"default_brain: "peacful""#),
+            &SMALL_CATALOG.replace(
+                r#"default_brain: "peaceful""#,
+                r#"default_brain: "peacful""#,
+            ),
         );
         let failure = compile(&draft, &registry(), &AssetsUnchecked).expect_err("refused");
         assert_eq!(failure.stage, CompileStage::ReferenceResolution);

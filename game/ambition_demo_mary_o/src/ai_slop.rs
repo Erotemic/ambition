@@ -82,40 +82,6 @@ pub struct AiSlop;
 /// The ROW is authored with no outer braces, so it can register on its own for a
 /// single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
 /// per provider, since assembly rejects a second from the same provider.
-/// ⚠ **RESTORED 2026-08-11.** AI Slop is a CHARACTER and says all of this
-/// itself; the row survives only because a multi-game shell host publishes an
-/// EMPTY prepared cast at enemy-spawn time, so every placement in those
-/// compositions falls back. See [`crate::snake::SNAKE_ROSTER_ROWS`] for the
-/// measurement.
-pub(crate) const AI_SLOP_ROSTER_ROWS: &str = r#"
-    "mary_o_ai_slop": (
-        max_health: 1,
-        run_speed: 42.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-"#;
-
-/// Register the demo's AI Slop roster fragment. Shares the Mary-O provider id so its
-/// brain key namespaces under this experience.
-pub fn register_ai_slop_roster(app: &mut App) {
-    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(
-            crate::provider::MARY_O_EXPERIENCE,
-            None::<String>,
-            &format!("{{{AI_SLOP_ROSTER_ROWS}}}"),
-        )
-        .expect("Mary-O AI Slop roster fragment should be valid"),
-    );
-}
 
 /// **Ensure the `ai_slop` sheet is drawable**, keyed by BOTH its catalog id and its
 /// display name, so the enemy render's `npc_asset_for_name` finds it instead of

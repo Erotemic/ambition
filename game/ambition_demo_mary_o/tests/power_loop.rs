@@ -311,6 +311,23 @@ fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
 /// The durations are compared against the sheets, not against constants: the
 /// generator owns the frame tables, and a test that copied them would agree with
 /// a stale demo and disagree with the art.
+/// The demo's hostile roster fragment, as production registers it.
+///
+/// ⚠ a fixture that registered ONE enemy's rows was fine while each enemy had
+/// its own fragment; assembly rejects a second fragment from one provider, so
+/// the demo folds them into one and so does this.
+fn mary_o_roster_fragment(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+    app.register_character_roster_fragment(
+        CharacterRosterFragment::from_ron(
+            ambition_demo_mary_o::provider::MARY_O_EXPERIENCE,
+            None::<String>,
+            &ambition_demo_mary_o::mary_o_roster_ron(),
+        )
+        .expect("Mary-O roster fragment should be valid"),
+    );
+}
+
 #[test]
 fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     let mut game = Loop::new();
@@ -662,11 +679,13 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // Mary-O's OWN Solid Snake archetype, registered exactly as the demo registers it.
-    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
-    // fragment below carries none — it is registered only because the
-    // `CharacterRoster` resource must exist for the spawn path to ask, and the
-    // answer for an unmigrated key is still the fallback.
-    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, and so is the
+    // per-enemy fragment that carried it. The demo's REMAINING fragment (the
+    // plane swarms, which belong to another provider) is registered here for
+    // the same reason it always was — the `CharacterRoster` resource must exist
+    // for the spawn path to ask, and the answer for an unmigrated key is still
+    // the fallback.
+    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
@@ -832,11 +851,13 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
-    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
-    // fragment below carries none — it is registered only because the
-    // `CharacterRoster` resource must exist for the spawn path to ask, and the
-    // answer for an unmigrated key is still the fallback.
-    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, and so is the
+    // per-enemy fragment that carried it. The demo's REMAINING fragment (the
+    // plane swarms, which belong to another provider) is registered here for
+    // the same reason it always was — the `CharacterRoster` resource must exist
+    // for the spawn path to ask, and the answer for an unmigrated key is still
+    // the fallback.
+    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -985,11 +1006,13 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
-    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
-    // fragment below carries none — it is registered only because the
-    // `CharacterRoster` resource must exist for the spawn path to ask, and the
-    // answer for an unmigrated key is still the fallback.
-    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, and so is the
+    // per-enemy fragment that carried it. The demo's REMAINING fragment (the
+    // plane swarms, which belong to another provider) is registered here for
+    // the same reason it always was — the `CharacterRoster` resource must exist
+    // for the spawn path to ask, and the answer for an unmigrated key is still
+    // the fallback.
+    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -1136,11 +1159,13 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
-    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
-    // fragment below carries none — it is registered only because the
-    // `CharacterRoster` resource must exist for the spawn path to ask, and the
-    // answer for an unmigrated key is still the fallback.
-    ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, and so is the
+    // per-enemy fragment that carried it. The demo's REMAINING fragment (the
+    // plane swarms, which belong to another provider) is registered here for
+    // the same reason it always was — the `CharacterRoster` resource must exist
+    // for the spawn path to ask, and the answer for an unmigrated key is still
+    // the fallback.
+    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);

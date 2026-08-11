@@ -356,21 +356,6 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// walkers became generic stand-still bodies. The registry being empty there is
 /// its own defect and is recorded as one; this row is what keeps the demo
 /// correct until that is fixed, at which point it goes.
-pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
-    "mary_o_snake": (
-        max_health: 1,
-        run_speed: 46.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-"#;
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.
@@ -569,24 +554,15 @@ fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_s
             template: CharacterBrainTemplate::Wanderer,
             aggro_radius: 0.0,
             attack_range: 0.0,
+            // ⭐ **the deleted row's own pace.** A snake PACES at full speed —
+            // it is walking its line, not patrolling — and `BrainProfile`'s
+            // default is the ordinary half-speed amble. Without this the
+            // fragment's deletion would have halved every snake in the demo.
+            patrol_effort: 1.0,
             ..Default::default()
         });
     definition.vitals.max_health = Some(1);
     app.register_character(definition);
-}
-
-/// Register the demo's hostile roster fragment. Shares the Mary-O provider id so
-/// its brain key namespaces under this experience.
-pub fn register_snake_roster(app: &mut App) {
-    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(
-            crate::provider::MARY_O_EXPERIENCE,
-            None::<String>,
-            &format!("{{{SNAKE_ROSTER_ROWS}}}"),
-        )
-        .expect("Mary-O snake roster fragment should be valid"),
-    );
 }
 
 // ⭐ `SNAKE_TILE_COLUMNS` is GONE. Where a snake patrols is authored.

@@ -487,13 +487,18 @@ const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 /// ⚠ one fragment per provider is not a style choice: assembly REJECTS a second
 /// from the same provider, which is why every enemy's rows fold here rather than
 /// registering themselves.
-pub(crate) fn mary_o_roster_ron() -> String {
-    format!(
-        "{{{}{}{}}}",
-        snake::SNAKE_ROSTER_ROWS,
-        ai_slop::AI_SLOP_ROSTER_ROWS,
-        plane::SNAKES_ON_A_PLANE_ROSTER_ROWS
-    )
+pub fn mary_o_roster_ron() -> String {
+    // ⭐ **the snake's and the slop's rows are GONE** (2026-08-11): both are
+    // complete registered characters, all twenty of their placements name them,
+    // and their `respawn: OnRoomReenter` moved to those placements — so the
+    // fragment carries only what standalone Mary-O still cannot get any other
+    // way.
+    //
+    // ⚠ the PLANE SWARMS stay, and the reason is ownership rather than
+    // laziness: they are AMBITION's characters, registered by that provider, so
+    // a standalone Mary-O build has no cast entry for them and falls back to
+    // these rows.
+    format!("{{{}}}", plane::SNAKES_ON_A_PLANE_ROSTER_ROWS)
 }
 
 pub fn level_1_1() -> RoomSpec {

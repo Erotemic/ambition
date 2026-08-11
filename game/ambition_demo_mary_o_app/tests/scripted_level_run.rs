@@ -494,6 +494,10 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
                 brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),
+                // No authored character: this request predates the
+                // character-first spawn road and names only a brain, which is
+                // exactly the case the road still has to serve.
+                character: None,
             },
         });
     settle(&mut app);

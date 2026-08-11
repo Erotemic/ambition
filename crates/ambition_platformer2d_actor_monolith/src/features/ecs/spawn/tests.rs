@@ -323,7 +323,9 @@ fn enemy_default_brain_picks_per_archetype_template() {
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
-    let shark = make_enemy("burning_flying_shark");
+    // ⚠ the shark's row is deleted; the engine's own rideable fixture carries
+    // the ChargeCrash template this pins.
+    let shark = make_enemy("fixture_mount");
     assert!(matches!(
         enemy_default_brain(&shark),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })

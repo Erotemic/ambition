@@ -282,8 +282,8 @@ impl RoomContentStagingRegistry {
 mod tests {
     use super::*;
     use ambition_combat::components::ActorFaction;
-    use ambition_platformer2d_core as ae;
     use ambition_entity_catalog::placements::CharacterBrain;
+    use ambition_platformer2d_core as ae;
 
     fn request(id: &str) -> SpawnActorRequest {
         SpawnActorRequest {
@@ -295,6 +295,7 @@ mod tests {
             grudge_against: None,
             kind: crate::features::SpawnActorKind::Enemy {
                 brain: CharacterBrain::Custom("fixture".to_string()),
+                character: None,
             },
         }
     }

@@ -81,6 +81,32 @@ impl Default for CharacterLocomotion {
     }
 }
 
+/// **What this body can be RIDDEN as, and what it can ride** (ADR 0020).
+///
+/// ⭐ **a character fact in Jon's own list** — *"mount/pilot body capabilities"*
+/// — and the last group of the shark family's row that had nowhere to go. A
+/// shark is rideable because of what a shark IS, and a pirate can board one for
+/// the same kind of reason; neither is a decision the placement or the driver
+/// makes.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CharacterMount {
+    /// The mount CLASS this body offers when ridden. `None` = not a mount.
+    ///
+    /// Content-defined (`"shark"`, `"mech"`): a rider may board this body only
+    /// if its own [`Self::pilotable_classes`] contains this string.
+    #[serde(default)]
+    pub class: Option<String>,
+    /// The mount classes this body may PILOT. Empty = it rides nothing.
+    #[serde(default)]
+    pub pilotable_classes: Vec<String>,
+    /// Damage this MOUNT splashes onto its rider when it dies. `None` = the
+    /// rider drops unharmed, which is the ordinary dismount; `Some(n)` is a
+    /// mech exploding under whoever was driving it.
+    #[serde(default)]
+    pub death_splash: Option<i32>,
+}
+
 /// **Touching this body hurts.**
 ///
 /// Absent (`None` on a definition) means it does not, which is the ordinary

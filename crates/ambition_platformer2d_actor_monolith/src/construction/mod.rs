@@ -1212,7 +1212,7 @@ pub fn mount_capabilities_of(
         // A pickup is neither rideable nor a pilot.
         ActorConstructionParams::GroundItem { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::StagedActor(request) => match &request.kind {
-            SpawnActorKind::Enemy { brain } => {
+            SpawnActorKind::Enemy { brain, .. } => {
                 let spec = roster.spec_for_brain(brain);
                 PlannedMountCapabilities {
                     mount_class: spec.mount_class.clone(),
@@ -1525,7 +1525,7 @@ pub fn staged_actor_requests(
         // (The pre-`e164f22` staged path routed every enemy through
         // `spawn_enemy_with_faction_into`, which no longer spawns hands, so a
         // staged giant lost its rig entirely.)
-        if let SpawnActorKind::Enemy { brain } = &request.kind {
+        if let SpawnActorKind::Enemy { brain, .. } = &request.kind {
             let spec = roster.spec_for_brain(brain);
             if crate::features::spec_is_limbed_host(&spec) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);

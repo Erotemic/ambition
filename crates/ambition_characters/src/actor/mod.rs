@@ -18,7 +18,7 @@ pub mod control;
 pub mod death_traits;
 pub use death_traits::CharacterDeathTraits;
 pub mod intrinsics;
-pub use intrinsics::{CharacterLocomotion, ContactDamage};
+pub use intrinsics::{CharacterLocomotion, CharacterMount, ContactDamage};
 pub mod worn;
 pub use worn::WornCharacter;
 

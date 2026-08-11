@@ -65,6 +65,10 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
+                // ⚠ still the ARCHETYPE road: the PCA has not migrated, so its
+                // body comes from that row. Naming the character here before it
+                // authors one would build a fighter with no melee.
+                character: None,
             },
         },
         SpawnActorRequest {
@@ -89,6 +93,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "player_robot".to_string(),
                 ),
+                character: None,
             },
         },
     ]

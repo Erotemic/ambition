@@ -78,10 +78,21 @@ pub enum SpawnActorKind {
         brain: ambition_entity_catalog::placements::BossBrain,
         overrides: BossOverrides,
     },
-    /// A hostile enemy, resolved through `spec_for_brain` (brain key →
-    /// `ArchetypeSpec`) — the same path a room `EnemySpawn` takes.
+    /// A hostile enemy — the same path a room `EnemySpawn` takes.
     Enemy {
         brain: ambition_entity_catalog::placements::CharacterBrain,
+        /// **WHICH CHARACTER this instantiates**, when the caller knows.
+        ///
+        /// ⭐ **a programmatic spawn may name a character now** (campaign
+        /// P1.12). It could only name a brain key, so code that wanted a
+        /// specific creature had to name the ARCHETYPE that happened to
+        /// describe it — and when that creature migrated, the request silently
+        /// resolved the `combatant` fallback instead. A shark spawned this way
+        /// stopped being rideable and started falling out of the sky, measured
+        /// end-to-end by `player_pilots_mount_end_to_end`.
+        ///
+        /// `None` keeps the archetype road, which is every existing caller.
+        character: Option<ambition_entity_catalog::CharacterId>,
     },
 }
 
@@ -208,7 +219,7 @@ pub(crate) fn spawn_staged_actor(
     // mint a giant's host + two hand rows — refuse a giant-class spec like
     // every other runtime origin, instead of silently producing a handless
     // host.
-    if let SpawnActorKind::Enemy { brain } = &req.kind {
+    if let SpawnActorKind::Enemy { brain, .. } = &req.kind {
         if reject_runtime_giant(
             &character_roster.spec_for_brain(brain),
             "programmatic staged actor",
@@ -261,7 +272,7 @@ pub(crate) fn spawn_staged_actor_into(
                 overrides,
             );
         }
-        SpawnActorKind::Enemy { brain } => {
+        SpawnActorKind::Enemy { brain, character } => {
             // Defense-in-depth for the RECIPE path only: the planner expands a
             // giant-class staged actor into host + hand rows, so a giant spec
             // reaching this arm means a planner regression. The programmatic
@@ -276,8 +287,10 @@ pub(crate) fn spawn_staged_actor_into(
             ) {
                 return;
             }
+            let mut payload = crate::rooms::EnemySpawnSpec::new(brain.clone());
+            payload.character_id = character.clone();
             let authored =
-                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
+                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
             // Staged outside the authored RoomSpec lists: mark it so the
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
@@ -1397,6 +1410,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
         enemy.caps = crate::combat::CombatCapabilities::from(
             &definition.death_traits.clone().unwrap_or_default(),
         );
+        // Read BEFORE the seed is consumed: the saddle offset is measured off
+        // the body this construction actually resolved.
+        let body_size = enemy.kin.size;
         spawn_solo_enemy_into(
             commands,
             catalog,
@@ -1416,7 +1432,22 @@ pub(crate) fn spawn_enemy_with_faction_into(
             .insert(ambition_characters::actor::WornCharacter::new(
                 definition.id.as_str(),
             ));
-        attach_mount_role(commands, root, &spec);
+        // **THE MOUNT ROLE FROM THE CHARACTER** (ADR 0020). A shark is rideable
+        // because of what a shark IS; the saddle is measured off the body this
+        // construction actually resolved rather than off an archetype's
+        // `default_size`, which is the same silhouette by a shorter road.
+        match definition.mount.as_ref() {
+            Some(mount) => attach_mount_role_from(
+                commands,
+                root,
+                mount.class.as_deref(),
+                Some(body_size),
+                mount.death_splash,
+                definition.vitals.mass.unwrap_or(1.0),
+                &mount.pilotable_classes,
+            ),
+            None => attach_mount_role(commands, root, &spec),
+        }
         return;
     }
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
@@ -1661,37 +1692,58 @@ fn attach_mount_role(
     entity: bevy::ecs::entity::Entity,
     spec: &super::super::enemies::ArchetypeSpec,
 ) {
-    if let Some(class) = &spec.mount_class {
+    attach_mount_role_from(
+        commands,
+        entity,
+        spec.mount_class.as_deref(),
+        spec.default_size,
+        spec.mount_death_splash,
+        spec.mass,
+        &spec.pilotable_mount_classes,
+    );
+}
+
+/// **The mount role, from values rather than from an archetype.**
+///
+/// ⭐ the same function the archetype road uses, reached with the pieces spelled
+/// out — so a CHARACTER that states it is rideable gets a `Mountable` without an
+/// archetype existing to state it (D73 group A: the shark family).
+#[allow(clippy::too_many_arguments)]
+fn attach_mount_role_from(
+    commands: &mut Commands,
+    entity: bevy::ecs::entity::Entity,
+    mount_class: Option<&str>,
+    default_size: Option<ae::Vec2>,
+    death_splash: Option<i32>,
+    mass: f32,
+    pilotable: &[String],
+) {
+    if let Some(class) = mount_class {
         // Saddle offset heuristic: the rider sits just above the mount's top.
         // Feel-tunable; a mount that wants a precise saddle can grow a field.
-        let mount_size = spec.default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
+        let mount_size = default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
         let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
         commands.entity(entity).insert((
             super::Mountable {
                 rider_offset,
-                class: super::MountClass(class.clone()),
+                class: super::MountClass(class.to_string()),
                 control_grant: super::ControlGrant::Total,
-                death_impact: match spec.mount_death_splash {
+                death_impact: match death_splash {
                     Some(amount) => super::MountDeathImpact::Splash(amount),
                     None => super::MountDeathImpact::Dismount,
                 },
             },
             // A heavy mount keeps the pair's center of gravity near itself, so
             // the lighter rider orbits it under a gravity flip (sync reads Mass).
-            super::Mass(spec.mass),
+            super::Mass(mass),
         ));
     }
-    if !spec.pilotable_mount_classes.is_empty() {
+    if !pilotable.is_empty() {
         commands.entity(entity).insert((
             super::CanPilot {
-                classes: spec
-                    .pilotable_mount_classes
-                    .iter()
-                    .cloned()
-                    .map(super::MountClass)
-                    .collect(),
+                classes: pilotable.iter().cloned().map(super::MountClass).collect(),
             },
-            super::Mass(spec.mass),
+            super::Mass(mass),
         ));
     }
 }
@@ -2341,6 +2393,7 @@ mod runtime_giant_refusal_tests {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "test_giant".to_string(),
                 ),
+                character: None,
             },
         });
         app.update();

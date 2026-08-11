@@ -426,6 +426,10 @@ pub struct CharacterDefinition {
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **What this body can be RIDDEN as, and what it can ride** (ADR 0020).
+    /// `None` = neither. See
+    /// [`ambition_characters::actor::CharacterMount`].
+    pub mount: Option<ambition_characters::actor::CharacterMount>,
     /// **Deep-dream visual jitter seed** — this character's participation in the
     /// psychedelic shader pass, and how it differs from its neighbours.
     ///
@@ -466,6 +470,7 @@ impl CharacterDefinition {
             locomotion: None,
             contact_damage: None,
             autonomous_profile: None,
+            mount: None,
             dream_seed: None,
         }
     }
@@ -482,6 +487,13 @@ impl CharacterDefinition {
         locomotion: ambition_characters::actor::CharacterLocomotion,
     ) -> Self {
         self.locomotion = Some(locomotion);
+        self
+    }
+
+    /// Author what this character can ride and be ridden as. See
+    /// [`Self::mount`].
+    pub fn with_mount(mut self, mount: ambition_characters::actor::CharacterMount) -> Self {
+        self.mount = Some(mount);
         self
     }
 
@@ -662,6 +674,8 @@ struct PreparedCharacterOverrides {
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     /// See [`CharacterDefinition::dream_seed`]. Carried.
     dream_seed: Option<f32>,
+    /// See [`CharacterDefinition::mount`]. Carried.
+    mount: Option<ambition_characters::actor::CharacterMount>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -834,6 +848,8 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::dream_seed`] — presentation, true of every
     /// instance, and until now reachable only through an archetype row.
     pub dream_seed: Option<f32>,
+    /// **Mount and pilot capabilities.** See [`CharacterDefinition::mount`].
+    pub mount: Option<ambition_characters::actor::CharacterMount>,
     /// The autonomous profile this character normally runs, if it named one —
     /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
     /// [`BrainProfileRef`] the definition carries.
@@ -1300,6 +1316,7 @@ fn prepare_character(
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
         dream_seed: definition.dream_seed,
+        mount: definition.mount,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1378,6 +1395,7 @@ fn finalize_character(
         contact_damage,
         autonomous_profile,
         dream_seed,
+        mount,
         moveset,
         action_set,
         motion_model,
@@ -1501,6 +1519,7 @@ fn finalize_character(
         contact_damage,
         autonomous_profile,
         dream_seed,
+        mount,
         authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to

@@ -537,47 +537,6 @@
     ),
     // Aerial shark (dismounted form). `chase_effort` scales the steering
     // convergence rate, not a ground sprint.
-    "burning_flying_shark": (
-        respawn: OnRoomReenter,
-        max_health: 6,
-        run_speed: 260.0,
-        patrol_effort: 0.4231,
-        chase_effort: 1.0,
-        aggro_radius: 1200.0,
-        attack_range: 200.0,
-        contact_strength: 1.10,
-        damage_amount: 2,
-        is_aerial: Some(true),
-        // A riderless shark's fast charge that gets stopped dead by a
-        // wall detonates the shark (#98).
-        charge_crash_explodes: true,
-        // Shark body — scaled down from the original (108, 96) which
-        // dominated arenas and dwarfed every other enemy. The render
-        // size is also driven by this field (see actors.rs sprite
-        // path), so this controls both the collision footprint and
-        // the on-screen shark silhouette. The rider visual scales
-        // off the shark's render height in pirate_rider.rs so the
-        // composite stays proportional.
-        default_size: Some((126.0, 52.0)),
-        // This archetype can be ridden (ADR 0020): its mount class is
-        // "shark"; only riders whose `pilotable_mount_classes` include
-        // "shark" may board it. It splashes no death damage (a dead shark
-        // drops its rider unharmed — the default Dismount).
-        mount_class: Some("shark"),
-        // The shark is far heavier than its rider, so the mount+rider center of
-        // gravity sits near the shark and the lighter pirate orbits it when the
-        // pair rolls under a gravity flip (default actor mass is 1.0).
-        mass: 6.0,
-        brain_template: ChargeCrash,
-        melee: Some(Bite((
-            windup_s: 0.18,
-            active_s: 0.10,
-            recover_s: 0.30,
-            damage: 2,
-            reach_px: 42.0,
-        ))),
-        move_style: Float,
-    ),
     // ADR 0020 mount actor: the GIANT GNU that GNU-ton rides on (G2). A
     // brainless, STATIONARY carried body — no attack, no contact damage, its
     // OWN big HP pool, and heavy `mass` so the pair's center of gravity sits on

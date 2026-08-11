@@ -417,6 +417,10 @@ fn a_definition_carries_no_controller_binding() {
         // Presentation, like the sheet: what this creature LOOKS like is a
         // property of the creature, and no controller changes it.
         dream_seed: _,
+        // What this body can be ridden as and what it can ride (ADR 0020) — a
+        // capability of the creature, and one no controller changes: a possessed
+        // shark is still a shark somebody can sit on.
+        mount: _,
     } = def;
 }
 

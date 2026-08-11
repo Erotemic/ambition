@@ -51,6 +51,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".into(),
             ),
+            character: None,
         },
     }
 }
@@ -87,7 +88,7 @@ fn prepare(
         staging,
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::features::enemies::test_roster(),
+        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(recipes, ae::ContentEpoch(4)),
     )
@@ -632,7 +633,7 @@ fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    world.insert_resource(crate::features::enemies::test_roster());
+    world.insert_resource(crate::features::enemies::fixture_roster_with_mount());
     world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
 }
@@ -914,7 +915,7 @@ fn every_parameter_variant_constructs_its_root() {
             "hall",
             "prov",
             &[staged_enemy("staged", None)],
-            &crate::features::enemies::test_roster(),
+            &crate::features::enemies::fixture_roster_with_mount(),
         )
         .pop()
         .expect("one request"),
@@ -954,12 +955,12 @@ fn every_parameter_variant_constructs_its_root() {
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    world.insert_resource(crate::features::enemies::test_roster());
+    world.insert_resource(crate::features::enemies::fixture_roster_with_mount());
     let services = ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::features::enemies::test_roster(),
+            &crate::features::enemies::fixture_roster_with_mount(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
     };
@@ -1123,7 +1124,7 @@ fn every_parameter_variant_matches_its_descriptor() {
         "hall",
         "prov",
         &[staged_enemy("staged", None)],
-        &crate::features::enemies::test_roster(),
+        &crate::features::enemies::fixture_roster_with_mount(),
     )
     .pop()
     .expect("one request");
@@ -1342,7 +1343,7 @@ fn test_services() -> ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::features::enemies::test_roster(),
+            &crate::features::enemies::fixture_roster_with_mount(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
     }
@@ -1835,7 +1836,7 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
 fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstructionError> {
     preflight_actor_relations(
         &requests,
-        &crate::features::enemies::test_roster(),
+        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
     )
 }
@@ -1885,7 +1886,7 @@ fn a_limb_with_two_hosts_is_rejected() {
 fn two_riders_on_one_mount_are_rejected() {
     let mut rider_a = minion_request("rider_a", "pirate_raider");
     let mut rider_b = minion_request("rider_b", "pirate_raider");
-    let mount = minion_request("shark", "burning_flying_shark");
+    let mount = minion_request("shark", "fixture_mount");
     rider_a.relations.push(RelationRequest {
         to: mount.sim_id.clone(),
         relation: ActorRelation::Mount,
@@ -1904,8 +1905,8 @@ fn two_riders_on_one_mount_are_rejected() {
 #[test]
 fn one_rider_on_two_mounts_is_rejected() {
     let mut rider = minion_request("rider", "pirate_raider");
-    let mount_a = minion_request("shark_a", "burning_flying_shark");
-    let mount_b = minion_request("shark_b", "burning_flying_shark");
+    let mount_a = minion_request("shark_a", "fixture_mount");
+    let mount_b = minion_request("shark_b", "fixture_mount");
     rider.relations.push(RelationRequest {
         to: mount_a.sim_id.clone(),
         relation: ActorRelation::Mount,
@@ -1973,7 +1974,7 @@ fn a_mount_relation_onto_a_non_mount_is_rejected() {
 #[test]
 fn a_compatible_rider_and_mount_pass_preflight() {
     let mut rider = minion_request("rider", "pirate_raider");
-    let mount = minion_request("shark", "burning_flying_shark");
+    let mount = minion_request("shark", "fixture_mount");
     rider.relations.push(RelationRequest {
         to: mount.sim_id.clone(),
         relation: ActorRelation::Mount,
@@ -1999,7 +2000,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
 /// authoritative roots no plan named — the last legacy family.
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
 
     // One host + two hands.
@@ -2040,7 +2041,7 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 /// sees no violation — no legacy warning, because the hands are owned rows now.
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
@@ -2082,7 +2083,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 /// one of them can be rebuilt alone — the closure holds the cluster together.
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
@@ -2127,6 +2128,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+            character: None,
         },
     }
 }
@@ -2137,7 +2139,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
 /// no longer spawns hands — so a staged giant was a handless host.
 #[test]
 fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = staged_actor_requests("hall", "prov", &[staged_giant("gnu")], &roster);
 
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -2176,7 +2178,7 @@ fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
 /// The giant expansion does not leak onto ordinary staged actors.
 #[test]
 fn a_staged_non_giant_stays_a_single_staged_actor_row() {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = staged_actor_requests("hall", "prov", &[staged_enemy("npc", None)], &roster);
     assert_eq!(requests.len(), 1);
     assert!(matches!(
@@ -2270,7 +2272,7 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
 fn a_runtime_minion_giant_is_refused_before_it_spawns() {
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let root = {
         let mut commands = world.commands();
         crate::features::ecs::spawn_runtime_minion(
@@ -2303,7 +2305,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
 fn an_encounter_wave_giant_is_refused_before_it_spawns() {
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     {
         let mut commands = world.commands();
         crate::features::spawn_encounter_mob(
@@ -2342,7 +2344,7 @@ fn committed_giant() -> (
     ConstructionReceipt,
     TransactionBaseline,
 ) {
-    let roster = crate::features::enemies::test_roster();
+    let roster = crate::features::enemies::fixture_roster_with_mount();
     let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
@@ -2572,7 +2574,7 @@ fn mounted_pair_room() -> crate::rooms::RoomSpec {
         "sky_shark",
         "Burning Flying Shark",
         ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("burning_flying_shark".into()),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
     ));
     room.enemy_spawns.push(crate::rooms::Authored::new(
         "sky_rider",
@@ -3033,7 +3035,7 @@ fn prepare_with_placements(
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::features::enemies::test_roster(),
+        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4)),
     )
@@ -3262,6 +3264,7 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "medium_strikr".into(),
                 ),
+                character: None,
             };
             vec![enemy]
         })

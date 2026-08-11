@@ -228,8 +228,13 @@ impl RoomFeatureConstructionPlan {
         let mut binding_report = bindings.sweep(room);
         binding_report.absorb(bindings.sweep_characters(content_requests.iter().filter_map(
             |request| match &request.kind {
+                // ⚠ a staged spawn that NAMES A CHARACTER is not asking the
+                // roster for a body, so sweeping its brain key against the
+                // roster would refuse a request that is correct. Only the
+                // archetype-road requests are swept.
                 super::spawn_actors::SpawnActorKind::Enemy {
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(archetype),
+                    character: None,
                 } => Some((
                     archetype.clone(),
                     format!("staged spawn `{}`", request.id),

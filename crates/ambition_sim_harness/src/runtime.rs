@@ -803,6 +803,25 @@ impl Platformer2dSimHarness {
         half_size: (f32, f32),
         brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
     ) {
+        self.spawn_enemy_character_at(id, name, pos, half_size, brain, None);
+    }
+
+    /// **Spawn a staged enemy that NAMES its character.**
+    ///
+    /// ⭐ the harness half of campaign P1.12: a programmatic spawn could only
+    /// name a brain KEY, so a fixture that wanted a specific creature named the
+    /// archetype describing it — and when that creature migrated to a character,
+    /// the fixture silently got the `combatant` fallback. A shark spawned that
+    /// way stopped being rideable and fell out of the sky.
+    pub fn spawn_enemy_character_at(
+        &mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        pos: (f32, f32),
+        half_size: (f32, f32),
+        brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
+        character: Option<&str>,
+    ) {
         self.app.world_mut().write_message(
             ambition_platformer2d::actors::features::SpawnActorRequest {
                 id: id.into(),
@@ -811,7 +830,11 @@ impl Platformer2dSimHarness {
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
                 faction: ambition_platformer2d::actors::features::ActorFaction::Enemy,
                 grudge_against: None,
-                kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy { brain },
+                kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy {
+                    brain,
+                    character: character
+                        .map(ambition_platformer2d::entity_catalog::CharacterId::from),
+                },
             },
         );
         self.run_rollback_setup_frame()

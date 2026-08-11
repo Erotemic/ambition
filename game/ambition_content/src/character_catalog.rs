@@ -216,6 +216,8 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     "npc_snakes_on_a_cartesian_plane",
     // The Hall's slop, which is also the sandbox's placed enemy.
     "npc_ai_slop",
+    // The first MOUNT to become a character (ADR 0020).
+    "npc_burning_flying_shark",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -475,6 +477,65 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(1);
+            definition
+        }
+        // **The burning flying shark** — the first MOUNT to become a character.
+        //
+        // ⭐ its rideability is a character fact (ADR 0020, and Jon's own list
+        // puts "mount/pilot body capabilities" under the definition): a shark is
+        // rideable because of what a shark IS, not because of where it was
+        // placed or who is steering it. `mass: 6.0` is the other half — the pair
+        // rolls around a centre of gravity near the heavier body — and it rides
+        // on `vitals`, which already carried mass.
+        //
+        // ⚠ `is_aerial` and `default_size` do NOT come across: the catalog says
+        // `body_kind: Floating`, and a named character sizes its body to its
+        // authored sprite, which is the same silhouette the row was restating.
+        "npc_burning_flying_shark" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 260.0,
+                    move_style: MoveStyleSpec::Float,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 1.10,
+                    amount: 2,
+                })
+                .with_death_traits(CharacterDeathTraits {
+                    // A riderless shark's fast charge, stopped dead by a wall,
+                    // detonates the shark.
+                    charge_crash_explodes: true,
+                    ..Default::default()
+                })
+                .with_mount(ambition_characters::actor::CharacterMount {
+                    class: Some("shark".to_string()),
+                    // It rides nothing, and it splashes nothing on death: a dead
+                    // shark drops its rider unharmed.
+                    ..Default::default()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    // Dive at the target, crash, recover.
+                    template: CharacterBrainTemplate::ChargeCrash,
+                    aggro_radius: 1200.0,
+                    attack_range: 200.0,
+                    ..Default::default()
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Bite(
+                        ambition_characters::brain::BiteSpec {
+                            windup_s: 0.18,
+                            active_s: 0.10,
+                            recover_s: 0.30,
+                            damage: 2,
+                            reach_px: 42.0,
+                        },
+                    )),
+                    move_style: MoveStyleSpec::Float,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(6);
+            definition.vitals.mass = Some(6.0);
             definition
         }
         _ => definition,

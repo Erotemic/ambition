@@ -102,7 +102,6 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "large_colossus",
     "gradient_seeker",
     "pirate_raider",
-    "burning_flying_shark",
     "pirate_shark_rider",
     "puppy_slug",
     "pirate_heavy",
@@ -133,7 +132,6 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "sandbag_infinite",
     "sandbag_finite",
     "pirate_raider",
-    "burning_flying_shark",
     "pirate_shark_rider",
     "pirate_heavy",
     "pirate_heavy_shark_rider",
@@ -992,8 +990,58 @@ impl CharacterRosterAppExt for bevy::prelude::App {
 
 #[cfg(test)]
 pub(crate) fn test_roster() -> CharacterRoster {
+    // ⚠ **THE ENGINE'S FIXTURE IS AMBITION'S SHIPPED CONTENT, and that coupling
+    // bites as the character migration deletes rows.** A fixture naming a
+    // migrated key does not fail — `spec_for_brain` answers `combatant` — so an
+    // engine test about mounts quietly became a test about a generic enemy the
+    // day the shark stopped being an archetype.
+    //
+    // ⇒ engine tests that need a SHAPE (a rideable body, a crawler, a flyer)
+    // should name a row this crate owns. [`fixture_roster_with_mount`] is the
+    // first; the rest follow as their subjects migrate.
     CharacterRoster::from_ron(include_str!(
         "../../../../../game/ambition_content/assets/data/character_archetypes.ron"
+    ))
+}
+
+/// **A rideable fixture the ENGINE owns**, for tests about the mount machinery
+/// rather than about any game's shark.
+///
+/// ⭐ added 2026-08-11, when `burning_flying_shark` became a character and five
+/// engine tests about mounting silently started asserting things about the
+/// `combatant` fallback. The shape is what those tests need: something with a
+/// `mount_class`, something that can pilot it, and a mass difference so the
+/// pair's centre of gravity is not ambiguous.
+#[cfg(test)]
+pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
+    // The shipped fixture PLUS the engine's own rows: a mount test still needs
+    // `pirate_raider`, `giant_gnu` and the rest, so this extends rather than
+    // replaces. The extra rows are appended by splicing before the closing
+    // brace — the file is a RON map and this is a test helper, not a parser.
+    let shipped =
+        include_str!("../../../../../game/ambition_content/assets/data/character_archetypes.ron");
+    let close = shipped
+        .rfind('}')
+        .expect("the archetype fixture is a RON map");
+    let extra = r#"
+    "fixture_mount": (
+        max_health: 6, run_speed: 260.0, patrol_effort: 0.42, chase_effort: 1.0,
+        aggro_radius: 1200.0, attack_range: 200.0, contact_strength: 1.1,
+        damage_amount: 2, is_aerial: Some(true), charge_crash_explodes: true,
+        default_size: Some((126.0, 52.0)), mount_class: Some("shark"), mass: 6.0,
+        brain_template: ChargeCrash, move_style: Float,
+    ),
+    "fixture_rider": (
+        max_health: 3, run_speed: 150.0, patrol_effort: 0.6, chase_effort: 1.0,
+        aggro_radius: 500.0, attack_range: 150.0, contact_strength: 0.6,
+        damage_amount: 1, pilotable_mount_classes: ["shark"],
+        brain_template: Skirmisher, move_style: Walk,
+    ),
+"#;
+    CharacterRoster::from_ron(&format!(
+        "{}{extra}{}",
+        &shipped[..close],
+        &shipped[close..]
     ))
 }
 

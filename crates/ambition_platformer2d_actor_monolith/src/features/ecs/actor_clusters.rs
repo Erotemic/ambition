@@ -1098,7 +1098,11 @@ impl ActorClusterSeed {
         Self::new_in(
             &Default::default(),
             &CharacterCatalog::empty(),
-            &super::super::enemies::test_roster(),
+            // ⚠ the roster with the engine's OWN fixture rows folded in: unit
+            // tests here name shapes (a rideable body, a charge-crasher) rather
+            // than any game's creature, and those creatures are migrating out of
+            // the shipped file one row at a time.
+            &super::super::enemies::fixture_roster_with_mount(),
             id,
             name,
             None,

@@ -832,6 +832,7 @@ mod tests {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                             "combatant".into(),
                         ),
+                        character: None,
                     },
                 }]
             })
@@ -941,7 +942,8 @@ mod tests {
             query
                 .iter(app.world())
                 .map(|feature| {
-                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&feature.0).to_string()
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&feature.0)
+                        .to_string()
                 })
                 .collect::<BTreeSet<_>>()
         };

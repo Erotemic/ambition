@@ -31,7 +31,15 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
          migration exists to end"
     );
 
-    let shark = crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
+    // ⚠ the shark's row is DELETED (D73 group A, 2026-08-11): its
+    // `charge_crash_explodes` is authored on `npc_burning_flying_shark` and
+    // pinned beside that definition. The engine's own rideable fixture carries
+    // the same trait, so what this asserts is the PROJECTION — that a row
+    // stating it produces a capability — rather than any game's shark.
+    let shark = crate::features::enemies::fixture_roster_with_mount()
+        .archetype_for("fixture_mount")
+        .expect("the engine's rideable fixture")
+        .combat_capabilities();
     assert!(shark.charge_crash_explodes);
 
     let infinite = crate::features::enemies::test_spec("sandbag_infinite");

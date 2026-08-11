@@ -24,14 +24,14 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
 use ambition_platformer2d::characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const MOUNT_ID: &str = "pilot_shark";
@@ -56,8 +56,8 @@ fn pos_of(world: &mut World, e: Entity) -> ae::Vec2 {
 
 #[test]
 fn a_player_pilots_a_mount_end_to_end() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // 1. Spawn the mount + rider near the player. Their archetypes carry the
     //    mount roles (shark → `Mountable{class:"shark"}`; pirate raider →
@@ -67,12 +67,18 @@ fn a_player_pilots_a_mount_end_to_end() {
     let p = pos_of(sim.world_mut(), home);
     let mount_pos = (p.x + 120.0, p.y);
     let rider_pos = (p.x + 120.0, p.y - 66.0); // ~saddle, above the mount
-    sim.spawn_enemy_at(
+                                               // ⭐ the mount NAMES ITS CHARACTER. `burning_flying_shark` stopped being an
+                                               // archetype row on 2026-08-11 — the shark authors its own body, including
+                                               // that it is rideable — so a request naming only the brain key would resolve
+                                               // the `combatant` fallback: not a mount, not a flyer, and this test would
+                                               // watch it fall.
+    sim.spawn_enemy_character_at(
         MOUNT_ID,
         "Burning Flying Shark",
         mount_pos,
         (63.0, 26.0),
         CharacterBrain::Custom("burning_flying_shark".to_string()),
+        Some("npc_burning_flying_shark"),
     );
     sim.spawn_enemy_at(
         RIDER_ID,
@@ -147,10 +153,20 @@ fn a_player_pilots_a_mount_end_to_end() {
         "the MOUNT travels right under player input (piloting through the control seam): \
          {mount_before:?} -> {mount_after:?}",
     );
+    // ⚠ **the assertion is about DIRECTION, not stillness** (2026-08-11). It
+    // read `.abs() < 1.0` while the shark was an archetype that authored no
+    // contact damage worth feeling; the shark is a CHARACTER now and authors
+    // 1.1 knockback on touch, so a body parked in the flight path gets shoved —
+    // 113px to the LEFT, measured. That is the shark working, not the control
+    // seam leaking.
+    //
+    // What this test is actually about is whether DRIVE INPUT reaches the
+    // vacated avatar, and the input is rightward: any leftward travel is
+    // somebody else's physics.
     assert!(
-        (home_after.x - home_before.x).abs() < 1.0,
-        "the vacated home avatar does NOT respond to the drive input: \
-         {home_before:?} -> {home_after:?}",
+        home_after.x - home_before.x < 1.0,
+        "the vacated home avatar moved RIGHT — the drive input is reaching a \
+         body nobody is driving: {home_before:?} -> {home_after:?}",
     );
     // The rider RODE ALONG (its own locomotion is suppressed while mounted; it
     // moves only because the mount carried it) and stays welded to the saddle —

@@ -1251,10 +1251,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         authored.payload.gameplay_character_id(),
         super::spawn::SpawnContext {
             feature_id: &authored.id,
-            feature_name: &authored.name,
             aabb: authored.aabb,
-            faction,
-            paths,
         },
     );
 
@@ -1264,15 +1261,11 @@ pub(crate) fn spawn_enemy_with_faction_into(
         catalog,
         roster,
         plan.context().feature_id.to_string(),
-        plan.context().feature_name.to_string(),
-        Some(
-            authored
-                .payload
-                .presentation_identity(plan.context().feature_name),
-        ),
+        authored.name.clone(),
+        Some(authored.payload.presentation_identity(&authored.name)),
         plan.context().aabb,
         authored.payload.brain.clone(),
-        plan.context().paths,
+        paths,
     );
     // **When the placement names a registered character, that character's
     // authored facts outrank the archetype's.** A character that authors
@@ -1316,7 +1309,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         root,
         enemy,
         authored,
-        plan.context().faction,
+        faction,
     );
     attach_mount_role(commands, root, &spec);
 }

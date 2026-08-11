@@ -3075,13 +3075,21 @@ CharacterSpawnPlan {
 * **`autonomous_profile_override`** — the placement's `brain_override`. Its
   precedence against the definition's default is ALREADY IMPLEMENTED in
   `resolve_initial_brain`; this field is just where the override travels.
-* **`context`** — `SpawnContext` carries what the placement decided that is not
-  the character: the spawn `aabb`, the feature identity (`feature_id` /
-  `feature_name` / `entity_name`), faction, disposition/aggression, respawn
-  policy, encounter membership, patrol paths. ⚠ **this is the field that will
-  rot into the giant bag** if it is allowed to accept anything; the rule that
-  keeps it honest is that every member must be a decision the PLACEMENT made,
-  never a fact the CHARACTER states.
+* **`context`** — ⛔ **NARROWED 2026-08-10, and the first draft of this bullet
+  was the trap.** It listed feature identity, faction, disposition, respawn,
+  encounter membership and patrol paths, on the rule *"every member must be a
+  decision the PLACEMENT made"*. That rule is necessary and NOT sufficient: a
+  placement decides plenty that belongs to one authoring surface rather than to
+  the shared constructor. A match seat, a summon and a programmatic spawn should
+  not have to manufacture a room-style display name or an empty path list to use
+  the common constructor.
+  ⇒ `SpawnContext` is `{ feature_id, aabb }` — runtime identity and where the
+  body goes. The display NAME (presentation/debug label), FACTION (relationship
+  policy) and room PATHS (autonomous-controller input) went back to the enemy
+  call site until a SECOND caller shows they are shared, at which point they
+  want their own contextual types — `InitialRelations`,
+  `AutonomousControllerContext`, presentation attachments — rather than more
+  members here.
 
 ## Where the three current outputs go
 

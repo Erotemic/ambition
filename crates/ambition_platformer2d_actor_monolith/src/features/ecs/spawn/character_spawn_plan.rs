@@ -45,25 +45,35 @@
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_core as ae;
 
-/// What the PLACEMENT decided, as opposed to what the character is.
+/// **Where this instance goes and what it is called at runtime** — the part of
+/// a spawn request that is universal to instantiating a character.
 ///
-/// Respawn policy, encounter membership and disposition join this as their
-/// authoring surfaces migrate; today it carries what the authored enemy path
-/// genuinely has in hand.
+/// ⛔⛔ **DELIBERATELY SMALLER THAN THE FIRST CALLER NEEDS, and it briefly was
+/// not.** It also carried the authored display NAME, the FACTION and the room's
+/// kinematic PATHS, because the authored enemy path has all three in hand. Each
+/// is a real placement decision, so the rule *"every member is something the
+/// placement decided"* admitted them — and that rule turns out to be necessary
+/// but not sufficient. A placement can decide plenty that belongs to ONE
+/// authoring surface rather than to the shared constructor:
+///
+/// ```text
+/// display name   presentation / debug label
+/// faction        relationship policy
+/// room paths     autonomous-controller placement input
+/// ```
+///
+/// A match seat, a summon and a programmatic spawn should not have to
+/// manufacture a room-style name or an empty path list to use the common
+/// constructor. Those facts stay at their own call sites until a SECOND caller
+/// shows they are shared — at which point they want their own contextual types
+/// (`InitialRelations`, `AutonomousControllerContext`, presentation
+/// attachments), not more members here.
 pub(crate) struct SpawnContext<'a> {
     /// The authored feature id — stable across rebuilds, and the join key for
     /// save state and debug.
     pub(crate) feature_id: &'a str,
-    /// The authored display name. ⛔ presentation only: it is not an identity,
-    /// and nothing may resolve a character from it.
-    pub(crate) feature_name: &'a str,
     /// Where the body starts, in world space.
     pub(crate) aabb: ae::Aabb,
-    /// Which side it fights for. A placement decision — the same character can
-    /// be an ally in one room and an enemy in another.
-    pub(crate) faction: crate::features::ActorFaction,
-    /// The room's kinematic paths, for a placement that rides one.
-    pub(crate) paths: &'a [(String, ambition_platformer2d_core::KinematicPath)],
 }
 
 /// One request to instantiate a character.
@@ -124,10 +134,7 @@ mod tests {
     fn context() -> SpawnContext<'static> {
         SpawnContext {
             feature_id: "EnemySpawn-1",
-            feature_name: "Busy Beaver",
             aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
-            faction: crate::features::ActorFaction::Enemy,
-            paths: &[],
         }
     }
 
@@ -154,8 +161,8 @@ mod tests {
         let plan = CharacterSpawnPlan::new(None, context());
         assert!(
             matches!(plan.definition(&registry), Ok(None)),
-            "the context's feature_name is exactly this character's display \
-             name, and it must not resolve one",
+            "a plan that names no character resolves none, however its \
+             placement is labelled",
         );
 
         let named = CharacterId::new("npc_busy_beaver");

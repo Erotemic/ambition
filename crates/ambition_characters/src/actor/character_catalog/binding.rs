@@ -522,18 +522,18 @@ pub fn resolve_initial_brain(
     // crates up; passing the authored NAME keeps this function where it belongs
     // and keeps the layering intact. The caller looks it up.
     //
-    // ⚠ **and a [`BrainProfileRef`], not a [`BrainPresetId`].** It is
-    // provider-relative authored text, qualified below exactly as
-    // `authored_override` is. Carrying it as an id would mean one type holding
-    // both an unresolved reference and a resolved key — the distinction the
-    // newtype exists to make.
+    // ⚠ **a [`BrainPresetId`], and ALREADY RESOLVED.** Preparation qualifies the
+    // character's authored [`BrainProfileRef`] into its namespace once, so this
+    // parameter is a canonical key and is used verbatim below. An authored
+    // PLACEMENT override is still a reference and is still qualified here — the
+    // two arrive at different times, and only one of them has been prepared.
     //
     // ⭐ it reaches [`BrainBinding::default_preset`] — the field whose doc already
     // says *"restoring the default rebuilds a fresh brain from THIS preset"* — so
     // no new [`AutonomousSource`] variant is needed and the rollback shape is
     // unchanged. `CatalogDefault` keeps meaning *"the character's default"*; only
     // who gets to state it has widened.
-    definition_default: Option<&BrainProfileRef>,
+    definition_default: Option<&BrainPresetId>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
@@ -544,10 +544,10 @@ pub fn resolve_initial_brain(
             .map(|profile| profile.as_str().trim())
             .filter(|name| !name.is_empty())
         {
-            // Qualified the same way an authored override is: a raw local name
-            // resolves inside the character's own provider namespace, so a definition
-            // and a placement cannot mean different things by the same word.
-            Some(name) => qualify_preset_like(entry.default_brain.as_str(), name),
+            // Used VERBATIM: preparation already qualified it. Re-qualifying a
+            // resolved key would be a second interpretation of a fact that has
+            // exactly one answer.
+            Some(name) => name.to_string(),
             None => entry.default_brain.clone(),
         },
     );
@@ -646,7 +646,7 @@ mod tests {
         authored: Option<&str>,
         definition_default: Option<&str>,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        let definition_default = definition_default.map(BrainProfileRef::from);
+        let definition_default = definition_default.map(BrainPresetId::from);
         resolve_initial_brain(
             &catalog(),
             cid,

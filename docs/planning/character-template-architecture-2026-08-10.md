@@ -253,11 +253,20 @@ whether or not it explains the PCA.
   qualifies it and returns a `BrainPresetId` (canonical key). ⛔ an earlier
   version used `BrainPresetId` for both, which made the newtype distinguish
   nothing.
-  ▢ **still wrong: WHEN it resolves.** Preparation leaves the ref unresolved, so
-  a prepared definition still needs `CharacterCatalog` at spawn to recover its
-  own provider namespace. The prepared value should be a `BrainPresetId`
-  resolved during preparation — a provider-defined character should not need a
-  parallel gameplay catalog row to interpret its own default profile.
+  ✔ **and it RESOLVES AT PREPARATION now.** `PreparedCharacterDefinition
+  ::default_brain_profile` is a `BrainPresetId`; `finalize_character` qualifies
+  the authored ref once, and `resolve_initial_brain` uses it verbatim instead of
+  re-qualifying at every spawn. Byte-identical answer — the namespace source is
+  the same catalog row it always was — so this is a MOVE, not a change.
+  ⛔ **synthesising the namespace from the definition's `provider` is a trap I
+  walked into.** An assembled catalog namespaces every preset as
+  `provider::name`, so the definition's provider looks equivalent — but the two
+  ids are assumed equal and never checked, and a fixture prepared without a
+  catalog turned `patrol_peaceful` into `test::patrol_peaceful`, a key that
+  exists nowhere. No catalog row ⇒ no namespace ⇒ the reference stands verbatim.
+  ▢ **the remaining half**: preparation still CONSULTS the catalog for that
+  namespace. Making the definition's provider authoritative is what frees it,
+  and it needs provider ids and catalog-fragment ids proven equal first.
 * ✔✔ **THE INVERSION IS FIXED ON THE AUTHORED-ENEMY PATH** — appendix C's
   sharpest point. `spawn_enemy_with_faction_into` asked
   `config.sprite_character_id`, which `presentation_identity` →

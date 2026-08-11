@@ -661,11 +661,19 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::death_traits`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
     pub death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
-    /// The autonomous profile this character normally runs, if it named one.
-    /// See [`CharacterDefinition::default_brain_profile`] — `None` leaves the
-    /// catalog row's `default_brain` in charge.
-    pub default_brain_profile:
-        Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
+    /// The autonomous profile this character normally runs, if it named one —
+    /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
+    /// [`BrainProfileRef`] the definition carries.
+    ///
+    /// ⭐ that difference is what "prepared" is supposed to mean. Preparation
+    /// qualifies the authored reference into its namespace once, so nothing
+    /// downstream has to consult the catalog to find out what the character
+    /// already said about itself. `None` still leaves the catalog row's
+    /// `default_brain` in charge.
+    ///
+    /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
+    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainProfileRef
+    pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The movement policy, resolved. Every body already carries exactly one
@@ -1287,7 +1295,36 @@ fn finalize_character(
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
-        default_brain_profile,
+        // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
+        // canonical identity, not an authored reference someone still has to
+        // interpret — otherwise "prepared" means "partly prepared", and the
+        // catalog stays in the loop for a fact the character owns.
+        //
+        // The namespace comes from the character's own catalog row — identical
+        // to what `resolve_initial_brain` used to compute at spawn, so this is
+        // a MOVE rather than a change of answer.
+        //
+        // ⛔ **no catalog row ⇒ no namespace ⇒ the reference stands verbatim,
+        // and synthesising one from `provider` is a trap I walked into.** An
+        // assembled catalog namespaces every preset key as `provider::name`, so
+        // the definition's own provider looks like the right source — but the
+        // two ids are only assumed equal, never checked, and a fixture prepared
+        // without a catalog turned `patrol_peaceful` into `test::patrol_peaceful`,
+        // a key that exists nowhere. Fabricating a namespace invents a fact.
+        //
+        // ▢ making the definition's provider authoritative is the next step and
+        // the thing that finally frees preparation from the catalog — it needs
+        // provider ids and catalog-fragment ids proven equal first.
+        default_brain_profile: default_brain_profile.map(|reference| {
+            let qualified = match catalog.and_then(|catalog| catalog.get(&id)) {
+                Some(entry) => ambition_characters::actor::character_catalog::qualify_preset_like(
+                    entry.default_brain.as_str(),
+                    reference.as_str(),
+                ),
+                None => reference.as_str().to_string(),
+            };
+            ambition_characters::actor::character_catalog::BrainPresetId::new(qualified)
+        }),
         id,
         display_name,
         provider,

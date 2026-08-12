@@ -129,26 +129,23 @@ impl ActorTuning {
         }
     }
 
-    /// Take on `archetype`'s combat tuning while keeping the fields this
-    /// actor's PLACEMENT owns.
-    ///
-    /// Respawn policy is placement-scoped, not archetype-scoped (ADR 0022): a
-    /// named NPC is a person and its death is permanent, even while it fights
-    /// with the combat numbers of a borrowed mob archetype whose own policy is
-    /// `OnRoomReenter`. Assigning a projected archetype tuning WHOLESALE drags
-    /// that mob policy onto the person — the kill hook then writes no death
-    /// flag, `sync_ecs_actors_with_save` has nothing to read, and the NPC is
-    /// rebuilt alive by the next room construction. That was a live bug.
-    ///
-    /// Every archetype projection goes through here, so the invariant holds by
-    /// construction rather than by each caller remembering it.
-    #[must_use]
-    pub fn adopting_archetype(&self, archetype: ActorTuning) -> ActorTuning {
-        ActorTuning {
-            respawn: self.respawn,
-            ..archetype
-        }
-    }
+    // ⛔⛔ **`adopting_archetype` WAS HERE, AND THE CONCEPT DIED RATHER THAN THE
+    // HELPER** (2026-08-12). It existed so a projected archetype tuning could be
+    // assigned WHOLESALE onto a provoked body while the placement kept the one
+    // field it owns — respawn policy (ADR 0022). Assigning it wholesale dragged
+    // a mob's `OnRoomReenter` onto a named NPC, the kill hook then wrote no
+    // death flag, and the NPC was rebuilt alive by the next room construction.
+    // That was a live bug, and this function was its fix.
+    //
+    // ⭐ provocation projects NO tuning at all now (ledger D101): it changes a
+    // mind and a kit, never a body. So the respawn policy survives for the same
+    // reason the run speed does, and there is no wholesale assignment left to
+    // protect a field from. Its last caller went with
+    // `project_provoked_archetype` (D104).
+    //
+    // ⚠ compiler-verified dead by `#[deprecated]` + `cargo check --workspace
+    // --all-targets`, not by a grep — see ledger D105 for why that distinction
+    // has mattered six times this run.
 }
 
 /// Generic kit vocabulary for an archetype's brain.

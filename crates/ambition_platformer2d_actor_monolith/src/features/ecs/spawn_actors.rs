@@ -1429,14 +1429,37 @@ pub(crate) fn spawn_enemy_with_faction_into(
                 authored.id,
                 authored.payload.brain,
             );
-            bevy::log::warn!(
-                target: "ambition_platformer2d_actor_monolith::spawn",
-                "enemy `{}` names character `{missing}`, which this composition has \
-                 not registered; it falls back to its `{:?}` archetype. This is \
-                 correct only for a BORROWED character in a partial composition.",
-                authored.id,
-                authored.payload.brain,
-            );
+            // ⭐ **TWO DIFFERENT FACTS, SAID DIFFERENTLY** (ledger D75). A
+            // per-placement warning about a missing character reads as *this
+            // content is wrong*, and in a host that published NO CAST AT ALL that
+            // is a lie repeated once per placement: the composition is what is
+            // incomplete, and every character in the room is equally "missing".
+            //
+            // ⚠ absence is legitimate — `CharacterPreparationPlugin` is installed
+            // by `try_register_character`, so a host that registers nobody never
+            // publishes, and "no cast" is exactly what that means. What must not
+            // happen is a room full of character-named placements quietly
+            // becoming archetypes with nothing said about WHY.
+            if prepared.is_empty() {
+                bevy::log::warn!(
+                    target: "ambition_platformer2d_actor_monolith::spawn",
+                    "this composition published NO prepared cast at all, and enemy \
+                     `{}` names character `{missing}` — so it, and every other \
+                     character-named placement in this room, falls back to an \
+                     archetype. The room expects a cast this host does not \
+                     register; that is a COMPOSITION gap, not a content one.",
+                    authored.id,
+                );
+            } else {
+                bevy::log::warn!(
+                    target: "ambition_platformer2d_actor_monolith::spawn",
+                    "enemy `{}` names character `{missing}`, which this composition has \
+                     not registered; it falls back to its `{:?}` archetype. This is \
+                     correct only for a BORROWED character in a partial composition.",
+                    authored.id,
+                    authored.payload.brain,
+                );
+            }
             None
         }
     };

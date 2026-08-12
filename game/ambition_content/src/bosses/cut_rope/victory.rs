@@ -101,6 +101,9 @@ fn spawn_victory_npc_entity(
         authored_sheets,
         character_catalog,
         character_roster,
+        // The victory NPC names no character, so nothing here can be decided by
+        // one — see the flight rule in `new_peaceful_npc_in`.
+        None,
         CUT_ROPE_VICTORY_NPC_ID,
         CUT_ROPE_VICTORY_NPC_NAME,
         aabb,

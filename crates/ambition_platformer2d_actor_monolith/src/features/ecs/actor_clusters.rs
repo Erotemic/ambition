@@ -591,6 +591,10 @@ impl ActorClusterSeed {
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         roster: &CharacterRoster,
+        // **The prepared cast, so this road can ask the CHARACTER** whether it
+        // flies before it asks the catalog. `Option` because a composition with
+        // no registered characters is the ordinary case, not a degraded one.
+        prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -618,21 +622,35 @@ impl ActorClusterSeed {
             } => Some(cid.as_str()),
             _ => None,
         };
-        // A `Floating` catalog body = a gravity-free flyer (the stochastic
-        // parrot): zero gravity so the brain's full 2D velocity drives flight
-        // through the shared aerial integrator.
-        let gravity_scale =
-            match character_id {
-                Some(cid)
-                    if matches!(
-                    catalog.body_kind(cid),
-                    Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
-                ) =>
-                {
-                    0.0
-                }
-                _ => 1.0,
-            };
+        // **DOES THIS BODY FLY? ASK THE CHARACTER, THEN THE CATALOG.**
+        //
+        // ⛔ two spawn paths decided aerial-ness and NEITHER asked the character:
+        // this one read the catalog's `body_kind: Floating`, the hostile
+        // `EnemySpawn` path read `ArchetypeSpec::flies` (see the doc on that
+        // field, which names the split). The Perfect Cellular Automaton is the
+        // live disagreement — `Floating` in its catalog row, played grounded by
+        // the shipped duel — and D89 is the ruling: `body_kind` describes a
+        // SHAPE and stopped deciding whether a body flies.
+        //
+        // ⭐ `CharacterLocomotion::baseline_free_flight` is `Option<bool>`
+        // precisely so a character can say NO out loud, which `body_kind` cannot
+        // express. When it speaks, it wins. When it is silent — an unmigrated
+        // character, or none at all — the catalog rule stands unchanged, which
+        // is every NPC in the game today except the twelve that name a migrated
+        // character.
+        let authored_flight = character_id
+            .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
+            .and_then(|prepared| prepared.locomotion)
+            .and_then(|locomotion| locomotion.baseline_free_flight);
+        let floats_by_catalog = matches!(
+            character_id.and_then(|cid| catalog.body_kind(cid)),
+            Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+        );
+        let gravity_scale = if authored_flight.unwrap_or(floats_by_catalog) {
+            0.0
+        } else {
+            1.0
+        };
         let is_aerial = gravity_scale <= 0.001;
         // Sprite metadata supersedes the LDtk spawn box (see the old
         // `NpcClusterScratch`): size the collision to the visible body and
@@ -1183,6 +1201,9 @@ impl ActorClusterSeed {
             &Default::default(),
             &CharacterCatalog::empty(),
             &super::super::enemies::test_roster(),
+            // A content-free constructor registers no characters either, so the
+            // catalog rule is the only one that can apply.
+            None,
             id,
             name,
             aabb,
@@ -1603,3 +1624,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod npc_flight_tests;

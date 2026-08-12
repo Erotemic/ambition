@@ -672,6 +672,7 @@ impl NpcActorSpawnPlan {
             authored_sheets,
             catalog,
             roster,
+            Some(prepared),
             id.clone(),
             name.clone(),
             spawn_aabb,

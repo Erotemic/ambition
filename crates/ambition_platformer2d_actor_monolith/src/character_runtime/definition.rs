@@ -896,11 +896,19 @@ pub enum PreparedKit {
         action_set: ambition_characters::brain::ActionSet,
         moveset: MovesetContract,
     },
-    /// The host's code-side kit, rebuilt per body from its `AbilitySet`.
+    /// **NOBODY AUTHORED A KIT FOR THIS CHARACTER**, so the body's own
+    /// `AbilitySet` rebuilds one — the host's code-side kit.
     ///
-    /// `authored_moveset` is still honoured: a character may take the host kit's
-    /// capabilities and bring its own timelines.
-    HostCode {
+    /// ⛔ **this was called `HostCode`, after a `PlayableKitSource` variant that
+    /// NO LONGER EXISTS.** A row used to select the host kit by name; that
+    /// selector is deleted and every shipped row is `Authored`. What reaches this
+    /// arm now is only the absence: an id the catalog does not know, or no
+    /// catalog at all. A name that asserts a vanished selector sends the next
+    /// reader looking for the row that chose it, and there is none.
+    ///
+    /// `authored_moveset` is still honoured: a character with no action set may
+    /// still bring its own timelines.
+    Unauthored {
         authored_moveset: Option<MovesetContract>,
     },
 }
@@ -1051,7 +1059,7 @@ impl PreparedKit {
     pub fn action_set(&self) -> Option<&ambition_characters::brain::ActionSet> {
         match self {
             Self::Authored { action_set, .. } => Some(action_set),
-            Self::HostCode { .. } => None,
+            Self::Unauthored { .. } => None,
         }
     }
 
@@ -1059,7 +1067,7 @@ impl PreparedKit {
     pub fn projectable_moveset(&self) -> Option<&MovesetContract> {
         match self {
             Self::Authored { moveset, .. } => Some(moveset),
-            Self::HostCode { authored_moveset } => authored_moveset.as_ref(),
+            Self::Unauthored { authored_moveset } => authored_moveset.as_ref(),
         }
     }
 }
@@ -1753,14 +1761,15 @@ fn finalize_character(
                     action_set: set,
                 }
             }
-            // A `HostCode` row, or an id the catalog does not know, or no catalog
-            // at all. All three mean the same thing to a body: build the host kit
-            // from what this body can do.
+            // ⭐ **AN ID THE CATALOG DOES NOT KNOW, or no catalog at all** — the
+            // two states that remain now that no row can select the host kit by
+            // name. Both mean the same thing to a body: nobody authored a kit, so
+            // build one from what this body can do.
             // ⚠ **AND THE ONE CONTRADICTION THE PLAN SAID DID NOT EXIST.**
             //
-            // A character can take the host-code kit — whose action set the HOST
-            // builds, so the definition authors none — and still bring its own
-            // timelines; `authored_moveset` exists precisely for that. If that
+            // A character can reach this arm — authoring no action set, so the
+            // HOST builds one from the body — and still bring its own timelines;
+            // `authored_moveset` exists precisely for that. If that
             // moveset declares the `ranged` verb, the same press is owned twice:
             // by the legacy charge-projectile path this kit installs, and by the
             // moveset's ranged verb. That is the exact double-ownership
@@ -1781,13 +1790,14 @@ fn finalize_character(
             // published it, so runtime still installed both owners and the log line
             // was a description of a bug rather than a fix for one. Invalid
             // ownership must not reach a body at all (GPT 5.6, second pass).
-            _ => PreparedKit::HostCode {
+            _ => PreparedKit::Unauthored {
                 authored_moveset: moveset.map(|mut moveset| {
                     let revoked = revoke_host_owned_ranged(&mut moveset);
                     if !revoked.is_empty() {
                         bevy::log::error!(
-                            "character `{id}` takes the host-code kit AND authored the ranged \
-                             verb(s) {revoked:?}. The host kit owns the ranged press through its \
+                            "character `{id}` authored NO action set — so the host builds its \
+                             kit from the body — AND authored the ranged verb(s) {revoked:?}. \
+                             That host kit owns the ranged press through its \
                              charge-projectile path, so one press would have fired both; those \
                              verb bindings are DROPPED and the charge path keeps the press. To own \
                              the verb from content instead, author an action set — that makes the \

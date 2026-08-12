@@ -625,7 +625,7 @@ fn apply_worn_character_kit(
                         prepared.ranged_execution
                     }),
                 ),
-                Some(crate::character_runtime::PreparedKit::HostCode { authored_moveset }) => {
+                Some(crate::character_runtime::PreparedKit::Unauthored { authored_moveset }) => {
                     let set = crate::avatar::bundles::default_player_action_set(base_abilities);
                     let execution = RangedExecution::ChargedProjectile;
                     let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());

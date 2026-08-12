@@ -753,7 +753,7 @@ fn a_host_code_kit_cannot_also_carry_an_authored_ranged_verb() {
     // No catalog and no authored action set: the host-code kit, whose charge
     // path owns the ranged press.
     let prepared = prepare_and_finalize_for_test(hybrid, &CharacterBindings::default()).prepared;
-    let PreparedKit::HostCode { authored_moveset } = &prepared.kit else {
+    let PreparedKit::Unauthored { authored_moveset } = &prepared.kit else {
         panic!("expected the host-code kit, got {:?}", prepared.kit);
     };
     let verbs = &authored_moveset.as_ref().expect("authored moveset").verbs;

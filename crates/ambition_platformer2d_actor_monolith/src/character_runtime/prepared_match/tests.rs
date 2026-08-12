@@ -2394,7 +2394,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
 /// **A seated fighter whose character takes the HOST kit still gets one.**
 /// (Phase B remainder)
 ///
-/// `PreparedKit::HostCode` is the one case a per-character value cannot hold: the
+/// `PreparedKit::Unauthored` is the one case a per-character value cannot hold: the
 /// host's code-side kit is built from the BODY's own `AbilitySet`. While the
 /// projection was the writer for seated bodies it could not build that — it has
 /// no body abilities — so a seated fighter resolving to `HostCode` got nothing.

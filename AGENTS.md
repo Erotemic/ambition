@@ -96,6 +96,14 @@ invariants hold.
   the app compiled. App-level tests build into ONE `app_it` target, so
   `--test <file_name>` will not resolve: `cargo test -p ambition_app --test
   app_it -- <module>`.
+* ⛔ **AND `ambition_app` IS NOT THE WHOLE GATE EITHER — run
+  `cargo test -p ambition_demo_smash_app` when you touch character, movement or
+  combat.** Two crates have been found red while every check the run performed
+  was green (`ambition_platformer2d_host`, `ambition_demo_smash_app`), and one of
+  them is SMASH — the proving ground the campaign measures itself by. A proving
+  ground nobody runs proves nothing. The goal guard now runs its suite; that is a
+  backstop, not a substitute for running it beside the change that could break
+  it.
 
 ## The cheapest sufficient command
 

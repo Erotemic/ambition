@@ -319,6 +319,14 @@ pub fn authored_intrinsics(
         // long gap. Reading `can_fly` as "aerial" would perch it permanently.
         "perfect_cellular_automaton" | "imperfect_cellular_automaton" => {
             let mut definition = definition
+                // ⭐⭐ **AND THE POLICY IT ADOPTS WHEN PROVOKED** (ledger D89).
+                // The duel arena's fighters carry a `grudge_against`, so they
+                // are PROVOKED rather than spawned hostile — and a provoked
+                // creature rebuilds its mind from this reference. Without it the
+                // PCA fell to the default aggressive policy: it closed and
+                // swung, and never blocked, which is exactly the shield the duel
+                // regression measures.
+                .with_provoked_profile_named("cellular_duelist")
                 .with_locomotion(CharacterLocomotion {
                     run_speed: 168.0,
                     move_style: MoveStyleSpec::Walk,

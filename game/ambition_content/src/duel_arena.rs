@@ -69,7 +69,8 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
-                // ⛔⛔ **STILL `None`, AND THE REASON IS MEASURED** (ledger D84,
+                // ⭐⭐ **THE CHARACTER** (ledger D89). See the constant.
+                // ⛔ was `None`, AND THE REASON WAS MEASURED (ledger D84,
                 // 2026-08-11). `perfect_cellular_automaton` now authors its whole
                 // body — 60 HP, the swipe, the glider, the Cellular Pulse, its
                 // four capabilities and its Smash policy — so this line is one

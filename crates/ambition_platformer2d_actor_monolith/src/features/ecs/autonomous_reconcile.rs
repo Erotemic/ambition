@@ -42,7 +42,6 @@ use super::{CombatKit, HeldItem};
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile};
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
-use ambition_characters::actor::{BodyHealth, Health};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
 use ambition_entity_catalog::placements::CharacterBrain;
 
@@ -62,6 +61,22 @@ use ambition_entity_catalog::placements::CharacterBrain;
 /// it. Its speed, its locomotion, its capabilities and its silhouette are facts
 /// about the creature, and being hit is not an argument about any of them.
 ///
+/// ⭐⭐ **AND AS OF 2026-08-12 THAT SENTENCE IS LITERALLY TRUE** (ledger D101,
+/// GPT 5.6's redirect). Two body facts outlived the tuning/sprite/capability
+/// purge and this struct carried both as fields:
+/// - `gravity_scale`, which re-grounded a flying body so a "grounded" policy
+///   could drive it. The premise was stale — the default provoked policy is
+///   `Smash`, and the Smash brain steers aerially off `obs.self_aerial` with no
+///   `can_fly` gate, so a flyer's driver already knew it flies.
+/// - `max_health`, which replaced the body's whole `BodyHealth` with a fresh
+///   4-point pool because a peaceful placement spawned at `1`. The `1` was the
+///   defect: an undescribed body is undescribed before anybody hits it, so the
+///   number moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at the two spawn seeds
+///   and provocation stopped writing health.
+///
+/// ⛔ **do not add a third.** Every field on this struct is now a MIND or a KIT;
+/// a body fact reappearing here is the ontology growing back.
+///
 /// ⚠ **and the brain is lowered against the BODY's tuning now**, not the
 /// archetype's — §4.7, a policy states normalized effort and the body states the
 /// speed. A provoked villager chases at a villager's top speed, which is the
@@ -72,41 +87,6 @@ use ambition_entity_catalog::placements::CharacterBrain;
 /// whether it was just challenged or rebuilt after a GGRS load.
 pub(crate) struct ProvokedArchetype {
     pub brain_profile: BrainProfile,
-    /// **THE ONE BODY FACT STILL PROJECTED, and it is a decision rather than a
-    /// design.**
-    ///
-    /// A peaceful NPC placement spawns at `max_health: 1` — the generic
-    /// stroller seed — so a provoked one that kept its own pool would die to a
-    /// single hit. What a provoked villager's health pool should be is **D96
-    /// item 7**, open and Jon's. Until it is answered this borrows the archetype
-    /// row's number, and it is the last thing generic provocation takes from
-    /// one.
-    ///
-    /// ⛔ do not quietly widen this back out. Every other field that used to sit
-    /// beside it is gone on purpose; a second one reappearing is the ontology
-    /// growing back.
-    pub max_health: i32,
-    /// **THE SECOND, and it is a MISMATCH being patched rather than a fact.**
-    ///
-    /// A body at `gravity_scale: 0` driven by a GROUNDED policy freezes: the
-    /// aerial integrator reads a `velocity_target` the grounded brain never
-    /// sets. So provocation re-grounds a floating body, which is a body change,
-    /// and `a_floating_npc_grounds_when_provoked_into_a_grounded_archetype`
-    /// pins it.
-    ///
-    /// ⛔ **the guard was probed rather than dropped.** GPT 5.6's redirect says
-    /// no gravity replacement, and it is right about the direction — but the
-    /// freeze is real, and deleting the write on the strength of an argument
-    /// would ship it. The actual defect is one level up: a generic provocation
-    /// hands every body the same GROUNDED policy, so a flying creature is given
-    /// a mind that cannot drive it. Fixing THAT deletes this field; forcing the
-    /// body to match the policy is the ontology arguing back.
-    ///
-    /// ⚠ the example this used to cite is already gone: the Perfect Cellular
-    /// Automaton "floats peacefully, then descends to brawl" and now authors
-    /// `baseline_free_flight: Some(false)` itself (D89). What remains reachable
-    /// is a body whose CHARACTER says it flies — the parrot, the burning shark.
-    pub gravity_scale: f32,
     /// The `ActorConfig.brain` read-model marker for a provoked actor.
     pub config_brain: CharacterBrain,
     pub brain: Brain,
@@ -116,21 +96,15 @@ pub(crate) struct ProvokedArchetype {
 /// **The projection itself, from a POLICY rather than from a row.**
 ///
 /// ⭐ the live generic-provocation path calls this with
-/// [`default_provoked_policy`](super::brain_builders::default_provoked_policy)
-/// and [`DEFAULT_PROVOKED_HEALTH`](super::brain_builders::DEFAULT_PROVOKED_HEALTH),
+/// [`default_provoked_policy`](super::brain_builders::default_provoked_policy),
 /// so provoking a body no longer touches the archetype roster at all — that
 /// lookup was the last reason the live path knew the ontology existed.
-/// [`reconstruct_provoked_default`] is the rollback road's entry, and it states
-/// the same two constants — so the twins cannot disagree about the policy.
 ///
-/// ⚠ the two are pinned equal while `combatant` survives
+/// ⚠ the policy is pinned equal to the `combatant` row while that row survives
 /// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
 /// goes, this signature is already the one that stays.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn provoked_projection(
     brain_profile: BrainProfile,
-    max_health: i32,
-    aerial: bool,
     archetype: &str,
     current_config: &ActorConfig,
     combat_kit: &CombatKit,
@@ -151,10 +125,6 @@ pub(crate) fn provoked_projection(
     );
 
     ProvokedArchetype {
-        // See the field doc: the POLICY is grounded, so a floating body has to
-        // be grounded to be drivable by it. The mismatch is the bug.
-        gravity_scale: if aerial { 0.0 } else { 1.0 },
-        max_health,
         config_brain,
         brain,
         action_set,
@@ -186,7 +156,9 @@ pub(crate) fn peaceful_config(
         .map(|cid| matches!(catalog.body_kind(cid), Some(CharacterBodyKind::Floating)))
         .unwrap_or(false);
     let tuning = ActorTuning {
-        max_health: 1,
+        // The same undescribed-body pool the seed this mirrors installs; a
+        // catalog switch back to peaceful must not resize the body either.
+        max_health: ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
         patrol_speed: NPC_PATROL_SPEED,
         chase_speed: NPC_PATROL_SPEED,
         max_run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
@@ -214,11 +186,11 @@ pub(crate) fn peaceful_config(
     }
 }
 
-/// Reset a body's live `BodyHealth` to a fresh archetype pool — used by the live
-/// provoke flip. Reconstruction leaves health to its snapshot blob.
-pub(crate) fn fresh_health_pool(max_health: i32) -> BodyHealth {
-    BodyHealth::new(Health::new(max_health))
-}
+// ⛔ `fresh_health_pool(max_health)` stood here. Its one caller was the live
+// provoke flip, which used it to swap a struck body's whole `BodyHealth` for a
+// fresh 4-point pool — the last body mutation in provocation (D101). Deleted
+// with the write; a body's pool is now settled at construction and nothing
+// re-rolls it because somebody got angry.
 
 #[cfg(test)]
 mod tests {
@@ -273,8 +245,6 @@ mod tests {
         let before = config.clone();
         let proj = provoked_projection(
             crate::features::ecs::brain_builders::default_provoked_policy(),
-            crate::features::ecs::brain_builders::DEFAULT_PROVOKED_HEALTH,
-            false,
             "combatant",
             &config,
             &CombatKit::default(),
@@ -304,12 +274,21 @@ mod tests {
             ),
             "a provoked body's read-model still says it is not passive"
         );
-        assert_eq!(
-            proj.max_health,
-            crate::features::ecs::brain_builders::DEFAULT_PROVOKED_HEALTH,
-            "the HP pool is the one body fact still supplied, and it is D96 \
-             item 7 rather than a design — if this stops being true the ledger \
-             row was answered and this comment is the changelog"
-        );
+        // ⭐⭐ **AND THE STRUCTURAL ASSERTION THAT REPLACED THE HP ONE.** This
+        // used to read `proj.max_health == DEFAULT_PROVOKED_HEALTH`, pinning the
+        // last body fact a provocation supplied. The endpoint is that there is
+        // no such field, so the claim worth pinning is the SHAPE: every field on
+        // this projection is a mind or a kit. A new body fact cannot be added
+        // without editing this list, which is the point.
+        //
+        // ⚠ an EXHAUSTIVE destructure rather than a field read: adding a field
+        // breaks this line, where reading four fields would silently ignore a
+        // fifth.
+        let ProvokedArchetype {
+            brain_profile: _,
+            config_brain: _,
+            brain: _,
+            action_set: _,
+        } = proj;
     }
 }

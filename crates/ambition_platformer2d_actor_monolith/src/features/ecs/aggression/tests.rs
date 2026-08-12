@@ -31,6 +31,19 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
         &interactable,
         &[],
     );
+    spawn_actor_from_seed(app, seed, "alice", aabb, interactable, strikes)
+}
+
+/// The spawn half of [`spawn_npc_with_strikes`], shared with the flight fixture
+/// below so both bodies reach the world through the same components.
+fn spawn_actor_from_seed(
+    app: &mut App,
+    seed: super::super::actor_clusters::ActorClusterSeed,
+    id: &str,
+    aabb: ae::Aabb,
+    interactable: ambition_interaction::Interactable,
+    strikes: i32,
+) -> bevy::prelude::Entity {
     let (identity, disposition, combat, intent, cooldowns) =
         super::super::actors::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     // Provoke accumulator lives on `ActorAggression` now.
@@ -45,7 +58,7 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
     app.world_mut()
         .spawn((
             FeatureSimEntity,
-            FeatureId::new("alice"),
+            FeatureId::new(id),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             aggression,
             CombatKit::default(),
@@ -268,37 +281,294 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
     );
 }
 
+/// One character whose locomotion authors free flight — the parrot / burning-shark
+/// case, built through `prepare_and_finalize_for_test` so the body that reaches
+/// the world is the one production construction produces.
+fn npc_cast(
+    flight: Option<bool>,
+    max_health: Option<i32>,
+) -> crate::character_runtime::PreparedCharacterRegistry {
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    let mut definition = crate::character_runtime::CharacterDefinition::new(
+        "npc_test_parrot",
+        "Test Parrot",
+        "test",
+    )
+    .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+        run_speed: 120.0,
+        baseline_free_flight: flight,
+        ..Default::default()
+    });
+    definition.vitals.max_health = max_health;
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        definition,
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    registry.insert_prepared(finalized.prepared);
+    registry
+}
+
+/// A peaceful NPC placement naming `npc_test_parrot`, built through the
+/// production character-first seed so the body is the one the game constructs.
+fn spawn_character_npc(
+    app: &mut App,
+    cast: &crate::character_runtime::PreparedCharacterRegistry,
+) -> bevy::prelude::Entity {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let interactable = ambition_interaction::Interactable::new(
+        "parrot",
+        "Talk",
+        aabb,
+        ambition_interaction::InteractionKind::Npc {
+            character_id: Some("npc_test_parrot".into()),
+            dialogue_id: None,
+            patrol_radius: 0.0,
+            patrol_path_id: None,
+            brain_override: None,
+        },
+    );
+    let (seed, _render) = super::super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+        &Default::default(),
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        Some(cast),
+        "parrot",
+        "Parrot",
+        aabb,
+        &interactable,
+        &[],
+    );
+    spawn_actor_from_seed(app, seed, "parrot", aabb, interactable, 0)
+}
+
+fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
+    spawn_character_npc(app, &npc_cast(Some(true), None))
+}
+
+/// **A FLYING BODY STAYS FLYING WHEN IT IS PROVOKED.**
+///
+/// ⛔⛔ **this test used to demand the opposite**, and its name said so:
+/// *`a_floating_npc_grounds_when_provoked_into_a_grounded_archetype`*. It pinned
+/// `em.surface.gravity_scale = 1.0` inside the generic provoke flip — a body
+/// change, the last one left after the tuning / sprite / capability assignments
+/// went, and the one `ProvokedArchetype::gravity_scale` was documented as "a
+/// MISMATCH being patched rather than a fact".
+///
+/// ⭐ **the premise it was defending has been false since 2026-08-11.** The claim
+/// was that a grounded policy never writes `velocity_target`, so an aerial
+/// integrator reading one would freeze the body. But the engine's default
+/// provoked policy is `CharacterBrainTemplate::Smash`, and the Smash brain
+/// branches on `obs.self_aerial` with **no `can_fly` gate**
+/// (`smash/mod.rs`: *"Flyer: the grounded motor outputs don't apply — discard
+/// them and steer a 2D velocity"*). `cfg.can_fly` gates only the hybrid
+/// TAKE-OFF/LANDING toggle, which is exactly right: a baseline flyer never
+/// toggles, it simply flies. And `can_fly` itself is read off the body's own
+/// `AbilitySet` (`smash_cfg_from_spec`), which `ActorBody::from_kit` forces true
+/// for an aerial body.
+///
+/// ⛔ **and the old fixture could not have caught that**, because it built a body
+/// production never builds: it poked `gravity_scale = 0.0` onto a grounded seed
+/// and left `flight.fly_enabled` false. The brain read that half-body as aerial
+/// (`gravity_scale <= 0.001 || fly_enabled`) while the integrator read it as
+/// grounded (`fly_enabled` alone) — so it really did freeze, from the fixture's
+/// own disagreement rather than from provocation. The three assertions before the
+/// stimulus below are what stop that recurring: they state that this body agrees
+/// with itself about flying BEFORE anybody hits it.
 #[test]
-fn a_floating_npc_grounds_when_provoked_into_a_grounded_archetype() {
-    // The Perfect Cell-ular Automaton path: a peaceful *Floating* NPC
-    // (gravity_scale 0 at spawn) that challenges into a grounded Smash
-    // archetype must re-sync gravity_scale to 1.0 — otherwise the aerial
-    // integrator reads `velocity_target` (which the grounded brain never
-    // sets) and the actor freezes mid-air. Pins the provoke gravity sync.
+fn a_flying_npc_stays_flying_when_it_is_provoked() {
     use crate::features::enemies::ActorSurfaceState;
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+
     let mut app = App::new();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
-    let npc = spawn_npc_with_strikes(&mut app, 0);
-    // Force the spawned NPC to float, as a catalog `Floating` body would.
-    app.world_mut()
-        .get_mut::<ActorSurfaceState>(npc)
-        .unwrap()
-        .gravity_scale = 0.0;
+    let npc = spawn_flying_npc(&mut app);
+
+    // ⭐ THE REALISM GUARD. A body that does not actually fly would satisfy
+    // "still flying afterwards" trivially.
+    assert_eq!(
+        app.world()
+            .get::<ActorSurfaceState>(npc)
+            .unwrap()
+            .gravity_scale,
+        0.0,
+        "the fixture must genuinely be a flight-authored body"
+    );
+    assert!(
+        app.world()
+            .get::<crate::actor::BodyFlightState>(npc)
+            .unwrap()
+            .fly_enabled,
+        "and it must agree with itself: the integrator's flight predicate is \
+         `fly_enabled`, not gravity"
+    );
+    assert!(
+        app.world()
+            .get::<crate::actor::BodyAbilities>(npc)
+            .unwrap()
+            .abilities
+            .fly,
+        "and the body must carry the fly VERB, since that is what the driver asks"
+    );
+
     app.world_mut().write_message(ActorStimulus::Challenged {
         actor: npc,
         challenger: None,
     });
     app.update();
-    let g = app
-        .world()
-        .get::<ActorSurfaceState>(npc)
-        .unwrap()
-        .gravity_scale;
+
     assert_eq!(
-        g, 1.0,
-        "a floating NPC provoked into a grounded archetype must drop to the ground"
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "the provocation must actually land"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ActorSurfaceState>(npc)
+            .unwrap()
+            .gravity_scale,
+        0.0,
+        "a provoked parrot is an angry parrot, not a grounded one — provocation \
+         changes the mind and the relationship, never the body"
+    );
+    assert!(
+        app.world()
+            .get::<crate::actor::BodyFlightState>(npc)
+            .unwrap()
+            .fly_enabled,
+        "and its flight mode survives too, or the body and the brain would \
+         disagree about what it is"
+    );
+
+    // ⭐ THE POISON: "it changed nothing" satisfies every assertion above while
+    // describing a provocation that does not provoke. The driver it was handed
+    // must be a real hostile mind that KNOWS this body flies.
+    let brain = app
+        .world()
+        .get::<Brain>(npc)
+        .expect("the flip inserts a Brain");
+    let Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) = brain else {
+        panic!("a provoked body is driven by the engine's default provoked policy");
+    };
+    assert!(
+        cfg.can_fly,
+        "and that policy was lowered against THIS body's verbs — a driver that \
+         thought it was grounded is how the old body-mutation got justified"
+    );
+}
+
+/// **A PROVOKED BODY KEEPS THE HEALTH POOL ITS CHARACTER AUTHORED — AND THE
+/// DAMAGE IT HAD ALREADY TAKEN.**
+///
+/// ⛔⛔ the flip used to run
+/// `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)`: a whole new
+/// `BodyHealth`, so a struck body was resized to 4 AND silently healed to full.
+/// It existed because a peaceful placement spawned at `max_health: 1` and a
+/// provoked one that kept its own pool died to the next hit.
+///
+/// ⭐ the `1` was the defect. An undescribed body is undescribed before anybody
+/// hits it, so the number moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at the two
+/// spawn seeds and provocation stopped writing health. The value did not change,
+/// so nothing about how tough a provoked NPC is changed either — which is what
+/// makes this a repair of the authority rather than a rebalance.
+///
+/// ⚠ the DAMAGE half is the sharper assertion: a pool the right SIZE would
+/// satisfy a max-only check while still having healed a wounded creature mid-
+/// fight, which is the same divergence class the D104 reconciler would have shipped.
+#[test]
+fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
+    use ambition_characters::actor::BodyHealth;
+
+    let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_actor_stimuli);
+    let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
+
+    // ⭐ THE REALISM GUARD: 9 is nothing the engine would pick, so this pool can
+    // only have come from the character.
+    assert_eq!(
+        app.world().get::<BodyHealth>(npc).unwrap().max(),
+        9,
+        "the fixture must be a body whose character states its own vitals"
+    );
+    assert_ne!(
+        9,
+        ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+        "or the assertion below would pass on a build that had thrown the \
+         authored pool away and installed the engine default"
+    );
+
+    // A body mid-fight, not a pristine one.
+    app.world_mut()
+        .get_mut::<BodyHealth>(npc)
+        .unwrap()
+        .damage(4);
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "the provocation must actually land"
+    );
+    let health = *app.world().get::<BodyHealth>(npc).unwrap();
+    assert_eq!(
+        health.max(),
+        9,
+        "provocation must not resize a body it did not author"
+    );
+    assert_eq!(
+        health.current(),
+        5,
+        "and it must not heal one either — the old flip replaced the whole \
+         `BodyHealth`, so being provoked was also a free full heal"
+    );
+}
+
+/// **The poison for the pool above: a character that authors NOTHING gets the
+/// undescribed-body default, and provocation leaves that alone too.**
+///
+/// ⛔ without this, moving the constant could have gone wrong in the quiet
+/// direction — an unauthored body left at `1` would still satisfy every
+/// assertion in the test above, and the first villager to turn hostile would die
+/// to one hit. That is the gameplay change this refactor exists NOT to make.
+#[test]
+fn an_unauthored_body_gets_the_undescribed_pool_before_anybody_hits_it() {
+    use ambition_characters::actor::{BodyHealth, DEFAULT_UNAUTHORED_BODY_HEALTH};
+
+    let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_actor_stimuli);
+    let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(npc).unwrap().max(),
+        DEFAULT_UNAUTHORED_BODY_HEALTH,
+        "a body nobody described is as tough as any other body nobody described \
+         — being peaceful is not a claim about its toughness"
+    );
+
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "the provocation must actually land"
+    );
+    assert_eq!(
+        app.world().get::<BodyHealth>(npc).unwrap().max(),
+        DEFAULT_UNAUTHORED_BODY_HEALTH,
+        "and it is the same pool afterwards, from construction rather than from \
+         the flip — which is the whole of D101's health half"
     );
 }
 

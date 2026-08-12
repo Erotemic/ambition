@@ -206,15 +206,24 @@ fn an_unmigrated_character_still_gets_the_roads_defaults() {
         registry.insert_prepared(finalized.prepared);
         registry
     };
+    // ⚠ this asserted a literal `1` until 2026-08-12 and the number moved, not
+    // the claim. `1` was the road's answer for a body nobody described — and
+    // generic PROVOCATION then overwrote it with 4, because a 1-HP villager
+    // dies to the hit after the one that angers it. That made "being hit" an
+    // argument about how tough a creature is (D101). The default is one shared
+    // constant now, asked at construction, and provocation writes no health at
+    // all. What this test still pins is that an unmigrated character reaches the
+    // ROAD's answer rather than one of its own.
+    use ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH;
     let tuning = seed_for(Some(&bare), Some("npc_test_flyer")).config.tuning;
-    assert_eq!(tuning.max_health, 1);
+    assert_eq!(tuning.max_health, DEFAULT_UNAUTHORED_BODY_HEALTH);
     assert_eq!(
         tuning.max_run_speed,
         ambition_platformer2d_core::MAX_RUN_SPEED
     );
 
     let none = seed_for(None, None).config.tuning;
-    assert_eq!(none.max_health, 1);
+    assert_eq!(none.max_health, DEFAULT_UNAUTHORED_BODY_HEALTH);
     assert_eq!(
         none.max_run_speed,
         ambition_platformer2d_core::MAX_RUN_SPEED

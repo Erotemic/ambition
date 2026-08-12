@@ -287,11 +287,6 @@ pub(crate) fn provoke_actor_in_place(
         // that needs a different brain flows through the flip's archetype swap).
         let proj = super::super::autonomous_reconcile::provoked_projection(
             super::super::brain_builders::default_provoked_policy(),
-            super::super::brain_builders::DEFAULT_PROVOKED_HEALTH,
-            // The engine's default provoked policy is a GROUNDED brawler; see
-            // `ProvokedArchetype::gravity_scale` for why that is a body change
-            // and what deletes it.
-            false,
             hostile_id,
             em.config,
             combat_kit,
@@ -309,24 +304,40 @@ pub(crate) fn provoke_actor_in_place(
         // it became a `combatant` wearing a villager's name, and the
         // paragraph above this branch has always said otherwise.
         //
-        // ⚠ **the gravity re-sync is NOT among them, and it is the exception
-        // that names the next defect.** A body at `gravity_scale: 0` driven by
-        // a GROUNDED policy freezes, so provocation still re-grounds one — a
-        // body change, kept because the freeze is real and deleting the write
-        // on the strength of an argument would ship it. The actual defect is one
-        // level up: generic provocation hands every body the same grounded
-        // policy, so a flying creature is given a mind that cannot drive it.
-        // See `ProvokedArchetype::gravity_scale`.
-        em.surface.gravity_scale = proj.gravity_scale;
+        // ⚠ **the gravity one outlived the other three, as a RE-SYNC**, and it
+        // went on 2026-08-12: `em.surface.gravity_scale = proj.gravity_scale`
+        // re-grounded a flying body so a "grounded" policy could drive it. The
+        // premise had gone stale: the engine's default provoked policy is
+        // `CharacterBrainTemplate::Smash`, and the Smash brain branches on
+        // `obs.self_aerial` with no `can_fly` gate — a flyer's grounded motor
+        // outputs are discarded and it steers a 2D `velocity_target` instead.
+        // `cfg.can_fly` gates only the hybrid take-off/landing toggle, and it is
+        // read off THIS body's `AbilitySet`, so the driver a flying body is
+        // handed already knows it flies. A provoked parrot is an angry parrot.
+        // `a_flying_npc_stays_flying_when_it_is_provoked` pins it, and its
+        // realism guards are the interesting half — the old test built a body
+        // production never builds (gravity 0, `fly_enabled` false) and the
+        // freeze it observed came from that disagreement, not from provocation.
         em.config.brain_profile = proj.brain_profile;
         em.config.brain = proj.config_brain;
-        // ⛔ **THE ONE BODY FACT LEFT, AND IT IS D96 ITEM 7.** A peaceful NPC
-        // placement spawns at `max_health: 1`, so a provoked one that kept its
-        // own pool dies to a single hit. What a provoked villager's health pool
-        // should be is Jon's open decision; until it is answered this borrows
-        // the archetype row's number, and it is the last thing generic
-        // provocation takes from one. See `ProvokedArchetype::max_health`.
-        *em.health = super::super::autonomous_reconcile::fresh_health_pool(proj.max_health);
+        // ⛔ **AND THE LAST BODY FACT WENT WITH IT.** This was
+        // `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)` — a struck
+        // body's entire `BodyHealth` replaced by a fresh 4-point pool, current
+        // damage and all, because a peaceful placement spawned at `max_health: 1`
+        // and a provoked one that kept its own pool died to a single hit.
+        //
+        // ⭐ **the `1` was the defect, not the pool.** An undescribed body is
+        // undescribed before anybody hits it, so the number moved UP a level to
+        // `DEFAULT_UNAUTHORED_BODY_HEALTH`, shared by the two seeds that answer
+        // *how tough is a body nobody authored* (the character body blueprint
+        // and `new_peaceful_npc_in`). The value is unchanged at 4 and D96 item 7
+        // still owns it; what changed is that a body's pool is settled at
+        // construction and provocation no longer has an opinion.
+        //
+        // ⚠ this is not a rebalance: a peaceful body takes no health damage at
+        // all (`actor_hit` accumulates strikes and says "No health damage"), so
+        // raising the peaceful default is inert until the body is hostile — at
+        // which point it has exactly the pool it used to be given here.
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE

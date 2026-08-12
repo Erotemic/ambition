@@ -405,7 +405,14 @@ impl PreparedCharacterDefinition {
             locomotion,
             character_id: self.id.as_str(),
             display_name: &self.display_name,
-            max_health: self.vitals.max_health.unwrap_or(1),
+            // ⭐ the ONE default for a body no authority describes, shared with
+            // the peaceful-NPC seed. It was `1` here and `1` there and `4` inside
+            // generic provocation, which is how "being hit changes your HP pool"
+            // got to look reasonable. See `DEFAULT_UNAUTHORED_BODY_HEALTH`.
+            max_health: self
+                .vitals
+                .max_health
+                .unwrap_or(ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH),
             contact_damage: self.contact_damage,
             dream_seed: self.dream_seed,
             practice_target: self.practice_target,

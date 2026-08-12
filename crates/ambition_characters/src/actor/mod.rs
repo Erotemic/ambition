@@ -19,6 +19,9 @@ pub mod death_traits;
 /// **The authored character** — see the module doc for why it lives here now.
 pub mod definition;
 pub use death_traits::CharacterDeathTraits;
+/// The pool an undescribed body gets — surfaced flat because its two consumers
+/// are the character blueprint and the NPC spawn seed, in another crate.
+pub use definition::DEFAULT_UNAUTHORED_BODY_HEALTH;
 pub mod intrinsics;
 pub use intrinsics::{CharacterLocomotion, CharacterMount, ContactDamage};
 pub mod worn;

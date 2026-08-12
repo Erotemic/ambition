@@ -14,8 +14,10 @@
 //! ⭐ **this file is the question that answers "so is that a bug?"** If the
 //! registered codecs already restore the provoked state, the reconciler is
 //! redundant — 506 code lines of D73's acceptance list — and wiring it in would
-//! make things WORSE, because it rebuilds a full `fresh_health_pool` over a
-//! damaged actor's restored HP.
+//! make things WORSE, because it rebuilt a full health pool over a damaged
+//! actor's restored HP. (The helper it used, `fresh_health_pool`, is itself gone
+//! as of D101: the LIVE provoke flip was its last caller, and provocation no
+//! longer writes health either.)
 //!
 //! ⚠ **it drives a SYNC-TEST session at prediction distance 4**, so `SaveWorld`
 //! and `LoadWorld` genuinely run every frame and every frame is resimulated. A
@@ -143,11 +145,16 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 ///
 /// ⛔ **the HP assertion is the one that matters, and it is the one that would
 /// BREAK if the reconciler were wired in as-is.** Its provoked reconstruction
-/// calls `fresh_health_pool(max_health)`, which would replace this body's
+/// rebuilt a fresh pool from `max_health`, which would replace this body's
 /// restored half-HP with a full pool every single load — a damaged actor healing
 /// itself on every rollback frame, which is precisely the class of divergence
 /// `rollback_lifecycle_reset`'s campaign note recorded as "a mid-brawl enemy
 /// full-heal".
+///
+/// ⚠ **the LIVE flip had the same bug and it was reachable**: until D101 it ran
+/// `*em.health = fresh_health_pool(DEFAULT_PROVOKED_HEALTH)`, so being provoked
+/// resized a body AND healed it. That write is gone; this assertion now also
+/// covers the road a player actually takes.
 #[test]
 fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     let mut sim = hall_sim();
@@ -189,8 +196,8 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
         Some(wounded),
         "the body's DAMAGE did not survive. ⛔ if this ever fails because \
          `reconcile_autonomous_actors` was wired into LoadWorld, that is the \
-         bug: its provoked reconstruction calls `fresh_health_pool(max_health)` \
-         and would heal a damaged actor on every load"
+         bug: its provoked reconstruction rebuilt a fresh pool from \
+         `max_health` and would heal a damaged actor on every load"
     );
 }
 

@@ -102,14 +102,13 @@ pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::B
     }
 }
 
-/// **The health pool a provoked body fights with when nothing else says.**
-///
-/// ⛔ a body fact, and the last one generic provocation supplies — see
-/// `ProvokedArchetype::max_health`. A peaceful NPC placement spawns at 1, so a
-/// provoked one that kept its own pool dies to a single hit; what it SHOULD be
-/// is ledger D96 item 7, open and Jon's. Named here rather than read off an
-/// archetype row so that answering it is an edit to one constant.
-pub(crate) const DEFAULT_PROVOKED_HEALTH: i32 = 4;
+// ⛔ `DEFAULT_PROVOKED_HEALTH: i32 = 4` stood here, and naming it *provoked* was
+// the tell: a health pool supplied by provocation is a body mutation whatever
+// number it holds (D101). The constant is
+// `ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH` now — the pool a
+// body gets when no authority describes it, asked at construction — and
+// provocation no longer writes health at all. The VALUE is unchanged and D96
+// item 7 still owns it.
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
@@ -720,10 +719,19 @@ mod tests {
         assert_eq!(engine.attack_range, from_row.attack_range);
         assert_eq!(engine.patrol_effort, from_row.patrol_effort);
         assert_eq!(engine.chase_effort, from_row.chase_effort);
+        // ⚠ **the HP half of this test is gone, and it is not a weakening.** It
+        // asserted `DEFAULT_PROVOKED_HEALTH == row.max_health` while provocation
+        // installed a pool. It does not: a body's pool is settled at
+        // construction from `DEFAULT_UNAUTHORED_BODY_HEALTH`, which the
+        // `combatant` row has no say over and never did. Pinning them would now
+        // be asserting a coincidence.
         assert_eq!(
-            DEFAULT_PROVOKED_HEALTH, row.max_health,
-            "the provoked HP pool moved — D96 item 7 is the decision, and this \
-             is not the place it gets made by accident"
+            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+            row.max_health,
+            "the undescribed-body pool and the combatant row have drifted apart, \
+             so a provoked NPC no longer fights with the toughness it did — D96 \
+             item 7 is that decision and this is not the place it gets made by \
+             accident"
         );
 
         // ⭐ THE POISON. `BrainProfile::default()` is a MeleeBrute, so a

@@ -713,7 +713,10 @@ impl ActorClusterSeed {
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.body_blueprint().ok());
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            max_health: authored_body.as_ref().map_or(1, |body| body.max_health),
+            max_health: authored_body.as_ref().map_or(
+                ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+                |body| body.max_health,
+            ),
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             max_run_speed: authored_body

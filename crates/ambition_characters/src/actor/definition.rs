@@ -47,6 +47,32 @@ pub struct Lineage {
 /// worn path read the catalog instead. Two construction paths, two answers, one
 /// character (GPT 5.6, 2026-07-29). Making the absence expressible is what lets
 /// one applier serve every path.
+/// **THE POOL A BODY GETS WHEN NO AUTHORITY DESCRIBES IT.**
+///
+/// ⭐ this number used to be spelled `DEFAULT_PROVOKED_HEALTH`, and it lived in
+/// the monolith's brain builders because the only place that supplied it was
+/// generic PROVOCATION: a peaceful placement spawned at `1`, so being struck
+/// replaced the body's whole `BodyHealth` with a fresh 4-point pool. That is a
+/// body mutation dressed as a mood change, and it was the last one left in
+/// `provoked_projection` (ledger D101).
+///
+/// ⇒ the repair is one level up, exactly where the `1` was: an undescribed body
+/// is undescribed whether or not anybody has hit it yet. Being provoked is not
+/// an argument that a creature has a different body, so the default moved to the
+/// two places that answer *how tough is a body nobody has authored* — the
+/// character body blueprint and the peaceful-NPC seed — and provocation stopped
+/// writing health at all.
+///
+/// ⚠ **the NUMBER is still D96 item 7 and still Jon's.** What changed is the
+/// AUTHORITY, not the value: 4 before, 4 after, and answering the ledger row is
+/// an edit to this one constant plus whichever characters state their own.
+///
+/// ⚠ a peaceful body takes no health damage at all (`actor_hit` accumulates
+/// strikes and explicitly does not damage a talkable NPC), so raising the
+/// peaceful default from 1 to this is inert until the body is hostile — which is
+/// why the move is a refactor rather than a rebalance.
+pub const DEFAULT_UNAUTHORED_BODY_HEALTH: i32 = 4;
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Vitals {
     /// How much punishment this character's body takes. `None` leaves whatever

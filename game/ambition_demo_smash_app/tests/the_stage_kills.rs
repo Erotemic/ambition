@@ -269,7 +269,23 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
     // so the second sample found one body and the zip below silently compared
     // seat 0 against itself. "Neither fighter moved" was the message for "one
     // fighter was dead", which is a different bug with a different fix.
-    for _ in 0..60 {
+    // ⛔⛔ **THE WARM-UP HAS TO OUTLAST THE COUNTDOWN** (2026-08-11). This was
+    // 60 ticks, and the stage opens `opens_suspended` with
+    // `opening_countdown_ticks = 3 * 60` — every fighter carries `ScriptedControl`
+    // for the whole 3-2-1-GO. So the sampling window sat ENTIRELY inside the hold
+    // and reported *"neither fighter moved"* about fighters that were correctly
+    // forbidden to move.
+    //
+    // ⚠ the countdown is the campaign's own feature, so this is a stale WINDOW
+    // rather than a stale assertion: a fighter brain that emits nothing is still
+    // exactly what this test is for, and the number below is read from the
+    // ruleset rather than restated.
+    let countdown = ambition_demo_smash::smash_roster([
+        ambition_demo_smash::SMASH_CHARACTER_ID,
+        ambition_demo_smash::SMASH_OPPONENT_ID,
+    ])
+    .opening_countdown_ticks;
+    for _ in 0..(countdown + 60) {
         app.update();
     }
 

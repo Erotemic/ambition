@@ -1287,6 +1287,49 @@ mod tests {
         );
     }
 
+    /// **AND HOW MANY STATE THEIR OWN VERBS** — P3.25's number, measured the same
+    /// way and for the same reason.
+    ///
+    /// ⭐ `effective_abilities` is an INTERSECTION when a character authors an
+    /// `AbilitySet` — the mode may forbid and may never grant — but its third arm
+    /// is `(None, mode) => mode`: a character that authors nothing takes the
+    /// mode's whole set as a GRANT. That arm is the scaffold P3.25 deletes, and
+    /// it disappears when this count reaches the cast.
+    ///
+    /// ⚠ **a FLOOR again, and the control is the same**: it must not yet be
+    /// everybody, because the day it is, the bridge is dead and this test should
+    /// be replaced by the refusal rather than kept as a ratchet.
+    #[test]
+    fn the_cast_that_states_its_own_verbs_only_grows() {
+        let authored: Vec<&str> = crate::character_catalog::buildable_cast()
+            .filter(|id| {
+                authored_intrinsics(
+                    id,
+                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                        *id,
+                        *id,
+                        crate::AMBITION_CONTENT_PROVIDER,
+                    ),
+                )
+                .abilities
+                .is_some()
+            })
+            .collect();
+        assert!(
+            !authored.is_empty(),
+            "no character in the cast states its own verbs, so `effective_abilities` \
+             is a pure GRANT everywhere and the mask half is untested by content: \
+             {authored:?}"
+        );
+        let total = crate::character_catalog::buildable_cast().count();
+        assert!(
+            authored.len() < total,
+            "every character now states its own verbs ({total} of {total}) — the \
+             `(None, mode) => mode` GRANT arm has no adopters left, so delete it \
+             and this ratchet with it. Authored: {authored:?}"
+        );
+    }
+
     /// **The giant carries its own facts now** — every one its archetype row
     /// stated, authored on the definition, and that row is DELETED (D76 closed
     /// once three layers learned to ask the character before the archetype: the

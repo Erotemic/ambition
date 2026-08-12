@@ -302,6 +302,11 @@ impl CharacterCatalogRegistry {
                     });
                 }
                 let mut entry = entry.clone();
+                // ⭐ **the provider, stated rather than inferred later.** See
+                // `CharacterCatalogEntry::provider`: this is the one moment the
+                // pairing is known for certain, so it is written down here
+                // instead of being recovered from a neighbouring key.
+                entry.provider = provider_id.clone();
                 // ⚠ **an EMPTY `default_brain` names nothing and stays empty**
                 // (2026-08-12, D81 — see the field's doc). Namespacing it would
                 // look up `""` in the provider's preset map and `expect` its way

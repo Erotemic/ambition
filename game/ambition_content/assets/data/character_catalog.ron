@@ -784,27 +784,30 @@
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
             composition: None,
-            // ⛔⛔ **STILL NAMES A PRESET, AND THE THIRD REASON IS THE REAL ONE**
-            // (2026-08-12, D81). Twice now this row has been emptied and put
-            // back, and each attempt found a different fact hiding behind the
-            // field:
+            // ⛔⛔ **STILL NAMES ONE, AFTER FOUR ATTEMPTS** (2026-08-12, D81).
+            // Four blockers found, three removed, and the last is not this row's:
             //
             //   1. the policy numbers are dead weight — the DEFINITION's
-            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` outranks
-            //      them everywhere. True, and not the blocker.
+            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` wins
+            //      everywhere this field is read.
             //   2. `aggressiveness: 0.0` looked like the cove parrot's
-            //      peacefulness. It is not — that comes from the placement being
-            //      an `NpcSpawn`; the preset's copy decides nothing.
-            //   3. ⭐ **`default_brain` CARRIES THE NAMESPACE.**
-            //      `qualify_preset_like` infers a character's provider by
-            //      splitting this field's assembled `provider::name`, so emptying
-            //      it leaves `validate_brain_override` unable to qualify a Hall
-            //      pedestal's override — and the full-host Hall validation fails.
+            //      peacefulness. It is not: that comes from its `NpcSpawn`
+            //      PLACEMENT. The test claiming otherwise was asserting a
+            //      preset's contents and now pins the bird's flight instead.
+            //   3. `default_brain` CARRIED THE NAMESPACE — `qualify_preset_like`
+            //      split its assembled `provider::name` to learn the provider.
+            //      Fixed properly: an entry states its `provider` now.
+            //   4. ⛔ **and some catalog reaching the NPC road was never
+            //      ASSEMBLED** — no `provider`, `default_action_set` still in its
+            //      LOCAL form — while its preset map IS namespaced. Empty this
+            //      field there and no namespace carrier remains, so the Hall
+            //      pedestal's `brain_override: "stand_still"` resolves bare and is
+            //      refused.
             //
-            // ⇒ the unblock is not here. `qualify_preset_like`'s own doc already
-            // names the smell and points at the fix: take the provider from the
-            // authority that owns it (a `CharacterDefinition` states one
-            // directly) instead of inferring it from a neighbouring key.
+            // ⇒ (4) is a defect in its own right: a catalog that is half
+            // assembled. Measuring it is what the next attempt starts with, and
+            // emptying this field is safe the moment a character's provider is
+            // reliably on its entry.
             default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],

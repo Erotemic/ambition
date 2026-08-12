@@ -557,6 +557,21 @@ pub struct CharacterPortraitRef {
 // simply never fires and the author sees content that looks correct.
 #[serde(deny_unknown_fields)]
 pub struct CharacterCatalogEntry {
+    /// **Which provider authored this row**, filled in by ASSEMBLY.
+    ///
+    /// ⭐ **the namespace, taken from the authority that owns it** (2026-08-12,
+    /// ledger D81). `qualify_preset_like` used to infer a character's provider by
+    /// splitting `default_brain`'s assembled `provider::name` — its own doc calls
+    /// that out — which quietly made a preset reference load-bearing for
+    /// something that has nothing to do with brains. The cost showed up when a
+    /// migrated character tried to stop naming a preset: the Hall's override
+    /// validation lost the namespace and the full-host check failed.
+    ///
+    /// ⚠ **EMPTY in an unassembled fragment**, which is honest rather than a gap:
+    /// a fragment does not know its own provider until it is registered under
+    /// one, and `#[serde(default)]` means no authored row writes this.
+    #[serde(default)]
+    pub provider: String,
     /// Human-facing label (UI, dialogue, debug overlays).
     pub display_name: String,
     /// Sprite-sheet image path, relative to the sandbox asset root.

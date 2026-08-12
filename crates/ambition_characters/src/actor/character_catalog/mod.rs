@@ -196,7 +196,28 @@ impl CharacterCatalog {
         let Some(name) = authored_override.map(str::trim).filter(|s| !s.is_empty()) else {
             return Ok(None);
         };
-        let key = qualify_preset_like(entry.default_brain.as_str(), name);
+        // ⭐ **the character's OWN provider first** (D81). Falling back to the
+        // `default_brain` inference keeps an UNASSEMBLED fragment working, where
+        // `provider` is empty because nothing has registered it yet — and that
+        // fallback is what the assembled catalog no longer needs.
+        // ⭐ the character's OWN provider, when the catalog it came from filled
+        // one in. ⚠ not every path does: the ASSEMBLY sets it, and a catalog
+        // lowered straight from compiled pack bytes carries whatever was
+        // serialized — so this degrades rather than assuming.
+        //
+        // ⇒ the fallbacks are both "a neighbouring key that is namespaced the
+        // same way", which is the smell `qualify_preset_like`'s doc names. They
+        // are ORDERED so the one that can be absent is last:
+        // `default_action_set` is still required of every row, `default_brain` no
+        // longer is (D81). Each disappears as its authority arrives.
+        let namespace_carrier = if !entry.provider.is_empty() {
+            format!("{}::_", entry.provider)
+        } else if !entry.default_action_set.is_empty() {
+            entry.default_action_set.clone()
+        } else {
+            entry.default_brain.clone()
+        };
+        let key = qualify_preset_like(&namespace_carrier, name);
         if self.has_brain_preset(&key) {
             Ok(Some(BrainPresetId::new(key)))
         } else {

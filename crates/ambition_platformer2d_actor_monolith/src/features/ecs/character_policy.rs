@@ -33,7 +33,6 @@
 
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{Brain, BrainProfile};
-use bevy::prelude::{Entity, World};
 
 use crate::character_runtime::PreparedCharacterRegistry;
 use crate::features::ecs::actor_clusters::ActorConfig;
@@ -68,51 +67,14 @@ pub(crate) fn brain_from_profile(
     crate::features::ecs::enemy_default_brain(&body, abilities)
 }
 
-/// The policy a body should be driven by when it returns to its character's own
-/// default — resolved by identity, or `None`.
-///
-/// ⛔⛔ **`None` IS AN INVARIANT VIOLATION, NOT A CASE TO COVER FOR.** This
-/// returned `config.brain_profile` when the identity road could not answer, and
-/// that fallback was scaffolding that recreated the exact bug it was written to
-/// fix: `ActorConfig::brain_profile` is the policy the body is running NOW, and
-/// provocation writes it. A binding that says `default = CharacterProfile` is a
-/// claim that the CHARACTER can answer; if `WornCharacter` or the registry
-/// wiring ever goes missing, "ask the character and otherwise trust whatever
-/// mind is currently installed" is a released body that keeps hunting you.
-///
-/// ⇒ callers REJECT — the same answer every other unresolvable brain command
-/// gets, with a warning naming the body. A composition that seats a
-/// character-first body without a cast to resolve it is broken, and finding out
-/// loudly is the point.
-pub(crate) fn default_policy_for(
-    registry: Option<&PreparedCharacterRegistry>,
-    worn: Option<&WornCharacter>,
-) -> Option<BrainProfile> {
-    registry
-        .zip(worn)
-        .and_then(|(registry, worn)| character_autonomous_profile(registry, worn))
-}
-
-/// [`default_policy_for`], asked of a world — the rollback/resume road, which
-/// holds an `&World` rather than a system's query items.
-pub(crate) fn default_policy_in(world: &World, entity: Entity) -> Option<BrainProfile> {
-    default_policy_for(
-        world.get_resource::<PreparedCharacterRegistry>(),
-        world.get::<WornCharacter>(entity),
-    )
-}
-
-/// The complete identity → policy → `Brain` road for one entity in a world.
-///
-/// `None` for a body with no `ActorConfig` to lower against, and for one whose
-/// character cannot be resolved — see [`default_policy_for`] for why the second
-/// is deliberately not covered for.
-pub(crate) fn character_default_brain_in(world: &World, entity: Entity) -> Option<Brain> {
-    let config = world.get::<ActorConfig>(entity)?;
-    let profile = default_policy_in(world, entity)?;
-    let abilities = world
-        .get::<ambition_platformer2d_core::BodyAbilities>(entity)
-        .map(|abilities| abilities.abilities)
-        .unwrap_or_default();
-    Some(brain_from_profile(config, profile, abilities))
-}
+// ⛔⛔ **THREE FUNCTIONS WERE DELETED HERE ON 2026-08-12**, and they were the
+// world-shaped half of this module: `default_policy_for`, `default_policy_in`
+// and `character_default_brain_in`. Every one existed for
+// `autonomous_reconcile`'s rollback road — which had no production call site and
+// is now gone (ledger D104). The LIVE road reads
+// [`character_autonomous_profile`] directly from a system's query items, which
+// is the only road there ever was.
+//
+// ⚠ the strictness they carried is not lost: `apply_brain_selection` rejects a
+// `CharacterProfile` default it cannot resolve, and
+// `a_character_first_default_that_cannot_be_resolved_is_rejected` pins it.

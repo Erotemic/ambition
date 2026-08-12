@@ -101,7 +101,6 @@ pub use anim_helpers::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
     ecs_chest_opened,
 };
-pub use autonomous_reconcile::reconcile_autonomous_actors;
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
     boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,

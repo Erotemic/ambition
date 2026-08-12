@@ -18,5 +18,6 @@ mod content_pack_registry;
 mod dialogue_lint;
 mod fighter_brain_ladder;
 mod intro_sprite_catalog;
+mod puppy_slug_forced_seat;
 mod summoned_minions_resolve;
 mod yarn_compile;

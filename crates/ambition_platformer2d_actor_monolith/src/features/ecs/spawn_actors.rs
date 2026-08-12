@@ -232,10 +232,22 @@ pub(crate) fn spawn_staged_actor(
             character
                 .as_ref()
                 .and_then(|id| prepared.get(id.as_str()))
+                // ⭐ **the HONEST lookup**: a brain key with no row means no
+                // archetype says this body is limbed, which is the answer — not
+                // "whatever the reserved `combatant` row says". `spec_for_brain`
+                // cannot fail, so asking it here made a misspelled key inherit
+                // the fallback's limb answer.
                 .map(|definition| {
-                    is_limbed_host(Some(definition), &character_roster.spec_for_brain(brain))
+                    is_limbed_host(
+                        Some(definition),
+                        character_roster.try_spec_for_brain(brain).as_ref(),
+                    )
                 })
-                .unwrap_or_else(|| spec_is_limbed_host(&character_roster.spec_for_brain(brain))),
+                .unwrap_or_else(|| {
+                    character_roster
+                        .try_spec_for_brain(brain)
+                        .is_some_and(|spec| spec_is_limbed_host(&spec))
+                }),
             "programmatic staged actor",
             &req.id,
         ) {
@@ -301,11 +313,18 @@ pub(crate) fn spawn_staged_actor_into(
                 character
                     .as_ref()
                     .and_then(|id| prepared.get(id.as_str()))
+                    // See the twin above: the honest lookup, so a key with no
+                    // row is not given the fallback's limb answer.
                     .map(|definition| {
-                        is_limbed_host(Some(definition), &character_roster.spec_for_brain(brain))
+                        is_limbed_host(
+                            Some(definition),
+                            character_roster.try_spec_for_brain(brain).as_ref(),
+                        )
                     })
                     .unwrap_or_else(|| {
-                        spec_is_limbed_host(&character_roster.spec_for_brain(brain))
+                        character_roster
+                            .try_spec_for_brain(brain)
+                            .is_some_and(|spec| spec_is_limbed_host(&spec))
                     }),
                 "programmatic staged actor",
                 &req.id,
@@ -1884,13 +1903,17 @@ pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::ArchetypeSpec) -
 /// ⚠ still scoped to the `"giant"` string. A data-driven "which mounts have
 /// limbs" flag waits for a SECOND limbed mount, exactly as
 /// [`mount_has_hand_limbs`] has said all along.
+/// ⚠ **the spec is OPTIONAL now** (2026-08-12). Callers used to hand it
+/// `spec_for_brain`, which cannot fail — so a brain key with no row inherited
+/// the reserved `combatant` row's limb answer. A key nobody authored says
+/// nothing about limbs, and `None` is that.
 pub(crate) fn is_limbed_host(
     character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
-    spec: &super::super::enemies::ArchetypeSpec,
+    spec: Option<&super::super::enemies::ArchetypeSpec>,
 ) -> bool {
     match character.and_then(|definition| definition.mount.as_ref()) {
         Some(mount) => mount.class.as_deref() == Some("giant"),
-        None => mount_has_hand_limbs(spec),
+        None => spec.is_some_and(mount_has_hand_limbs),
     }
 }
 

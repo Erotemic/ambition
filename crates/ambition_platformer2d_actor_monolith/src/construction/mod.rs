@@ -1570,7 +1570,7 @@ pub fn staged_actor_requests(
             let spec = roster.spec_for_brain(brain);
             if crate::features::is_limbed_host(
                 resolve_planned_character(prepared, character.as_ref()),
-                &spec,
+                Some(&spec),
             ) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 let host_authored = crate::rooms::Authored::new(
@@ -1650,7 +1650,7 @@ pub fn authored_actor_requests(
         let spec = roster.spec_for_brain(&enemy.payload.brain);
         if crate::features::is_limbed_host(
             resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
-            &spec,
+            Some(&spec),
         ) {
             let giant_sim = SimId::placement(&enemy.id);
             let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
@@ -1809,7 +1809,9 @@ pub fn planned_giant_host_ids(
         .filter(|enemy| {
             crate::features::is_limbed_host(
                 resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
-                &roster.spec_for_brain(&enemy.payload.brain),
+                // The honest lookup: a brain key with no row says nothing about
+                // limbs, rather than inheriting the reserved fallback's answer.
+                roster.try_spec_for_brain(&enemy.payload.brain).as_ref(),
             )
         })
         .map(|enemy| enemy.id.clone())

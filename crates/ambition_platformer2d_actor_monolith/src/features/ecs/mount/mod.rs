@@ -415,7 +415,6 @@ pub struct MountRiderLinkEnforced;
 /// re-applying the dissolve.
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
-    roster: Res<crate::features::CharacterRoster>,
     // **The prepared cast**, so a dismounted rider swings its own weapon rather
     // than borrowing an archetype's (ledger D84).
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
@@ -568,7 +567,6 @@ pub fn enforce_mount_rider_link(
                     // A rider always carries a CombatKit; fall back defensively.
                     let rider_kit = combat_kit.cloned().unwrap_or_default();
                     let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(
-                        &roster,
                         rider.config,
                         &rider_kit,
                         held_item.map(|item| &item.spec),

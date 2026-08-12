@@ -377,7 +377,6 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(
-    roster: &super::super::enemies::CharacterRoster,
     rider: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
@@ -401,15 +400,19 @@ pub(super) fn dismounted_rider_brain_and_action_set(
             .and_then(|(registry, character)| {
                 registry.get(character)?.kit.action_set()?.melee.clone()
             })
-            .or_else(|| {
-                roster
-                    .spec_for_brain(
-                        &ambition_entity_catalog::placements::CharacterBrain::Custom(
-                            "pirate_raider".into(),
-                        ),
-                    )
-                    .melee_spec()
-            });
+            // ⛔⛔ **THIS NAMED A ROW THAT NO LONGER EXISTS.** It asked the
+            // roster for `pirate_raider`'s melee — and that row was deleted on
+            // 2026-08-11 when the raider became `npc_pirate_raider` and authored
+            // its own body. `spec_for_brain` cannot fail, so every dismounted
+            // rider whose character authored no swing has been given
+            // `combatant`'s ever since, silently, while this code read as though
+            // it were handing out a pirate's.
+            //
+            // ⭐ the engine's default fighting kit is what it was ACTUALLY
+            // getting — `default_fighting_kit` is pinned equal to `combatant`'s
+            // melee (P3.24) — so this is the same swing with the lie removed,
+            // and it stops depending on a row at all.
+            .or_else(|| default_fighting_kit().innate_melee);
     }
 
     // If the dismounted rider still has a ranged held item, keep using a

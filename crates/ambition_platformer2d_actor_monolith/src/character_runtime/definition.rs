@@ -1832,20 +1832,20 @@ fn finalize_character(
         abilities,
         // ⭐ **GRAVITY-FREEDOM IS FOLDED HERE, not asked at construction**
         // (Jon's redirect §14). `new_character_in` used to answer
-        // `locomotion.flies || catalog.body_kind(id) == Floating` — a
+        // `locomotion.baseline_free_flight || catalog.body_kind(id) == Floating` — a
         // constructor rediscovering what the character is from the catalog, for
         // a fact preparation had every input to settle. A prepared definition
         // that still needs the catalog to say whether a body flies is only
         // partly prepared.
         //
-        // ⚠ `flies: false` means *"this character did not say"* (see the field's
+        // ⚠ `baseline_free_flight: false` means *"this character did not say"* (see the field's
         // own doc), which is exactly why the catalog's answer may fill it and
         // never overrule it.
         locomotion: locomotion.map(
             |locomotion| ambition_characters::actor::CharacterLocomotion {
                 // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (ledger D89,
                 // 2026-08-11). This read
-                // `locomotion.flies || body_kind(&id) == Floating`, so a
+                // `locomotion.baseline_free_flight || body_kind(&id) == Floating`, so a
                 // presentation/footprint enum decided whether a body flies — and
                 // the character had no way to disagree, because `flies` was a
                 // bare `bool` whose `false` meant "did not say".
@@ -1860,7 +1860,7 @@ fn finalize_character(
                 // ⇒ silence now resolves to GROUNDED, and the three characters
                 // that genuinely fly say so on their own definitions (the parrot,
                 // the burning shark, and both plane swarms).
-                flies: Some(locomotion.flies.unwrap_or(false)),
+                baseline_free_flight: Some(locomotion.baseline_free_flight.unwrap_or(false)),
                 ..locomotion
             },
         ),

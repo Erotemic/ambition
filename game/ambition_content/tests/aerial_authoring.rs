@@ -47,7 +47,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
             CharacterDefinition::new(id, id, "ambition_content"),
         )
         .locomotion
-        .and_then(|locomotion| locomotion.flies)
+        .and_then(|locomotion| locomotion.baseline_free_flight)
     };
 
     // ⭐ **a character that says it FLIES.** Without one, `Some(true)` is

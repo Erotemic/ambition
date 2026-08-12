@@ -274,7 +274,7 @@ fn peaceful_npc_brain_is_not_hostile() {
 ///
 /// ⚠ **what it knew is not lost.** The grounded-hybrid reading it pinned — a body
 /// that prefers the ground and carries flight for traversal — is exactly what
-/// `flies: Some(false)` plus an intrinsic fly capability says on her definition,
+/// `baseline_free_flight: Some(false)` plus an intrinsic fly capability says on her definition,
 /// and the D89 row records the measurement that proved parity before the row was
 /// deleted.
 

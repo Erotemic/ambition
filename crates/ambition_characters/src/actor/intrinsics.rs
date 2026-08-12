@@ -46,8 +46,16 @@ pub struct CharacterLocomotion {
     /// crawler holding on when struck.
     #[serde(default)]
     pub cling_breaks_on_hit: bool,
-    /// **This body ignores gravity** — a flyer, a drifting swarm, a hovering
-    /// machine.
+    /// **This body's BASELINE locomotion is free flight** — it ignores gravity as
+    /// its ordinary state: a drifting swarm, a hovering machine, a bird.
+    ///
+    /// ⛔⛔ **NOT a capability, and the name says so since 2026-08-11.** This was
+    /// `flies`, one letter from `AbilitySet::fly`, and the two mean genuinely
+    /// different things: `fly` is *this body MAY take to the air*, which a
+    /// grounded fighter can hold and a ruleset can forbid; this is *this body is
+    /// airborne by default*, which changes how it moves before anybody presses
+    /// anything. The PCA is the case that proved they must not be confused — a
+    /// grounded-base hybrid that carries flight for traversal (ledger D89).
     ///
     /// ⭐ **the character says it now, and that is what frees a migrated body
     /// from needing a catalog row.** Gravity-freedom lived in the catalog's
@@ -60,10 +68,16 @@ pub struct CharacterLocomotion {
     /// ⛔⛔ **`None` IS NOT `Some(false)`, and that distinction is the whole
     /// point** (2026-08-11). This was a bare `bool` whose own doc admitted
     /// *"`false` does not mean grounded, it means this character did not say"* —
-    /// so a character that flies, one that deliberately does NOT, and one that is
-    /// silent were two values for three facts. Construction fills silence from
-    /// the catalog's `body_kind: Floating`, and a character had no way to
-    /// disagree with it.
+    /// so a character that baseline_free_flight, one that deliberately does NOT, and one that is
+    /// silent were two values for three facts, and a character had no way to
+    /// disagree with its catalog row.
+    ///
+    /// ⚠ **and the catalog no longer fills the silence.** An earlier version of
+    /// this doc said construction reads `body_kind: Floating` when a character
+    /// says nothing; that fold is DELETED. `Floating` answers *how tall is this*
+    /// (it supplies no `default_standing_height`, so the sheet decides) and
+    /// stopped being locomotion authority. **Preparation resolves silence to
+    /// `Some(false)`** — grounded — and a body that flies says so here.
     ///
     /// ⭐ **`ArchetypeSpec::is_aerial` already made this distinction, and its doc
     /// already named the live case**: the Perfect Cellular Automaton, *"`Floating`
@@ -72,7 +86,7 @@ pub struct CharacterLocomotion {
     /// the character-first PCA flew every frame of its own duel and never
     /// blocked.
     #[serde(default)]
-    pub flies: Option<bool>,
+    pub baseline_free_flight: Option<bool>,
 }
 
 impl Default for CharacterLocomotion {
@@ -88,7 +102,7 @@ impl Default for CharacterLocomotion {
             surface_walker: false,
             cling_breaks_on_hit: false,
             // ⚠ SILENT, not grounded — see the field.
-            flies: None,
+            baseline_free_flight: None,
         }
     }
 }

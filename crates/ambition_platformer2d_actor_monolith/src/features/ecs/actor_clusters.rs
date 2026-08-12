@@ -816,7 +816,7 @@ impl ActorClusterSeed {
         );
         let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
         // ⭐ **ASKED ONCE, AT PREPARATION.** This read
-        // `locomotion.flies || catalog.body_kind(character_id) == Floating` — a
+        // `locomotion.baseline_free_flight || catalog.body_kind(character_id) == Floating` — a
         // constructor rediscovering what the character is (Jon's redirect §14).
         // The fold now happens in `finalize_character`, so `flies` on a prepared
         // character already carries the catalog's answer for every body that did
@@ -824,7 +824,7 @@ impl ActorClusterSeed {
         // ⚠ silence reads as GROUNDED here: preparation has already folded the
         // catalog answer in, so an unresolved  at construction means no
         // authority said this body flies.
-        let is_aerial = locomotion.flies.unwrap_or(false);
+        let is_aerial = locomotion.baseline_free_flight.unwrap_or(false);
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
         // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
         // default otherwise: the stage has to give a body that has never said

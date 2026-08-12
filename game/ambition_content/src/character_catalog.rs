@@ -338,7 +338,7 @@ pub fn authored_intrinsics(
                     // 68px rather than 48). The archetype row it replaces said
                     // `is_aerial: Some(false)` for the same reason: a
                     // grounded-base hybrid.
-                    flies: Some(false),
+                    baseline_free_flight: Some(false),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {
@@ -494,7 +494,7 @@ pub fn authored_intrinsics(
                     // Knocked off its surface when hit — falls with gravity for
                     // a moment, then re-attaches on landing.
                     cling_breaks_on_hit: true,
-                    flies: Some(false),
+                    baseline_free_flight: Some(false),
                 })
                 .with_contact_damage(ContactDamage {
                     strength: 0.55,
@@ -534,7 +534,7 @@ pub fn authored_intrinsics(
                     // a presentation/footprint fact that was doubling as
                     // locomotion authority. The fold is deleted; a bird states
                     // its own flight.
-                    flies: Some(true),
+                    baseline_free_flight: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {
@@ -579,7 +579,7 @@ pub fn authored_intrinsics(
                 .with_locomotion(CharacterLocomotion {
                     run_speed: if paper { 58.0 } else { 38.0 },
                     move_style: MoveStyleSpec::Float,
-                    flies: Some(true),
+                    baseline_free_flight: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {
@@ -587,7 +587,7 @@ pub fn authored_intrinsics(
                     amount: 1,
                 })
                 .with_autonomous_profile(BrainProfile {
-                    // It flies, it notices nobody, and running into it is the
+                    // It baseline_free_flight, it notices nobody, and running into it is the
                     // entire threat.
                     template: CharacterBrainTemplate::Aerial,
                     aggro_radius: 0.0,
@@ -648,7 +648,7 @@ pub fn authored_intrinsics(
                     move_style: MoveStyleSpec::Float,
                     // ⭐ see the parrot: a flying MOUNT states its own flight
                     // rather than inheriting it from a body-kind enum.
-                    flies: Some(true),
+                    baseline_free_flight: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {

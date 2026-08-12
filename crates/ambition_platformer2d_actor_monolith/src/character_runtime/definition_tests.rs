@@ -882,7 +882,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .body_blueprint()
             .expect("it states its locomotion")
             .locomotion
-            .flies
+            .baseline_free_flight
             // ⚠ `Some(false)`, not `None`: preparation RESOLVES the question
             // even when the answer is "no". A `None` reaching a body would mean
             // the barrier left it open for a constructor to rediscover, which is
@@ -900,7 +900,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
         CharacterDefinition::new("floater", "Floater", "test").with_locomotion(
             ambition_characters::actor::CharacterLocomotion {
                 run_speed: 90.0,
-                flies: Some(true),
+                baseline_free_flight: Some(true),
                 ..Default::default()
             },
         ),
@@ -913,7 +913,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .body_blueprint()
             .expect("it states its locomotion")
             .locomotion
-            .flies,
+            .baseline_free_flight,
         Some(true),
         "an authored answer must survive preparation untouched"
     );
@@ -931,7 +931,7 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .body_blueprint()
             .expect("it states its locomotion")
             .locomotion
-            .flies,
+            .baseline_free_flight,
         // ⚠ **`Some(false)`, and the difference is the whole three-state.** An
         // unknown id has no catalog answer to fold, so preparation resolves the
         // silence to "does not fly" — and a reader must not have to tell that

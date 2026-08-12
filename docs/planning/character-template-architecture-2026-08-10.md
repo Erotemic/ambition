@@ -152,7 +152,14 @@ autonomous_reconcile                1045
    ⛔ the `test::patrol_peaceful` warning above is DISCHARGED, and the fixture
    that produced it was the fault: it parsed its catalog instead of ASSEMBLING
    it, and production namespaces every preset `provider::name`.
-5. ▢ **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
+5. ✔ **DONE 2026-08-12 (campaign P0.3).** `MatchParticipant::character`,
+   `PreparedSeat::character_id` and `StartingCharacter::character_id` are
+   `CharacterId`; the prepared registry was already keyed on it. ⚠ residue
+   recorded rather than pretended away: `PreparedCharacterOverrides::id`
+   (module-private staging) and the AUTHORING schemas (`EnemySpawnSpec`,
+   `InteractionKind::Npc`, `EncounterSpec`) are still `String` — content-facing
+   surfaces that belong with the authoring pass. ⇥ as written:
+   ▢ **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
    several runtime accessors return. `CharacterId` should survive from authoring
    to runtime, converting only at serialization/presentation/debug boundaries.
 
@@ -177,17 +184,33 @@ autonomous_reconcile                1045
 
 ### C. Content migration (phase 2 + 4)
 
-10. ▢ **Group A's remaining seven** — `puppy_slug` (10 spawns),
+10. ✔ **DONE — all seven, and their rows are deleted.** Verified 2026-08-12:
+    `character_archetypes.ron` contains no `puppy_slug`, `burning_flying_shark`,
+    `pirate_shark_rider`, `sky_parrot`, `giant_gnu`, `pirate_heavy_shark_rider`
+    or `ai_slop` row. ⭐ Iron Mary — this item's own acceptance test for Jon's
+    original observation — is `npc_pirate_heavy_iron_mary`, authored and named by
+    its placement. ⇥ as written:
+    ▢ **Group A's remaining seven** — `puppy_slug` (10 spawns),
     `burning_flying_shark` (7), `pirate_shark_rider` (6), `sky_parrot` (2),
     `giant_gnu` (1), `pirate_heavy_shark_rider`/Iron Mary (1), `ai_slop` (1).
     Follow the mite recipe: author on the definition, register, name the
     placement, delete from the row IN THE SAME CHANGE.
     ⚠ **Iron Mary is the acceptance test for Jon's original observation.**
-11. ▢ **The mites' rows disappear** once (3) gives their controller facts a
+11. ✔ **DONE.** Both mite rows are gone, and the homeless facts this item named
+    have an intrinsic home: `CharacterDefinition::contact_damage`
+    (`ContactDamage { strength, amount }`), authored by every contact-damaging
+    character that has migrated. ⇥ as written:
+    ▢ **The mites' rows disappear** once (3) gives their controller facts a
     home. Also still homeless: `contact_strength` / `damage_amount` (body
     contact damage) — they need an intrinsic home before any contact-damaging
     character fully migrates.
-12. ▢ **Group B — shared behaviour profiles.** `medium_striker` becoming a
+12. ✔ **DONE, and by this item's own test.** `medium_striker` is a reusable
+    `autonomous_profiles` entry with TWO adopters — the goblin band and
+    `npc_lab_raider` — which is the success condition stated here; it did not
+    survive as a renamed whole-body archetype. ⚠ its ARCHETYPE row still exists
+    for unmigrated placements, and that is item 7's business, not this one's.
+    ⇥ as written:
+    ▢ **Group B — shared behaviour profiles.** `medium_striker` becoming a
     reusable `BrainProfile` is success; surviving as a renamed whole-body
     archetype is failure.
 13. ▢ **Group C — generic roles.** Classify each: real character, fixture-only

@@ -250,13 +250,23 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
     for _ in 0..30 {
         app.update();
     }
-    // CPU seats: the select screen's roster is all humans, and a human with no
-    // controller correctly does nothing.
+    // ⛔⛔ **BOTH SEATS MUST BE CPUs, and this called the helper that makes seat 0
+    // HUMAN** (2026-08-11). The comment here already said what it needed — *"a
+    // human with no controller correctly does nothing"* — and then asked for a
+    // roster whose first seat is exactly that. So this measured one CPU pacing
+    // around a statue and called it "the brain never commits".
+    //
+    // ⚠ `smash_roster_at_levels` is the helper that seats EVERY slot as a CPU;
+    // its own doc says so. Same rungs on both sides, so neither fighter has a
+    // ladder advantage and the measurement is about engagement rather than skill.
     app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            ambition_demo_smash::SMASH_CHARACTER_ID,
-            ambition_demo_smash::SMASH_OPPONENT_ID,
-        ]));
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
             ambition_platformer2d::game_shell::ShellRouteId::new(

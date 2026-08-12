@@ -197,26 +197,6 @@
     // Boss-room "stationary heavy" — almost stationary, narrow threat
     // envelope but huge reach + biggest non-boss contact damage. Lunge
     // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
-    // Training dummy that never dies. The sandbox uses this for the
-    // combat-feel lab so the player can wail on a static target.
-    "sandbag_infinite": (
-        max_health: 9999,
-        never_dies: true,
-        body_contact_damage: false,
-        run_speed: 155.0,
-        patrol_effort: 0.6774,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 150.0,
-        contact_strength: 0.70,
-        damage_amount: 1,
-        is_sandbag: true,
-        brain_template: StandStill,
-        // A practice target is PASSIVE — no counter-attack. (It still deals
-        // light CONTACT damage if you walk into it; it just never strikes back.)
-        melee: None,
-        move_style: Walk,
-    ),
     // Aerial shark (dismounted form). `chase_effort` scales the steering
     // convergence rate, not a ground sprint.
     // ADR 0020 mount actor: the GIANT GNU that GNU-ton rides on (G2). A

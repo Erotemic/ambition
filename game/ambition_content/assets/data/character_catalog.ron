@@ -551,6 +551,30 @@
         ),
         hall_dialogue_id: Some("hall_sandbag"),
         ),
+        // ⭐ **THE IMMORTAL DUMMY IS A DIFFERENT CREATURE** (D77). It shares the
+        // sandbag's sheet and its stance and differs in the one fact that
+        // matters to a combat-feel lab: it cannot be destroyed. `never_dies` is
+        // a CHARACTER trait (`CharacterDeathTraits`), not a placement one, so
+        // "the same sandbag, made invincible here" is not expressible — and
+        // pretending it is would put a mortality policy on a spawn point.
+        "sandbag_infinite": (
+            sprite_tuning: Some((collision_scale: 1.38, frame_sample_inset: 1)),
+            display_name: "Infinite Sandbag",
+            spritesheet: "sprites/sandbag_spritesheet.png",
+            manifest: "sprites/sandbag_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "sandbag_punch",
+            tags: ["training"],
+        barks: (
+            on_hit: ["...", "Again."],
+            hall: ["My colleague over there has six hit points. I have nine thousand nine hundred and ninety-nine, and I have never used one.", "Every fighter in this hall learned something on me. None of them learned my name."],
+        ),
+        hall_dialogue_id: Some("hall_sandbag_infinite"),
+        ),
+
 
         // ===== Faction leaders (hub NPCs).
         "npc_general": (

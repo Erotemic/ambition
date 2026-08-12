@@ -42,7 +42,7 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
         .combat_capabilities();
     assert!(shark.charge_crash_explodes);
 
-    let infinite = crate::features::enemies::test_spec("sandbag_infinite");
+    let infinite = crate::features::enemies::fixture_spec("sandbag_infinite");
     assert!(infinite.never_dies);
     assert!(
         !matches!(
@@ -176,7 +176,11 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
         assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
 
-        let body = !matches!(key, "sandbag_infinite") && (attacks || key == "puppy_slug");
+        // ⚠ the `sandbag_infinite` arm left with its shipped row (2026-08-12):
+        // the lab's dummies name a character now, and the row this loop iterates
+        // is gone. The immortal shape is still exercised, against the fixture's
+        // own row, by `infinite_sandbag_never_dies` above.
+        let body = attacks || key == "puppy_slug";
         assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
         // ADR 0022: the enum is AUTHORED per row now. Mini-boss presences
@@ -191,8 +195,6 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         // owns, by `finite_sandbag_revives_in_place` above.
         let policy = if matches!(key, "large_brute" | "large_colossus" | "pirate_heavy") {
             RespawnPolicy::OnRest
-        } else if key == "sandbag_infinite" {
-            RespawnPolicy::DeadStaysDead // never_dies; policy is moot
         } else {
             RespawnPolicy::OnRoomReenter
         };

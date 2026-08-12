@@ -241,6 +241,8 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // which is exactly what this list is for.
     "npc_salvage_guard",
     "npc_lab_raider",
+    // The combat-feel lab's two indestructible dummies, off `sandbag_infinite`.
+    "sandbag_infinite",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -881,6 +883,47 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(6);
+            definition
+        }
+        // **THE IMMORTAL TRAINING DUMMY**, and the arm above says why it is a
+        // separate creature rather than a flag on the sandbag: `never_dies` is a
+        // character trait, so "the same dummy, invincible in this room" is not a
+        // thing the model can say. The combat-feel lab's two spawns are this.
+        //
+        // ⚠ **9999 health AND `never_dies`, which is one fact stated twice and
+        // both halves are carried across on purpose.** The pool is what the
+        // damage numbers and any health readout see; `never_dies` is what the
+        // resolver checks before it kills. Dropping either changes what a lab
+        // dummy looks like under a hit, and a migration is the wrong place to
+        // find that out.
+        //
+        // ⛔ no contact damage: the row authored `body_contact_damage: false`
+        // beside a `contact_strength`, which is the archetype format's way of
+        // saying the numbers are inert. A character says it by not speaking.
+        "sandbag_infinite" => {
+            let mut definition = definition
+                .as_practice_target()
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 155.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_death_traits(ambition_characters::actor::CharacterDeathTraits {
+                    never_dies: true,
+                    ..Default::default()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::StandStill,
+                    // Notices nobody and swings at nobody — the row's
+                    // `attack_range: 150.0` sat beside `melee: None`, exactly as
+                    // the finite sandbag's did.
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    patrol_effort: 0.6774,
+                    chase_effort: 1.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(9999);
             definition
         }
         // **THE LAB RAIDER.** The intro raid corridor's other spawn, and the

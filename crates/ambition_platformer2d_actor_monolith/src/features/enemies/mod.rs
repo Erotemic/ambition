@@ -118,7 +118,7 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
 /// their brain string is gone. That field is the one the mites' note above says
 /// "has nowhere else to live"; it does now.
 #[cfg(test)]
-pub(crate) const ALL_BRAIN_KEYS: &[&str] = &["combatant", "medium_striker", "sandbag_infinite"];
+pub(crate) const ALL_BRAIN_KEYS: &[&str] = &["combatant", "medium_striker"];
 
 /// The actor-crate projections of an authored archetype row.
 ///
@@ -1028,6 +1028,33 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
     // the game reaches them. What still needs them is a handful of tests about
     // riders and heavies — exactly the case the giant's note below describes,
     // and the same answer: a test's cast belongs to the test.
+    // ⭐ **THE IMMORTAL PRACTICE DUMMY, owned by the FIXTURE** (2026-08-12). Its
+    // shipped row was deleted with the `sandbag_infinite` migration: the combat
+    // lab's two dummies name the `sandbag_infinite` CHARACTER now, which authors
+    // `never_dies`, 9999 health, the StandStill policy and no contact damage.
+    //
+    // What still needs the ROW is a handful of tests about the archetype
+    // machinery itself — "a never-dies row needs no revive timer", "contact
+    // damage is opt-in", "the brain template comes from the row" — and those are
+    // about the SHAPE, not about Ambition's dummy. Same answer as the pirates
+    // and the shark above: a test's cast belongs to the test. The key is
+    // unchanged so the tests read the same.
+    "sandbag_infinite": (
+        max_health: 9999,
+        never_dies: true,
+        body_contact_damage: false,
+        run_speed: 155.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
+        aggro_radius: 0.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        is_sandbag: true,
+        brain_template: StandStill,
+        melee: None,
+        move_style: Walk,
+    ),
     "pirate_raider": (
         respawn: OnRoomReenter,
         max_health: 5,

@@ -158,7 +158,7 @@ fn body_contact_damage_is_explicitly_opted_in() {
     assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
     assert!(!crate::features::enemies::fixture_spec("pirate_heavy").body_contact_damage);
     assert!(!crate::features::enemies::fixture_spec("fixture_armed_rider").body_contact_damage);
-    assert!(!crate::features::enemies::test_spec("sandbag_infinite").body_contact_damage);
+    assert!(!crate::features::enemies::fixture_spec("sandbag_infinite").body_contact_damage);
 }
 
 /// Regression for the cove bug "an aggressive PirateHeavy never gets

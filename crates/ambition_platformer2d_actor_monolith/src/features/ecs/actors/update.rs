@@ -246,6 +246,13 @@ pub fn tick_actor_brains(
                 // `Option` because a body without the movement clusters has no
                 // facts, and "not crawling" is the honest default for one.
                 Option<&ambition_platformer2d_core::BodyMotionFacts>,
+                // **THE BODY'S MOTION MODEL**, for the ONE burst-maneuver rule
+                // (`resolve_burst_maneuver`): dodge-vs-dash availability lives
+                // in the model's `AxisManeuverState` (air-dodge window, endlag)
+                // as well as in the dodge/dash clusters. A driver that decides
+                // its maneuver from CAPABILITIES instead names one thing and the
+                // kernel performs another — see `SelfView::burst`.
+                Option<&crate::features::MotionModel>,
             ),
             // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
             // which pacifies a hostile actor that holds no combat target, and
@@ -400,7 +407,7 @@ pub fn tick_actor_brains(
         _,
         _,
         _,
-        (clusters, _, faction, _, _, _, _, _),
+        (clusters, _, faction, _, _, _, _, _, _),
         in_a_fight,
     ) in &actors
     {
@@ -495,6 +502,7 @@ pub fn tick_actor_brains(
             perception,
             moveset,
             motion_facts,
+            motion_model,
         ),
         in_a_fight,
     ) in &mut actors
@@ -675,6 +683,27 @@ pub fn tick_actor_brains(
                     let self_peer = perception_peers
                         .as_ref()
                         .and_then(|p| p.0.iter().find(|peer| peer.entity == this_actor_entity));
+                    // **WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.**
+                    // The kernel's own rule (`resolve_burst_maneuver`), asked one
+                    // phase early — so the brain names the maneuver the body will
+                    // actually perform instead of re-deriving the precedence.
+                    //
+                    // ⚠ a body on a NON-axis model (or none) has no
+                    // `AxisManeuverState` to read, and the default reads as "no
+                    // window open, no endlag" — the same reading `motion_facts`
+                    // takes for an absent component three lines below.
+                    let axis_motion = match motion_model {
+                        Some(ae::MotionModel::AxisSwept(axis)) => *axis,
+                        _ => ae::AxisSweptMotion::default(),
+                    };
+                    let burst_maneuver = ae::resolve_burst_maneuver(
+                        em.abilities,
+                        em.ground,
+                        em.dodge,
+                        &axis_motion.state,
+                        em.dash,
+                        axis_motion.params,
+                    );
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::PerceptionBody {
                             pos: em.kin.pos,
@@ -693,8 +722,17 @@ pub fn tick_actor_brains(
                             // `AbilitySet` — the single authority every body
                             // shares — not a parallel `CombatCapabilities` mirror.
                             can_blink: em.abilities.abilities.blink,
-                            can_dash: em.abilities.abilities.dash,
-                            can_dodge: em.abilities.abilities.dodge,
+                            // ⛔⛔ **THIS WAS `abilities.dash` / `abilities.dodge`,
+                            // AND A CAPABILITY IS NOT AN AVAILABILITY.** Dodge and
+                            // dash are one button; which maneuver a press produces
+                            // is decided by the body's live state, and `apply_dodge`
+                            // declines on cooldown WITHOUT consuming the buffered
+                            // press so `apply_dash` takes it. A brain reading the
+                            // two flags decided "dodge" and the body dashed. The
+                            // kernel resolves it now and perception carries the
+                            // answer, so there is one rule rather than a driver
+                            // re-deriving the kernel's precedence from outside.
+                            burst: burst_maneuver,
                             can_shield: em.abilities.abilities.shield,
                             // The same counter `actor_movement` spends; a brain
                             // planning a recovery reads the body's real budget,

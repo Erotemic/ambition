@@ -18,8 +18,7 @@ fn self_view_at(pos: ae::Vec2, faction: ActorFaction) -> SelfView {
         faction,
         can_fire: true,
         can_blink: false,
-        can_dash: false,
-        can_dodge: false,
+        burst: ambition_platformer2d_core::BurstManeuver::None,
         can_shield: false,
         ..Default::default()
     }

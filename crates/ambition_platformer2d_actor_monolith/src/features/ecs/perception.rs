@@ -85,10 +85,9 @@ pub struct PerceptionBody {
     pub alive: bool,
     pub can_fire: bool,
     pub can_blink: bool,
-    pub can_dash: bool,
-    /// The EVADE, and it OUTRANKS `can_dash` on the body that owns both — see
-    /// `SelfView::can_dodge`.
-    pub can_dodge: bool,
+    /// What this body's shared burst button would DO if pressed this tick —
+    /// see [`ambition_characters::perception::SelfView::burst`].
+    pub burst: ae::BurstManeuver,
     pub can_shield: bool,
     /// Mid-air jumps left (`jump.air_jumps_available`). The recovery budget.
     pub air_jumps_left: u8,
@@ -421,8 +420,7 @@ pub fn build_world_view(
         faction: body.faction,
         can_fire: body.can_fire,
         can_blink: body.can_blink,
-        can_dash: body.can_dash,
-        can_dodge: body.can_dodge,
+        burst: body.burst,
         can_shield: body.can_shield,
         air_jumps_left: body.air_jumps_left,
         phase: body.phase,

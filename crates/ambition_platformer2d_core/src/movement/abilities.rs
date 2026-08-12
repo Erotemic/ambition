@@ -20,6 +20,100 @@ use crate::body_clusters::{
 };
 use crate::MotionFrame;
 
+/// **What the shared burst button would actually DO right now.**
+///
+/// Dodge and dash are one input. Which maneuver a press produces is decided by
+/// the body's current state — grounded or not, dodge cooldown, air-dodge budget
+/// and endlag, dash charges and cooldown — and not by which abilities the body
+/// owns. A body that owns both and is mid-dodge-cooldown DASHES.
+///
+/// ⛔⛔ **the reason this is a named value and not two booleans**: an autonomous
+/// driver was choosing its maneuver from `can_dodge` / `can_dash`, which are
+/// CAPABILITIES. So a brain could decide *I am dodging* while the kernel — whose
+/// dodge declined on cooldown without consuming the buffered press — dashed
+/// instead. The brain's stated intent and the body's action disagreed, and no
+/// test could see it because the tests varied the two capability flags, which
+/// were never the thing that decides.
+///
+/// ⚠ **availability, not intent** — the buffered press is deliberately NOT an
+/// input here. Perception asks *what would a press mean*, one phase before any
+/// press exists; the `apply_` steps ask the same question and add their own
+/// buffer check. One rule, two callers, in the shape [`resolve_shield`] already
+/// established.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BurstManeuver {
+    /// The press produces nothing: no ability, or every route is on cooldown.
+    #[default]
+    None,
+    /// A grounded evade roll (invulnerable, committed, then a cooldown).
+    GroundDodge,
+    /// An airborne evade in any stick direction — once per airtime.
+    AirDodge,
+    /// The traversal burst: a fast committed move in the aimed direction.
+    Dash,
+}
+
+impl BurstManeuver {
+    /// Whichever of the two dodges this is, if it is one.
+    pub fn is_dodge(self) -> bool {
+        matches!(self, Self::GroundDodge | Self::AirDodge)
+    }
+}
+
+/// See [`BurstManeuver`]. Pure + frame-agnostic; the precedence (dodge outranks
+/// dash on a body that owns both) is the call order of [`apply_dodge`] before
+/// [`apply_dash`], stated once here instead of emerging from it.
+pub fn resolve_burst_maneuver(
+    abilities: &BodyAbilities,
+    ground: &BodyGroundState,
+    dodge: &BodyDodgeState,
+    state: &AxisManeuverState,
+    dash: &BodyDashState,
+    tuning: AxisSweptParams,
+) -> BurstManeuver {
+    if let Some(evade) = available_dodge(abilities, ground, dodge, state, tuning) {
+        return evade;
+    }
+    if dash_available(abilities, dash) {
+        return BurstManeuver::Dash;
+    }
+    BurstManeuver::None
+}
+
+/// The dodge half of [`resolve_burst_maneuver`], split out so [`apply_dodge`]
+/// gates on the SAME expression rather than a second copy of it. (It cannot call
+/// the whole resolver: it holds no dash state, and needing it would be threading
+/// one ability's cluster through another's step.)
+fn available_dodge(
+    abilities: &BodyAbilities,
+    ground: &BodyGroundState,
+    dodge: &BodyDodgeState,
+    state: &AxisManeuverState,
+    tuning: AxisSweptParams,
+) -> Option<BurstManeuver> {
+    if !abilities.abilities.dodge {
+        return None;
+    }
+    if ground.on_ground {
+        return (dodge.cooldown <= 0.0).then_some(BurstManeuver::GroundDodge);
+    }
+    // ⛔ the budget is checked WITHOUT consuming the buffered press, so a body
+    // that has already dodged this airtime leaves it standing and the press goes
+    // on to mean what it would have meant without the dodge ability at all —
+    // which is a dash. That fall-through is deliberate, and it is exactly why
+    // an autonomous driver must ask this resolver rather than `abilities.dodge`.
+    (!dodge.air_dodge_spent
+        && tuning.abilities.air_dodge_time > 0.0
+        && state.air_dodge_timer <= 0.0
+        && state.air_dodge_endlag_timer <= 0.0)
+        .then_some(BurstManeuver::AirDodge)
+}
+
+/// The dash half of [`resolve_burst_maneuver`] — see [`available_dodge`].
+fn dash_available(abilities: &BodyAbilities, dash: &BodyDashState) -> bool {
+    abilities.abilities.dash && dash.charges_available > 0 && dash.cooldown <= 0.0
+}
+
 /// Facing + input buffering: turn to face the stick (only when grounded or
 /// flying), and buffer jump/dash presses for the short windows the sim phase
 /// consumes them in. The intent step at the head of the control phase.
@@ -100,14 +194,17 @@ pub(super) fn apply_dodge(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if state.buffer_dash <= 0.0 || !abilities.abilities.dodge {
+    if state.buffer_dash <= 0.0 {
         return;
     }
+    // The ONE availability rule (see [`BurstManeuver`]) — the same expression
+    // autonomous perception reads, so a driver that decided "dodge" and a body
+    // that performs one cannot disagree.
+    let Some(evade) = available_dodge(abilities, ground, dodge, state, tuning) else {
+        return;
+    };
     let local_stick = input.local_axis();
-    if ground.on_ground {
-        if dodge.cooldown > 0.0 {
-            return;
-        }
+    if evade == BurstManeuver::GroundDodge {
         let dir = if local_stick.x.abs() > 0.1 {
             local_stick.x.signum()
         } else {
@@ -124,17 +221,6 @@ pub(super) fn apply_dodge(
         return;
     }
     // ── airborne ────────────────────────────────────────────────────────────
-    // ⛔ the budget is checked BEFORE the buffer is consumed, so a body that has
-    // already dodged this airtime leaves the dash buffer standing rather than
-    // silently eating it — the buffered input goes on to mean what it would have
-    // meant without the dodge ability at all.
-    if dodge.air_dodge_spent
-        || tuning.abilities.air_dodge_time <= 0.0
-        || state.air_dodge_timer > 0.0
-        || state.air_dodge_endlag_timer > 0.0
-    {
-        return;
-    }
     // The stick aims the evade in the body's own frame: sideways, up, down or
     // any diagonal. A neutral stick dodges in place — a real option, not a
     // degenerate one, because the invulnerability is the point and standing
@@ -286,11 +372,8 @@ pub(super) fn apply_dash(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if state.buffer_dash > 0.0
-        && abilities.abilities.dash
-        && dash.charges_available > 0
-        && dash.cooldown <= 0.0
-    {
+    // Same shared rule as the dodge step above — see [`BurstManeuver`].
+    if state.buffer_dash > 0.0 && dash_available(abilities, dash) {
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
         let aim = input.local_axis().normalize_or(fallback);
         kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
@@ -306,6 +389,200 @@ pub(super) fn apply_dash(
             MovementOp::Dash
         };
         events.op_clusters(combo_trace, op);
+    }
+}
+
+#[cfg(test)]
+mod burst_maneuver_tests {
+    use super::*;
+    use crate::body_clusters::{
+        BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyGroundState,
+        BodyKinematics,
+    };
+    use crate::movement::events::FrameEvents;
+    use crate::movement::input::InputState;
+    use crate::movement::model::AxisManeuverState;
+    use crate::movement::tuning::AxisSweptParams;
+    use crate::MotionFrame;
+
+    /// A body that owns BOTH verbs — the shipped Smash fighter (P4.30).
+    fn both_abilities() -> BodyAbilities {
+        let mut abilities = BodyAbilities::default();
+        abilities.abilities.dodge = true;
+        abilities.abilities.dash = true;
+        abilities
+    }
+
+    /// Run the kernel's two burst steps in their real order against a buffered
+    /// press, and report which maneuver the BODY performed.
+    fn what_the_body_does(
+        abilities: &BodyAbilities,
+        ground: &BodyGroundState,
+        dodge: &mut BodyDodgeState,
+        dash: &mut BodyDashState,
+        tuning: AxisSweptParams,
+    ) -> BurstManeuver {
+        let mut kinematics = BodyKinematics::default();
+        let mut state = AxisManeuverState::default();
+        state.buffer_dash = 0.1;
+        let mut combo_trace = BodyComboTrace::default();
+        let mut events = FrameEvents::default();
+        let frame = MotionFrame::from_direction(bevy_math::Vec2::new(0.0, 1.0), 900.0);
+        let input = InputState::default();
+
+        apply_dodge(
+            &mut kinematics,
+            dodge,
+            &mut state,
+            ground,
+            abilities,
+            &mut combo_trace,
+            input,
+            frame,
+            tuning,
+            &mut events,
+        );
+        let dodged = if state.dodge_roll_timer > 0.0 {
+            Some(BurstManeuver::GroundDodge)
+        } else if state.air_dodge_timer > 0.0 {
+            Some(BurstManeuver::AirDodge)
+        } else {
+            None
+        };
+        apply_dash(
+            &mut kinematics,
+            dash,
+            &mut state,
+            abilities,
+            &mut combo_trace,
+            input,
+            frame,
+            tuning,
+            &mut events,
+        );
+        match dodged {
+            Some(evade) => evade,
+            None if state.dash_timer > 0.0 => BurstManeuver::Dash,
+            None => BurstManeuver::None,
+        }
+    }
+
+    /// **THE RESOLVER AND THE BODY ANSWER THE SAME QUESTION.**
+    ///
+    /// ⛔⛔ this is the whole reason [`resolve_burst_maneuver`] exists. An
+    /// autonomous driver was choosing its maneuver from the body's
+    /// CAPABILITIES, and a dodge on cooldown declines without consuming the
+    /// buffered press — so `apply_dash` takes it and the body dashes while the
+    /// brain goes on saying "dodge". Every state below is a state a Smash
+    /// fighter is in several times a match.
+    ///
+    /// ⭐ the second row is the poison: on a body owning both, the ONLY thing
+    /// separating a roll from a dash is the cooldown, so a resolver that
+    /// answered from capabilities would give the same answer for both rows and
+    /// this test would be measuring nothing.
+    #[test]
+    fn what_the_resolver_says_is_what_the_body_does() {
+        let abilities = both_abilities();
+        // ⛔⛔ **NOT `AxisSweptParams::default()` UNMODIFIED.** Its
+        // `air_dodge_time` is 0.0, so on default tuning the air-dodge branch can
+        // never fire and both airborne rows below would agree for the wrong
+        // reason — the `AirDodge` variant would go entirely unexercised while
+        // the test read as covering it. A fixture that cannot reach a case is
+        // not covering it.
+        let mut tuning = AxisSweptParams::default();
+        tuning.abilities.air_dodge_time = 0.3;
+        let grounded = BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        };
+        let airborne = BodyGroundState::default();
+
+        let cases: [(&str, BodyGroundState, BodyDodgeState, BodyDashState); 5] = [
+            (
+                "grounded, everything ready",
+                grounded.clone(),
+                BodyDodgeState::default(),
+                BodyDashState {
+                    charges_available: 1,
+                    ..Default::default()
+                },
+            ),
+            (
+                "grounded, the dodge is on cooldown — THE PRESS DASHES",
+                grounded.clone(),
+                BodyDodgeState {
+                    cooldown: 0.4,
+                    ..Default::default()
+                },
+                BodyDashState {
+                    charges_available: 1,
+                    ..Default::default()
+                },
+            ),
+            (
+                "airborne with the air dodge in hand",
+                airborne.clone(),
+                BodyDodgeState::default(),
+                BodyDashState {
+                    charges_available: 1,
+                    ..Default::default()
+                },
+            ),
+            (
+                "airborne, the air dodge is spent — THE PRESS DASHES",
+                airborne.clone(),
+                BodyDodgeState {
+                    air_dodge_spent: true,
+                    ..Default::default()
+                },
+                BodyDashState {
+                    charges_available: 1,
+                    ..Default::default()
+                },
+            ),
+            (
+                "grounded, dodge on cooldown and no dash charge — nothing happens",
+                grounded.clone(),
+                BodyDodgeState {
+                    cooldown: 0.4,
+                    ..Default::default()
+                },
+                BodyDashState::default(),
+            ),
+        ];
+
+        let mut seen = Vec::new();
+        for (label, ground, dodge, dash) in cases {
+            let predicted = resolve_burst_maneuver(
+                &abilities,
+                &ground,
+                &dodge,
+                &AxisManeuverState::default(),
+                &dash,
+                tuning,
+            );
+            let (mut dodge, mut dash) = (dodge, dash);
+            let performed = what_the_body_does(&abilities, &ground, &mut dodge, &mut dash, tuning);
+            assert_eq!(
+                predicted, performed,
+                "{label}: the resolver said {predicted:?} and the kernel did \
+                 {performed:?} — a brain that trusted the resolver would have \
+                 named a maneuver its own body did not perform"
+            );
+            seen.push(predicted);
+        }
+
+        assert!(
+            seen.contains(&BurstManeuver::Dash),
+            "poison: at least one case must resolve to Dash on a body that OWNS \
+             the dodge, or availability and capability are not being told apart \
+             and this test proves nothing: {seen:?}"
+        );
+        assert!(
+            seen.contains(&BurstManeuver::GroundDodge) && seen.contains(&BurstManeuver::AirDodge),
+            "and BOTH evades must be reached, or one of the two is unexercised \
+             while the test reads as covering it: {seen:?}"
+        );
     }
 }
 

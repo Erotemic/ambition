@@ -46,7 +46,7 @@ pub use surface_momentum::{
     DepthOcclusions, MomentumParams, OcclusionSpan, RouteDeparture, SurfaceMotion, SurfaceRef,
 };
 
-pub use abilities::resolve_shield;
+pub use abilities::{resolve_burst_maneuver, resolve_shield, BurstManeuver};
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.

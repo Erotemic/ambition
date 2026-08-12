@@ -334,21 +334,22 @@ pub struct SelfView {
     pub can_fire: bool,
     /// Blink available this tick (capability + cooldown).
     pub can_blink: bool,
-    /// Dash available this tick (capability + cooldown).
-    pub can_dash: bool,
-    /// **The EVADE — and it is not a second flavour of [`Self::can_dash`].**
+    /// **WHAT THE SHARED BURST BUTTON WOULD DO IF PRESSED THIS TICK.**
     ///
-    /// ⛔ a body that owns the dodge ability never dashes: `apply_dodge` claims
-    /// the dash buffer before `apply_dash` can see it, so on such a body the
-    /// dash press is a ground ROLL or an AIR DODGE, with its own speed, its own
-    /// commitment and its own cooldown. The Smash fighters author `dash: true`
-    /// and `dodge: true` together, which means every "dash" a CPU has ever
-    /// chosen on that stage was actually a roll — named one maneuver by the
-    /// brain, judged as a second by the shadow rollout, and performed as a
-    /// third by the body.
+    /// ⛔ this was two booleans, `can_dash` and `can_dodge`, and both were
+    /// wrong in the same way. Dodge and dash are ONE input; which one a press
+    /// produces is decided by the body's current state — grounded or not, dodge
+    /// cooldown, air-dodge budget and endlag, dash charges — and not by which
+    /// abilities the body owns. `apply_dodge` declines on cooldown WITHOUT
+    /// consuming the buffered press, so `apply_dash` takes it: a brain reading
+    /// capabilities decides *I am dodging* and the body dashes. The first repair
+    /// here read both flags and still got it wrong, because a driver
+    /// re-deriving the movement kernel's precedence rules is the failure mode,
+    /// not the particular rule it got wrong.
     ///
-    /// So the brain reads BOTH flags and names what the press will really do.
-    pub can_dodge: bool,
+    /// ⇒ [`ambition_platformer2d_core::resolve_burst_maneuver`] is the one rule,
+    /// and this field is its answer. The brain is handed a fact.
+    pub burst: ambition_platformer2d_core::BurstManeuver,
     /// **Mid-air jumps left before this body is out of options.** The other
     /// `can_*` flags answer "may I press this"; this one answers "how many times
     /// more", which is the question a body falling below a ledge is actually

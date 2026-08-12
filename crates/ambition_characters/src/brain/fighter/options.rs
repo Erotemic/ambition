@@ -64,6 +64,7 @@
 //! the ladder still calibrates it.
 
 use ambition_entity_catalog::MoveFrameData;
+use ambition_platformer2d_core as ae;
 
 use crate::actor::attack_gesture::AttackDir;
 
@@ -451,18 +452,21 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
     // the shadow rollout scored it as a dash. The brain named one maneuver, the
     // model judged a second, the body performed a third.
     //
-    // ⚠ and the body that authors ONLY `dodge` was worse off still: `can_dash`
-    // is false for it, so it was offered no burst option at all and its authored
-    // evade was unreachable by any CPU.
+    // ⛔⛔ **AND THE FIRST REPAIR ASKED THE WRONG QUESTION TOO.** It read
+    // `can_dodge` / `can_dash`, which are CAPABILITIES — what the body owns, not
+    // what a press produces *now*. A dodge on cooldown declines without
+    // consuming the buffered press and `apply_dash` takes it, so the brain went
+    // on saying "Dodge" while the body dashed. Both repairs were duplicating the
+    // movement kernel's precedence rules from the outside, which is the thing
+    // that keeps going wrong.
     //
-    // ⇒ ask both flags once, here, and name the maneuver the press will really
-    // produce. Dodge wins because the BODY makes it win.
-    let evade = if me.can_dodge {
-        Some(MovementVerb::Dodge)
-    } else if me.can_dash {
-        Some(MovementVerb::Dash)
-    } else {
-        None
+    // ⇒ the body RESOLVES the press and perception carries the answer
+    // ([`BurstManeuver`]). The brain is handed a fact rather than a rule to
+    // re-derive.
+    let evade = match me.burst {
+        ae::BurstManeuver::GroundDodge | ae::BurstManeuver::AirDodge => Some(MovementVerb::Dodge),
+        ae::BurstManeuver::Dash => Some(MovementVerb::Dash),
+        ae::BurstManeuver::None => None,
     };
     match situation {
         Situation::Recovery => {

@@ -50,7 +50,7 @@ fn view_with(me_x: f32, foe_x: f32) -> WorldView {
             gravity_down: ae::Vec2::new(0.0, 1.0),
             alive: true,
             on_ground: true,
-            can_dash: true,
+            burst: ambition_platformer2d_core::BurstManeuver::Dash,
             can_shield: true,
             health_max: 100,
             ..Default::default()
@@ -308,7 +308,7 @@ fn the_capability_mask_gates_every_verb() {
     let w = UtilityWeights::v1();
     let mut v = view_with(300.0, 400.0);
     v.self_view.can_shield = false;
-    v.self_view.can_dash = false;
+    v.self_view.burst = ambition_platformer2d_core::BurstManeuver::None;
 
     let opts = generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w);
     assert!(opts
@@ -318,57 +318,58 @@ fn the_capability_mask_gates_every_verb() {
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Retreat);
 }
 
-/// **A BODY THAT OWNS THE DODGE IS NEVER OFFERED A DASH** — because it cannot
-/// perform one.
+/// **THE EVADE VERB IS WHICHEVER MANEUVER THE PRESS ACTUALLY PRODUCES.**
 ///
 /// ⛔ `apply_dodge` claims the dash buffer before `apply_dash` can see it, so on
-/// such a body the press is a roll. The Smash fighters author `dash: true` AND
-/// `dodge: true`, which made every burst this brain chose on that stage a
-/// maneuver it had not named and the shadow rollout had not modelled.
+/// a dodge-capable body the press is a roll. The Smash fighters author
+/// `dash: true` AND `dodge: true`, which made every burst this brain chose on
+/// that stage a maneuver it had not named and the shadow rollout had not
+/// modelled.
 ///
-/// ⭐ the three assertions are one claim read three ways, and the middle one is
-/// the poison: a body with only `dash` must still get `Dash`, or this would pass
-/// just as well on a brain that had simply renamed the verb for everybody.
+/// ⛔⛔ **AND THE FIRST REPAIR WAS STILL WRONG**, which is why this test now
+/// varies a resolved maneuver rather than two capability flags. `can_dodge` says
+/// the body OWNS a dodge; on cooldown, `apply_dodge` declines without consuming
+/// the press and `apply_dash` performs a dash. A test that varies capabilities
+/// cannot see that case at all — it is the fourth row below, and it was
+/// unreachable by the previous instrument.
 #[test]
 fn the_evade_verb_is_whichever_maneuver_the_dash_button_actually_produces() {
+    use ambition_platformer2d_core::BurstManeuver;
     let kit = [candidate("jab", 0.1, 100.0)];
     let w = UtilityWeights::v1();
-    let verbs = |v: &WorldView| -> Vec<MovementVerb> {
-        generate_options(Perceived::cheating(v), Situation::Neutral, &kit, &w)
+    let verbs = |burst: BurstManeuver| -> Vec<MovementVerb> {
+        let mut v = view_with(300.0, 400.0);
+        v.self_view.burst = burst;
+        generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w)
             .movement
             .iter()
             .map(|m| m.verb)
             .collect()
     };
 
-    // Both abilities — the shipped Smash fighter.
-    let mut both = view_with(300.0, 400.0);
-    both.self_view.can_dash = true;
-    both.self_view.can_dodge = true;
-    let offered = verbs(&both);
-    assert!(
-        offered.contains(&MovementVerb::Dodge) && !offered.contains(&MovementVerb::Dash),
-        "a body whose press rolls must be offered the roll and never the dash: {offered:?}"
-    );
+    for rolling in [BurstManeuver::GroundDodge, BurstManeuver::AirDodge] {
+        let offered = verbs(rolling);
+        assert!(
+            offered.contains(&MovementVerb::Dodge) && !offered.contains(&MovementVerb::Dash),
+            "a body whose press rolls must be offered the roll and never the dash \
+             ({rolling:?}): {offered:?}"
+        );
+    }
 
-    // Dash only — the exploration bodies, unchanged.
-    let mut dash_only = view_with(300.0, 400.0);
-    dash_only.self_view.can_dash = true;
-    dash_only.self_view.can_dodge = false;
-    let offered = verbs(&dash_only);
+    // ⭐ THE POISON: a body that genuinely dashes must still be offered `Dash`,
+    // or this would pass just as well on a brain that renamed the verb for
+    // everybody. It is ALSO the case the capability instrument could not
+    // express — a Smash fighter owning both, mid-dodge-cooldown, resolves here.
+    let offered = verbs(BurstManeuver::Dash);
     assert!(
         offered.contains(&MovementVerb::Dash) && !offered.contains(&MovementVerb::Dodge),
-        "and a body that genuinely dashes still dashes: {offered:?}"
+        "a press that dashes is offered as a dash, whatever the body OWNS: {offered:?}"
     );
 
-    // ⭐ dodge only — this body had NO burst option at all before, because the
-    // question asked was `can_dash`. Its authored evade was unreachable.
-    let mut dodge_only = view_with(300.0, 400.0);
-    dodge_only.self_view.can_dash = false;
-    dodge_only.self_view.can_dodge = true;
+    let offered = verbs(BurstManeuver::None);
     assert!(
-        verbs(&dodge_only).contains(&MovementVerb::Dodge),
-        "a body that authors only the evade must be able to use it"
+        !offered.contains(&MovementVerb::Dash) && !offered.contains(&MovementVerb::Dodge),
+        "and a press that does nothing is not an option at all: {offered:?}"
     );
 }
 
@@ -384,8 +385,11 @@ fn the_evade_outscores_a_plain_dash_when_something_is_swinging() {
     let w = UtilityWeights::v1();
     let score_of = |dodge: bool, verb: MovementVerb| {
         let mut v = view_with(300.0, 400.0);
-        v.self_view.can_dash = true;
-        v.self_view.can_dodge = dodge;
+        v.self_view.burst = if dodge {
+            ambition_platformer2d_core::BurstManeuver::GroundDodge
+        } else {
+            ambition_platformer2d_core::BurstManeuver::Dash
+        };
         v.actors[0].phase = crate::perception::BodyPhase::AttackStartup;
         generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w)
             .movement

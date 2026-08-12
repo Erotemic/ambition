@@ -268,7 +268,7 @@ fn view_with_terrain(
             faction: crate::actor::ActorFaction::Enemy,
             can_fire: true,
             can_blink: false,
-            can_dash: false,
+            burst: ambition_platformer2d_core::BurstManeuver::None,
             can_shield: false,
             ..Default::default()
         },

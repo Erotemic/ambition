@@ -229,6 +229,13 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // The giant's two DRIVEN limbs — one character, two bodies, which is what a
     // reusable template is for.
     "npc_giant_gnu_hands",
+    // ⭐⭐ **THE TWO CELLULAR AUTOMATONS** (ledger D84 / sprite redirect P5). The
+    // richest row `character_archetypes.ron` still held is theirs, and it was
+    // reached by STRING MATCHING on id / display name / dialogue node. They
+    // author it now: 60 HP, the swipe, the glider, the Cellular Pulse, the four
+    // body capabilities, and a Smash policy that notices at 540.
+    "perfect_cellular_automaton",
+    "imperfect_cellular_automaton",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -290,6 +297,93 @@ pub fn authored_intrinsics(
         // placement   respawn, which the LDtk spawn already carries
         // ```
         //
+        // ⭐⭐ **THE PERFECT CELLULAR AUTOMATON**, the dialogue-gated boss and the
+        // richest row `character_archetypes.ron` still held (ledger D84).
+        //
+        // ⛔ **it was reached by STRING MATCHING.** `hostile_brain_id_for_actor`
+        // asked whether an actor's id, display name or dialogue node contained
+        // "cellular automaton" and handed the body a whole archetype — the same
+        // shape as the two pirate arms deleted on 2026-08-11, and the last one
+        // left. A creature that states its own facts needs no matcher.
+        //
+        // ```text
+        // body        60 HP, 168 run speed, the swipe, the glider, the pulse,
+        //             and the four capabilities (blink / fly / shield / dash)
+        // controller  the Smash policy: notice at 540, commit at 150, duelist
+        // placement   respawn, which the placement carries
+        // ```
+        //
+        // ⚠ **GROUNDED HYBRID, and the row said so in two fields that read as a
+        // contradiction**: `is_aerial: Some(false)` beside `can_fly: true`. It
+        // prefers to fight on the ground and takes to the air only to cover a
+        // long gap. Reading `can_fly` as "aerial" would perch it permanently.
+        "perfect_cellular_automaton" | "imperfect_cellular_automaton" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 168.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.75,
+                    amount: 1,
+                })
+                .with_abilities(ambition_platformer2d_core::AbilitySet {
+                    attack: true,
+                    // The four body-enforced capabilities the row authored. A
+                    // possessing player inherits exactly these, which is the
+                    // property that made them body facts rather than brain ones.
+                    blink: true,
+                    fly: true,
+                    fly_toggle: true,
+                    shield: true,
+                    dash: true,
+                    ..ambition_platformer2d_core::AbilitySet::basic()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Smash,
+                    aggro_radius: 540.0,
+                    attack_range: 150.0,
+                    patrol_effort: 0.5714,
+                    chase_effort: 1.0,
+                    smash_dash_to_close: true,
+                    // Footsies and spacing rather than close-and-camp.
+                    smash_duelist: true,
+                    ..Default::default()
+                })
+                // ⭐ **the glider** — a cellular-automaton spaceship as the
+                // zoning tool. The projectile is a functional `Rock`; the Conway
+                // glider is chosen by the authored visual id below, which the
+                // render layer resolves through the content-owned projectile
+                // catalog rather than from the owner's id string.
+                .with_ranged_vfx("glider")
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                        windup_s: 0.24,
+                        active_s: 0.08,
+                        recover_s: 0.30,
+                        damage: 1,
+                        reach_px: 30.0,
+                    })),
+                    ranged: Some(ambition_characters::brain::RangedActionSpec::new(
+                        ambition_characters::brain::action_set::RangedStyle::Rock,
+                        300.0,
+                        1,
+                    )),
+                    // ⛔ **NOT the pulse.** The MOVESET's verb map already binds
+                    // `special → cellular_pulse`; putting it in this slot too
+                    // takes the slot the SHIELD uses, and the PCA's reactive
+                    // block silently stops happening. The archetype row kept
+                    // them apart by construction — `signature_move` was a
+                    // different field from `can_shield` — and authoring both on
+                    // one character is where they can collide.
+                    special: None,
+                    move_style: MoveStyleSpec::Walk,
+                })
+                .with_moveset(crate::cellular_automaton_moveset::cellular_pulse_moveset());
+            definition.vitals.max_health = Some(60);
+            definition
+        }
         // The sandbag kamikaze mite: two hit points and a corpse that detonates.
         "npc_exploding_mite" => {
             let mut definition = definition

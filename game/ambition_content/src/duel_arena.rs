@@ -48,6 +48,10 @@ const DUEL_ARENA_OFFSET_X: f32 = 360.0;
 /// grudges once both entities exist. The grudge — not a hostile faction — is
 /// what makes them fight: it drives relational targeting AND authorizes
 /// same-faction damage (`damage_lands`).
+/// The PCA's character id — the body the duel's first fighter IS, rather than an
+/// archetype wearing its face.
+pub const DUEL_PCA_CHARACTER: &str = "perfect_cellular_automaton";
+
 pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
     [
         SpawnActorRequest {
@@ -65,9 +69,25 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
-                // ⚠ still the ARCHETYPE road: the PCA has not migrated, so its
-                // body comes from that row. Naming the character here before it
-                // authors one would build a fighter with no melee.
+                // ⛔⛔ **STILL `None`, AND THE REASON IS MEASURED** (ledger D84,
+                // 2026-08-11). `perfect_cellular_automaton` now authors its whole
+                // body — 60 HP, the swipe, the glider, the Cellular Pulse, its
+                // four capabilities and its Smash policy — so this line is one
+                // word from flipping. It does not flip yet: naming the character
+                // makes `duel_fighters_actually_enact_their_abilities_on_the_body`
+                // fail on *"PCA: shield must actually go up on the body (got 0
+                // frames)"*.
+                //
+                // ⚠ **two hypotheses are already RULED OUT**, so the next session
+                // does not repeat them: it is not the placement brain (`Passive`
+                // and `Custom("cellular_automaton_fighter")` fail identically),
+                // and it is not the special slot contending with the pulse
+                // (freeing it changes nothing). The body's capability assertions
+                // pass — only the ACTIVATION count is zero — so the next probe
+                // belongs on the brain's decision, not the body's kit.
+                //
+                // ⛔ do not flip this to make the row deletable. A duel where the
+                // PCA never blocks is a worse game than one archetype row.
                 character: None,
             },
         },

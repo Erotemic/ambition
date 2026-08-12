@@ -60,15 +60,16 @@ pub mod provider;
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
 pub use ambition_platformer2d_actor_monolith::features;
+pub mod cellular_automaton_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod enemy_roster;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;
+pub mod moveset_authoring;
 #[cfg(feature = "audio")]
 pub mod music;
-pub mod moveset_authoring;
 pub mod player_robot_lineage;
 pub mod player_robot_moveset;
 pub mod plugin;

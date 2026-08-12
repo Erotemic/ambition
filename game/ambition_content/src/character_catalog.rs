@@ -246,6 +246,13 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
+    "npc_pirate_cutlass_viper",
+    "npc_pirate_heavy_broadside_bess",
+    "npc_pirate_heavy_salt_annet",
+    "npc_pirate_lookout",
+    "npc_pirate_navigator",
+    "npc_pirate_quartermaster",
+    "special_patent_clerk",
 ];
 
 /// **What a migrated character authors about its own body.**
@@ -1936,11 +1943,37 @@ mod tests {
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
                 );
-            let authored = authored_intrinsics(id, bare);
+            let authored = authored_intrinsics(id, bare.clone());
+            let authors_a_body =
+                authored.death_traits.is_some() || authored.vitals.max_health.is_some();
+            // ⭐⭐ **A POLICY-ONLY REGISTRATION RETRACTS NOTHING, and this guard
+            // could not previously say so** (2026-08-12, ledger D98).
+            //
+            // The rule above is right about BODIES: a definition that states no
+            // vitals says *"this character authors none"*, preparation correctly
+            // retracts, and the recorded cost is ~100 exploration NPCs losing
+            // their archetype-built ones. It was applied as a blanket, and it
+            // therefore also refused a character that states only a CONTROLLER
+            // policy — which has no body to retract, and whose statement is true
+            // whether or not anyone ever authors its vitals.
+            //
+            // ⚠ that refusal was not free: it is what left six of the nine
+            // pirates unable to deliver the `provoked_profile_ref` the prefix rule
+            // gives them, after the string-matcher arms that used to do it were
+            // deleted. A guard that blocks a fact from reaching the game is doing
+            // damage, not preventing it.
+            //
+            // ⛔ the distinction is REAL and it is checked elsewhere, not asserted
+            // here: `an_unmigrated_character_still_gets_the_roads_defaults` pins
+            // that a registered-but-incomplete character keeps the road's
+            // `max_health: 1` and `MAX_RUN_SPEED`, because the peaceful road reads
+            // body facts only from a body-complete blueprint.
+            let authors_only_policy = !authors_a_body && authored != bare;
             assert!(
-                authored.death_traits.is_some() || authored.vitals.max_health.is_some(),
-                "`{id}` is registered as buildable but authors no body — a bare \
-                 registration means it has none, not that its archetype keeps it"
+                authors_a_body || authors_only_policy,
+                "`{id}` is registered as buildable and authors NOTHING — not a \
+                 body, not a policy, not a moveset. A bare registration means it \
+                 has no body, not that its archetype keeps it"
             );
         }
     }
@@ -1962,47 +1995,12 @@ mod tests {
     /// is an id it has an arm for.
     #[test]
     fn every_character_with_an_authored_body_is_registered_as_buildable() {
-        // ⛔ **THE SEVEN THIS FOUND ON ITS FIRST RUN, and none of them can be
-        // fixed by adding an id to a list.** Registering a body-INCOMPLETE
-        // character is measurably worse than not registering it: a bare
-        // registration says *"this character authors no body"*, preparation
-        // correctly retracts what a persona does not author, and the recorded
-        // measurement is ~100 exploration NPCs losing their archetype-built
-        // vitals (see `PLAYABLE_ROSTER`). Probed on 2026-08-12 by adding all
-        // seven: `every_build_only_id_authors_something` went red immediately,
-        // which is that guard doing its job.
-        //
-        // Each entry is `(id, what it authors, what it costs, what unblocks it)`.
-        const KNOWN_UNREGISTERED: &[(&str, &str)] = &[
-            // ⛔⛔ six of the NINE pirates. The prefix rule gives every
-            // `npc_pirate_*` row a `provoked_profile_ref`, and the three that are
-            // registered get it — but the string-matcher arms that used to hand
-            // ALL nine the pirate policy were deleted in the same change that
-            // added the rule. So these six were provoked into `pirate_boarder`
-            // before the migration and fall to the generic `combatant` after it.
-            // ⇒ unblocked by authoring their bodies from the numbers they get
-            // today, exactly as the goblin and the lab raider were.
-            ("npc_pirate_cutlass_viper", "provoked policy, unreachable"),
-            (
-                "npc_pirate_heavy_broadside_bess",
-                "provoked policy, unreachable",
-            ),
-            (
-                "npc_pirate_heavy_salt_annet",
-                "provoked policy, unreachable",
-            ),
-            ("npc_pirate_lookout", "provoked policy, unreachable"),
-            ("npc_pirate_navigator", "provoked policy, unreachable"),
-            ("npc_pirate_quartermaster", "provoked policy, unreachable"),
-            // ⛔ the clerk authors an ELEVEN-MOVE repertoire and is on the Smash
-            // select grid, so it appears — the grid resolves from the CATALOG.
-            // Its moveset rides a DEFINITION that is never registered, so the
-            // table reaches no body. ⇒ same unblock: author its vitals.
-            (
-                "special_patent_clerk",
-                "eleven-move repertoire, unreachable",
-            ),
-        ];
+        // ⛔ **THE SEVEN THIS FOUND ON ITS FIRST RUN ARE REGISTERED NOW**, so
+        // the exemption list they lived on is empty — see D98. Six pirates could
+        // not deliver the `provoked_profile_ref` the prefix rule gives them, and
+        // the Patent Clerk's eleven-move repertoire reached no body. Both were
+        // silent: a body that is never built cannot break.
+        const KNOWN_UNREGISTERED: &[(&str, &str)] = &[];
 
         let catalog = load_catalog();
         let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
@@ -2062,6 +2060,81 @@ mod tests {
             authors_someone,
             "no character in the catalog authors any intrinsics — the check above \
              is passing over an empty set"
+        );
+    }
+
+    /// **ALL NINE PIRATES DELIVER THE POLICY THE PREFIX RULE GIVES THEM** — the
+    /// thing D98's registration actually buys, asserted at the seam a provoked
+    /// body reads.
+    ///
+    /// ⛔ the rule (`id.starts_with("npc_pirate_")` → one of two published
+    /// profiles) has always applied to all nine rows. Only three of them were
+    /// registered, so only three had a PREPARED definition for `record_provoked`
+    /// to read — and the string-matcher arms that used to hand the other six the
+    /// pirate policy were deleted in the same change that added the rule. Six
+    /// pirates were provoked into `pirate_boarder` before the migration and into
+    /// generic `combatant` after it, and nothing said so.
+    ///
+    /// ⭐ this asserts the END of that chain rather than the rule: every pirate
+    /// in the shipped catalog resolves a provoked profile through PREPARATION,
+    /// which is the only form the runtime can use.
+    #[test]
+    fn every_pirate_delivers_the_provoked_policy_its_rule_states() {
+        let catalog = load_catalog();
+        let pirates: Vec<String> = catalog
+            .data()
+            .characters
+            .keys()
+            .filter(|id| id.starts_with("npc_pirate_"))
+            .cloned()
+            .collect();
+        assert!(
+            pirates.len() >= 9,
+            "the prefix rule is written for nine pirate rows; found {}",
+            pirates.len()
+        );
+
+        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
+        let mut broken = Vec::new();
+        for id in &pirates {
+            let bare =
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id.as_str(),
+                    "unused",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                );
+            // BOTH halves, because either alone is silent. The rule must state a
+            // policy, AND the id must be one registration actually visits — an
+            // arm that runs for nobody is what this whole row was about.
+            let states = authored_intrinsics(id.as_str(), bare)
+                .provoked_profile_ref
+                .is_some();
+            if !states || !registered.contains(id.as_str()) {
+                broken.push((id.clone(), states, registered.contains(id.as_str())));
+            }
+        }
+        assert!(
+            broken.is_empty(),
+            "these pirates do not deliver a provoked policy — `(id, states_one, \
+             registered)`: {broken:?}. A policy stated by a rule that registration \
+             never visits reaches no body, and provoking one falls to the generic \
+             archetype instead."
+        );
+
+        // ⛔ the poison: a character the rule does NOT name must not acquire one
+        // by accident. Without it this would also pass on a build where every
+        // character got a provoked policy from somewhere else.
+        let bare =
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "npc_alice",
+                "unused",
+                crate::AMBITION_CONTENT_PROVIDER,
+            );
+        assert!(
+            authored_intrinsics("npc_alice", bare)
+                .provoked_profile_ref
+                .is_none(),
+            "a character outside the pirate rule must state no provoked policy"
         );
     }
 

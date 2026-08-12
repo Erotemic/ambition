@@ -173,6 +173,11 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
     use super::RespawnPolicy;
     for &key in ALL_BRAIN_KEYS {
         let spec = test_spec(key);
+        // ⚠ `puppy_slug` and `pirate_heavy` left this arm with their shipped rows;
+        // the loop iterates `COMBAT_BRAIN_KEYS`, which now names only what the
+        // shipped file HAS (ledger D94). Kept as a `matches!` rather than
+        // collapsed to `true` because the next shipped row that does not attack
+        // belongs here, not in a rewritten expression.
         let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
         assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
 

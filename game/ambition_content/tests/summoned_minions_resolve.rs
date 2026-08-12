@@ -33,6 +33,14 @@ const SUMMONED_MINIONS: &[(&str, &str)] = &[
         "small_lurker",
         "gradient_sentinel.rs GRADIENT_CASCADE_MINION_ARCHETYPE",
     ),
+    // ⚠ the ENGINE names this one, not content — a player weapon that summons a
+    // creature is still a summon, and it was the third instance of this defect.
+    // Listed here because this is where the question gets asked, even though the
+    // constant lives one crate over.
+    (
+        "npc_puppy_slug",
+        "abilities/thrown/puppy_slug_gun.rs SLUG_ARCHETYPE",
+    ),
 ];
 
 /// Every encounter file whose wave `kind`s are read STRAIGHT FROM THE SHIPPED

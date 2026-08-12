@@ -33,8 +33,19 @@ pub const PUPPY_SLUG_GUN_ID: &str = "puppy_slug_gun";
 /// Most player-allied puppy slugs alive at once.
 pub const MAX_ALLIES: usize = 3;
 
-/// Archetype id of the spawned slug (must match `BRAIN_NAME_TO_ARCHETYPE`).
-const SLUG_ARCHETYPE: &str = "puppy_slug";
+/// **The CHARACTER the gun summons.**
+///
+/// ⛔⛔ **this said `"puppy_slug"`, and that archetype row is DELETED** — the
+/// creature became `npc_puppy_slug` in the D73 group-A migration. An id that
+/// resolves nothing lands on the generic `combatant` fallback, so the ally a
+/// player summoned with their own weapon was not a puppy slug at all: wrong
+/// health, wrong speed, no crawl, no cling. Third instance of the same defect
+/// found this week (ledger D93/D94), after the Gradient Sentinel's two summons
+/// and twenty engine tests.
+///
+/// ⭐ the summon road resolves the prepared cast first now, so naming the
+/// character is all this takes.
+const SLUG_ARCHETYPE: &str = "npc_puppy_slug";
 
 /// `Attack` while holding the puppy-slug gun summons one player-allied puppy slug
 /// ahead of the player, up to [`MAX_ALLIES`] alive. The gun's `HeldItemSpec` has

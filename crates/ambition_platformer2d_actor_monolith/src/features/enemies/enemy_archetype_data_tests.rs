@@ -155,7 +155,12 @@ fn smash_hit_band_is_data_authored() {
 #[test]
 fn body_contact_damage_is_explicitly_opted_in() {
     assert!(crate::features::enemies::test_spec("combatant").body_contact_damage);
-    assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
+    // ⛔ the second positive named `puppy_slug`, whose shipped row is gone — so it
+    // resolved `combatant` and repeated the line above while appearing to add a
+    // subject (ledger D94). A fixture row the engine owns is a real second case.
+    assert!(
+        crate::features::enemies::fixture_spec("cellular_automaton_fighter").body_contact_damage
+    );
     assert!(!crate::features::enemies::fixture_spec("pirate_heavy").body_contact_damage);
     assert!(!crate::features::enemies::fixture_spec("fixture_armed_rider").body_contact_damage);
     assert!(!crate::features::enemies::fixture_spec("sandbag_infinite").body_contact_damage);

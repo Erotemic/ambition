@@ -511,6 +511,67 @@ fn a_portrait_target_nobody_authored_is_named_at_registration() {
         "the registration seam did not supply a portrait vocabulary, so nothing \
          looked — which is the D106 state, not a pass"
     );
+
+    // ⛔⛔ **`was_checked` ALONE WAS THE WHOLE TEST until 2026-08-12, and GPT 5.6
+    // named it.** "Somebody looked" and "somebody found the typo" are different
+    // claims, and only the second is what a content author gets value from — a
+    // vocabulary wired up but resolving nothing would satisfy the assertion
+    // above perfectly. The vfx twin below has always asserted both halves.
+    let unresolved: Vec<&str> = prepared.unresolved_references().collect();
+    assert!(
+        unresolved
+            .iter()
+            .any(|line| line.contains("no_such_portrait_target")),
+        "a portrait target nobody authored must be REPORTED, naming the bad id \
+         so the author can act on it. Got: {unresolved:#?}"
+    );
+    assert!(
+        unresolved.iter().any(|line| line.contains("did you mean")),
+        "and the report must carry a suggestion — the vocabulary is a fixed list \
+         of a few dozen targets, so a near-miss is the ordinary case and the \
+         nearest one is the useful half of the diagnostic. Got: {unresolved:#?}"
+    );
+}
+
+/// **THE POISON for the portrait check: a target that DOES exist resolves
+/// clean.**
+///
+/// ⛔ without this, the test above passes on a vocabulary that rejects
+/// everything — including a build where `available_portrait_targets()` came back
+/// empty and every shipped character was suddenly "unresolved". An absence
+/// assertion needs the presence case beside it or it is measuring the resolver
+/// being broken.
+#[test]
+fn a_portrait_target_the_engine_bakes_resolves_clean() {
+    let target = ambition_sprite_sheet::portrait::available_portrait_targets()
+        .first()
+        .copied()
+        .expect(
+            "the engine bakes portrait targets at build time; an empty vocabulary \
+             is itself the failure this test exists to distinguish from a typo",
+        )
+        .to_string();
+
+    let mut definition = mary_o();
+    definition.portrait = Some(target.clone());
+
+    let mut app = App::new();
+    app.register_character(definition);
+    finalize(&mut app);
+
+    let prepared = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .get("mary_o")
+        .expect("published");
+    assert!(prepared.was_checked(PortraitTarget::NAME));
+    let unresolved: Vec<&str> = prepared.unresolved_references().collect();
+    assert!(
+        !unresolved.iter().any(|line| line.contains(&target)),
+        "`{target}` is a target the engine itself bakes, and preparation called \
+         it unknown — so the vocabulary the registration seam supplies is not the \
+         one the renderer draws from. Got: {unresolved:#?}"
+    );
 }
 
 /// A derived vfx tag nobody can draw is named — the same treatment cues get.

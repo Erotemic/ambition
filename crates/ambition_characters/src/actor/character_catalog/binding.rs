@@ -119,48 +119,6 @@ impl std::fmt::Display for BrainPresetRef {
     }
 }
 
-/// A stable id for a hostile roster archetype — the brain-key that the
-/// provocation authority resolves (`hostile_brain_id_for_actor`) and rebuilds an
-/// actor from (`roster.spec_for_brain`). A newtype over `String` so it can't be
-/// confused with a character id or a catalog preset id.
-///
-/// This is deliberately *just* a carrier: `ambition_characters` never interprets
-/// it (the roster and the archetype→config projection live in `ambition_platformer2d_actor_monolith`).
-/// It is what a [`AutonomousSource::Provoked`] retains so a provoked actor is
-/// reconstructible from a snapshot — the whole archetype config (tuning, brain,
-/// action set, capabilities) is a deterministic function of this id plus the
-/// actor's durable combat kit, so the id is all a rollback needs to persist.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct HostileArchetypeId(pub String);
-
-impl HostileArchetypeId {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl From<&str> for HostileArchetypeId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
-}
-
-impl From<String> for HostileArchetypeId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl std::fmt::Display for HostileArchetypeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
 /// A stable id for a boss's authored autonomous mode — the boss's catalog id
 /// (`BossConfig.id`), the key `ambition_platformer2d_actor_monolith`' `BossCatalog` resolves a
 /// `BossBehaviorProfile` from. A newtype over `String` so it can't be confused
@@ -218,11 +176,27 @@ pub enum AutonomousSource {
     /// An explicit catalog preset override (authored `brain_override`, or a
     /// runtime `UsePreset` switch).
     CatalogPreset(BrainPresetId),
-    /// A provoked hostile archetype (the challenge/provocation authority): the
-    /// live brain is built from the roster archetype named here, not a catalog
-    /// preset. Reconstructed by rerunning that construction, never rebuilt as a
-    /// catalog default.
-    Provoked { archetype: HostileArchetypeId },
+    /// **PROVOKED, WITH NOTHING TO LOOK UP** — the body is driven by the
+    /// engine's default provoked policy.
+    ///
+    /// ⛔⛔ **this used to be `Provoked { archetype: HostileArchetypeId }`**, and
+    /// the id was always the same string. `hostile_brain_id_for_actor()` returns
+    /// `"combatant"` and nothing else — the pirate arms and the
+    /// cellular-automaton arm were deleted in August when those creatures took
+    /// their own provoked policies — so the "stable archetype id a rebuild
+    /// needs" named one row, forever, and carrying it made the rollback road
+    /// resolve a roster the live road had stopped consulting.
+    ///
+    /// ⭐ payloadless for the same reason [`Self::CharacterProfile`] is: the
+    /// answer is not somewhere to look up, it is a thing the engine states.
+    /// `brain_builders::default_provoked_policy()`, whose home is the session
+    /// ruleset when a second experience wants a different one.
+    ///
+    /// ⚠ a creature that states its OWN provoked policy records
+    /// [`Self::ProvokedProfile`] instead and never reaches this — which is the
+    /// distinction the two variants exist to keep, and the reason this one can
+    /// be payloadless without losing anything.
+    ProvokedDefault,
     /// **A provoked CHARACTER's own combat policy**, carried by value.
     ///
     /// ⭐ **the character-first half of provocation** (Jon's second redirect,
@@ -359,7 +333,7 @@ impl BrainBinding {
         match &self.source {
             AutonomousSource::CatalogPreset(id) => Some(id),
             AutonomousSource::CatalogDefault => self.default_preset.preset(),
-            AutonomousSource::Provoked { .. }
+            AutonomousSource::ProvokedDefault
             | AutonomousSource::ProvokedProfile { .. }
             | AutonomousSource::CharacterProfile
             | AutonomousSource::Boss { .. } => None,
@@ -371,22 +345,16 @@ impl BrainBinding {
         matches!(self.source, AutonomousSource::CatalogPreset(_))
     }
 
-    /// True iff the actor is currently in a provoked hostile archetype.
+    /// True iff the actor is currently provoked into the engine's default
+    /// policy. (A creature provoked into its OWN authored policy records
+    /// [`AutonomousSource::ProvokedProfile`]; ask that separately.)
     pub fn is_provoked(&self) -> bool {
-        matches!(self.source, AutonomousSource::Provoked { .. })
+        matches!(self.source, AutonomousSource::ProvokedDefault)
     }
 
     /// True iff the actor's autonomous source is a boss mode.
     pub fn is_boss(&self) -> bool {
         matches!(self.source, AutonomousSource::Boss { .. })
-    }
-
-    /// The provoked archetype id, if the actor is provoked.
-    pub fn provoked_archetype(&self) -> Option<&HostileArchetypeId> {
-        match &self.source {
-            AutonomousSource::Provoked { archetype } => Some(archetype),
-            _ => None,
-        }
     }
 
     /// The boss archetype id, if this is a boss binding.
@@ -419,12 +387,12 @@ impl BrainBinding {
         };
     }
 
-    /// Record that the actor was provoked into a hostile roster archetype. The
-    /// caller rebuilds the coupled autonomous state (brain / action set / tuning
-    /// / capabilities) from this archetype; a snapshot reconstructs it the same
-    /// way, so the provoked mode survives a rewind in both directions.
-    pub fn provoke(&mut self, archetype: HostileArchetypeId) {
-        self.source = AutonomousSource::Provoked { archetype };
+    /// Record that the actor was provoked into the engine's default policy. The
+    /// caller rebuilds the coupled autonomous state (brain / action set) from
+    /// that policy; a snapshot reconstructs it the same way, so the provoked
+    /// mode survives a rewind in both directions.
+    pub fn provoke(&mut self) {
+        self.source = AutonomousSource::ProvokedDefault;
     }
 }
 
@@ -941,22 +909,30 @@ mod tests {
         }
     }
 
-    /// A provoked source names its hostile archetype and has no active catalog
-    /// preset — reconciliation reads this to rebuild the provoked mode from the
-    /// roster archetype rather than the catalog default.
+    /// A provoked source has no active catalog preset — reconciliation reads
+    /// this to rebuild the provoked mode rather than the catalog default.
+    ///
+    /// ⚠ it used to also assert the ARCHETYPE ID it named. There is none:
+    /// `provoke()` records the engine's default policy and carries nothing,
+    /// because the id it used to carry was the string `"combatant"` on every
+    /// call this repository has ever made.
     #[test]
     fn provoked_source_has_no_active_preset() {
         let mut binding = BrainBinding::new(
             BrainPresetId::new("wanderer_puppy_slug"),
             AutonomousSource::CatalogDefault,
         );
-        binding.provoke(HostileArchetypeId::new("combatant"));
+        binding.provoke();
         assert!(binding.is_provoked());
         assert_eq!(binding.active_preset(), None);
-        assert_eq!(
-            binding.provoked_archetype(),
-            Some(&HostileArchetypeId::new("combatant"))
-        );
+        // ⭐ the poison: a body provoked into its OWN authored policy is a
+        // different source, and `is_provoked` must not answer for it — the two
+        // rebuild differently, which is the whole reason there are two.
+        binding.source = AutonomousSource::ProvokedProfile {
+            profile: ambition_entity_catalog::BrainProfileId::new("cellular_duelist"),
+        };
+        assert!(!binding.is_provoked());
+        assert_eq!(binding.active_preset(), None);
     }
 
     /// AuthoredBrainContext captures the placement home and reproduces a build

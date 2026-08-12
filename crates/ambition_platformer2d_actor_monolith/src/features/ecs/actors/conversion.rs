@@ -382,11 +382,7 @@ pub(crate) fn provoke_actor_in_place(
             if let Some(mut binding) =
                 world.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>(entity)
             {
-                binding.provoke(
-                    ambition_characters::actor::character_catalog::HostileArchetypeId::new(
-                        hostile_id,
-                    ),
-                );
+                binding.provoke();
             }
         });
     }

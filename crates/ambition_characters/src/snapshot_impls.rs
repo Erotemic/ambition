@@ -502,13 +502,12 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
-            // Provoked: the live brain is a roster archetype, not a catalog
-            // preset. The stable archetype id is all a rebuild needs — reconcile
-            // reruns the roster construction from it (never a catalog default).
-            AutonomousSource::Provoked { archetype } => {
-                put_u8(out, 2);
-                put_str(out, archetype.as_str());
-            }
+            // ⭐ **A TAG AND NOTHING ELSE**, since 2026-08-12. This carried a
+            // `HostileArchetypeId` that was always the string `"combatant"` —
+            // one row, forever — so the rollback road resolved a roster the live
+            // road had already stopped consulting. The engine states the default
+            // provoked policy; there is nothing to look up.
+            AutonomousSource::ProvokedDefault => put_u8(out, 2),
             // Boss: the live brain is a `BossPattern` rebuilt from the boss
             // catalog by this id (or resumed from the suspended runtime), never a
             // catalog preset. The stable boss id is all a rebuild needs.
@@ -537,7 +536,6 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use crate::actor::character_catalog::{
             AutonomousDefault, AutonomousSource, BossAutonomyId, BrainBinding, BrainPresetId,
-            HostileArchetypeId,
         };
         let default_preset = match r.u8()? {
             0 => AutonomousDefault::None,
@@ -548,9 +546,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
         let source = match r.u8()? {
             0 => AutonomousSource::CatalogDefault,
             1 => AutonomousSource::CatalogPreset(BrainPresetId::new(r.str()?.to_string())),
-            2 => AutonomousSource::Provoked {
-                archetype: HostileArchetypeId::new(r.str()?.to_string()),
-            },
+            2 => AutonomousSource::ProvokedDefault,
             3 => AutonomousSource::Boss {
                 archetype: BossAutonomyId::new(r.str()?.to_string()),
             },

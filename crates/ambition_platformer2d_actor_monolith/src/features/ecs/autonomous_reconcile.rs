@@ -33,8 +33,6 @@ use super::{CombatKit, HeldItem};
 use crate::abilities::traversal::possession::PossessionState;
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile};
-use crate::features::enemies::ArchetypeSpecExt;
-use crate::features::enemies::{ArchetypeSpec, CharacterRoster};
 use crate::features::TemporaryControl;
 use ambition_characters::actor::character_catalog::{
     AuthoredBrainContext, AutonomousSource, BrainBinding, BrainBuildContext, CharacterBodyKind,
@@ -46,6 +44,15 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, NPC_PATROL_SPE
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+/// **The `ActorConfig.brain` read-model label a generically-provoked body wears.**
+///
+/// ⚠ it is still the string `"combatant"`, and it is now a LABEL rather than a
+/// lookup key: nothing resolves it against a roster on either road. It stays
+/// spelled that way because the read-model is compared against authored
+/// `CharacterBrain::Custom` values elsewhere, and renaming it would be a content
+/// change wearing a refactor.
+pub(crate) const PROVOKED_DEFAULT_LABEL: &str = "combatant";
 
 /// **What provocation produces: a MIND and a KIT. Never a body.**
 ///
@@ -112,36 +119,6 @@ pub(crate) struct ProvokedArchetype {
     pub config_brain: CharacterBrain,
     pub brain: Brain,
     pub action_set: ambition_characters::brain::ActionSet,
-}
-
-/// Project a hostile roster archetype's POLICY onto an actor. Pure: no ECS, no
-/// mutation — the single definition of "what provocation produces", so the live
-/// flip and a snapshot rebuild can never drift.
-///
-/// `current_config` is the actor's config at call time, and it is the body the
-/// policy is lowered against. The projection clones it to swap in the hostile
-/// `brain_profile` and nothing else.
-pub(crate) fn project_provoked_archetype(
-    spec: &ArchetypeSpec,
-    archetype: &str,
-    current_config: &ActorConfig,
-    combat_kit: &CombatKit,
-    held_item: Option<&HeldItem>,
-    // The provoked body's LIVE verbs. Provocation swaps the driver, never the
-    // body: a peaceful pirate that gets struck becomes hostile with exactly the
-    // abilities it already had, and the driver may only reach for those.
-    body: ambition_platformer2d_core::AbilitySet,
-) -> ProvokedArchetype {
-    provoked_projection(
-        spec.brain_profile(),
-        spec.max_health,
-        spec.tuning().is_aerial,
-        archetype,
-        current_config,
-        combat_kit,
-        held_item,
-        body,
-    )
 }
 
 /// **The projection itself, from a POLICY rather than from a row.**
@@ -294,13 +271,13 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
 
     for job in jobs {
         match &job.source {
-            AutonomousSource::Provoked { archetype } => {
-                reconstruct_provoked(world, job.entity, archetype.as_str());
+            AutonomousSource::ProvokedDefault => {
+                reconstruct_provoked_default(world, job.entity);
             }
-            // ⭐ **A PROVOKED CHARACTER KEEPS ITS BODY.** The archetype arm above
-            // rebuilds a whole body — tuning, HP pool, capabilities — because an
-            // archetype IS the creature. A character that states what it becomes
-            // when struck changed only its mind, so only its mind is rebuilt.
+            // ⭐ **A PROVOKED CHARACTER REBUILDS ITS OWN MIND.** The arm above
+            // rebuilds the engine's default provoked policy, because that is
+            // what a body with nothing to say is driven by; a creature that
+            // states what it becomes when struck rebuilds what it stated.
             AutonomousSource::ProvokedProfile { profile } => {
                 reconstruct_provoked_profile(world, job.entity, profile);
             }
@@ -390,35 +367,43 @@ fn reconstruct_provoked_profile(
     em.insert(crate::combat::components::ActorDisposition::Hostile);
 }
 
-fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
-    let Some(spec) = world
-        .get_resource::<CharacterRoster>()
-        .map(|roster| roster.spec_for_brain(&CharacterBrain::Custom(archetype.to_string())))
-    else {
-        // Headless fixture without a roster: leave the live brain to its authority.
-        return;
-    };
-    let (Some(config), Some(kit)) = (
-        world.get::<ActorConfig>(entity).cloned(),
-        world.get::<CombatKit>(entity).cloned(),
-    ) else {
-        return;
-    };
-    let held = world.get::<HeldItem>(entity).cloned();
-    // The body's live verbs. A body with no `BodyAbilities` has none to reach
-    // for, which is the honest answer rather than a borrowed default.
+/// **The engine's default provoked projection for one body in a world** — the
+/// shared read both the rollback reconstruction and the resume road take, so
+/// they cannot state the policy differently.
+fn default_provoked_projection(world: &World, entity: Entity) -> Option<ProvokedArchetype> {
+    let config = world.get::<ActorConfig>(entity)?;
+    let kit = world.get::<CombatKit>(entity)?;
+    let held = world.get::<HeldItem>(entity);
     let body = world
         .get::<ambition_platformer2d_core::BodyAbilities>(entity)
         .map(|abilities| abilities.abilities)
         .unwrap_or_default();
-    let proj = project_provoked_archetype(&spec, archetype, &config, &kit, held.as_ref(), body);
+    Some(provoked_projection(
+        super::brain_builders::default_provoked_policy(),
+        super::brain_builders::DEFAULT_PROVOKED_HEALTH,
+        false,
+        PROVOKED_DEFAULT_LABEL,
+        config,
+        kit,
+        held,
+        body,
+    ))
+}
 
+/// **Rebuild a body provoked into the engine's default policy.**
+///
+/// ⛔⛔ this was `reconstruct_provoked`, which resolved a recorded archetype id
+/// against `CharacterRoster` and reran the whole archetype construction — the
+/// last consumer of that roster on any provoke road. The id was always
+/// `"combatant"`, so the lookup answered one row forever while the live flip had
+/// already stopped asking.
+fn reconstruct_provoked_default(world: &mut World, entity: Entity) {
+    let Some(proj) = default_provoked_projection(world, entity) else {
+        return;
+    };
     let Ok(mut em) = world.get_entity_mut(entity) else {
         return;
     };
-    // ⭐ the twin of the live flip, and it lost the same four writes: a rewind
-    // into a provoked snapshot restores the MIND and the KIT, because those are
-    // all the provocation ever changed.
     if let Some(mut config) = em.get_mut::<ActorConfig>() {
         config.brain_profile = proj.brain_profile;
         config.brain = proj.config_brain;
@@ -546,21 +531,13 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
         AutonomousSource::CharacterProfile => {
             crate::features::ecs::character_policy::character_default_brain_in(world, entity)
         }
-        AutonomousSource::Provoked { archetype } => {
-            let roster = world.get_resource::<CharacterRoster>()?;
-            let spec =
-                roster.spec_for_brain(&CharacterBrain::Custom(archetype.as_str().to_string()));
-            let config = world.get::<ActorConfig>(entity)?;
-            let kit = world.get::<CombatKit>(entity)?;
-            let held = world.get::<HeldItem>(entity);
-            let body = world
-                .get::<ambition_platformer2d_core::BodyAbilities>(entity)
-                .map(|abilities| abilities.abilities)
-                .unwrap_or_default();
-            Some(
-                project_provoked_archetype(&spec, archetype.as_str(), config, kit, held, body)
-                    .brain,
-            )
+        // ⭐ **NO ROSTER LOOKUP.** This resolved the recorded archetype id
+        // against `CharacterRoster` and projected its spec — while the LIVE
+        // provoke path had already stopped doing that. Both roads state the
+        // engine's default policy now, which is what "a provoked actor is
+        // identical whether just challenged or rebuilt" has to mean.
+        AutonomousSource::ProvokedDefault => {
+            Some(default_provoked_projection(world, entity)?.brain)
         }
         AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
             let catalog = world.get_resource::<CharacterCatalog>()?;
@@ -911,9 +888,7 @@ fn reconcile_temporary_control(world: &mut World) {
 mod tests {
     use super::*;
     use crate::features::enemies::test_roster;
-    use ambition_characters::actor::character_catalog::{
-        parse_catalog, BrainPresetId, HostileArchetypeId,
-    };
+    use ambition_characters::actor::character_catalog::{parse_catalog, BrainPresetId};
     use ambition_platformer2d_core as ae;
 
     const CATALOG: &str = r#"(
@@ -958,20 +933,19 @@ mod tests {
     /// **PROVOCATION PROJECTS NO TUNING AT ALL, so a body keeps everything it
     /// was.**
     ///
-    /// ⛔ this test used to be narrower and its name says so: *"borrows COMBAT
-    /// numbers but never the placement respawn policy"*. It existed because
-    /// `project_provoked_archetype` assigned `spec.tuning()` wholesale and a
-    /// provoked NPC silently became `OnRoomReenter` — the kill hook wrote no
-    /// death flag, save-sync had nothing to read, and the NPC was rebuilt alive
-    /// by the next room construction ("kill an NPC, it respawns immediately",
-    /// ADR 0022).
+    /// ⛔ this test used to be narrower and its name said so: *"borrows COMBAT
+    /// numbers but never the placement respawn policy"*. It existed because the
+    /// projection assigned an archetype's `tuning()` wholesale and a provoked
+    /// NPC silently became `OnRoomReenter` — the kill hook wrote no death flag,
+    /// save-sync had nothing to read, and the NPC was rebuilt alive by the next
+    /// room construction ("kill an NPC, it respawns immediately", ADR 0022).
     ///
     /// ⭐ the fix at the time carved ONE field out of the wholesale assignment.
-    /// The projection now assigns no tuning whatever — a provocation changes the
+    /// The projection assigns no tuning whatever now — a provocation changes the
     /// mind and the kit, never the body — so the respawn policy survives for the
-    /// same reason the run speed and the gait do, and the narrow claim became a
-    /// special case of a general one. Asserting the general one is what stops a
-    /// future widening putting a second field back.
+    /// same reason the run speed does, and the narrow claim became a special
+    /// case of a general one. Asserting the general one is what stops a future
+    /// widening putting a second field back.
     ///
     /// ⚠ the poison is the second half: the projection must still produce a real
     /// hostile MIND. "It changed nothing" would satisfy the first assertion
@@ -980,30 +954,17 @@ mod tests {
     fn provocation_changes_the_mind_and_leaves_every_body_fact_alone() {
         use ambition_entity_catalog::placements::RespawnPolicy;
 
-        let roster = test_roster();
-        let spec = roster.spec_for_brain(&CharacterBrain::Custom("combatant".into()));
-        // The fixture body disagrees with the archetype on every field checked
-        // below, so "preserved" cannot be read as "coincidentally equal".
-        assert_eq!(
-            spec.tuning().respawn,
-            RespawnPolicy::OnRoomReenter,
-            "fixture assumption: the archetype respawns per room"
-        );
-
         let mut config = config_fixture();
         config.tuning.respawn = RespawnPolicy::DeadStaysDead;
         config.tuning.max_run_speed = 91.0;
         config.tuning.surface_walker = true;
-        assert_ne!(
-            config.tuning.max_run_speed,
-            spec.tuning().max_run_speed,
-            "fixture assumption: the body is not already running at the archetype's speed"
-        );
 
         let before = config.clone();
-        let proj = project_provoked_archetype(
-            &spec,
-            "combatant",
+        let proj = provoked_projection(
+            crate::features::ecs::brain_builders::default_provoked_policy(),
+            crate::features::ecs::brain_builders::DEFAULT_PROVOKED_HEALTH,
+            false,
+            PROVOKED_DEFAULT_LABEL,
             &config,
             &CombatKit::default(),
             None,
@@ -1021,9 +982,9 @@ mod tests {
         // ⭐ THE POISON. Without this, deleting the whole projection passes.
         assert_eq!(
             proj.brain_profile,
-            spec.brain_profile(),
-            "the provoked POLICY is the archetype's — that is the one thing a \
-             generic provocation is for"
+            crate::features::ecs::brain_builders::default_provoked_policy(),
+            "the provoked POLICY is the engine's default — that is the one thing \
+             a generic provocation is for"
         );
         assert!(
             !matches!(
@@ -1033,8 +994,9 @@ mod tests {
             "a provoked body's read-model still says it is not passive"
         );
         assert_eq!(
-            proj.max_health, spec.max_health,
-            "the HP pool is the one body fact still borrowed, and it is D96 \
+            proj.max_health,
+            crate::features::ecs::brain_builders::DEFAULT_PROVOKED_HEALTH,
+            "the HP pool is the one body fact still supplied, and it is D96 \
              item 7 rather than a design — if this stops being true the ledger \
              row was answered and this comment is the changelog"
         );
@@ -1193,9 +1155,15 @@ mod tests {
         );
     }
 
-    /// A rewind INTO a provoked snapshot reruns the roster construction: the
-    /// hostile mind, kit and HP pool are reconstructed from the stable archetype
-    /// id alone.
+    /// A rewind INTO a provoked snapshot rebuilds the mind, the kit and the HP
+    /// pool from the ENGINE's default provoked policy.
+    ///
+    /// ⭐⭐ **THE FIXTURE INSERTS NO ROSTER, and that is the assertion.** This
+    /// used to resolve a recorded archetype id against `CharacterRoster` — the
+    /// last consumer of that roster on any provoke road, resolving one string
+    /// forever while the live flip had already stopped asking. A world with no
+    /// roster in it rebuilding a provoked body correctly is the deletion, stated
+    /// as a fixture.
     ///
     /// ⛔⛔ **THE TWINS DISAGREED ABOUT WHERE THE HP POOL LIVES, and this test
     /// was asserting the reconstruct's side of it.** The live flip writes
@@ -1210,9 +1178,8 @@ mod tests {
     /// no tuning at all, the two twins write the one place that matters, and
     /// this asserts that place.
     #[test]
-    fn reconstructs_a_provoked_actor_from_its_archetype_id() {
+    fn reconstructs_a_provoked_actor_from_the_engines_default_policy() {
         let mut w = World::new();
-        w.insert_resource(test_roster());
         let mut config = config_fixture();
         config.tuning.max_health = 1; // peaceful HP left over from the present.
         let e = w
@@ -1220,9 +1187,7 @@ mod tests {
                 SimId::placement("npc"),
                 BrainBinding::new(
                     BrainPresetId::new("wanderer_x"),
-                    AutonomousSource::Provoked {
-                        archetype: HostileArchetypeId::new("combatant"),
-                    },
+                    AutonomousSource::ProvokedDefault,
                 ),
                 config,
                 CombatKit::default(),
@@ -1246,14 +1211,14 @@ mod tests {
         assert_eq!(
             w.get::<BodyHealth>(e).map(|health| health.max()),
             Some(4),
-            "the combatant HP pool is reconstructed from the roster, into the \
-             LIVE pool the live provoke flip writes — the two twins must reach \
-             the same field or a rewind changes a fighter's health"
+            "the provoked HP pool is reconstructed into the LIVE pool the live \
+             provoke flip writes — the two twins must reach the same field or a \
+             rewind changes a fighter's health"
         );
         assert_ne!(
             w.get::<Brain>(e).unwrap().label(),
             "stand_still",
-            "the live brain is rebuilt to the hostile archetype, not left peaceful"
+            "the live brain is rebuilt to the provoked policy, not left peaceful"
         );
     }
 

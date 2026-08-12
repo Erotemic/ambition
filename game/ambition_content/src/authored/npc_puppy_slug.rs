@@ -29,6 +29,36 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             strength: 0.55,
             amount: 1,
         })
+        // ⭐⭐ **IT CRAWLS. THAT IS THE WHOLE VERB LIST.**
+        //
+        // Jon, 2026-08-12: *"If the slug does not have a double jump ability it
+        // should not be able to double jump. The point of a slug is that it
+        // shows that it is spawned happily even though it basically has no
+        // moves."*
+        //
+        // ⛔ **it authored NO mask, and a body that authors none receives the
+        // road's.** Both roads hand out a humanoid: exploration's
+        // `ActorBody::locomotion_abilities()` grants jump + variable jump +
+        // double jump, and a Smash seat INTERSECTS the stage's fighter mask
+        // against the character's — which, against nothing, is the stage's
+        // whole. Measured on the shipped creature: `npc_puppy_slug` and
+        // `npc_carl_stargan` (who authors no body at all) came out identical,
+        // `jump=true double_jump=true attack=true`. A slithering wall-crawler
+        // double-jumped on the Smash stage.
+        //
+        // ⚠ **`attack: false` is not an oversight.** Its damage is CONTACT
+        // damage, authored above — it hurts you by being touched, not by
+        // swinging. Granting `attack` would give it a swipe nothing describes,
+        // which is the "generic swipe" half of the same acceptance test.
+        //
+        // ⭐ and the seat is the POINT rather than a casualty: a body with one
+        // verb must still seat, simulate and survive on a stage. That is the
+        // compositional claim, and it is what `puppy_slug_forced_seat.rs`
+        // measures.
+        .with_abilities(ambition_platformer2d_core::AbilitySet {
+            move_horizontal: true,
+            ..ambition_platformer2d_core::AbilitySet::NONE
+        })
         // The slug-only psychedelic pass, and the reason `dream_seed`
         // became a character fact.
         .with_dream_seed(0.271828)

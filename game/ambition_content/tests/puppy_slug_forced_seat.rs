@@ -163,58 +163,117 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
     );
 }
 
-/// **AND HERE IS THE HALF THAT IS NOT DONE.**
+/// **JUMP → NO JUMP, BECAUSE ITS BODY CANNOT JUMP.**
 ///
-/// Jon's criterion has a second clause — *"Jump → no jump if its body cannot
+/// The second half of Jon's criterion — *"Jump → no jump if its body cannot
 /// jump. Smash must not silently give it a generic swipe, a generic humanoid
-/// jump, a generic dash"* — and the shipped slug FAILS it. Measured
-/// 2026-08-12, through the seam above:
+/// jump, a generic dash"* — and it FAILED when this file was written. Measured
+/// then, through the seam above:
 ///
 /// ```text
 ///   npc_carl_stargan  jump=true double_jump=true attack=true  (authors nothing)
 ///   npc_puppy_slug    jump=true double_jump=true attack=true  (authors a body)
 /// ```
 ///
-/// Identical, because the slug authors locomotion and contact damage but no
-/// `AbilitySet`, and the seat's mask INTERSECTS — with nothing to intersect
-/// against, the stage's fighter default wins whole. A slithering wall-crawler
-/// double-jumps on the Smash stage today.
+/// Identical, because the slug authored locomotion and contact damage but no
+/// `AbilitySet`, and a seat INTERSECTS the stage's fighter mask against the
+/// character's — against nothing, the stage's wins whole. A slithering
+/// wall-crawler double-jumped on the Smash stage.
 ///
-/// ⛔ **this test does not assert that, and must not.** Pinning the current
-/// masks would make a defect the specification. What the slug can DO is a
-/// content decision (D96 item 9 / campaign P3.25): its contact damage is not a
-/// swipe, and choosing its verb set is authoring, not repair. This function
-/// exists so the measurement travels with the test that found it — and so the
-/// day somebody authors that mask, the assertion to add is already written down.
+/// ⭐ Jon, 2026-08-12: *"If the slug does not have a double jump ability it
+/// should not be able to double jump. The point of a slug is that it shows that
+/// it is spawned happily even though it basically has no moves."* So the slug
+/// authors `move_horizontal` and nothing else, and the intersection — which
+/// already refused to GRANT a verb a character lacks — now has something to
+/// intersect.
 ///
-/// ⚠ deliberately NOT `#[ignore]`d into existence as a red test either: a
-/// failing test for a decision nobody has made is noise every run pays for.
+/// ⚠ **the control is doing double duty.** Stargan still comes out with the
+/// stage's humanoid mask, which is correct: he authors no body, and an
+/// unmigrated fighter must still be given something or every one of them is a
+/// statue. The claim is not "no fighter gets defaults", it is "a character that
+/// SAYS what it can do is believed".
 #[test]
-fn the_ability_mask_is_still_the_stages_and_that_is_a_decision_not_a_bug() {
+fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
     let seats = seat_the_cast(vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")]);
     let slug = seats.iter().find(|s| s.worn == "npc_puppy_slug").unwrap();
-    // The one thing worth asserting here: the slug authors NO mask of its own,
-    // which is precisely why the stage's wins. If it ever authors one, this
-    // fails and whoever authored it reads the doc above.
+    let stargan = seats.iter().find(|s| s.worn == "npc_carl_stargan").unwrap();
+
     assert!(
-        ambition_content::character_catalog::authored_intrinsics(
-            "npc_puppy_slug",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
-                "npc_puppy_slug",
-                "Puppy Slug",
-                "ambition_content",
-            ),
-        )
-        .abilities
-        .is_none(),
-        "the slug now authors an ability mask — the measurement in this \
-         function's doc is stale, and the seat assertions it describes are the \
-         ones to add"
+        !slug.abilities.jump,
+        "the slug was given a jump the stage invented for it"
     );
-    // Named so the reader knows what was measured rather than trusting a
-    // comment: today this is the stage's humanoid default, verbatim.
     assert!(
-        slug.abilities.jump,
-        "if this ever fails the gap closed and the doc above is the changelog"
+        !slug.abilities.double_jump,
+        "the slug was given a DOUBLE jump — Jon's sentence, verbatim: if it does \
+         not have the ability it should not be able to"
     );
+    assert!(
+        !slug.abilities.dash,
+        "a generic dash, which is the third thing the acceptance test names"
+    );
+    assert!(
+        !slug.abilities.attack,
+        "a generic swipe. Its damage is CONTACT damage — it hurts you by being \
+         touched, not by swinging"
+    );
+    assert!(
+        slug.abilities.move_horizontal,
+        "and it still CRAWLS: a body stripped to nothing at all would pass every \
+         assertion above while being a rock, which is not what was asked for"
+    );
+
+    // ⭐ THE CONTROL, and the reason the four assertions above are about
+    // authoring rather than about the stage being empty.
+    assert!(
+        stargan.abilities.jump && stargan.abilities.double_jump,
+        "the character that authors NO mask stopped receiving the stage's — an \
+         unmigrated fighter that cannot jump is a statue, and that is a \
+         different bug wearing this fix"
+    );
+}
+
+/// **AND IT IS SPAWNED HAPPILY WITH ALMOST NO MOVES** — Jon's actual point.
+///
+/// *"The point of a slug is that it shows that it is spawned happily even
+/// though it basically has no moves."* The acceptance criterion is not that it
+/// fights well; it is that a body carrying ONE verb seats, simulates and
+/// survives on a stage built for fighters, rather than crashing, freezing, or
+/// being quietly topped up into a humanoid. That is the compositional claim the
+/// whole character-template campaign is for, and a creature with one verb is the
+/// sharpest instrument for it.
+#[test]
+fn a_creature_with_one_verb_still_seats_and_simulates() {
+    let mut app = seating_app_with_the_real_cast();
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")],
+        ..Default::default()
+    });
+    ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+    // Many ticks, not one: a body that seats and then divides by zero on its
+    // first brain tick would pass a single-update assertion.
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut q = world.query_filtered::<(
+        &ambition_characters::actor::WornCharacter,
+        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+    ), With<MatchSeat>>();
+    let rows: Vec<(String, Vec2)> = q
+        .iter(world)
+        .map(|(worn, kin)| (worn.id().to_string(), kin.pos))
+        .collect();
+
+    assert_eq!(
+        rows.len(),
+        2,
+        "a body with one verb did not survive 120 ticks in a fighter seat: {rows:?}"
+    );
+    for (worn, pos) in &rows {
+        assert!(
+            pos.x.is_finite() && pos.y.is_finite(),
+            "{worn} left the number line: {pos:?}"
+        );
+    }
 }

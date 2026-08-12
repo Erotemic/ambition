@@ -99,6 +99,17 @@ pub struct ClipRequest {
 }
 
 impl ClipRequest {
+    /// Build a request from a static preference chain — the shape
+    /// `ambition_character_sprites::body_state_clip` answers in. `None` for an
+    /// empty chain, which is a caller bug rather than a state.
+    pub fn from_chain(chain: &[&str]) -> Option<Self> {
+        let (clip, fallbacks) = chain.split_first()?;
+        Some(Self {
+            clip: (*clip).to_string(),
+            fallbacks: fallbacks.iter().map(|f| (*f).to_string()).collect(),
+        })
+    }
+
     /// The chain in preference order — the exact clip, then the author's
     /// fallbacks. Feed straight to `CharacterAnimator::request_clip`.
     pub fn chain(&self) -> impl Iterator<Item = &str> {
@@ -214,10 +225,21 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // ⭐ what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
                 // gameplay, so this is the move speaking, not a guess about it.
-                clip: a.playback.map(|playback| ClipRequest {
-                    clip: playback.spec.clip.clip.clone(),
-                    fallbacks: playback.spec.clip.fallbacks.clone(),
-                }),
+                // ⭐ a MOVE names its row; failing that, a fighter STATE does
+                // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
+                // ⚠ the move wins: a body that is mid-swing while tumbling is
+                // drawn as its swing, which is what its timeline says it is.
+                clip: a
+                    .playback
+                    .map(|playback| ClipRequest {
+                        clip: playback.spec.clip.clip.clone(),
+                        fallbacks: playback.spec.clip.fallbacks.clone(),
+                    })
+                    .or_else(|| {
+                        ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
+                            a.motion_facts,
+                        )?)
+                    }),
             },
         );
     }

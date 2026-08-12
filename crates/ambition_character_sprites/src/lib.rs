@@ -36,7 +36,7 @@ mod anim;
 mod attack_hitbox;
 mod posed_body;
 
-pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState};
+pub use anim::{body_state_clip, pick_actor_anim, pick_player_anim, ActorAnimState};
 pub use attack_hitbox::authored_attack_volume_resolver;
 pub use posed_body::{
     authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,

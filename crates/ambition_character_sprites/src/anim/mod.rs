@@ -151,6 +151,48 @@ pub struct BodyAnimView {
 /// Punch swing row) folded in at their priorities. Inert states (a `None`
 /// ledge, `false` flags) fall straight through, so a sparse actor view lands on
 /// the shared locomotion tail.
+/// **The authored ROW a body's fighter state asks to be drawn as**, when the new
+/// sheets have one, with the fallback chain for the sheets that do not.
+///
+/// ⭐⭐ sprite redirect P2. The engine already produces these states and
+/// [`pick_body_anim`] already reads them — but it can only answer in
+/// [`CharacterAnim`], which has no variant for `air_dodge`, `tumble`,
+/// `knockdown` or `getup`, so all four collapse onto `Roll` / `Hit` / `LandHard`
+/// / `LandRecovery`. The new fighter sheets draw them separately. This is the
+/// same clip-request seam a MOVE uses, for a state that has no `MoveSpec`.
+///
+/// ⛔ **the facts are READ, never inferred.** No velocity heuristics, no
+/// "it looks airborne so it must be tumbling" — every term here is a flag the
+/// movement kernel publishes about itself.
+///
+/// ⚠ **the priority order mirrors `pick_body_anim`'s exactly**, and that is not
+/// tidiness: a knocked-down body is still inside its hitstun, so answering the
+/// tumble first would draw the launched pose through the whole prone beat and
+/// the knockdown would never be seen.
+///
+/// ⚠ **`tech` / `tech_roll` / `getup_roll` are NOT distinguished here**, and the
+/// reason is honest: the simulation publishes ONE `getup_invulnerable` flag, so
+/// telling a tech from an ordinary getup would mean inventing a distinction the
+/// sim has not made. That fact belongs to the subsystem that knows which
+/// `MovementOp` ran, and the row set waits for it.
+pub fn body_state_clip(
+    facts: &ambition_platformer2d_core::BodyMotionFacts,
+) -> Option<&'static [&'static str]> {
+    if facts.knocked_down {
+        return Some(&["knockdown", "prone", "land_hard", "hit", "idle"]);
+    }
+    if facts.getup_invulnerable {
+        return Some(&["getup", "land_recovery", "idle"]);
+    }
+    if facts.tumbling {
+        return Some(&["tumble", "hit", "fall", "idle"]);
+    }
+    if facts.air_dodging {
+        return Some(&["air_dodge", "roll", "fall", "idle"]);
+    }
+    None
+}
+
 pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     use CharacterAnim::*;
     if v.dead {
@@ -543,6 +585,104 @@ pub fn pick_actor_anim(
     v.run_above = None;
     v.fly_above = 12.0;
     pick_body_anim(&v)
+}
+
+#[cfg(test)]
+mod state_clip_tests {
+    use ambition_platformer2d_core::BodyMotionFacts;
+
+    /// **A FIGHTER STATE ASKS FOR ITS OWN ROW, IN THE LADDER'S ORDER.**
+    ///
+    /// ⭐ sprite redirect P2. These four states existed and were drawn already —
+    /// as `Roll`, `Hit`, `LandHard` and `LandRecovery`, because `CharacterAnim`
+    /// has no variant for any of them. The new sheets draw them separately.
+    ///
+    /// ⛔ **the ORDER is the assertion that matters.** A knocked-down body is
+    /// still inside its hitstun, so `tumbling` and `knocked_down` are true
+    /// together — answering the tumble first would draw the launched pose for
+    /// the whole prone beat and the knockdown would never be seen. That is the
+    /// same priority `pick_body_anim` already encodes, and the two must not
+    /// drift.
+    #[test]
+    fn a_fighter_state_asks_for_its_own_row_in_priority_order() {
+        let head = |facts: &BodyMotionFacts| {
+            super::body_state_clip(facts).map(|chain| chain[0].to_string())
+        };
+
+        assert_eq!(
+            head(&BodyMotionFacts::default()),
+            None,
+            "a body doing none of \
+             these draws its ordinary pose, and must not be handed a clip"
+        );
+
+        let tumbling = BodyMotionFacts {
+            tumbling: true,
+            ..Default::default()
+        };
+        assert_eq!(head(&tumbling), Some("tumble".to_string()));
+
+        // ⛔ the poison: both true at once is the REAL case, not a contrived one.
+        let downed = BodyMotionFacts {
+            tumbling: true,
+            knocked_down: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            head(&downed),
+            Some("knockdown".to_string()),
+            "a knocked-down body drew its LAUNCH pose for the whole prone beat"
+        );
+
+        assert_eq!(
+            head(&BodyMotionFacts {
+                air_dodging: true,
+                ..Default::default()
+            }),
+            Some("air_dodge".to_string())
+        );
+        assert_eq!(
+            head(&BodyMotionFacts {
+                getup_invulnerable: true,
+                ..Default::default()
+            }),
+            Some("getup".to_string())
+        );
+    }
+
+    /// **EVERY CHAIN ENDS SOMEWHERE A LEAN SHEET CAN REACH.**
+    ///
+    /// ⚠ expressiveness is opt-in: a character with only `idle`, `walk`, `slash`
+    /// and `hit` must still draw something for every one of these states, or the
+    /// new vocabulary becomes a requirement rather than an opportunity.
+    #[test]
+    fn every_state_chain_ends_at_idle() {
+        for facts in [
+            BodyMotionFacts {
+                knocked_down: true,
+                ..Default::default()
+            },
+            BodyMotionFacts {
+                getup_invulnerable: true,
+                ..Default::default()
+            },
+            BodyMotionFacts {
+                tumbling: true,
+                ..Default::default()
+            },
+            BodyMotionFacts {
+                air_dodging: true,
+                ..Default::default()
+            },
+        ] {
+            let chain = super::body_state_clip(&facts).expect("this state asks for a row");
+            assert_eq!(
+                chain.last(),
+                Some(&"idle"),
+                "chain {chain:?} can fall through to nothing on a lean sheet"
+            );
+        }
+    }
 }
 
 #[cfg(test)]

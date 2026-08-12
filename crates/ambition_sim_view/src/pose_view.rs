@@ -269,10 +269,18 @@ pub fn rebuild_body_pose_views(
             stance_ratio_y,
             gravity_dir,
             anim,
-            clip: playback.map(|playback| crate::ClipRequest {
-                clip: playback.spec.clip.clip.clone(),
-                fallbacks: playback.spec.clip.fallbacks.clone(),
-            }),
+            // ⭐ a MOVE names its row; failing that, a fighter STATE does — the
+            // same two-step the actor road takes, so the two never disagree.
+            clip: playback
+                .map(|playback| crate::ClipRequest {
+                    clip: playback.spec.clip.clip.clone(),
+                    fallbacks: playback.spec.clip.fallbacks.clone(),
+                })
+                .or_else(|| {
+                    crate::ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
+                        motion_facts?,
+                    )?)
+                }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),

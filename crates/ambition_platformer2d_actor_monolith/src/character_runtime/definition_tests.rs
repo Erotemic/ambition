@@ -831,9 +831,17 @@ fn the_cast_generation_advances_on_every_published_change() {
 /// question is partly prepared, and every caller has to remember the second
 /// half.
 ///
-/// ⚠ **fill, never overrule.** `flies: false` means *"this character did not
-/// say"*, so a character that authored `flies: true` keeps it whatever the
-/// catalog thinks, and one that authored nothing takes the catalog's answer.
+/// ⛔⛔ **AND THE CATALOG NO LONGER FILLS IT** (ledger D89, 2026-08-11). This
+/// test used to assert *fill-never-overrule*: `body_kind: Floating` supplied
+/// flight for a character that "did not say". That fold is DELETED, because
+/// `body_kind` is presentation/footprint vocabulary — it answers *how tall is
+/// this* (`default_standing_height`), and a `Floating` row was quietly deciding
+/// that a body ignores gravity as well.
+///
+/// ⚠ **the §14 intent it was written for is unchanged and is what this still
+/// pins**: a PREPARED character carries one concrete answer, so no constructor
+/// asks the catalog a second time. Only the source of the answer moved — from
+/// the catalog row to the character itself.
 #[test]
 fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
     use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -875,13 +883,39 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .expect("it states its locomotion")
             .locomotion
             .flies
-            // ⚠ `Some(true)`, not merely truthy: `flies` is a THREE-state since
-            // 2026-08-11 (ledger D89) and a prepared character always resolves
-            // it, so `None` here would mean preparation left the question open.
-            == Some(true),
-        "the catalog says this body floats and the character did not say \
-         otherwise, so the PREPARED character has to carry it — a constructor \
-         asking the catalog again is the thing §14 deletes"
+            // ⚠ `Some(false)`, not `None`: preparation RESOLVES the question
+            // even when the answer is "no". A `None` reaching a body would mean
+            // the barrier left it open for a constructor to rediscover, which is
+            // exactly what §14 deletes.
+            == Some(false),
+        "this character said nothing about flight and its catalog row says \
+         `Floating` — which is a SILHOUETTE claim. A row deciding locomotion is \
+         the coupling D89 cut; preparation must resolve silence to GROUNDED and \
+         carry that one concrete answer"
+    );
+
+    // ⭐ **and a character that DOES say it flies keeps that**, which is the
+    // other half: cutting the catalog's fold must not also stop a bird flying.
+    let stated = crate::character_runtime::prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("floater", "Floater", "test").with_locomotion(
+            ambition_characters::actor::CharacterLocomotion {
+                run_speed: 90.0,
+                flies: Some(true),
+                ..Default::default()
+            },
+        ),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert_eq!(
+        stated
+            .body_blueprint()
+            .expect("it states its locomotion")
+            .locomotion
+            .flies,
+        Some(true),
+        "an authored answer must survive preparation untouched"
     );
 
     // A character nobody's catalog knows keeps its own answer, which is the

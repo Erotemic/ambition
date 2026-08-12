@@ -330,6 +330,15 @@ pub fn authored_intrinsics(
                 .with_locomotion(CharacterLocomotion {
                     run_speed: 168.0,
                     move_style: MoveStyleSpec::Walk,
+                    // ⭐⭐ **GROUNDED, STATED** — Jon, 2026-08-11: *"in smash PCA
+                    // should not have the fly ability. I made a wrong call
+                    // there earlier."* Its catalog row stays `Floating`, which
+                    // is a claim about its SILHOUETTE (no default standing
+                    // height; the sheet decides, and that is what keeps its body
+                    // 68px rather than 48). The archetype row it replaces said
+                    // `is_aerial: Some(false)` for the same reason: a
+                    // grounded-base hybrid.
+                    flies: Some(false),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {
@@ -520,6 +529,12 @@ pub fn authored_intrinsics(
                 .with_locomotion(CharacterLocomotion {
                     run_speed: 240.0,
                     move_style: MoveStyleSpec::Float,
+                    // ⭐ **IT FLIES, AND IT SAYS SO** (ledger D89). This was
+                    // inferred from `body_kind: Floating` in its catalog row —
+                    // a presentation/footprint fact that was doubling as
+                    // locomotion authority. The fold is deleted; a bird states
+                    // its own flight.
+                    flies: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {
@@ -631,6 +646,9 @@ pub fn authored_intrinsics(
                 .with_locomotion(CharacterLocomotion {
                     run_speed: 260.0,
                     move_style: MoveStyleSpec::Float,
+                    // ⭐ see the parrot: a flying MOUNT states its own flight
+                    // rather than inheriting it from a body-kind enum.
+                    flies: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {

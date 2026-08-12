@@ -1843,19 +1843,24 @@ fn finalize_character(
         // never overrule it.
         locomotion: locomotion.map(
             |locomotion| ambition_characters::actor::CharacterLocomotion {
-                // ⭐ **the catalog fills SILENCE and never overrules a stated
-                // answer.** A character that says `Some(false)` is grounded even
-                // though its row says `Floating` — which is the PCA exactly: its
-                // row is `Floating` (that is also what shapes its collision box)
-                // and it is a grounded hybrid that takes to the air only to close
-                // a gap. Before `flies` could say no, this line made it a
-                // permanent flyer.
-                flies: Some(locomotion.flies.unwrap_or_else(|| {
-                    matches!(
-                        catalog.and_then(|catalog| catalog.body_kind(&id)),
-                        Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
-                    )
-                })),
+                // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (ledger D89,
+                // 2026-08-11). This read
+                // `locomotion.flies || body_kind(&id) == Floating`, so a
+                // presentation/footprint enum decided whether a body flies — and
+                // the character had no way to disagree, because `flies` was a
+                // bare `bool` whose `false` meant "did not say".
+                //
+                // ⚠ **`Floating` still answers a real question, and keeping that
+                // straight is the whole fix**: it supplies no
+                // `default_standing_height`, meaning *the SHEET decides how tall
+                // this is* — which is why the PCA's body is 68px and not the 48px
+                // `Standard` hands out. Geometry and locomotion were coupled
+                // through this one enum; only the locomotion edge is cut.
+                //
+                // ⇒ silence now resolves to GROUNDED, and the three characters
+                // that genuinely fly say so on their own definitions (the parrot,
+                // the burning shark, and both plane swarms).
+                flies: Some(locomotion.flies.unwrap_or(false)),
                 ..locomotion
             },
         ),

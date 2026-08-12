@@ -2107,7 +2107,7 @@ mod assembled_provider_tests {
         let mut answered = 0usize;
         for id in catalog.data().characters.keys() {
             match ambition_characters::actor::character_catalog::resolve_initial_brain(
-                &catalog, id, None, None, &ctx,
+                &catalog, id, None, &ctx,
             ) {
                 Ok(_) => answered += 1,
                 Err(BrainBuildError::NoAutonomousDefault { .. }) => redirected.push(id.clone()),

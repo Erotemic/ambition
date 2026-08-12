@@ -99,17 +99,53 @@ pub(crate) fn resolve_npc_brain(
         return (ambition_characters::brain::Brain::stand_still(), None);
     };
     let authored = AuthoredBrainContext::from_placement(spawn_world_x, *patrol_radius);
+    // ⭐⭐ **THE PRECEDENCE RULE, AND IT IS JON'S** (2026-08-10, restated in the
+    // surviving vocabulary 2026-08-12):
+    //
+    // ```text
+    //   the placement's brain_override   a scene saying "this one is a guard"
+    //   the CHARACTER's own profile      what a Goblin normally does
+    //   the catalog row's default_brain  what a body gets when nobody migrated it
+    // ```
+    //
+    // ⛔ the middle rank used to be expressed by a `default_brain_profile` field
+    // on the definition — a `BrainPresetRef`, the ROW's vocabulary — and **no
+    // character in the repo ever authored one**, so in practice the row outranked
+    // the character on every body in the game. That field is deleted (D97); the
+    // rank it was standing in for is stated here, in the vocabulary characters
+    // actually use.
+    //
+    // ⚠ a content guard (`a_character_states_its_policy_in_one_place`) already
+    // forbids a character authoring a profile while its row names a preset, so
+    // this branch and that guard agree today. The guard is the belt; this is the
+    // structure — a rule that only holds because content happens not to violate
+    // it is not a rule.
+    let character_profile = prepared
+        .get(cid)
+        .and_then(|prepared| prepared.autonomous_profile);
+    if brain_override
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("")
+        .is_empty()
+    {
+        if let Some(profile) = character_profile {
+            let mut config = body.clone();
+            config.brain_profile = profile;
+            return (
+                crate::features::ecs::enemy_default_brain(&config, abilities),
+                // ⛔ **NOT an empty preset id.** The defect this replaced was an
+                // absent default wearing the shape of a present one;
+                // `AutonomousDefault` exists so a body can say what it will
+                // actually go back to.
+                Some((BrainBinding::from_character_profile(), authored)),
+            );
+        }
+    }
     match resolve_initial_brain(
         catalog,
         cid,
         brain_override.as_deref(),
-        // **The character's OWN default autonomous profile**, when its
-        // definition names one (D73 phase 1). It outranks the catalog row's
-        // `default_brain` and is outranked by the placement's `brain_override`
-        // above — the whole precedence rule, resolved in one call.
-        prepared
-            .get(cid)
-            .and_then(|prepared| prepared.default_brain_profile.as_ref()),
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
@@ -135,29 +171,24 @@ pub(crate) fn resolve_npc_brain(
                 ..
             },
         ) => {
-            let profile = prepared
-                .get(cid)
-                .and_then(|prepared| prepared.autonomous_profile);
-            let Some(profile) = profile else {
-                // Neither authority said anything. That is a genuinely unauthored
-                // character rather than a vocabulary mismatch, and the honest
-                // answer is the inert one the anonymous-NPC arm already gives.
-                bevy::log::warn!(
-                    target: "ambition_platformer2d_actor_monolith::npcs",
-                    "NPC `{cid}` names no brain preset and its character authors no \
-                     autonomous profile; stand-still fallback",
-                );
-                return (ambition_characters::brain::Brain::stand_still(), None);
-            };
-            let mut config = body.clone();
-            config.brain_profile = profile;
-            (
-                crate::features::ecs::enemy_default_brain(&config, abilities),
-                // ⛔ **NOT an empty preset id.** The whole defect was an absent
-                // default wearing the shape of a present one; `AutonomousDefault`
-                // exists so this body can say what it will actually go back to.
-                Some((BrainBinding::from_character_profile(), authored)),
-            )
+            // ⚠ **reaching here means NOTHING is authored anywhere.** The profile
+            // rank above already answered for every character that states one, and
+            // the row is empty or this error would not exist — so this is a
+            // genuinely unauthored character, not a vocabulary mismatch. A body
+            // that stands still is the honest answer, and the same one the
+            // anonymous-NPC arm gives.
+            //
+            // ⛔ it is also reachable for a placement whose `brain_override` is
+            // present but blank, on a character that authors a profile — a case
+            // the branch above deliberately routes through the profile rank by
+            // treating a blank override as absent, exactly as
+            // `resolve_initial_brain` does.
+            bevy::log::warn!(
+                target: "ambition_platformer2d_actor_monolith::npcs",
+                "NPC `{cid}` names no brain preset and its character authors no \
+                 autonomous profile; stand-still fallback",
+            );
+            (ambition_characters::brain::Brain::stand_still(), None)
         }
         // No catalog row for this id in this host (a partial-provider composition,
         // e.g. a Hall provider character not registered here). The body is an inert
@@ -707,20 +738,25 @@ mod default_profile_tests {
         )
     }
 
-    /// A registry holding one prepared character that names `profile` as its
-    /// own default, built through the real preparation path rather than by
-    /// hand — a hand-built `PreparedCharacterDefinition` would prove that this
-    /// test can construct a struct.
+    /// A registry holding one prepared character that authors `profile` as its
+    /// own policy, built through the real preparation path rather than by hand —
+    /// a hand-built `PreparedCharacterDefinition` would prove that this test can
+    /// construct a struct.
+    ///
+    /// ⚠ **a `BrainProfile`, which is the only vocabulary a character has.** This
+    /// took a `BrainPresetRef` and wrote `definition.default_brain_profile`, a
+    /// field no character in the repo ever authored and which is now deleted
+    /// (D97).
     fn registry_naming(
-        profile: Option<&str>,
+        profile: Option<ambition_characters::brain::CharacterBrainTemplate>,
     ) -> crate::character_runtime::PreparedCharacterRegistry {
         let mut definition = crate::character_runtime::CharacterDefinition::new(
             "npc_puppy_slug",
             "Puppy Slug",
             PROVIDER,
         );
-        definition.default_brain_profile =
-            profile.map(ambition_characters::actor::character_catalog::BrainPresetRef::from);
+        definition.autonomous_profile =
+            profile.map(ambition_characters::brain::BrainProfile::from_template);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
             &crate::character_runtime::CharacterBindings::default(),
@@ -744,16 +780,22 @@ mod default_profile_tests {
         .config
     }
 
-    /// ⭐ **the character's own default reaches a spawned NPC.** Before this the
-    /// only thing that could state an NPC's normal behaviour was its catalog
-    /// row, so a registered character with its own view of itself was ignored on
-    /// the one path that spawns most of the cast.
+    /// ⭐ **the character's own policy reaches a spawned NPC, and OUTRANKS its
+    /// catalog row** — Jon's 2026-08-10 ruling, restated in the vocabulary that
+    /// survived D97.
+    ///
+    /// ⛔ the previous version of this test authored a `BrainPresetRef` on the
+    /// definition, and it passed for months while being about a road **no
+    /// character in the repo ever took**. The row therefore outranked the
+    /// character on every body in the game, and the test said otherwise.
     #[test]
-    fn an_npc_takes_its_definitions_default_profile_over_the_catalog_rows() {
+    fn an_npc_takes_its_characters_own_policy_over_the_catalog_rows() {
         let catalog = assembled_catalog();
         let (brain, binding) = resolve_npc_brain(
             &catalog,
-            &registry_naming(Some("patrol_peaceful")),
+            &registry_naming(Some(
+                ambition_characters::brain::CharacterBrainTemplate::StandStill,
+            )),
             &npc(None),
             0.0,
             &test_body(),
@@ -761,26 +803,29 @@ mod default_profile_tests {
         );
         assert_eq!(
             brain.label(),
-            "patrol",
-            "the definition said `patrol_peaceful`; the row says `wanderer_puppy_slug`"
+            "stand_still",
+            "the character authors a StandStill policy; the row says \
+             `wanderer_puppy_slug` and must not win"
+        );
+        let binding = binding.expect("a catalog-backed NPC is bound").0;
+        assert_eq!(
+            binding.default_preset,
+            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile,
+            "and the binding says WHAT IT WILL GO BACK TO — not a preset id, and \
+             above all not an empty one, which is what crashed two rooms"
         );
         assert_eq!(
-            binding
-                .as_ref()
-                .and_then(|(b, _)| b.default_preset.preset())
-                .map(|p| p.as_str()),
-            Some("test::patrol_peaceful"),
-            "and it is the binding's DEFAULT, namespaced by the definition's own \
-             provider, so a later restore returns here"
+            binding.source,
+            ambition_characters::actor::character_catalog::AutonomousSource::CharacterProfile,
         );
     }
 
-    /// ⛔ **the parity case, and it is the one that must not break**: a
-    /// definition that names nothing leaves the catalog row in charge. Every
-    /// character in the repo is this one today, so a regression here is a
-    /// silent behaviour change across the whole cast.
+    /// ⛔ **the parity case, and it is the one that must not break**: a character
+    /// that authors nothing leaves the catalog row in charge. Most of the cast is
+    /// still this one, so a regression here is a silent behaviour change across
+    /// the whole Hall.
     #[test]
-    fn a_definition_naming_nothing_leaves_the_catalog_row_in_charge() {
+    fn a_character_authoring_nothing_leaves_the_catalog_row_in_charge() {
         let catalog = assembled_catalog();
         for registry in [
             registry_naming(None),
@@ -798,13 +843,17 @@ mod default_profile_tests {
         }
     }
 
-    /// And an authored placement override still outranks both.
+    /// And an authored placement override still outranks both — a scene that
+    /// deliberately says *"this one is a guard"* beats what the character
+    /// normally does, which is the entire reason the override exists.
     #[test]
-    fn a_placement_override_outranks_the_definitions_default() {
+    fn a_placement_override_outranks_the_characters_own_policy() {
         let catalog = assembled_catalog();
         let (brain, _) = resolve_npc_brain(
             &catalog,
-            &registry_naming(Some("patrol_peaceful")),
+            &registry_naming(Some(
+                ambition_characters::brain::CharacterBrainTemplate::Wanderer,
+            )),
             &npc(Some("stand_still")),
             0.0,
             &test_body(),

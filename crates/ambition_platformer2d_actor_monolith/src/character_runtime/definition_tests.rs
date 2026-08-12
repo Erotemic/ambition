@@ -383,7 +383,6 @@ fn a_definition_carries_no_controller_binding() {
         // A DEFAULT autonomous profile, which §4.7 now permits and Jon's
         // 2026-08-10 ruling authorised: what this character does when nobody is
         // driving it. The CURRENT controller is still nowhere on this type.
-        default_brain_profile: _,
         moveset: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing

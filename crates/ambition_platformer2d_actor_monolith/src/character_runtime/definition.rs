@@ -307,31 +307,6 @@ pub struct CharacterDefinition {
     /// re-wear, like every other physical fact a persona claims: wearing a
     /// sandbag and then a duelist must not leave the duelist unkillable.
     pub death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
-    /// **What this character normally DOES when nothing overrides it** — the
-    /// name of an autonomous-controller profile (a catalog `brain_presets` key).
-    ///
-    /// ⚠ **not the current controller, and the distinction is the whole rule.**
-    /// Jon, 2026-08-10: *"a character definition may name a default autonomous
-    /// controller profile … that does not mean the controller is intrinsic
-    /// identity. Possessing a Goblin changes who drives the Goblin. It does not
-    /// change what a Goblin is."* A human, a CPU, a replay or a policy may drive
-    /// this body; this only says what happens when none of them does.
-    ///
-    /// Precedence, resolved by `resolve_initial_brain`: an authored placement
-    /// override wins, then this, then the catalog row's `default_brain`. `None`
-    /// leaves the row in charge, which is every character in the repo today.
-    ///
-    /// ⚠ **a provider-relative REFERENCE, not a resolved catalog key.**
-    /// `resolve_initial_brain` qualifies it into the character's own provider
-    /// namespace exactly as it qualifies an authored placement override, so a
-    /// definition and a placement cannot mean different things by the same word.
-    /// The type says which of the two it is: [`BrainProfileRef`] is what content
-    /// writes, [`BrainPresetId`] is the canonical key it resolves to.
-    ///
-    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainPresetRef
-    /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
-    pub default_brain_profile:
-        Option<ambition_characters::actor::character_catalog::BrainPresetRef>,
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
@@ -413,15 +388,20 @@ pub struct CharacterDefinition {
     /// **The POLICY this character runs when nothing else drives it** — the
     /// controller authority, carried as a value rather than as a name.
     ///
-    /// ⚠ **the second half of a fork this campaign has to close, and saying so
-    /// here is the point.** [`Self::default_brain_profile`] names a catalog
-    /// `brain_presets` key, which the NPC road resolves into a whole `Brain`;
-    /// this carries a `BrainProfile`, which the enemy road needs because that
-    /// road builds its brain from template + distances + tactics. They are the
-    /// same idea in two vocabularies — the note on `CharacterBrainTemplate` has
-    /// counted three of them for a while — and the convergence is a
-    /// `BrainPreset` that LOWERS to a `BrainProfile`. Until then a character
-    /// that must be spawnable as an enemy states this one.
+    /// ⭐⭐ **and it is the ONLY half now** (2026-08-12, ledger D97). This field's
+    /// doc used to describe a fork: a sibling `default_brain_profile` named a
+    /// catalog `brain_presets` key for the NPC road while this carried a
+    /// `BrainProfile` for the enemy road, *"the same idea in two vocabularies"*,
+    /// and the note promised a convergence. The convergence turned out to be a
+    /// deletion: the preset half had **zero authors in the entire repo** and one
+    /// consumer, and its absence was what produced the empty-string default that
+    /// crashed two shipped rooms. A character states its policy HERE, or it
+    /// leaves the catalog row in charge; there is no third place.
+    ///
+    /// ⚠ **the two vocabularies still exist, one authority apart.** A catalog ROW
+    /// may name a `brain_presets` key and many still do (D81 counts ~125
+    /// adopters); a character DEFINITION states a `BrainProfile`. What is gone is
+    /// a definition being able to say the same thing in the row's words.
     ///
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
@@ -559,7 +539,6 @@ impl CharacterDefinition {
             hurtboxes: None,
             vitals: Vitals::default(),
             death_traits: None,
-            default_brain_profile: None,
             moveset: None,
             action_set: None,
             motion_model: None,
@@ -669,16 +648,6 @@ impl CharacterDefinition {
         contact: ambition_characters::actor::ContactDamage,
     ) -> Self {
         self.contact_damage = Some(contact);
-        self
-    }
-
-    /// Author what this character normally does when nothing overrides it.
-    /// See [`Self::default_brain_profile`].
-    pub fn with_default_brain_profile(
-        mut self,
-        profile: impl Into<ambition_characters::actor::character_catalog::BrainPresetRef>,
-    ) -> Self {
-        self.default_brain_profile = Some(profile.into());
         self
     }
 
@@ -807,11 +776,6 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::death_traits`]. No catalog counterpart
     /// exists to fold against, so it carries straight through.
     death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
-    /// See [`CharacterDefinition::default_brain_profile`]. Carried through
-    /// unchanged — the catalog is not consulted, because the FOLD's job is to
-    /// answer what a character IS and this is a default the resolver applies at
-    /// spawn, where the placement's own override is also visible.
-    default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetRef>,
     /// See [`CharacterDefinition::abilities`]. No catalog counterpart exists —
     /// a catalog row has never been able to state a body's verbs — so it
     /// carries straight through.
@@ -1120,15 +1084,13 @@ pub struct PreparedCharacterDefinition {
     /// **The POLICY this character runs when nothing else drives it** — the
     /// controller authority, carried as a value rather than as a name.
     ///
-    /// ⚠ **the second half of a fork this campaign has to close, and saying so
-    /// here is the point.** [`Self::default_brain_profile`] names a catalog
-    /// `brain_presets` key, which the NPC road resolves into a whole `Brain`;
-    /// this carries a [`BrainProfile`], which the enemy road needs because that
-    /// road builds its brain from template + distances + tactics. They are the
-    /// same idea in two vocabularies — the note on `CharacterBrainTemplate` has
-    /// counted three of them for a while — and the convergence is a
-    /// `BrainPreset` that LOWERS to a `BrainProfile`. Until then a character
-    /// that must be spawnable as an enemy states this one.
+    /// ⭐⭐ **the ONLY half, since D97.** The prepared sibling that named a catalog
+    /// `brain_presets` key is deleted — it had zero authors and one consumer, and
+    /// its absence is what produced the empty-string default that crashed two
+    /// shipped rooms. Every road that needs to know what this body does when
+    /// nobody drives it reads THIS, and lowers it against the body
+    /// (`enemy_default_brain`): spawn, rewind and live restore all make the same
+    /// call, which is why they cannot disagree.
     ///
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
@@ -1163,19 +1125,6 @@ pub struct PreparedCharacterDefinition {
     pub dream_seed: Option<f32>,
     /// **Mount and pilot capabilities.** See [`CharacterDefinition::mount`].
     pub mount: Option<ambition_characters::actor::CharacterMount>,
-    /// The autonomous profile this character normally runs, if it named one —
-    /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
-    /// [`BrainProfileRef`] the definition carries.
-    ///
-    /// ⭐ that difference is what "prepared" is supposed to mean. Preparation
-    /// qualifies the authored reference into its namespace once, so nothing
-    /// downstream has to consult the catalog to find out what the character
-    /// already said about itself. `None` still leaves the catalog row's
-    /// `default_brain` in charge.
-    ///
-    /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
-    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainPresetRef
-    pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// **The move timelines the CHARACTER ITSELF stated**, if it stated any.
@@ -1623,7 +1572,6 @@ fn prepare_character(
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
         death_traits: definition.death_traits,
-        default_brain_profile: definition.default_brain_profile,
         abilities: definition.abilities,
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
@@ -1709,7 +1657,6 @@ fn finalize_character(
         hurtboxes,
         vitals,
         death_traits,
-        default_brain_profile,
         abilities,
         locomotion,
         contact_damage,
@@ -1927,14 +1874,6 @@ fn finalize_character(
         // asserts every registered definition's provider is a provider the
         // catalog registry assembled under, for the shipped composition. A
         // fixture that hits the old trap is a fixture that skipped assembly.
-        default_brain_profile: default_brain_profile.map(|reference| {
-            ambition_characters::actor::character_catalog::BrainPresetId::new(
-                ambition_characters::actor::character_catalog::qualify_in_provider(
-                    &provider,
-                    reference.as_str(),
-                ),
-            )
-        }),
         id: ambition_entity_catalog::CharacterId::new(id),
         display_name,
         provider,

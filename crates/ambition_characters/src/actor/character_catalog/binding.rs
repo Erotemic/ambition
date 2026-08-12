@@ -653,29 +653,6 @@ pub fn resolve_initial_brain(
     catalog: &CharacterCatalog,
     character_id: &str,
     authored_override: Option<&str>,
-    // **The character DEFINITION's default autonomous profile**, when it names
-    // one. Jon, 2026-08-10: *"a character definition may name a default
-    // autonomous-controller profile … that does not mean the controller is
-    // intrinsic identity."* It outranks the catalog row's `default_brain` and is
-    // outranked by an authored placement override, which is the whole precedence
-    // rule in one line.
-    //
-    // ⚠ **a reference, not a registry handle.** The prepared registry lives two
-    // crates up; passing the authored NAME keeps this function where it belongs
-    // and keeps the layering intact. The caller looks it up.
-    //
-    // ⚠ **a [`BrainPresetId`], and ALREADY RESOLVED.** Preparation qualifies the
-    // character's authored [`BrainPresetRef`] into its namespace once, so this
-    // parameter is a canonical key and is used verbatim below. An authored
-    // PLACEMENT override is still a reference and is still qualified here — the
-    // two arrive at different times, and only one of them has been prepared.
-    //
-    // ⭐ it reaches [`BrainBinding::default_preset`] — the field whose doc already
-    // says *"restoring the default rebuilds a fresh brain from THIS preset"* — so
-    // no new [`AutonomousSource`] variant is needed and the rollback shape is
-    // unchanged. `CatalogDefault` keeps meaning *"the character's default"*; only
-    // who gets to state it has widened.
-    definition_default: Option<&BrainPresetId>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
@@ -691,17 +668,8 @@ pub fn resolve_initial_brain(
     // silently kept whatever mind it had after every possession. The field is
     // already `Option`, and its own doc already said what `None` means; the
     // constructor was the one place that could not say it.
-    let default_preset = match definition_default
-        .map(|profile| profile.as_str().trim())
-        .filter(|name| !name.is_empty())
-    {
-        // Used VERBATIM: preparation already qualified it. Re-qualifying a
-        // resolved key would be a second interpretation of a fact that has
-        // exactly one answer.
-        Some(name) => Some(BrainPresetId::new(name.to_string())),
-        None => Some(BrainPresetId::new(entry.default_brain.clone()))
-            .filter(|id| !id.as_str().trim().is_empty()),
-    };
+    let default_preset = Some(BrainPresetId::new(entry.default_brain.clone()))
+        .filter(|id| !id.as_str().trim().is_empty());
 
     // Interpret the authored field: empty/whitespace means "use the default".
     let override_name = authored_override.map(str::trim).filter(|s| !s.is_empty());
@@ -823,23 +791,7 @@ mod tests {
         authored: Option<&str>,
         ctx: BrainBuildContext,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        resolve_initial_brain(&catalog(), cid, authored, None, &ctx)
-    }
-
-    /// The definition-authored default, for the precedence tests below.
-    fn resolve_with_definition(
-        cid: &str,
-        authored: Option<&str>,
-        definition_default: Option<&str>,
-    ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        let definition_default = definition_default.map(BrainPresetId::from);
-        resolve_initial_brain(
-            &catalog(),
-            cid,
-            authored,
-            definition_default.as_ref(),
-            &BrainBuildContext::at(0.0),
-        )
+        resolve_initial_brain(&catalog(), cid, authored, &ctx)
     }
 
     /// #1 — a puppy slug with no override receives its `wanderer_puppy_slug`
@@ -1022,67 +974,19 @@ mod tests {
             None
         );
     }
-    /// **A DEFINITION may state the character's normal autonomous behaviour, and
-    /// it outranks the catalog row.** (Jon, 2026-08-10 — queue D73 phase 1)
-    ///
-    /// ⚠ this is the ruling that reversed a standing invariant. The design docs
-    /// said a character definition may not carry a default brain at all, on the
-    /// grounds that control is a session binding. Jon's refinement keeps that —
-    /// the CURRENT controller is still session state — while letting a character
-    /// say what it normally does when nothing overrides it: *"possessing a Goblin
-    /// changes who drives the Goblin. It does not change what a Goblin is."*
-    #[test]
-    fn a_definitions_default_profile_outranks_the_catalog_rows() {
-        let (binding, brain) =
-            resolve_with_definition("npc_puppy_slug", None, Some("patrol_peaceful")).unwrap();
-        assert_eq!(
-            brain.label(),
-            "patrol",
-            "the definition named `patrol_peaceful`; the catalog row says \
-             `wanderer_puppy_slug` and must not win"
-        );
-        assert_eq!(
-            binding.default_preset.preset().map(|p| p.as_str()),
-            Some("patrol_peaceful"),
-            "the binding's DEFAULT is what a later `restore_default` rebuilds from, \
-             so the definition's choice has to land there rather than beside it"
-        );
-        assert_eq!(binding.source, AutonomousSource::CatalogDefault);
-    }
-
-    /// ⛔ **and an authored PLACEMENT override still wins over both.** A scene
-    /// that deliberately says "this one is a guard" outranks what the character
-    /// normally does, which is the entire reason the override exists.
-    #[test]
-    fn an_authored_override_still_outranks_the_definitions_default() {
-        let (binding, brain) = resolve_with_definition(
-            "npc_puppy_slug",
-            Some("stand_still"),
-            Some("patrol_peaceful"),
-        )
-        .unwrap();
-        assert_eq!(brain.label(), "stand_still");
-        assert!(matches!(binding.source, AutonomousSource::CatalogPreset(_)));
-        assert_eq!(
-            binding.default_preset.preset().map(|p| p.as_str()),
-            Some("patrol_peaceful"),
-            "the DEFAULT the override masks is still the definition's, so releasing \
-             the override returns the body to what its character normally does"
-        );
-    }
-
-    /// The parity case: a definition that says nothing changes nothing. Every
-    /// character in the repo is this one today.
-    #[test]
-    fn a_silent_definition_leaves_the_catalog_default_standing() {
-        for silent in [None, Some(""), Some("   ")] {
-            let (binding, brain) = resolve_with_definition("npc_puppy_slug", None, silent).unwrap();
-            assert_eq!(brain.label(), "wanderer", "silent = {silent:?}");
-            assert_eq!(
-                binding.default_preset.preset().map(|p| p.as_str()),
-                Some("wanderer_puppy_slug"),
-                "silent = {silent:?}"
-            );
-        }
-    }
+    // ⭐⭐ **THREE TESTS LEFT HERE WITH THE ROAD THEY GUARDED** (D97, 2026-08-12).
+    //
+    // They pinned a real ruling — *"a character definition may state its normal
+    // autonomous behaviour, and it outranks the catalog row"* — through the
+    // `definition_default` parameter, a `BrainPresetRef` a definition could
+    // author. That parameter is deleted: **no character in the repo ever
+    // authored one**, and its absence is what made the resolver manufacture an
+    // empty preset id and crash two shipped rooms.
+    //
+    // ⚠ the RULING survives; only its vocabulary changed. A character states its
+    // policy as a `BrainProfile` now, and the same three claims — the character
+    // outranks the row, an authored placement override outranks both, and a
+    // silent character leaves the row standing — are asserted in
+    // `features::npcs`, which is where the profile can be lowered against a body.
+    // Re-asserting them here would need a body this crate does not have.
 }

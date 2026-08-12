@@ -1345,6 +1345,114 @@ mod tests {
         );
     }
 
+    /// **A CHARACTER THAT AUTHORS ITS POLICY MUST NOT ALSO NAME A PRESET.**
+    ///
+    /// ⭐ the campaign's own rule — every migrated fact in exactly ONE authority —
+    /// applied to the one place it was being broken sixteen times. A definition's
+    /// `BrainProfile` outranks the row's `default_brain` everywhere it is read, so
+    /// a character holding both states its policy twice and the loser is invisible
+    /// until somebody reads three files. `npc_burning_flying_shark` was pointing
+    /// at a SLUG'S WANDER while authoring `ChargeCrash`; nothing was wrong on
+    /// screen, and the row was still absurd.
+    ///
+    /// ⛔ **the exemptions are the ones that cannot go YET, each with the reason**,
+    /// and they are not a to-do list somebody may extend casually: a preset that
+    /// carries `aggressiveness` also carries a RELATIONSHIP, which belongs to the
+    /// placement's disposition, and dropping it first is what took the cove
+    /// parrot's peacefulness away for four attempts.
+    #[test]
+    fn a_character_states_its_policy_in_one_place() {
+        /// `(character, preset it still names, why it cannot drop it yet)`
+        const KNOWN_DOUBLE_STATED: &[(&str, &str, &str)] = &[
+            ("goblin", "medium_striker", "aggressiveness: 1.0"),
+            ("npc_ai_slop", "melee_brute_striker", "aggressiveness: 1.0"),
+            (
+                "npc_dividing_mite",
+                "melee_brute_striker",
+                "aggressiveness: 1.0",
+            ),
+            (
+                "npc_exploding_mite",
+                "melee_brute_striker",
+                "aggressiveness: 1.0",
+            ),
+            (
+                "npc_lab_raider",
+                "melee_brute_striker",
+                "aggressiveness: 1.0",
+            ),
+            (
+                "npc_pirate_raider",
+                "melee_brute_striker",
+                "aggressiveness: 1.0",
+            ),
+            (
+                "npc_pirate_heavy_iron_mary",
+                "melee_brute_brute",
+                "aggressiveness: 1.0",
+            ),
+            (
+                "npc_salvage_guard",
+                "melee_brute_striker",
+                "aggressiveness: 1.0",
+            ),
+        ];
+
+        let catalog = load_catalog();
+        let mut offenders = Vec::new();
+        for id in crate::character_catalog::buildable_cast() {
+            let authors_policy = Some(authored_intrinsics(
+                id,
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id,
+                    id,
+                    crate::AMBITION_CONTENT_PROVIDER,
+                ),
+            ))
+            // ⚠ **BOTH shapes count** — this read only `autonomous_profile` at
+            // first, and the exemption list's own rot-check caught it: the goblin
+            // and the lab raider state their policy by NAME
+            // (`autonomous_profile_ref` → the shared `medium_striker` entry),
+            // which is just as much an authority as an inlined one.
+            .map(|definition| {
+                definition.autonomous_profile.is_some()
+                    || definition.autonomous_profile_ref.is_some()
+            })
+            .unwrap_or(false);
+            let Some(entry) = catalog.get(id) else {
+                continue;
+            };
+            if authors_policy && !entry.default_brain.is_empty() {
+                offenders.push((id, entry.default_brain.clone()));
+            }
+        }
+
+        let unexpected: Vec<_> = offenders
+            .iter()
+            .filter(|(id, _)| !KNOWN_DOUBLE_STATED.iter().any(|(known, ..)| known == id))
+            .collect();
+        assert!(
+            unexpected.is_empty(),
+            "these characters author a `BrainProfile` AND name a brain preset, so \
+             one of the two decides nothing and nobody can tell which: \
+             {unexpected:?}. Empty the row's `default_brain` — or, if its preset \
+             carries an `aggressiveness`, move that to the placements FIRST and \
+             add it to KNOWN_DOUBLE_STATED with the reason."
+        );
+
+        // ⛔ and the exemption list cannot rot: one that got FIXED must LEAVE it,
+        // or the count stops meaning anything and the list becomes decoration.
+        let stale: Vec<_> = KNOWN_DOUBLE_STATED
+            .iter()
+            .filter(|(id, ..)| !offenders.iter().any(|(offender, _)| offender == id))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "these are exempted as double-stated but no longer are — delete them \
+             from KNOWN_DOUBLE_STATED: {stale:?}"
+        );
+    }
+
     /// **The giant carries its own facts now** — every one its archetype row
     /// stated, authored on the definition, and that row is DELETED (D76 closed
     /// once three layers learned to ask the character before the archetype: the

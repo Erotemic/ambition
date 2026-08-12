@@ -136,8 +136,17 @@ autonomous_reconcile                1045
    type (`avatar::RangedExecution`) and so pinned the whole struct. It has moved
    to `ambition_characters::brain`, beside the `ActionSet` whose `ranged`/
    `special` folding it decides — all 42 sites repointed, no re-export left
-   behind. ⇥ ▢ the struct itself has not moved yet; `default_brain_profile` also
-   left it (D97), so the remaining move is mechanical.
+   behind. ⇥ ⭐⭐ **AND THE STRUCT HAS MOVED** (same day): `CharacterDefinition`,
+   `Lineage`, `Vitals` and `BodySource` are
+   `ambition_characters::actor::definition` — 602 lines out of the monolith.
+   ⚠ **the authored half had ZERO `crate::` references**, which is how a
+   600-line move became a cut rather than a refactor, and is itself the evidence
+   that item 1's answer was right: everything monolith-shaped in that file was on
+   the PREPARATION side of the line.
+   ⇥ ▢ the type is re-exported from `character_runtime`, where the 277 callers
+   still name it. That is an import convenience over ONE definition rather than a
+   second one — but the re-export is what a later slice removes, and until then
+   the crate boundary is stated in only one place.
    ⇥ as written:
    ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
    appendix C ruling 4, and the compiler is the instrument: let it expose every

@@ -50,10 +50,17 @@ pub use audit::{
 #[cfg(test)]
 pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
-    BodySource, CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
-    CharacterDefinition, CharacterDefinitionAppExt, CharacterPreparationPlugin,
-    CharacterRegistrationError, Lineage, MissingCharacterFacts, PreparedCharacterDefinition,
-    PreparedCharacterRegistry, PreparedKit, Vitals,
+    CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
+    CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError,
+    MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
+};
+// ⭐⭐ **THE AUTHORED TYPE LIVES IN `ambition_characters` NOW** (D73 item 2,
+// 2026-08-12). It is re-exported here because this module is what PREPARES it
+// and every caller in the workspace reaches it through preparation — an import
+// convenience over the one definition, not a second one. See
+// `ambition_characters::actor::definition` for why the cut is where it is.
+pub use ambition_characters::actor::definition::{
+    BodySource, CharacterDefinition, Lineage, Vitals,
 };
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,

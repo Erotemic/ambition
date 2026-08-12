@@ -441,7 +441,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.insert_resource(ambition_sprite_sheet::game_assets::GameAssets::default());
     app.register_character(
-        crate::character_runtime::definition::CharacterDefinition::new(
+        ambition_characters::actor::definition::CharacterDefinition::new(
             "mary_o",
             "Mary-O",
             "mary_o_demo",
@@ -503,7 +503,7 @@ fn a_character_registered_only_through_register_character_gets_art() {
 fn the_decode_path_declares_a_registered_character_itself() {
     let mut app = App::new();
     app.register_character(
-        crate::character_runtime::definition::CharacterDefinition::new(
+        ambition_characters::actor::definition::CharacterDefinition::new(
             "mary_o",
             "Mary-O",
             "mary_o_demo",

@@ -3003,3 +3003,92 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
          built out of whichever creature its brain key names again: {seen:?}"
     );
 }
+
+/// **A PLAN CAN TELL WHEN THE CAST MOVED ON UNDER IT — and still builds the cast
+/// it was made from.**
+///
+/// ⛔⛔ `PreparedMatch::cast_generation` was threaded through three constructors,
+/// stored, defaulted, and read by NOTHING (ledger D107). Its own doc calls it *"a
+/// staleness ASSERTION, never a re-resolution trigger"*, and nothing asserted it
+/// — the shape D105 named: ceremonial data flowing through a constructor with no
+/// consumer.
+///
+/// ⛔ **the obvious consumer is the one this module exists to prevent.**
+/// Re-preparing on a generation change is refused fifteen lines from the field
+/// by `prepare_the_match`'s own comment: re-resolving a live plan against a
+/// republished registry is authority-in-activation. A plan is FROZEN against its
+/// cast, deliberately.
+///
+/// ⇒ so it became a DIAGNOSTIC, and this is the pair of facts that makes the
+/// diagnostic worth emitting: the condition is REACHABLE (registering a
+/// character after planning moves the generation) and it is NOT a bug (the match
+/// still activates with exactly the fighters it was planned with). Asserting
+/// only the first would describe an alarm; asserting only the second would leave
+/// the alarm untested.
+#[test]
+fn a_plan_can_tell_when_the_cast_moved_on_under_it() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("veteran", "Veteran", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("veteran")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    fn seated(app: &mut App) -> usize {
+        let world = app.world_mut();
+        let mut bodies = world.query::<&crate::character_runtime::MatchSeat>();
+        bodies.iter(world).count()
+    }
+
+    let live = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+    let plan = app.world().resource::<PreparedMatch>();
+    assert!(
+        !plan.cast_moved_on(live),
+        "a plan made from the live cast must agree with it, or the assertion \
+         below is not about a CHANGE"
+    );
+    let before = seated(&mut app);
+    assert_eq!(
+        before, 1,
+        "the fixture must actually seat its fighter, or 'the same fighters \
+         afterwards' is a statement about zero of them"
+    );
+
+    // Somebody publishes a character after the match was planned — the explicit
+    // later-transaction road, which is the only one open: `register_character`
+    // PANICS after the preparation barrier closes, on purpose, so a plain
+    // registration could never produce this state.
+    let latecomer = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("latecomer", "Latecomer", "demo"),
+        &crate::character_runtime::CharacterBindings::default(),
+    )
+    .prepared;
+    app.world_mut()
+        .resource_mut::<PreparedCharacterRegistry>()
+        .insert_prepared(latecomer);
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    let live = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .generation();
+    let plan = app.world().resource::<PreparedMatch>();
+    assert!(
+        plan.cast_moved_on(live),
+        "the plan cannot tell that the published cast moved on, so the \
+         provenance it carries answers nothing and may as well not be threaded"
+    );
+    assert_eq!(
+        seated(&mut app),
+        before,
+        "and the latecomer must NOT have joined: the plan is frozen against the \
+         cast it was made from, and a generation change is something to SAY, \
+         never something to re-resolve"
+    );
+}

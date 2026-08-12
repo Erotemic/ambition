@@ -459,8 +459,25 @@ impl PreparedMatch {
         &self.rules
     }
 
-    pub fn cast_generation(&self) -> super::CharacterCatalogGeneration {
-        self.cast_generation
+    /// **Has the published cast moved on since this plan was made?**
+    ///
+    /// ⛔⛔ **this was a bare `cast_generation()` accessor with no caller**, and
+    /// the field it exposed was threaded through three constructors and read by
+    /// nothing (ledger D107). The field's own doc calls it *"a staleness
+    /// ASSERTION, never a re-resolution trigger"*, and nothing asserted it.
+    ///
+    /// ⛔ **the obvious consumer is the one this module exists to prevent.** The
+    /// natural fix — re-prepare when the generation moves — is refused fifteen
+    /// lines from the field by `prepare_the_match`'s own comment: re-resolving a
+    /// live plan against a republished registry is the authority-in-activation
+    /// this module was built to delete. A plan is FROZEN against the cast it was
+    /// made from, deliberately.
+    ///
+    /// ⇒ so the generation is PROVENANCE, and provenance's job is to answer a
+    /// question out loud. Activation asks this one and warns; the plan still
+    /// builds the cast it was made from, which is the whole point.
+    pub(crate) fn cast_moved_on(&self, live: super::CharacterCatalogGeneration) -> bool {
+        self.cast_generation != live
     }
 
     /// The frozen seat topology this plan was agreed under, if anything had an
@@ -1447,6 +1464,9 @@ pub fn activate_the_prepared_match(
     already_seated: Query<&super::MatchSeat>,
     // `Option` for the reason given on preparation's own `tick`.
     tick: Option<Res<ambition_time::SimTick>>,
+    // **THE LIVE CAST, read ONLY to say whether this plan is still about it**
+    // (D107). ⛔ not to re-resolve anything: see `PreparedMatch::cast_moved_on`.
+    registry: Option<Res<super::PreparedCharacterRegistry>>,
 ) {
     let Some(prepared) = prepared else {
         return;
@@ -1511,6 +1531,28 @@ pub fn activate_the_prepared_match(
     else {
         return;
     };
+    // **THE PROVENANCE, SAID OUT LOUD** (D107). A plan is frozen against the
+    // cast it was made from, so a character registered between planning and
+    // activation is simply not in this match — correct, and for a match an
+    // anomaly worth one line: somebody expected a fighter that will not appear,
+    // and no other signal would tell them why.
+    //
+    // ⚠ `warn_once!` because activation re-runs on every rewind to before it
+    // (`bevy_ggrs` restores the ABSENCE of `ActiveMatch`), and a per-frame line
+    // about a condition that cannot change is how a real warning gets muted.
+    if let Some(registry) = registry.as_deref() {
+        if prepared.cast_moved_on(registry.generation()) {
+            bevy::log::warn_once!(
+                target: "ambition_platformer2d::match_preparation",
+                "the published cast has changed since this match was prepared, so \
+                 the fighters below are the ones that existed at PLAN time — a \
+                 character registered since is not in this match. That is the \
+                 frozen-plan contract, not a bug; if a fighter is missing, this \
+                 is why."
+            );
+        }
+    }
+
     let occupied: std::collections::BTreeSet<usize> =
         already_seated.iter().map(|seat| seat.0).collect();
 

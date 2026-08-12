@@ -107,78 +107,34 @@ pub fn dispatch_landed_hit_effects(
 // The `pogo_bounce` engine technique.
 // ---------------------------------------------------------------------------
 
-/// The `on_hit` effect key the engine [`apply_pogo_bounce`] technique answers.
-pub const POGO_BOUNCE_KEY: &str = "pogo_bounce";
-
-/// Params for the `pogo_bounce` technique. `rise` is the gravity-up rebound
-/// speed (engine units); omitted → the default pop (matches the flat player
-/// `pogo_speed` for feel parity). `sfx` names the contact cue this particular
-/// body's rebound makes; omitted → the engine's generic `Pogo` cue.
-#[derive(serde::Serialize, serde::Deserialize)]
-struct PogoBounceParams {
-    #[serde(default = "default_pogo_rise")]
-    rise: f32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    sfx: Option<String>,
-}
-
-fn default_pogo_rise() -> f32 {
-    720.0
-}
-
-impl Default for PogoBounceParams {
-    fn default() -> Self {
-        Self {
-            rise: default_pogo_rise(),
-            sfx: None,
-        }
-    }
-}
-
-/// The rebound speed a `pogo_bounce` [`EffectRef`] carries — hydrated from its
-/// params, defaulting when absent/malformed. Shared by resolved-body pogo
-/// ([`apply_pogo_bounce`]) and world-surface pogo (`pogo_moveset_off_world_orbs`).
-pub fn pogo_rise_from(effect: &EffectRef) -> f32 {
-    effect
-        .params
-        .hydrate::<PogoBounceParams>()
-        .unwrap_or_default()
-        .rise
-}
-
-/// The contact cue a `pogo_bounce` [`EffectRef`] authored, if any. `None` means
-/// "this body has nothing special to say about rebounding" and the caller falls
-/// back to the engine's generic pogo cue.
+/// **THE SCHEMA MOVED DOWN; THE RUNTIME STAYED HERE** (campaign P1.7,
+/// 2026-08-12).
 ///
-/// This is what keeps the pogo sound ATTACK-owned: without it, a body whose
-/// blade should clang differently on a rebound could only be told apart by its
-/// character id, and the technique doc's claim to be "a data-authored `on_hit`
-/// rather than a hardcoded player branch" would stop being true.
-pub fn pogo_sfx_from(effect: &EffectRef) -> Option<ambition_sfx::SfxId> {
-    effect
-        .params
-        .hydrate::<PogoBounceParams>()
-        .ok()
-        .and_then(|params| params.sfx)
-        .map(|cue| ambition_sfx::SfxId::new(&cue))
-}
+/// ⛔ `POGO_BOUNCE_KEY`, `PogoBounceParams` and their three accessors sat in this
+/// module beside the system that executes the rebound. The moveset PREFABS name
+/// the key and call `set_pogo_sfx` while building a contract, and character
+/// PREPARATION calls the prefabs — so while the technique's SCHEMA lived in
+/// `ambition_combat`, which depends on `ambition_characters`, the authoritative
+/// character model could not follow it down. Those three lines were the last
+/// obstacle on that row.
+///
+/// ⭐ the split is the one Jon's brief names as the precedent: the lower FACT is
+/// *what a `pogo_bounce` effect SAYS*, and it is now
+/// `ambition_characters::technique`. What executes it — the queries, the
+/// policies, the message — belongs here, where the bodies are.
+pub use ambition_characters::technique::{pogo_rise_from, set_pogo_sfx, POGO_BOUNCE_KEY};
 
-/// Author `cue` as this `pogo_bounce` effect's contact sound, preserving any
-/// `rise` already on it. Applied when a body's presentation family is overlaid
-/// onto its derived moveset, so the runtime never has to ask WHO bounced.
-pub fn set_pogo_sfx(effect: &mut EffectRef, cue: &str) {
-    let mut params = effect
-        .params
-        .hydrate::<PogoBounceParams>()
-        .unwrap_or_default();
-    params.sfx = Some(cue.to_string());
-    // The params are opaque `ron::Value` by design, so this stores exactly the
-    // text an author would have written by hand. The value being serialized is
-    // this module's own two-field struct, so a failure here is a broken schema,
-    // not bad content — and swallowing it would spend the rest of the session
-    // playing the generic pogo with nothing to say why.
-    effect.params = ambition_entity_catalog::ParamValue::from_typed(&params)
-        .expect("PogoBounceParams must round-trip through its own authored RON form");
+/// The contact cue a `pogo_bounce` effect authored, as an [`SfxId`].
+///
+/// ⚠ **the adapter, and it is why the lowered accessor returns a `String`.**
+/// Wrapping the cue down there would mean an `ambition_characters →
+/// ambition_sfx` edge for one newtype; the layering is better with the low crate
+/// owning the authored TEXT and this crate deciding the text names a cue.
+///
+/// [`SfxId`]: ambition_sfx::SfxId
+pub fn pogo_sfx_from(effect: &EffectRef) -> Option<ambition_sfx::SfxId> {
+    ambition_characters::technique::pogo_sfx_cue_from(effect)
+        .map(|cue| ambition_sfx::SfxId::new(&cue))
 }
 
 /// The engine pogo technique: rebound the OWNER (gravity-up) when its authored

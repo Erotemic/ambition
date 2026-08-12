@@ -253,9 +253,9 @@ pub fn apply_player_robot_slash_sfx(moveset: &mut MovesetContract) {
                 if let Some(effect) = volume
                     .on_hit
                     .as_mut()
-                    .filter(|e| e.key == crate::on_hit::POGO_BOUNCE_KEY)
+                    .filter(|e| e.key == ambition_characters::technique::POGO_BOUNCE_KEY)
                 {
-                    crate::on_hit::set_pogo_sfx(effect, PLAYER_ROBOT_POGO_SFX_CUE);
+                    ambition_characters::technique::set_pogo_sfx(effect, PLAYER_ROBOT_POGO_SFX_CUE);
                 }
             }
         }
@@ -688,7 +688,9 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                 if pogo {
                     // The down-air's landing pogo — an engine on-hit technique
                     // Body contacts consume the resolved victim hit; genuine world pogo surfaces use the separate world-contact path.
-                    v.on_hit = Some(EffectRef::new(crate::on_hit::POGO_BOUNCE_KEY));
+                    v.on_hit = Some(EffectRef::new(
+                        ambition_characters::technique::POGO_BOUNCE_KEY,
+                    ));
                 }
                 // The grounded down-tilt reads as a kneeling forward poke, not a
                 // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);

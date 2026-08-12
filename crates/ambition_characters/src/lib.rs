@@ -27,3 +27,4 @@ pub mod brain;
 pub mod equipment;
 pub mod perception;
 mod snapshot_impls;
+pub mod technique;

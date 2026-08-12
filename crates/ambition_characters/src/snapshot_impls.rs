@@ -482,15 +482,19 @@ impl SnapshotCursor for crate::brain::Brain {
 /// agree before the next re-simulated tick.
 impl SnapshotState for crate::actor::character_catalog::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
+        use crate::actor::character_catalog::AutonomousDefault;
         use crate::actor::character_catalog::AutonomousSource;
-        // `default_preset` is optional (absent for a boss binding, which has no
-        // catalog default): a presence byte then the string.
+        // ⭐ THREE cases, not two. A tag byte: 0 = nothing to restore (a boss),
+        // 1 = a catalog preset, 2 = the character's own authored profile. The
+        // third used to be encoded as tag 1 with an EMPTY string, which is how an
+        // absent default survived a rewind still looking present.
         match &self.default_preset {
-            Some(preset) => {
+            AutonomousDefault::Preset(preset) => {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
-            None => put_u8(out, 0),
+            AutonomousDefault::None => put_u8(out, 0),
+            AutonomousDefault::CharacterProfile => put_u8(out, 2),
         }
         match &self.source {
             AutonomousSource::CatalogDefault => put_u8(out, 0),
@@ -520,16 +524,25 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 4);
                 put_str(out, profile.as_str());
             }
+            // ⭐ **A TAG AND NOTHING ELSE.** The character's own authored policy
+            // is the default; the character is reachable from the body's
+            // identity, so there is no id to carry — and carrying the
+            // `BrainProfile` itself would put a dozen tuned floats in the
+            // rollback codec, which is the mistake `ProvokedProfile` above was
+            // rewritten to avoid.
+            AutonomousSource::CharacterProfile => put_u8(out, 5),
         }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         use crate::actor::character_catalog::{
-            AutonomousSource, BossAutonomyId, BrainBinding, BrainPresetId, HostileArchetypeId,
+            AutonomousDefault, AutonomousSource, BossAutonomyId, BrainBinding, BrainPresetId,
+            HostileArchetypeId,
         };
         let default_preset = match r.u8()? {
-            0 => None,
-            1 => Some(BrainPresetId::new(r.str()?.to_string())),
+            0 => AutonomousDefault::None,
+            1 => AutonomousDefault::Preset(BrainPresetId::new(r.str()?.to_string())),
+            2 => AutonomousDefault::CharacterProfile,
             _ => return None,
         };
         let source = match r.u8()? {
@@ -544,6 +557,7 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
             4 => AutonomousSource::ProvokedProfile {
                 profile: ambition_entity_catalog::BrainProfileId::new(r.str()?.to_string()),
             },
+            5 => AutonomousSource::CharacterProfile,
             _ => return None,
         };
         Some(BrainBinding {

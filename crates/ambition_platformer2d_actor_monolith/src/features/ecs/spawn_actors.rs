@@ -721,6 +721,10 @@ impl NpcActorSpawnPlan {
             prepared,
             &interactable,
             seed.config.spawn.pos.x,
+            // The seed is already built, so the body a `BrainProfile` default
+            // would be paced against is right here.
+            &seed.config,
+            seed.body.0.abilities.abilities,
         );
         // Derive the `CharacterBrain` read-model (patrol-stall intent) from the
         // RESOLVED autonomous brain, not from `patrol_radius`: a body patrol-stalls

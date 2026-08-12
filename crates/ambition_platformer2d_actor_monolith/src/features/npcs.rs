@@ -75,6 +75,11 @@ pub(crate) fn resolve_npc_brain(
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     interactable: &Interactable,
     spawn_world_x: f32,
+    // **The body being built**, so a character whose default policy is a
+    // `BrainProfile` can have it lowered against its OWN top speed rather than
+    // against a preset's absolute numbers (§4.7).
+    body: &crate::features::ActorConfig,
+    abilities: ambition_platformer2d_core::AbilitySet,
 ) -> (
     ambition_characters::brain::Brain,
     Option<(BrainBinding, AuthoredBrainContext)>,
@@ -108,6 +113,52 @@ pub(crate) fn resolve_npc_brain(
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
+        // ⭐⭐ **THE CHARACTER'S OWN POLICY IS THE DEFAULT** (GPT 5.6, 2026-08-12).
+        //
+        // ⛔ this is the seam the migration left half-crossed. A migrated
+        // character states its normal behaviour as a `BrainProfile` and its
+        // catalog `default_brain` was emptied so one authority decides — but this
+        // road only spoke the PRESET vocabulary. The old code fabricated
+        // `BrainPresetId::new("")` and carried it: two shipped sandbox placements
+        // (`pirate_cove`'s parrot, `gravity_lab`'s puppy slug) name no
+        // `brain_override` and PANICKED here, and twenty-one Hall placements
+        // spawned holding `default_preset: Some("")`, so `RestoreDefault` after a
+        // possession was rejected as *"unknown brain preset ``"* and the body
+        // kept whatever mind it had — silently, for the rest of the session.
+        //
+        // ⚠ the lowering happens HERE and not in `resolve_initial_brain` because
+        // it needs the BODY: §4.7's seam is a policy's normalized effort against
+        // the body's own top speed, and `ambition_characters` has no body. That
+        // is why the resolver redirects rather than answering.
+        Err(
+            ambition_characters::actor::character_catalog::BrainBuildError::NoAutonomousDefault {
+                ..
+            },
+        ) => {
+            let profile = prepared
+                .get(cid)
+                .and_then(|prepared| prepared.autonomous_profile);
+            let Some(profile) = profile else {
+                // Neither authority said anything. That is a genuinely unauthored
+                // character rather than a vocabulary mismatch, and the honest
+                // answer is the inert one the anonymous-NPC arm already gives.
+                bevy::log::warn!(
+                    target: "ambition_platformer2d_actor_monolith::npcs",
+                    "NPC `{cid}` names no brain preset and its character authors no \
+                     autonomous profile; stand-still fallback",
+                );
+                return (ambition_characters::brain::Brain::stand_still(), None);
+            };
+            let mut config = body.clone();
+            config.brain_profile = profile;
+            (
+                crate::features::ecs::enemy_default_brain(&config, abilities),
+                // ⛔ **NOT an empty preset id.** The whole defect was an absent
+                // default wearing the shape of a present one; `AutonomousDefault`
+                // exists so this body can say what it will actually go back to.
+                Some((BrainBinding::from_character_profile(), authored)),
+            )
+        }
         // No catalog row for this id in this host (a partial-provider composition,
         // e.g. a Hall provider character not registered here). The body is an inert
         // stand-still with no binding (nothing to switch or snapshot).
@@ -679,6 +730,20 @@ mod default_profile_tests {
         registry
     }
 
+    /// A minimal body for the two parameters `resolve_npc_brain` needs only when
+    /// a character's default is its own `BrainProfile`.
+    fn test_body() -> crate::features::ActorConfig {
+        crate::features::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+            "probe",
+            "Probe",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 12.0)),
+            &npc(None),
+            &[],
+        )
+        .0
+        .config
+    }
+
     /// ⭐ **the character's own default reaches a spawned NPC.** Before this the
     /// only thing that could state an NPC's normal behaviour was its catalog
     /// row, so a registered character with its own view of itself was ignored on
@@ -691,6 +756,8 @@ mod default_profile_tests {
             &registry_naming(Some("patrol_peaceful")),
             &npc(None),
             0.0,
+            &test_body(),
+            ambition_platformer2d_core::AbilitySet::NONE,
         );
         assert_eq!(
             brain.label(),
@@ -700,7 +767,7 @@ mod default_profile_tests {
         assert_eq!(
             binding
                 .as_ref()
-                .and_then(|(b, _)| b.default_preset.as_ref())
+                .and_then(|(b, _)| b.default_preset.preset())
                 .map(|p| p.as_str()),
             Some("test::patrol_peaceful"),
             "and it is the binding's DEFAULT, namespaced by the definition's own \
@@ -719,7 +786,14 @@ mod default_profile_tests {
             registry_naming(None),
             crate::character_runtime::PreparedCharacterRegistry::default(),
         ] {
-            let (brain, _) = resolve_npc_brain(&catalog, &registry, &npc(None), 0.0);
+            let (brain, _) = resolve_npc_brain(
+                &catalog,
+                &registry,
+                &npc(None),
+                0.0,
+                &test_body(),
+                ambition_platformer2d_core::AbilitySet::NONE,
+            );
             assert_eq!(brain.label(), "wanderer");
         }
     }
@@ -733,6 +807,8 @@ mod default_profile_tests {
             &registry_naming(Some("patrol_peaceful")),
             &npc(Some("stand_still")),
             0.0,
+            &test_body(),
+            ambition_platformer2d_core::AbilitySet::NONE,
         );
         assert_eq!(brain.label(), "stand_still");
     }

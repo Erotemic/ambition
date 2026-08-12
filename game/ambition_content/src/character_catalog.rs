@@ -2067,4 +2067,96 @@ mod assembled_provider_tests {
             still_named.default_brain
         );
     }
+
+    /// **EVERY CHARACTER HAS EXACTLY ONE AUTONOMOUS-POLICY AUTHORITY, and this
+    /// asks whether it is REACHABLE** (GPT 5.6's review, 2026-08-12).
+    ///
+    /// ⛔ the review's finding, reproduced before it was fixed: a migrated
+    /// character states its policy as a `BrainProfile` and its catalog
+    /// `default_brain` was emptied so one authority decides — but the NPC road
+    /// spoke only the PRESET vocabulary, and built `BrainPresetId::new("")` for
+    /// the absence. Measured against the shipped worlds: two sandbox placements
+    /// (`pirate_cove`'s parrot, `gravity_lab`'s puppy slug) author no
+    /// `brain_override` at all and PANICKED at spawn with *"unknown preset ``"*;
+    /// twenty-one Hall placements spawned holding `Some("")` and had every
+    /// `RestoreDefault` rejected for the rest of the session.
+    ///
+    /// ⭐ **the assertion is about the SEAM, not about one function.** After the
+    /// fix `resolve_initial_brain` deliberately REFUSES for these characters —
+    /// `NoAutonomousDefault`, because lowering a profile needs the body and this
+    /// crate has none — and the NPC road answers the redirect. So a green test
+    /// here is: the resolver either answers, or refuses in the one way that has
+    /// an answer waiting. A refusal with nothing behind it is the failure.
+    #[test]
+    fn every_migrated_character_has_an_autonomous_default_something_can_reach() {
+        use ambition_characters::actor::character_catalog::BrainBuildError;
+
+        let mut app = bevy::prelude::App::new();
+        super::register(&mut app);
+        let catalog = app
+            .world()
+            .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+            .expect("registering the content publishes an assembled catalog")
+            .clone();
+        let ctx = ambition_characters::actor::character_catalog::BrainBuildContext {
+            spawn_world_x: 0.0,
+            patrol_radius: None,
+        };
+
+        let mut redirected = Vec::new();
+        let mut answered = 0usize;
+        for id in catalog.data().characters.keys() {
+            match ambition_characters::actor::character_catalog::resolve_initial_brain(
+                &catalog, id, None, None, &ctx,
+            ) {
+                Ok(_) => answered += 1,
+                Err(BrainBuildError::NoAutonomousDefault { .. }) => redirected.push(id.clone()),
+                // Any OTHER error is a real content defect: a named preset that
+                // does not exist, which no road can rescue.
+                Err(other) => panic!("`{id}`: {other}"),
+            }
+        }
+
+        // ⛔ **the redirect must have somewhere to go.** Every character the
+        // resolver refuses for has to author the profile the NPC road will ask
+        // it for; one that authors neither is unauthored, and its body silently
+        // becomes a stand-still.
+        let authors_a_profile = |id: &str| {
+            let definition = super::authored_intrinsics(
+                id,
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id,
+                    id,
+                    crate::AMBITION_CONTENT_PROVIDER,
+                ),
+            );
+            definition.autonomous_profile.is_some() || definition.autonomous_profile_ref.is_some()
+        };
+        let stranded: Vec<_> = redirected
+            .iter()
+            .filter(|id| !authors_a_profile(id.as_str()))
+            .collect();
+        assert!(
+            stranded.is_empty(),
+            "these characters name no brain preset AND author no autonomous \
+             profile, so nothing decides what they do when nobody drives them — \
+             every one of them spawns stand-still and restores to nothing: \
+             {stranded:?}"
+        );
+
+        // ⚠ and both halves must be non-empty, or this test is measuring a world
+        // that does not exist: some characters still resolve a preset, and some
+        // have migrated to a profile. If either count hits zero the assertion
+        // above has stopped being about anything.
+        assert!(
+            answered > 0,
+            "no character resolves a preset any more — the preset road is dead \
+             and this test should be rewritten rather than left passing"
+        );
+        assert!(
+            !redirected.is_empty(),
+            "no character redirects — the migration this test guards has not \
+             happened, or the resolver stopped refusing"
+        );
+    }
 }

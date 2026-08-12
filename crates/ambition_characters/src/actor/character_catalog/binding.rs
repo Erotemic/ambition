@@ -240,6 +240,27 @@ pub enum AutonomousSource {
     ProvokedProfile {
         profile: ambition_entity_catalog::BrainProfileId,
     },
+    /// **THE CHARACTER'S OWN AUTHORED POLICY IS THE DEFAULT** — no catalog
+    /// preset is involved at any point.
+    ///
+    /// ⭐⭐ **the seam this campaign left half-crossed** (GPT 5.6, 2026-08-12).
+    /// A migrated character states its normal behaviour as a `BrainProfile` on
+    /// its definition, and its catalog `default_brain` was emptied so one
+    /// authority decides. But the NPC road only spoke the PRESET vocabulary, so
+    /// its default resolved to the empty string: two shipped sandbox placements
+    /// (`pirate_cove`'s parrot, `gravity_lab`'s puppy slug) name no
+    /// `brain_override` and PANICKED at spawn, and twenty-one Hall placements
+    /// spawned fine carrying `default_preset: Some("")` — so `RestoreDefault`
+    /// after a possession was rejected with *"unknown brain preset ``"* and the
+    /// body silently kept whatever mind it had.
+    ///
+    /// ⚠ **this variant carries nothing, and that is deliberate.** The other
+    /// four name a thing to look up; this one says *the character already told
+    /// you*, and the character is reachable from the body's own identity. What a
+    /// profile lowers to depends on the BODY (§4.7 — a policy states normalized
+    /// effort, the body states the speed), so the lowering belongs where the
+    /// body is known and cannot be done here.
+    CharacterProfile,
     /// A boss's authored autonomous mode. The live brain is a `BossPattern`
     /// rebuilt from the boss catalog by this id (never a catalog preset). A boss
     /// carries this so it has a reconstructible autonomous source when a player
@@ -256,13 +277,50 @@ pub enum AutonomousSource {
 /// (`BrainCommand`) and provocation mutate this binding + rebuild the coupled
 /// autonomous state together, and snapshot reconciliation uses this binding to
 /// reconstruct both after a rewind that crossed a switch or a provocation.
+/// **WHAT A BODY GOES BACK TO** when its autonomous default is restored.
+///
+/// ⭐⭐ **this was `Option<BrainPresetId>`, and the `Option` could not tell two
+/// different things apart** (GPT 5.6, 2026-08-12). `None` meant *"no catalog
+/// default — a boss, rebuilt from its own authority"*, and a migrated character
+/// whose policy is a `BrainProfile` needs the same absence to mean *"ask the
+/// character"*. The old code avoided the collision by never producing `None` for
+/// a character at all: it built `BrainPresetId::new("")` instead, which read as
+/// a present answer everywhere and resolved to nothing at the one moment it
+/// mattered.
+///
+/// Three distinct facts, three variants, and `RestoreDefault` can finally tell
+/// which one it is holding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AutonomousDefault {
+    /// Nothing to restore. A boss rebuilds its autonomous mode from its own
+    /// authority; there is no default to go back to here.
+    None,
+    /// The character's catalog `default_brain`, captured at spawn. Restoring
+    /// rebuilds a fresh brain from THIS preset.
+    Preset(BrainPresetId),
+    /// **The character's own authored [`BrainProfile`] is the default.** Nothing
+    /// to look up — the body carries the policy its character stated, and
+    /// lowering it needs the body anyway.
+    ///
+    /// [`BrainProfile`]: crate::brain::BrainProfile
+    CharacterProfile,
+}
+
+impl AutonomousDefault {
+    /// The preset to rebuild from, when the default IS a preset.
+    pub fn preset(&self) -> Option<&BrainPresetId> {
+        match self {
+            Self::Preset(id) => Some(id),
+            Self::None | Self::CharacterProfile => None,
+        }
+    }
+}
+
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BrainBinding {
-    /// The character's catalog `default_brain`, captured at spawn. Restoring the
-    /// default rebuilds a fresh brain from THIS preset. `None` for a source with
-    /// no catalog default (a boss), whose autonomous mode is rebuilt from its own
-    /// authority, never from a catalog preset.
-    pub default_preset: Option<BrainPresetId>,
+    /// What restoring this body's autonomous default means — see
+    /// [`AutonomousDefault`].
+    pub default_preset: AutonomousDefault,
     /// Which autonomous source is live right now.
     pub source: AutonomousSource,
 }
@@ -272,8 +330,16 @@ impl BrainBinding {
     /// default, always present.
     pub fn new(default_preset: BrainPresetId, source: AutonomousSource) -> Self {
         Self {
-            default_preset: Some(default_preset),
+            default_preset: AutonomousDefault::Preset(default_preset),
             source,
+        }
+    }
+
+    /// **A binding whose default is the character's own authored policy.**
+    pub fn from_character_profile() -> Self {
+        Self {
+            default_preset: AutonomousDefault::CharacterProfile,
+            source: AutonomousSource::CharacterProfile,
         }
     }
 
@@ -281,7 +347,7 @@ impl BrainBinding {
     /// boss's authored [`AutonomousSource::Boss`] mode.
     pub fn boss(archetype: BossAutonomyId) -> Self {
         Self {
-            default_preset: None,
+            default_preset: AutonomousDefault::None,
             source: AutonomousSource::Boss { archetype },
         }
     }
@@ -292,9 +358,10 @@ impl BrainBinding {
     pub fn active_preset(&self) -> Option<&BrainPresetId> {
         match &self.source {
             AutonomousSource::CatalogPreset(id) => Some(id),
-            AutonomousSource::CatalogDefault => self.default_preset.as_ref(),
+            AutonomousSource::CatalogDefault => self.default_preset.preset(),
             AutonomousSource::Provoked { .. }
             | AutonomousSource::ProvokedProfile { .. }
+            | AutonomousSource::CharacterProfile
             | AutonomousSource::Boss { .. } => None,
         }
     }
@@ -337,7 +404,19 @@ impl BrainBinding {
 
     /// Return to the character default. (The caller rebuilds the live `Brain`.)
     pub fn restore_default(&mut self) {
-        self.source = AutonomousSource::CatalogDefault;
+        // ⛔⛔ **THE SOURCE HAS TO MATCH THE DEFAULT.** This wrote
+        // `CatalogDefault` unconditionally, which was harmless only while every
+        // default WAS a catalog preset. On a body whose default is its
+        // character's own profile it would leave the live source claiming a
+        // catalog preset that `active_preset()` then reports as absent — so the
+        // next rewind rebuilt no brain at all, and did it quietly, which is the
+        // same class of silence this whole seam was fixed for.
+        self.source = match self.default_preset {
+            AutonomousDefault::CharacterProfile => AutonomousSource::CharacterProfile,
+            AutonomousDefault::Preset(_) | AutonomousDefault::None => {
+                AutonomousSource::CatalogDefault
+            }
+        };
     }
 
     /// Record that the actor was provoked into a hostile roster archetype. The
@@ -458,6 +537,21 @@ pub enum BrainBuildError {
         resolved: String,
         source: PresetSource,
     },
+    /// **NOBODY NAMES A PRESET, and no placement override was given.**
+    ///
+    /// ⛔ this used to be reported as `UnknownPreset { preset: "" }`, because the
+    /// default was built by `BrainPresetId::new(entry.default_brain.clone())` and
+    /// an emptied row produced an empty key rather than an absent one. An empty
+    /// id is a lie in the shape of an answer: it flows into
+    /// `BrainBinding::default_preset`, survives a snapshot, and comes back out at
+    /// `RestoreDefault` as an unknown preset nobody authored.
+    ///
+    /// ⚠ it is NOT necessarily an error. A character that states a
+    /// [`BrainProfile`] instead is fully authored — this is the signal to ask
+    /// THAT authority, which only a caller holding the body can do.
+    ///
+    /// [`BrainProfile`]: crate::brain::BrainProfile
+    NoAutonomousDefault { character_id: String },
 }
 
 impl std::fmt::Display for BrainBuildError {
@@ -478,6 +572,13 @@ impl std::fmt::Display for BrainBuildError {
                 f,
                 "character `{character_id}`: {source} names unknown brain preset `{preset}` \
                  (resolved to `{resolved}`, not in brain_presets)"
+            ),
+            Self::NoAutonomousDefault { character_id } => write!(
+                f,
+                "character `{character_id}`: nothing names an autonomous default — its \
+                 definition states no brain profile and its catalog row's `default_brain` \
+                 is empty. A caller holding the body must ask the character's own \
+                 `BrainProfile`; there is no preset to build."
             ),
         }
     }
@@ -580,18 +681,27 @@ pub fn resolve_initial_brain(
     let entry = catalog
         .get(character_id)
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
-    let default_preset = BrainPresetId::new(
-        match definition_default
-            .map(|profile| profile.as_str().trim())
-            .filter(|name| !name.is_empty())
-        {
-            // Used VERBATIM: preparation already qualified it. Re-qualifying a
-            // resolved key would be a second interpretation of a fact that has
-            // exactly one answer.
-            Some(name) => name.to_string(),
-            None => entry.default_brain.clone(),
-        },
-    );
+    // ⛔⛔ **AN ABSENT DEFAULT IS `None`, NEVER `BrainPresetId::new("")`.**
+    //
+    // This built the id unconditionally, so a character whose definition names
+    // no preset AND whose row's `default_brain` was emptied by the migration got
+    // an EMPTY key that then behaved like a real one: it reached
+    // `BrainBinding::default_preset` as `Some("")`, rode a snapshot, and came
+    // back at `RestoreDefault` as *"unknown brain preset ``"* — a body that
+    // silently kept whatever mind it had after every possession. The field is
+    // already `Option`, and its own doc already said what `None` means; the
+    // constructor was the one place that could not say it.
+    let default_preset = match definition_default
+        .map(|profile| profile.as_str().trim())
+        .filter(|name| !name.is_empty())
+    {
+        // Used VERBATIM: preparation already qualified it. Re-qualifying a
+        // resolved key would be a second interpretation of a fact that has
+        // exactly one answer.
+        Some(name) => Some(BrainPresetId::new(name.to_string())),
+        None => Some(BrainPresetId::new(entry.default_brain.clone()))
+            .filter(|id| !id.as_str().trim().is_empty()),
+    };
 
     // Interpret the authored field: empty/whitespace means "use the default".
     let override_name = authored_override.map(str::trim).filter(|s| !s.is_empty());
@@ -627,13 +737,30 @@ pub fn resolve_initial_brain(
                 key,
             )
         }
-        None => (
-            AutonomousSource::CatalogDefault,
-            PresetSource::CharacterDefault,
-            default_preset.0.clone(),
-        ),
+        // ⭐ **NO OVERRIDE AND NO PRESET IS NOT AN ERROR HERE — it is a
+        // REDIRECTION.** The character may state its policy as a `BrainProfile`,
+        // which this function cannot lower (the lowering needs the body). Say so
+        // precisely and let the caller, which has one, ask that authority.
+        None => {
+            let Some(default) = default_preset.clone() else {
+                return Err(BrainBuildError::NoAutonomousDefault {
+                    character_id: character_id.to_string(),
+                });
+            };
+            (
+                AutonomousSource::CatalogDefault,
+                PresetSource::CharacterDefault,
+                default.0.clone(),
+            )
+        }
     };
-    let binding = BrainBinding::new(default_preset, source);
+    let binding = BrainBinding {
+        default_preset: match default_preset {
+            Some(id) => AutonomousDefault::Preset(id),
+            None => AutonomousDefault::None,
+        },
+        source,
+    };
 
     let brain = catalog
         .build_brain_from_preset(&resolved_key, ctx)
@@ -723,7 +850,7 @@ mod tests {
         assert_eq!(brain.label(), "wanderer");
         assert_eq!(
             binding.default_preset,
-            Some(BrainPresetId::new("wanderer_puppy_slug"))
+            AutonomousDefault::Preset(BrainPresetId::new("wanderer_puppy_slug"))
         );
         assert_eq!(binding.source, AutonomousSource::CatalogDefault);
         assert_eq!(
@@ -748,7 +875,7 @@ mod tests {
         ));
         assert_eq!(
             binding.default_preset,
-            Some(BrainPresetId::new("wanderer_puppy_slug"))
+            AutonomousDefault::Preset(BrainPresetId::new("wanderer_puppy_slug"))
         );
         assert_eq!(
             binding.source,
@@ -915,7 +1042,7 @@ mod tests {
              `wanderer_puppy_slug` and must not win"
         );
         assert_eq!(
-            binding.default_preset.as_ref().map(|p| p.as_str()),
+            binding.default_preset.preset().map(|p| p.as_str()),
             Some("patrol_peaceful"),
             "the binding's DEFAULT is what a later `restore_default` rebuilds from, \
              so the definition's choice has to land there rather than beside it"
@@ -937,7 +1064,7 @@ mod tests {
         assert_eq!(brain.label(), "stand_still");
         assert!(matches!(binding.source, AutonomousSource::CatalogPreset(_)));
         assert_eq!(
-            binding.default_preset.as_ref().map(|p| p.as_str()),
+            binding.default_preset.preset().map(|p| p.as_str()),
             Some("patrol_peaceful"),
             "the DEFAULT the override masks is still the definition's, so releasing \
              the override returns the body to what its character normally does"
@@ -952,7 +1079,7 @@ mod tests {
             let (binding, brain) = resolve_with_definition("npc_puppy_slug", None, silent).unwrap();
             assert_eq!(brain.label(), "wanderer", "silent = {silent:?}");
             assert_eq!(
-                binding.default_preset.as_ref().map(|p| p.as_str()),
+                binding.default_preset.preset().map(|p| p.as_str()),
                 Some("wanderer_puppy_slug"),
                 "silent = {silent:?}"
             );

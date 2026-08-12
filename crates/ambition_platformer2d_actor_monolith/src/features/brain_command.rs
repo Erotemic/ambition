@@ -122,7 +122,7 @@ fn resolve_command_preset(
         BrainCommandKind::UsePreset(preset) => {
             let namespace = binding
                 .default_preset
-                .as_ref()
+                .preset()
                 .map(|p| p.as_str())
                 .unwrap_or_else(|| preset.as_str());
             Some(BrainPresetId::new(qualify_preset_like(
@@ -131,11 +131,21 @@ fn resolve_command_preset(
             )))
         }
         BrainCommandKind::RestoreDefault => match &binding.default_preset {
-            Some(default) => Some(default.clone()),
-            None => {
+            ambition_characters::actor::character_catalog::AutonomousDefault::Preset(default) => {
+                Some(default.clone())
+            }
+            // ⭐ **NOT A PRESET AND NOT A FAILURE.** A character whose default is
+            // its own authored `BrainProfile` is restored by the profile road in
+            // `apply_brain_selection`, which has the body this lowering needs;
+            // this function only answers the preset question, so it says *not
+            // mine* rather than warning about a preset nobody named.
+            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile => {
+                None
+            }
+            ambition_characters::actor::character_catalog::AutonomousDefault::None => {
                 warn!(
                     target: "ambition_platformer2d_actor_monolith::brain_command",
-                    "BrainCommand RestoreDefault for {}: binding has no catalog default preset \
+                    "BrainCommand RestoreDefault for {}: binding has no autonomous default \
                      (not a catalog-backed actor); command rejected",
                     sim_id.as_str(),
                 );
@@ -155,6 +165,7 @@ fn resolve_command_preset(
 /// This is the shared helper the command reducer and (in spirit) any other
 /// autonomous-selection site route through, so a preset resolves identically
 /// wherever it is applied.
+#[allow(clippy::too_many_arguments)]
 fn apply_brain_selection(
     catalog: &CharacterCatalog,
     sim_id: &SimId,
@@ -162,7 +173,41 @@ fn apply_brain_selection(
     binding: &mut BrainBinding,
     ctx: &BrainBuildContext,
     kind: &BrainCommandKind,
+    // **The body**, for a default that is the character's own `BrainProfile`:
+    // §4.7 pairs a policy's normalized effort with the body's own top speed, so
+    // the lowering cannot happen without one.
+    profile_body: Option<&ActorConfig>,
+    abilities: ambition_platformer2d_core::AbilitySet,
 ) -> bool {
+    // ⭐⭐ **RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.**
+    //
+    // ⛔ before this arm, a body whose default was its character's authored
+    // `BrainProfile` carried `default_preset: Some("")`, and every
+    // `RestoreDefault` — every possession release, every "you are free" — landed
+    // on *"unknown brain preset ``"* and was REJECTED. The body kept whichever
+    // mind it happened to have, silently, for the rest of the session.
+    //
+    // The lowering is the same one the spawn road and the rewind road use, and
+    // it reads the profile off the body's own config, so all three agree by
+    // construction rather than by three matching implementations.
+    if matches!(kind, BrainCommandKind::RestoreDefault)
+        && matches!(
+            binding.default_preset,
+            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile
+        )
+    {
+        let Some(config) = profile_body else {
+            warn!(
+                target: "ambition_platformer2d_actor_monolith::brain_command",
+                "BrainCommand RestoreDefault for {}: its character's own policy is the                  default, but the body carries no ActorConfig to lower it against;                  command rejected",
+                sim_id.as_str(),
+            );
+            return false;
+        };
+        *brain = crate::features::ecs::enemy_default_brain(config, abilities);
+        binding.restore_default();
+        return true;
+    }
     let Some(resolved_preset) = resolve_command_preset(sim_id, binding, kind) else {
         return false;
     };
@@ -209,6 +254,9 @@ pub fn apply_brain_commands(
         Option<&CombatKit>,
         Option<&mut CombatCapabilities>,
         Option<&mut ActionSet>,
+        // **The body's own verbs**, for a default that is the character's
+        // authored policy — the lowering asks what this body can actually do.
+        Option<&ambition_platformer2d_core::BodyAbilities>,
     )>,
 ) {
     let mut by_id: BTreeMap<&str, Vec<&BrainCommandKind>> = BTreeMap::new();
@@ -233,6 +281,7 @@ pub fn apply_brain_commands(
         kit,
         caps,
         action_set,
+        body_abilities,
     ) in &mut actors
     {
         let Some(kinds) = by_id.get(sim_id.as_str()) else {
@@ -243,6 +292,9 @@ pub fn apply_brain_commands(
         let ctx = authored
             .map(AuthoredBrainContext::build_context)
             .unwrap_or_else(|| BrainBuildContext::at(pose.origin().x));
+        let abilities = body_abilities
+            .map(|abilities| abilities.abilities)
+            .unwrap_or_default();
 
         // Under temporary control (player possession / mount) the live `Brain` is
         // the controller's, not the autonomous selection — so a switch updates only
@@ -270,8 +322,16 @@ pub fn apply_brain_commands(
 
         let mut changed = false;
         for kind in kinds {
-            changed |=
-                apply_brain_selection(&catalog, sim_id, &mut brain, &mut binding, &ctx, kind);
+            changed |= apply_brain_selection(
+                &catalog,
+                sim_id,
+                &mut brain,
+                &mut binding,
+                &ctx,
+                kind,
+                config.as_deref(),
+                abilities,
+            );
         }
         if changed {
             apply_catalog_mode(&catalog, &brain, config, kit, caps, action_set);

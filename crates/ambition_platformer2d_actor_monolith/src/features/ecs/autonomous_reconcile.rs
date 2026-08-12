@@ -240,7 +240,13 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
             AutonomousSource::ProvokedProfile { profile } => {
                 reconstruct_provoked_profile(world, job.entity, profile);
             }
-            AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
+            // A character whose default IS its own authored policy restores the
+            // same peaceful config a catalog-default body does — the difference
+            // between the two is WHO stated the policy, not what a rewind has to
+            // put back. `autonomous_brain_for_source` is where they diverge.
+            AutonomousSource::CatalogDefault
+            | AutonomousSource::CatalogPreset(_)
+            | AutonomousSource::CharacterProfile => {
                 restore_peaceful_config(world, job.entity, job.character_id.as_deref());
             }
             // A boss's autonomous BossPattern brain is snapshotted by the ordinary
@@ -406,6 +412,20 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
             Some(crate::features::ecs::enemy_default_brain(
                 &hostile, abilities,
             ))
+        }
+        // ⭐⭐ **THE CHARACTER ALREADY SAID.** No registry lookup and no catalog
+        // preset: the body's own `ActorConfig::brain_profile` is the policy its
+        // character authored, installed when it spawned. Lowering it needs the
+        // BODY (§4.7 — a profile states normalized effort and the body states the
+        // speed), which is exactly why `resolve_initial_brain` could not do this
+        // and had to redirect here.
+        AutonomousSource::CharacterProfile => {
+            let config = world.get::<ActorConfig>(entity)?;
+            let abilities = world
+                .get::<ambition_platformer2d_core::BodyAbilities>(entity)
+                .map(|abilities| abilities.abilities)
+                .unwrap_or_default();
+            Some(crate::features::ecs::enemy_default_brain(config, abilities))
         }
         AutonomousSource::Provoked { archetype } => {
             let roster = world.get_resource::<CharacterRoster>()?;

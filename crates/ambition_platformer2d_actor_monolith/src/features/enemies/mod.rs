@@ -666,9 +666,12 @@ pub struct CharacterRosterFragment {
     fallback_brain_id: Option<String>,
     by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
     source_ron: String,
-    /// WHERE the RON came from, for diagnostics. See
-    /// [`Self::from_ron_at`]; `None` means "built from a literal", not "unknown".
-    source: Option<String>,
+    // ⛔ **`source: Option<String>` WAS HERE**, "where the RON came from, for
+    // diagnostics", citing a `from_ron_at` constructor that had no callers. So
+    // it was `None` on every fragment ever built, and the compiler confirmed
+    // nothing read it once the accessor went. The assembly error still carries a
+    // `source` — it reads the BUILD parameter, not this field, which is why the
+    // two looked like one feature.
 }
 
 impl CharacterRosterFragment {
@@ -704,28 +707,9 @@ impl CharacterRosterFragment {
             fallback_brain_id: fallback_brain_id.map(Into::into),
             by_brain,
             source_ron: source_ron.into(),
-            source: None,
         };
         fragment.validate()?;
         Ok(fragment)
-    }
-
-    /// The same, plus WHERE the text came from — the roster twin of
-    /// `CharacterCatalogFragment::from_ron_at`. An authoring error in a roster
-    /// could name the provider and the brain id but never the file, because the
-    /// API took an anonymous `&str` (GPT 5.6, 2026-07-28).
-    pub fn from_ron_at(
-        source: impl Into<String>,
-        provider_id: impl Into<String>,
-        fallback_brain_id: Option<impl Into<String>>,
-        roster_ron: &str,
-    ) -> Result<Self, CharacterRosterAssemblyError> {
-        Self::build(
-            Some(source.into()),
-            provider_id,
-            fallback_brain_id,
-            roster_ron,
-        )
     }
 
     fn build(
@@ -750,14 +734,9 @@ impl CharacterRosterFragment {
             fallback_brain_id: fallback_brain_id.map(Into::into),
             by_brain,
             source_ron: roster_ron.to_string(),
-            source,
         };
         fragment.validate()?;
         Ok(fragment)
-    }
-
-    pub fn provider_id(&self) -> &str {
-        &self.provider_id
     }
 
     // ⛔ **`fallback_brain_id()` WAS HERE, a public accessor with zero callers**
@@ -765,13 +744,26 @@ impl CharacterRosterFragment {
     // assembly all read it — but nothing outside this file ever asked a fragment
     // for it.
 
-    /// Where this fragment's RON came from, when the provider said
-    /// ([`Self::from_ron_at`]). Read by hosts that report authoring failures
-    /// after assembly, when the fragment itself is the only thing left holding
-    /// the answer.
-    pub fn source(&self) -> Option<&str> {
-        self.source.as_deref()
-    }
+    // ⛔⛔ **THREE PUBLIC ACCESSORS DELETED HERE (2026-08-12), compiler-verified
+    // to have no call site in the WORKSPACE**: `from_ron_at`, `provider_id` and
+    // `source`. Found by marking every public fn in this file `#[deprecated]`
+    // and reading `cargo check` — the technique ledger D105 records, after a
+    // grep-based census had been wrong five times.
+    //
+    // ⚠ **and the first run of that technique was ALSO wrong.**
+    // `cargo check -p ambition_platformer2d_actor_monolith` compiles this
+    // package and its DEPENDENCIES — not its dependents — so every cross-crate
+    // caller was invisible and it named five dead functions. `--workspace`
+    // named three. `sandbags_are_passive` and `from_prepared_specs` were the two
+    // it would have deleted.
+    //
+    // ⚠ `source` was a PROVENANCE feature with neither producer nor consumer:
+    // `from_ron_at` was the only constructor that set it, nothing called that,
+    // so the field is always `None` and `MalformedFragment`'s error message has
+    // never printed a source. The field and its error arm are LEFT — they are
+    // threaded through the assembly error and cost nothing — but nothing can
+    // make them non-`None` today, and that is worth knowing before somebody
+    // debugs a missing filename.
 
     fn validate(&self) -> Result<(), CharacterRosterAssemblyError> {
         if self.provider_id.trim().is_empty() {

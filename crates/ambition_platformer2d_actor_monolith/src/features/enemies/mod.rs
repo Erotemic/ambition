@@ -437,18 +437,58 @@ impl CharacterRoster {
         self.by_brain.get(key)
     }
 
+    /// The row for this brain key, or `None`.
+    ///
+    /// ⭐ **the honest question**, and the one new code should ask.
+    /// [`Self::spec_for_brain`] answers the same thing and then hides a miss
+    /// behind the reserved `combatant` row, which is how a typo'd key becomes a
+    /// generic enemy instead of a build failure.
+    pub(crate) fn try_spec_for_brain(
+        &self,
+        brain: &ambition_entity_catalog::placements::CharacterBrain,
+    ) -> Option<ArchetypeSpec> {
+        let ambition_entity_catalog::placements::CharacterBrain::Custom(name) = brain else {
+            return None;
+        };
+        self.by_brain.get(name.as_str()).cloned()
+    }
+
+    /// The row for this brain key, falling back to the reserved `combatant` row.
+    ///
+    /// ⛔⛔ **THE FALLBACK IS A SILENT DOWNGRADE AND IT NOW SAYS SO.** A key with
+    /// no row does not fail — it becomes a generic enemy, wearing whatever
+    /// sprite the placement named, and every assertion about it passes. That has
+    /// happened three times in this campaign alone as rows migrated out: five
+    /// engine mount tests became tests about `combatant` the day the shark
+    /// became a character, and the respawn-policy tests went VACUOUS because
+    /// `combatant` happens to author `OnRoomReenter` too.
+    ///
+    /// ⚠ the warning is `debug!`-adjacent in cost but `warn!` in level on
+    /// purpose: it fires once per spawn of a body whose key is missing, which is
+    /// a content bug somebody needs to see, not a condition to live with.
+    ///
+    /// ⇒ the destination (ledger D102, GPT 5.6's redirect) is that an unknown
+    /// key is a construction ERROR — the rule P0.1 established for an absent
+    /// `CharacterId` — and this method goes with the fallback. Until then the
+    /// downgrade is at least audible.
     pub(crate) fn spec_for_brain(
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,
     ) -> ArchetypeSpec {
-        let key = match brain {
-            ambition_entity_catalog::placements::CharacterBrain::Custom(name) => name.as_str(),
-            _ => "",
-        };
-        self.by_brain
-            .get(key)
-            .cloned()
-            .unwrap_or_else(|| self.fallback.clone())
+        if let Some(spec) = self.try_spec_for_brain(brain) {
+            return spec;
+        }
+        if let ambition_entity_catalog::placements::CharacterBrain::Custom(name) = brain {
+            bevy::prelude::warn!(
+                target: "ambition_platformer2d_actor_monolith::enemies",
+                "no archetype row for brain key `{name}` — this body is being built as the \
+                 generic `combatant` fallback, wearing whatever the placement named. Either \
+                 the key is misspelled, or its character migrated and the placement still \
+                 names the row (ledger D102)",
+                name = name,
+            );
+        }
+        self.fallback.clone()
     }
 
     /// Build a roster from a brain-keyed spec map. The reserved `"combatant"`

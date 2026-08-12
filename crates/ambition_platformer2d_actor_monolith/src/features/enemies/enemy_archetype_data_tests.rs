@@ -52,6 +52,51 @@ fn the_fixture_roster_carries_every_brain_key_a_test_names() {
     }
 }
 
+/// **THE FALLBACK IS REACHED BY UNKNOWN KEYS AND BY NOTHING ELSE.**
+///
+/// ⛔ `spec_for_brain` cannot fail, so every caller reads a spec whether or not
+/// the key existed — and three separate sets of tests in this campaign have
+/// silently changed subject when a row migrated out from under them. This is the
+/// distinction the API was missing: `try_spec_for_brain` answers the honest
+/// question, and a caller that wants the downgrade opts into it.
+///
+/// ⚠ **the poison is the first assertion**: if `try_` also fell back, both
+/// halves would return the same spec and this would pass while proving the two
+/// methods are the same method.
+#[test]
+fn the_honest_lookup_and_the_downgrading_one_answer_differently() {
+    use ambition_entity_catalog::placements::CharacterBrain;
+    let roster = crate::features::enemies::fixture_roster_with_mount();
+
+    let missing = CharacterBrain::Custom("no_such_archetype_key".into());
+    assert!(
+        roster.try_spec_for_brain(&missing).is_none(),
+        "the honest lookup invented a row for a key nobody authored"
+    );
+    assert_eq!(
+        roster.spec_for_brain(&missing).max_health,
+        roster
+            .spec_for_brain(&CharacterBrain::Custom("combatant".into()))
+            .max_health,
+        "the downgrading lookup stopped downgrading — that is a behaviour change \
+         for every misspelled key in the game, and this test is where it is decided"
+    );
+
+    // And a key that DOES exist reaches its own row through both.
+    let known = CharacterBrain::Custom("combatant".into());
+    assert!(roster.try_spec_for_brain(&known).is_some());
+
+    // ⛔ a non-`Custom` brain names no archetype at all. It used to reach the
+    // fallback through an empty-string key, which is the same silent downgrade
+    // wearing a different disguise.
+    assert!(
+        roster
+            .try_spec_for_brain(&CharacterBrain::Passive)
+            .is_none(),
+        "a Passive brain is not an archetype key and must not resolve like one"
+    );
+}
+
 /// **WHAT IS LEFT OF THE SHIPPED ARCHETYPE FILE** — D73's acceptance signal is
 /// that it be DELETED, and this is the countdown.
 ///

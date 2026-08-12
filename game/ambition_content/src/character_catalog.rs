@@ -926,6 +926,20 @@ pub fn authored_intrinsics(
             definition.vitals.max_health = Some(9999);
             definition
         }
+        // **THE PATENT CLERK, read back off its own row.** Its
+        // `gameplay_description` says *"a high-mastery heavyweight controller …
+        // turns careful observation into unusually strong parries and
+        // finishers"* — heavyweight, controller, finishers — and those three
+        // words are the table. See the module doc; the design was already
+        // written down and nobody had read it back.
+        //
+        // ⛔ MOVES ONLY, and the classification mechanic (MASS / ENERGY / MOVING
+        // / AT REST, reference frames, the elevator recovery) is deliberately NOT
+        // here: those are systems, not swings, and writing them as move windows
+        // would be the wholesale-migration failure mode wearing a content commit.
+        "special_patent_clerk" => {
+            definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset())
+        }
         // **THE PIRATE ADMIRAL'S CUTLASS.** The second adopter removed from
         // `smash_fighter_kit()` (P3.24), and the character was already telling us
         // what its moves are: its row says `default_action_set: "pirate_pistol"`,

@@ -1473,6 +1473,22 @@ fn brain_key(brain: &ambition_entity_catalog::placements::CharacterBrain) -> Opt
 /// `ambition.limb` relations. This function stays the path for every ordinary,
 /// unlimbed enemy.
 #[allow(clippy::too_many_arguments)]
+/// **What a body nobody described does when it dies.**
+///
+/// ⚠ **deliberately NOT `RespawnPolicy::default()`**, which is `DeadStaysDead`
+/// — the answer for a NAMED, unique actor. A placement that authors no respawn
+/// policy and names a brain key with no row is the opposite: a body nothing in
+/// the game says anything about, which is the trash-grunt case its own doc
+/// describes (*"fresh every time the player enters the room"*).
+///
+/// ⭐ this is what the reserved `combatant` row was silently supplying through a
+/// lookup that could not fail. Stated here, it is a decision somebody can read
+/// and disagree with; pinned equal to the row by
+/// `the_undescribed_respawn_policy_matches_the_combatant_row` while the row
+/// survives, so deleting it is a no-op rather than a change to every such body.
+pub(crate) const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
+    ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
+
 pub(crate) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
@@ -1501,7 +1517,12 @@ pub(crate) fn spawn_enemy_with_faction_into(
         },
     );
 
-    let spec = roster.spec_for_brain(&authored.payload.brain);
+    // ⭐ **the HONEST lookup, and this site reads exactly ONE field off it.**
+    // Everything else a character-first body needs comes from its own
+    // definition; `spec.respawn` is the placement fallback below. Asking
+    // `spec_for_brain` here meant a brain key with no row silently took the
+    // reserved `combatant` row's respawn policy.
+    let spec = roster.try_spec_for_brain(&authored.payload.brain);
     // **WHICH CHARACTER, decided before the body is built rather than after.**
     //
     // ⛔ the arms below are the migration itself, and the middle one is new:
@@ -1623,7 +1644,17 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // DELETED that means the `combatant` row's. It is the last thread from
         // this file to a migrated enemy; a placement that authors its own cuts
         // it.
-        enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(spec.respawn);
+        // ⛔ **THREE authorities in precedence order, and the third is stated
+        // rather than borrowed.** The PLACEMENT owns respawn policy (ADR 0022);
+        // an archetype row answers for a body it describes; and a body that
+        // neither describes takes the engine's own answer for an undescribed
+        // one — which used to be `combatant`'s, reached by a lookup that could
+        // not fail.
+        enemy.config.tuning.respawn = authored
+            .payload
+            .respawn
+            .or_else(|| spec.as_ref().map(|spec| spec.respawn))
+            .unwrap_or(UNDESCRIBED_BODY_RESPAWN);
         // ⛔ **the fallback is the CONSTRUCTED value, not the archetype's.** It
         // read `spec.attacks_player`, and `spec` for a migrated character is the
         // generic `combatant` row — which says `true`. So the giant GNU, a mount
@@ -1724,7 +1755,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
             ),
-            None => attach_mount_role(commands, root, &spec),
+            None => attach_mount_role(commands, root, spec.as_ref()),
         }
         return;
     }
@@ -1780,7 +1811,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         authored,
         faction,
     );
-    attach_mount_role(commands, root, &spec);
+    attach_mount_role(commands, root, spec.as_ref());
 }
 
 /// Populate a `"giant"`-class LIMBED HOST onto an executor-allocated root: the
@@ -2010,11 +2041,19 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 /// `ambition.mount` relation's engine-owned wiring (the room construction
 /// planner turns each authored `mounted_on` ref into one) — this only tags the
 /// two roles.
+/// ⚠ **the spec is OPTIONAL**, like every other single-fact archetype read on
+/// this road: a brain key with no row states no mount class and no pilotable
+/// classes, and both branches of `attach_mount_role_from` are gated on those
+/// being present — so `None` is exactly what the reserved `combatant` row was
+/// already producing here, with the lookup removed.
 fn attach_mount_role(
     commands: &mut Commands,
     entity: bevy::ecs::entity::Entity,
-    spec: &super::super::enemies::ArchetypeSpec,
+    spec: Option<&super::super::enemies::ArchetypeSpec>,
 ) {
+    let Some(spec) = spec else {
+        return;
+    };
     attach_mount_role_from(
         commands,
         entity,

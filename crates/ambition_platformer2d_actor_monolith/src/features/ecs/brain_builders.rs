@@ -668,6 +668,31 @@ mod ladder_projection_tests {
 #[cfg(test)]
 mod tests {
 
+    /// **THE UNDESCRIBED-BODY RESPAWN POLICY IS THE `combatant` ROW's**, so
+    /// deleting the row does not quietly change what a body nobody described
+    /// does when it dies.
+    ///
+    /// ⛔ **the poison is the second assertion.** `RespawnPolicy::default()` is
+    /// `DeadStaysDead` — the answer for a NAMED, unique actor — and an
+    /// undescribed body is the opposite case. If the constant had drifted to the
+    /// type's default, the first assertion alone would only fail if the ROW had
+    /// drifted too, and the two drifting together is exactly what a shared
+    /// default makes likely.
+    #[test]
+    fn the_undescribed_respawn_policy_matches_the_combatant_row() {
+        use ambition_entity_catalog::placements::RespawnPolicy;
+        assert_eq!(
+            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
+            crate::features::enemies::test_spec("combatant").respawn,
+        );
+        assert_ne!(
+            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
+            RespawnPolicy::default(),
+            "an undescribed body took the type's default, which is the policy \
+             for a NAMED unique actor — the opposite case"
+        );
+    }
+
     /// **THE ENGINE'S DEFAULT PROVOKED POLICY IS THE `combatant` ROW, and this
     /// is what makes deleting the row a no-op rather than a retune.**
     ///

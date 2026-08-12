@@ -176,6 +176,32 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
          this test is about to prove nothing",
     );
 
+    // ⭐⭐ **WATCH FOR THE RESTART ANNOUNCEMENT**, before the launch that causes
+    // it (ledger D90). `BodyLifetime::restart_pending` is a ONE-SIM-TICK flag —
+    // the reset raises it and `announce_body_restarts` clears it in the next
+    // `WorldPrep` — and a fixed-tick host advances several sim ticks per
+    // `app.update()`, so sampling the flag between updates can miss it entirely.
+    // The engine publishes this trigger for exactly that reason; an observer
+    // cannot miss what a poll can.
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Restarts(Vec<bevy::prelude::Entity>);
+    app.init_resource::<Restarts>();
+    app.add_observer(
+        |restart: bevy::prelude::On<ambition_platformer2d::engine_core::BodyRestarted>,
+         mut seen: bevy::prelude::ResMut<Restarts>| {
+            seen.0.push(restart.entity);
+        },
+    );
+    let launched = {
+        let world = app.world_mut();
+        let mut query = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+        query
+            .iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a second fighter")
+    };
+
     // LAUNCH. Hard enough and sideways enough that the blast line is reached
     // rather than approached — the stage's margin is a fraction of the platform,
     // and this is several times that per second.
@@ -204,6 +230,14 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         }
     }
 
+    // ⚠ **the loop above BREAKS on the stock change, and the restart comes after
+    // it.** The spend and the ruleset's respawn are different steps in different
+    // phases, so asserting the announcement without letting the frame finish
+    // measures the gap between them rather than the engine.
+    for _ in 0..12 {
+        app.update();
+    }
+
     let (tick, remaining) = spent.expect(
         "a fighter launched at 2400px/s off a stage whose blast margin is a \
          fraction of its platform never left the world — the blast gate and the \
@@ -226,6 +260,50 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         "the fighter that was never launched also lost a stock, so the counter \
          is moving on its own and this test proves nothing about the blast gate"
     );
+
+    // ⭐⭐ **AND THE BODY ANNOUNCED THAT IT STARTED AGAIN** (ledger D90). A stock
+    // spent without an announcement leaves every provider holding round-or-life
+    // state — a charge meter, a combo counter, a per-life buff — carrying it into
+    // the next stock. That is invisible in a stock count and visible in a fight.
+    {
+        let untouched = {
+            let world = app.world_mut();
+            let mut q = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
+            q.iter(world)
+                .find(|(_, seat)| seat.0 == 0)
+                .map(|(e, _)| e)
+                .expect("seat 0 exists")
+        };
+        let seen = &app.world().resource::<Restarts>().0;
+        assert!(
+            seen.contains(&launched),
+            "the knocked-out fighter respawned without a `BodyRestarted`, so \
+             nothing downstream can know its life began again: {seen:?}"
+        );
+        // ⚠ non-vacuity, the same shape as the stock assertion above: an
+        // announcement everybody gets says nothing about this knockout.
+        assert!(
+            !seen.contains(&untouched),
+            "the fighter that was never launched also announced a restart"
+        );
+    }
+
+    // ⚠ **and it came back where the RULESET says**, not where it died. A body
+    // that respawns at its blast position is outside the stage and falls again.
+    {
+        use ambition_platformer2d::actor::BodyKinematics;
+        let respawn = ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre());
+        let pos = app
+            .world()
+            .get::<BodyKinematics>(launched)
+            .expect("the fighter still has a body")
+            .pos;
+        assert!(
+            (pos - respawn).length() < 240.0,
+            "the fighter restarted at {pos:?}, nowhere near the ruleset's \
+             respawn placement {respawn:?}"
+        );
+    }
 }
 
 /// **The fighter brain closes the distance and lands a hit.**
@@ -403,111 +481,29 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
     );
 }
 
-/// **Losing a stock RESTARTS the body; it does not teleport it.** (Campaign 3B)
+/// ⛔⛔ **DELETED 2026-08-11 (ledger D90): `losing_a_stock_announces_a_body_
+/// restart`.** It teleported a fighter to `y = 100_000` and waited for
+/// `BodyLifetime::restart_pending` to appear.
 ///
-/// The respawn used `transit_body`, whose contract is that "axis maneuver state
-/// (coyote, buffers, dash timers) is deliberately KEPT — those are time facts,
-/// not place facts". True of a blink and false of a knockout: a fighter came
-/// back holding the dash timer and buffered jump it died with, and because
-/// `ae::BodyRestarted` is derived from `reset_body_clusters` raising
-/// `restart_pending`, no PROVIDER heard about the respawn either — a ball-dash
-/// charge or a rolling form would have survived a knockout in silence.
+/// Two things were wrong with it, and the second only became visible after the
+/// first was measured:
 ///
-/// This asserts the announcement, not the position: the position was always
-/// right, which is exactly why the leak was invisible.
-#[test]
-fn losing_a_stock_announces_a_body_restart() {
-    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
-    use ambition_platformer2d::engine_core::BodyLifetime;
-    use bevy::prelude::*;
-
-    let mut app = build_demo_app();
-    for _ in 0..30 {
-        app.update();
-    }
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster([
-            ambition_demo_smash::SMASH_CHARACTER_ID,
-            ambition_demo_smash::SMASH_OPPONENT_ID,
-        ]));
-    app.world_mut()
-        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(
-                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-            ),
-        ));
-    for _ in 0..240 {
-        app.update();
-    }
-
-    let (fighter, before) = {
-        let world = app.world_mut();
-        let mut q = world.query::<(Entity, &MatchSeat, &FighterStocks)>();
-        q.iter(world)
-            .find(|(_, seat, _)| seat.0 == 1)
-            .map(|(entity, _, stocks)| (entity, stocks.remaining))
-            .expect("the match seats a second fighter")
-    };
-
-    // Throw it out of the world, which is how a stock is spent here.
-    //
-    // ⛔⛔ **MEASURED 2026-08-11 (ledger D90), and it is TWO facts, not one.**
-    //
-    // ONE app update after this write the body is at `(537, 320)` — a normal
-    // stage position, not a clamp of `100_000` — so the body IS restarted, and
-    // promptly. But `FighterStocks::remaining` is still 3 after the whole window:
-    // **a restart happened and no stock was spent.**
-    //
-    // ⚠ `restart_pending` is a ONE-SIM-TICK flag: the reset raises it and
-    // `announce_body_restarts` clears it in the next `WorldPrep`. This test
-    // samples between `app.update()` calls, and under a fixed-tick host one app
-    // update advances SEVERAL sim ticks — so the raise and the clear can both
-    // happen inside a single sample gap and the flag is unobservable from here.
-    // The engine publishes a `BodyRestarted` TRIGGER for exactly this reason;
-    // that is what an observer should collect.
-    //
-    // ⛔ **do not make this pass by collecting the trigger alone.** The name of
-    // this test says a STOCK LOSS announces the restart, and the measurement says
-    // a restart occurred without one. Fixing the instrument while that is true
-    // would hide the more interesting half.
-    {
-        let world = app.world_mut();
-        let mut kin = world
-            .get_mut::<ambition_platformer2d::actor::BodyKinematics>(fighter)
-            .expect("the fighter has a body");
-        kin.pos.y = 100_000.0;
-    }
-
-    let mut announced = false;
-    for _ in 0..120 {
-        app.update();
-        // `restart_pending` is raised by the reset and cleared by
-        // `announce_body_restarts` the next tick, so catching it means sampling
-        // every frame — which is the honest way to observe a one-tick flag.
-        if app
-            .world()
-            .get::<BodyLifetime>(fighter)
-            .is_some_and(|lifetime| lifetime.restart_pending)
-        {
-            announced = true;
-        }
-        if app
-            .world()
-            .get::<FighterStocks>(fighter)
-            .is_some_and(|stocks| stocks.remaining < before)
-        {
-            if announced {
-                break;
-            }
-        }
-    }
-
-    assert!(
-        announced,
-        "a fighter came back from a knockout without the engine saying its body \
-         had restarted, so every provider holding round-or-life state kept it"
-    );
-}
+/// 1. **a raw `BodyKinematics::pos` write is not "this fighter lost a stock".**
+///    Measured: one app update later the body sat at a normal stage position with
+///    all THREE stocks — something noticed the nonsense position and relocated
+///    it, which is not a knockout. The test spent its life asserting a restart no
+///    KO had caused.
+/// 2. **`restart_pending` is a ONE-SIM-TICK flag** — raised by the reset, cleared
+///    by `announce_body_restarts` in the next `WorldPrep` — and a fixed-tick host
+///    advances several sim ticks per `app.update()`. Polling it between updates
+///    can miss it entirely, whatever caused it.
+///
+/// ⭐ **its intent is fully covered by
+/// `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`**, which causes
+/// a REAL knockout — a real launch, the real blast boundary — and now proves the
+/// whole chain from one: exactly one stock spent, the other fighter untouched, a
+/// `BodyRestarted` trigger observed for that body and not the other, and a
+/// respawn at the ruleset's placement. An observer cannot miss what a poll can.
 
 /// **This demo's own CPU roster is seatable by its own composition.**
 /// (API 1.0 row (g))

@@ -15,7 +15,7 @@ normal tooling is engine work; editing the source is not.
 | P0 clip-identity resolution (`ClipBinding` → sheet row) without growing `CharacterAnim` | ▢ |
 | P1 Robot v3 moves request their exact new rows | ▢ |
 | P2 generic fighter-state rows (air_dodge / tumble / knockdown / getup / tech) | ▢ |
-| P3 **Noether's new art** | ⛔ **BLOCKED ON JON — measured, and it is not the metadata nit the review names.** See below |
+| P3 **Noether's new art** | ⛔⛔ **BLOCKED ON JON, and Jon has now asked for it twice.** `noether_gameplay.py` DOES NOT EXIST. Re-checked at submodule `15845f8` (2026-08-11, after the bump): still missing. See below for the four symbols it must export |
 | P4 Noether's game-side repertoire | ▢ (after P3) |
 | P5 PCA off `cellular_automaton_fighter` + its new rows | ◑ body/policy/moveset authored; ▢ the arm, the row, the clip bindings |
 | P6 Patent Clerk / Carl Stargan as non-roster validation | ▢ |
@@ -33,10 +33,32 @@ error: target 'noether' is not registered.
           No module named 'ambition_sprite2d_renderer.targets.characters.noether_gameplay')
 ```
 
-`noether.py`, `noether_effects.py` and `noether_motion.py` are present at the
-bumped submodule (`f51c0d1`); `noether_gameplay.py` is not. This is Jon's
-*"not quite done yet, but almost"* — a missing module, not a naming detail.
-**Nothing game-side can consume the new sheet until that import resolves.**
+`noether.py`, `noether_effects.py` and `noether_motion.py` are present;
+`noether_gameplay.py` is not. Re-checked at `15845f8` — still absent.
+**Nothing game-side can consume the new sheet until that import resolves**, and
+`npc_noether` is ALREADY on `SMASH_ROSTER`, so the only thing standing between
+Jon and seeing her in Smash is this file.
+
+⛔ **it is sprite-authoring content and Jon owns it.** `noether.py` imports four
+symbols from it:
+
+```python
+from .noether_gameplay import (
+    ATTACK_HITBOXES,
+    NOETHER_MOVE_BLUEPRINT,
+    body_metrics as authored_body_metrics,
+    hurtbox_parts_for_rows,
+)
+```
+
+⭐ **the PCA's `pca_gameplay.py` is the working sibling** — 332 lines exporting
+`hurtbox_parts_for_rows`, `body_metrics`, `ATTACK_HITBOXES` and
+`PCA_MOVE_BLUEPRINT`, the same four shapes under its own name. It is the template
+for what Noether's still needs.
+
+⇒ **the moment that file lands**, `.venv/bin/python main.py sheet noether` is the
+whole game-side step, and the identity waiver comes off once the source's
+`character_id` says `npc_noether`.
 
 ⚠ **and the review's claim about the waiver is half right.** It says the waiver
 comment is stale because the target source says `"noether"`. The source does say

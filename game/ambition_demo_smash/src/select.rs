@@ -116,6 +116,19 @@ pub const SMASH_ROSTER: &[&str] = &[
     "perfect_cellular_automaton",
     "goblin",
     "npc_noether",
+    // ⭐ **JON, 2026-08-11: add Stargan, the Patent Clerk and the PCA.** The PCA
+    // was already here; these two are the addition. Both carry the standardized
+    // full-fighter sprite vocabulary (123 and 133 rows), which is what made them
+    // worth seating — but ROSTER MEMBERSHIP IS A CONTENT DECISION and Jon made
+    // it. The art existing is not the argument; he is.
+    //
+    // ⚠ neither authors a repertoire yet, so both take the generic fighter floor
+    // from `smash_fighter_kit()` — which is scaffolding whose adopter count is
+    // supposed to be FALLING (redirect P6/§8). Seating them raises it from three
+    // to five. That is a real cost and it is Jon's call to pay it; the fix is to
+    // author them repertoires, never to broaden the floor.
+    "npc_carl_stargan",
+    "special_patent_clerk",
     // ⚠ **THE STAND-INS, and they are LAST for a reason.** See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,

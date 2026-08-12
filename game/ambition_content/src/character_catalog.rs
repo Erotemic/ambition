@@ -193,78 +193,77 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 /// ~100-NPC regression recorded on [`PLAYABLE_ROSTER`]. Author first, register
 /// second; that ordering is the whole reason this list is empty rather than
 /// pre-filled with the obvious candidates.
-pub const BUILDABLE_ONLY_CAST: &[&str] = &[
-    // ⭐ **the characters migrated off `character_archetypes.ron`** (D73 phase
-    // 2, group A). Every fact their rows held is authored on their DEFINITIONS
-    // by [`authored_intrinsics`] and the rows are DELETED in the same change, so
-    // the two authorities never state one fact at once. Their placements name
-    // them explicitly.
-    "npc_exploding_mite",
-    "npc_dividing_mite",
-    // ⚠ the puppy slug is the first migrated character that is NOT hostile: its
-    // ten placements author `disposition: Peaceful`, because ambient wildlife
-    // that never aggros is a fact about that placement of the creature and not
-    // about the creature.
-    "npc_puppy_slug",
-    // ⭐ **the two plane swarms, registered by the provider that OWNS them.**
-    // Mary-O places them and borrowed them from this catalog; registering them
-    // there made the prepared registry and the catalog's owners map disagree
-    // about who authored them, which `the_shipped_cast_has_one_authority_per_character`
-    // refuses. Registered here, a hosted build builds them character-first and
-    // the standalone demo still has its roster rows to fall back to.
-    "npc_snakes_on_a_paper_plane",
-    "npc_snakes_on_a_cartesian_plane",
-    // The Hall's slop, which is also the sandbox's placed enemy.
-    "npc_ai_slop",
-    // The first MOUNT to become a character (ADR 0020).
-    "npc_burning_flying_shark",
-    // The second, and the first body that authors "I never hunt anybody".
-    "npc_giant_gnu",
-    // ⭐ **the first RIDERS**: a cove raider and Iron Mary both pilot a shark,
-    // both carry a gun-sword, and both differ from each other only in the
-    // numbers — which is exactly the shape an archetype could not express
-    // without a whole second row.
-    "npc_pirate_raider",
-    "npc_pirate_heavy_iron_mary",
-    // The giant's two DRIVEN limbs — one character, two bodies, which is what a
-    // reusable template is for.
-    "npc_giant_gnu_hands",
-    // ⭐⭐ **THE TWO CELLULAR AUTOMATONS** (ledger D84 / sprite redirect P5). The
-    // richest row `character_archetypes.ron` still held is theirs, and it was
-    // reached by STRING MATCHING on id / display name / dialogue node. They
-    // author it now: 60 HP, the swipe, the glider, the Cellular Pulse, the four
-    // body capabilities, and a Smash policy that notices at 540.
-    "perfect_cellular_automaton",
-    "imperfect_cellular_automaton",
-    // The intro raid corridor's two, off `gradient_seeker` and `medium_striker`
-    // — see their arms in `authored_intrinsics`. Neither is on the select grid,
-    // which is exactly what this list is for.
-    "npc_salvage_guard",
-    "npc_lab_raider",
-    // The combat-feel lab's two indestructible dummies, off `sandbag_infinite`.
-    "sandbag_infinite",
-    // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
-    // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
-    // register it twice.
+/// **THE BUILD-ONLY CAST IS DERIVED, not listed.**
+///
+/// ⛔⛔ this was a 24-entry hand list beside a 19-arm `authored_intrinsics`
+/// match, and the two disagreed in BOTH directions: five characters authored a
+/// body without being listed (they reached registration through
+/// [`PLAYABLE_ROSTER`] instead) and seven were listed without authoring one.
+/// Keeping two hand-maintained lists agreeing is the failure that produced D98
+/// (seven characters authoring facts nothing read) and D99 (Stargan missing
+/// from the grid he had been added to) in a single run.
+///
+/// ⇒ authoring a character MAKES it buildable. `authored/` is one file per
+/// creature and [`crate::authored::AUTHORED_CAST`] is the one table; twenty-two
+/// of the twenty-four ids come from there now and cannot fall out of sync with
+/// their own authoring, because they ARE their own authoring.
+///
+/// ⚠ what remains hand-listed is the genuinely different case below: characters
+/// registered as buildable that author NO body. That is dangerous by default —
+/// a bare registration loses whatever `character_archetypes.ron` used to give
+/// the character (the measured ~100-NPC regression recorded on
+/// [`PLAYABLE_ROSTER`]) — so each entry states why it is safe.
+pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
+    crate::authored::authored_ids()
+        .chain(REGISTERED_WITHOUT_A_BODY.iter().copied())
+        // ⭐⭐ **BUILD-ONLY MEANS "AND NOT ON THE SELECTION CAST", and that used
+        // to be a comment.** The old hand list carried *"⚠ the parrot is NOT
+        // here and must not be: `stochastic_parrot` is already on
+        // `PLAYABLE_ROSTER`, so listing it twice would register it twice"* — a
+        // rule enforced by a reader noticing a note. Five characters author a
+        // body AND appear on the select grid (the parrot, the goblin, the
+        // admiral, the oni leader, the sandbag), so deriving the cast from the
+        // authoring surfaced all five at once. Excluding here makes the rule
+        // structural; `the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast`
+        // still fails on an overlap reintroduced by hand below.
+        .filter(|id| !PLAYABLE_ROSTER.contains(id))
+}
+
+/// See [`buildable_only_cast`]. Registered, buildable, and authoring nothing —
+/// which is safe ONLY where the character never had archetype-built facts to
+/// lose. Every entry says which.
+///
+/// ⚠ this list should SHRINK. An entry here is a character whose body is still
+/// somebody else's to state.
+const REGISTERED_WITHOUT_A_BODY: &[&str] = &[
+    // ⭐ **the six remaining pirates.** They author no body of their own yet,
+    // but they are not bare in the way that matters: every id starting with
+    // `npc_pirate_` takes its provoked policy from the RULE at the head of
+    // [`authored_intrinsics`], which is what replaced the substring matcher on
+    // display names and dialogue nodes (ledger D84). Their VITALS are D96
+    // item 8 — how tough a pirate quartermaster is is a content decision, and
+    // authoring a number to empty this list would be inventing one.
+    //
+    // ⚠ **not derived from the rule, because the rule cannot enumerate.**
+    // `starts_with("npc_pirate_")` covers a pirate added tomorrow automatically,
+    // which is the property it exists for; this list answers the different
+    // question of which ids to REGISTER, and that needs names.
     "npc_pirate_cutlass_viper",
     "npc_pirate_heavy_broadside_bess",
     "npc_pirate_heavy_salt_annet",
     "npc_pirate_lookout",
     "npc_pirate_navigator",
     "npc_pirate_quartermaster",
-    "special_patent_clerk",
     // ⭐⭐ **JON ASKED FOR HIM ON THE SMASH GRID, 2026-08-11 — and he was not on
     // it.** The grid filters `SMASH_ROSTER` against the prepared REGISTRY
     // (`SmashRoster::assemble`), precisely so an unbuildable portrait is dropped
     // rather than offered — so Stargan was silently absent from the grid he had
-    // been added to, and dropping is the safe behaviour that hid it. Two of
-    // Jon's three additions landed; this one did not, and nothing said so.
+    // been added to, and dropping is the safe behaviour that hid it.
     //
-    // ⚠ **a BARE registration, and here it is provably safe.** He authors no
-    // body, and the rule that makes that dangerous is about losing
-    // ARCHETYPE-built vitals — he has exactly one placement in the game, a Hall
-    // `NpcSpawn` with `brain_override: stand_still`, so he has never had any.
-    // Whether he FIGHTS is a separate question and still Jon's (D96 item 5).
+    // ⚠ **provably safe here**: he has exactly one placement in the game, a Hall
+    // `NpcSpawn` with `brain_override: stand_still`, so he has never had
+    // archetype-built vitals to lose. Whether he FIGHTS is still Jon's (D96
+    // item 5).
     "npc_carl_stargan",
 ];
 
@@ -275,7 +274,7 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
 /// where a character that has taken its facts back from
 /// `character_archetypes.ron` states them.
 ///
-/// ⛔ **an id in [`BUILDABLE_ONLY_CAST`] with no arm here is the bug that list's
+/// ⛔ **an id in [`buildable_only_cast`] with no arm here is the bug that list's
 /// doc warns about**: a bare registration means "this character authors no
 /// body", and anything its archetype used to give it is simply lost. Author
 /// first, register second.
@@ -283,13 +282,6 @@ pub fn authored_intrinsics(
     id: &str,
     definition: ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition,
 ) -> ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition {
-    use ambition_characters::actor::CharacterDeathTraits;
-
-    use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
-    use ambition_characters::brain::{
-        BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
-    };
-
     // ⭐⭐ **EVERY PIRATE STATES WHAT IT BECOMES WHEN STRUCK** (ledger D84).
     //
     // ⛔ **this is a RULE rather than nine arms, because the thing it replaces
@@ -312,833 +304,29 @@ pub fn authored_intrinsics(
     } else {
         definition
     };
-    match id {
-        // ⭐ **THE FIRST TWO CHARACTERS TO OWN THEIR WHOLE BODY.** Their
-        // `character_archetypes.ron` rows are DELETED in the same change: what
-        // used to be twenty lines of `exploding_mite` is these facts, split
-        // across the three authorities that own them.
-        //
-        // ```text
-        // body        health, run speed, gait, contact damage, the swipe
-        // controller  the Smash policy: aggro 460, commit at 60, hit band 30
-        // placement   respawn, which the LDtk spawn already carries
-        // ```
-        //
-        // ⭐⭐ **THE PERFECT CELLULAR AUTOMATON**, the dialogue-gated boss and the
-        // richest row `character_archetypes.ron` still held (ledger D84).
-        //
-        // ⛔ **it was reached by STRING MATCHING.** `hostile_brain_id_for_actor`
-        // asked whether an actor's id, display name or dialogue node contained
-        // "cellular automaton" and handed the body a whole archetype — the same
-        // shape as the two pirate arms deleted on 2026-08-11, and the last one
-        // left. A creature that states its own facts needs no matcher.
-        //
-        // ```text
-        // body        60 HP, 168 run speed, the swipe, the glider, the pulse,
-        //             and the four capabilities (blink / fly / shield / dash)
-        // controller  the Smash policy: notice at 540, commit at 150, duelist
-        // placement   respawn, which the placement carries
-        // ```
-        //
-        // ⚠ **GROUNDED HYBRID, and the row said so in two fields that read as a
-        // contradiction**: `is_aerial: Some(false)` beside `can_fly: true`. It
-        // prefers to fight on the ground and takes to the air only to cover a
-        // long gap. Reading `can_fly` as "aerial" would perch it permanently.
-        "perfect_cellular_automaton" | "imperfect_cellular_automaton" => {
-            let mut definition = definition
-                // ⭐⭐ **AND THE POLICY IT ADOPTS WHEN PROVOKED** (ledger D89).
-                // The duel arena's fighters carry a `grudge_against`, so they
-                // are PROVOKED rather than spawned hostile — and a provoked
-                // creature rebuilds its mind from this reference. Without it the
-                // PCA fell to the default aggressive policy: it closed and
-                // swung, and never blocked, which is exactly the shield the duel
-                // regression measures.
-                .with_provoked_profile_named("cellular_duelist")
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 168.0,
-                    move_style: MoveStyleSpec::Walk,
-                    // ⭐⭐ **GROUNDED, STATED** — Jon, 2026-08-11: *"in smash PCA
-                    // should not have the fly ability. I made a wrong call
-                    // there earlier."* Its catalog row stays `Floating`, which
-                    // is a claim about its SILHOUETTE (no default standing
-                    // height; the sheet decides, and that is what keeps its body
-                    // 68px rather than 48). The archetype row it replaces said
-                    // `is_aerial: Some(false)` for the same reason: a
-                    // grounded-base hybrid.
-                    baseline_free_flight: Some(false),
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.75,
-                    amount: 1,
-                })
-                .with_abilities(ambition_platformer2d_core::AbilitySet {
-                    attack: true,
-                    // The four body-enforced capabilities the row authored. A
-                    // possessing player inherits exactly these, which is the
-                    // property that made them body facts rather than brain ones.
-                    blink: true,
-                    fly: true,
-                    fly_toggle: true,
-                    shield: true,
-                    dash: true,
-                    ..ambition_platformer2d_core::AbilitySet::basic()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::Smash,
-                    aggro_radius: 540.0,
-                    attack_range: 150.0,
-                    patrol_effort: 0.5714,
-                    chase_effort: 1.0,
-                    smash_dash_to_close: true,
-                    // Footsies and spacing rather than close-and-camp.
-                    smash_duelist: true,
-                    ..Default::default()
-                })
-                // ⭐ **the glider** — a cellular-automaton spaceship as the
-                // zoning tool. The projectile is a functional `Rock`; the Conway
-                // glider is chosen by the authored visual id below, which the
-                // render layer resolves through the content-owned projectile
-                // catalog rather than from the owner's id string.
-                .with_ranged_vfx("glider")
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                        windup_s: 0.24,
-                        active_s: 0.08,
-                        recover_s: 0.30,
-                        damage: 1,
-                        reach_px: 30.0,
-                    })),
-                    ranged: Some(ambition_characters::brain::RangedActionSpec::new(
-                        ambition_characters::brain::action_set::RangedStyle::Rock,
-                        300.0,
-                        1,
-                    )),
-                    // ⛔ **NOT the pulse.** The MOVESET's verb map already binds
-                    // `special → cellular_pulse`; putting it in this slot too
-                    // takes the slot the SHIELD uses, and the PCA's reactive
-                    // block silently stops happening. The archetype row kept
-                    // them apart by construction — `signature_move` was a
-                    // different field from `can_shield` — and authoring both on
-                    // one character is where they can collide.
-                    special: None,
-                    move_style: MoveStyleSpec::Walk,
-                })
-                .with_moveset(crate::cellular_automaton_moveset::cellular_pulse_moveset());
-            definition.vitals.max_health = Some(60);
-            definition
-        }
-        // The sandbag kamikaze mite: two hit points and a corpse that detonates.
-        "npc_exploding_mite" => {
-            let mut definition = definition
-                .with_death_traits(CharacterDeathTraits {
-                    explodes_on_death: true,
-                    ..Default::default()
-                })
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 245.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.60,
-                    amount: 1,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::Smash,
-                    aggro_radius: 460.0,
-                    attack_range: 60.0,
-                    smash_hit_band: 30.0,
-                    ..Default::default()
-                })
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                        windup_s: 0.22,
-                        active_s: 0.08,
-                        recover_s: 0.30,
-                        damage: 1,
-                        reach_px: 26.0,
-                    })),
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(2);
-            definition
-        }
-        // The splitter: four hit points, slower and tankier, and it becomes two
-        // on death.
-        "npc_dividing_mite" => {
-            let mut definition = definition
-                .with_death_traits(CharacterDeathTraits {
-                    divides_on_death: true,
-                    ..Default::default()
-                })
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 130.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.70,
-                    amount: 1,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::Smash,
-                    aggro_radius: 380.0,
-                    attack_range: 55.0,
-                    smash_hit_band: 34.0,
-                    ..Default::default()
-                })
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                        windup_s: 0.30,
-                        active_s: 0.10,
-                        recover_s: 0.34,
-                        damage: 1,
-                        reach_px: 30.0,
-                    })),
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(4);
-            definition
-        }
-        // **Ambient wildlife: a wall-and-ceiling crawler that hurts on touch.**
-        //
-        // The row this replaces carried a `default_size` of 48x22 and it is
-        // deliberately NOT here: a named catalog character sizes its body to its
-        // authored SPRITE, which is the same resolution a peaceful NPC of this
-        // character already gets — one silhouette per creature, whichever road
-        // spawns it.
-        "npc_puppy_slug" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 80.0,
-                    move_style: MoveStyleSpec::Slither,
-                    // Crawlid-style: hugs the surface normal and probes ledges
-                    // so it never walks off a platform.
-                    surface_walker: true,
-                    // Knocked off its surface when hit — falls with gravity for
-                    // a moment, then re-attaches on landing.
-                    cling_breaks_on_hit: true,
-                    baseline_free_flight: Some(false),
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.55,
-                    amount: 1,
-                })
-                // The slug-only psychedelic pass, and the reason `dream_seed`
-                // became a character fact.
-                .with_dream_seed(0.271828)
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::Wanderer,
-                    // Wildlife: it notices nobody and commits to nothing. The
-                    // Wanderer template ignores both, and authoring them as zero
-                    // says so rather than leaving a reader to guess.
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(2);
-            definition
-        }
-        // **The aerial dive-bomber.** Its `is_aerial` does NOT come across as a
-        // character field: the catalog row already says `body_kind: Floating`,
-        // and construction reads gravity-freedom from there — one authority for
-        // "does this creature fly", which the archetype row was duplicating.
-        //
-        // ⚠ `mass: 0.5` is not carried either. Mass weights a mount+rider centre
-        // of gravity (ADR 0020) and a parrot is neither, so it was inert on the
-        // row; the first mountable character to migrate is the one that needs a
-        // home for it.
-        "stochastic_parrot" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 240.0,
-                    move_style: MoveStyleSpec::Float,
-                    // ⭐ **IT FLIES, AND IT SAYS SO** (ledger D89). This was
-                    // inferred from `body_kind: Floating` in its catalog row —
-                    // a presentation/footprint fact that was doubling as
-                    // locomotion authority. The fold is deleted; a bird states
-                    // its own flight.
-                    baseline_free_flight: Some(true),
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.55,
-                    amount: 1,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    // Stalks to an altitude above its target, dives, pecks on
-                    // contact, peels off to recover.
-                    template: CharacterBrainTemplate::Aerial,
-                    aggro_radius: 620.0,
-                    attack_range: 60.0,
-                    ..Default::default()
-                })
-                // ⛔⛔ **AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
-                // DISAGREES WITH THIS** (found 2026-08-12, ledger D81). That
-                // preset says `aggro_radius: 120.0` and `attack_range: 0.0`
-                // against this profile's 620 and 60 — one bird, two authorities,
-                // different answers. THIS one wins (`resolve_npc_brain` ranks a
-                // definition's own profile above the row's `default_brain`, and
-                // the enemy road builds character-first), so the preset is dead
-                // weight stating wrong numbers rather than a live conflict.
-                //
-                // ⛔ it cannot be deleted yet, and the blocker is a SCHEMA one:
-                // `default_brain` is a required `String`, so the row has to name
-                // SOME preset — and `parrot_lively` has exactly one namer, this
-                // bird. A character whose definition states its policy should not
-                // have to name a vocabulary it does not use; making that field
-                // optional is what lets the preset go.
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Bite(
-                        ambition_characters::brain::BiteSpec {
-                            windup_s: 0.16,
-                            active_s: 0.10,
-                            recover_s: 0.28,
-                            damage: 1,
-                            reach_px: 48.0,
-                        },
-                    )),
-                    move_style: MoveStyleSpec::Float,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(3);
-            definition
-        }
-        // **The drifting swarms.** Mary-O flies them over her levels; they are
-        // Ambition's characters, and this is where they say what they are.
-        //
-        // ⚠ they author `flies` even though their catalog rows say
-        // `body_kind: Floating` — the catalog is not always THERE. A standalone
-        // demo that borrows a character has no row for it, and a body that
-        // reads its gravity-freedom from a row it cannot see falls out of the
-        // sky. Stating it on the character is what makes the fact travel.
-        "npc_snakes_on_a_paper_plane" | "npc_snakes_on_a_cartesian_plane" => {
-            let paper = id == "npc_snakes_on_a_paper_plane";
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: if paper { 58.0 } else { 38.0 },
-                    move_style: MoveStyleSpec::Float,
-                    baseline_free_flight: Some(true),
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.5,
-                    amount: 1,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    // It baseline_free_flight, it notices nobody, and running into it is the
-                    // entire threat.
-                    template: CharacterBrainTemplate::Aerial,
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(if paper { 1 } else { 2 });
-            definition
-        }
-        // **The Hall's AI Slop, as a placed enemy.** One spawn in the sandbox,
-        // one archetype row, and the same creature already standing on a Hall
-        // pedestal — which is the ontology this campaign is about: one
-        // character, two contexts.
-        //
-        // ⚠ its catalog row's `default_brain` is `melee_brute_striker`, and that
-        // is NOT what this authors. The catalog default is what a PEACEFUL Hall
-        // NPC of this character does; the profile below is what the placed enemy
-        // does, and they are allowed to differ because the first is a catalog
-        // fact and the second is this character's own default policy.
-        "npc_ai_slop" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 42.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.5,
-                    amount: 1,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    // Walks forward, reverses at walls, notices nobody. Its only
-                    // offense is the body it walks into you with.
-                    template: CharacterBrainTemplate::Wanderer,
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(1);
-            definition
-        }
-        // **The burning flying shark** — the first MOUNT to become a character.
-        //
-        // ⭐ its rideability is a character fact (ADR 0020, and Jon's own list
-        // puts "mount/pilot body capabilities" under the definition): a shark is
-        // rideable because of what a shark IS, not because of where it was
-        // placed or who is steering it. `mass: 6.0` is the other half — the pair
-        // rolls around a centre of gravity near the heavier body — and it rides
-        // on `vitals`, which already carried mass.
-        //
-        // ⚠ `is_aerial` and `default_size` do NOT come across: the catalog says
-        // `body_kind: Floating`, and a named character sizes its body to its
-        // authored sprite, which is the same silhouette the row was restating.
-        "npc_burning_flying_shark" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 260.0,
-                    move_style: MoveStyleSpec::Float,
-                    // ⭐ see the parrot: a flying MOUNT states its own flight
-                    // rather than inheriting it from a body-kind enum.
-                    baseline_free_flight: Some(true),
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 1.10,
-                    amount: 2,
-                })
-                .with_death_traits(CharacterDeathTraits {
-                    // A riderless shark's fast charge, stopped dead by a wall,
-                    // detonates the shark.
-                    charge_crash_explodes: true,
-                    ..Default::default()
-                })
-                .with_mount(ambition_characters::actor::CharacterMount {
-                    class: Some("shark".to_string()),
-                    // It rides nothing, and it splashes nothing on death: a dead
-                    // shark drops its rider unharmed.
-                    ..Default::default()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    // Dive at the target, crash, recover.
-                    template: CharacterBrainTemplate::ChargeCrash,
-                    aggro_radius: 1200.0,
-                    attack_range: 200.0,
-                    ..Default::default()
-                })
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Bite(
-                        ambition_characters::brain::BiteSpec {
-                            windup_s: 0.18,
-                            active_s: 0.10,
-                            recover_s: 0.30,
-                            damage: 2,
-                            reach_px: 42.0,
-                        },
-                    )),
-                    move_style: MoveStyleSpec::Float,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(6);
-            definition.vitals.mass = Some(6.0);
-            definition
-        }
-        // **The carried giant (ADR 0020).** A brainless, stationary MOUNT whose
-        // RIDER is the threat — GNU-ton, who stays a boss and is not touched
-        // here.
-        //
-        // ⭐ **the first migrated body that authors `attacks_player: false`**,
-        // and it could not have migrated a day earlier: the character-first
-        // constructor wrote that flag as the literal `true`, so a migrated giant
-        // would have started hunting the player it exists to carry. The row's
-        // hostility half is controller policy and now says so.
-        //
-        // ⚠ `default_size` does NOT come across, and the placement is why: the
-        // sandbox's giant is authored as a 220x220 LDtk box, exactly the
-        // envelope the row was restating, so the size survives without a second
-        // authority stating it. Its `respawn: OnRoomReenter` moves to the
-        // placement, where a respawn policy belongs.
-        "npc_giant_gnu" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    // Grounded heavy locomotion, inert while StandStill — the
-                    // correct gait for a lumbering giant if ever steered.
-                    run_speed: 0.0,
-                    move_style: MoveStyleSpec::WalkHeavy,
-                    ..Default::default()
-                })
-                .with_mount(ambition_characters::actor::CharacterMount {
-                    class: Some("giant".to_string()),
-                    ..Default::default()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::StandStill,
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    // It never seeks and never strikes — and `StandStill` with
-                    // a zero aggro radius already SAYS that. The relationship
-                    // half ("this creature is not your enemy") is the
-                    // PLACEMENT's: the sandbox giant authors `Peaceful`.
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(42);
-            // Far heavier than the scholar riding it, so the mount pair's centre
-            // of gravity sits on the giant and the lighter rider orbits it under
-            // a gravity flip.
-            definition.vitals.mass = Some(8.0);
-            // No `contact_damage`: a prop-like mount does no damage by being
-            // stood next to, which is what `body_contact_damage: false` said.
-            definition
-        }
-        // **THE SHARK RIDERS.** Two creatures, one policy, different numbers —
-        // the case the archetype file answered with two nearly-identical rows
-        // (`pirate_shark_rider`, `pirate_heavy_shark_rider`) whose only real
-        // differences are health, weight, reach and which gun-sword they hold.
-        //
-        // ⚠ **`body_contact_damage: false` on both rows, so neither authors
-        // `contact_damage`.** The rows carried a `contact_strength` and a
-        // `damage_amount` beside a flag that turned them off — numbers that
-        // described nothing. A character says what is true: touching a raider
-        // does not hurt; its gun-sword does.
-        //
-        // ⚠ `default_size` does not come across either: both are sized by their
-        // authored placements (44x78 and 72x110 in `sandbox.ldtk`), which is the
-        // same silhouette the rows were restating.
-        "npc_pirate_raider" | "npc_pirate_heavy_iron_mary" => {
-            let heavy = id == "npc_pirate_heavy_iron_mary";
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: if heavy { 215.0 } else { 230.0 },
-                    move_style: if heavy {
-                        MoveStyleSpec::WalkHeavy
-                    } else {
-                        MoveStyleSpec::Walk
-                    },
-                    ..Default::default()
-                })
-                // A cove raider can board a "shark"-class mount. It is not itself
-                // rideable, which is the other half of the same sentence.
-                .with_mount(ambition_characters::actor::CharacterMount {
-                    pilotable_classes: vec!["shark".to_string()],
-                    ..Default::default()
-                })
-                .with_held_item(if heavy {
-                    "gun_sword_heavy"
-                } else {
-                    "gun_sword"
-                })
-                .with_autonomous_profile(BrainProfile {
-                    // Orbit-and-fire standoff: notice from across the cove,
-                    // commit from just inside it.
-                    template: CharacterBrainTemplate::Skirmisher,
-                    aggro_radius: 1200.0,
-                    attack_range: 1100.0,
-                    // ⭐ a TUNED amble, and the reason `BrainProfile` had to grow
-                    // `patrol_effort` before either of these could migrate: the
-                    // constructor's literal `0.5` would have quietly retuned both.
-                    patrol_effort: if heavy { 0.5116 } else { 0.4783 },
-                    chase_effort: 1.0,
-                    ..Default::default()
-                })
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    // The bolt the gun-sword fires — the SAME verb
-                    // `held_item_by_id` grants, authored here because a
-                    // character states what it DOES and the item states what it
-                    // HOLDS.
-                    ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(
-                        500.0,
-                        if heavy { 3 } else { 2 },
-                    )),
-                    move_style: if heavy {
-                        MoveStyleSpec::WalkHeavy
-                    } else {
-                        MoveStyleSpec::Walk
-                    },
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(if heavy { 6 } else { 4 });
-            definition
-        }
-        // **THE GIANT'S HANDS.** Two bodies of one character: the rig spawns a
-        // left and a right from this single definition, which is a reusable
-        // authored template doing exactly what the campaign is about.
-        //
-        // ⚠ its collision envelope does NOT come across, and could not: a hand
-        // is sized at PLAN time as 0.7 of the giant's own half-extent, so the
-        // row's `default_size: (154.0, 154.0)` was 220 × 0.7 written down a
-        // second time. The geometry is derived; the row was restating it.
-        "npc_giant_gnu_hands" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    // The limb router steers it every tick; the StandStill brain
-                    // below is inert and this speed is never asked for.
-                    run_speed: 0.0,
-                    move_style: MoveStyleSpec::WalkHeavy,
-                    ..Default::default()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::StandStill,
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    // A limb never seeks anybody: the rider's routed strikes
-                    // spawn the damaging hitboxes, and the hand is their vehicle.
-                    // `StandStill` + zero aggro is the whole of that as policy.
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(42);
-            // Lighter than the giant body, heavy enough to feel solid.
-            definition.vitals.mass = Some(2.0);
-            definition
-        }
-        // **THE PRACTICE TARGET.** A body that exists to be hit: no aggro, no
-        // strike back, excluded from the save file, and skipped by the path
-        // assignment — all of which is what `practice_target` says in one word.
-        //
-        // ⚠ **it authors no `contact_damage`, and its old row's comment was
-        // wrong about that.** `sandbag_finite` said *"It still deals light
-        // CONTACT damage if you walk into it"* directly above
-        // `body_contact_damage: false`, which turns exactly that off. The flag
-        // is the gate, so the comment described an intention nobody had
-        // implemented, and a migration that believed the prose would have given
-        // the dummy a hitbox it never had.
-        //
-        // ⚠ its `respawn: InPlace(0.85)` moves to the placement, where a respawn
-        // policy belongs (ADR 0022) — and `sandbag_infinite` does NOT migrate
-        // with it: `never_dies` is a character trait, so the immortal dummy is a
-        // different creature and needs its own registered character. See ledger
-        // D77.
-        "sandbag" => {
-            let mut definition = definition
-                .as_practice_target()
-                .with_locomotion(CharacterLocomotion {
-                    // It never walks anywhere — StandStill drives it — but the
-                    // row authored a speed and a gait, so the character does too.
-                    run_speed: 155.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::StandStill,
-                    // Notices nobody and swings at nobody; the old row's
-                    // `attack_range: 150.0` sat beside `melee: None`.
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    patrol_effort: 0.6774,
-                    chase_effort: 1.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(6);
-            definition
-        }
-        // **THE IMMORTAL TRAINING DUMMY**, and the arm above says why it is a
-        // separate creature rather than a flag on the sandbag: `never_dies` is a
-        // character trait, so "the same dummy, invincible in this room" is not a
-        // thing the model can say. The combat-feel lab's two spawns are this.
-        //
-        // ⚠ **9999 health AND `never_dies`, which is one fact stated twice and
-        // both halves are carried across on purpose.** The pool is what the
-        // damage numbers and any health readout see; `never_dies` is what the
-        // resolver checks before it kills. Dropping either changes what a lab
-        // dummy looks like under a hit, and a migration is the wrong place to
-        // find that out.
-        //
-        // ⛔ no contact damage: the row authored `body_contact_damage: false`
-        // beside a `contact_strength`, which is the archetype format's way of
-        // saying the numbers are inert. A character says it by not speaking.
-        "sandbag_infinite" => {
-            let mut definition = definition
-                .as_practice_target()
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 155.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_death_traits(ambition_characters::actor::CharacterDeathTraits {
-                    never_dies: true,
-                    ..Default::default()
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::StandStill,
-                    // Notices nobody and swings at nobody — the row's
-                    // `attack_range: 150.0` sat beside `melee: None`, exactly as
-                    // the finite sandbag's did.
-                    aggro_radius: 0.0,
-                    attack_range: 0.0,
-                    patrol_effort: 0.6774,
-                    chase_effort: 1.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(9999);
-            definition
-        }
-        // **THE PATENT CLERK, read back off its own row.** Its
-        // `gameplay_description` says *"a high-mastery heavyweight controller …
-        // turns careful observation into unusually strong parries and
-        // finishers"* — heavyweight, controller, finishers — and those three
-        // words are the table. See the module doc; the design was already
-        // written down and nobody had read it back.
-        //
-        // ⛔ MOVES ONLY, and the classification mechanic (MASS / ENERGY / MOVING
-        // / AT REST, reference frames, the elevator recovery) is deliberately NOT
-        // here: those are systems, not swings, and writing them as move windows
-        // would be the wholesale-migration failure mode wearing a content commit.
-        "special_patent_clerk" => {
-            definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset())
-        }
-        // **THE SHADOW ONI LEADER'S ANSWERS.** The fourth adopter removed from
-        // the generic floor (P3.24), and the first table authored from a
-        // character's BARKS rather than a design note — his row carries no
-        // `gameplay_description`, and *"the shadow answers"* / *"one breath
-        // left"* / *"the order obeyed instantly"* are one.
-        //
-        // ⛔ MOVES ONLY. His body still comes from his catalog row; authoring
-        // vitals here would be a retune wearing a migration's commit, and a
-        // table is the whole job.
-        "npc_ninja_shadow_oni_leader" => definition.with_moveset(
-            crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset(),
-        ),
-        // **THE PIRATE ADMIRAL'S CUTLASS.** The second adopter removed from
-        // `smash_fighter_kit()` (P3.24), and the character was already telling us
-        // what its moves are: its row says `default_action_set: "pirate_pistol"`,
-        // the roster comment beside its id reads "pistol + cutlass", and its
-        // sprite is authored at `collision_scale: 1.6` — the largest of the three
-        // fighters with a table.
-        //
-        // ⛔ MOVES ONLY. The admiral's body still comes from its catalog row and
-        // its archetype; authoring vitals or locomotion here would be a retune
-        // wearing a migration's commit, and it is not what removes the adopter.
-        // A table is the whole job.
-        "npc_pirate_admiral" => {
-            definition.with_moveset(crate::pirate_admiral_moveset::pirate_admiral_moveset())
-        }
-        // **THE LAB RAIDER.** The intro raid corridor's other spawn, and the
-        // SECOND creature to point at the shared `medium_striker` policy — which
-        // is what makes that entry a role rather than the goblin's private
-        // profile under a general name. The campaign named this one explicitly:
-        // *"`npc_lab_raider` and `npc_salvage_guard` for the two intro
-        // placements that are literally named that."*
-        //
-        // ⚠ its body facts are the goblin's, because the archetype it wore gave
-        // both the same ones — 5 HP, 170 px/s, 0.70 contact. Carried across
-        // unchanged; making a raider tougher than a goblin is a design decision
-        // and it should be made where design decisions are visible, not
-        // smuggled in by a migration.
-        //
-        // ⛔ no `action_set` here, exactly like the goblin: its kit comes from
-        // its catalog row's `default_action_set: "striker_swipe"`. Authoring one
-        // would be a SECOND declaration of the same fact, which is the muddle
-        // this campaign removes rather than a completeness improvement.
-        "npc_lab_raider" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 170.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.70,
-                    amount: 1,
-                })
-                .with_autonomous_profile_named("medium_striker");
-            definition.vitals.max_health = Some(5);
-            definition
-        }
-        // **THE SALVAGE GUARD.** The intro raid corridor's two `EnemySpawn`s,
-        // which have been wearing `gradient_seeker` — an archetype whose whole
-        // population is those two placements, both literally named "Salvage
-        // Guard". A generic role with exactly one creature in it was never a
-        // role; it was that creature's body filed under a different name.
-        //
-        // ⚠ **its policy is INLINE, and the goblin's is NAMED, and the
-        // difference is the P2.16 rule rather than an inconsistency.** A shared
-        // `autonomous_profiles` entry earns its indirection when several
-        // creatures point at it — `medium_striker` has a goblin band. This
-        // policy has one adopter, so naming it would publish a shared thing
-        // nobody shares and leave a second empty role behind exactly like the
-        // one being deleted.
-        //
-        // ⛔ `respawn: OnRoomReenter` is NOT here: it is the third authority
-        // (placement policy), it is the engine default for a room-scoped enemy,
-        // and the archetype stating it is the muddle this campaign removes.
-        "npc_salvage_guard" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 225.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.80,
-                    amount: 1,
-                })
-                .with_action_set(ambition_characters::brain::ActionSet {
-                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                        windup_s: 0.28,
-                        active_s: 0.08,
-                        recover_s: 0.32,
-                        damage: 1,
-                        reach_px: 28.0,
-                    })),
-                    ranged: None,
-                    special: None,
-                    move_style: MoveStyleSpec::Walk,
-                })
-                .with_autonomous_profile(BrainProfile {
-                    template: CharacterBrainTemplate::Smash,
-                    // ⚠ 900 px is LONG — it is a corridor, and the guard is
-                    // meant to notice you from the far end of it. Carried across
-                    // unchanged; a retune is a separate, visible decision.
-                    aggro_radius: 900.0,
-                    attack_range: 150.0,
-                    patrol_effort: 0.5778,
-                    chase_effort: 1.0,
-                    ..Default::default()
-                });
-            definition.vitals.max_health = Some(4);
-            definition
-        }
-        // **THE GOBLIN BAND.** Five sandbox placements (`annex_goblin_a/b`,
-        // `pg_goblin_a/b/c`) that have been wearing the `medium_striker`
-        // ARCHETYPE — a whole body, borrowed for its fighting style.
-        //
-        // ⭐ **it NAMES its policy rather than carrying one**, which is the
-        // Group-B/Group-C split arriving: the archetype's controller half is now
-        // `autonomous_profiles: { "medium_striker": .. }` in the catalog, and any
-        // number of creatures may point at it while keeping their own bodies. A
-        // lab raider and a skitter are the next two.
-        //
-        // ⚠ the key is PROVIDER-NAMESPACED on assembly, so the reference is
-        // `ambition::medium_striker` rather than the local name — two games may
-        // both author a "medium_striker" and neither wins.
-        "goblin" => {
-            let mut definition = definition
-                .with_locomotion(CharacterLocomotion {
-                    run_speed: 170.0,
-                    move_style: MoveStyleSpec::Walk,
-                    ..Default::default()
-                })
-                .with_contact_damage(ContactDamage {
-                    strength: 0.70,
-                    amount: 1,
-                })
-                // ⭐ **the LOCAL name.** It used to hand-namespace this
-                // (`format!("{}::medium_striker", AMBITION_CONTENT_PROVIDER)`),
-                // which made an author responsible for knowing whether the
-                // surrounding catalog had been assembled yet — the leak Jon's
-                // redirect §8 names. `BrainProfileRef` resolves it against this
-                // definition's own provider.
-                .with_autonomous_profile_named("medium_striker")
-                // ⭐ **AND ITS OWN MOVES** (campaign P3.24, 2026-08-12). Every
-                // seated fighter whose character says nothing takes
-                // `smash_fighter_kit()` — one generic swipe — and that floor's
-                // goal is DELETION, one adopter at a time. The goblin is the
-                // third character in the game to state a table and the first
-                // ENEMY to.
-                .with_moveset(crate::goblin_moveset::goblin_moveset());
-            definition.vitals.max_health = Some(5);
-            definition
-        }
-        _ => definition,
+    // ⭐⭐ **AND THE CREATURE'S OWN FILE STATES THE REST.**
+    //
+    // ⛔ what stood here was a 850-line `match id`, nineteen arms deep: every
+    // migrated creature's vitals, locomotion, abilities and autonomous policy in
+    // one function, each arm carrying the note on which archetype row it
+    // replaced. `character_archetypes.ron` is nearly deleted, but a table that
+    // long is the same authority wearing Rust — and adding a character had
+    // become *edit the catalog data, remember `buildable_only_cast`, add an arm
+    // here, maybe touch a roster*.
+    //
+    // ⇒ `authored/` — one file per creature, beside its moveset, and ONE table
+    // ([`crate::authored::AUTHORED_CAST`]) that the module list already forces
+    // anybody to keep true. See its module doc.
+    match crate::authored::author_for(id) {
+        Some(author) => author(id, definition),
+        None => definition,
     }
 }
 
 /// Every id this game registers as a buildable character — the SELECTION cast
 /// plus the build-only cast. The one list registration iterates.
 pub fn buildable_cast() -> impl Iterator<Item = &'static str> {
-    PLAYABLE_ROSTER
-        .iter()
-        .chain(BUILDABLE_ONLY_CAST.iter())
-        .copied()
+    PLAYABLE_ROSTER.iter().copied().chain(buildable_only_cast())
 }
 
 /// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids
@@ -1957,14 +1145,14 @@ mod tests {
     }
 
     /// Every id in the build-only cast authors its intrinsics. See
-    /// [`BUILDABLE_ONLY_CAST`]'s own warning: registering an id whose facts are
+    /// [`buildable_only_cast`]'s own warning: registering an id whose facts are
     /// still in the roster is how a character silently loses them.
     #[test]
     fn every_build_only_id_authors_something() {
-        for id in BUILDABLE_ONLY_CAST {
+        for id in buildable_only_cast() {
             let bare =
                 ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
-                    *id,
+                    id,
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
                 );
@@ -2008,7 +1196,7 @@ mod tests {
             )];
             let exempt = KNOWN_BARE_REGISTRATIONS
                 .iter()
-                .any(|(known, _)| known == id);
+                .any(|(known, _)| *known == id);
             assert!(
                 authors_a_body || authors_only_policy || exempt,
                 "`{id}` is registered as buildable and authors NOTHING — not a \
@@ -2067,9 +1255,9 @@ mod tests {
         assert!(
             unexpected.is_empty(),
             "these characters author something in `authored_intrinsics` and appear \
-             on NEITHER `PLAYABLE_ROSTER` nor `BUILDABLE_ONLY_CAST`, so the arm \
+             on NEITHER `PLAYABLE_ROSTER` nor `buildable_only_cast()`, so the arm \
              runs for nobody and what it authors reaches no body: {unexpected:?}. \
-             Author the character's vitals and add it to `BUILDABLE_ONLY_CAST` — \
+             Author the character's vitals and add it to `buildable_only_cast` — \
              or, if it genuinely cannot be registered yet, add it to \
              `KNOWN_UNREGISTERED` with the reason and what unblocks it."
         );
@@ -2188,10 +1376,10 @@ mod tests {
     fn the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast() {
         let catalog = load_catalog();
         let playable: std::collections::BTreeSet<&str> = PLAYABLE_ROSTER.iter().copied().collect();
-        for id in BUILDABLE_ONLY_CAST {
+        for id in buildable_only_cast() {
             assert!(
                 catalog.display_name(id).is_some(),
-                "BUILDABLE_ONLY_CAST id '{id}' has no character_catalog.ron row",
+                "buildable_only_cast() id '{id}' has no character_catalog.ron row",
             );
             assert!(
                 !playable.contains(id),
@@ -2204,7 +1392,7 @@ mod tests {
         let union: Vec<&str> = buildable_cast().collect();
         assert_eq!(
             union.len(),
-            PLAYABLE_ROSTER.len() + BUILDABLE_ONLY_CAST.len()
+            PLAYABLE_ROSTER.len() + buildable_only_cast().count()
         );
     }
 

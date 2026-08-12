@@ -11,6 +11,7 @@
 mod content_it_sync;
 
 mod aerial_authoring;
+mod authored_spawns_resolve;
 mod boss_fight_validator;
 mod boss_presentation;
 mod boss_seeds;

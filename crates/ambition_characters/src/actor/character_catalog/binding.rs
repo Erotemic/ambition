@@ -124,8 +124,7 @@ impl std::fmt::Display for BrainPresetRef {
 /// `BossBehaviorProfile` from. A newtype over `String` so it can't be confused
 /// with a character id, a catalog preset id, or a hostile archetype id.
 ///
-/// Like [`HostileArchetypeId`] this is *just* a carrier: `ambition_characters`
-/// never interprets it (the boss catalog and the `id → BossPatternCfg` projection
+/// It is *just* a carrier: `ambition_characters` never interprets it (the boss catalog and the `id → BossPatternCfg` projection
 /// live in `ambition_platformer2d_actor_monolith`). It is what an [`AutonomousSource::Boss`] retains so
 /// a possessed boss has a reconstructible autonomous mode independent of the live
 /// (masked) `Brain`.

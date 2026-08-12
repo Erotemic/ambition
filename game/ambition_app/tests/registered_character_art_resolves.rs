@@ -123,12 +123,12 @@ fn the_shipped_cast_has_one_authority_per_character() {
 ///
 /// D73 phase 2 moved `explodes_on_death` and `divides_on_death` off
 /// `character_archetypes.ron` and onto the two mite CHARACTERS. That leg —
-/// authored in `ambition_content`, registered through `BUILDABLE_ONLY_CAST`,
+/// authored in `ambition_content`, registered through `buildable_only_cast()`,
 /// prepared into the registry the spawn path reads — is only true of the
 /// assembled app, so only the assembled app can assert it.
 ///
 /// ⛔ **the failure this exists for is silent.** Delete either mite from the
-/// build-only cast, or empty its arm of `authored_intrinsics`, and nothing
+/// build-only cast, or empty its `authored/` module, and nothing
 /// crashes: the placement still names a character, `plan.definition()` reports
 /// it missing or bodiless, the body keeps its archetype — which no longer says
 /// anything about death — and a sandbox mite quietly stops exploding. Nobody

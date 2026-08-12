@@ -371,13 +371,18 @@ pub(crate) fn provoke_actor_in_place(
                 em.insert((provoked_brain, provoked_action_set));
             }
         });
-        // Record the provoked ARCHETYPE in the autonomous binding. The stable
-        // archetype id is all a rewind needs: the whole provoked config above is a
-        // deterministic function of it (via `project_provoked_archetype`), so a
-        // snapshot reconcile RERUNS that construction in either rewind direction
-        // rather than rebuilding the catalog default over it. Deferred so it lands
-        // with the `(brain, action_set)` insert; a no-op for anonymous NPCs/enemies
-        // that carry no binding.
+        // Record that this body is provoked into the ENGINE's default policy.
+        // A rewind rebuilds the same projection from the same two constants
+        // (`autonomous_reconcile::reconstruct_provoked_default`), so the provoked
+        // mode survives in either direction without a catalog default being
+        // rebuilt over it.
+        //
+        // ⚠ this used to say "the stable archetype id is all a rewind needs",
+        // and the id it recorded was the string `"combatant"` on every call this
+        // repository ever made. `provoke()` carries nothing now.
+        //
+        // Deferred so it lands with the `(brain, action_set)` insert; a no-op
+        // for anonymous NPCs/enemies that carry no binding.
         commands.queue(move |world: &mut bevy::prelude::World| {
             if let Some(mut binding) =
                 world.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>(entity)

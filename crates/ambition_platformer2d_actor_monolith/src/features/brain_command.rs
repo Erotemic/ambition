@@ -18,11 +18,14 @@
 //!   (`Brain::Player`) or mount control (`Mounted`) is skipped: its autonomous
 //!   selection is not the live brain, so switching it would corrupt live control.
 //!
-//! Provocation/challenge installs a hostile roster brain through its own
-//! authority (`provoke_actor_in_place`); it records the archetype in the binding
-//! as [`AutonomousSource::Provoked`](ambition_characters::actor::character_catalog::AutonomousSource::Provoked),
-//! which lets snapshot reconciliation RERUN the roster construction to
-//! reconstruct that mode rather than rebuild the catalog default over it.
+//! Provocation/challenge installs a hostile brain through its own authority
+//! (`provoke_actor_in_place`); it records WHICH policy in the binding — the
+//! engine's default, or one the creature authored — which lets snapshot
+//! reconciliation rebuild that mode rather than the catalog default over it.
+//!
+//! ⚠ this said "installs a hostile ROSTER brain" and "RERUN the roster
+//! construction", naming a variant that carried an archetype id. Neither is true
+//! since 2026-08-12: provocation states a policy and rebuilds no body.
 //! Ordinary gameplay never replaces a character-backed NPC's `Brain` directly;
 //! it emits a `BrainCommand` (autonomous catalog change) or routes through the
 //! provoke authority (disposition change).

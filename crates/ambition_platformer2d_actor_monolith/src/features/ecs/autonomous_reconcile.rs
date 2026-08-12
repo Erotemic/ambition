@@ -9,10 +9,18 @@
 //! RECONSTRUCTS it here, the same way spawn / provocation build it live. This is
 //! what makes provocation rollback-correct in BOTH directions:
 //!
-//! - Rewind INTO a provoked snapshot ([`AutonomousSource::Provoked`]): rerun
-//!   the roster archetype construction ([`project_provoked_archetype`], shared
-//!   with the live provoke flip) to rebuild the hostile brain / action set /
-//!   tuning / capabilities from the archetype id the binding retained.
+//! - Rewind INTO a provoked snapshot: rebuild the MIND and the KIT — never the
+//!   body — from the policy the binding retained. Two sources say what that
+//!   policy is: [`AutonomousSource::ProvokedDefault`] means the engine's own
+//!   ([`provoked_projection`], shared with the live provoke flip), and
+//!   [`AutonomousSource::ProvokedProfile`] means one the creature authored.
+//!
+//!   ⚠ this paragraph used to describe rerunning "the roster archetype
+//!   construction … tuning / capabilities from the archetype id the binding
+//!   retained". All three of those nouns are gone: the id was the string
+//!   `"combatant"` on every call ever made, the tuning and capabilities were a
+//!   body being replaced by a provocation, and the roster is not consulted on
+//!   either road.
 //! - Rewind to BEFORE a challenge (a catalog source over a still-hostile config):
 //!   restore the peaceful catalog config the character spawned with.
 //!
@@ -128,8 +136,8 @@ pub(crate) struct ProvokedArchetype {
 /// and [`DEFAULT_PROVOKED_HEALTH`](super::brain_builders::DEFAULT_PROVOKED_HEALTH),
 /// so provoking a body no longer touches the archetype roster at all — that
 /// lookup was the last reason the live path knew the ontology existed.
-/// [`project_provoked_archetype`] above is the rollback road's entry, which
-/// still resolves the archetype id a binding recorded.
+/// [`reconstruct_provoked_default`] is the rollback road's entry, and it states
+/// the same two constants — so the twins cannot disagree about the policy.
 ///
 /// ⚠ the two are pinned equal while `combatant` survives
 /// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
@@ -319,11 +327,17 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
 /// gravity to their own restored blobs.
 /// **Rebuild a provoked CHARACTER's mind, and nothing else.**
 ///
-/// ⭐ the counterpart to [`reconstruct_provoked`], which rebuilds a whole body
-/// because an archetype IS the creature. A character that states what it becomes
-/// when struck changed only its controller policy and its relationship, so a
-/// rewind restores only those — the body it came back to is the one its
-/// character built.
+/// ⭐ the counterpart to [`reconstruct_provoked_default`], which rebuilds the
+/// ENGINE's provoked policy for a body that states none. A creature that states
+/// what it becomes when struck changed its controller policy and its
+/// relationship, so a rewind restores those — the body it came back to is the
+/// one its character built.
+///
+/// ⚠ this note used to say the counterpart "rebuilds a whole body because an
+/// archetype IS the creature". It did, and that was the defect: generic
+/// provocation replaced tuning, gravity, HP pool, capabilities and sprite from
+/// the `combatant` row. Neither road rebuilds a body now, so the DIFFERENCE
+/// between them is only which policy is restored.
 ///
 /// ⚠ a profile the registry no longer publishes leaves the live brain alone,
 /// which is the same answer the archetype path gives for a roster it cannot

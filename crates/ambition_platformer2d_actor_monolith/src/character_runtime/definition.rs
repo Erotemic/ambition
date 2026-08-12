@@ -591,10 +591,9 @@ impl PreparedCharacterDefinition {
         self.vfx_dependencies.iter().map(String::as_str)
     }
 
-    /// Namespaces preparation resolved against a real vocabulary.
-    pub fn checked_namespaces(&self) -> impl ExactSizeIterator<Item = &&'static str> {
-        self.checked.iter()
-    }
+    // ⛔ `checked_namespaces()` was here — the plural twin of `was_checked()`
+    // below, written for symmetry and never called (compiler-verified,
+    // 2026-08-12). `was_checked` asks the question consumers actually have.
 
     /// Was this namespace actually verified for this character?
     ///
@@ -619,10 +618,9 @@ impl PreparedCharacterDefinition {
         Some(self.voice[(rotation as usize) % self.voice.len()].as_str())
     }
 
-    /// Every line this character brought.
-    pub fn voice(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.voice.iter().map(String::as_str)
-    }
+    // ⛔ `voice()` was here — the plural twin of `voice_line()` above, same
+    // shape and same fate. Nothing ever wanted the whole pool; the bark road
+    // asks for one line at a rotation.
 
     /// The token the engine materializer demands for this character's art.
     ///
@@ -705,6 +703,21 @@ impl CharacterBindings {
         self
     }
 
+    /// ⛔⛔ **NOTHING CALLS THIS, WHICH MEANS PORTRAIT TARGETS ARE NEVER
+    /// CHECKED** (found 2026-08-12 by `scripts/probe_dead_public_fns.py`; ledger
+    /// D106).
+    ///
+    /// It is the ONLY way to populate `self.portraits`, so the field is `None`
+    /// in every composition, `PortraitTarget::NAME` never joins
+    /// `checked_namespaces`, and preparation's report says *"we did not look"*
+    /// about portraits — permanently, and correctly, which is what makes it
+    /// invisible. A character naming a portrait nobody authored is a fault
+    /// nothing can currently raise.
+    ///
+    /// ⚠ **kept deliberately.** Deleting it would delete the only road to the
+    /// check rather than the reason it is unused: `with_available_sheets` beside
+    /// it IS wired, so the pattern works and this one was simply never
+    /// connected.
     pub fn with_available_portraits<I, S>(mut self, targets: I) -> Self
     where
         I: IntoIterator<Item = S>,

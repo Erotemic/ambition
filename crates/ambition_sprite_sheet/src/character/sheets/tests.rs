@@ -179,3 +179,83 @@ fn a_sheet_with_no_published_body_still_reads_collision_scale() {
     );
     assert!((big.y - small.y * 2.0).abs() < 1e-4);
 }
+
+/// **A CLIP RESOLVES TO ITS ROW SLOT, AND A MISSING ONE RESOLVES TO NOTHING.**
+///
+/// ⭐ sprite redirect P0. Everything else on this spec is keyed by
+/// `CharacterAnim` — 56 semantic body states — and the new fighter sheets carry
+/// rows it has no variant for at all (`smash_forward`, `air_dodge`, `tumble`).
+/// Growing the enum toward the 271-entry fighter-motion catalog is what the
+/// redirect rejects; the authored clip name is the key instead.
+///
+/// ⛔ **the `None` term is the important one.** The habit this path replaces is
+/// `row_index_of(name).unwrap_or(0)`, which silently draws ROW ZERO — idle — for
+/// a row the sheet does not have, and looks exactly like a character that never
+/// swings. An unresolvable chain must say so, so the caller can fall back to the
+/// semantic pose ladder.
+#[test]
+fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
+    let ron_text = r#"
+            (
+                target: "synthetic_fighter",
+                image: "synthetic_fighter.png",
+                label_width: 0,
+                frame_width: 64,
+                frame_height: 64,
+                rows: [
+                    (
+                        animation: "idle",
+                        row_index: 0,
+                        frame_count: 1,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                    (
+                        animation: "attack_side",
+                        row_index: 1,
+                        frame_count: 3,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                    (
+                        animation: "slash",
+                        row_index: 2,
+                        frame_count: 2,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                    (
+                        animation: "smash_forward",
+                        row_index: 3,
+                        frame_count: 5,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                ],
+            )
+        "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
+    let spec = spec_from_record(&record, &SheetTuning::new(1.0, 0));
+
+    assert_eq!(
+        spec.clip_slot(["smash_forward", "attack_side", "slash"]),
+        Some(3),
+        "the exact authored row must win over its fallbacks"
+    );
+    assert_eq!(
+        spec.clip_slot(["air_back", "attack_side", "slash"]),
+        Some(1),
+        "a sheet without the exact row falls through the AUTHORED chain, in order"
+    );
+    assert_eq!(
+        spec.clip_slot(["air_back", "tumble", "knockdown"]),
+        None,
+        "a sheet with none of the chain must answer NOTHING — row zero here is \
+         idle, and drawing idle for a missing attack row looks like a character \
+         that does not swing"
+    );
+
+    // ⚠ and the slot indexes the real row: a resolved clip must be able to draw.
+    assert_eq!(spec.row_at(3).frame_count, 5, "slot 3 is the 5-frame smash");
+    assert_eq!(spec.flat_index_at(3, 2), spec.flat_index_at(3, 0) + 2);
+}

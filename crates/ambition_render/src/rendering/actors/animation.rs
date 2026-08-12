@@ -21,6 +21,14 @@ pub(crate) fn apply_character_frame(
     animator: &mut CharacterAnimator,
     anchor: Option<&mut bevy::sprite::Anchor>,
     anim: ambition_sprite_sheet::character::CharacterAnim,
+    // **What the body's ACTIVE MOVE asks to be drawn as**, when one is playing.
+    //
+    // ⭐⭐ sprite redirect P0: `anim` is the 56-variant semantic vocabulary and
+    // the new fighter sheets carry rows it has no variant for — `smash_forward`,
+    // `air_dodge`, `tumble`. A move already names its clip and its fallbacks, so
+    // the exact row is drawn when this sheet has it, the author's fallbacks when
+    // it does not, and `anim`'s pose ladder when it has none of them.
+    clip: Option<&ambition_sim_view::ClipRequest>,
     dt: f32,
     facing: f32,
     gravity_dir: ambition_platformer2d_core::Vec2,
@@ -42,7 +50,10 @@ pub(crate) fn apply_character_frame(
     } else {
         stance_ratio_y
     };
-    animator.request(anim);
+    match clip {
+        Some(request) => animator.request_clip(request.chain(), anim),
+        None => animator.request(anim),
+    }
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their
@@ -62,7 +73,8 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    let flip = ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir);
+    let flip =
+        ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir);
     sprite.flip_x = flip;
     sprite.color = color;
     // Self-capture the trim basis from the spawn-built sprite the first time we
@@ -130,6 +142,12 @@ pub fn animate_player(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             pose.anim,
+            // ▢ **THE PLAYER PATH DOES NOT CARRY ITS MOVE'S CLIP YET** (sprite
+            // redirect P0). `PlayerPoseView` is rebuilt from a query already near
+            // Bevy's 16-member tuple limit, so adding `MovePlayback` there is its
+            // own change rather than a line in this one. Every ACTOR — which is
+            // every CPU fighter and every NPC — resolves its clip below.
+            None,
             dt,
             pose.facing,
             pose.gravity_dir,
@@ -200,6 +218,7 @@ pub fn animate_characters(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             frame.anim,
+            frame.clip.as_ref(),
             dt,
             frame.facing,
             gravity.dir_at(frame.pos),
@@ -257,6 +276,8 @@ pub fn animate_feature_sprites(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             ambition_sprite_sheet::character::CharacterAnim::Idle,
+            // A prop plays no moves.
+            None,
             dt,
             1.0,
             ambition_platformer2d_core::Vec2::Y,
@@ -323,6 +344,8 @@ pub fn animate_props(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             ambition_sprite_sheet::character::CharacterAnim::Idle,
+            // A prop plays no moves.
+            None,
             dt,
             1.0,
             ambition_platformer2d_core::Vec2::Y,

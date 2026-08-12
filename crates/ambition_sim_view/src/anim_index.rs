@@ -52,16 +52,58 @@ pub struct ActorSpriteData {
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
     /// ordinary actor is picked exactly as before.
     pub anim_override: Option<&'static ActorAnimOverride>,
+    /// **The move this body is playing**, so the drawn row can be the one the
+    /// move names. `None` for a body that is not mid-move, which is most of them
+    /// most of the time. See [`ActorAnimFrame::clip`].
+    pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
 /// the bits the per-frame apply needs that aren't in the anim itself — world
 /// position (for localized-gravity facing) and facing sign.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ActorAnimFrame {
     pub anim: CharacterAnim,
     pub pos: ae::Vec2,
     pub facing: f32,
+    /// **The authored clip the body's ACTIVE MOVE asks to be drawn as**, with
+    /// its fallbacks, or `None` when no move is playing.
+    ///
+    /// ⭐⭐ sprite redirect P0. `anim` is a [`CharacterAnim`] — 56 semantic body
+    /// states — and the new fighter sheets carry rows it has no variant for
+    /// (`smash_forward`, `air_dodge`, `tumble`, `tech_roll`). `MoveSpec` already
+    /// names its clip and its fallback chain and says its timeline is
+    /// authoritative for gameplay AND presentation, so the read-model carries
+    /// the request and the renderer resolves it against the sheet it is about
+    /// to draw.
+    ///
+    /// ⚠ **it is a REQUEST, not a row.** Whether `smash_forward` exists is a
+    /// question about one sheet, so it is answered at the draw
+    /// (`CharacterAnimator::request_clip`) and never here — that is the same
+    /// rule `AnimRow` binding follows everywhere else.
+    ///
+    /// ⚠ **and `anim` stays populated**, because it is what a sheet with none of
+    /// the chain draws. A body playing a move is still semantically in a pose.
+    pub clip: Option<ClipRequest>,
+}
+
+/// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
+///
+/// ⚠ owned strings rather than borrows: this is a materialized read-model that
+/// outlives the frame's queries, and a move's chain is three or four short names
+/// resolved once per drawn actor.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClipRequest {
+    pub clip: String,
+    pub fallbacks: Vec<String>,
+}
+
+impl ClipRequest {
+    /// The chain in preference order — the exact clip, then the author's
+    /// fallbacks. Feed straight to `CharacterAnimator::request_clip`.
+    pub fn chain(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.clip.as_str()).chain(self.fallbacks.iter().map(String::as_str))
+    }
 }
 
 // The per-actor identity accessors (`ecs_actor_name`, `ecs_actor_is_sandbag`,
@@ -72,9 +114,10 @@ pub struct ActorAnimFrame {
 // per-frame ANIM frame below stays a live read until slice B materializes it.
 
 /// Materialized per-frame animation pose for every actor, keyed by
-/// [`FeatureId`] — the MOVING half of the actor read-model (`ActorAnimFrame` is
-/// `Copy`, so the rebuild just overwrites; a `String` allocates only for a
-/// genuinely new id). Presentation reads the pose by id and never borrows the
+/// [`FeatureId`] — the MOVING half of the actor read-model. ⚠ `ActorAnimFrame`
+/// stopped being `Copy` when it gained the active move's clip request
+/// (2026-08-11): the chain is owned strings, because a materialized read-model
+/// outlives the queries that built it. Presentation reads the pose by id and never borrows the
 /// actor clusters to animate. Because this pose is presentation-ONLY, its
 /// rebuild is registered in the render presentation plugin — NOT the sim
 /// schedule — so a headless / RL build never pays for poses it won't draw.
@@ -85,8 +128,11 @@ pub struct ActorAnimIndex {
 }
 
 impl ActorAnimIndex {
-    pub fn get(&self, id: &str) -> Option<ActorAnimFrame> {
-        self.frames.get(id).map(|(frame, _)| *frame)
+    /// ⚠ **borrowed rather than copied** since the frame gained the active
+    /// move's clip chain — the caller draws from it in place and never needs to
+    /// own it, so nothing clones the strings per actor per frame.
+    pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {
+        self.frames.get(id).map(|(frame, _)| frame)
     }
 
     pub fn len(&self) -> usize {
@@ -165,6 +211,13 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 anim,
                 pos: a.kin.pos,
                 facing: a.kin.facing,
+                // ⭐ what the ACTIVE MOVE asks to be drawn as. The move's own
+                // timeline is authoritative for presentation as well as
+                // gameplay, so this is the move speaking, not a guess about it.
+                clip: a.playback.map(|playback| ClipRequest {
+                    clip: playback.spec.clip.clip.clone(),
+                    fallbacks: playback.spec.clip.fallbacks.clone(),
+                }),
             },
         );
     }

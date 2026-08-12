@@ -12,7 +12,7 @@ normal tooling is engine work; editing the source is not.
 
 | Item | State |
 | --- | --- |
-| P0 clip-identity resolution (`ClipBinding` → sheet row) | ◑ — `SheetRecord::first_bound_row(chain)` lands on the EXISTING `AnimRow` vocabulary: first row of the authored chain that the sheet actually has, `Option` rather than `unwrap_or(0)`. ▢ the renderer does not consult it yet — `pick_actor_anim` still maps `AttackIntent → CharacterAnim` without looking at `MovePlayback.spec.clip` |
+| P0 clip-identity resolution (`ClipBinding` → sheet row) | ✔ **DONE for every ACTOR** — `first_bound_row` → `CharacterSheetSpec::clip_slot` → `CharacterAnimator::request_clip`, and `ActorAnimFrame` carries the active `MovePlayback`'s chain so the renderer resolves it against the sheet it is about to draw. `CharacterAnim` is untouched at 56 variants. ▢ **the local PLAYER path still passes `None`**: `PlayerPoseView` is rebuilt from a query already near Bevy's 16-member limit, so threading `MovePlayback` there is its own change |
 | P1 Robot v3 moves request their exact new rows | ✔ **DONE** — all eleven asked for `"attack"`, so a 132-row sheet drew ONE animation for a jab, three smashes and five aerials. Each names its own row now, with the shared chain `<clip> → attack_side → attack → slash → idle`. ⚠ this is the REQUEST half; the drawing half is P0's remaining ▢ |
 | P2 generic fighter-state rows (air_dodge / tumble / knockdown / getup / tech) | ▢ |
 | P3 **Noether's new art** | ⛔⛔ **BLOCKED ON JON, and Jon has now asked for it twice.** `noether_gameplay.py` DOES NOT EXIST. Re-checked at submodule `15845f8` (2026-08-11, after the bump): still missing. See below for the four symbols it must export |

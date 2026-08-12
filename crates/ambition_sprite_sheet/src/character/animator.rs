@@ -33,6 +33,17 @@ pub struct CharacterAnimator {
     /// common single-PNG sheet (the renderer then never swaps).
     pub pages: Vec<CharacterSpritePage>,
     pub current: CharacterAnim,
+    /// **An authored CLIP the sheet actually has, when one was requested.**
+    ///
+    /// ⭐ sprite redirect P0. `current` is a [`CharacterAnim`] — 56 semantic body
+    /// states — and the new fighter sheets carry rows it has no variant for
+    /// (`smash_forward`, `air_dodge`, `tumble`). A move names its clip; when this
+    /// sheet has it, the drawing is keyed by ROW and `current` stops deciding.
+    ///
+    /// ⚠ `None` is the ordinary case and means *draw the semantic pose* — every
+    /// character without an authored move playing, and every sheet that has none
+    /// of a move's chain.
+    clip_slot: Option<usize>,
     pub frame: usize,
     pub elapsed: f32,
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
@@ -50,6 +61,8 @@ impl CharacterAnimator {
             spec: asset.spec.clone(),
             pages: asset.pages.clone(),
             current: CharacterAnim::Idle,
+            // No move is playing on a body that has just been built.
+            clip_slot: None,
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
@@ -104,7 +117,13 @@ impl CharacterAnimator {
 
     pub fn request(&mut self, anim: CharacterAnim) {
         let anim = self.spec.resolve_anim(anim);
-        if self.current == anim {
+        if self.current == anim && self.clip_slot.is_none() {
+            return;
+        }
+        // ⚠ leaving a stale clip here would pin the body to one authored row
+        // forever: a semantic request is also a statement that no clip is playing.
+        let had_clip = self.clip_slot.take().is_some();
+        if self.current == anim && !had_clip {
             return;
         }
         self.current = anim;
@@ -113,8 +132,42 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// **Play an authored CLIP if this sheet has one of `chain`; otherwise the
+    /// semantic pose.**
+    ///
+    /// ⭐⭐ the whole of P0's preference rule in one call: the exact row, then the
+    /// author's fallbacks, then [`Self::request`]'s structural pose ladder. A
+    /// 132-row fighter sheet draws `smash_forward`; a sheet with only
+    /// `idle/walk/slash/hit` draws `slash`; a sheet with none of it draws the
+    /// pose the body is semantically in, exactly as before this existed.
+    ///
+    /// ⛔ **no `unwrap_or(0)`.** An unresolvable chain must fall to the SEMANTIC
+    /// ladder, never to row zero — drawing idle for a missing attack row looks
+    /// like a character that does not swing.
+    pub fn request_clip<'a>(
+        &mut self,
+        chain: impl IntoIterator<Item = &'a str>,
+        fallback: CharacterAnim,
+    ) {
+        let Some(slot) = self.spec.clip_slot(chain) else {
+            self.request(fallback);
+            return;
+        };
+        if self.clip_slot == Some(slot) {
+            return;
+        }
+        self.clip_slot = Some(slot);
+        self.frame = 0;
+        self.elapsed = 0.0;
+        self.clip_held = false;
+    }
+
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
+        // ⭐ an authored clip is keyed by ROW; everything else by pose.
+        if let Some(slot) = self.clip_slot {
+            return self.tick_slot(slot, dt);
+        }
         let row = self.spec.row(self.current);
         if row.frame_count == 0 || row.duration_secs <= 0.0 {
             return self.spec.flat_index(self.current, self.frame);
@@ -138,5 +191,29 @@ impl CharacterAnimator {
             }
         }
         self.spec.flat_index(self.current, self.frame)
+    }
+
+    /// [`Self::tick`] for an authored clip, keyed by its resolved row slot.
+    ///
+    /// ⚠ **an authored clip never loops.** A move's timeline owns how long it
+    /// runs; the drawing holds its last frame rather than restarting, which is
+    /// what `non_looping` says about every attack pose in the semantic
+    /// vocabulary too.
+    fn tick_slot(&mut self, slot: usize, dt: f32) -> usize {
+        let row = self.spec.row_at(slot);
+        if row.frame_count == 0 || row.duration_secs <= 0.0 || self.clip_held {
+            return self.spec.flat_index_at(slot, self.frame);
+        }
+        self.elapsed += dt;
+        while self.elapsed >= row.duration_secs {
+            self.elapsed -= row.duration_secs;
+            if self.frame + 1 >= row.frame_count {
+                self.frame = row.frame_count - 1;
+                self.clip_held = true;
+                break;
+            }
+            self.frame += 1;
+        }
+        self.spec.flat_index_at(slot, self.frame)
     }
 }

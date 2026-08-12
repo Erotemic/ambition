@@ -122,6 +122,37 @@ impl CharacterSheetSpec {
         self.record.flat_index_in_page(self.record_row(anim), frame)
     }
 
+    /// **The row slot an authored CLIP CHAIN resolves to on this sheet.**
+    ///
+    /// ⭐⭐ **the row-keyed half of the drawing path** (sprite redirect P0). Every
+    /// lookup above is keyed by [`CharacterAnim`], a 56-variant vocabulary — and
+    /// the new fighter sheets carry rows it has no variant for at all:
+    /// `smash_forward`, `air_dodge`, `tumble`, `knockdown`, `tech_roll`. Growing
+    /// the enum toward the 271-entry fighter-motion catalog is the fix the
+    /// redirect explicitly rejects; a `MoveSpec` already names its clip and its
+    /// fallbacks, so the authored name is the key.
+    ///
+    /// ⚠ **`CharacterAnim` is not replaced.** It stays the semantic body-state
+    /// vocabulary and the structural fallback: a caller asks for a clip, and when
+    /// the sheet has none of the chain it asks for a pose instead.
+    pub fn clip_slot<'a>(&self, chain: impl IntoIterator<Item = &'a str>) -> Option<usize> {
+        self.record.first_bound_row(chain).map(|bound| bound.slot())
+    }
+
+    /// Per-row timing for a slot resolved by [`Self::clip_slot`].
+    pub(crate) fn row_at(&self, slot: usize) -> RowInfo {
+        let row = &self.record.rows[slot];
+        RowInfo {
+            frame_count: row.frame_count as usize,
+            duration_secs: row.duration_secs,
+        }
+    }
+
+    /// Page-local flat atlas index for a slot resolved by [`Self::clip_slot`].
+    pub fn flat_index_at(&self, slot: usize, frame: usize) -> usize {
+        self.record.flat_index_in_page(slot, frame)
+    }
+
     /// Pixel extent of page 0's atlas texture (custom-material UV helper).
     pub fn atlas_texture_size(&self) -> UVec2 {
         self.atlas_texture_size_for_page(0)

@@ -34,6 +34,10 @@ pub(super) fn sync_player_presentation(
     // things in the game that shakes the screen, and how hard it is allowed to
     // is now the ROUTE's statement rather than a constant every game shares.
     shake_tuning: ambition_platformer2d::platformer::camera_ease::CameraShakeTuning,
+    // **The route's reference hitlag**, against which this frame's freeze is a
+    // severity. `None` = no route feel installed = no hit shake; see
+    // `camera_ease::hit_shake_amplitude`.
+    reference_hitlag_s: Option<f32>,
     is_primary: bool,
     // A13: the player body's presentation source, so its jump/dash/land cues
     // resolve in ITS character's bank rather than the session provider's.
@@ -49,6 +53,35 @@ pub(super) fn sync_player_presentation(
     let shake_amplitude = ambition_platformer2d::platformer::camera_ease::hard_fall_shake_amplitude(
         frame_out.events.ground_contact.landing_impact_speed(),
     );
+    // **A LANDED HIT SHAKES THE SCREEN, SCALED BY HOW HARD IT LANDED** (P4.37).
+    //
+    // ⛔ nothing did this. `kick` had two production call sites in the whole
+    // workspace — a boss phase change and the hard-fall landing directly above —
+    // so a smash that sent a fighter to the blast zone and a jab moved this
+    // camera identically, and hitlag alone carried the whole difference.
+    //
+    // ⭐ **the hitstop IS the severity, already resolved.** `hitlag_duration`
+    // wrote it from the knockback the hit actually produced, so reading it back
+    // keeps the camera body-generic: no move ids, no per-character table, and a
+    // character that authors a heavier launch gets a heavier camera for free.
+    //
+    // ⚠ **kicked every frame the freeze is live, deliberately, and it is not a
+    // repeat.** `kick` is strongest-wins, so re-asserting the same amplitude
+    // HOLDS the shake for exactly the freeze and releases into the decay after —
+    // which is the beat a platform fighter wants, and it needs no edge-detection
+    // state. A `Local` remembering last frame's timer would be cross-frame state
+    // in a rollback schedule, for a effect that is already idempotent.
+    if is_primary {
+        if let Some(reference) = reference_hitlag_s {
+            let hit_shake = ambition_platformer2d::platformer::camera_ease::hit_shake_amplitude(
+                combat.hitstop_timer,
+                reference,
+            );
+            if hit_shake > 0.0 {
+                shake.kick(hit_shake, shake_tuning);
+            }
+        }
+    }
     if is_primary && shake_amplitude > 0.0 {
         shake.kick(shake_amplitude, shake_tuning);
         sfx_writer.write_for_body(

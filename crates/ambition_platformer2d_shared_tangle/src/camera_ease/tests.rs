@@ -123,3 +123,85 @@ fn hard_fall_saturates_through_kick_cap() {
     shake.kick(raw, CameraShakeTuning::default());
     assert!(shake.amplitude_px <= 14.0);
 }
+
+/// **A REFERENCE CONNECT SHAKES NOTHING, AND A SMASH SHAKES HARD** — the whole
+/// of what P4.37 asked for, expressed as a scale rather than a special case.
+///
+/// ⛔ before 2026-08-12 no landed hit moved this camera at any severity, so the
+/// row's goal (*"a strong hit should feel materially different from a weak
+/// poke"*) was carried entirely by hitlag.
+///
+/// ⚠ the three assertions are three different claims and none implies the
+/// others: a dead zone at the reference, a real jolt at the ceiling, and
+/// MONOTONICITY between them. A function that returned a constant above the
+/// floor would satisfy the first two.
+#[test]
+fn only_a_hit_harder_than_standard_moves_the_camera() {
+    // The engine's shipped reference and the `hitlag_duration` band around it:
+    // floored at half, capped at 4x.
+    const REFERENCE: f32 = 0.070;
+
+    assert_eq!(
+        super::hit_shake_amplitude(REFERENCE * 0.5, REFERENCE),
+        0.0,
+        "the weakest connect must not rattle the camera — it is already a \
+         readable beat through hitlag"
+    );
+    assert_eq!(
+        super::hit_shake_amplitude(REFERENCE, REFERENCE),
+        0.0,
+        "and neither does a reference-strength hit: the dead zone IS the \
+         reference, the same shape as the hard-fall floor being a jump-height \
+         landing"
+    );
+
+    let hardest = super::hit_shake_amplitude(REFERENCE * 4.0, REFERENCE);
+    assert!(
+        (9.0..=12.0).contains(&hardest),
+        "the hardest possible connect should be a heavy jolt that still leaves \
+         headroom under the {DEFAULT_CAMERA_SHAKE_MAX_PX}px cap a hard fall can \
+         reach — got {hardest}"
+    );
+
+    // ⭐ MONOTONIC, which is the property that makes this a SCALE. Sampled
+    // across the band rather than at two points, so a step function cannot pass.
+    let mut previous = 0.0;
+    for step in 0..=8 {
+        let scale = 1.0 + (step as f32) * 0.375; // 1.0 → 4.0
+        let shake = super::hit_shake_amplitude(REFERENCE * scale, REFERENCE);
+        assert!(
+            shake >= previous,
+            "a harder hit shook the camera LESS at scale {scale}: {shake} < {previous}"
+        );
+        previous = shake;
+    }
+    assert!(
+        previous > 0.0,
+        "the sweep ended at zero, so it measured a function that is flat at the \
+         floor rather than a scale"
+    );
+}
+
+/// **The reference is the ROUTE's number, not this crate's.**
+///
+/// ⛔ restating `0.070` here would be a second literal agreeing with
+/// `Platformer2dFeelTuningMonolith::hitlag_time` by coincidence — the shape that
+/// has already cost this campaign a health pool. A route that retunes its hitlag
+/// must retune its camera WITH it, in the same direction, and this is what says
+/// so: the same absolute freeze is a heavy hit under a snappy route and nothing
+/// at all under a heavy one.
+#[test]
+fn a_routes_own_hitlag_decides_what_counts_as_a_hard_hit() {
+    let freeze = 0.140;
+    let snappy = super::hit_shake_amplitude(freeze, 0.040);
+    let heavy = super::hit_shake_amplitude(freeze, 0.140);
+    assert!(
+        snappy > 0.0,
+        "under a snappy route a 0.140s freeze is 3.5x reference and must shake"
+    );
+    assert_eq!(
+        heavy, 0.0,
+        "under a route whose reference IS 0.140s the same freeze is a standard \
+         connect, and standard connects do not move the camera"
+    );
+}

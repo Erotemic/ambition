@@ -58,6 +58,7 @@ mod hall_barks;
 mod hall_scale_spread;
 mod hall_transition_cover;
 mod held_projectile_portal_transit;
+mod hit_shakes_the_camera;
 mod input_stream_replay;
 mod isolated_persistence;
 mod mary_o_hud_surround;

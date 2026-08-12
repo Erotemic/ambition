@@ -197,6 +197,46 @@ pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
     excess * HARD_FALL_SHAKE_GAIN
 }
 
+/// Pixels of shake per second of hitlag ABOVE the reference connect.
+///
+/// The engine's reference hitlag is 0.070 s and `hitlag_duration` rides a 4×
+/// ceiling, so the hardest possible connect buys 0.280 s — `(0.280 - 0.070) ×
+/// 48 ≈ 10 px`, a heavy jolt that still leaves headroom under the 14-px
+/// `kick()` cap a hard fall can reach. Chosen so the two things that shake this
+/// screen sit on one scale rather than each having its own idea of "hard".
+pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
+
+/// **The shake a landed hit buys, scaled by how hard it landed.**
+///
+/// ⛔⛔ **NO LANDED HIT SHAKED THE SCREEN AT ALL** until 2026-08-12 (campaign
+/// P4.37). `CameraShakeState::kick` had exactly two production call sites in the
+/// workspace — a boss phase change and a hard-fall landing — so a smash that
+/// sent a fighter to the blast zone and a jab moved the camera identically. The
+/// row's goal is *"a strong hit should feel materially different from a weak
+/// poke"*, and hitlag alone was carrying all of it.
+///
+/// ⭐ **the severity is ALREADY RESOLVED, so this invents no new concept.** A
+/// landed hit writes `BodyCombat::hitstop_timer` from
+/// `ae::hit_response::hitlag_duration`, which is `hitlag_time × reaction_scale`
+/// — the knockback the hit actually produced, floored at half and capped at 4×.
+/// Reading that back is what keeps the camera BODY-GENERIC: no move ids, no
+/// per-character table, and a character that authors a heavier launch gets a
+/// heavier camera for free.
+///
+/// ⚠ **the reference is a PARAMETER, not a constant here.** `hitlag_time` is the
+/// route's `Platformer2dFeelTuningMonolith` value; restating 0.070 in this crate
+/// would be a second literal agreeing with the first by coincidence, and a route
+/// that retunes its hitlag would silently retune its camera in the wrong
+/// direction.
+///
+/// ⇒ a reference-strength connect (scale 1.0) shakes NOTHING, by construction:
+/// the dead zone is the reference itself, exactly as the hard-fall floor is a
+/// jump-height landing. Only a hit harder than standard moves the camera.
+pub fn hit_shake_amplitude(hitstop_seconds: f32, reference_hitlag_seconds: f32) -> f32 {
+    let excess = (hitstop_seconds - reference_hitlag_seconds.max(0.0)).max(0.0);
+    excess * HIT_SHAKE_GAIN_PX_PER_S
+}
+
 impl CameraShakeState {
     /// Cheap deterministic 2D offset within the current amplitude budget.
     /// xorshift on `seed` gives a per-frame value in `[-amp, +amp]`;

@@ -39,88 +39,86 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        let mut definition = definition
-            // ⭐⭐ **AND THE POLICY IT ADOPTS WHEN PROVOKED** (ledger D89).
-            // The duel arena's fighters carry a `grudge_against`, so they
-            // are PROVOKED rather than spawned hostile — and a provoked
-            // creature rebuilds its mind from this reference. Without it the
-            // PCA fell to the default aggressive policy: it closed and
-            // swung, and never blocked, which is exactly the shield the duel
-            // regression measures.
-            .with_provoked_profile_named("cellular_duelist")
-            .with_locomotion(CharacterLocomotion {
-                run_speed: 168.0,
-                move_style: MoveStyleSpec::Walk,
-                // ⭐⭐ **GROUNDED, STATED** — Jon, 2026-08-11: *"in smash PCA
-                // should not have the fly ability. I made a wrong call
-                // there earlier."* Its catalog row stays `Floating`, which
-                // is a claim about its SILHOUETTE (no default standing
-                // height; the sheet decides, and that is what keeps its body
-                // 68px rather than 48). The archetype row it replaces said
-                // `is_aerial: Some(false)` for the same reason: a
-                // grounded-base hybrid.
-                baseline_free_flight: Some(false),
-                ..Default::default()
-            })
-            .with_contact_damage(ContactDamage {
-                strength: 0.75,
-                amount: 1,
-            })
-            .with_abilities(ambition_platformer2d_core::AbilitySet {
-                attack: true,
-                // The four body-enforced capabilities the row authored. A
-                // possessing player inherits exactly these, which is the
-                // property that made them body facts rather than brain ones.
-                blink: true,
-                fly: true,
-                fly_toggle: true,
-                shield: true,
-                dash: true,
-                ..ambition_platformer2d_core::AbilitySet::basic()
-            })
-            .with_autonomous_profile(BrainProfile {
-                template: CharacterBrainTemplate::Smash,
-                aggro_radius: 540.0,
-                attack_range: 150.0,
-                patrol_effort: 0.5714,
-                chase_effort: 1.0,
-                smash_dash_to_close: true,
-                // Footsies and spacing rather than close-and-camp.
-                smash_duelist: true,
-                ..Default::default()
-            })
-            // ⭐ **the glider** — a cellular-automaton spaceship as the
-            // zoning tool. The projectile is a functional `Rock`; the Conway
-            // glider is chosen by the authored visual id below, which the
-            // render layer resolves through the content-owned projectile
-            // catalog rather than from the owner's id string.
-            .with_ranged_vfx("glider")
-            .with_action_set(ambition_characters::brain::ActionSet {
-                melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                    windup_s: 0.24,
-                    active_s: 0.08,
-                    recover_s: 0.30,
-                    damage: 1,
-                    reach_px: 30.0,
-                })),
-                ranged: Some(ambition_characters::brain::RangedActionSpec::new(
-                    ambition_characters::brain::action_set::RangedStyle::Rock,
-                    300.0,
-                    1,
-                )),
-                // ⛔ **NOT the pulse.** The MOVESET's verb map already binds
-                // `special → cellular_pulse`; putting it in this slot too
-                // takes the slot the SHIELD uses, and the PCA's reactive
-                // block silently stops happening. The archetype row kept
-                // them apart by construction — `signature_move` was a
-                // different field from `can_shield` — and authoring both on
-                // one character is where they can collide.
-                special: None,
-                move_style: MoveStyleSpec::Walk,
-            })
-            .with_moveset(crate::cellular_automaton_moveset::cellular_pulse_moveset());
-        definition.vitals.max_health = Some(60);
-        definition
-    }
+    let mut definition = definition
+        // ⭐⭐ **AND THE POLICY IT ADOPTS WHEN PROVOKED** (ledger D89).
+        // The duel arena's fighters carry a `grudge_against`, so they
+        // are PROVOKED rather than spawned hostile — and a provoked
+        // creature rebuilds its mind from this reference. Without it the
+        // PCA fell to the default aggressive policy: it closed and
+        // swung, and never blocked, which is exactly the shield the duel
+        // regression measures.
+        .with_provoked_profile_named("cellular_duelist")
+        .with_locomotion(CharacterLocomotion {
+            run_speed: 168.0,
+            move_style: MoveStyleSpec::Walk,
+            // ⭐⭐ **GROUNDED, STATED** — Jon, 2026-08-11: *"in smash PCA
+            // should not have the fly ability. I made a wrong call
+            // there earlier."* Its catalog row stays `Floating`, which
+            // is a claim about its SILHOUETTE (no default standing
+            // height; the sheet decides, and that is what keeps its body
+            // 68px rather than 48). The archetype row it replaces said
+            // `is_aerial: Some(false)` for the same reason: a
+            // grounded-base hybrid.
+            baseline_free_flight: Some(false),
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.75,
+            amount: 1,
+        })
+        .with_abilities(ambition_platformer2d_core::AbilitySet {
+            attack: true,
+            // The four body-enforced capabilities the row authored. A
+            // possessing player inherits exactly these, which is the
+            // property that made them body facts rather than brain ones.
+            blink: true,
+            fly: true,
+            fly_toggle: true,
+            shield: true,
+            dash: true,
+            ..ambition_platformer2d_core::AbilitySet::basic()
+        })
+        .with_autonomous_profile(BrainProfile {
+            template: CharacterBrainTemplate::Smash,
+            aggro_radius: 540.0,
+            attack_range: 150.0,
+            patrol_effort: 0.5714,
+            chase_effort: 1.0,
+            smash_dash_to_close: true,
+            // Footsies and spacing rather than close-and-camp.
+            smash_duelist: true,
+            ..Default::default()
+        })
+        // ⭐ **the glider** — a cellular-automaton spaceship as the
+        // zoning tool. The projectile is a functional `Rock`; the Conway
+        // glider is chosen by the authored visual id below, which the
+        // render layer resolves through the content-owned projectile
+        // catalog rather than from the owner's id string.
+        .with_ranged_vfx("glider")
+        .with_action_set(ambition_characters::brain::ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                windup_s: 0.24,
+                active_s: 0.08,
+                recover_s: 0.30,
+                damage: 1,
+                reach_px: 30.0,
+            })),
+            ranged: Some(ambition_characters::brain::RangedActionSpec::new(
+                ambition_characters::brain::action_set::RangedStyle::Rock,
+                300.0,
+                1,
+            )),
+            // ⛔ **NOT the pulse.** The MOVESET's verb map already binds
+            // `special → cellular_pulse`; putting it in this slot too
+            // takes the slot the SHIELD uses, and the PCA's reactive
+            // block silently stops happening. The archetype row kept
+            // them apart by construction — `signature_move` was a
+            // different field from `can_shield` — and authoring both on
+            // one character is where they can collide.
+            special: None,
+            move_style: MoveStyleSpec::Walk,
+        })
+        .with_moveset(crate::cellular_automaton_moveset::cellular_pulse_moveset());
+    definition.vitals.max_health = Some(60);
+    definition
 }

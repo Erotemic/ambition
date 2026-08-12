@@ -19,32 +19,30 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        let mut definition = definition
-            .with_locomotion(CharacterLocomotion {
-                run_speed: 170.0,
-                move_style: MoveStyleSpec::Walk,
-                ..Default::default()
-            })
-            .with_contact_damage(ContactDamage {
-                strength: 0.70,
-                amount: 1,
-            })
-            // ⭐ **the LOCAL name.** It used to hand-namespace this
-            // (`format!("{}::medium_striker", AMBITION_CONTENT_PROVIDER)`),
-            // which made an author responsible for knowing whether the
-            // surrounding catalog had been assembled yet — the leak Jon's
-            // redirect §8 names. `BrainProfileRef` resolves it against this
-            // definition's own provider.
-            .with_autonomous_profile_named("medium_striker")
-            // ⭐ **AND ITS OWN MOVES** (campaign P3.24, 2026-08-12). Every
-            // seated fighter whose character says nothing takes
-            // `smash_fighter_kit()` — one generic swipe — and that floor's
-            // goal is DELETION, one adopter at a time. The goblin is the
-            // third character in the game to state a table and the first
-            // ENEMY to.
-            .with_moveset(crate::goblin_moveset::goblin_moveset());
-        definition.vitals.max_health = Some(5);
-        definition
-    }
+    let mut definition = definition
+        .with_locomotion(CharacterLocomotion {
+            run_speed: 170.0,
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.70,
+            amount: 1,
+        })
+        // ⭐ **the LOCAL name.** It used to hand-namespace this
+        // (`format!("{}::medium_striker", AMBITION_CONTENT_PROVIDER)`),
+        // which made an author responsible for knowing whether the
+        // surrounding catalog had been assembled yet — the leak Jon's
+        // redirect §8 names. `BrainProfileRef` resolves it against this
+        // definition's own provider.
+        .with_autonomous_profile_named("medium_striker")
+        // ⭐ **AND ITS OWN MOVES** (campaign P3.24, 2026-08-12). Every
+        // seated fighter whose character says nothing takes
+        // `smash_fighter_kit()` — one generic swipe — and that floor's
+        // goal is DELETION, one adopter at a time. The goblin is the
+        // third character in the game to state a table and the first
+        // ENEMY to.
+        .with_moveset(crate::goblin_moveset::goblin_moveset());
+    definition.vitals.max_health = Some(5);
+    definition
 }

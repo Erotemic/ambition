@@ -14,28 +14,26 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        let paper = id == "npc_snakes_on_a_paper_plane";
-        let mut definition = definition
-            .with_locomotion(CharacterLocomotion {
-                run_speed: if paper { 58.0 } else { 38.0 },
-                move_style: MoveStyleSpec::Float,
-                baseline_free_flight: Some(true),
-                ..Default::default()
-            })
-            .with_contact_damage(ContactDamage {
-                strength: 0.5,
-                amount: 1,
-            })
-            .with_autonomous_profile(BrainProfile {
-                // It baseline_free_flight, it notices nobody, and running into it is the
-                // entire threat.
-                template: CharacterBrainTemplate::Aerial,
-                aggro_radius: 0.0,
-                attack_range: 0.0,
-                ..Default::default()
-            });
-        definition.vitals.max_health = Some(if paper { 1 } else { 2 });
-        definition
-    }
+    let paper = id == "npc_snakes_on_a_paper_plane";
+    let mut definition = definition
+        .with_locomotion(CharacterLocomotion {
+            run_speed: if paper { 58.0 } else { 38.0 },
+            move_style: MoveStyleSpec::Float,
+            baseline_free_flight: Some(true),
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.5,
+            amount: 1,
+        })
+        .with_autonomous_profile(BrainProfile {
+            // It baseline_free_flight, it notices nobody, and running into it is the
+            // entire threat.
+            template: CharacterBrainTemplate::Aerial,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            ..Default::default()
+        });
+    definition.vitals.max_health = Some(if paper { 1 } else { 2 });
+    definition
 }

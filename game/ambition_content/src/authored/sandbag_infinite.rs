@@ -21,30 +21,28 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        let mut definition = definition
-            .as_practice_target()
-            .with_locomotion(CharacterLocomotion {
-                run_speed: 155.0,
-                move_style: MoveStyleSpec::Walk,
-                ..Default::default()
-            })
-            .with_death_traits(ambition_characters::actor::CharacterDeathTraits {
-                never_dies: true,
-                ..Default::default()
-            })
-            .with_autonomous_profile(BrainProfile {
-                template: CharacterBrainTemplate::StandStill,
-                // Notices nobody and swings at nobody — the row's
-                // `attack_range: 150.0` sat beside `melee: None`, exactly as
-                // the finite sandbag's did.
-                aggro_radius: 0.0,
-                attack_range: 0.0,
-                patrol_effort: 0.6774,
-                chase_effort: 1.0,
-                ..Default::default()
-            });
-        definition.vitals.max_health = Some(9999);
-        definition
-    }
+    let mut definition = definition
+        .as_practice_target()
+        .with_locomotion(CharacterLocomotion {
+            run_speed: 155.0,
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_death_traits(ambition_characters::actor::CharacterDeathTraits {
+            never_dies: true,
+            ..Default::default()
+        })
+        .with_autonomous_profile(BrainProfile {
+            template: CharacterBrainTemplate::StandStill,
+            // Notices nobody and swings at nobody — the row's
+            // `attack_range: 150.0` sat beside `melee: None`, exactly as
+            // the finite sandbag's did.
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            patrol_effort: 0.6774,
+            chase_effort: 1.0,
+            ..Default::default()
+        });
+    definition.vitals.max_health = Some(9999);
+    definition
 }

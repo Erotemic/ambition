@@ -15,7 +15,5 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset())
-    }
+    definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset())
 }

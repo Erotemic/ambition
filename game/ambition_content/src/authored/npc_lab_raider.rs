@@ -23,19 +23,17 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    {
-        let mut definition = definition
-            .with_locomotion(CharacterLocomotion {
-                run_speed: 170.0,
-                move_style: MoveStyleSpec::Walk,
-                ..Default::default()
-            })
-            .with_contact_damage(ContactDamage {
-                strength: 0.70,
-                amount: 1,
-            })
-            .with_autonomous_profile_named("medium_striker");
-        definition.vitals.max_health = Some(5);
-        definition
-    }
+    let mut definition = definition
+        .with_locomotion(CharacterLocomotion {
+            run_speed: 170.0,
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.70,
+            amount: 1,
+        })
+        .with_autonomous_profile_named("medium_striker");
+    definition.vitals.max_health = Some(5);
+    definition
 }

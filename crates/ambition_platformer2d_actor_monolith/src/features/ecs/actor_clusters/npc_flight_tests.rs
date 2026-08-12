@@ -200,18 +200,39 @@ fn the_character_decides_whether_an_npc_body_flies() {
     );
 }
 
-/// **Silence is not a refusal: an unmigrated character leaves the catalog rule
-/// exactly where it was.**
+/// **The catalog rule is a fallback for characters NOBODY REGISTERED, not a
+/// second opinion on registered ones.**
 ///
-/// ⛔ this is the poison for the pair above. If the new lookup answered `false`
-/// for a character that said nothing, every one of the ~150 unmigrated NPC
-/// placements would have been re-decided by a value nobody authored — and with an
-/// empty catalog the result would look identical to correct.
+/// ⛔ this is the poison for the pair above, and writing it corrected the pair's
+/// own premise. The ~150 unmigrated NPC placements name characters with no
+/// prepared entry AT ALL — that, not "a prepared character that stayed silent",
+/// is the state the catalog still answers for. If this lookup had instead
+/// answered `false` for every unregistered character, all of them would have been
+/// re-decided by a value nobody authored, and against an empty catalog the result
+/// would look identical to correct.
 #[test]
-fn a_silent_character_does_not_decide_anything() {
+fn preparation_resolves_silence_and_only_an_unprepared_character_reaches_the_catalog() {
+    // ⛔ FIRST, the fact this test used to get wrong. A PREPARED character always
+    // answers: `finalize_character` resolves `baseline_free_flight: None` to
+    // `Some(false)` (D89 — silence is GROUNDED, and the three characters that
+    // genuinely fly say so). So "a silent prepared character" is not a state that
+    // exists, and a test named for it would be describing a branch it never took.
+    let cast = cast_saying(None);
+    assert_eq!(
+        cast.get("npc_test_flyer")
+            .expect("the fixture registered it")
+            .locomotion
+            .expect("it authored locomotion")
+            .baseline_free_flight,
+        Some(false),
+        "preparation must settle this, or the catalog rule below is not a \
+         fallback for the unmigrated but a second opinion on the migrated"
+    );
+
     assert!(
-        !is_aerial(Some(&cast_saying(None)), Some("npc_test_flyer")),
-        "a silent character falls through to the catalog, which here says nothing"
+        !is_aerial(Some(&cast), Some("npc_test_flyer")),
+        "and it lands grounded, from its own resolved answer rather than the \
+         catalog"
     );
     assert!(
         !is_aerial(None, Some("npc_test_flyer")),

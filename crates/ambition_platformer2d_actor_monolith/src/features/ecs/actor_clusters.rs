@@ -632,12 +632,17 @@ impl ActorClusterSeed {
         // the shipped duel — and D89 is the ruling: `body_kind` describes a
         // SHAPE and stopped deciding whether a body flies.
         //
-        // ⭐ `CharacterLocomotion::baseline_free_flight` is `Option<bool>`
-        // precisely so a character can say NO out loud, which `body_kind` cannot
-        // express. When it speaks, it wins. When it is silent — an unmigrated
-        // character, or none at all — the catalog rule stands unchanged, which
-        // is every NPC in the game today except the twelve that name a migrated
-        // character.
+        // ⭐ **A PREPARED CHARACTER ALWAYS ANSWERS**, and getting that precise
+        // matters more than it sounds. `finalize_character` resolves
+        // `baseline_free_flight: None` to `Some(false)` — D89's ruling that
+        // silence is GROUNDED — so a registered character is never mute here and
+        // the catalog can never overrule one.
+        //
+        // ⇒ the catalog rule below is therefore NOT a tiebreak between two
+        // authorities. It answers for a character with NO PREPARED ENTRY AT ALL,
+        // which is ~150 of the game's 163 NPC placements today and shrinks by one
+        // every time a character is migrated. When the registry holds everything,
+        // the `unwrap_or` arm becomes unreachable and goes with the catalog read.
         let authored_flight = character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.locomotion)

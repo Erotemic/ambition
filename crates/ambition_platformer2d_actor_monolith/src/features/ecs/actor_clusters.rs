@@ -682,11 +682,41 @@ impl ActorClusterSeed {
         // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a
         // player drives it. (Was: all three = NPC_PATROL_SPEED, conflating policy
         // with capability — the "possessed NPC moves extremely slowly" bug.)
+        //
+        // ⭐⭐ **AND THE BODY'S TWO NUMBERS COME FROM THE CHARACTER WHEN IT HAS
+        // ONE** (P1.10, 2026-08-12). `max_health: 1` and the shared
+        // `MAX_RUN_SPEED` are what a placement gets when nothing knows who it is
+        // — which was every NPC, including an exploding mite and a burning
+        // flying shark standing in a room with one hit point and the player's
+        // top speed. A character that states its own vitals and locomotion is
+        // the authority on both.
+        //
+        // ⛔ **`patrol_speed` / `chase_speed` STAY.** They are AI POLICY, and the
+        // three authorities do not blur here of all places: how fast a body CAN
+        // move is the body's fact, how fast it CHOOSES to amble is the
+        // controller's. A character authoring `run_speed: 400.0` must not make
+        // its idle stroll a sprint.
+        //
+        // ⛔ **and `respawn` stays `DeadStaysDead`** for the same reason, one
+        // authority over: an NPC is a unique named placement (ADR 0022), and
+        // that is a fact about the PLACEMENT, not about the creature.
+        //
+        // ⚠ measured before landing: 163 NPC placements name 129 distinct
+        // characters and TWELVE name one migrated far enough to answer. This
+        // moves twelve bodies, not a hundred — the distinction that separates a
+        // migration from the ~100-NPC regression this campaign paid for once.
+        let authored_body = character_id
+            .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
+            .and_then(|prepared| prepared.body_blueprint().ok());
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            max_health: 1,
+            max_health: authored_body.as_ref().map_or(1, |body| body.max_health),
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
-            max_run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+            max_run_speed: authored_body
+                .as_ref()
+                .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
+                    body.locomotion.run_speed
+                }),
             is_aerial,
             // STATED, not inherited from `Default`: an NPC is a unique named
             // placement, so its death is permanent (ADR 0022) even after it
@@ -714,8 +744,14 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
+            // ⛔ **`tuning.max_health`, not a second literal `1`.** These two
+            // were written independently and both said one, so they agreed by
+            // coincidence — and the moment the tuning learned to ask the
+            // character, the POOL would still have been one. A body claiming a
+            // maximum it does not have is the same fact stated twice, which is
+            // the defect this campaign exists to remove.
             health: ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(1),
+                ambition_characters::actor::Health::new(tuning.max_health),
             ),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),

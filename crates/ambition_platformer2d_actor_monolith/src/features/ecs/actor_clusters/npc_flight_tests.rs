@@ -32,20 +32,133 @@ fn npc_at(character_id: Option<&str>) -> ambition_interaction::Interactable {
 
 /// A registry holding one character whose locomotion says what it is given.
 fn cast_saying(flight: Option<bool>) -> crate::character_runtime::PreparedCharacterRegistry {
+    cast_saying_with(flight, 120.0, None)
+}
+
+/// The same, with the two facts the seed's tuning now asks the character for.
+fn cast_saying_with(
+    flight: Option<bool>,
+    run_speed: f32,
+    max_health: Option<i32>,
+) -> crate::character_runtime::PreparedCharacterRegistry {
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-    let definition =
+    let mut definition =
         crate::character_runtime::CharacterDefinition::new("npc_test_flyer", "Test Flyer", "test")
             .with_locomotion(CharacterLocomotion {
-                run_speed: 120.0,
+                run_speed,
                 baseline_free_flight: flight,
                 ..Default::default()
             });
+    definition.vitals.max_health = max_health;
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
         &crate::character_runtime::CharacterBindings::default(),
     );
     registry.insert_prepared(finalized.prepared);
     registry
+}
+
+/// The seed for a placement naming `npc_test_flyer`, or naming nothing.
+fn seed_for(
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+    character_id: Option<&str>,
+) -> ActorClusterSeed {
+    let interactable = npc_at(character_id);
+    let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
+    let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
+        &Default::default(),
+        &CharacterCatalog::empty(),
+        &crate::features::enemies::test_roster(),
+        prepared,
+        "flyer",
+        "Flyer",
+        aabb,
+        &interactable,
+        &[],
+    );
+    seed
+}
+
+/// **An NPC that names a migrated character gets ITS vitals and ITS top speed,
+/// and the pool matches the maximum.**
+///
+/// ⛔ every NPC used to spawn with `max_health: 1` and the shared player
+/// `MAX_RUN_SPEED` — which meant an exploding mite and a burning flying shark
+/// stood in a room with one hit point and the protagonist's legs, because
+/// nothing on this road knew who they were.
+///
+/// ⛔⛔ and the POOL was a second literal `1`, written independently of the
+/// tuning's. The two agreed by coincidence; teaching only the tuning to ask the
+/// character would have left a body claiming a maximum of nine and holding one.
+#[test]
+fn a_named_character_supplies_the_npc_body_it_authored() {
+    let seed = seed_for(
+        Some(&cast_saying_with(None, 225.0, Some(9))),
+        Some("npc_test_flyer"),
+    );
+    let tuning = &seed.config.tuning;
+    assert_eq!(
+        tuning.max_health, 9,
+        "the character's vitals, not the road's 1"
+    );
+    assert_eq!(
+        seed.health.health.max, 9,
+        "and the POOL is the same number — it was a second literal `1` written \
+         independently of the tuning's, and they agreed by coincidence"
+    );
+    assert_eq!(
+        tuning.max_run_speed, 225.0,
+        "and its locomotion, not the shared player top speed"
+    );
+
+    // ⛔ AI POLICY IS NOT THE BODY'S TO STATE. How fast it CAN move is the
+    // character's fact; how fast it chooses to amble is the controller's, and a
+    // character authoring 225 must not turn an idle stroll into a sprint.
+    assert_eq!(
+        tuning.patrol_speed,
+        ambition_characters::brain::NPC_PATROL_SPEED,
+        "patrol speed is controller policy and must be untouched by the body"
+    );
+    assert_eq!(
+        tuning.respawn,
+        ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
+        "and respawn is PLACEMENT policy — an NPC is a unique named placement \
+         (ADR 0022) however its character is authored"
+    );
+}
+
+/// **A character that authors nothing leaves the road's defaults exactly where
+/// they were** — the poison for the test above.
+#[test]
+fn an_unmigrated_character_still_gets_the_roads_defaults() {
+    // No locomotion at all ⇒ not body-complete ⇒ the blueprint refuses, which is
+    // the state ~150 NPC placements are in.
+    let bare = {
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            crate::character_runtime::CharacterDefinition::new(
+                "npc_test_flyer",
+                "Test Flyer",
+                "test",
+            ),
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+        registry
+    };
+    let tuning = seed_for(Some(&bare), Some("npc_test_flyer")).config.tuning;
+    assert_eq!(tuning.max_health, 1);
+    assert_eq!(
+        tuning.max_run_speed,
+        ambition_platformer2d_core::MAX_RUN_SPEED
+    );
+
+    let none = seed_for(None, None).config.tuning;
+    assert_eq!(none.max_health, 1);
+    assert_eq!(
+        none.max_run_speed,
+        ambition_platformer2d_core::MAX_RUN_SPEED
+    );
 }
 
 fn is_aerial(

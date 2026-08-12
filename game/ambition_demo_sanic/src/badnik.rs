@@ -6,9 +6,23 @@
 //! - **Placement** comes from the demo's LDtk file: `EnemySpawn` entities
 //!   carrying `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns` and
 //!   the engine's room staging spawns them — no demo staging system at all.
-//! - **Body + walk + contact damage** come from a demo-owned roster archetype
-//!   (`sanic_badnik`, a 1-HP `Wanderer` that paces and reverses at walls). Its
-//!   body contact hurts a Sanic that runs into it un-rolled.
+//! - **Body + walk + contact damage** ⛔ **DO NOT come from what this said they
+//!   did.** It claimed "a demo-owned roster archetype (`sanic_badnik`, a 1-HP
+//!   `Wanderer` that paces and reverses at walls)", and there is no such row —
+//!   not in this crate, not in Ambition's `character_archetypes.ron`, and not in
+//!   its history (checked 2026-08-12, ledger D95). `spec_for_brain` answers
+//!   `combatant` for a key it does not know, so a badnik has ALWAYS been built
+//!   with the generic combatant body: its health, walk speed and contact damage
+//!   are the fallback's, not the 1-HP wanderer's described above.
+//!
+//!   ⚠ **nothing is broken** — a badnik walks, hurts on contact and dies to a
+//!   stomp or a roll, because those are this file's own systems and the defeat
+//!   below is real. What is wrong is that the numbers came from somewhere nobody
+//!   chose, and the comment said otherwise for long enough that it read as
+//!   design. The 1-HP wanderer is a DESIGN INTENT with no implementation; making
+//!   it true means authoring `sanic_badnik` as a character (it already has a
+//!   catalog row for its sprite and name) and is Jon's call, because it changes
+//!   how Sanic's enemies feel.
 //! - **The defeat** is Sanic's, not Mary-O's: a descending bounce on the head
 //!   (classic stomp, with the bounce) OR any overlap while ROLLING (the ball
 //!   dash / crouch-roll is the weapon — rolling through a badnik at speed is

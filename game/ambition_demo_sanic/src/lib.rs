@@ -622,8 +622,10 @@ const SANIC_CATALOG_RON: &str = r#"(
         // rejected), and this badnik is a distinct character from the Hall's
         // `npc_ai_slop`. Characters are shared by ID: any experience can spawn
         // any character present in the merged catalog. Behavior/HP/contact come
-        // from the `sanic_badnik` ROSTER archetype (see `badnik.rs`); this row
-        // is only the sprite + name.
+        // ⛔ from the `sanic_badnik` ROSTER archetype (see `badnik.rs`) — EXCEPT
+        // THAT ROW HAS NEVER EXISTED, so they come from the generic `combatant`
+        // fallback. Corrected 2026-08-12; the full note is on `badnik.rs`'s
+        // header. This row is the sprite + name, which is all it ever was.
         "sanic_badnik": (
             display_name: "Sanic Badnik",
             spritesheet: "sprites/ai_slop_spritesheet.png",

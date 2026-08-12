@@ -49,7 +49,16 @@ fn brain_preset_resolves_to_valid_variant_for_each_entry() {
     // runtime `Brain` value. Catches preset enum typos at test
     // time rather than first-spawn time.
     let data = catalog();
+    let mut checked = 0usize;
     for (id, entry) in &data.data().characters {
+        // ⚠ **a character may name NO preset** (2026-08-12, D81): its definition
+        // states its autonomous policy instead, and requiring one here would
+        // refuse exactly the migrated characters this campaign produces. What
+        // stays pinned is that a name, when there IS one, resolves.
+        if entry.default_brain.is_empty() {
+            continue;
+        }
+        checked += 1;
         let preset = data
             .data()
             .brain_presets
@@ -66,6 +75,14 @@ fn brain_preset_resolves_to_valid_variant_for_each_entry() {
             entry.default_brain,
         );
     }
+    // ⛔ and the skip cannot hollow the test out: if every row stopped naming a
+    // preset this loop would pass over an empty set and report success.
+    assert!(
+        checked > 0,
+        "no character in the catalog names a brain preset, so this guard checked \
+         nothing — either the vocabulary is retired (delete this test) or the \
+         field stopped being read"
+    );
 }
 
 #[test]

@@ -784,21 +784,27 @@
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
             composition: None,
-            // ⛔⛔ **KEPT, AND THE ATTEMPT TO DELETE IT IS THE REASON WHY**
-            // (2026-08-12, D81). This bird's DEFINITION authors
-            // `BrainProfile { Aerial, aggro 620, attack_range 60 }`, so the
-            // policy numbers here are dead weight — but the preset also carries
-            // `aggressiveness: 0.0`, and that is the parrot's PEACEFULNESS IN THE
-            // COVE. A `BrainProfile` has nowhere to put it, correctly:
-            // `attacks_player` was deleted from that type on 2026-08-11 because
-            // hostility is a RELATIONSHIP, and a relationship belongs to the
-            // placement's `SpawnDisposition`.
+            // ⛔⛔ **STILL NAMES A PRESET, AND THE THIRD REASON IS THE REAL ONE**
+            // (2026-08-12, D81). Twice now this row has been emptied and put
+            // back, and each attempt found a different fact hiding behind the
+            // field:
             //
-            // ⇒ removing this preset took the cove parrot's peacefulness with it,
-            // and `stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky`
-            // caught it. The migration order D81 states is the answer: move
-            // `aggressiveness` to the placements FIRST, then the preset has
-            // nothing left to hold and goes.
+            //   1. the policy numbers are dead weight — the DEFINITION's
+            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` outranks
+            //      them everywhere. True, and not the blocker.
+            //   2. `aggressiveness: 0.0` looked like the cove parrot's
+            //      peacefulness. It is not — that comes from the placement being
+            //      an `NpcSpawn`; the preset's copy decides nothing.
+            //   3. ⭐ **`default_brain` CARRIES THE NAMESPACE.**
+            //      `qualify_preset_like` infers a character's provider by
+            //      splitting this field's assembled `provider::name`, so emptying
+            //      it leaves `validate_brain_override` unable to qualify a Hall
+            //      pedestal's override — and the full-host Hall validation fails.
+            //
+            // ⇒ the unblock is not here. `qualify_preset_like`'s own doc already
+            // names the smell and points at the fix: take the provider from the
+            // authority that owns it (a `CharacterDefinition` states one
+            // directly) instead of inferring it from a neighbouring key.
             default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],

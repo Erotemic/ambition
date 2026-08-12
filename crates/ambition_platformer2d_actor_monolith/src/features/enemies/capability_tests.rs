@@ -137,21 +137,31 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
         "the parrot catalog row must resolve a sprite sheet",
     );
 
-    // Friendly form is authored ENTIRELY in data as a lively flyer (the
-    // commit-3 refactor payoff): the catalog default_brain resolves to a
-    // PEACEFUL Aerial brain, and body_kind is Floating so it's gravity-free.
-    let friendly = catalog
-        .build_default_brain("stochastic_parrot", 0.0)
-        .expect("parrot has a catalog default brain");
-    assert!(
-        matches!(
-            friendly,
-            ambition_characters::brain::Brain::StateMachine(ambition_characters::brain::StateMachineCfg::Aerial {
-                cfg,
-                ..
-            }) if cfg.aggressiveness == 0.0
-        ),
-        "the cove parrot is authored as a peaceful Aerial flyer in data",
+    // ⭐⭐ **THE COVE PARROT'S PEACEFULNESS IS ITS PLACEMENT, NOT A PRESET**
+    // (2026-08-12, D81). This used to read `build_default_brain(..)` and assert
+    // the resulting `cfg.aggressiveness == 0.0` — asserting the CONTENTS of a
+    // `brain_presets` entry, one authority away from anything the game does.
+    //
+    // ⛔ and that mattered: deleting `parrot_lively` turned this red, which read
+    // as "the deletion took the parrot's peacefulness". It had not. The parrot
+    // appears three times in the sandbox — ONE `NpcSpawn` in `pirate_cove` and
+    // TWO `EnemySpawn`s in `pirate_sky_lookout` — and the cove one is peaceful
+    // because it is an NPC placement (that road states `attacks_player: false`),
+    // while the sky ones are hostile because they are enemy placements. The
+    // relationship was already on the placements, exactly where D81 says it
+    // belongs; the preset's `aggressiveness: 0.0` was a third copy that decided
+    // nothing.
+    //
+    // ⇒ what is pinned now is the bird's authored FLIGHT — the fact its
+    // definition owns and this test's title cares about. Its hostility per
+    // placement belongs to a placement test, not to a capability one.
+    let flight = catalog
+        .body_kind("stochastic_parrot")
+        .expect("the parrot has a catalog row");
+    assert_eq!(
+        flight,
+        ambition_characters::actor::character_catalog::CharacterBodyKind::Floating,
+        "the parrot is Floating so the Aerial brain its definition authors flies it",
     );
     assert_eq!(
         catalog.body_kind("stochastic_parrot"),

@@ -1223,13 +1223,23 @@ pub fn mount_capabilities_of(
         // A pickup is neither rideable nor a pilot.
         ActorConstructionParams::GroundItem { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::StagedActor(request) => match &request.kind {
-            SpawnActorKind::Enemy { brain, .. } => {
-                let spec = roster.spec_for_brain(brain);
-                PlannedMountCapabilities {
-                    mount_class: spec.mount_class.clone(),
-                    pilots: spec.pilotable_mount_classes.clone(),
-                }
-            }
+            // ⭐ **THE CHARACTER FIRST, exactly like the authored arm below.**
+            //
+            // ⛔ this read the archetype alone, and `SpawnActorKind::Enemy` has
+            // carried a `character` since P1.12 — whose own doc names the bug
+            // this closes: *"A shark spawned this way stopped being rideable and
+            // started falling out of the sky."* That was fixed at the SPAWN and
+            // not here, so a staged actor whose character authors a
+            // `CharacterMount` was still PLANNED as un-mountable, and the plan
+            // is what the mount-link legality rules are checked against.
+            //
+            // ⚠ the same call the authored road makes, so the two roads cannot
+            // disagree about whether a body is rideable — which is the whole
+            // point of there being one construction path.
+            SpawnActorKind::Enemy { brain, character } => authored_mount_capabilities(
+                resolve_planned_character(prepared, character.as_ref()),
+                &roster.spec_for_brain(brain),
+            ),
             // A boss takes `CanPilot` from its behaviour profile and is never
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
             // through the SAME pair `BossClusterScratch::new` uses, so the

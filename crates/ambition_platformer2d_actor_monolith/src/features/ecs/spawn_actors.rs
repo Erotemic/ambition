@@ -219,9 +219,23 @@ pub(crate) fn spawn_staged_actor(
     // mint a giant's host + two hand rows — refuse a giant-class spec like
     // every other runtime origin, instead of silently producing a handless
     // host.
-    if let SpawnActorKind::Enemy { brain, .. } = &req.kind {
+    if let SpawnActorKind::Enemy { brain, character } = &req.kind {
+        // ⭐ **ASK THE CHARACTER, because this path HAS one.** The doc on
+        // `spec_is_limbed_host` says the runtime refusals cannot be
+        // character-aware because *"making the refusal character-aware means
+        // giving those paths a placement, which they do not have"* — true of
+        // summons and encounter waves, and NOT true here: a staged request has
+        // carried a `character` since P1.12. A character that authors a
+        // non-giant mount was still being refused by whatever archetype its
+        // brain key happened to name.
         if reject_runtime_giant(
-            Some(&character_roster.spec_for_brain(brain)),
+            character
+                .as_ref()
+                .and_then(|id| prepared.get(id.as_str()))
+                .map(|definition| {
+                    is_limbed_host(Some(definition), &character_roster.spec_for_brain(brain))
+                })
+                .unwrap_or_else(|| spec_is_limbed_host(&character_roster.spec_for_brain(brain))),
             "programmatic staged actor",
             &req.id,
         ) {
@@ -280,8 +294,19 @@ pub(crate) fn spawn_staged_actor_into(
             // (`spawn_staged_actor`), so leaving the caller-owned root empty
             // here is deliberate — a plan row left unbuilt is exactly what the
             // room transaction's roster verification exists to flag.
+            // Same character-first question as `spawn_staged_actor`'s — the two
+            // refusals must agree, or the programmatic path would allocate a
+            // root the recipe then refuses to fill.
             if reject_runtime_giant(
-                Some(&character_roster.spec_for_brain(brain)),
+                character
+                    .as_ref()
+                    .and_then(|id| prepared.get(id.as_str()))
+                    .map(|definition| {
+                        is_limbed_host(Some(definition), &character_roster.spec_for_brain(brain))
+                    })
+                    .unwrap_or_else(|| {
+                        spec_is_limbed_host(&character_roster.spec_for_brain(brain))
+                    }),
                 "programmatic staged actor",
                 &req.id,
             ) {
@@ -1367,7 +1392,11 @@ pub(crate) fn spawn_runtime_minion_into(
             )
         }
     };
-    if reject_runtime_giant(enemy.spec.as_ref(), "runtime minion", &id) {
+    if reject_runtime_giant(
+        enemy.spec.as_ref().is_some_and(spec_is_limbed_host),
+        "runtime minion",
+        &id,
+    ) {
         return;
     }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
@@ -1871,18 +1900,22 @@ pub(crate) fn is_limbed_host(
 /// ARE supported; they lower through the planner. Returns `true` (having logged)
 /// when the caller should skip the spawn.
 pub(crate) fn reject_runtime_giant(
-    // ⚠ `Option`, because a CHARACTER-FIRST body has no archetype (P2). A body
-    // built from a character is not a limbed host by this test — the giant's
-    // limbs are planned rows, and a character-first giant reaches the world
-    // through the planner, which is the very road this refusal protects.
-    spec: Option<&super::super::enemies::ArchetypeSpec>,
+    // ⭐ **the ANSWER, not the evidence.** This took an
+    // `Option<&ArchetypeSpec>` and asked the question itself, which forced every
+    // caller to answer it the same way — and the two staged callers had a
+    // CHARACTER available and no way to spend it. A refusal that only refuses
+    // lets each origin ask in the terms it actually has: the staged paths ask
+    // `is_limbed_host` with their character, the summon and encounter paths ask
+    // `spec_is_limbed_host` because a spec is all they hold.
+    //
+    // ⚠ `false` is still the right answer for a character-first body with no
+    // archetype at all: the giant's limbs are planned rows, and such a body
+    // reaches the world through the planner, which is the road this protects.
+    is_limbed_host: bool,
     origin: &str,
     id: &str,
 ) -> bool {
-    let Some(spec) = spec else {
-        return false;
-    };
-    if spec_is_limbed_host(spec) {
+    if is_limbed_host {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
             "{origin} refuses `{id}`: a \"giant\"-class actor carries a limb rig and is only \
@@ -2343,7 +2376,11 @@ pub(super) fn spawn_encounter_mob(
             &[],
         ),
     };
-    if reject_runtime_giant(enemy.spec.as_ref(), "encounter wave", &id) {
+    if reject_runtime_giant(
+        enemy.spec.as_ref().is_some_and(spec_is_limbed_host),
+        "encounter wave",
+        &id,
+    ) {
         return;
     }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.

@@ -3367,3 +3367,60 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
         clean.binding_report(),
     );
 }
+
+/// **A STAGED actor takes its mount facts from its CHARACTER**, exactly as an
+/// authored one does.
+///
+/// ⛔ `mount_capabilities_of`'s staged arm read the archetype alone, while the
+/// authored arm beside it had asked the character since D76. `SpawnActorKind::
+/// Enemy` has carried a `character` since P1.12 and its own doc names the
+/// consequence: *"A shark spawned this way stopped being rideable and started
+/// falling out of the sky."* That was repaired at the SPAWN — so the body was
+/// built rideable and PLANNED un-rideable, and the plan is what the mount-link
+/// legality rules are checked against.
+///
+/// ⭐ the fixture's roster answers `combatant` for this brain — a row with no
+/// mount at all — so the only thing that can make this request rideable is the
+/// character, and the control below proves it by removing the cast.
+#[test]
+fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
+    let mut request = staged_enemy("staged_shark", None);
+    let SpawnActorKind::Enemy { character, .. } = &mut request.kind else {
+        unreachable!("staged_enemy builds an Enemy request")
+    };
+    *character = Some(ambition_entity_catalog::CharacterId::new("npc_test_shark"));
+
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        crate::character_runtime::CharacterDefinition::new("npc_test_shark", "Shark", "test")
+            .with_mount(ambition_characters::actor::CharacterMount {
+                class: Some("shark".to_string()),
+                ..Default::default()
+            }),
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    cast.insert_prepared(finalized.prepared);
+
+    let roster = crate::features::enemies::test_roster();
+    let bosses = crate::boss_encounter::BossCatalog::default();
+    let params = ActorConstructionParams::StagedActor(request.clone());
+
+    let planned =
+        crate::construction::mount_capabilities_of(&params, &roster, &bosses, Some(&cast));
+    assert_eq!(
+        planned.mount_class.as_deref(),
+        Some("shark"),
+        "the character authors a mount class and the plan must carry it"
+    );
+
+    // ⛔ the control, and it is what makes the assertion above mean anything:
+    // with no cast the same request falls to the archetype, which states no
+    // mount. If this ALSO said `shark`, the roster would be answering and the
+    // character would be decorative.
+    let without_cast = crate::construction::mount_capabilities_of(&params, &roster, &bosses, None);
+    assert_eq!(
+        without_cast.mount_class, None,
+        "the fixture roster must state no mount for this brain, or this test is \
+         not measuring the character"
+    );
+}

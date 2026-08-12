@@ -49,6 +49,48 @@ fn hall_sim() -> Platformer2dSimHarness {
     .expect("the GGRS sync-test harness builds in the Hall")
 }
 
+/// **DID A ROLLBACK ACTUALLY HAPPEN?** — asked of the runtime, not assumed.
+///
+/// ⛔⛔ **the first version of this file did not ask.** It asserted that provoked
+/// state SURVIVED a window it merely believed was a rollback window, and on that
+/// basis proposed deleting 506 lines. If the sync-test session had silently
+/// stopped rolling back — a changed harness default, a feature flag, a
+/// prediction distance that quietly became 0 — every assertion would still have
+/// passed, because state that is never disturbed always survives. A test whose
+/// subject can vanish while it stays green is not evidence.
+///
+/// ⭐ `RollbackExecutionStats` is a permanent, always-on counter incremented by
+/// `count_load_run` inside `AmbitionLoadWorldSet::Reconcile` — the very set the
+/// absent reconciler would have been installed in. There is no need to infer
+/// rollback from timing or from a cost probe; the runtime counts it.
+///
+/// ⚠ **`lifetime_load_runs`, NOT `load_runs`**, and the type's own doc is why: a
+/// rebase installs a NEW session and zeroes the per-session counters. These
+/// tests rebase, so the unprefixed field would report a number reset underneath
+/// them — which is the exact misreading that made the exit oracle look like a
+/// session that had stopped being driven at frame 12 when it had executed 2915
+/// advances.
+fn load_runs(sim: &mut Platformer2dSimHarness) -> u64 {
+    sim.world_mut()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackExecutionStats>()
+        .map(|stats| stats.lifetime_load_runs)
+        .expect("the GGRS session publishes execution stats")
+}
+
+/// Assert that the window just stepped genuinely restored state, and say how
+/// many times. The NUMBER is the point: `> before` proves motion, and a healthy
+/// sync-test window at distance 4 produces many loads, not one.
+fn assert_rolled_back(sim: &mut Platformer2dSimHarness, before: u64, what: &str) {
+    let after = load_runs(sim);
+    assert!(
+        after > before,
+        "{what}: LoadWorld never ran ({before} → {after}). The session is not \
+         rolling back, so nothing below this line is evidence about rollback — \
+         check the harness's prediction distance, which is 0 in the shipped \
+         build and saves nothing"
+    );
+}
+
 /// The lowest-entity body carrying a `BrainBinding`, so the choice is stable
 /// across runs without depending on Bevy's query iteration order.
 fn a_bound_body(world: &mut World) -> Entity {
@@ -114,12 +156,16 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
         sim.step(AgentAction::default());
     }
     let (body, wounded) = stage_provoked_and_wounded(&mut sim);
+    // ⭐ read AFTER the rebase: the rebase installs a new session, and the
+    // lifetime counter is the one that carries across it.
+    let loads_before = load_runs(&mut sim);
 
     // Enough frames that the session has predicted, rolled back and resimulated
     // many times over — every one of them running SaveWorld and LoadWorld.
     for _ in 0..180 {
         sim.step(AgentAction::default());
     }
+    assert_rolled_back(&mut sim, loads_before, "the provoked-body window");
 
     let world = sim.world_mut();
     assert_eq!(
@@ -231,9 +277,11 @@ fn possession_survives_the_real_rollback_window() {
 
     // Keep simulating INSIDE the prediction window: every one of these frames is
     // saved, predicted and resimulated.
+    let loads_before = load_runs(&mut sim);
     for _ in 0..120 {
         sim.step(AgentAction::default());
     }
+    assert_rolled_back(&mut sim, loads_before, "the possession window");
 
     assert_eq!(
         sim.world_mut().resource::<PossessionState>().possessed,

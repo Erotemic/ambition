@@ -28,8 +28,7 @@ use bevy::prelude::{
 };
 
 use ambition_entity_catalog::{
-    AttackDir, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
-    MovesetContract, VolumeShape, WindowTag,
+    AttackDir, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -42,9 +41,7 @@ use ambition_characters::actor::attack_gesture::{
     resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength,
     ResolvedAttackGesture,
 };
-use ambition_characters::brain::action_set::{
-    ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
-};
+use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
 use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};

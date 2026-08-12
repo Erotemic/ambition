@@ -4,8 +4,13 @@
 //! `use super::*;`.
 
 use super::*;
+// ⚠ these arrived through `mod.rs`'s imports until 2026-08-12, when making
+// `prefabs.rs`'s coupling explicit (P1.7) showed they were only there to feed
+// a glob. Named here because this is where they are used.
 use crate::events::HitEvent;
 use crate::hitbox::apply_hitbox_damage;
+use ambition_characters::brain::action_set::MeleeActionSpec;
+use ambition_entity_catalog::{ClipBinding, EffectRef, HitVolume, MoveEvent};
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;

@@ -7,8 +7,28 @@
 //! Split out of the former `moveset.rs` for the D-B module-size gate. The runtime
 //! (`MovePlayback`, `advance_move_playback`, the systems) stays in `mod.rs`; this
 //! module shares its constants, imports, and component types via `use super::*`.
-use super::*;
-use ambition_characters::brain::action_set::RangedStyle;
+// ⭐ **EXPLICIT, and the point is the MEASUREMENT** (campaign P1.7, 2026-08-12).
+// This was `use super::*`, which is how a module's real coupling stays unknown:
+// the bulk move this row needs cannot be planned against a glob. Made explicit,
+// what `prefabs.rs` actually needs is three groups, and only one of them is a
+// problem.
+//
+// ⚠ **the six SFX/VFX constants are the whole remaining coupling to this crate**
+// — plain `&str` presentation ids, the same class as `POGO_BOUNCE_KEY` before it
+// was lowered, so they travel with the builders whenever the builders move.
+// Everything else is `ambition_entity_catalog` and `ambition_characters`, both
+// of which sit at or below the destination.
+use super::{
+    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
+    SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE,
+};
+use ambition_characters::brain::action_set::{
+    MeleeActionSpec, RangedActionSpec, RangedStyle, SpecialActionSpec,
+};
+use ambition_entity_catalog::{
+    ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    MovesetContract, VolumeShape, WindowTag, ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB,
+};
 
 /// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
 /// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's

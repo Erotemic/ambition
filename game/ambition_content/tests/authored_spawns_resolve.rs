@@ -246,3 +246,49 @@ fn every_authored_spawn_names_a_character_or_a_row_that_exists() {
          guard to the character half would be vacuous from the day it is written"
     );
 }
+
+/// **A LEGACY ROW MAY ONLY OUTLIVE ITS REASON BY ZERO COMMITS.**
+///
+/// ⭐ `medium_striker`'s archetype row exists for exactly one thing: the
+/// `under_town_skitter` placement names it and carries no `character_id`, so
+/// the row is the only thing deciding what that body is. Deleting the row
+/// without casting the skitter nerfed it from 5 HP with a thrown rock to the
+/// 4-HP melee-only `combatant` fallback, silently, and that is what happened on
+/// 2026-08-12.
+///
+/// ⛔ **the converse is the half a countdown cannot express.** The monolith's
+/// `the_shipped_archetype_file_holds_only_rows_that_state_why` asserts the row
+/// is still there; nothing asserted that its REASON still is. So the day
+/// somebody casts the skitter — answering D96 item 3 — the row becomes dead
+/// weight that every future census has to re-litigate, and a legacy row nobody
+/// can justify is exactly how 843 lines of this file survived to August.
+///
+/// ⚠ this test lives HERE because it is the only place both facts are readable:
+/// the levels and the roster are both this crate's content.
+#[test]
+fn the_striker_row_lives_exactly_as_long_as_the_placement_that_needs_it() {
+    let rows = ambition_content::enemy_roster::CHARACTER_ROSTER_RON;
+    let row_exists = rows.contains("\"medium_striker\": (");
+
+    let mut skitter_needs_it = false;
+    for (_, value) in worlds() {
+        for (_, name, brain, has_character) in enemy_spawns(&value) {
+            if name == "under_town_skitter" && brain == "medium_striker" && !has_character {
+                skitter_needs_it = true;
+            }
+        }
+    }
+
+    assert_eq!(
+        row_exists, skitter_needs_it,
+        "the `medium_striker` row and the placement that needs it disagree \
+         (row: {row_exists}, placement still uncast: {skitter_needs_it}).\n\n\
+         If the skitter was CAST — it names a character now — delete the row, \
+         its note in `character_archetypes.ron`, its SURVIVORS entry in the \
+         monolith's countdown test, and this test.\n\n\
+         If the row was DELETED while the placement still names it, that body \
+         just became the `combatant` fallback: 4 HP and melee-only where it was \
+         5 HP with a thrown rock. `cargo check` cannot see that and neither can \
+         the app suite."
+    );
+}

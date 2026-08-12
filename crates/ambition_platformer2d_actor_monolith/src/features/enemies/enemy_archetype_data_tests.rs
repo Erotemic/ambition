@@ -100,34 +100,68 @@ fn the_honest_lookup_and_the_downgrading_one_answer_differently() {
 /// **WHAT IS LEFT OF THE SHIPPED ARCHETYPE FILE** — D73's acceptance signal is
 /// that it be DELETED, and this is the countdown.
 ///
-/// ⭐ two rows became one on 2026-08-12. `combatant` is the only survivor, and
-/// it is not a creature anybody places: `ambition_combat`'s content schema
-/// reserves it as `FALLBACK_BRAIN_KEY`, the answer to *what does an unknown
-/// brain key resolve to*. Deleting the row means answering that question —
-/// GPT 5.6's redirect says it should become a construction ERROR, the same rule
-/// P0.1 established for an absent `CharacterId` (ledger D102).
+/// ⭐ two rows, and neither is a creature anybody designed:
 ///
-/// ⛔ **a countdown, and it fails for the reason the campaign is succeeding.**
-/// When the last row goes this test goes with the file; until then it is the one
-/// place the number is written down where a reader will see it move.
+/// ```text
+///   combatant       the reserved FALLBACK_BRAIN_KEY — what an unknown key
+///                   resolves to. Deleting it means answering that question
+///                   (ledger D102): GPT 5.6's redirect says a construction
+///                   ERROR, the rule P0.1 set for an absent CharacterId.
+///   medium_striker  retained for ONE placement — `under_town_skitter` names
+///                   it and carries no character_id, so deleting it silently
+///                   nerfed a shipped body from 5 HP with a thrown rock to the
+///                   4-HP melee-only fallback. Ledger D96 item 3.
+/// ```
+///
+/// ⛔ **this test went red when the row came back, which is what it is for.**
+/// The line it holds is not "no row may ever return" — it is that a returning
+/// row states its reason HERE, where the next person to read the countdown sees
+/// it. A row quietly reappearing is the old ontology growing back; a row
+/// reappearing with a placement's name attached is pressure nobody can lose.
+///
+/// ⚠ **an exact set, not a floor.** `contains_brain` checks would pass on a file
+/// that had grown a third row.
 #[test]
-fn the_shipped_archetype_file_is_down_to_the_reserved_fallback() {
+fn the_shipped_archetype_file_holds_only_rows_that_state_why() {
+    /// `(brain key, why it has not been deleted yet)`.
+    const SURVIVORS: &[(&str, &str)] = &[
+        (
+            "combatant",
+            "the reserved FALLBACK_BRAIN_KEY (ambition_combat's content schema \
+             requires it). Deleting it means deciding what an unknown brain key \
+             resolves to — ledger D102.",
+        ),
+        (
+            "medium_striker",
+            "one placement, `under_town_pipes` / `under_town_skitter`, names it \
+             with no character_id. Deleting it nerfed that body from 5 HP with a \
+             thrown rock to the 4-HP melee-only fallback, silently. Ledger D96 \
+             item 3 casts the skitter; the row goes with the casting.",
+        ),
+    ];
+
     let shipped = test_roster();
-    assert!(
-        shipped.contains_brain("combatant"),
-        "the reserved fallback row is gone but `FALLBACK_BRAIN_KEY` still names \
-         it — the schema check would have caught this, and so does this"
-    );
+    for (key, why) in SURVIVORS {
+        assert!(
+            shipped.contains_brain(key),
+            "`{key}` left the shipped archetype file, and its stated reason for \
+             surviving was: {why}\n\nIf that reason is spent, delete this entry \
+             too. If it is not, the deletion changed something."
+        );
+    }
     for key in [
-        "medium_striker",
         "cellular_automaton_fighter",
         "sandbag_infinite",
+        "pirate_raider",
+        "small_lurker",
+        "large_brute",
     ] {
         assert!(
             !shipped.contains_brain(key),
             "`{key}` is back in the SHIPPED archetype file. Every row that left \
-             did so because a character took its facts; a row reappearing is the \
-             old ontology growing back, whatever the commit says it is doing"
+             did so because a character took its facts; one reappearing without \
+             an entry in SURVIVORS above is the old ontology growing back, \
+             whatever the commit says it is doing"
         );
     }
 }

@@ -119,13 +119,27 @@ autonomous_reconcile                1045
 
 ### A. Unblock the rest (small, ordered, no content)
 
-1. ▢ **Decide `build_actor_moveset`'s home.** `definition.rs` reaches into
-   `ambition_combat` in exactly ONE place. Either the fold follows the verb
-   constants down to `ambition_entity_catalog`, or only the AUTHORED
-   `CharacterDefinition` moves and `PreparedCharacterDefinition` stays above.
-   The second is the smaller cut and probably right — resolving a kit is runtime
-   work. ⛔ answer before moving any type.
-2. ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
+1. ✔ **ANSWERED 2026-08-12, and the answer is the one this item guessed.** The
+   second option: only the AUTHORED `CharacterDefinition` moves;
+   `PreparedCharacterDefinition` stays above the cut. The evidence is the file
+   itself rather than a preference — `derive_moveset`, the single reach into
+   `ambition_combat`, is a private PREPARATION function, not a method on the
+   authored type, and the authored type's only other mentions of that crate are
+   two doc links. Resolving a kit is runtime work, exactly as written here.
+   ⇥ as written:
+   ▢ **Decide `build_actor_moveset`'s home.** `definition.rs` reaches into
+   `ambition_combat` in exactly ONE place. …
+2. ◐ **The compiler was asked, and it named exactly one blocker — which is now
+   gone** (2026-08-12). Every field on `CharacterDefinition` is an
+   `ambition_characters`, `ambition_platformer2d_core` or
+   `ambition_entity_catalog` type except `ranged_execution`, which was a MONOLITH
+   type (`avatar::RangedExecution`) and so pinned the whole struct. It has moved
+   to `ambition_characters::brain`, beside the `ActionSet` whose `ranged`/
+   `special` folding it decides — all 42 sites repointed, no re-export left
+   behind. ⇥ ▢ the struct itself has not moved yet; `default_brain_profile` also
+   left it (D97), so the remaining move is mechanical.
+   ⇥ as written:
+   ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
    appendix C ruling 4, and the compiler is the instrument: let it expose every
    remaining wrongly-owned field rather than predicting them.
 3. ◐ **A `BrainProfile` type — THE TYPE LANDED 2026-08-11**
@@ -216,7 +230,18 @@ autonomous_reconcile                1045
 13. ▢ **Group C — generic roles.** Classify each: real character, fixture-only
     low-level API, or presentation borrowing. ⛔ do not force test entities into
     the character catalog for type uniformity.
-14. ▢ **The 65 unmigrated placements.** ⚠ measured: `intro.ldtk` (16) and
+14. ◐ **SIXTY-FIVE IS NOW TWO** (re-measured 2026-08-12 by walking the LDtk
+    JSON, not by regex). Across all four shipped worlds every `NpcSpawn` and
+    every `EnemySpawn` carries a `character_id` except **two**: `intro.ldtk`'s
+    `under_town_pipes` / `under_town_skitter` and `sandbox.ldtk`'s `dive_drill`
+    / "Target". Both are CONTENT DECISIONS (ledger D96 items 3 and 4), not
+    migration work — a skitter is a place plus a movement style, and a thing
+    called "Target" in a dive-drill room is plausibly the sandbag but that
+    changes the drill. ⚠ `BossSpawn` is a separate population this item never
+    counted: 11 of them carry no `character_id` field at all, and they resolve
+    through `PhaseScript` boss profiles rather than the archetype road.
+    ⇥ as written:
+    ▢ **The 65 unmigrated placements.** ⚠ measured: `intro.ldtk` (16) and
     `sandbox.ldtk` (49) entity instances carry NO `character_id` field instance
     at all — this is "add the field to 65 entities", not "fill in a value".
     ⛔ surgical, formatting-preserving edits only (never `json.dumps`), and

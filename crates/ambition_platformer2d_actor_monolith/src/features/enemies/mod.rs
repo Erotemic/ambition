@@ -92,12 +92,17 @@ pub use ambition_combat::archetype_spec::ArchetypeSpec;
 /// constants. `COMBAT_*` excludes the training-dummy + raw-mite rows that
 /// don't run the standard combat AI loop (was `COMBAT_ALL`).
 #[cfg(test)]
-pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
-    "combatant",
-    "medium_striker",
-    "puppy_slug",
-    "cellular_automaton_fighter",
-];
+/// ⛔ **THIS LISTED FIVE KEYS AND MEASURED TWO ROWS** (trimmed 2026-08-12).
+/// `test_spec` resolves against the SHIPPED file, and `puppy_slug` /
+/// `cellular_automaton_fighter` were deleted from it when those creatures became
+/// characters — so both fell through to `combatant` and every loop over this list
+/// asserted the same row three times while reporting five subjects. Vacuous by
+/// duplication, and green throughout.
+///
+/// ⇒ it names what the shipped file HAS. A test that needs a SHAPE the shipped
+/// cast no longer carries names an engine-owned fixture row instead
+/// (`fixture_spec`), which is the same rule the mounts and the sandbag follow.
+pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &["combatant", "medium_striker"];
 
 /// Every authored row in the fixture (combat + training dummies).
 ///
@@ -1028,6 +1033,49 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
     // the game reaches them. What still needs them is a handful of tests about
     // riders and heavies — exactly the case the giant's note below describes,
     // and the same answer: a test's cast belongs to the test.
+    // ⭐⭐ **THE DASHING, BLINKING, FLYING DUELIST — owned by the FIXTURE**
+    // (2026-08-12). Its shipped row was deleted on 08-11 when the PCA became
+    // `perfect_cellular_automaton` and authored its own body, and TWENTY engine
+    // tests still name this key: the dash tests, the respawn-policy tests, the
+    // brain-effect tests, the fighter harness. Every one of them has been
+    // resolving the `combatant` fallback ever since and asserting about that.
+    //
+    // ⛔ **the respawn-policy tests were the worst of it — they went VACUOUS.**
+    // `combatant` also authors `OnRoomReenter`, so "this archetype respawns on
+    // room re-entry" kept passing while measuring a different archetype entirely.
+    // A test that cannot tell its subject from the fallback is not a weaker test,
+    // it is a different one.
+    //
+    // ⚠ the SHAPE is what those tests need — a Smash-brained duelist that can
+    // dash, blink and fly, with a health pool nothing else has — so that is what
+    // this row is. The signature move, the glider projectile and the tuned
+    // efforts stayed with the CHARACTER, where they belong; copying them here
+    // would be keeping the archetype alive under a test's name.
+    "cellular_automaton_fighter": (
+        respawn: OnRoomReenter,
+        max_health: 60,
+        run_speed: 168.0,
+        patrol_effort: 0.5714,
+        chase_effort: 1.0,
+        aggro_radius: 540.0,
+        attack_range: 150.0,
+        contact_strength: 0.75,
+        damage_amount: 1,
+        is_aerial: Some(false),
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.24,
+            active_s: 0.08,
+            recover_s: 0.30,
+            damage: 1,
+            reach_px: 30.0,
+        ))),
+        smash_dash_to_close: true,
+        smash_duelist: true,
+        can_blink: true,
+        can_fly: true,
+        move_style: Walk,
+    ),
     // ⭐ **THE IMMORTAL PRACTICE DUMMY, owned by the FIXTURE** (2026-08-12). Its
     // shipped row was deleted with the `sandbag_infinite` migration: the combat
     // lab's two dummies name the `sandbag_infinite` CHARACTER now, which authors

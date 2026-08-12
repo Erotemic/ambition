@@ -193,3 +193,41 @@ fn pirate_heavy_stops_within_her_melee_reach() {
          edge {reach_edge} so she stops inside her own reach instead of whiffing",
     );
 }
+
+/// **The engine's fixture rows are DISTINGUISHABLE from the fallback.**
+///
+/// ⛔⛔ this is the guard that would have caught twenty tests measuring nothing.
+/// `spec_for_brain` answers `combatant` for any key it does not know, so a test
+/// naming a deleted row keeps passing — and the respawn-policy tests were the
+/// proof: `combatant` also authors `OnRoomReenter`, so *"this archetype respawns
+/// on room re-entry"* stayed green while its subject had ceased to exist.
+///
+/// ⭐ a fixture row earns its keep by being TELLABLE APART. Each one below is
+/// pinned on a fact the fallback does not have, so if the row is ever lost the
+/// failure names the row rather than leaving a suite quietly agreeing with
+/// itself.
+#[test]
+fn every_engine_fixture_row_differs_from_the_combatant_fallback() {
+    use crate::features::enemies::{fixture_spec, test_spec};
+
+    let fallback = test_spec("combatant");
+    for key in [
+        "cellular_automaton_fighter",
+        "sandbag_infinite",
+        "fixture_mount",
+    ] {
+        let spec = fixture_spec(key);
+        assert!(
+            spec.max_health != fallback.max_health
+                || spec.never_dies != fallback.never_dies
+                || spec.mount_class.is_some(),
+            "fixture row `{key}` is indistinguishable from the `combatant` \
+             fallback, so every test naming it would pass with the row deleted"
+        );
+    }
+
+    // ⚠ and the control: an id NOBODY authors must actually land on the fallback,
+    // or the comparison above proves nothing about how the miss behaves.
+    let missing = test_spec("no_such_archetype_anywhere");
+    assert_eq!(missing.max_health, fallback.max_health);
+}

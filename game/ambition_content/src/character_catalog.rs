@@ -1217,6 +1217,76 @@ mod tests {
     /// only checked the new authority would pass just as well with both
     /// standing. This is the other half: the file must not still describe a
     /// creature its character now describes.
+    /// **WHICH OF AMBITION'S CHARACTERS CAN BUILD A BODY WITHOUT AN ARCHETYPE** —
+    /// the census, as a test rather than as a number in a commit message.
+    ///
+    /// ⛔ **I measured this with a regex first and it was WRONG** (2026-08-12). A
+    /// pattern over `authored_intrinsics`'s match arms cannot see nested braces,
+    /// so it reported migrated characters — both shark riders among them — as
+    /// incomplete, and would have put a false count in the ledger. The sound
+    /// instrument is the one production uses: build the definition and ask
+    /// `body_blueprint()`, which is the same call the spawn roads make.
+    ///
+    /// ⭐ **this number is the campaign's remaining distance.** A placement naming
+    /// a body-complete character is built character-first and never touches the
+    /// archetype road; every other one is why `combatant` still has to exist. The
+    /// test asserts the count only moves UP, so a migration that quietly stops
+    /// authoring locomotion cannot pass.
+    ///
+    /// ⚠ **NINETEEN as of 2026-08-12**, and the regex said thirteen — it missed
+    /// both shark riders, the giant's hands, the salvage guard and the lab
+    /// raider, every one of them migrated. Six characters is the size of the
+    /// error a plausible-looking one-off measurement made, which is the argument
+    /// for the census living here instead of in a shell pipeline.
+    #[test]
+    fn the_body_complete_cast_only_grows() {
+        let complete: Vec<&str> = crate::character_catalog::buildable_cast()
+            .filter(|id| {
+                let definition = authored_intrinsics(
+                    id,
+                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                        *id,
+                        *id,
+                        crate::AMBITION_CONTENT_PROVIDER,
+                    ),
+                );
+                // ⚠ **"authors its own locomotion" is the CAMPAIGN's criterion**,
+                // not a copy of `body_blueprint`'s. The brief says it in those
+                // words — *"a placement naming a COMPLETE character (one that
+                // states its locomotion) is built by `new_character_in`"* — and
+                // `body_blueprint` happens to check the same single fact today.
+                //
+                // ⛔ if preparation ever requires a SECOND fact, this census
+                // becomes optimistic rather than wrong, and the place to look is
+                // `PreparedCharacterDefinition::body_blueprint`'s missing list.
+                // Asking that function directly is not possible from here:
+                // preparation's test entry point is `#[cfg(test)]` inside the
+                // monolith, so it does not exist for another crate.
+                definition.locomotion.is_some()
+            })
+            .collect();
+
+        // ⚠ a FLOOR, not a pin: every migration adds one, and a test that had to
+        // be edited on the way past would be edited without being read.
+        assert!(
+            complete.len() >= 19,
+            "only {} of Ambition's characters can build a body without an \
+             archetype, and it was NINETEEN on 2026-08-12 — a migration does not \
+             REMOVE completeness. Complete: {complete:?}",
+            complete.len()
+        );
+
+        // ⛔ and the control: the count must not be everybody, or `is_ok()` is
+        // answering something other than "this character authored a body".
+        let total = crate::character_catalog::buildable_cast().count();
+        assert!(
+            complete.len() < total,
+            "every one of the {total} buildable characters reports body-complete, \
+             which would mean `body_blueprint` has stopped distinguishing — the \
+             migration is not finished, so this cannot be true yet"
+        );
+    }
+
     /// **The giant carries its own facts now** — every one its archetype row
     /// stated, authored on the definition, and that row is DELETED (D76 closed
     /// once three layers learned to ask the character before the archetype: the

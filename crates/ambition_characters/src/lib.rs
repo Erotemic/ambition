@@ -22,6 +22,7 @@
 
 pub mod action_scheme;
 pub mod actor;
+pub mod binding_namespaces;
 pub mod boss_encounter;
 pub mod brain;
 pub mod equipment;

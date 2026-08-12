@@ -979,6 +979,20 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::rollback::probes::",
         "rollback diagnostics: measures the rewind, is not reproduced by it",
     ),
+    // **Whether the twintrack spacetime MINIMAP is showing.** A viewer's toggle
+    // over a 3D diagram of worldlines the simulation already computed — the
+    // diagram READS the experiment, and nothing in the experiment reads the
+    // diagram.
+    //
+    // Rewinding it would rewind a UI preference: press M during a prediction
+    // window and the minimap would blink back closed when the frame resimulated,
+    // which is the panel fighting the person using it. The same argument the
+    // sheet-decode waiver below makes — presentation state a checksum cannot see,
+    // because no body's collision, health or moves depend on it.
+    (
+        "ambition_demo_twintrack::spacetime_3d::SpacetimeMinimapState",
+        "presentation toggle for a read-only diagram; rewinding it would fight the viewer",
+    ),
     // The engine character-art load pipeline (§7.1). Which SHEETS have been
     // decoded is presentation, not simulation: a body's collision, health, and
     // moves are identical whether its art arrived or it is drawing the marked

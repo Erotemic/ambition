@@ -4,13 +4,15 @@
 //! proper-velocity controller. Other clock-bearing characters follow authored
 //! worldlines, exchange clock reports over finite-speed light signals, dance
 //! when Doppler-shifted into a passband, and play light tag from their visible
-//! light-delayed positions. A full-screen optical view and an optional 2+1D
-//! spacetime sculpture explain the same authoritative simulation without
+//! light-delayed positions. A full-screen optical view and a default-on 2+1D
+//! spacetime minimap explain the same authoritative simulation without
 //! becoming another movement or game-state path.
 
 mod chase_beacon;
 #[cfg(feature = "visible")]
 mod observatory;
+#[cfg(feature = "visible")]
+mod spacetime_3d;
 #[cfg(feature = "visible")]
 pub use observatory::ObservatoryCamera;
 
@@ -39,7 +41,9 @@ use ambition_platformer2d::runtime::demo_fixture::{
 };
 use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
-use ambition_platformer2d::world::rooms::RoomSpec;
+use ambition_platformer2d::world::rooms::{
+    CameraClampMode, CameraScrollPolicy, CameraZoneSpec, RoomSpec,
+};
 use bevy::prelude::*;
 
 pub const TWINTRACK_EXPERIENCE: &str = "twintrack";
@@ -58,11 +62,19 @@ pub const TRANSMITTER_COOLDOWN_PROPER_SECONDS: f64 = 0.45;
 
 pub const ROOM_WIDTH: f32 = 1_440.0;
 pub const ROOM_HEIGHT: f32 = 900.0;
-pub const LAB_POS: Vec2 = Vec2::new(150.0, 450.0);
-pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(160.0, 760.0);
-pub const DJ_POS: Vec2 = Vec2::new(1_165.0, 670.0);
-pub const TAG_START_POS: Vec2 = Vec2::new(750.0, 300.0);
-const TAG_ORBIT_CENTER: Vec2 = Vec2::new(750.0, 4_300.0);
+pub const LAB_POS: Vec2 = Vec2::new(720.0, 450.0);
+pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(470.0, 700.0);
+pub const DJ_POS: Vec2 = Vec2::new(1_010.0, 680.0);
+pub const TAG_START_POS: Vec2 = Vec2::new(1_060.0, 455.0);
+const TAG_ORBIT_CENTER: Vec2 = Vec2::new(1_060.0, 4_455.0);
+
+/// TwinTrack is intentionally an open relativity laboratory. The room still
+/// owns a finite authored coordinate frame for content placement, but camera
+/// follow must not become pinned to that rectangle once the controlled body
+/// leaves it. This camera zone is deliberately enormous rather than tied to
+/// the room bounds; at the demo's 540-unit/s terminal speed its edge is many
+/// hours of continuous flight away.
+const OPEN_CAMERA_HALF_SPAN: f32 = 10_000_000.0;
 const TAG_ORBIT_RADIUS: f32 = 4_000.0;
 const TAG_SPEED: f32 = 60.0;
 
@@ -246,8 +258,7 @@ impl TwinTrackViewMode {
     fn next(self) -> Self {
         match self {
             Self::Laboratory => Self::Optical,
-            Self::Optical => Self::Spacetime,
-            Self::Spacetime => Self::Laboratory,
+            Self::Optical | Self::Spacetime => Self::Laboratory,
         }
     }
 }
@@ -385,28 +396,27 @@ impl ambition_platformer2d::engine_core::snapshot::SnapshotState for TwinTrackEx
 
 pub fn twintrack_room() -> RoomSpec {
     let size = ae::Vec2::new(ROOM_WIDTH, ROOM_HEIGHT);
-    let wall = 32.0;
-    let world = ae::World::new(
-        "TwinTrack Relativity Plaza",
-        size,
-        LAB_POS,
-        vec![
-            ae::Block::solid("plaza_top", Vec2::ZERO, Vec2::new(size.x, wall)),
-            ae::Block::solid(
-                "plaza_bottom",
-                Vec2::new(0.0, size.y - wall),
-                Vec2::new(size.x, wall),
-            ),
-            ae::Block::solid("plaza_left", Vec2::ZERO, Vec2::new(wall, size.y)),
-            ae::Block::solid(
-                "plaza_right",
-                Vec2::new(size.x - wall, 0.0),
-                Vec2::new(wall, size.y),
-            ),
-        ],
-    );
+    // TwinTrack is a relativity laboratory, not a platforming corridor. The
+    // authored room remains a convenient coordinate frame for the clustered
+    // exhibits, but collision and camera travel are deliberately open.
+    let mut world = ae::World::new("TwinTrack Relativity Plaza", size, LAB_POS, Vec::new());
+    // Zero-gravity free flight should not silently inherit a platformer's bottom
+    // blast margin once the participant leaves the authored exhibit rectangle.
+    world.blast_margin = OPEN_CAMERA_HALF_SPAN;
     let mut room = RoomSpec::new(TWINTRACK_ROOM_ID, world);
     room.metadata.mode = Some(TWINTRACK_EXPERIENCE.to_owned());
+    room.camera_zones.push(CameraZoneSpec {
+        id: "twintrack_open_follow".to_owned(),
+        name: "TwinTrack open follow".to_owned(),
+        aabb: ae::Aabb::new(LAB_POS, Vec2::splat(OPEN_CAMERA_HALF_SPAN)),
+        priority: i32::MAX,
+        zoom: Some(1.0),
+        target_offset: Vec2::ZERO,
+        easing_hz: None,
+        cinematic_lock: false,
+        clamp_mode: CameraClampMode::None,
+        scroll_policy: CameraScrollPolicy::Free,
+    });
     room
 }
 
@@ -617,7 +627,10 @@ impl Plugin for TwinTrackExperiencePlugin {
         );
 
         #[cfg(feature = "visible")]
-        observatory::install(app);
+        {
+            observatory::install(app);
+            spacetime_3d::install(app);
+        }
     }
 }
 
@@ -717,8 +730,8 @@ fn install_twintrack_session(
             COURIER_ID,
             "Courier",
             COURIER_RECEIVER_CHANNEL,
-            Vec2::new(410.0, 260.0),
-            145.0,
+            Vec2::new(455.0, 310.0),
+            110.0,
             210.0,
             0.0,
         ),
@@ -733,8 +746,8 @@ fn install_twintrack_session(
             DRIFTER_ID,
             "Drifter",
             DRIFTER_RECEIVER_CHANNEL,
-            Vec2::new(900.0, 245.0),
-            175.0,
+            Vec2::new(720.0, 300.0),
+            125.0,
             330.0,
             1.7,
         ),
@@ -749,8 +762,8 @@ fn install_twintrack_session(
             SPINNER_ID,
             "Spinner",
             SPINNER_RECEIVER_CHANNEL,
-            Vec2::new(610.0, 680.0),
-            125.0,
+            Vec2::new(980.0, 320.0),
+            115.0,
             450.0,
             3.1,
         ),
@@ -1040,10 +1053,7 @@ fn capture_twintrack_interaction(
         experiment.aim_direction = traveler_body.vel.normalize();
     }
 
-    if experiment.phase == TwinTrackPhase::Complete
-        && experiment.view_mode == TwinTrackViewMode::Spacetime
-        && input.frame.axis_x.abs() > 0.08
-    {
+    if experiment.phase == TwinTrackPhase::Complete && input.frame.axis_x.abs() > 0.08 {
         experiment.replay_cursor =
             (experiment.replay_cursor + input.frame.axis_x * 0.008).clamp(0.0, 1.0);
     }
@@ -1078,30 +1088,21 @@ fn capture_twintrack_interaction(
         return;
     }
 
-    // Full-screen teaching views must never trap the participant away from the
-    // world-space console. The completed spacetime view is a replay: left/right
-    // scrubs it, while Interact returns to the laboratory map.
+    // The 3D spacetime teaching surface is now a default-on minimap and never
+    // replaces gameplay. Keep the historical Spacetime enum decode-compatible,
+    // but normalize old/restored state back to the laboratory view.
     if experiment.view_mode == TwinTrackViewMode::Spacetime {
         experiment.view_mode = TwinTrackViewMode::Laboratory;
-        return;
     }
     if experiment.view_mode == TwinTrackViewMode::Optical
         && experiment.phase != TwinTrackPhase::LightTag
     {
-        experiment.view_mode = TwinTrackViewMode::Spacetime;
-        if experiment.phase == TwinTrackPhase::Complete {
-            experiment.replay_cursor = 1.0;
-        }
+        experiment.view_mode = TwinTrackViewMode::Laboratory;
         return;
     }
 
     if traveler_body.pos.distance(VIEW_CONSOLE_POS) <= VIEW_CONSOLE_RADIUS {
         experiment.view_mode = experiment.view_mode.next();
-        if experiment.phase == TwinTrackPhase::Complete
-            && experiment.view_mode == TwinTrackViewMode::Spacetime
-        {
-            experiment.replay_cursor = 1.0;
-        }
         return;
     }
 
@@ -1338,12 +1339,12 @@ fn publish_twintrack_hud(
                 "1/4 START — DRIFT AWAY; BOTH CLOCKS STILL FEEL NORMAL".to_owned()
             }
             TwinTrackIntroStep::Accelerate => {
-                "1/4 START — ACCELERATE PAST 50% OF LIGHT SPEED".to_owned()
+                "1/4 START — ACCELERATE PAST 50% OF LIGHT; WATCH THE CLOCK FACES".to_owned()
             }
         },
         TwinTrackPhase::ClockCensus => {
             let remaining = 3 - experiment.clock_report_mask.count_ones();
-            format!("2/4 CLOCK CENSUS — ASK THE MOVING CHARACTERS ({remaining} LEFT)")
+            format!("2/4 CLOCK RACE — ASK THE 35%, 55%, AND 75% c ORBITERS ({remaining} LEFT)")
         }
         TwinTrackPhase::DopplerDance => format!(
             "3/4 DOPPLER MUSIC — TUNE G2 INTO G3: {}  {:.1} Hz",
@@ -1357,24 +1358,23 @@ fn publish_twintrack_hud(
         ),
         TwinTrackPhase::Reunion => "REUNION — RETURN TO THE LAB TWIN AND PRESS INTERACT".to_owned(),
         TwinTrackPhase::Complete => {
-            "COMPLETE — USE THE VIEW CONSOLE; SPACE + TIME IS NOW A SCRUBBABLE REPLAY".to_owned()
+            "COMPLETE — WATCH THE 3D MINIMAP; LEFT/RIGHT SCRUBS THE HELICAL WORLDLINES".to_owned()
         }
     };
     let view = match experiment.view_mode {
         TwinTrackViewMode::Laboratory => "LAB MAP",
         TwinTrackViewMode::Optical => "WHAT REACHES YOU NOW",
-        TwinTrackViewMode::Spacetime => "SPACE + TIME",
+        TwinTrackViewMode::Spacetime => "3D SPACE + TIME",
     };
     let view_instruction = match experiment.view_mode {
-        TwinTrackViewMode::Laboratory => "VIEW CONSOLE: INTERACT TO CHANGE VIEW",
+        TwinTrackViewMode::Laboratory => {
+            "3D MINIMAP ON BY DEFAULT • M/SPECIAL TO HIDE   VIEW CONSOLE: OPTICAL"
+        }
         TwinTrackViewMode::Optical if experiment.phase == TwinTrackPhase::LightTag => {
-            "ALIGN CYAN AIM; INTERACT FIRES"
+            "ALIGN CYAN AIM; INTERACT FIRES   M/SPECIAL: MINIMAP"
         }
-        TwinTrackViewMode::Optical => "INTERACT: OPEN SPACE + TIME",
-        TwinTrackViewMode::Spacetime if experiment.phase == TwinTrackPhase::Complete => {
-            "LEFT/RIGHT: SCRUB REPLAY   INTERACT: RETURN"
-        }
-        TwinTrackViewMode::Spacetime => "INTERACT: RETURN TO LAB MAP",
+        TwinTrackViewMode::Optical => "INTERACT: RETURN TO LAB   M/SPECIAL: MINIMAP",
+        TwinTrackViewMode::Spacetime => "LEGACY FULL-SCREEN STATE → LAB MAP",
     };
     readouts.set(
         OBJECTIVE_HUD_SLOT,
@@ -1408,7 +1408,7 @@ fn publish_twintrack_hud(
                     .to_owned()
             }
             TwinTrackIntroStep::Accelerate => {
-                "LAB TWIN: “NOW PUSH HARD. WATCH YOUR CLOCK FALL BEHIND MINE.”".to_owned()
+                "LAB TWIN: “NOW PUSH HARD. WATCH THE BIG CLOCK FACES—FAST PATHS ACCUMULATE LESS TIME.”".to_owned()
             }
         },
         TwinTrackPhase::ClockCensus
@@ -1427,7 +1427,7 @@ fn publish_twintrack_hud(
             )
         }
         TwinTrackPhase::ClockCensus => {
-            "FLY CLOSE AND INTERACT. THE QUESTION AND REPLY BOTH TRAVEL AS LIGHT."
+            "THE THREE ORBITERS MOVE AT 35%, 55%, AND 75% OF LIGHT. ASK EACH WHAT THEIR OWN CLOCK READS."
                 .to_owned()
         }
         TwinTrackPhase::DopplerDance if experiment.doppler_frequency <= 0.0 => format!(
@@ -1491,7 +1491,7 @@ fn publish_twintrack_hud(
         readouts.set(
             TEACHER_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(format!(
-                "INSTRUMENTS  β {:.3}  γ {:.3}  dτ/dt {:.3}  LIGHT {}  FOX IMAGE AGE {:.2} s  LEAD {:.1}°  REPLAY {:>3}%",
+                "3D GUIDE  GOLD BEADS = 1 s ON EACH OWN CLOCK  •  BLUE = PAST LIGHT CONE  •  CYAN PLANE = YOUR NOW\nADVANCED  β {:.3}  γ {:.3}  dτ/dt {:.3}  LIGHT {}  FOX IMAGE AGE {:.2} s  LEAD {:.1}°  REPLAY {:>3}%",
                 traveler.beta_squared.max(0.0).sqrt(),
                 traveler.lorentz_factor,
                 traveler.proper_time_rate,

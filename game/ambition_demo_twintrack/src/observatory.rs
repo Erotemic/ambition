@@ -1,9 +1,9 @@
-//! Visible TwinTrack presentation: the relativity plaza, full-screen optical
-//! view, and an isometric 2+1D spacetime sculpture.
+//! Visible TwinTrack presentation: the relativity plaza and full-screen optical view.
 //!
 //! The laboratory camera shows authoritative coordinate positions. The optical
-//! camera consumes only observer-derived views and worldline telemetry. Switching
-//! displays therefore never changes movement, collisions, clocks, or signals.
+//! camera consumes only observer-derived views and worldline telemetry. The real
+//! perspective 2+1D spacetime exhibit lives in `spacetime_3d`; both presentations
+//! are read-only consumers and never change movement, collisions, clocks, or signals.
 
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
 use ambition_platformer2d::relativity::{
@@ -11,7 +11,7 @@ use ambition_platformer2d::relativity::{
 };
 use ambition_platformer2d::relativity2d::{
     ProperTimeElapsed, RelativisticOpticalView2d, RelativisticTargetingView2d,
-    RelativitySignalView2d, WorldlineHistoryView2d, WorldlineTrackId,
+    RelativitySignalView2d,
 };
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ClearColorConfig, OrthographicProjection, Projection, ScalingMode};
@@ -20,23 +20,23 @@ use bevy::prelude::*;
 use crate::{
     decoded_clock_seconds, doppler_frequency_for_target, musical_note_name, payload_parts,
     LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackPhase,
-    TwinTrackViewMode, COURIER_ID, DJ_ID, DJ_POS, DOPPLER_PASSBAND_MAX, DOPPLER_PASSBAND_MIN,
+    TwinTrackTrajectory, TwinTrackViewMode, COURIER_ID, DJ_ID, DJ_POS, DOPPLER_PASSBAND_MAX, DOPPLER_PASSBAND_MIN,
     DOPPLER_TARGET_FREQUENCY, DRIFTER_ID, INVARIANT_SPEED, LAB_POS, LIGHT_TAG_ROUNDS,
     PAYLOAD_ASK_CLOCK, PAYLOAD_CLOCK_REPORT, PAYLOAD_DOPPLER_NOTE, PAYLOAD_LIGHT_TAG, ROOM_HEIGHT,
     ROOM_WIDTH, SPINNER_ID, TAGGER_ID, TRAVELER_TAG, TWINTRACK_EXPERIENCE, VIEW_CONSOLE_POS,
 };
 
-const OPTICAL_LAYER: usize = 28;
-const VIEW_WIDTH: f32 = 1_200.0;
-const VIEW_HEIGHT: f32 = 750.0;
+pub(crate) const OPTICAL_LAYER: usize = 28;
+pub(crate) const VIEW_WIDTH: f32 = 1_200.0;
+pub(crate) const VIEW_HEIGHT: f32 = 750.0;
 const SKY_CENTER: Vec2 = Vec2::new(0.0, 10.0);
 const SKY_RADIUS: f32 = 300.0;
 const STAR_COUNT: usize = 256;
-const TRACE_DOT_COUNT: usize = 360;
 const SIGNAL_DOT_COUNT: usize = 32;
-const CONE_LINE_COUNT: usize = 4;
-const TRACE_WINDOW_SECONDS: f64 = 7.0;
 const CLOCK_HAND_PERIOD_SECONDS: f64 = 4.0;
+const CLOCK_TICK_COUNT: usize = 12;
+const ORBIT_DOT_COUNT: usize = 72;
+const ABERRATION_BEACON_COUNT: usize = 24;
 
 #[derive(Component)]
 struct TwinTrackVisible;
@@ -65,6 +65,21 @@ struct ClockReadout(ClockVisualTarget);
 
 #[derive(Component)]
 struct ClockHand(ClockVisualTarget);
+
+#[derive(Component)]
+struct ClockFaceTick(ClockVisualTarget, usize);
+
+#[derive(Component)]
+struct LabOrbitDot {
+    character_id: u8,
+    index: usize,
+}
+
+#[derive(Component)]
+struct LabOrbitRadiusLine(u8);
+
+#[derive(Component)]
+struct LabSpeedLabel(u8);
 
 #[derive(Component)]
 struct DjFrequencyBar;
@@ -129,19 +144,16 @@ struct OpticalTagGuideLabel;
 struct OpticalObserverMarker;
 
 #[derive(Component)]
-struct TraceDot(usize);
+struct OpticalAberrationBeacon {
+    rest_direction: Vec2,
+}
 
 #[derive(Component)]
-struct SignalDot(usize);
+struct OpticalAberrationGuide;
 
 #[derive(Component)]
-struct ConeLine(usize);
+struct OpticalVelocityLine;
 
-#[derive(Component)]
-struct SpacetimeAxis(usize);
-
-#[derive(Component)]
-struct SpacetimeGuide;
 
 pub(crate) fn install(app: &mut App) {
     app.add_systems(
@@ -158,11 +170,9 @@ pub(crate) fn install(app: &mut App) {
             update_observatory_title,
             update_optical_observer_marker,
             update_observatory_stars,
+            update_optical_aberration_beacons,
             update_optical_proxies,
-            update_spacetime_sculpture,
-            update_spacetime_signals,
-            update_light_cone,
-            update_spacetime_guides,
+            update_lab_orbit_visuals,
             cleanup_visuals_when_inactive,
         ),
     );
@@ -182,7 +192,7 @@ fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &s
         ClockReadout(target),
         Text2d::new("CLOCK 0.0 s"),
         TextFont {
-            font_size: 13.0,
+            font_size: 16.0,
             ..default()
         },
         TextColor(Color::srgb(0.96, 0.98, 1.0)),
@@ -192,10 +202,19 @@ fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &s
     commands.spawn((
         TwinTrackVisible,
         ClockHand(target),
-        Sprite::from_color(Color::srgb(0.96, 0.98, 1.0), Vec2::ONE),
+        Sprite::from_color(Color::srgb(1.0, 0.92, 0.28), Vec2::ONE),
         Transform::from_xyz(0.0, 0.0, 14.0),
         Name::new(format!("TwinTrack {name} clock hand")),
     ));
+    for index in 0..CLOCK_TICK_COUNT {
+        commands.spawn((
+            TwinTrackVisible,
+            ClockFaceTick(target, index),
+            Sprite::from_color(Color::srgba(0.92, 0.96, 1.0, 0.92), Vec2::splat(4.5)),
+            Transform::from_xyz(0.0, 0.0, 13.5),
+            Name::new(format!("TwinTrack {name} clock tick {index}")),
+        ));
+    }
 }
 
 fn spawn_twintrack_visuals(
@@ -217,7 +236,10 @@ fn spawn_twintrack_visuals(
         commands.spawn((
             TwinTrackVisible,
             LabCharacterVisual(id),
-            Sprite::from_color(color, Vec2::splat(if id == DJ_ID { 42.0 } else { 34.0 })),
+            Sprite::from_color(
+                color,
+                if id == DJ_ID { Vec2::splat(64.0) } else { Vec2::new(58.0, 34.0) },
+            ),
             Transform::from_xyz(0.0, 0.0, 8.0),
             Name::new(format!("TwinTrack lab character {label}")),
         ));
@@ -226,15 +248,50 @@ fn spawn_twintrack_visuals(
             LabCharacterLabel(id),
             Text2d::new(label),
             TextFont {
-                font_size: 15.0,
+                font_size: 18.0,
                 ..default()
             },
             TextColor(color),
             Transform::from_xyz(0.0, 0.0, 10.0),
             Name::new(format!("TwinTrack lab label {label}")),
         ));
+        commands.spawn((
+            TwinTrackVisible,
+            LabSpeedLabel(id),
+            Text2d::new(""),
+            TextFont {
+                font_size: 15.0,
+                ..default()
+            },
+            TextColor(color),
+            Transform::from_xyz(0.0, 0.0, 10.0),
+            Name::new(format!("TwinTrack speed label {label}")),
+        ));
         spawn_clock_pair(&mut commands, ClockVisualTarget::Character(id), label);
     }
+    for (character_id, color) in [
+        (COURIER_ID, Color::srgb(0.35, 0.90, 1.0)),
+        (DRIFTER_ID, Color::srgb(0.85, 0.55, 1.0)),
+        (SPINNER_ID, Color::srgb(1.0, 0.65, 0.25)),
+    ] {
+        for index in 0..ORBIT_DOT_COUNT {
+            commands.spawn((
+                TwinTrackVisible,
+                LabOrbitDot { character_id, index },
+                Sprite::from_color(color.with_alpha(0.42), Vec2::splat(5.5)),
+                Transform::from_xyz(0.0, 0.0, 3.0),
+                Name::new(format!("TwinTrack orbit trail {character_id}:{index}")),
+            ));
+        }
+        commands.spawn((
+            TwinTrackVisible,
+            LabOrbitRadiusLine(character_id),
+            Sprite::from_color(color.with_alpha(0.32), Vec2::ONE),
+            Transform::from_xyz(0.0, 0.0, 3.5),
+            Name::new(format!("TwinTrack orbit radius {character_id}")),
+        ));
+    }
+
     commands.spawn((
         TwinTrackVisible,
         LaboratoryVisual,
@@ -423,8 +480,8 @@ REUNION POINT",
     commands.spawn((
         TwinTrackVisible,
         Text2d::new(
-            "OPTICAL: characters appear where their arriving light left them\n\
-             SPACE + TIME: a 3D graph—X and Y are space; height is laboratory time",
+            "OPTICAL: see the light that reaches you now\n\
+             SPACE + TIME: orbit a real 3D worldline sculpture",
         ),
         TextFont {
             font_size: 15.0,
@@ -434,6 +491,47 @@ REUNION POINT",
         Transform::from_xyz(0.0, 302.0, 20.0),
         layer.clone(),
         Name::new("TwinTrack relativity view explanation"),
+    ));
+
+    for index in 0..ABERRATION_BEACON_COUNT {
+        let angle = index as f32 / ABERRATION_BEACON_COUNT as f32 * std::f32::consts::TAU;
+        commands.spawn((
+            TwinTrackVisible,
+            OpticalAberrationBeacon {
+                rest_direction: Vec2::from_angle(angle),
+            },
+            Sprite::from_color(Color::WHITE, Vec2::splat(13.0)),
+            Visibility::Hidden,
+            Transform::from_xyz(0.0, 0.0, 4.0),
+            layer.clone(),
+            Name::new(format!("TwinTrack optical aberration beacon {index}")),
+        ));
+    }
+    commands.spawn((
+        TwinTrackVisible,
+        OpticalAberrationGuide,
+        Text2d::new(
+            "RELATIVISTIC SKY RING: 24 BEACONS ARE EQUALLY SPACED IN THE LAB FRAME\n\
+             WATCH THEM CROWD AHEAD AND CHANGE COLOR AS YOU APPROACH LIGHT SPEED",
+        ),
+        TextFont {
+            font_size: 15.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.80, 0.92, 1.0)),
+        Visibility::Hidden,
+        Transform::from_xyz(0.0, -274.0, 18.0),
+        layer.clone(),
+        Name::new("TwinTrack optical aberration teaching guide"),
+    ));
+    commands.spawn((
+        TwinTrackVisible,
+        OpticalVelocityLine,
+        Sprite::from_color(Color::srgb(0.30, 1.0, 0.94), Vec2::ONE),
+        Visibility::Hidden,
+        Transform::from_xyz(0.0, 0.0, 16.0),
+        layer.clone(),
+        Name::new("TwinTrack optical velocity direction"),
     ));
 
     for index in 0..STAR_COUNT {
@@ -550,95 +648,7 @@ DIRECTIONS AROUND YOU",
         Name::new("TwinTrack optical light-tag guide"),
     ));
 
-    for index in 0..TRACE_DOT_COUNT {
-        commands.spawn((
-            TwinTrackVisible,
-            TraceDot(index),
-            Sprite::from_color(Color::WHITE, Vec2::splat(5.0)),
-            Visibility::Hidden,
-            Transform::from_xyz(0.0, 0.0, 4.0),
-            layer.clone(),
-            Name::new(format!("TwinTrack spacetime trace {index}")),
-        ));
-    }
-    for index in 0..SIGNAL_DOT_COUNT {
-        commands.spawn((
-            TwinTrackVisible,
-            SignalDot(index),
-            Sprite::from_color(Color::srgb(1.0, 0.95, 0.25), Vec2::splat(8.0)),
-            Visibility::Hidden,
-            Transform::from_xyz(0.0, 0.0, 7.0),
-            layer.clone(),
-            Name::new(format!("TwinTrack spacetime signal {index}")),
-        ));
-    }
-    for index in 0..CONE_LINE_COUNT {
-        commands.spawn((
-            TwinTrackVisible,
-            ConeLine(index),
-            Sprite::from_color(Color::srgba(0.20, 0.72, 1.0, 0.72), Vec2::ONE),
-            Visibility::Hidden,
-            Transform::from_xyz(0.0, 0.0, 3.0),
-            layer.clone(),
-            Name::new(format!("TwinTrack past light cone edge {index}")),
-        ));
-    }
-    for (index, color) in [
-        Color::srgb(0.30, 0.95, 0.95),
-        Color::srgb(0.90, 0.45, 1.0),
-        Color::srgb(1.0, 0.80, 0.25),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        commands.spawn((
-            TwinTrackVisible,
-            SpacetimeAxis(index),
-            Sprite::from_color(color, Vec2::ONE),
-            Visibility::Hidden,
-            Transform::from_xyz(0.0, 0.0, 2.0),
-            layer.clone(),
-            Name::new(format!("TwinTrack spacetime axis {index}")),
-        ));
-    }
-    for (text, position, color) in [
-        (
-            "X POSITION →",
-            Vec2::new(470.0, -264.0),
-            Color::srgb(0.30, 0.95, 0.95),
-        ),
-        (
-            "Y POSITION ↗",
-            Vec2::new(-390.0, -82.0),
-            Color::srgb(0.90, 0.45, 1.0),
-        ),
-        (
-            "LAB TIME ↑\nNOW IS HIGHER",
-            Vec2::new(-520.0, 120.0),
-            Color::srgb(1.0, 0.80, 0.25),
-        ),
-        (
-            "COLORED TRAILS = CHARACTERS   YELLOW LINES = LIGHT SIGNALS
-BLUE EDGES = PAST LIGHT CONE   LOWER DOTS ARE EARLIER EVENTS",
-            Vec2::new(0.0, 310.0),
-            Color::srgb(0.72, 0.85, 1.0),
-        ),
-    ] {
-        commands.spawn((
-            TwinTrackVisible,
-            SpacetimeGuide,
-            Text2d::new(text),
-            TextFont {
-                font_size: 15.0,
-                ..default()
-            },
-            TextColor(color),
-            Visibility::Hidden,
-            Transform::from_translation(position.extend(18.0)),
-            layer.clone(),
-            Name::new(format!("TwinTrack spacetime guide {text}")),
-        ));
-    }
+
 }
 
 fn sync_view_cameras(
@@ -649,13 +659,13 @@ fn sync_view_cameras(
     let Ok(experiment) = experiment.single() else {
         return;
     };
-    let optical_active = experiment.view_mode != TwinTrackViewMode::Laboratory;
+    let optical_active = experiment.view_mode == TwinTrackViewMode::Optical;
     if let Ok(mut camera) = observatory.single_mut() {
         camera.is_active = optical_active;
         camera.viewport = None;
     }
     for mut camera in &mut laboratory {
-        camera.is_active = !optical_active;
+        camera.is_active = experiment.view_mode != TwinTrackViewMode::Optical;
         camera.viewport = None;
     }
 }
@@ -694,7 +704,11 @@ fn update_lab_character_visuals(
             transform.translation.x = body.pos.x;
             transform.translation.y = body.pos.y;
             transform.scale = Vec3::ONE;
-            transform.rotation = Quat::IDENTITY;
+            transform.rotation = if body.vel.length_squared() > 1.0 {
+                Quat::from_rotation_z(body.vel.y.atan2(body.vel.x))
+            } else {
+                Quat::IDENTITY
+            };
             if visual.0 == DJ_ID
                 && experiment.is_some_and(|state| {
                     state.doppler_frequency > 0.0 && state.phase != TwinTrackPhase::DopplerDance
@@ -730,6 +744,74 @@ fn update_lab_character_visuals(
     }
 }
 
+
+fn update_lab_orbit_visuals(
+    characters: Query<(
+        &TwinTrackCharacter,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+    )>,
+    mut dots: Query<(&LabOrbitDot, &mut Transform, &mut Visibility)>,
+    mut radii: Query<
+        (&LabOrbitRadiusLine, &mut Sprite, &mut Transform, &mut Visibility),
+        Without<LabOrbitDot>,
+    >,
+    mut speed_labels: Query<
+        (&LabSpeedLabel, &mut Text2d, &mut Transform, &mut Visibility),
+        (Without<LabOrbitDot>, Without<LabOrbitRadiusLine>),
+    >,
+) {
+    for (dot, mut transform, mut visibility) in &mut dots {
+        let Some((character, _)) = characters
+            .iter()
+            .find(|(character, _)| character.id == dot.character_id)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let TwinTrackTrajectory::Orbit { center, radius, .. } = character.trajectory else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let angle = dot.index as f32 / ORBIT_DOT_COUNT as f32 * std::f32::consts::TAU;
+        transform.translation = (center + Vec2::from_angle(angle) * radius).extend(3.0);
+        *visibility = Visibility::Visible;
+    }
+
+    for (line, mut sprite, mut transform, mut visibility) in &mut radii {
+        let Some((character, body)) = characters
+            .iter()
+            .find(|(character, _)| character.id == line.0)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let TwinTrackTrajectory::Orbit { center, .. } = character.trajectory else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        set_line(&mut sprite, &mut transform, center, body.pos, 3.0, 3.5);
+        *visibility = Visibility::Visible;
+    }
+
+    for (label, mut text, mut transform, mut visibility) in &mut speed_labels {
+        let Some((_, body)) = characters
+            .iter()
+            .find(|(character, _)| character.id == label.0)
+        else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let speed_fraction = body.vel.length() / INVARIANT_SPEED;
+        if speed_fraction < 0.02 {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+        text.0 = format!("{:.0}% c", (speed_fraction * 100.0).clamp(0.0, 99.0));
+        transform.translation = (body.pos + Vec2::new(0.0, -52.0)).extend(10.0);
+        *visibility = Visibility::Visible;
+    }
+}
+
 fn update_visible_clocks(
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     traveler: Query<
@@ -753,11 +835,15 @@ fn update_visible_clocks(
     )>,
     mut readouts: Query<
         (&ClockReadout, &mut Text2d, &mut Transform, &mut Visibility),
-        Without<ClockHand>,
+        (Without<ClockHand>, Without<ClockFaceTick>),
     >,
     mut hands: Query<
         (&ClockHand, &mut Sprite, &mut Transform, &mut Visibility),
-        Without<ClockReadout>,
+        (Without<ClockReadout>, Without<ClockFaceTick>),
+    >,
+    mut ticks: Query<
+        (&ClockFaceTick, &mut Transform, &mut Visibility),
+        (Without<ClockReadout>, Without<ClockHand>),
     >,
 ) {
     let experiment = experiment.single().ok();
@@ -790,7 +876,7 @@ fn update_visible_clocks(
             continue;
         };
         text.0 = format!("CLOCK {seconds:>5.1} s");
-        transform.translation = (position + Vec2::new(0.0, 48.0)).extend(15.0);
+        transform.translation = (position + Vec2::new(18.0, 58.0)).extend(15.0);
         *visibility = if visible {
             Visibility::Visible
         } else {
@@ -804,9 +890,25 @@ fn update_visible_clocks(
             continue;
         };
         let angle = (seconds / CLOCK_HAND_PERIOD_SECONDS * std::f64::consts::TAU) as f32;
-        let center = position + Vec2::new(-48.0, 48.0);
-        let end = center + Vec2::from_angle(angle) * 13.0;
-        set_line(&mut sprite, &mut transform, center, end, 2.5, 14.0);
+        let center = position + Vec2::new(-46.0, 54.0);
+        let end = center + Vec2::from_angle(angle) * 22.0;
+        set_line(&mut sprite, &mut transform, center, end, 4.0, 14.0);
+        *visibility = if visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    for (tick, mut transform, mut visibility) in &mut ticks {
+        let Some((position, _, visible)) = state(tick.0) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let angle = tick.1 as f32 / CLOCK_TICK_COUNT as f32 * std::f32::consts::TAU;
+        let center = position + Vec2::new(-46.0, 54.0);
+        transform.translation = (center + Vec2::from_angle(angle) * 25.0).extend(13.5);
+        transform.rotation = Quat::from_rotation_z(angle);
         *visibility = if visible {
             Visibility::Visible
         } else {
@@ -1241,16 +1343,16 @@ fn update_observatory_title(
             TwinTrackViewMode::Optical => "WHAT REACHES YOU NOW".to_owned(),
             TwinTrackViewMode::Spacetime if experiment.phase == TwinTrackPhase::Complete => {
                 format!(
-                    "SPACE + TIME REPLAY  {:>3}% — LEFT/RIGHT SCRUBS",
+                    "3D SPACE + TIME REPLAY  {:>3}% — LEFT/RIGHT SCRUBS",
                     (experiment.replay_cursor * 100.0).round() as u32,
                 )
             }
-            TwinTrackViewMode::Spacetime => "2D SPACE + TIME SCULPTURE".to_owned(),
+            TwinTrackViewMode::Spacetime => "3D SPACE + TIME — WORLDLINES".to_owned(),
         };
-        *visibility = if experiment.view_mode == TwinTrackViewMode::Laboratory {
-            Visibility::Hidden
-        } else {
+        *visibility = if experiment.view_mode == TwinTrackViewMode::Optical {
             Visibility::Visible
+        } else {
+            Visibility::Hidden
         };
     }
 }
@@ -1326,6 +1428,97 @@ fn update_observatory_stars(
     }
 }
 
+fn update_optical_aberration_beacons(
+    optical: Res<RelativisticOpticalView2d>,
+    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
+    mut beacons: Query<
+        (&OpticalAberrationBeacon, &mut Sprite, &mut Transform, &mut Visibility),
+        (Without<OpticalVelocityLine>, Without<OpticalAberrationGuide>),
+    >,
+    mut guides: Query<&mut Visibility, (With<OpticalAberrationGuide>, Without<OpticalVelocityLine>)>,
+    mut velocity_lines: Query<
+        (&mut Sprite, &mut Transform, &mut Visibility),
+        (With<OpticalVelocityLine>, Without<OpticalAberrationGuide>),
+    >,
+) {
+    let Ok(experiment) = experiment.single() else {
+        return;
+    };
+    let visible = experiment.view_mode == TwinTrackViewMode::Optical;
+    for mut visibility in &mut guides {
+        *visibility = if visible { Visibility::Visible } else { Visibility::Hidden };
+    }
+
+    let Some(observer) = optical.observer.as_ref() else {
+        for (_, _, _, mut visibility) in &mut beacons {
+            *visibility = Visibility::Hidden;
+        }
+        for (_, _, mut visibility) in &mut velocity_lines {
+            *visibility = Visibility::Hidden;
+        }
+        return;
+    };
+    let Ok(c) = InvariantSpeed::new(observer.invariant_speed) else {
+        return;
+    };
+    let observer_velocity = [
+        f64::from(observer.coordinate_velocity.x),
+        f64::from(observer.coordinate_velocity.y),
+        0.0,
+    ];
+
+    for (beacon, mut sprite, mut transform, mut visibility) in &mut beacons {
+        if !visible {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+        let photon = -beacon.rest_direction;
+        let Some(observation) = observe_photon_direction(
+            [f64::from(photon.x), f64::from(photon.y), 0.0],
+            observer_velocity,
+            c,
+        ) else {
+            *visibility = Visibility::Hidden;
+            continue;
+        };
+        let direction = Vec2::new(
+            observation.apparent_source_direction[0] as f32,
+            observation.apparent_source_direction[1] as f32,
+        )
+        .normalize_or_zero();
+        transform.translation = (SKY_CENTER + direction * SKY_RADIUS * 0.90).extend(4.0);
+        transform.rotation = Quat::from_rotation_z(direction.y.atan2(direction.x));
+        let beaming_size = (observation.beaming_factor as f32).cbrt().clamp(0.72, 2.0);
+        sprite.custom_size = Some(Vec2::splat(13.0 * beaming_size));
+        sprite.color = spectral_color(observation.doppler_factor, 1.4);
+        *visibility = Visibility::Visible;
+    }
+
+    for (mut sprite, mut transform, mut visibility) in &mut velocity_lines {
+        if !visible {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+        let velocity = observer.coordinate_velocity;
+        let speed = velocity.length();
+        if speed <= 1.0 {
+            *visibility = Visibility::Hidden;
+            continue;
+        }
+        let direction = velocity / speed;
+        let length = 78.0 + 92.0 * (speed / INVARIANT_SPEED).clamp(0.0, 0.99);
+        set_line(
+            &mut sprite,
+            &mut transform,
+            SKY_CENTER,
+            SKY_CENTER + direction * length,
+            5.0,
+            16.0,
+        );
+        *visibility = Visibility::Visible;
+    }
+}
+
 fn update_optical_proxies(
     optical: Res<RelativisticOpticalView2d>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
@@ -1394,244 +1587,6 @@ fn update_optical_proxies(
     }
 }
 
-fn replay_bounds(history: &WorldlineHistoryView2d) -> Option<(f64, f64)> {
-    let start = history
-        .tracks
-        .values()
-        .filter_map(|samples| samples.front().map(|sample| sample.coordinate_time))
-        .min_by(f64::total_cmp)?;
-    let end = history
-        .tracks
-        .values()
-        .filter_map(|samples| samples.back().map(|sample| sample.coordinate_time))
-        .max_by(f64::total_cmp)?;
-    Some((start, end.max(start)))
-}
-
-fn selected_spacetime_time(
-    experiment: &TwinTrackExperiment,
-    history: &WorldlineHistoryView2d,
-    live_now: f64,
-) -> f64 {
-    if experiment.phase != TwinTrackPhase::Complete {
-        return live_now;
-    }
-    replay_bounds(history).map_or(live_now, |(start, end)| {
-        start + (end - start) * f64::from(experiment.replay_cursor.clamp(0.0, 1.0))
-    })
-}
-
-fn track_position_at(
-    history: &WorldlineHistoryView2d,
-    label: &str,
-    coordinate_time: f64,
-) -> Option<Vec2> {
-    let samples = history.tracks.get(&WorldlineTrackId(label.to_owned()))?;
-    samples
-        .iter()
-        .rev()
-        .find(|sample| sample.coordinate_time <= coordinate_time)
-        .or_else(|| samples.front())
-        .map(|sample| sample.position)
-}
-
-fn emitter_track_label(emitter_tag: u64, payload: u64) -> Option<&'static str> {
-    if emitter_tag == TRAVELER_TAG {
-        return Some("traveler");
-    }
-    let (_, actor_id, _) = payload_parts(payload);
-    match actor_id {
-        COURIER_ID => Some("Courier"),
-        DRIFTER_ID => Some("Drifter"),
-        SPINNER_ID => Some("Spinner"),
-        DJ_ID => Some("DJ Blue Shift"),
-        TAGGER_ID => Some("Photon Fox"),
-        _ => None,
-    }
-}
-
-fn update_spacetime_sculpture(
-    history: Res<WorldlineHistoryView2d>,
-    optical: Res<RelativisticOpticalView2d>,
-    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-    mut dots: Query<(&TraceDot, &mut Sprite, &mut Transform, &mut Visibility)>,
-) {
-    let Ok(experiment) = experiment.single() else {
-        return;
-    };
-    let visible = experiment.view_mode == TwinTrackViewMode::Spacetime;
-    let live_now = optical
-        .observer
-        .as_ref()
-        .map_or(0.0, |observer| observer.coordinate_time);
-    let now = selected_spacetime_time(experiment, &history, live_now);
-    let mut rows = Vec::new();
-    if visible {
-        for (label, samples) in &history.tracks {
-            let color = track_color(label.as_str());
-            for sample in samples.iter().filter(|sample| {
-                sample.coordinate_time <= now
-                    && (experiment.phase == TwinTrackPhase::Complete
-                        || now - sample.coordinate_time <= TRACE_WINDOW_SECONDS)
-            }) {
-                rows.push((sample.coordinate_time, sample.position, color));
-            }
-        }
-        rows.sort_by(|left, right| left.0.total_cmp(&right.0));
-        if rows.len() > TRACE_DOT_COUNT {
-            let stride = rows.len() as f32 / TRACE_DOT_COUNT as f32;
-            rows = (0..TRACE_DOT_COUNT)
-                .map(|index| rows[(index as f32 * stride) as usize])
-                .collect();
-        }
-    }
-    for (slot, mut sprite, mut transform, mut visibility) in &mut dots {
-        if let Some((time, position, color)) = rows.get(slot.0).copied() {
-            transform.translation = spacetime_projection(position, now - time).extend(5.0);
-            sprite.color = color;
-            sprite.custom_size = Some(Vec2::splat(5.0));
-            *visibility = Visibility::Visible;
-        } else {
-            *visibility = Visibility::Hidden;
-        }
-    }
-}
-
-fn update_spacetime_signals(
-    signals: Res<RelativitySignalView2d>,
-    history: Res<WorldlineHistoryView2d>,
-    optical: Res<RelativisticOpticalView2d>,
-    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-    mut dots: Query<(&SignalDot, &mut Sprite, &mut Transform, &mut Visibility)>,
-) {
-    let Ok(experiment) = experiment.single() else {
-        return;
-    };
-    let visible = experiment.view_mode == TwinTrackViewMode::Spacetime;
-    let live_now = optical
-        .observer
-        .as_ref()
-        .map_or(signals.coordinate_time, |observer| observer.coordinate_time);
-    let now = selected_spacetime_time(experiment, &history, live_now);
-    let replay_rows = if visible && experiment.phase == TwinTrackPhase::Complete {
-        signals
-            .recent_arrivals
-            .iter()
-            .filter(|arrival| arrival.coordinate_time <= now)
-            .filter_map(|arrival| {
-                let label = emitter_track_label(arrival.emitter_tag, arrival.payload)?;
-                let start = track_position_at(&history, label, arrival.signal_emission_time)?;
-                Some((
-                    start,
-                    arrival.position,
-                    arrival.signal_emission_time,
-                    arrival.coordinate_time,
-                ))
-            })
-            .collect::<Vec<_>>()
-    } else {
-        Vec::new()
-    };
-
-    for (slot, mut sprite, mut transform, mut visibility) in &mut dots {
-        if visible && experiment.phase == TwinTrackPhase::Complete {
-            if let Some((start_position, end_position, start_time, end_time)) =
-                replay_rows.get(slot.0).copied()
-            {
-                let start = spacetime_projection(start_position, now - start_time);
-                let end = spacetime_projection(end_position, now - end_time);
-                set_line(&mut sprite, &mut transform, start, end, 3.0, 8.0);
-                *visibility = Visibility::Visible;
-                continue;
-            }
-        } else if visible {
-            if let Some(signal) = signals.active_signals.get(slot.0) {
-                let start = spacetime_projection(signal.emission_position, signal.age);
-                let end = spacetime_projection(signal.position, 0.0);
-                set_line(&mut sprite, &mut transform, start, end, 3.0, 8.0);
-                *visibility = Visibility::Visible;
-                continue;
-            }
-        }
-        *visibility = Visibility::Hidden;
-    }
-}
-
-fn update_light_cone(
-    optical: Res<RelativisticOpticalView2d>,
-    history: Res<WorldlineHistoryView2d>,
-    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-    mut lines: Query<(&ConeLine, &mut Sprite, &mut Transform, &mut Visibility)>,
-) {
-    let Ok(experiment) = experiment.single() else {
-        return;
-    };
-    let visible = experiment.view_mode == TwinTrackViewMode::Spacetime;
-    let Some(live_observer) = optical.observer.as_ref() else {
-        for (_, _, _, mut visibility) in &mut lines {
-            *visibility = Visibility::Hidden;
-        }
-        return;
-    };
-    let now = selected_spacetime_time(experiment, &history, live_observer.coordinate_time);
-    let observer_position = if experiment.phase == TwinTrackPhase::Complete {
-        track_position_at(&history, "traveler", now).unwrap_or(live_observer.position)
-    } else {
-        live_observer.position
-    };
-    for (line, mut sprite, mut transform, mut visibility) in &mut lines {
-        if !visible {
-            *visibility = Visibility::Hidden;
-            continue;
-        }
-        let origin = spacetime_projection(observer_position, 0.0);
-        let direction = match line.0 {
-            0 => Vec2::X,
-            1 => -Vec2::X,
-            2 => Vec2::Y,
-            _ => -Vec2::Y,
-        };
-        let age = 0.72_f64;
-        let past_position =
-            observer_position + direction * live_observer.invariant_speed as f32 * age as f32;
-        let end = spacetime_projection(past_position, age);
-        set_line(&mut sprite, &mut transform, origin, end, 2.0, 3.0);
-        *visibility = Visibility::Visible;
-    }
-}
-
-fn update_spacetime_guides(
-    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-    mut axes: Query<(&SpacetimeAxis, &mut Sprite, &mut Transform, &mut Visibility)>,
-    mut guides: Query<&mut Visibility, (With<SpacetimeGuide>, Without<SpacetimeAxis>)>,
-) {
-    let Ok(experiment) = experiment.single() else {
-        return;
-    };
-    let visible = experiment.view_mode == TwinTrackViewMode::Spacetime;
-    let origin = Vec2::new(-405.0, -245.0);
-    for (axis, mut sprite, mut transform, mut visibility) in &mut axes {
-        let end = match axis.0 {
-            0 => origin + Vec2::new(760.0, 126.0),
-            1 => origin + Vec2::new(-250.0, 175.0),
-            _ => origin + Vec2::new(0.0, 470.0),
-        };
-        set_line(&mut sprite, &mut transform, origin, end, 3.0, 2.0);
-        *visibility = if visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-    for mut visibility in &mut guides {
-        *visibility = if visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-    }
-}
-
 fn cleanup_visuals_when_inactive(
     mut commands: Commands,
     roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
@@ -1643,17 +1598,6 @@ fn cleanup_visuals_when_inactive(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-}
-
-fn spacetime_projection(position: Vec2, age: f64) -> Vec2 {
-    let normalized = Vec2::new(
-        (position.x - LAB_POS.x) / ROOM_WIDTH,
-        (position.y - LAB_POS.y) / ROOM_HEIGHT,
-    );
-    Vec2::new(
-        -160.0 + normalized.x * 720.0 - normalized.y * 300.0,
-        -245.0 + normalized.x * 120.0 + normalized.y * 200.0 - age as f32 * 47.0,
-    )
 }
 
 fn set_line(
@@ -1668,19 +1612,6 @@ fn set_line(
     sprite.custom_size = Some(Vec2::new(delta.length().max(1.0), width));
     transform.translation = ((start + end) * 0.5).extend(z);
     transform.rotation = Quat::from_rotation_z(delta.y.atan2(delta.x));
-}
-
-fn track_color(label: &str) -> Color {
-    match label {
-        "traveler" => Color::srgb(0.30, 1.0, 0.95),
-        "laboratory" => Color::srgb(1.0, 1.0, 1.0),
-        "Courier" => Color::srgb(0.35, 0.90, 1.0),
-        "Drifter" => Color::srgb(0.85, 0.55, 1.0),
-        "Spinner" => Color::srgb(1.0, 0.65, 0.25),
-        "DJ Blue Shift" => Color::srgb(0.25, 0.55, 1.0),
-        "Photon Fox" => Color::srgb(1.0, 0.32, 0.24),
-        _ => Color::srgb(0.65, 0.70, 0.80),
-    }
 }
 
 fn spectral_color(doppler_factor: f64, luminance: f32) -> Color {

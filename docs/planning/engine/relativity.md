@@ -1,6 +1,6 @@
 # Relativity capability
 
-> **Status (2026-08-06): SR-5 polishes the 2D Relativity Plaza into a guided festival. Proper-time clock presentation, labeled light packets, exact octave Doppler feedback, progressively unassisted light tag, and a scrub-able worldline/signal replay now exercise the existing SR systems without adding another simulation authority. Local Rust compile and visible-feel validation remain.**
+> **Status (2026-08-12): SR-8 keeps the default-on 3D 2+1D minimap and finishes the open-plaza camera contract: TwinTrack recenters its teaching exhibits around the laboratory, authors no perimeter collision, and uses an unclamped follow-camera zone plus a deep zero-gravity blast margin so leaving the authored rectangle does not pin or reset the controlled body. The change remains game-authored and adds no relativity runtime cost to other experiences. Local Rust compile and visible-feel validation remain.**
 
 Ambition treats special relativity as the first exact spacetime model, not as a
 bag of visual effects. The reusable boundary is:
@@ -207,3 +207,34 @@ existing exact systems:
 - TwinTrack raises the opt-in worldline/arrival history capacities for its own
   replay, so other games retain zero runtime and allocation cost unless they
   install and configure the relativity capability.
+
+
+## SR-6 classroom spectacle boundary
+
+SR-6 still adds no new relativistic law. It makes already-authoritative SR facts
+visually interpretable:
+
+- orbiting plaza characters expose their authored paths, radial arms, speed as a
+  percentage of `c`, and much larger proper-time clock faces;
+- the 3D teaching scene maps the two gameplay coordinates into X/Z and `ct` into
+  vertical Y, so circular motion becomes a helix and null propagation forms a
+  literal light cone;
+- one-second beads are derived from each track's existing `proper_time` samples,
+  making differential aging visible as bead density rather than another number;
+- the laboratory-now and observer-now planes are derived from the same selected
+  event and observer coordinate velocity. The observer plane is the flat-space
+  instantaneous simultaneity slice, not a second simulation clock;
+- the 3D camera, meshes, orbit guides, and all new labels are visible-feature
+  presentation. Headless games and games that do not select TwinTrack pay no
+  runtime cost.
+
+The exhibit is intentionally not the deferred 3D Slower Light game: it renders a
+3D graph of 2+1D data while the game world, collisions, optics, and controls remain
+2D.
+
+The SR-6 classroom spectacle slice remains presentation-only: a perspective 3D
+2+1D worldline exhibit consumes existing derived histories and signal views. It
+does not add a 3D gameplay world, a second simulation authority, or curved
+spacetime behavior. The same slice adds an exact aberration reference ring in
+TwinTrack's optical presentation from uniformly spaced laboratory-frame point
+sources.

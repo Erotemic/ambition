@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Standalone shell and acceptance tests for the TwinTrack Relativity Plaza."
+description = "Standalone shell and acceptance tests for the TwinTrack special-relativity festival."
 publish = false
 
 [[bin]]

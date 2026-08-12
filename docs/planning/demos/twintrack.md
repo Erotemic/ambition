@@ -1,17 +1,22 @@
 # TwinTrack — Relativity Plaza
 
-> **Status (2026-08-06): SR-5 Relativity Festival polish implemented.** TwinTrack
-> now teaches its systems through a guided opening, visible character clocks,
-> labeled light-message packets, continuous Doppler-note feedback, three rounds
-> of progressively less-assisted light tag, and a scrub-able post-experiment
-> spacetime replay. The default HUD remains small; numerical diagnostics stay in
-> the teaching view.
+> **Status (2026-08-12): SR-8 open-follow composition candidate implemented.**
+> TwinTrack keeps the default-on 3D spacetime minimap, recenters the clock race
+> around the laboratory, removes collision walls, and authors an effectively
+> unbounded unclamped follow-camera region so free flight is never pinned to the
+> old room rectangle. Local compile and classroom-feel validation remain.
 
 TwinTrack is Ambition's executable acceptance game for flat-spacetime
 relativity. Its first duty remains technical: prove that clocks, worldlines,
 light signals, local measurements, observer views, and rollback compose through
 normal engine seams. Its second duty is now equally explicit: show recognizable
 gameplay ideas that could grow into a visually strange relativity game.
+
+The next major gameplay direction is **dual-observer split screen**: two controlled
+participants share one authoritative Minkowski simulation while each viewport is
+resolved from that participant's own reference frame. That work is deliberately
+after SR-8; the open-follow camera and centered plaza land first so the single-
+observer experience has a clean spatial baseline.
 
 ## Player-facing premise
 
@@ -81,10 +86,12 @@ feedback without adding audio state to the simulation.
 
 ## Plaza stations
 
-### 1. Clock census
+### 1. Clock race / census
 
-Courier, Drifter, and Spinner follow different 2D worldlines. Interacting near a
-character sends a light-speed request. The character replies with the value of
+Courier, Drifter, and Spinner follow visibly marked circular worldlines at
+approximately 35%, 55%, and 75% of light speed. Their orbit paths, radial arms,
+large clock faces, and speed labels stay visible in the laboratory map so the
+motion reads immediately. Interacting near a character sends a light-speed request. The character replies with the value of
 their proper-time clock **when the reply left**. The received dialogue shows:
 
 - the sender's clock at emission;
@@ -153,25 +160,49 @@ character emitters transformed for the controlled observer:
 - brightness uses a documented point-source beaming proxy.
 
 It is exact for ideal point sources and compact proxies, not a claim of complete
-optical reconstruction for extended sprites or tile geometry.
+optical reconstruction for extended sprites or tile geometry. The classroom
+optical view also overlays a 24-beacon reference ring: the beacons are uniformly
+spaced in the laboratory frame, then transformed into the controlled observer's
+local frame. Their visible bunching toward the direction of travel and their
+Doppler color shift make aberration legible even before a student knows the
+formula.
 
-### 2+1D spacetime sculpture
+### Default-on spacetime minimap
 
-The optional teaching view represents two spatial dimensions plus time:
+The perspective spacetime exhibit is composited over the live laboratory/optical
+view in a physical camera viewport, following the same higher-order Camera3d
+composition pattern proven by the Lunex kaleidoscope menu. It is visible by
+default and can be hidden/shown with `M` or the Special input. The minimap never
+replaces or pauses the 2D simulation. TwinTrack's authored room contains no solid
+perimeter wall blocks. Its camera policy is explicitly unclamped across an
+effectively unbounded teaching region, so the ordinary smooth follow camera keeps
+the controlled body centered even after leaving the authored room rectangle. The
+laboratory sits at the room center and the 35%/55%/75%-of-light clock racers are
+clustered within the opening view instead of being spread against room edges.
 
-- one axis for x position;
-- one axis for y position;
-- one upward time axis;
-- colored character worldline trails;
-- yellow light-signal paths;
-- blue past-light-cone edges;
-- explicit labels and a legend;
-- an isometric projection that can later become an orbitable 3D teaching view.
+### Perspective 2+1D spacetime exhibit
 
-The sculpture explains or replays the same simulation. It is not required for
-steering and does not become a second game world. After reunion it uses the
-festival's extended worldline history and arrival records: the horizontal input
-scrubs a normalized replay cursor over the completed experiment.
+The minimap teaching view is an actual Bevy `Camera3d` scene rather than a
+2D isometric drawing. It renders the same derived history as a perspective
+space+time sculpture:
+
+- X and Z are the plaza's two spatial coordinates;
+- vertical Y is `ct`, so light forms the expected 45-degree cone in graph units;
+- each character's worldline is a thick colored 3D tube; circular motion becomes
+  a helix, making the value of having two gameplay dimensions immediately visible;
+- bright gold beads mark one second of that character's **own clock**. At the same
+  laboratory-time height, faster worldlines accumulate fewer beads;
+- yellow beams are actual recorded light-signal paths;
+- a blue wire cone is the controlled observer's past light cone;
+- a translucent white plane is the laboratory "now" slice;
+- a translucent cyan plane is the controlled observer's instantaneous
+  simultaneity slice and tilts as their velocity changes;
+- the perspective camera slowly orbits the sculpture so depth is unmistakable.
+
+This is a 3D visualization of 2+1D SR data, not a 3D gameplay runtime. The plaza
+remains a 2D game and the exhibit is a read-only presentation consumer. After
+reunion, left/right scrubs the selected laboratory time while the 3D graph
+rebuilds around that event.
 
 ## Acceptance
 
@@ -197,6 +228,8 @@ scrubs a normalized replay cursor over the completed experiment.
 - switching views changes presentation only;
 - a completed experiment can scrub its canonical replay cursor over the retained
   derived worldline and signal history;
+- the perspective 3D spacetime exhibit renders helical worldlines, one-own-second
+  beads, a wire past light cone, and distinct lab/observer simultaneity planes;
 - leaving the session removes its spacetime provider and derived views.
 
 ## Deliberate limits
@@ -205,4 +238,6 @@ TwinTrack remains special relativity in flat spacetime. It does not vary the
 invariant speed spatially, evolve a gravitational metric, ray-trace arbitrary
 extended geometry, or reconstruct a complete 3D optical world. Those are
 separate future capabilities. The plaza is the grounded testbed from which the
-3D Slower Light game and later GR research can grow.
+3D Slower Light game and later GR research can grow. The 3D teaching camera does
+not remove that boundary: it visualizes 2+1D data, while Slower Light still needs
+a true 3D game world and observer renderer.

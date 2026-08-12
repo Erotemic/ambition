@@ -15,6 +15,7 @@ default = []
 visible = [
     "bevy/bevy_gizmos",
     "bevy/2d_bevy_render",
+    "bevy/bevy_pbr",
     "bevy/bevy_text",
     "bevy/bevy_window",
 ]

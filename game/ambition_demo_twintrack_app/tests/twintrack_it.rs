@@ -1,11 +1,12 @@
 use ambition_demo_twintrack::{
-    LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment, TwinTrackIntroStep,
-    TwinTrackPhase, TwinTrackRole, TwinTrackViewMode, COURIER_ID, DJ_ID, DJ_POS, DRIFTER_ID,
-    INVARIANT_SPEED, LAB_POS, LIGHT_TAG_ROUNDS, SPINNER_ID, TAGGER_ID, TARGET_SPEED,
-    VIEW_CONSOLE_POS,
+    twintrack_room, LaboratoryTwin, TravelerTwin, TwinTrackCharacter, TwinTrackExperiment,
+    TwinTrackIntroStep, TwinTrackPhase, TwinTrackRole, TwinTrackViewMode, COURIER_ID, DJ_ID,
+    DJ_POS, DRIFTER_ID, INVARIANT_SPEED, LAB_POS, LIGHT_TAG_ROUNDS, ROOM_HEIGHT, ROOM_WIDTH,
+    SPINNER_ID, TAGGER_ID, TARGET_SPEED, VIEW_CONSOLE_POS,
 };
 use ambition_platformer2d::actor::BodyKinematics;
 use ambition_platformer2d::engine_core::BodyAbilities;
+use ambition_platformer2d::world::rooms::CameraClampMode;
 use ambition_platformer2d::relativity2d::{
     LightEmitter2d, LightReceiver2d, LightSignal2d, ProperTimeCooldown2d, ProperTimeElapsed,
     RelativisticOpticalView2d, RelativisticTargetingView2d, RelativityClockView2d,
@@ -347,7 +348,7 @@ fn shared_free_flight_moves_diagonally_and_remains_subluminal() {
 }
 
 #[test]
-fn teaching_views_cycle_without_leaving_the_participant_trapped() {
+fn view_console_toggles_optical_without_replacing_gameplay_with_spacetime() {
     let mut app = ambition_demo_twintrack_app::build_demo_app();
     activate(&mut app);
     complete_introduction(&mut app);
@@ -362,16 +363,9 @@ fn teaching_views_cycle_without_leaving_the_participant_trapped() {
     );
     assert_eq!(experiment(&mut app).view_mode, TwinTrackViewMode::Optical);
 
-    set_traveler_state(&mut app, Vec2::new(600.0, 400.0), Vec2::ZERO);
-    step(
-        &mut app,
-        ControlFrame {
-            interact_pressed: true,
-            ..Default::default()
-        },
-    );
-    assert_eq!(experiment(&mut app).view_mode, TwinTrackViewMode::Spacetime);
-
+    // Outside light tag, Interact exits the optical presentation directly. The
+    // 3D spacetime surface is a concurrent minimap now, not a gameplay mode.
+    set_traveler_state(&mut app, LAB_POS + Vec2::new(80.0, 0.0), Vec2::ZERO);
     step(
         &mut app,
         ControlFrame {
@@ -383,6 +377,34 @@ fn teaching_views_cycle_without_leaving_the_participant_trapped() {
         experiment(&mut app).view_mode,
         TwinTrackViewMode::Laboratory
     );
+}
+
+#[test]
+fn plaza_is_centered_open_and_camera_follow_is_unclamped() {
+    let room = twintrack_room();
+    assert!(room.world.blocks.is_empty(), "TwinTrack should not have perimeter walls");
+    assert_eq!(LAB_POS, Vec2::new(ROOM_WIDTH * 0.5, ROOM_HEIGHT * 0.5));
+    assert!(room.world.blast_margin > 1_000_000.0);
+
+    let open_follow = room
+        .camera_zones
+        .iter()
+        .find(|zone| zone.id == "twintrack_open_follow")
+        .expect("TwinTrack should author its open follow-camera policy");
+    assert_eq!(open_follow.clamp_mode, CameraClampMode::None);
+    assert!(open_follow.aabb.min.x < -1_000_000.0);
+    assert!(open_follow.aabb.max.x > 1_000_000.0);
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    for id in [COURIER_ID, DRIFTER_ID, SPINNER_ID] {
+        let body = character_body(&mut app, id);
+        assert!(
+            body.pos.distance(LAB_POS) < 500.0,
+            "clock racer {id} spawned too far from the centered lab: {:?}",
+            body.pos
+        );
+    }
 }
 
 #[test]

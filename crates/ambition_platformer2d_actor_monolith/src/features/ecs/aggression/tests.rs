@@ -529,6 +529,98 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     );
 }
 
+/// **PROVOKING A BODY SOMEBODY IS DRIVING DOES NOT TAKE IT AWAY FROM THEM.**
+///
+/// ⛔⛔ the flip inserted the provoked `Brain` unconditionally, and for a body
+/// under player control that is a silent seizure: the first hit a SEATED FIGHTER
+/// took replaced its `Brain::Player(slot)` with the Smash state machine, in
+/// place and permanently — activation is one-shot and never rebinds — so a
+/// human's fighter became a CPU mid-fight and the couch test read it as input
+/// crosstalk. Measured at the time: both seats opened as `Player(0)`/`Player(1)`
+/// and seat one flipped 28 frames after its pad went quiet, which is when it
+/// traded its first blows.
+///
+/// ⚠ **the fix landed with no test, which is why this is here.** Every other
+/// brain writer already opened with `if brain.is_player()`; this was the one
+/// path that did not, and it was unreachable until a player-driven body could
+/// also be a provokable actor. Seating one made that ordinary, and nothing was
+/// stopping it from becoming ordinary again.
+///
+/// ⇒ what a provocation may do to a driven body: change its RELATIONSHIP, land
+/// its action set (what a body fights with is part of what it is), and record
+/// the autonomous source that will resume when control is released
+/// (`a_released_character_returns_to_its_own_policy_not_the_provoked_one` is the
+/// other end of that thread).
+#[test]
+fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
+    use ambition_characters::actor::character_catalog::{
+        AutonomousSource, BrainBinding, BrainPresetId,
+    };
+    use ambition_characters::brain::{ActionSet, Brain, PlayerSlot, StateMachineCfg};
+
+    let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_actor_stimuli);
+
+    let cast = npc_cast(Some(false), None);
+    let driven = spawn_character_npc(&mut app, &cast);
+    let free = spawn_character_npc(&mut app, &cast);
+    for body in [driven, free] {
+        app.world_mut().entity_mut(body).insert(BrainBinding::new(
+            BrainPresetId::new("stroll"),
+            AutonomousSource::CatalogDefault,
+        ));
+    }
+    app.world_mut()
+        .entity_mut(driven)
+        .insert(Brain::Player(PlayerSlot::PRIMARY));
+
+    for body in [driven, free] {
+        app.world_mut().write_message(ActorStimulus::Challenged {
+            actor: body,
+            challenger: None,
+        });
+    }
+    app.update();
+
+    // ⭐ THE POISON, and it runs first because it is what proves the assertion
+    // below is about the DRIVER rather than about provocation doing nothing. The
+    // same stimulus on the same body with nobody at the controls installs a
+    // hostile mind.
+    assert!(
+        matches!(
+            app.world().get::<Brain>(free),
+            Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
+        ),
+        "an undriven body must actually receive the provoked mind, or this test \
+         would pass on a build where provocation had stopped working entirely"
+    );
+
+    assert!(
+        matches!(app.world().get::<Brain>(driven), Some(Brain::Player(slot)) if *slot == PlayerSlot::PRIMARY),
+        "a body under player control must still be under player control — \
+         provocation changes what a body IS, never who drives it"
+    );
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(driven).unwrap(),
+        ActorDisposition::Hostile,
+        "the relationship still changes; leaving the driver alone is not the \
+         same as ignoring the provocation"
+    );
+    assert!(
+        app.world().get::<ActionSet>(driven).is_some(),
+        "and the provoked kit still lands — what a body fights with is part of \
+         what it is, and only the driver is left alone"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(driven).map(|b| &b.source),
+        Some(&AutonomousSource::ProvokedDefault),
+        "and the SOURCE that resumes on release is the provoked one — otherwise \
+         letting go of a body you angered would hand back a peaceful stroller"
+    );
+}
+
 /// **The poison for the pool above: a character that authors NOTHING gets the
 /// undescribed-body default, and provocation leaves that alone too.**
 ///

@@ -383,10 +383,14 @@ pub(crate) fn provoke_actor_in_place(
             }
         });
         // Record that this body is provoked into the ENGINE's default policy.
-        // A rewind rebuilds the same projection from the same two constants
-        // (`autonomous_reconcile::reconstruct_provoked_default`), so the provoked
-        // mode survives in either direction without a catalog default being
-        // rebuilt over it.
+        //
+        // ⚠ this used to add "a rewind rebuilds the same projection from the same
+        // two constants (`autonomous_reconcile::reconstruct_provoked_default`)".
+        // There is no such function: it was deleted with the reconciler (D104),
+        // which never ran in production and whose every output was already
+        // registered rollback state. What actually carries the provoked mode
+        // across a rewind is this binding plus the `Brain` cursor, proven end to
+        // end by `game/ambition_app/tests/rollback_provoked_actor.rs`.
         //
         // ⚠ this used to say "the stable archetype id is all a rewind needs",
         // and the id it recorded was the string `"combatant"` on every call this

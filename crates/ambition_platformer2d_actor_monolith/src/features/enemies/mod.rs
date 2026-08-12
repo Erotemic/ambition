@@ -318,6 +318,15 @@ impl ArchetypeSpecExt for ArchetypeSpec {
 pub struct CharacterRoster {
     by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
     fallback: ArchetypeSpec,
+    /// ⚠ **TEST-ONLY, and load-bearing** — the observation seam for
+    /// `provider_defaults_coexist_without_becoming_a_cross_game_global`, which
+    /// pins that two linked providers' authored defaults stay THEIRS instead of
+    /// one becoming a process-wide global.
+    ///
+    /// ⛔ a 2026-08-12 census called this dead and deleted it. The census
+    /// excluded this file to find EXTERNAL callers, then read "no external
+    /// callers" as "no callers" — its only caller is a test three hundred lines
+    /// down. The compiler caught it; the census did not.
     #[cfg(test)]
     provider_fallbacks: std::collections::BTreeMap<String, ArchetypeSpec>,
 }
@@ -354,7 +363,7 @@ impl CharacterRoster {
     }
 
     /// Resolve one provider's authored default without making it the default
-    /// for every other game linked into the App.
+    /// for every other game linked into the App. See the field's own note.
     #[cfg(test)]
     pub(crate) fn fallback_for_provider(&self, provider_id: &str) -> Option<&ArchetypeSpec> {
         self.provider_fallbacks.get(provider_id)
@@ -751,9 +760,10 @@ impl CharacterRosterFragment {
         &self.provider_id
     }
 
-    pub fn fallback_brain_id(&self) -> Option<&str> {
-        self.fallback_brain_id.as_deref()
-    }
+    // ⛔ **`fallback_brain_id()` WAS HERE, a public accessor with zero callers**
+    // (2026-08-12). The FIELD is load-bearing — validation, fragment dedup and
+    // assembly all read it — but nothing outside this file ever asked a fragment
+    // for it.
 
     /// Where this fragment's RON came from, when the provider said
     /// ([`Self::from_ron_at`]). Read by hosts that report authoring failures

@@ -556,6 +556,21 @@ pub fn authored_intrinsics(
                     attack_range: 60.0,
                     ..Default::default()
                 })
+                // ⛔⛔ **AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH
+                // DISAGREES WITH THIS** (found 2026-08-12, ledger D81). That
+                // preset says `aggro_radius: 120.0` and `attack_range: 0.0`
+                // against this profile's 620 and 60 — one bird, two authorities,
+                // different answers. THIS one wins (`resolve_npc_brain` ranks a
+                // definition's own profile above the row's `default_brain`, and
+                // the enemy road builds character-first), so the preset is dead
+                // weight stating wrong numbers rather than a live conflict.
+                //
+                // ⛔ it cannot be deleted yet, and the blocker is a SCHEMA one:
+                // `default_brain` is a required `String`, so the row has to name
+                // SOME preset — and `parrot_lively` has exactly one namer, this
+                // bird. A character whose definition states its policy should not
+                // have to name a vocabulary it does not use; making that field
+                // optional is what lets the preset go.
                 .with_action_set(ambition_characters::brain::ActionSet {
                     melee: Some(MeleeActionSpec::Bite(
                         ambition_characters::brain::BiteSpec {

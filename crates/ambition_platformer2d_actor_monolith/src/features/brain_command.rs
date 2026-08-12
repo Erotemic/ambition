@@ -213,7 +213,22 @@ fn apply_brain_selection(
         // WRITES that field — so "you are free" rebuilt the provoked mind and
         // then labelled the binding `CharacterProfile`. The body kept hunting
         // you while every piece of state agreed it had been released.
-        let profile = character_profile.unwrap_or(config.brain_profile);
+        //
+        // ⛔ **and there is no fallback to that field.** A binding saying
+        // `default = CharacterProfile` is a claim the character can answer;
+        // falling back to the live policy when it cannot is the same bug with a
+        // longer fuse. Reject, loudly, like every other unresolvable command.
+        let Some(profile) = character_profile else {
+            warn!(
+                target: "ambition_platformer2d_actor_monolith::brain_command",
+                "BrainCommand RestoreDefault for {}: its binding says the CHARACTER \
+                 owns the default policy, and the character could not be resolved \
+                 (no WornCharacter, or no prepared cast containing it, or it \
+                 authors no autonomous_profile); command rejected",
+                sim_id.as_str(),
+            );
+            return false;
+        };
         *brain =
             crate::features::ecs::character_policy::brain_from_profile(config, profile, abilities);
         binding.restore_default();
@@ -347,11 +362,11 @@ pub fn apply_brain_commands(
                     (
                         ambition_characters::actor::character_catalog::AutonomousSource::CharacterProfile,
                         Some(config),
-                    ) => Some(crate::features::ecs::character_policy::brain_from_profile(
-                        config,
-                        character_profile.unwrap_or(config.brain_profile),
-                        abilities,
-                    )),
+                    ) => character_profile.map(|profile| {
+                        crate::features::ecs::character_policy::brain_from_profile(
+                            config, profile, abilities,
+                        )
+                    }),
                     _ => binding
                         .active_preset()
                         .and_then(|preset| catalog.build_brain_from_preset(preset.as_str(), &ctx)),

@@ -577,3 +577,53 @@ fn a_release_during_temporary_control_still_changes_the_source() {
         "and live control is untouched — the rule every other command follows"
     );
 }
+
+/// **A CHARACTER-FIRST DEFAULT THAT CANNOT BE RESOLVED IS REJECTED, NOT
+/// COVERED FOR.**
+///
+/// ⛔⛔ the lowering used to fall back to `config.brain_profile` when the
+/// identity road could not answer — scaffolding that recreated the exact bug the
+/// identity road exists to fix. `ActorConfig::brain_profile` is the policy the
+/// body is running NOW and provocation writes it, so on a body whose
+/// `WornCharacter` or prepared cast went missing, "ask the character, and
+/// otherwise trust whatever mind is installed" restores the PROVOKED policy and
+/// labels it the character's own. Silently. Forever.
+///
+/// ⭐ a binding saying `default = CharacterProfile` is a CLAIM that the
+/// character can answer. When it cannot, the composition is broken, and the
+/// command gets the same answer an unknown preset gets.
+///
+/// ⚠ the fixture removes the identity rather than the cast, because that is the
+/// half a composition can lose without noticing: a body spawned by a road that
+/// forgot to attach `WornCharacter` still has a perfectly good registry sitting
+/// beside it.
+#[test]
+fn a_character_first_default_that_cannot_be_resolved_is_rejected() {
+    let mut app = app_with_cast();
+    let e = spawn_provoked_character_first(&mut app, "villager");
+    app.world_mut()
+        .entity_mut(e)
+        .remove::<ambition_characters::actor::WornCharacter>();
+
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("villager")),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "skirmisher",
+        "the command was rejected, so nothing changed — the body is still \
+         running the mind it had. A fallback would have rebuilt that same \
+         provoked mind and CALLED it the character's default, which is the \
+         failure this rejection exists to make visible"
+    );
+    assert!(
+        matches!(
+            app.world().get::<BrainBinding>(e).unwrap().source,
+            AutonomousSource::ProvokedProfile { .. }
+        ),
+        "and the binding still says what is true: this body is provoked"
+    );
+}

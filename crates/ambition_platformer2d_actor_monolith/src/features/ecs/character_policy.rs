@@ -69,40 +69,44 @@ pub(crate) fn brain_from_profile(
 }
 
 /// The policy a body should be driven by when it returns to its character's own
-/// default — resolved by identity, falling back to the body's current policy.
+/// default — resolved by identity, or `None`.
 ///
-/// ⚠ **the fallback is the FIXTURE road, not a second authority.** A world with
-/// no prepared cast (every headless brain-command fixture, and any composition
-/// that registers none) cannot answer the identity question at all, and the
-/// body's current policy is the only thing there is. In production the identity
-/// road answers, which is what
-/// `a_released_character_returns_to_its_own_policy_not_the_provoked_one` pins —
-/// and that test's poison is a body whose live policy has been trampled, so a
-/// silent regression back to the fallback fails it.
+/// ⛔⛔ **`None` IS AN INVARIANT VIOLATION, NOT A CASE TO COVER FOR.** This
+/// returned `config.brain_profile` when the identity road could not answer, and
+/// that fallback was scaffolding that recreated the exact bug it was written to
+/// fix: `ActorConfig::brain_profile` is the policy the body is running NOW, and
+/// provocation writes it. A binding that says `default = CharacterProfile` is a
+/// claim that the CHARACTER can answer; if `WornCharacter` or the registry
+/// wiring ever goes missing, "ask the character and otherwise trust whatever
+/// mind is currently installed" is a released body that keeps hunting you.
+///
+/// ⇒ callers REJECT — the same answer every other unresolvable brain command
+/// gets, with a warning naming the body. A composition that seats a
+/// character-first body without a cast to resolve it is broken, and finding out
+/// loudly is the point.
 pub(crate) fn default_policy_for(
     registry: Option<&PreparedCharacterRegistry>,
     worn: Option<&WornCharacter>,
-    config: &ActorConfig,
-) -> BrainProfile {
+) -> Option<BrainProfile> {
     registry
         .zip(worn)
         .and_then(|(registry, worn)| character_autonomous_profile(registry, worn))
-        .unwrap_or(config.brain_profile)
 }
 
 /// [`default_policy_for`], asked of a world — the rollback/resume road, which
 /// holds an `&World` rather than a system's query items.
 pub(crate) fn default_policy_in(world: &World, entity: Entity) -> Option<BrainProfile> {
-    let config = world.get::<ActorConfig>(entity)?;
-    Some(default_policy_for(
+    default_policy_for(
         world.get_resource::<PreparedCharacterRegistry>(),
         world.get::<WornCharacter>(entity),
-        config,
-    ))
+    )
 }
 
 /// The complete identity → policy → `Brain` road for one entity in a world.
-/// Returns `None` only for a body with no `ActorConfig` to lower against.
+///
+/// `None` for a body with no `ActorConfig` to lower against, and for one whose
+/// character cannot be resolved — see [`default_policy_for`] for why the second
+/// is deliberately not covered for.
 pub(crate) fn character_default_brain_in(world: &World, entity: Entity) -> Option<Brain> {
     let config = world.get::<ActorConfig>(entity)?;
     let profile = default_policy_in(world, entity)?;

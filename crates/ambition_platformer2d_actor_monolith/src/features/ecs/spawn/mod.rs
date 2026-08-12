@@ -14,7 +14,9 @@ use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
 mod character_spawn_plan;
-pub(crate) use character_spawn_plan::{CharacterSpawnPlan, SpawnContext};
+pub(crate) use character_spawn_plan::{
+    report_unprepared_character, CharacterSpawnPlan, SpawnContext,
+};
 
 mod content_staging;
 pub use content_staging::{

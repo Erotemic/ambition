@@ -127,6 +127,82 @@ impl<'a> CharacterSpawnPlan<'a> {
     }
 }
 
+/// **What answers `Err(missing)` — one rule, for every road that can hit it.**
+///
+/// ⭐ the enemy road wrote this policy inline first, and it is subtle enough that
+/// a second road re-deriving it would get a *slightly* different rule — which is
+/// how "named but unprepared" becomes silent again on the path nobody looked at.
+/// So the enemy road's own arm now calls this, and there is one place to argue
+/// with.
+///
+/// The rule has three outcomes and the middle one is the reason it is not just a
+/// panic:
+///
+/// ```text
+/// no cast published at all  → ONE warning about the COMPOSITION, never the content
+/// a fallback can build it   → warn: correct only for a BORROWED character
+/// nothing can build it      → REFUSE
+/// ```
+///
+/// ⚠ **`prepared.is_empty()` is not defensive padding, it is a second defect kept
+/// out of this one's way.** Several hosts — the multi-game shell, the rollback
+/// door fixture — reach construction with a prepared registry containing ZERO
+/// characters, measured. There EVERY placement's character is "missing", and
+/// refusing would blame the content for a composition gap.
+///
+/// ⛔ **`fallback` is what will build the body INSTEAD, not whether one exists in
+/// principle.** Pass `None` only when the answer is *a generic body wearing this
+/// character's name*, because that is the original Iron Mary defect and it looks
+/// exactly like a working spawn.
+///
+/// # Panics
+/// When this composition published a cast, this character is not in it, and
+/// `fallback` is `None`.
+pub(crate) fn report_unprepared_character(
+    missing: &str,
+    placement: &str,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    fallback: Option<&str>,
+) {
+    assert!(
+        prepared.is_empty() || fallback.is_some(),
+        "{placement} names character `{missing}`, which this composition has not \
+         registered, and nothing else can build this body — so it would spawn as \
+         a generic body wearing that character's name. Register the character, or \
+         author something that can build it."
+    );
+    // ⭐ **TWO DIFFERENT FACTS, SAID DIFFERENTLY** (ledger D75). A per-placement
+    // warning about a missing character reads as *this content is wrong*, and in
+    // a host that published NO CAST AT ALL that is a lie repeated once per
+    // placement: the composition is what is incomplete, and every character in
+    // the room is equally "missing".
+    //
+    // ⚠ absence is legitimate — `CharacterPreparationPlugin` is installed by
+    // `try_register_character`, so a host that registers nobody never publishes,
+    // and "no cast" is exactly what that means. What must not happen is a room
+    // full of character-named placements quietly becoming generics with nothing
+    // said about WHY.
+    if prepared.is_empty() {
+        bevy::log::warn!(
+            target: "ambition_platformer2d_actor_monolith::spawn",
+            "this composition published NO prepared cast at all, and {placement} \
+             names character `{missing}` — so it, and every other character-named \
+             placement in this room, falls back to {}. The room expects a cast \
+             this host does not register; that is a COMPOSITION gap, not a \
+             content one.",
+            fallback.unwrap_or("whatever generic is at hand"),
+        );
+    } else {
+        bevy::log::warn!(
+            target: "ambition_platformer2d_actor_monolith::spawn",
+            "{placement} names character `{missing}`, which this composition has \
+             not registered; it falls back to {}. This is correct only for a \
+             BORROWED character in a partial composition.",
+            fallback.unwrap_or("whatever generic is at hand"),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +272,58 @@ mod tests {
             Some("iron_mary"),
             "an empty registry must REPORT the missing character, not silently \
              hand the body back to its archetype",
+        );
+    }
+
+    /// A registry with somebody in it, so `is_empty()` is false and the rule's
+    /// composition carve-out does not apply.
+    fn a_cast_of_one() -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            crate::character_runtime::CharacterDefinition::new("npc_somebody", "Somebody", "test"),
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    /// **A named character nobody registered, with nothing else able to build
+    /// the body, is REFUSED.**
+    ///
+    /// This is the whole of P0.1's second half: the type has distinguished the
+    /// three outcomes for a while, and the CALLER only warned. A body that would
+    /// come out generic wearing somebody's name is the original defect, and the
+    /// campaign's rule is that it must not be reachable quietly.
+    #[test]
+    #[should_panic(expected = "nothing else can build this body")]
+    fn a_named_character_with_no_fallback_refuses_the_spawn() {
+        report_unprepared_character("iron_mary", "enemy `EnemySpawn-9`", &a_cast_of_one(), None);
+    }
+
+    /// **…and the two states that must NOT refuse, so the guard above is a rule
+    /// rather than a panic.**
+    ///
+    /// ⛔ this half is the poison for the half above. A refusal that also fires
+    /// on a borrowed character or on a host with no cast would be indistinguishable
+    /// from one that fires correctly — and it would refuse two shipping
+    /// compositions, which is how a guard gets deleted instead of obeyed.
+    #[test]
+    fn a_fallback_or_an_empty_cast_warns_instead_of_refusing() {
+        // Something else can build it: a borrowed character in a partial
+        // composition, which is a real shipping arrangement.
+        report_unprepared_character(
+            "plane_swarm",
+            "enemy `EnemySpawn-3`",
+            &a_cast_of_one(),
+            Some("its `patrol_cutter` archetype"),
+        );
+        // No cast at all: the COMPOSITION is incomplete, not the content, and
+        // every character-named placement in the room is equally "missing".
+        report_unprepared_character(
+            "iron_mary",
+            "enemy `EnemySpawn-9`",
+            &crate::character_runtime::PreparedCharacterRegistry::default(),
+            None,
         );
     }
 }

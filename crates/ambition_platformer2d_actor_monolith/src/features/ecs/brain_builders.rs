@@ -377,17 +377,6 @@ fn skirmisher_brain_from_tuning(
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-/// Test window onto [`smash_cfg_from_spec`], so a regression can assert what a
-/// driver was actually handed rather than what a policy claimed.
-#[cfg(test)]
-pub(crate) fn smash_cfg_for_test(
-    profile: &BrainProfile,
-    tuning: &ActorTuning,
-    body: ambition_platformer2d_core::AbilitySet,
-) -> SmashCfg {
-    smash_cfg_from_spec(profile, tuning, body)
-}
-
 fn smash_cfg_from_spec(
     profile: &BrainProfile,
     tuning: &ActorTuning,

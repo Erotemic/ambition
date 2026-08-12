@@ -1166,7 +1166,12 @@ mod authored_enemy_reads_its_character {
     /// are Ambition's, and standalone Mary-O falls back to a roster row that
     /// still describes them. Refusing that would refuse a shipping build.
     #[test]
-    #[should_panic(expected = "names no archetype either")]
+    // ⚠ re-baselined when the rule moved beside the plan
+    // (`report_unprepared_character`) so the NPC and encounter roads could share
+    // it: the refusal is the same, its wording is now road-agnostic. What this
+    // test owns is that the ENEMY road reaches it — the shared rule's own
+    // regressions live next to the rule.
+    #[should_panic(expected = "nothing else can build this body")]
     fn a_spawn_naming_nothing_buildable_is_refused() {
         // A character nobody registered AND a brain key nobody authored: the
         // body would be a generic `combatant` wearing Iron Mary's name.

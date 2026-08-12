@@ -627,10 +627,40 @@ impl NpcActorSpawnPlan {
         // which now prefers the creature's own policy; this one runs long before
         // it, at spawn, and would have left a provoked pirate with the right mind
         // and no weapon.
-        let authored_kit = npc_character_id(&interactable)
-            .and_then(|character| prepared.get(character))
-            .and_then(|prepared| prepared.kit.action_set())
-            .map(crate::combat::components::CombatKit::from_action_set);
+        // ⛔⛔ **AND THIS `and_then` WAS THE P0.1 CONFLATION, ON THE ROAD NOBODY
+        // LOOKED AT.** It read *"ask the prepared cast, and if it has nothing,
+        // borrow"* — which gives the same silent answer to two different
+        // questions: *this NPC names no character* (fine, the migration is
+        // unfinished) and *this NPC names a character nobody registered* (a
+        // configuration fault). The second one hands a named person somebody
+        // else's weapon and says nothing, which is the D84 defect that took a
+        // day to find on the pirates.
+        //
+        // ⚠ **the NPC road's fallback is narrower than the enemy road's, and so
+        // is its refusal.** An NPC's BODY comes from its catalog row, not from
+        // the definition — so an unregistered-but-cataloged character still gets
+        // the right body and only the KIT is borrowed. What has no fallback at
+        // all is a character in NEITHER, where `new_peaceful_npc_in` drops to a
+        // display-name match: a person built by resembling somebody.
+        let authored_kit = match npc_character_id(&interactable) {
+            None => None,
+            Some(character) => match prepared.get(character) {
+                Some(prepared) => prepared.kit.action_set(),
+                None => {
+                    super::spawn::report_unprepared_character(
+                        character,
+                        &format!("NPC `{}`", id),
+                        prepared,
+                        catalog
+                            .display_name(character)
+                            .is_some()
+                            .then_some("its catalog row's body with a borrowed kit"),
+                    );
+                    None
+                }
+            },
+        }
+        .map(crate::combat::components::CombatKit::from_action_set);
         let combat_kit = match authored_kit {
             Some(kit) => kit,
             None => {
@@ -1404,55 +1434,23 @@ pub(crate) fn spawn_enemy_with_faction_into(
             // Iron Mary case: nothing can build this body, so it would spawn as
             // a generic combatant wearing her name.
             //
-            // ⚠ **the `!prepared.is_empty()` guard is not defensive padding, it
-            // is a second defect kept out of this one's way.** Several hosts —
-            // the multi-game shell, the rollback door fixture — reach enemy
-            // construction with a prepared registry containing ZERO characters,
-            // measured. In those, EVERY placement's character is "missing", and
-            // panicking would refuse a shipping host over a fault that is not
-            // the content's. That emptiness is its own row.
-            assert!(
-                prepared.is_empty()
-                    || roster.has_brain_key(brain_key(&authored.payload.brain).unwrap_or("")),
-                "enemy `{}` names character `{missing}`, which this composition has \
-                 not registered, and its brain key `{:?}` names no archetype either \
-                 — so nothing can build this body and it would spawn as a generic \
-                 combatant wearing that character's name. Register the character, \
-                 or author a brain key that exists.",
-                authored.id,
-                authored.payload.brain,
-            );
-            // ⭐ **TWO DIFFERENT FACTS, SAID DIFFERENTLY** (ledger D75). A
-            // per-placement warning about a missing character reads as *this
-            // content is wrong*, and in a host that published NO CAST AT ALL that
-            // is a lie repeated once per placement: the composition is what is
-            // incomplete, and every character in the room is equally "missing".
+            // ⭐ **THE RULE ITSELF LIVES BESIDE THE PLAN** — this road wrote it,
+            // and the NPC road needed the same one. Restating it there would have
+            // produced a second, slightly different policy on the path nobody
+            // looks at, which is how this defect gets back in.
             //
-            // ⚠ absence is legitimate — `CharacterPreparationPlugin` is installed
-            // by `try_register_character`, so a host that registers nobody never
-            // publishes, and "no cast" is exactly what that means. What must not
-            // happen is a room full of character-named placements quietly
-            // becoming archetypes with nothing said about WHY.
-            if prepared.is_empty() {
-                bevy::log::warn!(
-                    target: "ambition_platformer2d_actor_monolith::spawn",
-                    "this composition published NO prepared cast at all, and enemy \
-                     `{}` names character `{missing}` — so it, and every other \
-                     character-named placement in this room, falls back to an \
-                     archetype. The room expects a cast this host does not \
-                     register; that is a COMPOSITION gap, not a content one.",
-                    authored.id,
-                );
-            } else {
-                bevy::log::warn!(
-                    target: "ambition_platformer2d_actor_monolith::spawn",
-                    "enemy `{}` names character `{missing}`, which this composition has \
-                     not registered; it falls back to its `{:?}` archetype. This is \
-                     correct only for a BORROWED character in a partial composition.",
-                    authored.id,
-                    authored.payload.brain,
-                );
-            }
+            // The fallback here is the placement's ARCHETYPE, and it exists only
+            // if the brain key names one — no key, no archetype, and the body
+            // would be a generic `combatant` wearing this character's name.
+            let archetype = brain_key(&authored.payload.brain)
+                .filter(|key| roster.has_brain_key(key))
+                .map(|key| format!("its `{key}` archetype"));
+            super::spawn::report_unprepared_character(
+                missing.as_str(),
+                &format!("enemy `{}`", authored.id),
+                prepared,
+                archetype.as_deref(),
+            );
             None
         }
     };
@@ -2211,9 +2209,31 @@ pub(super) fn spawn_encounter_mob(
     // body** — the third road onto the common constructor, after the match seat
     // and the authored enemy. A wave that names an unmigrated character (or
     // none) still builds from its archetype, visibly.
-    let definition = character
-        .and_then(|character_id| prepared.get(character_id))
-        .filter(|definition| definition.body_blueprint().is_ok());
+    // ⛔ the third `and_then` of the same shape, and the same split: REGISTERED
+    // BUT INCOMPLETE (`body_blueprint` is `Err`) is the migration still running
+    // and is silent on purpose; NAMED BUT NOT REGISTERED is a fault and goes
+    // through the shared rule. Collapsing them is what let a wave spawn a
+    // generic wearing a character's name.
+    let prepared_character = match character {
+        None => None,
+        Some(character_id) => match prepared.get(character_id) {
+            Some(definition) => Some(definition),
+            None => {
+                super::spawn::report_unprepared_character(
+                    character_id,
+                    &format!("encounter mob `{id}`"),
+                    prepared,
+                    // A wave always has an archetype to fall back to — `new_in`
+                    // resolves one from the roster — so this warns rather than
+                    // refusing. The archetype is a real body, just not this
+                    // character's.
+                    Some("its archetype"),
+                );
+                None
+            }
+        },
+    };
+    let definition = prepared_character.filter(|definition| definition.body_blueprint().is_ok());
     let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(

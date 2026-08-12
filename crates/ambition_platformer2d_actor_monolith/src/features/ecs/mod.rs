@@ -51,8 +51,6 @@ mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
 pub use brain_builders::project_authored_fighter_ladder;
-#[cfg(test)]
-pub(crate) use brain_builders::smash_cfg_for_test;
 mod brain_effects;
 pub mod chests;
 mod damage;
@@ -87,11 +85,6 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
-// Test-only re-export: `actor_movement_tests` pins this resolver via the `features::ecs`
-// path. Production callers use it through its own `actors::conversion` module, so
-// the re-export is unused (a dead import warning) outside `cfg(test)`.
-#[cfg(test)]
-pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{
     apply_actor_contact_damage, fan_out_limb_intents, integrate_sim_bodies,
     route_boss_strikes_to_limbs, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,

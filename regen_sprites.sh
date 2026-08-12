@@ -966,6 +966,45 @@ publish_cached_batch() {
     fi
 }
 
+# --- Reduced-resolution quality variants ----------------------------------
+# ⛔ **a sprite regen that does not run this leaves the phone on full-res art.**
+# The half / quarter / potato roots are what the runtime loads under the Low /
+# Medium / Potato quality profiles, and a sheet with no variant silently falls
+# back to full resolution. `regen_assets.sh` chained backgrounds → sprites →
+# variants and this script did not, so every standalone `./regen_sprites.sh`
+# re-opened that drift; 25 sheets — Mary-O's and the player's among them — had
+# no half-res sibling when it was measured.
+#
+# ⛔⛔ **AND THE CACHE-HIT EXIT SKIPPED IT** (Jon, 2026-08-12: *"When I change the
+# video quality in ambition, my sprite went from the robot v3 character to the
+# robot v2 character"*, and *"I see the new emmy sprite on the select screen, but
+# her character is the old sprite in the match"*). Both are one fact: 163 of 192
+# reduced-tier sheets were four days behind `sprites/`, so the reduced tiers drew
+# 08-08 art while full-res drew 08-11's. A quality change moves between the two
+# roots, which is why it looked like the character was being swapped.
+#
+# ⭐ THE FINGERPRINT CANNOT ANSWER THIS QUESTION. It covers renderer sources and
+# the presence of full-res outputs; it says nothing about whether the reduced
+# tiers match them, and something that publishes art without reaching the bottom
+# of this script (an interrupted run, `AMBITION_QUALITY_VARIANTS=0`, a publish
+# through the renderer directly) leaves a gap the next run then declares fresh.
+# So the variant stage runs on BOTH paths — it is the only stage whose staleness
+# the cache key does not describe.
+#
+# It is cheap to chain because the generator is incremental: a run where nothing
+# changed costs ~4s, and one changed character ~7s (a full rebuild is ~2m15s).
+#   AMBITION_QUALITY_VARIANTS=0  skip it (same idiom as AMBITION_ULTRAPACK=0)
+run_quality_variants() {
+    echo "==> reduced-resolution quality variants (sprites):"
+    if [ "${AMBITION_QUALITY_VARIANTS:-1}" = "0" ]; then
+        echo "  (skipped — AMBITION_QUALITY_VARIANTS=0)"
+        return 0
+    fi
+    "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
+        --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
+        --sprites-only 2>&1 | sed 's/^/  /'
+}
+
 core_shared_fingerprint="$(compute_core_shared)"
 
 cached_fingerprint=""
@@ -982,6 +1021,14 @@ then
     echo "==> regen cache hit: renderer sources + outputs unchanged — skipping sprite publication."
     echo "    Cache key: $fingerprint_file"
     echo "    Pass --force to re-render anyway."
+    # ⛔ NOT `exit 0` — see `run_quality_variants`. Skipping publication is what
+    # the cache key licenses; skipping the tier the key says nothing about is how
+    # the reduced-resolution roots fell four days behind the art.
+    if ! run_quality_variants; then
+        echo "" >&2
+        echo "==> regen FAILED — quality variants: generator reported a failure" >&2
+        exit 1
+    fi
     exit 0
 fi
 
@@ -1435,24 +1482,9 @@ else
 fi
 
 # --- Reduced-resolution quality variants ----------------------------------
-# ⛔ **a sprite regen that does not run this leaves the phone on full-res art.**
-# The half / quarter / potato roots are what the runtime loads under the Low /
-# Medium / Potato quality profiles, and a sheet with no variant silently falls
-# back to full resolution. `regen_assets.sh` chained backgrounds → sprites →
-# variants and this script did not, so every standalone `./regen_sprites.sh`
-# re-opened that drift; 25 sheets — Mary-O's and the player's among them — had
-# no half-res sibling when it was measured.
-#
-# It is cheap to chain because the generator is incremental: a run where nothing
-# changed costs ~4s, and one changed character ~7s (a full rebuild is ~2m15s).
-#   AMBITION_QUALITY_VARIANTS=0  skip it (same idiom as AMBITION_ULTRAPACK=0)
-echo "==> reduced-resolution quality variants (sprites):"
-if [ "${AMBITION_QUALITY_VARIANTS:-1}" = "0" ]; then
-    echo "  (skipped — AMBITION_QUALITY_VARIANTS=0)"
-elif ! "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
-    --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
-    --sprites-only 2>&1 | sed 's/^/  /'
-then
+# The stage itself is `run_quality_variants`, defined beside the cache-hit exit
+# because BOTH paths run it. Everything that used to be said here is said there.
+if ! run_quality_variants; then
     regen_failures+=("quality variants: generator reported a failure")
 fi
 

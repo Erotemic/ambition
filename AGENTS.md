@@ -104,6 +104,16 @@ invariants hold.
   ground nobody runs proves nothing. The goal guard now runs its suite; that is a
   backstop, not a substitute for running it beside the change that could break
   it.
+* ⛔ **A COMPILING GAME CAN STILL DRAW THE WRONG ART, AND NO SUITE SEES IT.**
+  `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` are what the runtime loads
+  under the Low / Medium / Potato quality profiles. A stale PNG there is a valid
+  PNG, so every test stays green while the game draws last week's art at one
+  quality setting and today's at another — which is what Jon saw on 2026-08-12
+  (*"my sprite went from the robot v3 character to the robot v2 character"*, and
+  Emmy new on the select screen but old in the match: 163 of 192 sheets were four
+  days behind). Publishing art means `./regen_visual_quality_variants.sh` too;
+  `python3 scripts/check_quality_variants_are_fresh.py` answers the question in a
+  second and is in the goal guard.
 
 ## The cheapest sufficient command
 

@@ -1096,8 +1096,35 @@ carries `BodyHealth` / `BodyCombat` / `ActorFaction`, and melee's victim query h
 actor — including the boss itself — skips it, while the boss is excluded from the
 actor query as a disjoint family. The boss's HP is moved by the **unresolved
 half** instead. ⭐ so the same swing identifies its victim and then damages it
-anonymously, and the identified event is inert: if the broadcast ever stopped, a
-boss would stop taking melee damage and every test would still pass.
+anonymously, and the identified event is inert.
+
+### ⛔ ~~"and every test would still pass"~~ — FALSIFIED 2026-08-12, three ways
+
+This section ended *"if the broadcast ever stopped, a boss would stop taking
+melee damage and every test would still pass."* That was the reason to be
+nervous about the seam, and it is **wrong**. Measured by poisoning each link and
+running the suites, rather than by reading:
+
+| link | poison | caught by |
+|---|---|---|
+| the **broadcast** | `if false {` around the `UnresolvedFeatures` emit | 2 tests in `ambition_combat`, incl. `a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hit` |
+| the **routing** to `apply_boss_hit` | early `return false` before the volume scan | `face_tanking_player_swings_back_and_is_recoil_locked` |
+| the **HP mutation** | restore `health.current` after the shared resolve, so feel fires and HP does not move | 4 unit tests, incl. `damage_decreases_hp_in_a_vulnerable_phase` |
+
+⚠ **the middle one is the interesting result.** `boss_contact_iframes` says in
+its own doc that it measures the swing CONNECTING (`hit_flash`) *"rather than
+boss HP"*, because intro invulnerability and stray room-edge resets make an HP
+assertion flaky there — so it looks like it is not covering this. It covers it
+anyway, because `hit_flash` is written INSIDE `apply_boss_hit`: a test that
+deliberately declined to assert the consequence still fails when the consequence
+stops being reachable. ⭐ that is luck rather than design, and it is worth
+knowing which one it is before someone "simplifies" the flash.
+
+⇒ **the seam is fragile in ARCHITECTURE and covered in FACT.** The nervousness
+this paragraph created was the reason to build an end-to-end guard; three
+measurements say the links are each pinned and a fourth test would be
+redundant. What remains is the design defect — one swing naming its victim and
+then damaging it anonymously — and that still blocks on D23.
 
 **⛔ the fix blocks on D23, which is Jon's.** Making the consumer honour
 `Body(boss)` requires both producers to name bosses, and the projectile victim

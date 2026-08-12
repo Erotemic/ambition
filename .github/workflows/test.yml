@@ -100,6 +100,21 @@ jobs:
         # for visibility but with `--message-format=short` so PR reviews
         # can spot regressions without blocking on them.
         run: cargo clippy --workspace --all-targets --message-format=short || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: broken doc-link ratchet
+        # ⛔ THE PROJECT GATE CANNOT SEE THIS CLASS. `cargo check --all-targets`
+        # compiles code; an unresolved `[`Item`]` is a RUSTDOC lint, so a
+        # deletion that leaves its references behind rots in the space between
+        # the two commands. 199 of them had accumulated by 2026-08-12 and
+        # nothing had ever failed (ledger D103).
+        #
+        # ⚠ a RATCHET, not a sweep: the per-crate counts may fall and must not
+        # rise. Lower them and bank it with `--update` in the same commit.
+        # It also fails when a crate produces NO rustdoc output, because zero
+        # warnings from a build that did not happen is not a score.
+        run: python scripts/check_doc_link_ratchet.py --check
 
   agent-kb-check:
     name: agent knowledge-base check

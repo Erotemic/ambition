@@ -149,14 +149,6 @@
             aggro_radius: 80.0,
             attack_range: 0.0,
         ),
-        "parrot_lively": Aerial(
-            aggressiveness: 0.0,
-            cruise_speed: 95.0,
-            dive_speed: 240.0,
-            aggro_radius: 120.0,
-            attack_range: 0.0,
-            roam_radius: 130.0,
-        ),
         "wanderer_puppy_slug": Wanderer(
             speed: 36.0,
             aggressiveness: 0.0,
@@ -784,31 +776,24 @@
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
             composition: None,
-            // ⛔⛔ **STILL NAMES ONE, AFTER FOUR ATTEMPTS** (2026-08-12, D81).
-            // Four blockers found, three removed, and the last is not this row's:
+            // ⭐⭐ **THE FIRST CHARACTER TO NAME NO BRAIN PRESET** (2026-08-12,
+            // D81), on the fifth attempt. Four blockers, each a different fact
+            // hiding behind one field:
             //
-            //   1. the policy numbers are dead weight — the DEFINITION's
-            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` wins
-            //      everywhere this field is read.
+            //   1. the policy numbers were dead weight — the DEFINITION's
+            //      `BrainProfile { Aerial, aggro 620, attack_range 60 }` wins.
             //   2. `aggressiveness: 0.0` looked like the cove parrot's
-            //      peacefulness. It is not: that comes from its `NpcSpawn`
-            //      PLACEMENT. The test claiming otherwise was asserting a
-            //      preset's contents and now pins the bird's flight instead.
-            //   3. `default_brain` CARRIED THE NAMESPACE — `qualify_preset_like`
-            //      split its assembled `provider::name` to learn the provider.
-            //      Fixed properly: an entry states its `provider` now.
-            //   4. ⛔ **and some catalog reaching the NPC road was never
-            //      ASSEMBLED** — no `provider`, `default_action_set` still in its
-            //      LOCAL form — while its preset map IS namespaced. Empty this
-            //      field there and no namespace carrier remains, so the Hall
-            //      pedestal's `brain_override: "stand_still"` resolves bare and is
-            //      refused.
+            //      peacefulness. It is not: that is its `NpcSpawn` PLACEMENT.
+            //   3. `default_brain` CARRIED THE NAMESPACE. An entry states its
+            //      `provider` now, so it does not have to.
+            //   4. and there were TWO qualification sites, not one — the catalog's
+            //      validator and `resolve_initial_brain`. Teaching only the first
+            //      looked exactly like a half-assembled catalog until a test
+            //      asked the assembled entry directly and found it perfectly fine.
             //
-            // ⇒ (4) is a defect in its own right: a catalog that is half
-            // assembled. Measuring it is what the next attempt starts with, and
-            // emptying this field is safe the moment a character's provider is
-            // reliably on its entry.
-            default_brain: "parrot_lively",
+            // ⇒ this bird's policy is its definition's and its hostility is its
+            // placement's. `parrot_lively` was a third copy of both, with
+            // different numbers, deciding neither.
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],
             // SCAFFOLD exemplar. idle migrated from features::npcs (the

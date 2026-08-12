@@ -602,7 +602,25 @@ pub fn resolve_initial_brain(
             // namespace so it matches the assembled catalog's `provider::name`
             // keys. The binding stores the QUALIFIED name so the runtime switch
             // path and snapshot reconcile resolve it identically.
-            let key = qualify_preset_like(entry.default_brain.as_str(), name);
+            //
+            // ⭐ **THE ENTRY'S OWN PROVIDER FIRST** (2026-08-12, D81) — and this
+            // site is why the fourth attempt to empty a `default_brain` still
+            // failed. `CharacterCatalog::validate_brain_override` had been taught
+            // to ask the provider; THIS one had not, and it is the one the NPC
+            // road reaches. Two functions doing one job, and fixing the wrong
+            // half looked exactly like a half-assembled catalog.
+            //
+            // ⚠ the fallbacks are ORDERED so the field that may be absent is
+            // last: `default_action_set` is still required of every row,
+            // `default_brain` is not.
+            let namespace_carrier = if !entry.provider.is_empty() {
+                format!("{}::_", entry.provider)
+            } else if !entry.default_action_set.is_empty() {
+                entry.default_action_set.clone()
+            } else {
+                entry.default_brain.clone()
+            };
+            let key = qualify_preset_like(&namespace_carrier, name);
             (
                 AutonomousSource::CatalogPreset(BrainPresetId::new(key.clone())),
                 PresetSource::Override,

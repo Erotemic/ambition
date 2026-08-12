@@ -1930,3 +1930,60 @@ mod tests {
         assert_eq!(next_playable("not_a_real_id"), PLAYABLE_ROSTER[0]);
     }
 }
+
+#[cfg(test)]
+mod assembled_provider_tests {
+    /// **Does an ASSEMBLED entry carry its provider?** — the falsifier for the
+    /// fourth blocker (ledger D81).
+    ///
+    /// ⛔ four attempts to let a character name no brain preset ended with the
+    /// Hall's `brain_override` resolving BARE, which implies the catalog reaching
+    /// the NPC road holds unassembled entries. That is an inference from a
+    /// symptom, and this campaign has already been wrong twice about symptoms in
+    /// this exact area. So: ask the assembled catalog directly.
+    #[test]
+    fn an_assembled_entry_states_the_provider_that_registered_it() {
+        let mut app = bevy::prelude::App::new();
+        super::register(&mut app);
+        let catalog = app
+            .world()
+            .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+            .expect("registering the content publishes an assembled catalog");
+        let parrot = catalog
+            .get("stochastic_parrot")
+            .expect("the parrot is in the shipped cast");
+        assert_eq!(
+            parrot.provider,
+            crate::AMBITION_CONTENT_PROVIDER,
+            "an assembled entry must state the provider that registered it — \
+             without it the namespace has to be inferred from a neighbouring \
+             preset key, which is the coupling D81 removed"
+        );
+        assert!(
+            parrot.default_brain.is_empty(),
+            "the parrot names no preset — it is the character this whole thread \
+             was about, and if it starts naming one again the provider field \
+             below is no longer being exercised by a migrated row: `{}`",
+            parrot.default_brain
+        );
+
+        // ⚠ **and a character that DOES name one is still namespaced by
+        // assembly**, which is what the old inference relied on and what the
+        // ordered fallbacks still use for rows the provider has not reached.
+        // ⛔ this assertion used to be made about the PARROT, and it went red the
+        // moment the parrot stopped naming a preset — a test whose subject
+        // migrated out from under it. The subject has to be a row that still
+        // holds the property.
+        let still_named = catalog
+            .data()
+            .characters
+            .values()
+            .find(|entry| !entry.default_brain.is_empty())
+            .expect("some character still names a brain preset");
+        assert!(
+            still_named.default_brain.contains("::"),
+            "assembly namespaces a named preset: `{}`",
+            still_named.default_brain
+        );
+    }
+}

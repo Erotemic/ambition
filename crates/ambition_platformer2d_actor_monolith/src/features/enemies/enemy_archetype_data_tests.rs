@@ -32,15 +32,57 @@ fn enemy_roster_resolves_brain_keys_with_fallback() {
     );
 }
 
-/// The fixture roster must carry a row for every authored spawn brain key
-/// (a missing row would resolve to the `combatant` fallback rather than
-/// the intended enemy).
+/// The roster a test resolves against must carry a row for every brain key a
+/// test names — a missing row resolves to the `combatant` fallback rather than
+/// failing, so the test changes subject instead of going red.
+///
+/// ⚠ **asked of the ENGINE's roster now**, which is the shipped file plus the
+/// rows the engine owns. `medium_striker` moved into the fixture on 2026-08-12
+/// (see `fixture_roster_with_mount`): no world names it as a spawn brain key and
+/// the goblin authors its own repertoire, so the only thing still needing the
+/// row is a handful of tests about the archetype machinery.
 #[test]
-fn ron_carries_every_known_brain_key() {
+fn the_fixture_roster_carries_every_brain_key_a_test_names() {
     for key in ALL_BRAIN_KEYS {
         assert!(
-            test_roster().contains_brain(key),
-            "character_archetypes.ron missing row for brain key '{key}'",
+            crate::features::enemies::fixture_roster_with_mount().contains_brain(key),
+            "no fixture row for brain key '{key}' — `spec_for_brain` will answer \
+             `combatant` and every test naming it will quietly measure that",
+        );
+    }
+}
+
+/// **WHAT IS LEFT OF THE SHIPPED ARCHETYPE FILE** — D73's acceptance signal is
+/// that it be DELETED, and this is the countdown.
+///
+/// ⭐ two rows became one on 2026-08-12. `combatant` is the only survivor, and
+/// it is not a creature anybody places: `ambition_combat`'s content schema
+/// reserves it as `FALLBACK_BRAIN_KEY`, the answer to *what does an unknown
+/// brain key resolve to*. Deleting the row means answering that question —
+/// GPT 5.6's redirect says it should become a construction ERROR, the same rule
+/// P0.1 established for an absent `CharacterId` (ledger D102).
+///
+/// ⛔ **a countdown, and it fails for the reason the campaign is succeeding.**
+/// When the last row goes this test goes with the file; until then it is the one
+/// place the number is written down where a reader will see it move.
+#[test]
+fn the_shipped_archetype_file_is_down_to_the_reserved_fallback() {
+    let shipped = test_roster();
+    assert!(
+        shipped.contains_brain("combatant"),
+        "the reserved fallback row is gone but `FALLBACK_BRAIN_KEY` still names \
+         it — the schema check would have caught this, and so does this"
+    );
+    for key in [
+        "medium_striker",
+        "cellular_automaton_fighter",
+        "sandbag_infinite",
+    ] {
+        assert!(
+            !shipped.contains_brain(key),
+            "`{key}` is back in the SHIPPED archetype file. Every row that left \
+             did so because a character took its facts; a row reappearing is the \
+             old ontology growing back, whatever the commit says it is doing"
         );
     }
 }

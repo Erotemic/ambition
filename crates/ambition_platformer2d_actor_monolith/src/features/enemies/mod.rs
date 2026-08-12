@@ -1085,6 +1085,50 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         can_fly: true,
         move_style: Walk,
     ),
+    // ⭐⭐ **THE MID-RANGE STRIKER — owned by the FIXTURE** (2026-08-12), and it
+    // is the LAST shipped row but one. `goblin` is a character that authors its
+    // own eleven-move repertoire; nothing in any world names `medium_striker` as
+    // a spawn brain key, and `cargo check --all-targets` is clean without it.
+    // What still needs the ROW is seven tests about the archetype MACHINERY: the
+    // brain template comes from the row, a ranged Rock reaches the action set,
+    // the smash hit band is data-authored, the derived-behaviour formulas match.
+    //
+    // ⚠ **all seven are about the SHAPE**, which is why the row moves here
+    // rather than being deleted with its readers: something Smash-brained with a
+    // melee AND a ranged verb AND an authored hit band is what they need, and
+    // Ambition's goblin having been that once is incidental to every one of
+    // them. The goblin's own numbers live on its character.
+    "medium_striker": (
+        respawn: OnRoomReenter,
+        max_health: 5,
+        run_speed: 170.0,
+        patrol_effort: 0.6176,
+        chase_effort: 1.0,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        contact_strength: 0.70,
+        damage_amount: 1,
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
+        // Goblins poke with a thrown rock at mid-range, then close for the
+        // swing — the Smash brain's verb-selection-by-range (see
+        // `brain::smash::maybe_substitute_ranged`). Modest speed so it is
+        // readable/dodgeable; damage matches the swing. The 1.1s ranged
+        // cadence keeps it from plinking. NOTE: no dedicated throw animation
+        // yet — the rock just spawns from the goblin; sprite/feel is a handoff.
+        ranged: Some((style: Rock, speed: 360.0, damage: 1)),
+        smash_hit_band: Some(32.0),
+        // Goblins dash to close a large gap (richer action set).
+        smash_dash_to_close: true,
+        move_style: Walk,
+    ),
+
     // ⭐ **THE IMMORTAL PRACTICE DUMMY, owned by the FIXTURE** (2026-08-12). Its
     // shipped row was deleted with the `sandbag_infinite` migration: the combat
     // lab's two dummies name the `sandbag_infinite` CHARACTER now, which authors
@@ -1254,7 +1298,14 @@ pub(crate) fn fixture_spec(brain_key: &str) -> ArchetypeSpec {
 /// fixture. Production callers always receive an explicit App-local roster.
 #[cfg(test)]
 pub(crate) fn test_spec(brain_key: &str) -> ArchetypeSpec {
-    test_roster().spec_for_brain(
+    // ⭐ **the ENGINE's roster, not the shipped file.** Every row an engine test
+    // names has been migrating out of `character_archetypes.ron` for two days,
+    // and `spec_for_brain` answers `combatant` for a key it cannot find — so a
+    // test whose subject migrated does not fail, it quietly changes subject.
+    // `fixture_roster_with_mount` is the shipped file PLUS the rows the engine
+    // owns, so this resolves both and a migration stops being able to retarget
+    // a test behind its back.
+    fixture_roster_with_mount().spec_for_brain(
         &ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
     )
 }
@@ -1471,7 +1522,6 @@ mod app_local_roster_tests {
         );
     }
 }
-
 
 #[cfg(test)]
 mod capability_tests;

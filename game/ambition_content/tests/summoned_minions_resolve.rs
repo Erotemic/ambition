@@ -35,13 +35,40 @@ const ENCOUNTER_FILES: &[(&str, &str)] = &[(
 )];
 
 /// The `kind: "..."` values an encounter file authors.
+/// **What each mob in a wave file will actually be built as.**
+///
+/// ⛔⛔ **this read `kind:` only, and that is not the road the runtime takes.**
+/// `spawn_encounter_mob` is CHARACTER-FIRST: a mob naming a character that can
+/// carry a body builds that character, and `kind` is the archetype fallback for
+/// one that cannot. Reading only `kind` reported the goblin encounter's four
+/// minions as resolving nothing the day `medium_striker`'s row moved into the
+/// engine fixture — while every one of them already authored
+/// `character: Some("goblin")` and had been building a goblin all along.
+///
+/// ⚠ a guard that measures a road nobody drives fails for the wrong reason, and
+/// the temptation then is to add the id to `KNOWN_UNRESOLVED` with a story about
+/// a decision that was never waiting.
+///
+/// ⭐ **`character:` must be read on the SAME mob**, not anywhere in the file:
+/// scanning for both fields globally would let one mob's character cover
+/// another's missing row. Each entry is one line in these files, so the line is
+/// the unit.
 fn wave_kinds(ron: &str) -> Vec<&str> {
-    ron.match_indices("kind: \"")
-        .filter_map(|(at, _)| {
-            let rest = &ron[at + "kind: \"".len()..];
-            rest.find('"').map(|end| &rest[..end])
+    ron.lines()
+        .filter_map(|line| {
+            let kind = field(line, "kind: \"")?;
+            // The gameplay identity wins where the line states one, exactly as
+            // the spawn road resolves it.
+            Some(field(line, "character: Some(\"").unwrap_or(kind))
         })
         .collect()
+}
+
+/// The quoted value of `prefix` on this line, if it has one.
+fn field<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
+    let at = line.find(prefix)?;
+    let rest = &line[at + prefix.len()..];
+    rest.find('"').map(|end| &rest[..end])
 }
 
 /// **Every `*_ARCHETYPE` constant in the workspace, found by SCANNING rather than

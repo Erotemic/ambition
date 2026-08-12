@@ -139,16 +139,25 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
         // Marked LOCAL: both presets are authored in this same catalog, so an
         // unknown one is a typo rather than a missing dependency, and the fix
         // line says "define it here" instead of "install another pack".
-        out.refer(
-            PendingRef::new(
-                SchemaId::new(BRAIN_PRESET_SCHEMA),
-                &entry.default_brain,
-                "brain preset",
-                id.clone(),
-                "default_brain",
-            )
-            .local(),
-        );
+        // ⚠ **an EMPTY `default_brain` refers to nothing, and that is authored**
+        // (2026-08-12, D81 — see the field's own doc). A character whose
+        // definition states its autonomous profile does not name a preset, and
+        // emitting a reference to `""` reported it as a typo pointing at a preset
+        // called nothing: *"names brain preset ``, which this pack does not
+        // define"*. The pack was right to refuse a dangling reference; the fix is
+        // not to make one.
+        if !entry.default_brain.is_empty() {
+            out.refer(
+                PendingRef::new(
+                    SchemaId::new(BRAIN_PRESET_SCHEMA),
+                    &entry.default_brain,
+                    "brain preset",
+                    id.clone(),
+                    "default_brain",
+                )
+                .local(),
+            );
+        }
         out.refer(
             PendingRef::new(
                 SchemaId::new(ACTION_SET_PRESET_SCHEMA),

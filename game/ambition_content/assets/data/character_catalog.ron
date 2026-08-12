@@ -149,6 +149,14 @@
             aggro_radius: 80.0,
             attack_range: 0.0,
         ),
+        "parrot_lively": Aerial(
+            aggressiveness: 0.0,
+            cruise_speed: 95.0,
+            dive_speed: 240.0,
+            aggro_radius: 120.0,
+            attack_range: 0.0,
+            roam_radius: 130.0,
+        ),
         "wanderer_puppy_slug": Wanderer(
             speed: 36.0,
             aggressiveness: 0.0,
@@ -175,14 +183,6 @@
         // Lively peaceful flyer (the cove parrot): flits between airborne perches
         // and ground spots, and drops down beside the player to be talked to.
         // Needs a `Floating` body_kind (gravity-free) to actually fly.
-        "parrot_lively": Aerial(
-            aggressiveness: 0.0,
-            cruise_speed: 95.0,
-            dive_speed: 240.0,
-            aggro_radius: 120.0,
-            attack_range: 0.0,
-            roam_radius: 130.0,
-        ),
         // Aggressive flying melee archetype for the Perfect Cellular Automaton.
         // The body must be `Floating` so the Aerial brain's 2D velocity drives
         // the fly row instead of walking on the ground.
@@ -784,6 +784,21 @@
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,
             composition: None,
+            // ⛔⛔ **KEPT, AND THE ATTEMPT TO DELETE IT IS THE REASON WHY**
+            // (2026-08-12, D81). This bird's DEFINITION authors
+            // `BrainProfile { Aerial, aggro 620, attack_range 60 }`, so the
+            // policy numbers here are dead weight — but the preset also carries
+            // `aggressiveness: 0.0`, and that is the parrot's PEACEFULNESS IN THE
+            // COVE. A `BrainProfile` has nowhere to put it, correctly:
+            // `attacks_player` was deleted from that type on 2026-08-11 because
+            // hostility is a RELATIONSHIP, and a relationship belongs to the
+            // placement's `SpawnDisposition`.
+            //
+            // ⇒ removing this preset took the cove parrot's peacefulness with it,
+            // and `stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky`
+            // caught it. The migration order D81 states is the answer: move
+            // `aggressiveness` to the placements FIRST, then the preset has
+            // nothing left to hold and goes.
             default_brain: "parrot_lively",
             default_action_set: "peaceful",
             tags: ["pirate", "bird", "npc"],

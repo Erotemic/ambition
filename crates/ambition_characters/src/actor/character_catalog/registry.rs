@@ -302,10 +302,17 @@ impl CharacterCatalogRegistry {
                     });
                 }
                 let mut entry = entry.clone();
-                entry.default_brain = brain_names
-                    .get(&entry.default_brain)
-                    .expect("fragment validation guarantees the brain preset")
-                    .clone();
+                // ⚠ **an EMPTY `default_brain` names nothing and stays empty**
+                // (2026-08-12, D81 — see the field's doc). Namespacing it would
+                // look up `""` in the provider's preset map and `expect` its way
+                // out of a state the schema now permits: a character whose
+                // DEFINITION states its policy does not name a preset at all.
+                if !entry.default_brain.is_empty() {
+                    entry.default_brain = brain_names
+                        .get(&entry.default_brain)
+                        .expect("fragment validation guarantees the brain preset")
+                        .clone();
+                }
                 entry.default_action_set = action_names
                     .get(&entry.default_action_set)
                     .expect("fragment validation guarantees the action-set preset")

@@ -145,6 +145,11 @@ impl CharacterCatalog {
         spawn_world_x: f32,
     ) -> Option<crate::brain::Brain> {
         let entry = self.get(character_id)?;
+        // A character that names no preset has no default brain to build — its
+        // definition's autonomous profile is the answer, and this road is not it.
+        if entry.default_brain.is_empty() {
+            return None;
+        }
         let preset = self.0.brain_presets.get(&entry.default_brain)?;
         Some(brain_from_preset(preset, spawn_world_x))
     }

@@ -598,6 +598,27 @@ pub struct CharacterCatalogEntry {
     #[serde(default)]
     pub composition: Option<Vec<CompositionLayer>>,
     /// Name of the preset in `brain_presets` to apply by default.
+    ///
+    /// ⭐ **EMPTY means this character names no preset**, which is a real answer
+    /// rather than a gap (2026-08-12, ledger D81). A character whose DEFINITION
+    /// authors an autonomous `BrainProfile` does not use this field —
+    /// `resolve_npc_brain` ranks the definition above it and the enemy road
+    /// builds character-first — so requiring one made a migrated creature name a
+    /// vocabulary it had left. The stochastic parrot is the case: it authored
+    /// `Aerial, aggro 620, attack_range 60` on its definition while its row still
+    /// pointed at a preset saying 120 and 0, and the preset could not be deleted
+    /// because the row had to name SOMETHING.
+    ///
+    /// ⇒ omit it and the preset dies with its last namer, which is what D81's
+    /// retirement is: one vocabulary, reached by subtraction.
+    ///
+    /// ⚠ **`#[serde(default)]` rather than `Option`, and the reason is churn**:
+    /// 144 shipped rows write this field as a bare string, and RON does not
+    /// accept those for an `Option` without `implicit_some`. Empty had no prior
+    /// meaning here, so this is the FIRST meaning on that emptiness rather than a
+    /// second one — the trap `StartingCharacter::character_id`'s own doc warns
+    /// about.
+    #[serde(default)]
     pub default_brain: String,
     /// Name of the preset in `action_set_presets` to apply by default.
     pub default_action_set: String,

@@ -147,3 +147,107 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
          and would heal a damaged actor on every load"
     );
 }
+
+/// **AND POSSESSION SURVIVES ONE TOO** — the other half of the absent
+/// reconciler, and the half that could have been a real production bug.
+///
+/// ⛔ `reconcile_temporary_control` is the part of `reconcile_autonomous_actors`
+/// that could NOT obviously be redundant: it rebuilds mount links from stable
+/// ids and INSERTS a `MountSlot` that was absent at save, and a codec cannot
+/// insert what the snapshot never held (`construction/mod.rs` cites it for
+/// exactly that). If that mattered, possession and mounting across a rewind
+/// would be broken in production today — the function does not run.
+///
+/// ⭐ this possesses a body for real, through the same Down+Interact hold the
+/// possession end-to-end suite uses, and then keeps simulating inside a live
+/// prediction window. `TemporaryControl` and `PossessionState`'s entity are both
+/// registered rollback state, and the entity-mapping codecs run in
+/// `LoadWorldSystems::Mapping` before anything else — which is what the
+/// hand-rolled `by_sim_id` rebuild in the absent reconciler was duplicating.
+#[test]
+fn possession_survives_the_real_rollback_window() {
+    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::features::FeatureId;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+
+    // ⚠ copied from `possession_end_to_end`'s helper rather than reinvented:
+    // `interact` is the EDGE and `interact_held` is the hold, and a version that
+    // set only one of them would never commit a possession.
+    fn down_interact(edge: bool) -> AgentAction {
+        AgentAction {
+            move_y: 1.0,
+            interact: edge,
+            interact_held: true,
+            ..AgentAction::default()
+        }
+    }
+
+    let mut sim = hall_sim();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+
+    let player = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+            ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        >();
+        q.single(world).expect("primary player").pos
+    };
+    sim.spawn_enemy_at(
+        "possess_target_rollback",
+        "Perfect Cellular Automaton",
+        (player.x + 60.0, player.y),
+        (14.0, 23.0),
+        CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+    );
+    let target = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &FeatureId)>();
+        q.iter(world)
+            .find(|(_, id)| id.as_str() == "possess_target_rollback")
+            .map(|(entity, _)| entity)
+            .expect("the spawned body is present")
+    };
+
+    // Hold until the possession commits. The mechanic commits at the end of each
+    // hold window and the target weaves around the radius, so several windows may
+    // pass — the sim is deterministic, so a bounded hold is not a race.
+    let mut possessed = None;
+    for i in 0..900 {
+        sim.step(down_interact(i == 0));
+        possessed = sim.world_mut().resource::<PossessionState>().possessed;
+        if possessed.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        possessed,
+        Some(target),
+        "setup: the body was never possessed, so this test would prove nothing \
+         about possession surviving anything"
+    );
+
+    // Keep simulating INSIDE the prediction window: every one of these frames is
+    // saved, predicted and resimulated.
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(
+        sim.world_mut().resource::<PossessionState>().possessed,
+        Some(target),
+        "possession did not survive the rollback window. ⛔ if this fails, the \
+         absent `reconcile_temporary_control` was load-bearing after all and \
+         possession across a rewind has been broken in production — which is a \
+         bug to fix in the CODECS, not by installing a reconciler that also \
+         heals damaged actors"
+    );
+    assert!(
+        sim.world_mut()
+            .get::<Brain>(target)
+            .is_some_and(Brain::is_player),
+        "the possessed body stopped being player-brained across the window"
+    );
+}

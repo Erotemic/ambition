@@ -100,7 +100,15 @@ const _: () = assert!(
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s
 // `use super::*`) are unchanged by the relocation.
 mod prefabs;
+// ⭐ **THE REGISTRY IS ITS OWN MODULE** (P1.7): `prefabs.rs` is the build-time
+// half of the Smash model and character preparation calls it, so it has to be
+// able to sit at or below `ambition_characters`. Expanding an authored prefab
+// KEY is a different job from building a move from a spec, and it is the one
+// that validates presentation ids through `ambition_vfx` — a crate the
+// character domain must not reach. See `prefab_registry`'s own doc.
+mod prefab_registry;
 
+pub use prefab_registry::*;
 pub use prefabs::*;
 
 /// Marker: this body has a melee swing as a data-driven moveset `"attack"` move

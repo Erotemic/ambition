@@ -178,14 +178,6 @@
         // Aggressive flying melee archetype for the Perfect Cellular Automaton.
         // The body must be `Floating` so the Aerial brain's 2D velocity drives
         // the fly row instead of walking on the ground.
-        "cellular_automaton_raider": Aerial(
-            aggressiveness: 1.0,
-            cruise_speed: 88.0,
-            dive_speed: 210.0,
-            aggro_radius: 220.0,
-            attack_range: 42.0,
-            roam_radius: 144.0,
-        ),
     },
 
     action_set_presets: {
@@ -824,7 +816,13 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            default_brain: "cellular_automaton_raider",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81 — the parrot's path, second
+            // and third travellers). Both automatons share one `authored_intrinsics`
+            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
+            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
+            // everywhere it is read; `cellular_automaton_raider` was a second copy
+            // with different numbers. Their hostility is their PLACEMENTS' —
+            // `EnemySpawn`s, hostile by default.
             default_action_set: "striker_swipe",
             tags: ["aerial", "enemy", "custom", "cellular"],
         barks: (
@@ -842,7 +840,13 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            default_brain: "cellular_automaton_raider",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81 — the parrot's path, second
+            // and third travellers). Both automatons share one `authored_intrinsics`
+            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
+            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
+            // everywhere it is read; `cellular_automaton_raider` was a second copy
+            // with different numbers. Their hostility is their PLACEMENTS' —
+            // `EnemySpawn`s, hostile by default.
             default_action_set: "striker_swipe",
             tags: ["aerial", "enemy", "custom", "cellular"],
         barks: (

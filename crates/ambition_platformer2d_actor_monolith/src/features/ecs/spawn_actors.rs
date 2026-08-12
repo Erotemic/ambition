@@ -663,10 +663,18 @@ impl NpcActorSpawnPlan {
         .map(crate::combat::components::CombatKit::from_action_set);
         let combat_kit = match authored_kit {
             Some(kit) => kit,
-            None => {
-                let hostile_spec = super::actors::hostile_spec_for_actor(roster);
-                super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec)
-            }
+            // ⭐ **THE NAMED DEFAULT, not a roster lookup** (2026-08-12). This
+            // asked the roster for `combatant`'s spec and built a kit from it —
+            // three indirections to reach one swipe, through the ontology this
+            // campaign is deleting. `default_fighting_kit()` is that same swipe
+            // with a name, and a test asserts the two are equal so the swap is
+            // provably neutral rather than argued.
+            //
+            // ⚠ it is what a body that authored NO kit fights with once
+            // provoked. A Hall NPC authors `peaceful`, so without this it would
+            // have nothing to swing — which is the same reason Smash grants
+            // `smash_fighter_kit()`, and the reason both are one concept.
+            None => super::brain_builders::default_fighting_kit(),
         };
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,

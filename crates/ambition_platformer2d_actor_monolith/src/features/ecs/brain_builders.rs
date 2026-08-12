@@ -18,6 +18,43 @@ use ambition_characters::brain::{
     WandererCfg,
 };
 
+/// **WHAT A BODY THAT AUTHORED NO FIGHTING KIT FIGHTS WITH.**
+///
+/// ⭐⭐ **two scaffolds in this campaign are the SAME missing authority, and this
+/// is it** (found 2026-08-12 by measuring both). `smash_fighter_kit()` grants one
+/// generic swipe to any seated fighter whose character says nothing (P3.24), and
+/// the PROVOCATION path hands a peaceful body a whole archetype for the same
+/// reason (P2.20) — a Hall NPC authors `peaceful`, so without a granted kit a
+/// provoked one would have nothing to swing. Both are "a default fighting kit",
+/// spelled twice, and neither could be deleted while the concept had no name.
+///
+/// ⚠ **the numbers are `combatant`'s, verbatim and verified.**
+/// `hostile_brain_id_for_actor()` returns the literal `"combatant"` — its last
+/// matcher arm was deleted with the characters that answered it — so every body
+/// reaching the provocation fallback already gets exactly this. The test below
+/// asserts the two are equal rather than trusting the transcription, and it is
+/// the equivalence baseline the roster's own deletion needs.
+///
+/// ⛔ this is a FALLBACK, not a design. Every character that authors its own
+/// repertoire stops consuming it, which is the same falling-adopter-count P3.24
+/// measures — and when the count is zero this function is deleted, not retuned.
+pub(crate) fn default_fighting_kit() -> CombatKit {
+    CombatKit {
+        innate_melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec {
+                windup_s: 0.28,
+                active_s: 0.08,
+                recover_s: 0.32,
+                damage: 1,
+                reach_px: 28.0,
+            },
+        )),
+        innate_ranged: None,
+        innate_special: None,
+        move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+    }
+}
+
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
 /// The kit intentionally does **not** include held item overlays; a held item is
@@ -693,6 +730,43 @@ pub fn project_authored_fighter_ladder(
         **state = ambition_characters::brain::fighter::FighterState::new(
             cfg,
             0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
+        );
+    }
+}
+
+#[cfg(test)]
+mod default_fighting_kit_tests {
+    use super::*;
+
+    /// **The named default IS what the provocation fallback produces today.**
+    ///
+    /// ⛔ a transcription is a claim, and this campaign has already been bitten
+    /// by three of them (a boss summoning a deleted row, a weapon summoning
+    /// another, twenty tests measuring a fallback). So the numbers are checked
+    /// against the row they came from rather than believed.
+    ///
+    /// ⚠ when `combatant` is finally deleted this test goes with it — and by
+    /// then the default has to be a DECISION somebody made rather than a copy,
+    /// which is exactly what this asserts is still true in the meantime.
+    #[test]
+    fn the_default_kit_equals_what_the_provocation_fallback_builds() {
+        let fallback = crate::features::ecs::actors::hostile_spec_for_actor(
+            &crate::features::enemies::test_roster(),
+        );
+        let from_row = enemy_combat_kit_for_spec(&fallback);
+        let named = default_fighting_kit();
+        assert_eq!(named.innate_melee, from_row.innate_melee, "the swipe");
+        assert_eq!(named.innate_ranged, from_row.innate_ranged);
+        assert_eq!(named.innate_special, from_row.innate_special);
+        assert_eq!(named.move_style, from_row.move_style);
+
+        // ⛔ and the control: the row must actually AUTHOR a melee, or both sides
+        // being `None` would make the comparison above vacuous — the exact shape
+        // of the twenty tests that measured nothing (ledger D94).
+        assert!(
+            from_row.innate_melee.is_some(),
+            "the provocation fallback authors no melee at all, so this comparison \
+             proves nothing about what a provoked body swings"
         );
     }
 }

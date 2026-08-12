@@ -87,6 +87,7 @@ mod rollback_coverage;
 mod rollback_exit_oracle;
 mod rollback_full_reset;
 mod rollback_lifecycle_reset;
+mod rollback_provoked_actor;
 mod rollback_match_activation;
 mod rollback_room_transition;
 mod rollback_schema_baseline;

@@ -353,3 +353,227 @@ fn release_provocation_pacifies_and_restores_default() {
         "the live default brain is restored (not the hostile override)"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **The character-first road**: a body whose autonomous default is its own
+// character's authored policy rather than a catalog preset.
+//
+// ⛔⛔ every fixture above is preset- or catalog-default-based, and that is why
+// the whole `CharacterProfile` seam could be wrong in three places at once and
+// stay green. A vocabulary with no fixture is a vocabulary with no tests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The policy the character AUTHORS — what it does when nobody has provoked it.
+fn character_policy() -> ambition_characters::brain::BrainProfile {
+    ambition_characters::brain::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Wanderer,
+        ..Default::default()
+    }
+}
+
+/// The policy PROVOCATION installs — deliberately a different template, so the
+/// two are told apart by `Brain::label()` and not by a float comparison.
+///
+/// ⭐⭐ **AND DELIBERATELY NOT A `MeleeBrute`**, which is what `BrainProfile`'s
+/// own `Default` is. A provoked fixture built from the default template makes
+/// "the release left the provoked policy in place" and "the release zeroed the
+/// policy to one nobody authored" print the identical failure — two different
+/// bugs wearing one message. Three distinct templates keep the three outcomes
+/// distinguishable.
+fn provoked_policy() -> ambition_characters::brain::BrainProfile {
+    ambition_characters::brain::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Skirmisher,
+        aggro_radius: 220.0,
+        attack_range: 36.0,
+        ..Default::default()
+    }
+}
+
+/// An app whose world carries a real prepared cast, published through the
+/// production registration seam (`register_character` + `finalize`) — not a
+/// hand-built registry, so the identity lookup under test is the one production
+/// performs.
+fn app_with_cast() -> App {
+    let mut app = app();
+    use crate::character_runtime::CharacterDefinitionAppExt;
+    app.register_character(
+        crate::character_runtime::CharacterDefinition::new(
+            "npc_villager",
+            "Villager",
+            "brain_command_tests",
+        )
+        .with_autonomous_profile(character_policy()),
+    );
+    ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+    app
+}
+
+fn character_first_config(brain_profile: ambition_characters::brain::BrainProfile) -> ActorConfig {
+    ActorConfig {
+        id: "villager".into(),
+        name: "Villager".into(),
+        tuning: crate::features::ecs::actor_tuning::ActorTuning {
+            // ⭐ deliberately NOT the generic peaceful seed (`max_health: 1`,
+            // `max_run_speed: MAX_RUN_SPEED`): these are the body its character
+            // built, and a controller change must leave them alone.
+            max_health: 7,
+            max_run_speed: 91.0,
+            ..Default::default()
+        },
+        brain_profile,
+        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+        spawn: crate::features::enemies::ActorSpawnState {
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::splat(8.0),
+        },
+        sprite_override_npc_name: None,
+        sprite_character_id: Some("npc_villager".into()),
+    }
+}
+
+/// A character-first body mid-PROVOCATION: its live policy is the provoked one
+/// and its binding says so, while its DEFAULT is still "ask my character".
+fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
+    let binding = BrainBinding {
+        default_preset:
+            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile,
+        source: AutonomousSource::ProvokedProfile {
+            profile: ambition_entity_catalog::BrainProfileId::new("brain_command_tests::angry"),
+        },
+    };
+    app.world_mut()
+        .spawn((
+            SimId::placement(sim),
+            // The live mind matches the live policy: this body IS fighting.
+            crate::features::ecs::character_policy::brain_from_profile(
+                &character_first_config(provoked_policy()),
+                provoked_policy(),
+                Default::default(),
+            ),
+            binding,
+            AuthoredBrainContext::from_placement(0.0, 0.0),
+            ActorPose::from_parts(ae::Vec2::ZERO, ae::Vec2::splat(8.0), 1.0),
+            character_first_config(provoked_policy()),
+            ambition_characters::actor::WornCharacter::new("npc_villager"),
+        ))
+        .id()
+}
+
+/// **"YOU ARE FREE" MUST MEAN IT.**
+///
+/// ⛔⛔ the defect this pins: `RestoreDefault` for a `CharacterProfile` default
+/// lowered `ActorConfig::brain_profile`, and provocation WRITES that field. So
+/// the release rebuilt the PROVOKED policy, then labelled the binding
+/// `CharacterProfile` — a body that goes on hunting you while every piece of
+/// state agrees it was released, which is the shape of bug nothing ever
+/// notices. The durable answer lives on the character, and this is the road
+/// that asks it.
+#[test]
+fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
+    let mut app = app_with_cast();
+    let e = spawn_provoked_character_first(&mut app, "villager");
+
+    // ⭐ THE POISON, stated before the act: the body's live policy disagrees
+    // with its character's. If these two were equal the test would pass without
+    // the identity lookup existing at all, and would be proving nothing.
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "skirmisher",
+        "precondition: the provoked body is running the provoked mind"
+    );
+    assert_ne!(
+        app.world()
+            .get::<ActorConfig>(e)
+            .unwrap()
+            .brain_profile
+            .template,
+        character_policy().template,
+        "precondition: the body's CURRENT policy is not its character's — \
+         the whole point is that reading the field gives the wrong answer"
+    );
+
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("villager")),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "wanderer",
+        "the released body is driven by the policy its CHARACTER authors"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousSource::CharacterProfile,
+    );
+    assert_eq!(
+        app.world()
+            .get::<ActorConfig>(e)
+            .unwrap()
+            .brain_profile
+            .template,
+        character_policy().template,
+        "and the live policy field agrees with the mind, rather than being \
+         left holding the provoked one or zeroed to a default nobody authored"
+    );
+}
+
+/// **A CONTROLLER CHANGE IS NOT A BODY CHANGE.**
+///
+/// ⛔ `apply_catalog_mode` reconstructs the generic peaceful-NPC seed — health
+/// 1, `MAX_RUN_SPEED`, default capabilities. That is right for a catalog NPC
+/// whose body IS that seed, and over a character-authored body it is a silent
+/// downgrade wearing a release.
+#[test]
+fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
+    let mut app = app_with_cast();
+    let e = spawn_provoked_character_first(&mut app, "villager");
+    app.world_mut().entity_mut(e).insert(CombatKit::default());
+
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("villager")),
+    );
+    app.update();
+
+    let tuning = &app.world().get::<ActorConfig>(e).unwrap().tuning;
+    assert_eq!(tuning.max_health, 7, "its character's health pool survives");
+    assert_eq!(
+        tuning.max_run_speed, 91.0,
+        "and its character's top speed — a released villager does not come \
+         back a generic stroller"
+    );
+}
+
+/// **A RELEASE THAT ARRIVES DURING POSSESSION IS STILL A RELEASE.**
+///
+/// ⛔⛔ `resolve_command_preset` answers *not mine* for a character-first
+/// default, and `update_source_only` read that `None` as *unresolvable* and
+/// dropped the command. So provoke → possess → release-provocation → release
+/// possession resumed the PROVOKED policy: the release was swallowed by the
+/// exact state that was supposed to survive it.
+#[test]
+fn a_release_during_temporary_control_still_changes_the_source() {
+    let mut app = app_with_cast();
+    let e = spawn_provoked_character_first(&mut app, "villager");
+    app.world_mut()
+        .entity_mut(e)
+        .insert(Brain::Player(PlayerSlot::PRIMARY));
+
+    send(
+        &mut app,
+        BrainCommand::restore_default(SimId::placement("villager")),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousSource::CharacterProfile,
+        "the source a release resumes into is the character's own policy"
+    );
+    assert!(
+        app.world().get::<Brain>(e).unwrap().is_player(),
+        "and live control is untouched — the rule every other command follows"
+    );
+}

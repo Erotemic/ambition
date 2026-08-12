@@ -177,6 +177,10 @@ fn apply_brain_selection(
     // §4.7 pairs a policy's normalized effort with the body's own top speed, so
     // the lowering cannot happen without one.
     profile_body: Option<&ActorConfig>,
+    // **The character's own policy, resolved by IDENTITY** — see
+    // [`character_policy`](crate::features::ecs::character_policy). `None` only
+    // where no cast can answer, and then the body's current policy stands in.
+    character_profile: Option<ambition_characters::brain::BrainProfile>,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> bool {
     // ⭐⭐ **RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.**
@@ -204,7 +208,14 @@ fn apply_brain_selection(
             );
             return false;
         };
-        *brain = crate::features::ecs::enemy_default_brain(config, abilities);
+        // ⛔⛔ **THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
+        // ONE.** This lowered `config.brain_profile` directly, and provocation
+        // WRITES that field — so "you are free" rebuilt the provoked mind and
+        // then labelled the binding `CharacterProfile`. The body kept hunting
+        // you while every piece of state agreed it had been released.
+        let profile = character_profile.unwrap_or(config.brain_profile);
+        *brain =
+            crate::features::ecs::character_policy::brain_from_profile(config, profile, abilities);
         binding.restore_default();
         return true;
     }
@@ -240,6 +251,11 @@ fn apply_brain_selection(
 /// control.
 pub fn apply_brain_commands(
     catalog: Res<CharacterCatalog>,
+    // **The cast**, for a body whose autonomous default is its own character's
+    // policy: that policy is recovered by identity, never from the mutable
+    // `ActorConfig::brain_profile` a provocation has overwritten. `Option`
+    // because compositions that register no cast are ordinary.
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut commands_in: MessageReader<BrainCommand>,
     mut possession: ResMut<crate::abilities::traversal::possession::PossessionState>,
     mut actors: Query<(
@@ -257,6 +273,9 @@ pub fn apply_brain_commands(
         // **The body's own verbs**, for a default that is the character's
         // authored policy — the lowering asks what this body can actually do.
         Option<&ambition_platformer2d_core::BodyAbilities>,
+        // **Which character this body IS** — the gameplay identity its durable
+        // autonomous policy is recovered through.
+        Option<&ambition_characters::actor::WornCharacter>,
     )>,
 ) {
     let mut by_id: BTreeMap<&str, Vec<&BrainCommandKind>> = BTreeMap::new();
@@ -282,6 +301,7 @@ pub fn apply_brain_commands(
         caps,
         action_set,
         body_abilities,
+        worn,
     ) in &mut actors
     {
         let Some(kinds) = by_id.get(sim_id.as_str()) else {
@@ -295,6 +315,12 @@ pub fn apply_brain_commands(
         let abilities = body_abilities
             .map(|abilities| abilities.abilities)
             .unwrap_or_default();
+        // The durable answer to "what does this character normally do", resolved
+        // once per body. `None` where no cast can answer; the lowering then
+        // falls back to the body's current policy, which is the fixture road.
+        let character_profile = prepared.as_deref().zip(worn).and_then(|(registry, worn)| {
+            crate::features::ecs::character_policy::character_autonomous_profile(registry, worn)
+        });
 
         // Under temporary control (player possession / mount) the live `Brain` is
         // the controller's, not the autonomous selection — so a switch updates only
@@ -310,10 +336,27 @@ pub fn apply_brain_commands(
                 changed |= update_source_only(&catalog, sim_id, &mut binding, kind);
             }
             if changed && possession.possessed == Some(entity) {
-                if let Some(resumed) = binding
-                    .active_preset()
-                    .and_then(|preset| catalog.build_brain_from_preset(preset.as_str(), &ctx))
-                {
+                // ⭐ **THE RESUME BRAIN FOLLOWS THE SAME TWO ROADS THE SOURCE
+                // DOES.** A character-first body has no preset to look up, and
+                // asking only the preset road left `restore_brain` holding
+                // whatever mind the body carried when it was possessed — which
+                // for a provoke → possess → release-provocation → release
+                // sequence is the PROVOKED one, resumed after the release that
+                // was supposed to end it.
+                let resumed = match (&binding.source, config.as_deref()) {
+                    (
+                        ambition_characters::actor::character_catalog::AutonomousSource::CharacterProfile,
+                        Some(config),
+                    ) => Some(crate::features::ecs::character_policy::brain_from_profile(
+                        config,
+                        character_profile.unwrap_or(config.brain_profile),
+                        abilities,
+                    )),
+                    _ => binding
+                        .active_preset()
+                        .and_then(|preset| catalog.build_brain_from_preset(preset.as_str(), &ctx)),
+                };
+                if let Some(resumed) = resumed {
                     possession.restore_brain = Some(resumed);
                 }
             }
@@ -330,11 +373,20 @@ pub fn apply_brain_commands(
                 &ctx,
                 kind,
                 config.as_deref(),
+                character_profile,
                 abilities,
             );
         }
         if changed {
-            apply_catalog_mode(&catalog, &brain, config, kit, caps, action_set);
+            apply_catalog_mode(
+                &catalog,
+                &brain,
+                config,
+                kit,
+                caps,
+                action_set,
+                character_profile,
+            );
         }
     }
 }
@@ -357,7 +409,28 @@ fn apply_catalog_mode(
     kit: Option<&CombatKit>,
     caps: Option<Mut<CombatCapabilities>>,
     action_set: Option<Mut<ActionSet>>,
+    // See the `Some` arm below: a character that states its own policy states
+    // its own BODY too, and this reconstruction is not for it.
+    character_profile: Option<ambition_characters::brain::BrainProfile>,
 ) {
+    // ⭐⭐ **A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.**
+    //
+    // ⛔ the projection below is the generic peaceful-NPC seed — `max_health: 1`,
+    // `max_run_speed: MAX_RUN_SPEED`, default capabilities, and
+    // `brain_profile: BrainProfile::default()`. It is the correct answer for a
+    // catalog-default NPC, whose whole body IS that seed. Over a body whose
+    // character authored its run speed, health, locomotion and kit it is a
+    // silent downgrade wearing a controller change — and the policy it zeroed
+    // was the field the CharacterProfile restoration then read back as the
+    // character's default.
+    if let Some(profile) = character_profile {
+        if let Some(mut config) = config {
+            config.brain_profile = profile;
+            config.brain = config_brain_for(brain);
+            config.sprite_override_npc_name = None;
+        }
+        return;
+    }
     let character_id = config.as_ref().and_then(|c| c.sprite_character_id.clone());
     let Some(kit) = kit else {
         if let Some(mut config) = config {
@@ -429,6 +502,26 @@ fn update_source_only(
     binding: &mut BrainBinding,
     kind: &BrainCommandKind,
 ) -> bool {
+    // ⭐⭐ **A CHARACTER-FIRST DEFAULT HAS NO PRESET TO VALIDATE, AND THAT IS NOT
+    // A REJECTION.**
+    //
+    // ⛔ `resolve_command_preset` answers *not mine* for `CharacterProfile`, and
+    // this read that `None` as *unresolvable* and left the binding untouched. So
+    // a `RestoreDefault` arriving while the body was possessed or mounted was
+    // silently dropped: provoke → possess → release-provocation → release
+    // possession resumed the PROVOKED policy, because the release never reached
+    // the source it was supposed to change. The lowering needs a body this
+    // function does not have — but recording the source does not, and recording
+    // the source is this function's entire job.
+    if matches!(kind, BrainCommandKind::RestoreDefault)
+        && matches!(
+            binding.default_preset,
+            ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile
+        )
+    {
+        binding.restore_default();
+        return true;
+    }
     let Some(resolved) = resolve_command_preset(sim_id, binding, kind) else {
         return false;
     };

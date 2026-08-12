@@ -240,14 +240,27 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
             AutonomousSource::ProvokedProfile { profile } => {
                 reconstruct_provoked_profile(world, job.entity, profile);
             }
-            // A character whose default IS its own authored policy restores the
-            // same peaceful config a catalog-default body does — the difference
-            // between the two is WHO stated the policy, not what a rewind has to
-            // put back. `autonomous_brain_for_source` is where they diverge.
-            AutonomousSource::CatalogDefault
-            | AutonomousSource::CatalogPreset(_)
-            | AutonomousSource::CharacterProfile => {
+            AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
                 restore_peaceful_config(world, job.entity, job.character_id.as_deref());
+            }
+            // ⭐⭐ **A CHARACTER-FIRST BODY IS NOT A GENERIC PEACEFUL NPC.**
+            //
+            // ⛔ this shared the arm above, and the comment justifying that said
+            // the difference was "WHO stated the policy, not what a rewind has to
+            // put back". That is false in both directions.
+            // [`peaceful_config`] is not controller reconstruction: it is BODY
+            // reconstruction — `max_health: 1`, `max_run_speed: MAX_RUN_SPEED`,
+            // default capabilities, and `brain_profile: BrainProfile::default()`.
+            // Running it over a body whose character authored its own run speed,
+            // health and locomotion replaces those with the generic stroller
+            // seed, and the profile it zeroes is the very field the old
+            // `CharacterProfile` restoration then READ back as the character's
+            // default.
+            //
+            // ⭐ restoring an autonomous source updates the MIND. The body a
+            // character built is the body it comes back to.
+            AutonomousSource::CharacterProfile => {
+                restore_character_default_policy(world, job.entity);
             }
             // A boss's autonomous BossPattern brain is snapshotted by the ordinary
             // brain codec (it is a `Brain` variant), and a boss carries no
@@ -348,6 +361,40 @@ fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
     em.insert((proj.brain, proj.action_set, proj.capabilities));
 }
 
+/// **Put a character-first body back on its own character's policy** — and touch
+/// nothing else about the body.
+///
+/// The counterpart to [`restore_peaceful_config`]: that one reconstructs the
+/// generic peaceful NPC seed because a catalog-default body IS that seed, and
+/// this one restores a mind because a character-first body's tuning, health,
+/// capabilities and kit came from its character and no rewind of a CONTROLLER
+/// decision has any business editing them.
+///
+/// ⚠ `config.brain` is the integrator read-model and is derived from the live
+/// brain through the shared helper, exactly as every other restoration site
+/// derives it, so the classification cannot disagree with the actual brain.
+/// A body with no resolvable policy (no cast, or a character that states none)
+/// keeps the one it has — the fixture road, see
+/// [`character_policy::default_policy_for`](crate::features::ecs::character_policy::default_policy_for).
+fn restore_character_default_policy(world: &mut World, entity: Entity) {
+    let Some(profile) = crate::features::ecs::character_policy::default_policy_in(world, entity)
+    else {
+        return;
+    };
+    let config_brain = world
+        .get::<Brain>(entity)
+        .map(crate::features::brain_command::config_brain_for);
+    let Ok(mut em) = world.get_entity_mut(entity) else {
+        return;
+    };
+    if let Some(mut config) = em.get_mut::<ActorConfig>() {
+        config.brain_profile = profile;
+        if let Some(config_brain) = config_brain {
+            config.brain = config_brain;
+        }
+    }
+}
+
 /// Restore the peaceful catalog config a catalog-backed NPC spawned with —
 /// reverting a config left hostile by a provocation the rewind undid. Idempotent
 /// for an NPC that was never provoked (it re-sets the same fixed peaceful values).
@@ -413,19 +460,17 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
                 &hostile, abilities,
             ))
         }
-        // ⭐⭐ **THE CHARACTER ALREADY SAID.** No registry lookup and no catalog
-        // preset: the body's own `ActorConfig::brain_profile` is the policy its
-        // character authored, installed when it spawned. Lowering it needs the
-        // BODY (§4.7 — a profile states normalized effort and the body states the
-        // speed), which is exactly why `resolve_initial_brain` could not do this
-        // and had to redirect here.
+        // ⭐⭐ **ASK THE CHARACTER, BY IDENTITY.**
+        //
+        // ⛔ this read the body's own `ActorConfig::brain_profile` and called it
+        // "the policy its character authored". It is the policy the body is
+        // running NOW, and `provoke_actor_in_place` overwrites it — so resuming
+        // a provoked-then-released body from this arm rebuilt the PROVOKED mind
+        // and labelled it the character's default. See
+        // [`character_policy`](crate::features::ecs::character_policy), which is
+        // the one place the durable answer is recovered.
         AutonomousSource::CharacterProfile => {
-            let config = world.get::<ActorConfig>(entity)?;
-            let abilities = world
-                .get::<ambition_platformer2d_core::BodyAbilities>(entity)
-                .map(|abilities| abilities.abilities)
-                .unwrap_or_default();
-            Some(crate::features::ecs::enemy_default_brain(config, abilities))
+            crate::features::ecs::character_policy::character_default_brain_in(world, entity)
         }
         AutonomousSource::Provoked { archetype } => {
             let roster = world.get_resource::<CharacterRoster>()?;
@@ -938,6 +983,102 @@ mod tests {
             w.get::<MountSlot>(mount).and_then(|slot| slot.rider),
             Some(rider),
             "and the mount now points back — both ends agree after reconciliation"
+        );
+    }
+
+    /// The cast a character-first fixture rewinds inside — published through the
+    /// production registration seam, so the identity lookup under test is the
+    /// one production performs rather than a hand-built map.
+    fn cast_with_villager(
+        policy: BrainProfile,
+    ) -> crate::character_runtime::PreparedCharacterRegistry {
+        use crate::character_runtime::CharacterDefinitionAppExt;
+        let mut app = bevy::prelude::App::new();
+        app.register_character(
+            crate::character_runtime::CharacterDefinition::new(
+                "npc_villager",
+                "Villager",
+                "reconcile_tests",
+            )
+            .with_autonomous_profile(policy),
+        );
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        app.world()
+            .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+            .clone()
+    }
+
+    /// **A REWIND RESTORES A MIND, NOT A GENERIC BODY.**
+    ///
+    /// ⛔⛔ the `CharacterProfile` source shared an arm with the catalog-default
+    /// one, on the stated reasoning that "the difference is WHO stated the
+    /// policy, not what a rewind has to put back". Both halves of that are
+    /// false. [`peaceful_config`] is BODY reconstruction — `max_health: 1`,
+    /// `max_run_speed: MAX_RUN_SPEED`, default capabilities — so every rewind
+    /// replaced a character-authored body with the generic stroller seed. And
+    /// the `brain_profile: BrainProfile::default()` it wrote was the very field
+    /// the old `CharacterProfile` resume road then read back as *the policy its
+    /// character authored*: the restoration destroyed its own source.
+    ///
+    /// ⭐ the poison is the config going IN: its live policy is a MeleeBrute and
+    /// its character authors a Wanderer, so a reconstruction that reads the
+    /// field instead of the character gives a visibly different answer.
+    #[test]
+    fn a_rewound_character_first_body_gets_its_characters_policy_and_keeps_its_body() {
+        let authored = BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::Wanderer,
+            ..Default::default()
+        };
+        let mut w = World::new();
+        w.insert_resource(catalog());
+        w.insert_resource(cast_with_villager(authored));
+
+        let mut config = config_fixture();
+        config.sprite_character_id = Some("npc_villager".into());
+        config.tuning.max_health = 7;
+        config.tuning.max_run_speed = 91.0;
+        // ⭐⭐ **NOT `MeleeBrute`, AND THAT IS THE INSTRUMENT.** `BrainProfile`'s
+        // own `Default` is a MeleeBrute, so a provoked fixture using it makes
+        // "left provoked" and "zeroed to a default nobody authored" print the
+        // SAME failure — two different bugs wearing one message. Three distinct
+        // templates keep the three outcomes three.
+        config.brain_profile = BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::Skirmisher,
+            aggro_radius: 220.0,
+            ..Default::default()
+        };
+        let e = w
+            .spawn((
+                SimId::placement("villager"),
+                config,
+                CombatKit::default(),
+                Brain::stand_still(),
+                BrainBinding {
+                    default_preset: ambition_characters::actor::character_catalog::AutonomousDefault::CharacterProfile,
+                    source: AutonomousSource::CharacterProfile,
+                },
+                ambition_characters::actor::WornCharacter::new("npc_villager"),
+            ))
+            .id();
+
+        reconcile_autonomous_actors(&mut w);
+
+        let config = w.get::<ActorConfig>(e).expect("still configured");
+        assert_eq!(
+            config.brain_profile.template,
+            ambition_characters::brain::CharacterBrainTemplate::Wanderer,
+            "the restored policy is the one its CHARACTER authors"
+        );
+        assert_eq!(config.tuning.max_health, 7, "its own health pool survives");
+        assert_eq!(
+            config.tuning.max_run_speed, 91.0,
+            "and its own top speed — a rewind of a controller decision is not a              licence to rebuild the body"
+        );
+
+        assert_eq!(
+            autonomous_brain_for_source(&w, e).map(|brain| brain.label()),
+            Some("wanderer"),
+            "and the mind it resumes into is that same policy"
         );
     }
 

@@ -45,6 +45,19 @@ const KNOWN_UNARMED: &[&str] = &[
     "npc_bob",
     "npc_oiler",
     "npc_noether",
+    // ⭐ **ARRIVED 2026-08-12, and arriving is the point.** Jon added Stargan to
+    // the grid on 2026-08-11 and he was never on it: `SmashRoster::assemble`
+    // filters on the prepared REGISTRY, nothing registered him, and a dropped
+    // portrait is silent by design. Registering him put him on the grid and this
+    // census immediately reported what the grid had been hiding — his row says
+    // `peaceful`, so he stands there with no melee.
+    //
+    // ⚠ he is NOT unarmed in a match: the stage arms every seat (see the
+    // companion test below). This list is the record of who needs a real kit,
+    // and whether Stargan FIGHTS is a product question already filed as D96
+    // item 5 — so he belongs here rather than being given a swipe by a test
+    // that noticed him.
+    "npc_carl_stargan",
 ];
 
 #[test]

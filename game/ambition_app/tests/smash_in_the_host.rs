@@ -981,21 +981,33 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    let catalog = app
+    // ⛔⛔ **THE REGISTRY, NOT THE CATALOG — and this test asked the wrong one
+    // for five days** (fixed 2026-08-12). `SmashRoster::assemble` filters on the
+    // prepared REGISTRY, and says why in its own doc: *"a catalog row says what a
+    // character IS; `register_character` is what makes one BUILDABLE, and only
+    // the second is what a seat needs."* This checked the catalog, so a fighter
+    // with a row and no registration passed here and was dropped from the grid
+    // anyway — which is exactly what happened to `npc_carl_stargan`, one of the
+    // three fighters Jon added by name on 2026-08-11. Two of the three landed.
+    // Nobody saw the third, because dropping is the SAFE behaviour and safe
+    // behaviour is silent.
+    let registry = app
         .world()
-        .resource::<ambition_platformer2d::character::CharacterCatalog>();
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
 
     let missing: Vec<&str> = SMASH_ROSTER
         .iter()
         .copied()
-        .filter(|id| catalog.get(id).is_none())
+        .filter(|id| registry.get(id).is_none())
         .collect();
     assert!(
         missing.is_empty(),
-        "the smash roster names {} fighter(s) the SHIPPED host's assembled \
-         catalog does not carry: {missing:?}. `SmashRoster::assemble` drops them \
-         silently — the select grid comes up short and looks fine — so this is \
-         either a typo or a provider that stopped registering the character.",
+        "the smash roster names {} fighter(s) the SHIPPED host cannot SEAT: \
+         {missing:?}. `SmashRoster::assemble` filters on this same registry and \
+         drops them silently — the select grid comes up short and looks fine — so \
+         this is a typo, a provider that stopped registering the character, or a \
+         character with a catalog row that nobody ever registered.",
         missing.len()
     );
     // ⛔ and the roster must not be empty for a different reason than the one

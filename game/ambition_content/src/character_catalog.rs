@@ -253,6 +253,19 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     "npc_pirate_navigator",
     "npc_pirate_quartermaster",
     "special_patent_clerk",
+    // ⭐⭐ **JON ASKED FOR HIM ON THE SMASH GRID, 2026-08-11 — and he was not on
+    // it.** The grid filters `SMASH_ROSTER` against the prepared REGISTRY
+    // (`SmashRoster::assemble`), precisely so an unbuildable portrait is dropped
+    // rather than offered — so Stargan was silently absent from the grid he had
+    // been added to, and dropping is the safe behaviour that hid it. Two of
+    // Jon's three additions landed; this one did not, and nothing said so.
+    //
+    // ⚠ **a BARE registration, and here it is provably safe.** He authors no
+    // body, and the rule that makes that dangerous is about losing
+    // ARCHETYPE-built vitals — he has exactly one placement in the game, a Hall
+    // `NpcSpawn` with `brain_override: stand_still`, so he has never had any.
+    // Whether he FIGHTS is a separate question and still Jon's (D96 item 5).
+    "npc_carl_stargan",
 ];
 
 /// **What a migrated character authors about its own body.**
@@ -1969,11 +1982,28 @@ mod tests {
             // `max_health: 1` and `MAX_RUN_SPEED`, because the peaceful road reads
             // body facts only from a body-complete blueprint.
             let authors_only_policy = !authors_a_body && authored != bare;
+            // ⭐ **AND A THIRD SAFE CASE: a character that has no archetype body
+            // to lose.** The rule protects ARCHETYPE-built vitals; a character
+            // placed only as a peaceful Hall `NpcSpawn` never had any, so a bare
+            // registration costs it nothing and buys it a seat. Each entry
+            // carries the placement evidence, because that is the whole argument.
+            const KNOWN_BARE_REGISTRATIONS: &[(&str, &str)] = &[(
+                "npc_carl_stargan",
+                "one placement: hall_of_characters NpcSpawn, brain_override \
+                 stand_still. Never an EnemySpawn, so no archetype vitals exist \
+                 to retract. Registered because Jon put him on the Smash grid \
+                 (2026-08-11) and the grid drops what it cannot seat.",
+            )];
+            let exempt = KNOWN_BARE_REGISTRATIONS
+                .iter()
+                .any(|(known, _)| known == id);
             assert!(
-                authors_a_body || authors_only_policy,
+                authors_a_body || authors_only_policy || exempt,
                 "`{id}` is registered as buildable and authors NOTHING — not a \
                  body, not a policy, not a moveset. A bare registration means it \
-                 has no body, not that its archetype keeps it"
+                 has no body, not that its archetype keeps it. If it has no \
+                 archetype body to lose, say so in `KNOWN_BARE_REGISTRATIONS` \
+                 with the placement evidence."
             );
         }
     }

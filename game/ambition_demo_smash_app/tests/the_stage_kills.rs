@@ -450,6 +450,13 @@ fn losing_a_stock_announces_a_body_restart() {
     };
 
     // Throw it out of the world, which is how a stock is spent here.
+    //
+    // ⛔⛔ **AND IT NO LONGER LANDS — measured 2026-08-11, ledger D90.** After
+    // this write the body is back at a normal stage height (`y ≈ 266`) with all
+    // three stocks, walking around as though nothing happened. Something UNDOES a
+    // direct `BodyKinematics::pos` write within the sampling window, so this test
+    // has been asserting a restart that no knockout ever caused. Do not "fix" it
+    // by raising the flag somewhere; find out what moved the body back.
     {
         let world = app.world_mut();
         let mut kin = world

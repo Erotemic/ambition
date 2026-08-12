@@ -922,7 +922,12 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            default_brain: "wanderer_puppy_slug",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors
+            // `BrainProfile { ChargeCrash, .. }`, which is nothing like the
+            // `wanderer_puppy_slug` preset it used to point at — a flying shark
+            // filed under a slug's wander because that row happened to exist. Two
+            // authorities, and the one that made no sense was still being read
+            // wherever the definition was not.
             default_action_set: "peaceful_float",
             tags: ["pirate", "aerial", "enemy"],
         barks: (
@@ -990,7 +995,16 @@
             tier: MainHall,
             body_kind: Crawler,
             composition: None,
-            default_brain: "wanderer_puppy_slug",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors
+            // `BrainProfile { Wanderer, aggro 0, attack_range 0 }` — the same
+            // policy `wanderer_puppy_slug` states in absolute px/s — and its ten
+            // placements author `disposition: Peaceful` themselves. The preset was
+            // a third copy of facts this character and its placements already own.
+            //
+            // ⚠ the PRESET still exists, for `npc_puppy_slug_variant2`: a
+            // Hall-only character with no authored arm, which cannot take a
+            // profile until the Hall cast is registered with real bodies. A
+            // preset dies with its LAST namer; this removes a namer, not the row.
             default_action_set: "peaceful_slither",
             tags: ["enemy", "ai_era"],
         barks: (

@@ -264,3 +264,69 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
          it"
     );
 }
+
+/// **WHAT CAST DOES A TWO-DEMO HOST ACTUALLY PUBLISH?** — the measurement ledger
+/// row D75 named, taken out of the finished world instead of inferred from a
+/// silent log.
+///
+/// ⛔⛔ **a green run is not evidence here and this row has already been fooled
+/// by one.** `bevy::log::warn!` prints nothing without a `LogPlugin`, so the
+/// composition-gap warning `report_unprepared_character` emits for an empty cast
+/// is invisible to a test — exactly the shape that once made three reverted
+/// changes look like a fix (libtest captures a passing test's stdout).
+///
+/// ⇒ so this asks the registry directly. What it pins is the RULING, not a
+/// number: a host that mounts demos rather than Ambition publishes the cast
+/// those demos register and nothing else, and "no Ambition cast" is a correct
+/// description of a host that never mounted Ambition — not the composition bug
+/// D75 first read it as.
+#[test]
+fn a_two_demo_host_publishes_exactly_the_cast_its_demos_register() {
+    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+
+    let mut app = PlatformerApp::headless()
+        .with_game_assets()
+        .start_at_launcher()
+        .mount(SanicGame)
+        .mount(MaryOGame)
+        .try_build()
+        .expect("two games must compose");
+    for _ in 0..600 {
+        app.update();
+        if host_status(&app).is_running() || host_status(&app).is_refused() {
+            break;
+        }
+    }
+
+    let ids: Vec<String> = app
+        .world()
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(|registry| registry.ids().map(str::to_string).collect())
+        .unwrap_or_default();
+    // ⭐ MEASURED 2026-08-12: eight ids — `ai_slop`, four Mary-O bodies, three
+    // Sanic bodies. D75 recorded "registry has 0 ids: []" for this host on
+    // 08-11; that is no longer true, and the row said so rather than being
+    // closed on a silent run.
+    assert!(
+        !ids.is_empty(),
+        "this host publishes NO prepared cast at all, so every character-named \
+         placement in every room it loads falls back to a generic — which is \
+         ledger D75's original finding, live again"
+    );
+    for expected in ["mary_o", "sanic"] {
+        assert!(
+            ids.iter().any(|id| id == expected),
+            "a host that mounted the {expected} demo did not publish its \
+             protagonist: {ids:?}"
+        );
+    }
+    // ⭐ THE OTHER HALF, and it is the ruling: this host never mounted Ambition,
+    // so Ambition's cast is correctly ABSENT. Without this the test would pass on
+    // a host that published everything in the workspace, which would make
+    // "exactly the cast its demos register" a sentence about nothing.
+    assert!(
+        !ids.iter().any(|id| id == "player_robot_v3"),
+        "a two-demo host published Ambition's protagonist, so registration is \
+         not scoped to what a composition MOUNTS: {ids:?}"
+    );
+}

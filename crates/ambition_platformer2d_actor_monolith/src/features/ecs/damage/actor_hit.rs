@@ -554,6 +554,7 @@ pub(crate) fn apply_actor_hit(
                         catalog,
                         authored_sheets,
                         roster,
+                        prepared,
                         session_scope,
                         &em.config.id,
                         em.kin.pos,

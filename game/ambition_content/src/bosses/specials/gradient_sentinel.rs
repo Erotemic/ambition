@@ -464,9 +464,18 @@ pub fn spawn_overfit_volley_from_special_messages(
 
 const MINIMA_TRAP_OWNER_PREFIX: &str = "gradient_sentinel_minima";
 const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
-/// Minion archetype id spawned by the trap (puppy_slug — pacifist
-/// crawler).
-const MINIMA_TRAP_MINION_ARCHETYPE: &str = "puppy_slug";
+/// **The CHARACTER the trap summons** — the pacifist crawler.
+///
+/// ⛔⛔ **this said `"puppy_slug"` and that row has been DELETED** (the slug
+/// became `npc_puppy_slug`, D73 group A). A summon whose id resolves nothing
+/// lands on the generic `combatant` fallback, so every minion this boss cast was
+/// silently the wrong body — wrong health, wrong speed, no crawl, no cling —
+/// from the moment the row went. Nothing failed, because a fallback is a real
+/// body; the only tell was on screen.
+///
+/// ⭐ the name is unchanged in spirit and now names a CHARACTER: the summon road
+/// resolves the prepared cast first and builds from the definition.
+const MINIMA_TRAP_MINION_ARCHETYPE: &str = "npc_puppy_slug";
 const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
 /// Horizontal offset (px) from the pit center where the minion
 /// spawns. Pushed toward the boss side so the player sees the
@@ -771,6 +780,16 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 }
 
+/// ⚠⚠ **`small_lurker` NO LONGER EXISTS AND THIS CASCADE IS SPAWNING GENERIC
+/// COMBATANTS** (found 2026-08-12, ledger D93). The row was deleted on 08-11 by a
+/// census that reported it "PLACED IN ZERO LEVELS" — true of LDtk, blind to this
+/// constant, which is the one thing that named it.
+///
+/// ⛔ **left pointing at the dead name ON PURPOSE, and the summon road now says
+/// so out loud** every time the boss casts. Inventing a creature to fill the gap
+/// is a content decision (what IS a small lurker?) and Jon's to make; quietly
+/// re-pointing it at a convenient neighbour would hide the question behind a body
+/// that happens to spawn.
 const GRADIENT_CASCADE_MINION_ARCHETYPE: &str = "small_lurker";
 const GRADIENT_CASCADE_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// Vertical y where slop minions spawn (top of the arena, just below

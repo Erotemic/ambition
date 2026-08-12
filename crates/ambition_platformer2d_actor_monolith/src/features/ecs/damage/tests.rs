@@ -1143,6 +1143,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 &catalog,
                 &Default::default(),
                 &roster,
+                None,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),

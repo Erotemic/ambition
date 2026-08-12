@@ -184,16 +184,21 @@ pub(super) fn spawn_split_offspring(
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &crate::features::CharacterRoster,
+    // The offspring are a CHARACTER when one is registered for them — the same
+    // resolution every other spawn road does.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
 ) {
+    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         crate::features::spawn_runtime_minion(
             commands,
             character_catalog,
             authored_sheets,
             character_roster,
+            prepared.unwrap_or(&empty_cast),
             session_scope,
             format!("{parent_id}:split{i}"),
             "Divided cell",

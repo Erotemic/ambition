@@ -1245,6 +1245,7 @@ pub(crate) fn spawn_runtime_minion(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
     name: impl Into<String>,
@@ -1265,6 +1266,7 @@ pub(crate) fn spawn_runtime_minion(
         catalog,
         authored_sheets,
         roster,
+        prepared,
         session_scope,
         root,
         id,
@@ -1286,6 +1288,9 @@ pub(crate) fn spawn_runtime_minion_into(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    // **The prepared cast**, so a summon can name a CHARACTER — see the
+    // resolution below, and the shipped regression that made it urgent.
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     id: impl Into<String>,
@@ -1302,17 +1307,60 @@ pub(crate) fn spawn_runtime_minion_into(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
-    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
-        authored_sheets,
-        catalog,
-        roster,
-        id.clone(),
-        name.clone(),
-        None,
-        aabb,
-        brain,
-        &[],
-    );
+    // ⭐⭐ **A SUMMON MAY NAME A CHARACTER, AND ONE OF THEM ALWAYS MEANT TO.**
+    //
+    // ⛔⛔ **THIS CAMPAIGN BROKE A SHIPPED BOSS AND NOTHING SAID SO.** The
+    // Gradient Sentinel summons `"puppy_slug"` (minima trap) and `"small_lurker"`
+    // (gradient cascade). Both archetype rows have been DELETED — the slug
+    // because it became `npc_puppy_slug`, the lurker because a census found it
+    // "PLACED IN ZERO LEVELS". That census counted LDtk placements and could not
+    // see a Rust constant, so `spec_for_brain` has been quietly answering
+    // `combatant` for every minion the boss casts: wrong health, wrong speed,
+    // wrong body, no crawl, no cling.
+    //
+    // ⇒ the id is resolved against the PREPARED CAST first. A summon naming a
+    // body-complete character is built from it, by the same constructor the
+    // enemy road, the NPC road and the match seat use.
+    let character = prepared
+        .get(archetype_id)
+        .and_then(|prepared| prepared.body_blueprint().ok());
+    let mut enemy = match character {
+        Some(body) => super::actor_clusters::ActorClusterSeed::new_character_in(
+            authored_sheets,
+            catalog,
+            id.clone(),
+            body,
+            aabb,
+            brain.clone(),
+            &[],
+        ),
+        None => {
+            // ⚠ **LOUD when nothing can build it, because silence is what cost
+            // the boss its minions.** A key that resolves neither a character nor
+            // an authored archetype row lands on the `combatant` fallback — a
+            // real body, so this warns rather than refusing, but it is never the
+            // body the author asked for.
+            if !roster.has_brain_key(archetype_id) {
+                super::spawn::report_unprepared_character(
+                    archetype_id,
+                    &format!("summoned minion `{id}`"),
+                    prepared,
+                    Some("the generic `combatant` fallback, which is not what it named"),
+                );
+            }
+            super::actor_clusters::ActorClusterSeed::new_in(
+                authored_sheets,
+                catalog,
+                roster,
+                id.clone(),
+                name.clone(),
+                None,
+                aabb,
+                brain,
+                &[],
+            )
+        }
+    };
     if reject_runtime_giant(enemy.spec.as_ref(), "runtime minion", &id) {
         return;
     }

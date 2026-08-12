@@ -2342,6 +2342,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             &catalog,
             &Default::default(),
             &roster,
+            &Default::default(),
             SessionSpawnScope::UNSCOPED,
             "runaway",
             "Giant GNU",

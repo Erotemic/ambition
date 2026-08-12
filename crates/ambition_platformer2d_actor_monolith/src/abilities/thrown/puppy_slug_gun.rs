@@ -47,6 +47,10 @@ pub fn fire_puppy_slug_gun_system(
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: Res<crate::features::CharacterRoster>,
+    // ⭐ the summoned ally IS a character (`npc_puppy_slug`), so this road needs
+    // the cast to build it as one. `Option`: a composition that registers nobody
+    // is ordinary, and the empty registry is the honest value there.
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     players: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -78,11 +82,13 @@ pub fn fire_puppy_slug_gun_system(
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
     let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
+    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
         &character_catalog,
         &authored_sheets,
         &character_roster,
+        prepared.as_deref().unwrap_or(&empty_cast),
         session_scope,
         format!("puppy_slug_ally_{}", *next_id),
         // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label

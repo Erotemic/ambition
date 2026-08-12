@@ -612,6 +612,7 @@ fn construct_summoned_minion(
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
         &ctx.services.context.roster,
+        &ctx.services.context.prepared,
         ctx.session,
         root.entity(),
         minion.feature_id.clone(),

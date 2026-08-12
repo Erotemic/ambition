@@ -132,24 +132,10 @@ fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
 
     /// Rows the engine names directly, with the reason. ⚠ adding to this list is
     /// how a row stops needing a placement — so it is a decision, not a fix.
-    const CODE_SELECTED: &[(&str, &str)] = &[
-        (
-            "combatant",
-            "the fallback every unresolved brain key lands on",
-        ),
-        (
-            "cellular_automaton_fighter",
-            "the PCA boss body, spawned by the boss road",
-        ),
-        (
-            "pirate_heavy",
-            "the provocation target `hostile_brain_id_for_actor` picks by name",
-        ),
-        (
-            "pirate_raider",
-            "the same provocation path, for the lighter pirate",
-        ),
-    ];
+    const CODE_SELECTED: &[(&str, &str)] = &[(
+        "combatant",
+        "the fallback every unresolved brain key lands on",
+    )];
 
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
@@ -205,6 +191,29 @@ fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
          shape changed under this guard and it is reading less than is there: \
          {rows:?}",
         rows.len(),
+    );
+
+    // ⛔ **AND THE ALLOWLIST CANNOT ROT** (2026-08-12). It carried three entries
+    // for rows that no longer exist — `cellular_automaton_fighter`,
+    // `pirate_heavy`, `pirate_raider`, all migrated to characters and deleted
+    // from this file — and two of them explained themselves by naming
+    // `hostile_brain_id_for_actor`'s by-name matcher, which is also deleted. A
+    // dead exemption is worse than a dead row: it is a REASON, and the next
+    // reader believes it.
+    //
+    // ⇒ every entry must name a row the file actually has. Adding one is a
+    // decision (the doc above says so); leaving one behind after the row goes is
+    // not a decision at all.
+    let stale: Vec<&str> = CODE_SELECTED
+        .iter()
+        .map(|(named, _)| *named)
+        .filter(|named| !rows.contains(named))
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these rows are exempted from needing a placement but no longer EXIST in \
+         the file: {stale:?}. Delete the exemption — its reason outlives the row \
+         and the next reader believes it."
     );
 
     let orphans: Vec<&str> = rows

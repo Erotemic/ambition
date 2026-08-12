@@ -45,6 +45,26 @@
         // ⚠ effort is a FRACTION of whatever body wears it, so a fast creature
         // patrolling at 0.35 is still faster than a slow one at 1.0. That is why
         // a policy can be shared across bodies at all.
+        // ⭐⭐ **THE CELLULAR AUTOMATON'S FIGHTING STYLE**, published so the
+        // creature can name it when PROVOKED (ledger D89). Lifted off the
+        // `cellular_automaton_fighter` archetype's controller half: notice from
+        // across the arena, commit the swing at 150, dash to shut a gap, and play
+        // the duelist neutral game — footsies and spacing rather than
+        // close-and-camp.
+        //
+        // ⛔ **a provoked creature rebuilds its MIND, and this is the mind.** The
+        // PCA reached this policy through `hostile_brain_id_for_actor`, a matcher
+        // that read its display name; a character that publishes its own policy
+        // needs no matcher to recognise it.
+        "cellular_duelist": (
+            template: Smash,
+            aggro_radius: 540.0,
+            attack_range: 150.0,
+            patrol_effort: 0.5714,
+            chase_effort: 1.0,
+            smash_dash_to_close: true,
+            smash_duelist: true,
+        ),
         "patroller": (
             template: Wanderer,
             aggro_radius: 140.0,

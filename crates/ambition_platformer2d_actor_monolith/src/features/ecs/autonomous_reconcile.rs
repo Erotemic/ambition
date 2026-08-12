@@ -132,7 +132,42 @@ pub(crate) fn project_provoked_archetype(
     // abilities it already had, and the driver may only reach for those.
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
-    let brain_profile = spec.brain_profile();
+    provoked_projection(
+        spec.brain_profile(),
+        spec.max_health,
+        spec.tuning().is_aerial,
+        archetype,
+        current_config,
+        combat_kit,
+        held_item,
+        body,
+    )
+}
+
+/// **The projection itself, from a POLICY rather than from a row.**
+///
+/// ⭐ the live generic-provocation path calls this with
+/// [`default_provoked_policy`](super::brain_builders::default_provoked_policy)
+/// and [`DEFAULT_PROVOKED_HEALTH`](super::brain_builders::DEFAULT_PROVOKED_HEALTH),
+/// so provoking a body no longer touches the archetype roster at all — that
+/// lookup was the last reason the live path knew the ontology existed.
+/// [`project_provoked_archetype`] above is the rollback road's entry, which
+/// still resolves the archetype id a binding recorded.
+///
+/// ⚠ the two are pinned equal while `combatant` survives
+/// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
+/// goes, this signature is already the one that stays.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn provoked_projection(
+    brain_profile: BrainProfile,
+    max_health: i32,
+    aerial: bool,
+    archetype: &str,
+    current_config: &ActorConfig,
+    combat_kit: &CombatKit,
+    held_item: Option<&HeldItem>,
+    body: ambition_platformer2d_core::AbilitySet,
+) -> ProvokedArchetype {
     let config_brain = CharacterBrain::Custom(archetype.to_string());
 
     // ⭐ the POLICY is the archetype's; the BODY is the one that was struck.
@@ -149,8 +184,8 @@ pub(crate) fn project_provoked_archetype(
     ProvokedArchetype {
         // See the field doc: the POLICY is grounded, so a floating body has to
         // be grounded to be drivable by it. The mismatch is the bug.
-        gravity_scale: if spec.tuning().is_aerial { 0.0 } else { 1.0 },
-        max_health: spec.max_health,
+        gravity_scale: if aerial { 0.0 } else { 1.0 },
+        max_health,
         config_brain,
         brain,
         action_set,

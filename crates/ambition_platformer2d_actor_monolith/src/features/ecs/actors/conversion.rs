@@ -181,8 +181,11 @@ fn rebuild_provoked_brain(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// ⭐⭐ **IT NO LONGER TAKES A ROSTER** (2026-08-12). The generic branch asked
+/// it for `combatant`'s policy and HP pool, and that was the last thing on this
+/// path that knew the archetype ontology existed. Both come from the engine's
+/// own defaults now — see `brain_builders::default_provoked_policy`.
 pub(crate) fn provoke_actor_in_place(
-    roster: &super::super::super::enemies::CharacterRoster,
     commands: &mut Commands,
     entity: Entity,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
@@ -261,10 +264,20 @@ pub(crate) fn provoke_actor_in_place(
         return;
     }
     if disposition.is_peaceful() {
+        // ⭐⭐ **THE LIVE PROVOKE PATH NO LONGER ASKS THE ROSTER.**
+        //
+        // ⛔ this looked `combatant` up with `spec_for_brain` to get a
+        // `BrainProfile` and an HP pool — the last reason provocation knew the
+        // archetype ontology existed. The policy is the ENGINE's default now
+        // (`default_provoked_policy`), stated where a session ruleset will
+        // eventually override it, exactly as `unarmed_melee` was named here
+        // before moving to `DeclaredCombatRules`.
+        //
+        // ⚠ the id is still recorded in the binding, because a rewind resolves
+        // the provoked mode from it — see the `binding.provoke` call below, and
+        // `an_engine_default_provoked_policy_matches_the_combatant_row`, which
+        // pins the two roads equal while the row survives.
         let hostile_id = hostile_brain_id_for_actor();
-        let spec = roster.spec_for_brain(
-            &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
-        );
         // The ONE definition of "what provocation produces" — shared verbatim with
         // the post-GGRS-load reconstruction (`autonomous_reconcile`), so a provoked
         // actor is identical whether it was just challenged or rebuilt from a
@@ -272,8 +285,13 @@ pub(crate) fn provoke_actor_in_place(
         // / brain-spec (an already-hostile actor is NOT re-derived here — that would
         // zero its accumulated fire/footsies/mode cadence every stimulus; escalation
         // that needs a different brain flows through the flip's archetype swap).
-        let proj = super::super::autonomous_reconcile::project_provoked_archetype(
-            &spec,
+        let proj = super::super::autonomous_reconcile::provoked_projection(
+            super::super::brain_builders::default_provoked_policy(),
+            super::super::brain_builders::DEFAULT_PROVOKED_HEALTH,
+            // The engine's default provoked policy is a GROUNDED brawler; see
+            // `ProvokedArchetype::gravity_scale` for why that is a body change
+            // and what deletes it.
+            false,
             hostile_id,
             em.config,
             combat_kit,

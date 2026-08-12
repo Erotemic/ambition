@@ -68,6 +68,49 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
     }
 }
 
+/// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
+///
+/// ⭐ the twin of [`default_fighting_kit`] one authority over: that one answers
+/// *what does it swing*, this one answers *how does it fight*. They were the two
+/// halves the `combatant` archetype row was doing at once, and separating them
+/// is what lets the row die — a body is not a policy, and neither is a kit.
+///
+/// ⛔ **what this replaces is a ROSTER LOOKUP inside provocation.** The generic
+/// branch called `spec_for_brain(Custom("combatant"))` to get a `BrainProfile`,
+/// which is the last reason that path knew the archetype ontology existed at
+/// all. `an_engine_default_provoked_policy_matches_the_combatant_row` pins the
+/// numbers against the row while the row survives; when it goes, the constant
+/// stands alone and nothing has to change.
+///
+/// ⚠ **its home is the SESSION RULESET, not here** — the same journey
+/// `unarmed_melee` took (P3.24): named in the engine first so the question is
+/// askable, moved to `DeclaredCombatRules` once a second experience wants a
+/// different answer. A stage that wants provoked bodies to fight differently
+/// says so there; nothing says so yet.
+///
+/// ⛔ deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
+/// and using it here turned every provoked NPC — the kernel guide, a merchant —
+/// into a rock-thrower instead of a melee attacker like the pirates.
+pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::BrainProfile {
+    crate::features::ecs::actor_tuning::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Smash,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
+        ..Default::default()
+    }
+}
+
+/// **The health pool a provoked body fights with when nothing else says.**
+///
+/// ⛔ a body fact, and the last one generic provocation supplies — see
+/// `ProvokedArchetype::max_health`. A peaceful NPC placement spawns at 1, so a
+/// provoked one that kept its own pool dies to a single hit; what it SHOULD be
+/// is ledger D96 item 7, open and Jon's. Named here rather than read off an
+/// archetype row so that answering it is an edit to one constant.
+pub(crate) const DEFAULT_PROVOKED_HEALTH: i32 = 4;
+
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
 /// The kit intentionally does **not** include held item overlays; a held item is
@@ -621,6 +664,50 @@ mod ladder_projection_tests {
 
 #[cfg(test)]
 mod tests {
+
+    /// **THE ENGINE'S DEFAULT PROVOKED POLICY IS THE `combatant` ROW, and this
+    /// is what makes deleting the row a no-op rather than a retune.**
+    ///
+    /// ⭐ the same shape as `default_fighting_kit`'s equivalence test one
+    /// authority over: name the concept in the engine, pin it against the
+    /// legacy data while the data survives, and the deletion is then a
+    /// bookkeeping change. Without this the row's departure would silently
+    /// retune every provoked NPC in the game and every test would still pass.
+    ///
+    /// ⛔ **when `combatant` goes, this test goes WITH it** — not by being
+    /// weakened. There is nothing left to compare against at that point, and a
+    /// test that pins a constant to itself is the vacuous kind.
+    #[test]
+    fn an_engine_default_provoked_policy_matches_the_combatant_row() {
+        let row = crate::features::enemies::test_spec("combatant");
+        let engine = default_provoked_policy();
+        let from_row = crate::features::enemies::ArchetypeSpecExt::brain_profile(&row);
+
+        assert_eq!(
+            engine.template, from_row.template,
+            "the provoked TEMPLATE moved; a provoked NPC would fight with a \
+             different kind of mind than it did yesterday"
+        );
+        assert_eq!(engine.aggro_radius, from_row.aggro_radius);
+        assert_eq!(engine.attack_range, from_row.attack_range);
+        assert_eq!(engine.patrol_effort, from_row.patrol_effort);
+        assert_eq!(engine.chase_effort, from_row.chase_effort);
+        assert_eq!(
+            DEFAULT_PROVOKED_HEALTH, row.max_health,
+            "the provoked HP pool moved — D96 item 7 is the decision, and this \
+             is not the place it gets made by accident"
+        );
+
+        // ⭐ THE POISON. `BrainProfile::default()` is a MeleeBrute, so a
+        // constant that had quietly become the default would still match a row
+        // that had also become one. The row must be saying something.
+        assert_ne!(
+            engine,
+            crate::features::ecs::actor_tuning::BrainProfile::default(),
+            "the engine default is indistinguishable from `BrainProfile::default()`, \
+             so this test would pass on a constant nobody authored"
+        );
+    }
     use super::*;
     // Test-only: the brain fixtures below author ranged styles; nothing in this
     // module's production code names one.

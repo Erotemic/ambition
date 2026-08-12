@@ -14,7 +14,6 @@ use super::*;
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
-    roster: Res<crate::features::CharacterRoster>,
     // **The prepared cast**, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name (ledger D84).
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
@@ -86,7 +85,6 @@ pub fn sync_ecs_actors_with_save(
             aggression.grudge = stable_player_grudge;
             let mut em = cq.as_actor_mut();
             super::actors::provoke_actor_in_place(
-                &roster,
                 &mut commands,
                 entity,
                 &mut em,

@@ -20,7 +20,6 @@ use crate::features::ActorStimulus;
 /// archetype), and an already-hostile actor re-derives its aggressive brain.
 pub fn apply_actor_stimuli(
     mut commands: Commands,
-    roster: Res<crate::features::CharacterRoster>,
     // **The prepared cast**, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name (ledger D84).
     prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
@@ -115,7 +114,6 @@ pub fn apply_actor_stimuli(
 
         let mut em = cq.as_actor_mut();
         super::actors::provoke_actor_in_place(
-            &roster,
             &mut commands,
             entity,
             &mut em,

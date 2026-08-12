@@ -211,23 +211,19 @@ pub fn movement_tuning_for_character(
     }
 }
 
+/// ⭐ **THE PROJECTION MOVED DOWN; THIS IS THE NAME ITS CALLERS KNOW** (campaign
+/// P1.7, 2026-08-12). The body of this function was eighteen lines reading
+/// nothing but the catalog and `ambition_platformer2d_core` — both visible from
+/// `ambition_characters` — so it was a catalog question written next to its
+/// first caller. It is `CharacterCatalog::motion_model_spec` now, and character
+/// PREPARATION asks the catalog directly instead of reaching up into
+/// `crate::avatar`, which is one of the two obstacles keeping the authoritative
+/// character model inside this monolith.
 pub fn motion_model_spec_for_character_id(
     catalog: &CharacterCatalog,
     character_id: &str,
 ) -> ambition_platformer2d_core::MotionModelSpec {
-    match catalog.momentum_params(character_id) {
-        Some(params) => ambition_platformer2d_core::MotionModelSpec::SurfaceMomentum(params),
-        None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(
-            // A character that authors its own axis feel seeds the model with it
-            // so the FIRST frame is already correct (the live integrator then
-            // refreshes from the body's `AuthoredMovementTuning` each tick); an
-            // un-authored character starts from the shared default.
-            catalog
-                .axis_tuning(character_id)
-                .map(|tuning| tuning.axis_swept_params())
-                .unwrap_or_default(),
-        ),
-    }
+    catalog.motion_model_spec(character_id)
 }
 
 /// Apply the worn character's movement identity to an already-spawned body.

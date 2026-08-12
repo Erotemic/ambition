@@ -1218,9 +1218,7 @@ fn finalize_character(
             ..vitals
         },
         motion_model: motion_model.unwrap_or_else(|| match catalog {
-            Some(catalog) => {
-                crate::avatar::starting_character::motion_model_spec_for_character_id(catalog, &id)
-            }
+            Some(catalog) => catalog.motion_model_spec(&id),
             None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),

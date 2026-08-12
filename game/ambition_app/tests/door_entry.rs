@@ -24,8 +24,8 @@
 //! Any link in that chain going quiet reads as "doors do not work" and, until
 //! this existed, as nothing else.
 
-use ambition_platformer2d::engine_core::AabbExt;
 use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_platformer2d::engine_core::AabbExt;
 use bevy::prelude::With;
 
 use crate::common::{base, fixed_60hz_sim};
@@ -45,7 +45,9 @@ fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
         room_set
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
             .cloned()?
     };
     let world = sim.world_mut();
@@ -116,15 +118,15 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 #[cfg(feature = "input")]
 #[test]
 fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
+    use ambition_app::app::shell_host;
     use ambition_platformer2d::game_shell::ShellCommand;
     use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
-    use ambition_app::app::shell_host;
-    use bevy::MinimalPlugins;
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
     use bevy::prelude::*;
     use bevy::state::app::StatesPlugin;
     use bevy::transform::TransformPlugin;
+    use bevy::MinimalPlugins;
     use leafwing_input_manager::prelude::InputMap;
 
     let mut app = App::new();
@@ -156,7 +158,8 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     // The interact key THIS build binds, from the participant's own map.
     let interact_key = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>();
+        let mut q = world
+            .query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>();
         let map = q
             .iter(world)
             .next()
@@ -176,7 +179,9 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
             .expect("a live session room set")
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
             .cloned();
         // ⚠ LOUD, not a quiet `return`. A test that skips itself when it cannot
         // find its subject is a test that reports green for the one reason it
@@ -314,7 +319,9 @@ fn a_deliberate_double_tap_up_opens_a_door_and_one_press_does_not() {
 #[cfg(feature = "rl_sim")]
 #[test]
 fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
-    use ambition_app::rl_sim::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+    use ambition_app::rl_sim::{
+        AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    };
 
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
@@ -350,7 +357,9 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
         room_set
             .active_loading_zones()
             .iter()
-            .find(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
             .cloned()
     };
     let Some(door) = door else {
@@ -379,5 +388,53 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
          `slot_gestures.primary_mut().clear()` and the confirmed commit never \
          delivers the transition",
         door.name
+    );
+}
+
+/// **THE SECOND HOST LEDGER ROW D75 NAMED, ASKED THE SAME WAY** — the registry
+/// out of the finished world, not a log line nobody can see.
+///
+/// ⛔ D75 recorded "registry has 0 ids: []" for the rollback door fixture on
+/// 2026-08-11, and read that as a composition bug. The shell host's half of the
+/// finding turned out to be stale when measured; this is the other half.
+///
+/// ⚠ **a `warn!` cannot settle it**: no `LogPlugin`, no output, and this row has
+/// already been fooled once by a green run that captured its own probe.
+#[test]
+#[cfg(feature = "rl_sim")]
+fn the_rollback_door_host_publishes_a_prepared_cast() {
+    use ambition_app::rl_sim::{
+        AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    };
+    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("the GGRS sync-test harness builds");
+    for _ in 0..20 {
+        sim.step(base());
+    }
+
+    let ids: Vec<String> = sim
+        .world_mut()
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(|registry| registry.ids().map(str::to_string).collect())
+        .unwrap_or_default();
+    assert!(
+        !ids.is_empty(),
+        "the rollback door host publishes NO prepared cast, so every \
+         character-named placement in the rooms it loads falls back to a \
+         generic — ledger D75, live"
+    );
+    // ⭐ THE OTHER TERM: this harness composes AMBITION, so its own protagonist
+    // must be there. A non-empty registry holding somebody else's cast would
+    // satisfy the assertion above while describing a different bug.
+    assert!(
+        ids.iter().any(|id| id == "player_robot_v3"),
+        "the Ambition sim harness published a cast without Ambition's \
+         protagonist: {ids:?}"
     );
 }

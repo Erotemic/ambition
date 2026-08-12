@@ -147,10 +147,6 @@ fn smash_hit_band_is_data_authored() {
         None
     );
     assert_eq!(
-        crate::features::enemies::test_spec("gradient_seeker").smash_hit_band,
-        None
-    );
-    assert_eq!(
         crate::features::enemies::fixture_spec("pirate_raider").smash_hit_band,
         None
     );

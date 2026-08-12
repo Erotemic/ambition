@@ -236,6 +236,10 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // body capabilities, and a Smash policy that notices at 540.
     "perfect_cellular_automaton",
     "imperfect_cellular_automaton",
+    // The intro raid corridor's guard, off `gradient_seeker` — see its arm in
+    // `authored_intrinsics`. It is not on the select grid, which is exactly what
+    // this list is for.
+    "npc_salvage_guard",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -876,6 +880,60 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(6);
+            definition
+        }
+        // **THE SALVAGE GUARD.** The intro raid corridor's two `EnemySpawn`s,
+        // which have been wearing `gradient_seeker` — an archetype whose whole
+        // population is those two placements, both literally named "Salvage
+        // Guard". A generic role with exactly one creature in it was never a
+        // role; it was that creature's body filed under a different name.
+        //
+        // ⚠ **its policy is INLINE, and the goblin's is NAMED, and the
+        // difference is the P2.16 rule rather than an inconsistency.** A shared
+        // `autonomous_profiles` entry earns its indirection when several
+        // creatures point at it — `medium_striker` has a goblin band. This
+        // policy has one adopter, so naming it would publish a shared thing
+        // nobody shares and leave a second empty role behind exactly like the
+        // one being deleted.
+        //
+        // ⛔ `respawn: OnRoomReenter` is NOT here: it is the third authority
+        // (placement policy), it is the engine default for a room-scoped enemy,
+        // and the archetype stating it is the muddle this campaign removes.
+        "npc_salvage_guard" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 225.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.80,
+                    amount: 1,
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                        windup_s: 0.28,
+                        active_s: 0.08,
+                        recover_s: 0.32,
+                        damage: 1,
+                        reach_px: 28.0,
+                    })),
+                    ranged: None,
+                    special: None,
+                    move_style: MoveStyleSpec::Walk,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Smash,
+                    // ⚠ 900 px is LONG — it is a corridor, and the guard is
+                    // meant to notice you from the far end of it. Carried across
+                    // unchanged; a retune is a separate, visible decision.
+                    aggro_radius: 900.0,
+                    attack_range: 150.0,
+                    patrol_effort: 0.5778,
+                    chase_effort: 1.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(4);
             definition
         }
         // **THE GOBLIN BAND.** Five sandbox placements (`annex_goblin_a/b`,

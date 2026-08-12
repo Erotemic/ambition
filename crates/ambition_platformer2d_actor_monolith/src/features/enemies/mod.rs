@@ -95,7 +95,6 @@ pub use ambition_combat::archetype_spec::ArchetypeSpec;
 pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "combatant",
     "medium_striker",
-    "gradient_seeker",
     "puppy_slug",
     "cellular_automaton_fighter",
 ];
@@ -119,12 +118,7 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
 /// their brain string is gone. That field is the one the mites' note above says
 /// "has nowhere else to live"; it does now.
 #[cfg(test)]
-pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
-    "combatant",
-    "medium_striker",
-    "gradient_seeker",
-    "sandbag_infinite",
-];
+pub(crate) const ALL_BRAIN_KEYS: &[&str] = &["combatant", "medium_striker", "sandbag_infinite"];
 
 /// The actor-crate projections of an authored archetype row.
 ///

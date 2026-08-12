@@ -138,7 +138,14 @@
             ],
             fields: (
                 name: "Salvage Guard",
+                // ⭐ the CHARACTER, since 2026-08-12 — `gradient_seeker` was an
+                // archetype whose whole population was this one placement, and
+                // its row is deleted. The `brain` key is kept because the
+                // placement's spawn vocabulary still carries one; it now
+                // resolves to the generic fallback and decides nothing, because
+                // the character states the body and the policy both.
                 brain: "gradient_seeker",
+                character_id: "npc_salvage_guard",
             ),
         ),
         (

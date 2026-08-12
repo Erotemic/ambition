@@ -197,26 +197,6 @@
     // Boss-room "stationary heavy" — almost stationary, narrow threat
     // envelope but huge reach + biggest non-boss contact damage. Lunge
     // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
-    "gradient_seeker": (
-        respawn: OnRoomReenter,
-        max_health: 4,
-        run_speed: 225.0,
-        patrol_effort: 0.5778,
-        chase_effort: 1.0,
-        aggro_radius: 900.0,
-        attack_range: 150.0,
-        contact_strength: 0.80,
-        damage_amount: 1,
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.28,
-            active_s: 0.08,
-            recover_s: 0.32,
-            damage: 1,
-            reach_px: 28.0,
-        ))),
-        move_style: Walk,
-    ),
     // Training dummy that never dies. The sandbox uses this for the
     // combat-feel lab so the player can wail on a static target.
     "sandbag_infinite": (

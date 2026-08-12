@@ -181,11 +181,30 @@ fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
             rest.starts_with(": (").then_some(key)
         })
         .collect();
-    assert!(
-        rows.len() > 3,
-        "the row scan found {} rows, which means the file's shape changed and \
-         this guard is reading nothing: {rows:?}",
-        rows.len()
+    // ⛔ **THIS SAID `rows.len() > 3` AND THE FILE SHRANK PAST IT** (2026-08-12,
+    // deleting `gradient_seeker`). The number was never the invariant — it was a
+    // stand-in for *the scan is still reading this file*, written when four rows
+    // felt like a floor. But D73's acceptance signal is that
+    // `character_archetypes.ron` reaches ZERO rows and is deleted, so any floor
+    // above zero turns the campaign's success into a red test, and the obvious
+    // "fix" is to lower the number again next time — which is how a guard becomes
+    // a chore that eventually gets deleted instead of obeyed.
+    //
+    // ⭐ the invariant with no number in it: **if the file still declares rows,
+    // the scan must see them.** That is exactly the drift this catches (a
+    // re-indent, a different quoting style, a nested map), it stays true at three
+    // rows, and it stays true at zero — where the whole guard becomes vacuous on
+    // purpose, because there is nothing left to place.
+    let declared = ambition_content::enemy_roster::CHARACTER_ROSTER_RON
+        .matches("\": (")
+        .count();
+    assert_eq!(
+        rows.len(),
+        declared,
+        "the row scan found {} of the {declared} rows the file declares, so its \
+         shape changed under this guard and it is reading less than is there: \
+         {rows:?}",
+        rows.len(),
     );
 
     let orphans: Vec<&str> = rows

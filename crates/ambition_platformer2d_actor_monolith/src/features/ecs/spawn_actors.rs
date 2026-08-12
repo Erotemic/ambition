@@ -1402,10 +1402,18 @@ pub(crate) fn spawn_runtime_minion_into(
                     Some("the generic `combatant` fallback, which is not what it named"),
                 );
             }
+            let spec = roster.generic_body_for_unresolved_brain(
+                &brain,
+                "a boss summon whose id names neither a prepared character nor a \
+                 row — `small_lurker` is the live one, and WHAT it is is a \
+                 content decision (ledger D93/D96). A minion of the wrong body \
+                 beats a boss that casts nothing mid-fight; \
+                 `every_summoned_minion_id_resolves_a_body` holds the waiver.",
+            );
             super::actor_clusters::ActorClusterSeed::new_in(
                 authored_sheets,
                 catalog,
-                roster,
+                spec,
                 id.clone(),
                 name.clone(),
                 None,
@@ -1759,10 +1767,22 @@ pub(crate) fn spawn_enemy_with_faction_into(
         }
         return;
     }
+    // ⭐ the AUTHORED placement road. `under_town_skitter` is the one placement
+    // in the shipped worlds that reaches this with no character to build from
+    // (`every_authored_spawn_names_a_character_or_a_row_that_exists` holds the
+    // exemption and the ledger row); everything else here names a key that
+    // resolves, so the waiver is about the shape of the road rather than a
+    // standing defect.
+    let placement_spec = roster.generic_body_for_unresolved_brain(
+        &authored.payload.brain,
+        "an authored placement that names neither a buildable character nor a \
+         row — a real body keeps the level playable while the casting decision \
+         is open (ledger D96)",
+    );
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
-        roster,
+        placement_spec,
         plan.context().feature_id.to_string(),
         authored.name.clone(),
         Some(authored.payload.presentation_identity(&authored.name)),
@@ -1991,10 +2011,18 @@ pub(crate) fn reject_runtime_giant(
 pub(crate) fn giant_hand_plans(
     giant_id: &str,
     giant_aabb: ae::Aabb,
-    spec: &super::super::enemies::ArchetypeSpec,
+    // ⭐ **`Option`, because a giant may have no row at all** (D102). A
+    // character-authored giant is a limbed host by what its CHARACTER says, and
+    // its callers used to hand this the reserved `combatant` fallback purely to
+    // satisfy the signature — so the hands of a body with no archetype were
+    // sized by an archetype's `default_size`. Neither surviving row authors one,
+    // so this is the same geometry with the pretence removed; the point is that
+    // the next row to author a `default_size` cannot silently resize somebody
+    // else's hands.
+    spec: Option<&super::super::enemies::ArchetypeSpec>,
 ) -> Vec<GiantHandPlan> {
     let giant_half = spec
-        .default_size
+        .and_then(|spec| spec.default_size)
         .map(|s| s * 0.5)
         .unwrap_or_else(|| giant_aabb.half_size());
     let giant_center = giant_aabb.center();
@@ -2432,7 +2460,14 @@ pub(super) fn spawn_encounter_mob(
         None => super::actor_clusters::ActorClusterSeed::new_in(
             authored_sheets,
             catalog,
-            roster,
+            roster.generic_body_for_unresolved_brain(
+                &brain,
+                "an encounter wave whose `kind` names neither a character nor a \
+                 row — `large_brute` is the live one, three waves of the goblin \
+                 fight, and which creature its heavy IS is content (ledger D93). \
+                 The fallback keeps the encounter playable; the warning above \
+                 names the wave.",
+            ),
             id.clone(),
             label.clone(),
             // The ART identity, id-first: it survives a display-name rename.

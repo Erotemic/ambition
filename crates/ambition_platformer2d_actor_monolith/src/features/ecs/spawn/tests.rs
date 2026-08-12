@@ -35,7 +35,8 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
     let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
         &Default::default(),
         &crate::character_roster::catalog(),
-        &crate::features::enemies::CharacterRoster::default(),
+        crate::features::enemies::CharacterRoster::default()
+            .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
         "cove_pirate".to_string(),
         // The LABEL a level author typed, deliberately not the character id —
         // the two roads this parameter exists to keep open.

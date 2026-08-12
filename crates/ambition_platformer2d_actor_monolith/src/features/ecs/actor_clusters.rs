@@ -29,7 +29,7 @@ use bevy::prelude::Component;
 // from its owner; deliberately NOT re-exported.
 
 use super::super::components::BodyMelee;
-use super::super::enemies::{ActorSpawnState, ActorSurfaceState, ArchetypeSpec, CharacterRoster};
+use super::super::enemies::{ActorSpawnState, ActorSurfaceState, ArchetypeSpec};
 use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
@@ -476,7 +476,22 @@ impl ActorClusterSeed {
     pub fn new_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
-        roster: &CharacterRoster,
+        // ⭐⭐ **THE RESOLVED ROW, NOT THE ROSTER** (ledger D102, 2026-08-12).
+        //
+        // ⛔ this took `&CharacterRoster` and opened with
+        // `roster.spec_for_brain(&brain)`, a lookup that CANNOT FAIL: an
+        // unresolvable key silently became the reserved `combatant` row. Every
+        // spawn road that reached this constructor inherited that downgrade
+        // without choosing it, which is how a deleted row changed three shipped
+        // things — a boss's minions, a goblin fight's heavies, an under-town
+        // skitter — while `cargo check` stayed clean.
+        //
+        // ⇒ the caller resolves. `CharacterRoster::try_spec_for_brain` answers
+        // honestly, and a caller that means to settle for the generic body says
+        // so at `generic_body_for_unresolved_brain` WITH ITS REASON. A new spawn
+        // road cannot get the downgrade for free any more; it has to write down
+        // why it wants one.
+        spec: super::super::enemies::ArchetypeSpec,
         id: impl Into<String>,
         name: impl Into<String>,
         // **The ART identity, when the caller knows one that is not the label.**
@@ -490,7 +505,6 @@ impl ActorClusterSeed {
         brain: ambition_entity_catalog::placements::CharacterBrain,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
-        let spec = roster.spec_for_brain(&brain);
         let name: String = name.into();
         // Resolve this enemy's uniform sprite identity from the AUTHORED art
         // identity when one was given, and from its display name otherwise (the
@@ -1280,14 +1294,20 @@ impl ActorClusterSeed {
         brain: ambition_entity_catalog::placements::CharacterBrain,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
+        // ⚠ the roster with the engine's OWN fixture rows folded in: unit
+        // tests here name shapes (a rideable body, a charge-crasher) rather
+        // than any game's creature, and those creatures are migrating out of
+        // the shipped file one row at a time.
+        let roster = super::super::enemies::fixture_roster_with_mount();
+        let spec = roster.generic_body_for_unresolved_brain(
+            &brain,
+            "a unit-test fixture naming a shape the engine's own roster may no \
+             longer carry — the tests that CARE which body they got assert on it",
+        );
         Self::new_in(
             &Default::default(),
             &CharacterCatalog::empty(),
-            // ⚠ the roster with the engine's OWN fixture rows folded in: unit
-            // tests here name shapes (a rideable body, a charge-crasher) rather
-            // than any game's creature, and those creatures are migrating out of
-            // the shipped file one row at a time.
-            &super::super::enemies::fixture_roster_with_mount(),
+            spec,
             id,
             name,
             None,

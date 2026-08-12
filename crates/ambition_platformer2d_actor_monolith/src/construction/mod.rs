@@ -1583,10 +1583,16 @@ pub fn staged_actor_requests(
         // `spawn_enemy_with_faction_into`, which no longer spawns hands, so a
         // staged giant lost its rig entirely.)
         if let SpawnActorKind::Enemy { brain, character } = &request.kind {
-            let spec = roster.spec_for_brain(brain);
+            // ⭐ the HONEST lookup (D102). This asked `spec_for_brain`, which
+            // cannot fail — so an unresolvable key answered the `combatant` row
+            // here, and the only question asked of the answer is *is this a
+            // limbed host*. `combatant` is not one, so `None` and the fallback
+            // give the same verdict; what changes is that the code no longer
+            // claims to have found a row it did not.
+            let spec = roster.try_spec_for_brain(brain);
             if crate::features::is_limbed_host(
                 resolve_planned_character(prepared, character.as_ref()),
-                Some(&spec),
+                spec.as_ref(),
             ) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 let host_authored = crate::rooms::Authored::new(
@@ -1595,7 +1601,7 @@ pub fn staged_actor_requests(
                     aabb,
                     brain.clone(),
                 );
-                let hands = crate::features::giant_hand_plans(&request.id, aabb, &spec);
+                let hands = crate::features::giant_hand_plans(&request.id, aabb, spec.as_ref());
                 let room = room_id.to_string();
                 let provider_owned = provider.to_string();
                 let host_origin = SpawnOrigin::ProviderStaged {
@@ -1663,13 +1669,17 @@ pub fn authored_actor_requests(
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
-        let spec = roster.spec_for_brain(&enemy.payload.brain);
+        // See the twin in `staged_actor_requests`: the only question asked of
+        // this row is *is it a limbed host*, and the `combatant` fallback is not
+        // one — so the honest lookup gives the same verdict without claiming a
+        // row it did not find (D102).
+        let spec = roster.try_spec_for_brain(&enemy.payload.brain);
         if crate::features::is_limbed_host(
             resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
-            Some(&spec),
+            spec.as_ref(),
         ) {
             let giant_sim = SimId::placement(&enemy.id);
-            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
+            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, spec.as_ref());
             let source = room.id.clone();
             let hand_source = source.clone();
             requests.append(&mut giant_cluster_rows(

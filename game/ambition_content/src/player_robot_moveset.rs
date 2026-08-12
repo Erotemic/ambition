@@ -41,7 +41,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // and get away with it, which is what makes the smash below a decision.
     let mut jab = strike(
         "jab",
-        "attack",
+        "jab",
         0.05,
         0.06,
         0.14,
@@ -58,7 +58,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut up_tilt = strike(
         "tilt_up",
-        "attack",
+        "attack_up",
         0.07,
         0.08,
         0.18,
@@ -77,7 +77,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut down_tilt = strike(
         "tilt_down",
-        "attack",
+        "attack_down",
         0.06,
         0.06,
         0.16,
@@ -102,7 +102,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // charge multiplier is what a HELD press pays for.
     let mut f_smash = strike(
         "smash_forward",
-        "attack",
+        "smash_forward",
         0.30,
         0.07,
         0.34,
@@ -126,7 +126,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut up_smash = strike(
         "smash_up",
-        "attack",
+        "smash_up",
         0.26,
         0.08,
         0.32,
@@ -144,7 +144,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut down_smash = strike(
         "smash_down",
-        "attack",
+        "smash_down",
         0.22,
         0.08,
         0.30,
@@ -168,7 +168,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // early in a jump and land clean; throw it late and pay for it.
     let mut n_air = strike(
         "air_neutral",
-        "attack",
+        "air_neutral",
         0.06,
         0.14,
         0.16,
@@ -187,7 +187,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut f_air = strike(
         "air_forward",
-        "attack",
+        "air_forward",
         0.09,
         0.08,
         0.22,
@@ -206,7 +206,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut b_air = strike(
         "air_back",
-        "attack",
+        "air_back",
         0.10,
         0.07,
         0.24,
@@ -227,7 +227,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut u_air = strike(
         "air_up",
-        "attack",
+        "air_up",
         0.07,
         0.09,
         0.20,
@@ -246,7 +246,7 @@ pub fn player_robot_moveset() -> MovesetContract {
 
     let mut d_air = strike(
         "air_down",
-        "attack",
+        "air_down",
         0.12,
         0.10,
         0.26,
@@ -539,6 +539,54 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             landing_lag_s: None,
             autocancel_after_s: None,
         }],
+    }
+}
+
+#[cfg(test)]
+mod clip_binding_tests {
+    /// **EVERY CANONICAL ROBOT MOVE ASKS FOR ITS OWN ROW.**
+    ///
+    /// ⭐ sprite redirect P1. All eleven passed `"attack"` as their clip, so a
+    /// 132-row sheet drew ONE animation for a jab, three smashes and five
+    /// aerials. The gameplay was already distinct; only the picture was not.
+    ///
+    /// ⚠ **this asserts the REQUEST, not the drawing.** Whether a row exists is
+    /// a question about a particular sheet and belongs to
+    /// `SheetRecord::first_bound_row`; what a character ASKS FOR is a fact about
+    /// the character, and it is the half that was missing.
+    #[test]
+    fn every_canonical_move_names_its_own_clip() {
+        let moveset = super::player_robot_moveset();
+        for (id, clip) in [
+            ("jab", "jab"),
+            ("tilt_up", "attack_up"),
+            ("tilt_down", "attack_down"),
+            ("smash_forward", "smash_forward"),
+            ("smash_up", "smash_up"),
+            ("smash_down", "smash_down"),
+            ("air_neutral", "air_neutral"),
+            ("air_forward", "air_forward"),
+            ("air_back", "air_back"),
+            ("air_up", "air_up"),
+            ("air_down", "air_down"),
+        ] {
+            let spec = moveset
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("the robot authors no move `{id}`"));
+            assert_eq!(
+                spec.clip.clip, clip,
+                "`{id}` asks for `{}` — a sheet that draws eleven distinct moves \
+                 will draw one",
+                spec.clip.clip
+            );
+            // ⛔ and the chain must still reach a sheet that has none of them.
+            assert!(
+                spec.clip.fallbacks.iter().any(|f| f == "idle"),
+                "`{id}` can fall all the way through to nothing"
+            );
+        }
     }
 }
 

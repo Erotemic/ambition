@@ -64,11 +64,26 @@ pub fn strike(
         id: id.to_string(),
         clip: ClipBinding {
             clip: clip.to_string(),
-            // Every fighter here draws from the robot lineage's sheets, which
-            // carry `attack` and little else — so the fallback is what actually
-            // plays for most of these. A missing clip must not cost the move its
-            // gameplay.
-            fallbacks: vec!["attack".to_string(), "idle".to_string()],
+            // ⭐⭐ **THE AUTHORED FALLBACK CHAIN** (sprite redirect P0/P1,
+            // 2026-08-11). A move names the exact row it wants — `smash_forward`,
+            // `air_back` — and this is what it settles for when a sheet does not
+            // have it. Robot v3's new sheet has 132 rows and draws the exact
+            // clip; a lean sheet with `attack` draws that; one with only `slash`
+            // and `idle` still plays.
+            //
+            // ⛔ **the structural fallbacks are DIRECTIONAL first** — an up-tilt
+            // that cannot find `attack_up` should look like a side swing before
+            // it looks like nothing, and `attack_side` is the row every fighter
+            // sheet in the repo has had for a year.
+            //
+            // ⚠ a missing clip must never cost the move its GAMEPLAY: the
+            // timeline runs whatever draws.
+            fallbacks: vec![
+                "attack_side".to_string(),
+                "attack".to_string(),
+                "slash".to_string(),
+                "idle".to_string(),
+            ],
         },
         duration_s: active_end + recover_s,
         windows: vec![

@@ -64,6 +64,32 @@ impl SheetRecord {
     /// least visible. It costs one short string compare against a slot we are
     /// about to index anyway. Using a bound from another sheet is a programmer
     /// error, not a content typo, so it is loud rather than degradable.
+    /// **The first row of `chain` this sheet actually has.**
+    ///
+    /// ⭐⭐ **the seam that lets an authored CLIP be drawn without an engine enum
+    /// variant** (sprite redirect P0, 2026-08-11). A `MoveSpec` names its clip
+    /// and its fallbacks — `smash_forward`, then `attack_side`, then `slash` —
+    /// and the runtime's typed `CharacterAnim` vocabulary cannot grow one variant
+    /// per expressive row without becoming the 271-entry fighter-motion catalog.
+    /// A full sheet draws the exact clip; a lean one falls through to something
+    /// it does have; a sheet with none of them gets `None` and the caller's
+    /// semantic ladder answers instead.
+    ///
+    /// ⛔ **it returns `Option`, never index 0.** The habit this replaces is
+    /// `row_index_of(name).unwrap_or(0)`, which draws IDLE for a missing attack
+    /// row and looks like a character that simply does not swing.
+    ///
+    /// ⚠ order is the AUTHOR's, not this function's: the chain is tried left to
+    /// right and the first hit wins, so a fallback list is a preference and not a
+    /// set.
+    pub fn first_bound_row<'a>(
+        &self,
+        chain: impl IntoIterator<Item = &'a str>,
+    ) -> Option<BoundAnimRow> {
+        let rows = self.anim_rows();
+        chain.into_iter().find_map(|name| rows.bind(name))
+    }
+
     pub fn row(&self, bound: &BoundAnimRow) -> &SheetRow {
         let found = self.rows.get(bound.slot());
         assert_eq!(
@@ -170,5 +196,47 @@ mod tests {
         assert_eq!(bound.slot(), 2);
         assert_eq!(sheet.row(&bound).animation, "death");
         assert_eq!(sheet.row(&bound).row_index, 2);
+    }
+    /// **A clip resolves to its exact row when the sheet has it.**
+    #[test]
+    fn an_authored_clip_prefers_its_exact_row() {
+        let sheet = sheet_with_rows(&["idle", "attack_side", "slash", "smash_forward"]);
+        let bound = sheet
+            .first_bound_row(["smash_forward", "attack_side", "slash"])
+            .expect("the sheet has the exact row");
+        assert_eq!(bound.id(), "smash_forward");
+    }
+
+    /// **A lean sheet falls through the AUTHORED chain, in order.**
+    ///
+    /// ⚠ two terms: the chain is tried left to right (so `attack_side` wins over
+    /// `slash` when both exist), and a sheet with NONE of them answers `None`
+    /// rather than index 0 — the `unwrap_or(0)` habit draws idle for a missing
+    /// attack row, which looks like a character that does not swing.
+    #[test]
+    fn a_lean_sheet_falls_through_the_authored_chain() {
+        let lean = sheet_with_rows(&["idle", "walk", "attack_side", "slash"]);
+        assert_eq!(
+            lean.first_bound_row(["smash_forward", "attack_side", "slash"])
+                .map(|b| b.id().to_string()),
+            Some("attack_side".to_string()),
+            "the chain is a PREFERENCE order, not a set"
+        );
+
+        let minimal = sheet_with_rows(&["idle", "walk", "slash", "hit"]);
+        assert_eq!(
+            minimal
+                .first_bound_row(["smash_forward", "attack_side", "slash"])
+                .map(|b| b.id().to_string()),
+            Some("slash".to_string()),
+            "the last resort in the chain still resolves"
+        );
+
+        assert!(
+            sheet_with_rows(&["idle", "walk"])
+                .first_bound_row(["smash_forward", "attack_side", "slash"])
+                .is_none(),
+            "a sheet with none of the chain must say so, not draw row 0"
+        );
     }
 }

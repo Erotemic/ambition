@@ -358,7 +358,26 @@ body-targeted hit on a body the resolver does *not* own is the poison beside it.
 Verified: `ambition_combat` 149/149 · monolith 1195/1195 · absence contracts
 25/25 · `app_it` 323 passed, 0 failed.
 
-## ▢ Roadmap item 2 — the cause vocabulary, measured 2026-08-09 before touching it
+## ✔ Roadmap item 2 — the cause vocabulary — CLOSED 2026-08-12
+
+⭐ **all three parts of what this item said it "lands as" are in the tree**,
+verified rather than assumed:
+
+* **the variants are renamed.** `HitSource` is `Melee` · `Projectile` · `Contact`
+  · `Hazard` · … — the fold this section licensed, with the swing/shot
+  distinction kept because it is a real difference in the world and the direction
+  half gone because it was not.
+* **`is_attacker_side` DOES NOT EXIST.** Zero references in the workspace, tests
+  included; the only survivors are prose in doc comments recording the history.
+* **boss strength is re-sourced from the ATTACKER.** `damage_apply` takes
+  `heavy_attacker: bool`, documented as *"asked of the attacker entity"* — not a
+  flag on the event, which this section explicitly forbade as reinventing the
+  side channel item 1 deleted.
+
+⇥ the original measurement follows unedited: it is the table that made the fold
+safe, and a fold justified by a census cannot be checked without it.
+
+### ▢ (as written 2026-08-09) — the cause vocabulary, measured before touching it
 
 ⭐⭐ **the measurement that makes this safe, and it was not obvious**: after items
 1 and 3, **every victim-side source in the tree already resolves to
@@ -776,7 +795,7 @@ air speed, fast-fall, momentum conservation* — **only one was missing**:
 | fast-fall | ✔ authored (`fast_fall_accel`, `fast_fall_speed`), double-tap-down at the intent boundary |
 | momentum conservation | ✔ `carried_run` / `carried_decay`, and the momentum horizontal law |
 | jump buffering + coyote | ✔ `buffer_jump`, `coyote_time` — tuned to **zero** for Mary-O's SMB1 convergence, which is the mechanism working, not missing |
-| **maximum air speed** | ▢ **absent — the ground run cap governed the air** |
+| **maximum air speed** | ✔ `AxisLocomotion::max_air_speed` via `air_speed_cap()` — see the section directly below, which is what fixed it (marker corrected 2026-08-12) |
 
 ### ✔ air speed is its own authored number
 

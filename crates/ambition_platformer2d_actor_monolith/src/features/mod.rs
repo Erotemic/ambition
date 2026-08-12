@@ -172,7 +172,7 @@ pub use ecs::{
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
-    enemy_spawn_is_sandbag, ActorSpawnState, ActorSurfaceState, CharacterRoster,
+    ActorSpawnState, ActorSurfaceState, CharacterRoster,
     CharacterRosterAppExt, CharacterRosterAssemblyError, CharacterRosterFragment,
     CharacterRosterRegistry, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };

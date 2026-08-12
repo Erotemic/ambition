@@ -1472,18 +1472,6 @@ mod app_local_roster_tests {
     }
 }
 
-/// Whether a spawn payload is a sandbag (passive practice-target archetype).
-/// The ONE surviving fragment of the deleted `enemy_visual_kind` derivation:
-/// used at spawn to pick the static sandbag sprite (the rest of the
-/// enemy/NPC/boss "kind" split was never a render type and collapsed into the
-/// single `FeatureVisualKind::Actor`; live depiction is name-first + a
-/// state-keyed fallback in `upgrade_actor_sprites`).
-pub fn enemy_spawn_is_sandbag(
-    roster: &CharacterRoster,
-    payload: &ambition_entity_catalog::placements::CharacterBrain,
-) -> bool {
-    roster.spec_for_brain(payload).is_sandbag
-}
 
 #[cfg(test)]
 mod capability_tests;

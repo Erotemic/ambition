@@ -1945,6 +1945,126 @@ mod tests {
         }
     }
 
+    /// **AND THE OTHER DIRECTION, which is the one that loses work silently.**
+    ///
+    /// ⛔ `every_build_only_id_authors_something` asks *"is everything on the
+    /// list authored?"* — the direction where the symptom is loud, because an
+    /// unauthored registration strips a body and something falls over. The
+    /// dangerous direction is the reverse: **a character somebody wrote an
+    /// `authored_intrinsics` arm for and never added to either list.** It is
+    /// never registered, so the arm runs for nobody, and nothing anywhere fails
+    /// — the body simply does not exist and the author's work sits in the file
+    /// looking done.
+    ///
+    /// ⭐ the question is answerable without parsing the match: hand
+    /// `authored_intrinsics` a bare definition for EVERY character in the
+    /// assembled catalog and ask whether it came back changed. An id it changes
+    /// is an id it has an arm for.
+    #[test]
+    fn every_character_with_an_authored_body_is_registered_as_buildable() {
+        // ⛔ **THE SEVEN THIS FOUND ON ITS FIRST RUN, and none of them can be
+        // fixed by adding an id to a list.** Registering a body-INCOMPLETE
+        // character is measurably worse than not registering it: a bare
+        // registration says *"this character authors no body"*, preparation
+        // correctly retracts what a persona does not author, and the recorded
+        // measurement is ~100 exploration NPCs losing their archetype-built
+        // vitals (see `PLAYABLE_ROSTER`). Probed on 2026-08-12 by adding all
+        // seven: `every_build_only_id_authors_something` went red immediately,
+        // which is that guard doing its job.
+        //
+        // Each entry is `(id, what it authors, what it costs, what unblocks it)`.
+        const KNOWN_UNREGISTERED: &[(&str, &str)] = &[
+            // ⛔⛔ six of the NINE pirates. The prefix rule gives every
+            // `npc_pirate_*` row a `provoked_profile_ref`, and the three that are
+            // registered get it — but the string-matcher arms that used to hand
+            // ALL nine the pirate policy were deleted in the same change that
+            // added the rule. So these six were provoked into `pirate_boarder`
+            // before the migration and fall to the generic `combatant` after it.
+            // ⇒ unblocked by authoring their bodies from the numbers they get
+            // today, exactly as the goblin and the lab raider were.
+            ("npc_pirate_cutlass_viper", "provoked policy, unreachable"),
+            (
+                "npc_pirate_heavy_broadside_bess",
+                "provoked policy, unreachable",
+            ),
+            (
+                "npc_pirate_heavy_salt_annet",
+                "provoked policy, unreachable",
+            ),
+            ("npc_pirate_lookout", "provoked policy, unreachable"),
+            ("npc_pirate_navigator", "provoked policy, unreachable"),
+            ("npc_pirate_quartermaster", "provoked policy, unreachable"),
+            // ⛔ the clerk authors an ELEVEN-MOVE repertoire and is on the Smash
+            // select grid, so it appears — the grid resolves from the CATALOG.
+            // Its moveset rides a DEFINITION that is never registered, so the
+            // table reaches no body. ⇒ same unblock: author its vitals.
+            (
+                "special_patent_clerk",
+                "eleven-move repertoire, unreachable",
+            ),
+        ];
+
+        let catalog = load_catalog();
+        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
+        let mut unregistered = Vec::new();
+        for id in catalog.data().characters.keys() {
+            let bare =
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id.as_str(),
+                    "unused",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                );
+            if authored_intrinsics(id.as_str(), bare.clone()) != bare
+                && !registered.contains(id.as_str())
+            {
+                unregistered.push(id.clone());
+            }
+        }
+        let unexpected: Vec<_> = unregistered
+            .iter()
+            .filter(|id| !KNOWN_UNREGISTERED.iter().any(|(known, _)| known == id))
+            .collect();
+        assert!(
+            unexpected.is_empty(),
+            "these characters author something in `authored_intrinsics` and appear \
+             on NEITHER `PLAYABLE_ROSTER` nor `BUILDABLE_ONLY_CAST`, so the arm \
+             runs for nobody and what it authors reaches no body: {unexpected:?}. \
+             Author the character's vitals and add it to `BUILDABLE_ONLY_CAST` — \
+             or, if it genuinely cannot be registered yet, add it to \
+             `KNOWN_UNREGISTERED` with the reason and what unblocks it."
+        );
+
+        // ⛔ and the exemption list cannot rot: one that got FIXED must LEAVE it,
+        // or the seven stop being a count and become decoration.
+        let stale: Vec<_> = KNOWN_UNREGISTERED
+            .iter()
+            .filter(|(id, _)| !unregistered.iter().any(|found| found == id))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "these are exempted as unregistered and are no longer unregistered — \
+             remove them from `KNOWN_UNREGISTERED`: {stale:?}"
+        );
+
+        // ⛔ the control. If `authored_intrinsics` ever became the identity for
+        // every id — a refactor that dropped the match, say — the loop above
+        // would find nothing and pass while checking nothing at all.
+        let authors_someone = catalog.data().characters.keys().any(|id| {
+            let bare =
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id.as_str(),
+                    "unused",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                );
+            authored_intrinsics(id.as_str(), bare.clone()) != bare
+        });
+        assert!(
+            authors_someone,
+            "no character in the catalog authors any intrinsics — the check above \
+             is passing over an empty set"
+        );
+    }
+
     /// ⚠ it is empty today, so this asserts the CONTRACT rather than any
     /// current content: an id here must resolve a catalog row, and must not
     /// duplicate the selection cast — registering a character twice is how a

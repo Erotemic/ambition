@@ -223,6 +223,21 @@ optimising anything that touches this room.
   2026-07-31). Better still, don't poll — a backgrounded command reports its
   exit. Details in the recipe linked above.
 
+## Push what you commit
+
+**Always push to GitHub when credentials exist** (Jon, 2026-08-11). A long
+autonomous run accumulates hundreds of commits, and unpushed they live on one
+machine: unreviewable from anywhere else, and lost with the worktree. Committing
+is not the durable step.
+
+- Push the superproject **and every submodule that is ahead** —
+  `git -C <submodule> rev-list --count origin/main..HEAD`. **Submodules first**,
+  so the pointer the superproject records already exists remotely.
+- ⛔ **push commits, never somebody else's uncommitted work.** The sprite
+  submodule routinely carries Jon's in-progress rig and target edits; `git push`
+  there is safe, `git add` is not — and `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`
+  is his live file in the superproject.
+
 ## Landing when somebody else holds `main`
 
 ⚠ **This section applies ONLY to parallel or multi-agent landings.** A solo

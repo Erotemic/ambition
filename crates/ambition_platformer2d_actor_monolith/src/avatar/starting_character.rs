@@ -49,11 +49,18 @@ pub struct StartingCharacter {
     /// Ids without a renderable sheet still spawn a controllable player (the
     /// sprite falls back to the colored rectangle) — the sim side never depends
     /// on presentation.
-    pub character_id: String,
+    ///
+    /// ⭐ **typed** (P0.3): this is the RUNTIME seam of the same rule the prepared
+    /// registry and the match participant already hold — an id is an id, and a
+    /// display name passed here is a mistake the compiler can catch. ⚠ empty
+    /// still means *the content default*; `CharacterId` carries an empty string
+    /// as happily as `String` did, so that meaning is unchanged (see
+    /// `is_content_default` below, which is the ONE reader of the emptiness).
+    pub character_id: ambition_entity_catalog::CharacterId,
 }
 
 impl StartingCharacter {
-    pub fn new(character_id: impl Into<String>) -> Self {
+    pub fn new(character_id: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self {
             character_id: character_id.into(),
         }
@@ -62,17 +69,17 @@ impl StartingCharacter {
     /// True when the player spawns as the canonical protagonist (no override) —
     /// an empty id routes through the untouched `from_scratch` bundle.
     pub fn is_default(&self) -> bool {
-        self.character_id.is_empty()
+        self.character_id.as_str().is_empty()
     }
 
     /// The concrete catalog id to wear: the explicit override, or the
     /// content-installed default when unset. Resolve at spawn time, never at
     /// component construction (the content default installs at the catalog choke point).
     pub fn effective_id<'a>(&'a self, default_character_id: &'a str) -> &'a str {
-        if self.character_id.is_empty() {
+        if self.character_id.as_str().is_empty() {
             default_character_id
         } else {
-            &self.character_id
+            self.character_id.as_str()
         }
     }
 }

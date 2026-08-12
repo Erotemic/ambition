@@ -74,7 +74,7 @@ fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
         app.world_mut(),
     )
     .expect("Sanic session world")
-    .character_id = "goblin".to_string();
+    .character_id = "goblin".into();
     for _ in 0..5 {
         app.update();
     }

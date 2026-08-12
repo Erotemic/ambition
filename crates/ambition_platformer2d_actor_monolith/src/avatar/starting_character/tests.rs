@@ -95,7 +95,7 @@ fn default_is_unset_and_is_default() {
     // The concrete row is CONTENT's (`effective_id` resolves it at spawn);
     // the engine bakes in no character name.
     let sc = StartingCharacter::default();
-    assert!(sc.character_id.is_empty());
+    assert!(sc.character_id.as_str().is_empty());
     assert!(sc.is_default());
     // `effective_id` resolves to a real catalog row (the content-installed
     // default, or the first row as fallback) — never empty, never a name

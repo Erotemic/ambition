@@ -257,7 +257,7 @@ pub fn simulation_world(
             character_catalog,
             initial_scratch,
             player_health,
-            &starting_character.character_id,
+            starting_character.character_id.as_str(),
             // ⭐ the prepared cast, which this function already held and the
             // bundle was not given — see the parameter's own note.
             prepared_characters,

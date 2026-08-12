@@ -2527,7 +2527,7 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
 /// read one, because [`PreparedCharacterOverrides`] does not escape this module.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 struct StagedCharacterOverrides {
-    by_id: BTreeMap<String, PreparedCharacterOverrides>,
+    by_id: BTreeMap<ambition_entity_catalog::CharacterId, PreparedCharacterOverrides>,
     /// Set when the barrier closes, so a late contribution is a panic rather than
     /// a value nobody will ever fold.
     finalized: bool,
@@ -2544,7 +2544,7 @@ impl StagedCharacterOverrides {
     /// Returns the previous author when the id was already spoken for.
     fn insert(&mut self, staged: PreparedCharacterOverrides) -> Option<String> {
         self.by_id
-            .insert(staged.id.clone(), staged)
+            .insert(staged.id.clone().into(), staged)
             .map(|previous| previous.provider)
     }
 }

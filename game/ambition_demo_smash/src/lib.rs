@@ -2434,7 +2434,7 @@ mod tests {
     fn the_prepared_session_is_the_smash_stage() {
         let prepared = smash_prepared_session_world();
         assert_eq!(
-            prepared.starting_character().character_id,
+            prepared.starting_character().character_id.as_str(),
             SMASH_CHARACTER_ID
         );
         assert_eq!(

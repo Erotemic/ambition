@@ -25,6 +25,7 @@ pub mod actor;
 pub mod boss_encounter;
 pub mod brain;
 pub mod equipment;
+pub mod moveset_prefabs;
 pub mod perception;
 mod snapshot_impls;
 pub mod technique;

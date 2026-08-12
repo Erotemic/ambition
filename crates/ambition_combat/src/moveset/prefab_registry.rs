@@ -19,8 +19,8 @@
 //! ⚠ the engine prefabs it seeds itself with (`simple_melee` / `simple_ranged` /
 //! `simple_charge`) stay in `prefabs.rs` and are called from here — a downward
 //! call, which is the direction that was already fine.
-use super::prefabs::{simple_charge, simple_melee, simple_ranged};
 use super::*;
+use ambition_characters::moveset_prefabs::{simple_charge, simple_melee, simple_ranged};
 
 /// A prefab builder: hydrate an authored [`ParamValue`] into the prefab's own
 /// params and expand it into a [`MoveSpec`]. `fn`-pointer shaped so the registry

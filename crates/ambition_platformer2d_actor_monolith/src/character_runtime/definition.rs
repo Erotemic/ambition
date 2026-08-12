@@ -1455,7 +1455,13 @@ fn derive_moveset(
     action_set: &ambition_characters::brain::ActionSet,
     authored: Option<MovesetContract>,
 ) -> MovesetContract {
-    let derived = crate::combat::moveset::build_actor_moveset(
+    // ⭐ **THE LOW CRATE'S, not this monolith's** (P1.7, 2026-08-12). This read
+    // `crate::combat::moveset::build_actor_moveset`, and `ambition_combat`
+    // depends on `ambition_characters` — so preparation calling UP was the last
+    // thing keeping the authoritative character model from following the model
+    // down. The derivation lives in `ambition_characters::moveset_prefabs` now;
+    // `ambition_combat` re-exports it, so its own call sites are unchanged.
+    let derived = ambition_characters::moveset_prefabs::build_actor_moveset(
         None,
         action_set.melee.as_ref(),
         action_set.ranged.as_ref(),

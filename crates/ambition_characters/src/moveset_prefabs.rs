@@ -18,17 +18,39 @@
 // was lowered, so they travel with the builders whenever the builders move.
 // Everything else is `ambition_entity_catalog` and `ambition_characters`, both
 // of which sit at or below the destination.
-use super::{
-    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
-    SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE,
-};
-use ambition_characters::brain::action_set::{
-    MeleeActionSpec, RangedActionSpec, RangedStyle, SpecialActionSpec,
-};
+use crate::brain::action_set::{MeleeActionSpec, RangedActionSpec, RangedStyle, SpecialActionSpec};
 use ambition_entity_catalog::{
     ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag, ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB,
 };
+
+/// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
+/// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
+/// (never a silent drop — a tagged volume asked for presentation).
+pub const SLASH_ARC_VFX: &str = "slash_arc";
+pub const SLASH_POKE_VFX: &str = "slash_poke";
+
+/// The SFX cue a plain swing fires. Names the engine's procedural `slash` cue
+/// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
+/// resolves it to the guaranteed procedural sound.
+pub const SWING_SFX_CUE: &str = "player.slash";
+/// Dry blade-through-air cue reserved for the canonical robot protagonist.
+pub const PLAYER_ROBOT_SWING_SFX_CUE: &str = "player.robot.slash.air";
+/// Material selector carried by the canonical robot protagonist's slash volume.
+pub const PLAYER_ROBOT_IMPACT_SFX_CUE: &str = "player.robot.slash.impact";
+/// Rebound cue the canonical robot protagonist's down-air pogo authors onto its
+/// `pogo_bounce` effect. Every other body leaves it unauthored and keeps the
+/// engine's generic pogo cue.
+pub const PLAYER_ROBOT_POGO_SFX_CUE: &str = "player.robot.slash.impact.pogo";
+
+/// ⚠ **THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately.** Three
+/// of these cues are asserted equal to `ambition_sfx::ids` entries at compile
+/// time, because a cue authored here that no longer hashes to its id would
+/// silently stop resolving to a material variant and play the selector itself.
+/// This crate cannot see `ambition_sfx` and should not: it owns the authored
+/// TEXT, and the crate that knows the id table owns the pin. See
+/// `ambition_combat::moveset` — the assertions are unchanged and still fire.
+const _: () = ();
 
 /// Convert an authored [`MeleeActionSpec`] into a data-driven `"attack"`
 /// [`MoveSpec`] — the melee subsumption (fable review §A1 / §3a). The swing's
@@ -273,9 +295,9 @@ pub fn apply_player_robot_slash_sfx(moveset: &mut MovesetContract) {
                 if let Some(effect) = volume
                     .on_hit
                     .as_mut()
-                    .filter(|e| e.key == ambition_characters::technique::POGO_BOUNCE_KEY)
+                    .filter(|e| e.key == crate::technique::POGO_BOUNCE_KEY)
                 {
-                    ambition_characters::technique::set_pogo_sfx(effect, PLAYER_ROBOT_POGO_SFX_CUE);
+                    crate::technique::set_pogo_sfx(effect, PLAYER_ROBOT_POGO_SFX_CUE);
                 }
             }
         }
@@ -633,9 +655,7 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                 if pogo {
                     // The down-air's landing pogo — an engine on-hit technique
                     // Body contacts consume the resolved victim hit; genuine world pogo surfaces use the separate world-contact path.
-                    v.on_hit = Some(EffectRef::new(
-                        ambition_characters::technique::POGO_BOUNCE_KEY,
-                    ));
+                    v.on_hit = Some(EffectRef::new(crate::technique::POGO_BOUNCE_KEY));
                 }
                 // The grounded down-tilt reads as a kneeling forward poke, not a
                 // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);
@@ -808,7 +828,7 @@ pub fn build_actor_moveset(
 /// - **read-time only** (no [`EquipmentGrant`]s — a grow-cap, an armor plate, a
 ///   damage-scaling flower): it lands in [`WornEquipment`] and nothing else moves.
 ///   Its effect is folded at the moment it matters, by
-///   [`resolved_ranged`](ambition_characters::equipment::resolved_ranged) and
+///   [`resolved_ranged`](crate::equipment::resolved_ranged) and
 ///   friends. Rebuilding a moveset for it would be pure churn, so this returns
 ///   `None` and the caller keeps the contract it already has; or
 /// - **grant-bearing** (a spark blossom that confers a ranged verb): the whole
@@ -820,17 +840,17 @@ pub fn build_actor_moveset(
 /// unequip work as the plain inverse: drop the row from `worn` and call this
 /// again with the remaining set.
 pub fn equip_equipment_row(
-    actions: &mut ambition_characters::brain::action_set::ActionSet,
-    worn: &mut ambition_characters::equipment::WornEquipment,
+    actions: &mut crate::brain::action_set::ActionSet,
+    worn: &mut crate::equipment::WornEquipment,
     signature: Option<&MovesetContract>,
-    row: ambition_characters::equipment::EquipmentRow,
+    row: crate::equipment::EquipmentRow,
 ) -> Option<MovesetContract> {
     let confers_capability = !row.grants.is_empty();
     worn.equip(row);
     if !confers_capability {
         return None;
     }
-    ambition_characters::equipment::apply_equipment_grants(actions, worn);
+    crate::equipment::apply_equipment_grants(actions, worn);
     build_actor_moveset(
         signature,
         actions.melee.as_ref(),

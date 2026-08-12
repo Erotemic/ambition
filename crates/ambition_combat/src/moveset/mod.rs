@@ -54,28 +54,18 @@ use ambition_time::WorldTime;
 // Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
 pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
 
-/// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
-/// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
-/// (never a silent drop — a tagged volume asked for presentation).
-pub const SLASH_ARC_VFX: &str = "slash_arc";
-pub const SLASH_POKE_VFX: &str = "slash_poke";
+// ⭐ **THE AUTHORED TEXT MOVED DOWN; THE PINS STAYED** (campaign P1.7,
+// 2026-08-12). These six presentation ids were defined here and consumed by
+// `prefabs.rs`, which had to become lowerable to `ambition_characters` so
+// character preparation could call `build_actor_moveset` from below. Plain
+// `&str`s travel; what could NOT travel is the compile-time assertions under
+// them, which need `ambition_sfx`'s id table — so the low crate owns the text
+// and this one keeps the pin. The assertions are unchanged and still fire.
+pub use ambition_characters::moveset_prefabs::{
+    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
+    SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE,
+};
 
-/// The SFX cue a plain swing fires. Names the engine's procedural `slash` cue
-/// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
-/// resolves it to the guaranteed procedural sound — the old bespoke melee path
-/// used `SfxMessage::Slash`, and the moveset must stay audible. (The prior
-/// `"melee_swing"` string matched no bank sample and no procedural cue, so it
-/// silently no-op-ed — the "no attack SFX" bug.)
-pub const SWING_SFX_CUE: &str = "player.slash";
-/// Dry blade-through-air cue reserved for the canonical robot protagonist.
-pub const PLAYER_ROBOT_SWING_SFX_CUE: &str = "player.robot.slash.air";
-/// Material selector carried by the canonical robot protagonist's slash volume.
-/// The victim-side resolver ([`crate::util::resolve_strike_sfx`]) recognises it
-/// by [`ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT`], so a cue authored here
-/// that no longer hashes to that id would silently stop resolving to a material
-/// variant and play the selector itself. Both spellings are therefore pinned to
-/// the id table at compile time rather than trusted to stay in sync.
-pub const PLAYER_ROBOT_IMPACT_SFX_CUE: &str = "player.robot.slash.impact";
 const _: () = assert!(
     ambition_sfx::SfxId::from_static(PLAYER_ROBOT_SWING_SFX_CUE).hash()
         == ambition_sfx::ids::PLAYER_ROBOT_SLASH_AIR.hash()
@@ -84,10 +74,6 @@ const _: () = assert!(
     ambition_sfx::SfxId::from_static(PLAYER_ROBOT_IMPACT_SFX_CUE).hash()
         == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT.hash()
 );
-/// Rebound cue the canonical robot protagonist's down-air pogo authors onto its
-/// `pogo_bounce` effect. Every other body leaves it unauthored and keeps the
-/// engine's generic pogo cue.
-pub const PLAYER_ROBOT_POGO_SFX_CUE: &str = "player.robot.slash.impact.pogo";
 const _: () = assert!(
     ambition_sfx::SfxId::from_static(PLAYER_ROBOT_POGO_SFX_CUE).hash()
         == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_POGO.hash()
@@ -96,7 +82,6 @@ const _: () = assert!(
 // D-B split: the MoveSpec builders and actor-moveset construction live in
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s
 // `use super::*`) are unchanged by the relocation.
-mod prefabs;
 // ⭐ **THE REGISTRY IS ITS OWN MODULE** (P1.7): `prefabs.rs` is the build-time
 // half of the Smash model and character preparation calls it, so it has to be
 // able to sit at or below `ambition_characters`. Expanding an authored prefab
@@ -105,8 +90,8 @@ mod prefabs;
 // character domain must not reach. See `prefab_registry`'s own doc.
 mod prefab_registry;
 
+pub use ambition_characters::moveset_prefabs::*;
 pub use prefab_registry::*;
-pub use prefabs::*;
 
 /// Marker: this body has a melee swing as a data-driven moveset `"attack"` move
 /// (the ONLY melee path — the flat `BodyMelee` driver is gone). The swing is

@@ -743,6 +743,33 @@ fn apply_movement(
             frame.locomotion = ae::LocalAxes::new(toward, 0.0);
             frame.facing = toward;
         }
+        MovementVerb::Dodge => {
+            // **THE SAME BUTTON AS `Dash`, AND THE BODY TURNS IT INTO A ROLL**
+            // (or an air dodge off the ground). The brain does not get to pick
+            // which — `apply_dodge` claims the buffer first on any body that
+            // owns the ability — so all this verb decides is the DIRECTION, and
+            // the stick is what carries it: `apply_dodge` rolls along
+            // `local_stick.x`, falling back to facing when the stick is neutral.
+            //
+            // ⭐ **away from a swing, into everything else**, which is the whole
+            // of what separates the genre's two uses of the roll. A roll is
+            // i-frames plus travel: spent AWAY from an attack it is the evade,
+            // spent TOWARD a standing opponent it is the approach that cannot be
+            // poked out of. The read is perceivable — is anybody swinging at me
+            // — so a human watching the same stage could make it too, which is
+            // the no-cheat contract this brain is held to.
+            let threatened = view
+                .actors
+                .iter()
+                .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
+            let roll = if threatened { -toward } else { toward };
+            frame.dash_pressed = true;
+            frame.locomotion = ae::LocalAxes::new(roll, 0.0);
+            // ⚠ facing tracks the FOE, not the roll. A body that rolls away
+            // while turning its back would come out of the roll facing the
+            // blastzone, and its next swing would point at nothing.
+            frame.facing = toward;
+        }
         MovementVerb::Shield => {
             frame.locomotion = ae::LocalAxes::ZERO;
             frame.shield_held = true;

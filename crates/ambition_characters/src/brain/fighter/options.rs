@@ -81,6 +81,11 @@ pub enum MovementVerb {
     Retreat,
     Jump,
     Dash,
+    /// **The evade** — a ground roll when the feet are down, an air dodge when
+    /// they are not. Shares the dash BUTTON with [`Self::Dash`] and is never
+    /// offered beside it: the body resolves one press to one maneuver, and which
+    /// one is settled by whether it owns the dodge ability.
+    Dodge,
     Shield,
     Blink,
     /// Toward the stage's center. The only verb `Recovery` cares about.
@@ -435,6 +440,30 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
     // a wasted press: L3 rolls the verb, the shadow's `Jump` is gated on the
     // same budget so the line goes nowhere, and "nowhere" scores as safe.
     let can_jump = me.on_ground || me.air_jumps_left > 0;
+    // ⭐⭐ **ONE BUTTON, AND THE BODY DECIDES WHAT IT MEANS.**
+    //
+    // ⛔ this asked `me.can_dash` and named the verb `Dash`, for every body. But
+    // `apply_dodge` claims the dash buffer BEFORE `apply_dash` can see it, so a
+    // body owning the dodge ability performs a ROLL — different speed, different
+    // commitment, its own cooldown — and never dashes at all. The Smash fighters
+    // author `dash: true` and `dodge: true` together (P4.30), which means every
+    // burst this brain has ever chosen on that stage came out as a roll while
+    // the shadow rollout scored it as a dash. The brain named one maneuver, the
+    // model judged a second, the body performed a third.
+    //
+    // ⚠ and the body that authors ONLY `dodge` was worse off still: `can_dash`
+    // is false for it, so it was offered no burst option at all and its authored
+    // evade was unreachable by any CPU.
+    //
+    // ⇒ ask both flags once, here, and name the maneuver the press will really
+    // produce. Dodge wins because the BODY makes it win.
+    let evade = if me.can_dodge {
+        Some(MovementVerb::Dodge)
+    } else if me.can_dash {
+        Some(MovementVerb::Dash)
+    } else {
+        None
+    };
     match situation {
         Situation::Recovery => {
             push(MovementVerb::Recover, 1.0);
@@ -474,8 +503,19 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
                 push(MovementVerb::Shield, 0.8);
             }
             push(MovementVerb::Retreat, 0.7);
-            if me.can_dash {
-                push(MovementVerb::Dash, 0.6);
+            // ⭐ **a roll is a real answer to a swing, and a dash is not.** The
+            // evade carries i-frames and gets the defensive score; a plain dash
+            // is only travel, so a body whose button dashes keeps the lower one
+            // it always had. Same slot, two bodies, two honest numbers.
+            if let Some(evade) = evade {
+                push(
+                    evade,
+                    if evade == MovementVerb::Dodge {
+                        0.75
+                    } else {
+                        0.6
+                    },
+                );
             }
             if can_jump {
                 push(MovementVerb::Jump, 0.4);
@@ -483,8 +523,11 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
         }
         Situation::EdgeGuard | Situation::Advantage => {
             push(MovementVerb::Approach, 0.8);
-            if me.can_dash {
-                push(MovementVerb::Dash, 0.7);
+            // Rolling IN is an approach with i-frames — the genre's other use
+            // for the button — so the offensive slot takes whichever maneuver
+            // this body's press produces, at the score the slot always had.
+            if let Some(evade) = evade {
+                push(evade, 0.7);
             }
             if can_jump {
                 push(MovementVerb::Jump, 0.3);
@@ -496,8 +539,8 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
             if can_jump {
                 push(MovementVerb::Jump, 0.3);
             }
-            if me.can_dash {
-                push(MovementVerb::Dash, 0.3);
+            if let Some(evade) = evade {
+                push(evade, 0.3);
             }
         }
     }

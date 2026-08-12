@@ -19,6 +19,7 @@ fn self_view_at(pos: ae::Vec2, faction: ActorFaction) -> SelfView {
         can_fire: true,
         can_blink: false,
         can_dash: false,
+        can_dodge: false,
         can_shield: false,
         ..Default::default()
     }

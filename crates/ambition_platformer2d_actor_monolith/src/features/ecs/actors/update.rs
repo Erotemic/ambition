@@ -694,6 +694,7 @@ pub fn tick_actor_brains(
                             // shares — not a parallel `CombatCapabilities` mirror.
                             can_blink: em.abilities.abilities.blink,
                             can_dash: em.abilities.abilities.dash,
+                            can_dodge: em.abilities.abilities.dodge,
                             can_shield: em.abilities.abilities.shield,
                             // The same counter `actor_movement` spends; a brain
                             // planning a recovery reads the body's real budget,

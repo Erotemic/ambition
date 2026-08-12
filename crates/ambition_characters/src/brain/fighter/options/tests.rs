@@ -318,6 +318,88 @@ fn the_capability_mask_gates_every_verb() {
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Retreat);
 }
 
+/// **A BODY THAT OWNS THE DODGE IS NEVER OFFERED A DASH** — because it cannot
+/// perform one.
+///
+/// ⛔ `apply_dodge` claims the dash buffer before `apply_dash` can see it, so on
+/// such a body the press is a roll. The Smash fighters author `dash: true` AND
+/// `dodge: true`, which made every burst this brain chose on that stage a
+/// maneuver it had not named and the shadow rollout had not modelled.
+///
+/// ⭐ the three assertions are one claim read three ways, and the middle one is
+/// the poison: a body with only `dash` must still get `Dash`, or this would pass
+/// just as well on a brain that had simply renamed the verb for everybody.
+#[test]
+fn the_evade_verb_is_whichever_maneuver_the_dash_button_actually_produces() {
+    let kit = [candidate("jab", 0.1, 100.0)];
+    let w = UtilityWeights::v1();
+    let verbs = |v: &WorldView| -> Vec<MovementVerb> {
+        generate_options(Perceived::cheating(v), Situation::Neutral, &kit, &w)
+            .movement
+            .iter()
+            .map(|m| m.verb)
+            .collect()
+    };
+
+    // Both abilities — the shipped Smash fighter.
+    let mut both = view_with(300.0, 400.0);
+    both.self_view.can_dash = true;
+    both.self_view.can_dodge = true;
+    let offered = verbs(&both);
+    assert!(
+        offered.contains(&MovementVerb::Dodge) && !offered.contains(&MovementVerb::Dash),
+        "a body whose press rolls must be offered the roll and never the dash: {offered:?}"
+    );
+
+    // Dash only — the exploration bodies, unchanged.
+    let mut dash_only = view_with(300.0, 400.0);
+    dash_only.self_view.can_dash = true;
+    dash_only.self_view.can_dodge = false;
+    let offered = verbs(&dash_only);
+    assert!(
+        offered.contains(&MovementVerb::Dash) && !offered.contains(&MovementVerb::Dodge),
+        "and a body that genuinely dashes still dashes: {offered:?}"
+    );
+
+    // ⭐ dodge only — this body had NO burst option at all before, because the
+    // question asked was `can_dash`. Its authored evade was unreachable.
+    let mut dodge_only = view_with(300.0, 400.0);
+    dodge_only.self_view.can_dash = false;
+    dodge_only.self_view.can_dodge = true;
+    assert!(
+        verbs(&dodge_only).contains(&MovementVerb::Dodge),
+        "a body that authors only the evade must be able to use it"
+    );
+}
+
+/// **A roll is worth more against a swing than a dash is** — the defensive slot
+/// prices the maneuver, not the button.
+///
+/// ⚠ comparative on purpose: pinning `0.75` would go green on a build where
+/// every score had drifted together, and what matters is that i-frames outrank
+/// plain travel while both stay below the guard.
+#[test]
+fn the_evade_outscores_a_plain_dash_when_something_is_swinging() {
+    let kit = [candidate("jab", 0.1, 100.0)];
+    let w = UtilityWeights::v1();
+    let score_of = |dodge: bool, verb: MovementVerb| {
+        let mut v = view_with(300.0, 400.0);
+        v.self_view.can_dash = true;
+        v.self_view.can_dodge = dodge;
+        v.actors[0].phase = crate::perception::BodyPhase::AttackStartup;
+        generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w)
+            .movement
+            .iter()
+            .find(|m| m.verb == verb)
+            .map(|m| m.score)
+            .unwrap_or_else(|| panic!("{verb:?} was offered"))
+    };
+    assert!(
+        score_of(true, MovementVerb::Dodge) > score_of(false, MovementVerb::Dash),
+        "an evade with i-frames answers a swing; a dash is only travel"
+    );
+}
+
 /// **Determinism.** Two attacks that score identically are ordered by move id,
 /// not by the kit's declaration order. Otherwise `best_attack` depends on how a
 /// content author sorted a RON file (ADR 0023).

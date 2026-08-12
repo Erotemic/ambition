@@ -336,6 +336,19 @@ pub struct SelfView {
     pub can_blink: bool,
     /// Dash available this tick (capability + cooldown).
     pub can_dash: bool,
+    /// **The EVADE — and it is not a second flavour of [`Self::can_dash`].**
+    ///
+    /// ⛔ a body that owns the dodge ability never dashes: `apply_dodge` claims
+    /// the dash buffer before `apply_dash` can see it, so on such a body the
+    /// dash press is a ground ROLL or an AIR DODGE, with its own speed, its own
+    /// commitment and its own cooldown. The Smash fighters author `dash: true`
+    /// and `dodge: true` together, which means every "dash" a CPU has ever
+    /// chosen on that stage was actually a roll — named one maneuver by the
+    /// brain, judged as a second by the shadow rollout, and performed as a
+    /// third by the body.
+    ///
+    /// So the brain reads BOTH flags and names what the press will really do.
+    pub can_dodge: bool,
     /// **Mid-air jumps left before this body is out of options.** The other
     /// `can_*` flags answer "may I press this"; this one answers "how many times
     /// more", which is the question a body falling below a ledge is actually

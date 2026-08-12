@@ -86,6 +86,9 @@ pub struct PerceptionBody {
     pub can_fire: bool,
     pub can_blink: bool,
     pub can_dash: bool,
+    /// The EVADE, and it OUTRANKS `can_dash` on the body that owns both — see
+    /// `SelfView::can_dodge`.
+    pub can_dodge: bool,
     pub can_shield: bool,
     /// Mid-air jumps left (`jump.air_jumps_available`). The recovery budget.
     pub air_jumps_left: u8,
@@ -419,6 +422,7 @@ pub fn build_world_view(
         can_fire: body.can_fire,
         can_blink: body.can_blink,
         can_dash: body.can_dash,
+        can_dodge: body.can_dodge,
         can_shield: body.can_shield,
         air_jumps_left: body.air_jumps_left,
         phase: body.phase,

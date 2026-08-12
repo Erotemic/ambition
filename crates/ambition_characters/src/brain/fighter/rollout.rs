@@ -1493,7 +1493,14 @@ fn movement_intent(
                 - start.me.pos.dot(frame.side))
             .signum(),
         },
-        MovementVerb::Shield | MovementVerb::Blink => return None,
+        // ⚠ **the evade joins the unmodelled list, and that REMOVES a lie.** A
+        // dodge-owning body's press was previously named `Dash` and modelled as
+        // `ShadowIntent::Dash` — a burst of travel at the dash's speed, for the
+        // dash's duration — while the body was performing a roll with neither.
+        // The shadow was judging a maneuver that could not happen. A roll's
+        // i-frames and endlag are not in this model, so `None` is the honest
+        // answer: unmodelled means unjudged, in both directions.
+        MovementVerb::Shield | MovementVerb::Blink | MovementVerb::Dodge => return None,
     })
 }
 

@@ -19,6 +19,7 @@ fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
         can_fire: true,
         can_blink: false,
         can_dash: false,
+        can_dodge: false,
         can_shield: false,
         // A fresh body with its air game intact; the fixture is about what a
         // viewer SEES, and a recovery budget of zero would be a different test.

@@ -64,6 +64,7 @@ pub mod cellular_automaton_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod enemy_roster;
+pub mod goblin_moveset;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;

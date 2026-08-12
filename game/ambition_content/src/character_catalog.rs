@@ -1042,7 +1042,14 @@ pub fn authored_intrinsics(
                 // surrounding catalog had been assembled yet — the leak Jon's
                 // redirect §8 names. `BrainProfileRef` resolves it against this
                 // definition's own provider.
-                .with_autonomous_profile_named("medium_striker");
+                .with_autonomous_profile_named("medium_striker")
+                // ⭐ **AND ITS OWN MOVES** (campaign P3.24, 2026-08-12). Every
+                // seated fighter whose character says nothing takes
+                // `smash_fighter_kit()` — one generic swipe — and that floor's
+                // goal is DELETION, one adopter at a time. The goblin is the
+                // third character in the game to state a table and the first
+                // ENEMY to.
+                .with_moveset(crate::goblin_moveset::goblin_moveset());
             definition.vitals.max_health = Some(5);
             definition
         }

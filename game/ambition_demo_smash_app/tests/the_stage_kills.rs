@@ -489,6 +489,17 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
         .get_resource::<CharacterRoster>()
         .expect("the composition installs an archetype table")
         .clone();
+    // ⭐ **the OTHER authority a seat's policy can live in** (2026-08-11). This
+    // asked the archetype table alone, so the day this demo published its CPU
+    // ladder as real `BrainProfile`s and deleted its archetype fragment, four
+    // perfectly seatable fighters were reported unseatable. The question — *can
+    // this demo fill the seats it declares?* — is unchanged; it now asks both
+    // places an answer can live, exactly as seating does.
+    let profiles = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
+        .expect("the composition assembles its published policies")
+        .clone();
 
     for level in [1u8, 5, 9] {
         let roster = ambition_demo_smash::smash_roster_at_level(
@@ -498,7 +509,7 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
             ],
             level,
         );
-        let problems = roster.unsatisfiable_seats(&archetypes);
+        let problems = roster.unsatisfiable_seats(&archetypes, Some(&profiles));
         assert!(
             problems.is_empty(),
             "level {level}: this demo declares a CPU seat its own composition \
@@ -581,6 +592,13 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         .get_resource::<CharacterRoster>()
         .expect("the composition installs an archetype table")
         .clone();
+    // ⭐ the demo's PUBLISHED policies — its CPU ladder lives here now, not in an
+    // archetype fragment (that fragment is deleted).
+    let published = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
+        .expect("the composition assembles its published policies")
+        .clone();
 
     // ⛔ **THE LADDER IS SPARSE, and a rig has to know it.** `SMASH_ROSTER_RON`
     // registers `duelist_l{1,3,5,6,9}` and nothing between — the rungs
@@ -625,12 +643,26 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         "the two seats must sit on DIFFERENT rungs, or every measurement built \
          on this reads 50% and looks like a flat ladder rather than a broken rig"
     );
+    // ⭐ the two authorities a seat's policy can live in — the same pair
+    // `seat_brain_profile` consults, resolved in this demo's own provider.
+    let resolves = |profile: &str| {
+        archetypes.has_brain_key(profile)
+            || published
+                .get(&ambition_platformer2d::entity_catalog::BrainProfileId::new(
+                    format!("{}::{profile}", ambition_demo_smash::SMASH_EXPERIENCE),
+                ))
+                .is_some()
+    };
+    // ⭐ **and each rung RESOLVES**, which is the property that keeps a ladder a
+    // ladder. ⛔ this asked the ARCHETYPE table — the authority this demo stopped
+    // using when it published its rungs as real `BrainProfile`s and deleted its
+    // archetype fragment. The question is unchanged; the place to ask it moved.
     for profile in profiles.iter().flatten() {
         assert!(
-            archetypes.has_brain_key(profile),
-            "`{profile}` is not in the demo's archetype table, so `spec_for_brain` \
-             hands back a generic row and the rung fights a statue while reporting \
-             a fight"
+            resolves(profile),
+            "`{profile}` resolves in neither the published policies nor the \
+             archetype table, so seating hands back a generic row and the rung \
+             fights a statue while reporting a fight"
         );
     }
     // ⭐ **every ADJACENT PAIR is satisfiable**, which is the property a ladder
@@ -653,9 +685,9 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
                 .as_deref()
                 .expect("a CPU seat names a profile");
             assert!(
-                archetypes.has_brain_key(profile),
-                "rung {upper} vs {lower} asks for `{profile}`, which this \
-                 composition's archetype table does not carry"
+                resolves(profile),
+                "rung {upper} vs {lower} asks for `{profile}`, which neither this \
+                 composition's published policies nor its archetype table carry"
             );
         }
     }

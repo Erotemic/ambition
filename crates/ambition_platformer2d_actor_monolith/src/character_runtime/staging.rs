@@ -456,9 +456,12 @@ impl MatchParticipantRoster {
     pub fn activate_if_seatable(
         &mut self,
         archetypes: &crate::features::CharacterRoster,
+        // See [`Self::unsatisfiable_seats`]: a seat's policy may be published
+        // rather than filed under an archetype key.
+        profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
         seat_topology: Option<u64>,
     ) -> Result<(), Vec<RosterProblem>> {
-        let problems = self.unsatisfiable_seats(archetypes);
+        let problems = self.unsatisfiable_seats(archetypes, profiles);
         if !problems.is_empty() {
             return Err(problems);
         }
@@ -584,9 +587,24 @@ impl MatchParticipantRoster {
     /// Character ids are NOT checked here: `PreparedCharacterRegistry` answers
     /// that, refuses on its own, and asking twice would put two authorities on
     /// one question.
+    /// ⛔⛔ **IT ASKS BOTH AUTHORITIES, because seating does** (2026-08-11). This
+    /// consulted only the archetype table — the authority the campaign is
+    /// removing — so the day Smash published its CPU ladder as real
+    /// `BrainProfile`s and deleted its archetype fragment, this reported four
+    /// perfectly seatable fighters as unseatable. The check's INTENT (a demo must
+    /// not declare a seat its own composition cannot fill) was right and is kept;
+    /// its instrument knew one of the two places an answer can live.
+    ///
+    /// ⚠ **the published registry is `Option`** because a composition may have
+    /// none, and "no policies published" is a real state rather than an error —
+    /// the archetype arm still answers for it.
     pub fn unsatisfiable_seats(
         &self,
         archetypes: &crate::features::CharacterRoster,
+        // The published controller policies, resolved exactly as
+        // `prepared_match::seat_brain_profile` resolves them: this roster's own
+        // provider first, then the bare name.
+        profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
     ) -> Vec<RosterProblem> {
         self.participants
             .iter()
@@ -596,16 +614,26 @@ impl MatchParticipantRoster {
                 if archetypes.has_brain_key(profile) {
                     return None;
                 }
+                let reference = ambition_entity_catalog::BrainProfileRef::new(profile);
+                let published = profiles.is_some_and(|profiles| {
+                    self.published_by
+                        .as_deref()
+                        .is_some_and(|owner| profiles.get(&reference.resolve_in(owner)).is_some())
+                });
+                if published {
+                    return None;
+                }
                 let mut known = archetypes.brain_keys();
                 known.sort();
+                let owner = self.published_by.as_deref().unwrap_or("<unpublished>");
                 Some(RosterProblem {
                     seat,
                     detail: format!(
-                        "asks for brain profile `{profile}`, which this composition's \
-                         CharacterRoster does not have. Known keys: {known:?}. \
-                         ⚠ this is the ARCHETYPE table a seated CPU consults, not the \
-                         catalog's `brain_presets` — the two share the word `brain` and \
-                         nothing else."
+                        "asks for brain profile `{profile}`, which neither this \
+                         composition's published policies (as `{owner}::{profile}`) nor its \
+                         CharacterRoster has. Known archetype keys: {known:?}. \
+                         ⚠ an UNPUBLISHED roster can only reach the archetype table — a \
+                         provider-relative policy name has nothing to resolve against."
                     ),
                 })
             })
@@ -793,7 +821,7 @@ mod roster_validation_tests {
                 brain_profile: Some("medium_striker".into()),
             });
 
-        let problems = roster.unsatisfiable_seats(&archetypes(&["combatant"]));
+        let problems = roster.unsatisfiable_seats(&archetypes(&["combatant"]), None);
         assert_eq!(problems.len(), 1, "{problems:?}");
         assert_eq!(problems[0].seat, 1);
         assert!(
@@ -812,7 +840,7 @@ mod roster_validation_tests {
                 brain_profile: Some("duelist".into()),
             });
         assert!(roster
-            .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]))
+            .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]), None)
             .is_empty());
     }
 
@@ -828,6 +856,8 @@ mod roster_validation_tests {
                 .driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
                 });
-        assert!(roster.unsatisfiable_seats(&archetypes(&[])).is_empty());
+        assert!(roster
+            .unsatisfiable_seats(&archetypes(&[]), None)
+            .is_empty());
     }
 }

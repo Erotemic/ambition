@@ -237,7 +237,9 @@ fn the_match_has_two_distinct_seats_and_simulates_with_both() {
 
     // And the match still simulates with both of them in it. `is_running()`
     // would not see a frozen sim; the frame advancing is the fact.
-    let before = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
+    let before = ambition_platformer2d::rollback::health(&app)
+        .frame()
+        .expect("a frame");
     for _ in 0..120 {
         app.update();
     }
@@ -281,7 +283,7 @@ fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
     // One local player: seat 1 is the CPU, which is the default versus
     // experience and the one anybody with a single controller plays.
     let roster = ambition_app::app::versus::versus_roster(1);
-    let problems = roster.unsatisfiable_seats(&archetypes);
+    let problems = roster.unsatisfiable_seats(&archetypes, None);
     assert!(
         problems.is_empty(),
         "the versus stage declares a CPU seat the SDK composition cannot seat, \

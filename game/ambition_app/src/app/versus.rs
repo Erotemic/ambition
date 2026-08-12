@@ -387,6 +387,12 @@ fn reconcile_roster_with_frozen_topology(
     // (an engine App with no content), and `engine.character-authority-is-app-local`
     // means "not part of this composition" is a real answer rather than a fault.
     archetypes: Option<Res<ambition_platformer2d::actors::features::CharacterRoster>>,
+    // **The published controller policies**, so a seat naming one is not reported
+    // as unseatable merely because no archetype key shares its name. See
+    // `MatchParticipantRoster::unsatisfiable_seats`.
+    profiles: Option<
+        Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
+    >,
 ) {
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
@@ -437,7 +443,9 @@ fn reconcile_roster_with_frozen_topology(
             // own composition cannot fill, seating would refuse it, and the
             // stage would sit on a roster that never seats.
             let validated = match archetypes.as_deref() {
-                Some(archetypes) => roster.activate_if_seatable(archetypes, None),
+                Some(archetypes) => {
+                    roster.activate_if_seatable(archetypes, profiles.as_deref(), None)
+                }
                 // No archetype table to validate against. Activating unvalidated
                 // is what happened before this check existed, and refusing here
                 // would strand every content-free composition instead.

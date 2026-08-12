@@ -266,7 +266,19 @@ where
             brain_profile: Some(format!("{SMASH_DUELIST_BRAIN}_l{level}")),
         };
     }
-    roster
+    // ⛔⛔ **AND IT SAYS WHOSE ROSTER IT IS.** `smash_roster` above ends with the
+    // same call and this one silently did not — which cost nothing while a CPU
+    // seat's `brain_profile` was an ARCHETYPE key, because an archetype table is
+    // global. It costs everything now that the key is a published POLICY:
+    // `seat_brain_profile` resolves a provider-relative name in the MATCH's
+    // provider, an unpublished roster has none, and every levelled seat this
+    // helper builds was refused with *"`duelist_l1` … Known keys: [combatant]"*.
+    //
+    // ⚠ the regression was invisible to the run's gate — `cargo check -p
+    // ambition_app --all-targets` plus `app_it` never builds
+    // `ambition_demo_smash_app`'s tests, where all four of its CPU-roster
+    // regressions were red (ledger D88).
+    roster.published_by(SMASH_EXPERIENCE)
 }
 
 pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {

@@ -608,26 +608,24 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
         ),
     );
 
-    let spawn =
-        move |mut commands: Commands,
-              catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >,
-              roster: bevy::prelude::Res<crate::features::enemies::CharacterRoster>| {
-            let root = commands.spawn_empty().id();
-            super::super::spawn_actors::spawn_interactable_into(
-                &mut commands,
-                &catalog,
-                &Default::default(),
-                // No prepared cast in this fixture: the catalog default stands,
-                // which is what this test is about.
-                &Default::default(),
-                SessionSpawnScope::UNSCOPED,
-                root,
-                &authored,
-                &[],
-            );
-        };
+    let spawn = move |mut commands: Commands,
+                      catalog: bevy::prelude::Res<
+        ambition_characters::actor::character_catalog::CharacterCatalog,
+    >| {
+        let root = commands.spawn_empty().id();
+        super::super::spawn_actors::spawn_interactable_into(
+            &mut commands,
+            &catalog,
+            &Default::default(),
+            // No prepared cast in this fixture: the catalog default stands,
+            // which is what this test is about.
+            &Default::default(),
+            SessionSpawnScope::UNSCOPED,
+            root,
+            &authored,
+            &[],
+        );
+    };
     app.add_systems(Update, spawn);
     app.update();
 

@@ -54,7 +54,7 @@ use ambition_platformer2d::entity_catalog::{
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
 /// aerials rather than throwing a tilt in mid-air.
-fn grounded_only() -> MoveGates {
+pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
         grounded: Some(true),
     }
@@ -62,7 +62,7 @@ fn grounded_only() -> MoveGates {
 
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.
-fn airborne_only() -> MoveGates {
+pub(crate) fn airborne_only() -> MoveGates {
     MoveGates {
         grounded: Some(false),
     }
@@ -75,7 +75,7 @@ fn airborne_only() -> MoveGates {
 /// MATTER — how long you are committed, how far it reaches, how hard it throws,
 /// and how much of the throw scales with the victim's damage.
 #[allow(clippy::too_many_arguments)]
-fn strike(
+pub(crate) fn strike(
     id: &str,
     clip: &str,
     startup_s: f32,

@@ -40,6 +40,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
 pub mod select_screen;
@@ -2068,7 +2069,17 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // preparation uses it verbatim. Eleven moves — jab, two tilts, three
             // smashes, five aerials — where the seat used to carry one swipe
             // that answered every direction and both strengths.
-            definition = definition.with_moveset(crate::moveset::fighter_moveset());
+            // ⚠ **the shared table is the STAND-INS', and George has his own.**
+            // `smash_duelist_a/b` stand in for `player_robot_v3`/`v2`, whose
+            // canonical repertoire lives on the real Robot provider and reaches
+            // them when a host composes it (redirect §15) — so a third robot
+            // table here would be the copy that redirect forbids. George is the
+            // one fighter this demo owns, and he is the one who gets authored.
+            definition = definition.with_moveset(if id == SMASH_GEORGE_BOOUL {
+                crate::george_booul_moveset::george_booul_moveset()
+            } else {
+                crate::moveset::fighter_moveset()
+            });
             app.register_character(definition);
         }
     }

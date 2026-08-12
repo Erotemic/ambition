@@ -362,7 +362,14 @@
             // had no shape for a flyer at all. It has had one the whole time.
             body_kind: Floating,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "peaceful",
             tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
             fallback_dialogue: [
@@ -391,7 +398,14 @@
             // had no shape for a flyer at all. It has had one the whole time.
             body_kind: Floating,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "peaceful",
             tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
             fallback_dialogue: [
@@ -526,7 +540,14 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "sandbag_punch",
             tags: ["training"],
         barks: (
@@ -549,7 +570,14 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "sandbag_punch",
             tags: ["training"],
         barks: (
@@ -954,7 +982,14 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "peaceful",
             tags: ["mount", "giant"],
             barks: (
@@ -977,7 +1012,14 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            default_brain: "stand_still",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
+            // autonomous `BrainProfile`, which outranks this field everywhere it
+            // is read — so naming `stand_still` was the same policy stated twice.
+            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
+            // and no `aggressiveness`, so nothing came across with it. A preset
+            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
+            // `parrot_lively`, which cost four attempts to understand) has to
+            // move that to the placements first.
             default_action_set: "peaceful",
             tags: ["limb", "giant"],
             barks: (

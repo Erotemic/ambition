@@ -738,6 +738,62 @@ impl ActorClusterSeed {
         // `Passive`; `NpcActorSpawnPlan::peaceful` overwrites it to `Patrol` iff the
         // resolved brain is a Patrol brain.
         let config_brain = ambition_entity_catalog::placements::CharacterBrain::Passive;
+        // ⭐⭐ **ONE CONSTRUCTION PATH: A MIGRATED NPC IS BUILT FROM ITS
+        // CHARACTER, then dressed as a placement** (P1.10).
+        //
+        // ⛔ patching two fields onto the peaceful seed was never the finish
+        // line, and the fields it did NOT patch say why: this road hands every
+        // body `AbilitySet::NONE`, `CombatCapabilities::default()`, no contact
+        // damage, no `surface_walker`, no `ranged_visual` and a default brain
+        // profile. So an exploding mite standing in a room could not explode, a
+        // crawler did not cling, and a character's authored projectile came out
+        // unadorned — each of them a fact its definition states and this
+        // constructor threw away, one field at a time, invisibly.
+        //
+        // ⇒ when the character can carry a body, `new_character_in` builds it —
+        // the SAME constructor the authored-enemy road and the match seat use.
+        // What stays here is the part that is genuinely about the PLACEMENT.
+        if let Some(body) = authored_body {
+            let mut seed = Self::new_character_in(
+                authored,
+                catalog,
+                id,
+                body,
+                aabb,
+                config_brain.clone(),
+                paths,
+            );
+            // ⛔ **THE PLACEMENT'S THREE FACTS, and only those.**
+            //
+            // `attacks_player` — hostility is a RELATIONSHIP, not a body fact
+            // (`BrainProfile.attacks_player` was deleted for saying otherwise).
+            // `new_character_in` defaults it true because every match seat is a
+            // combatant; an NPC placement is the other answer, and the aggression
+            // component `NpcActorSpawnPlan::peaceful` sets is the same claim said
+            // to the brain.
+            seed.config.tuning.attacks_player = false;
+            // The patrol PATH is authored on the interactable, and a body that
+            // starts on one starts at its first waypoint.
+            if let Some(start) = motion.as_ref().and_then(PathMotion::start_pos) {
+                seed.kin.pos = start;
+                seed.config.spawn.pos = start;
+            }
+            seed.motion = ActorMotionPath(motion);
+            // Presentation identity: an NPC resolves its sheet through the
+            // catalog id it named, exactly as it did before.
+            seed.config.sprite_character_id = character_id.map(String::from);
+            seed.hurt_feedback = actor_hurt_feedback(catalog, character_id);
+            // ⚠ `respawn` is already `DeadStaysDead` on that road — a match
+            // seat's death is the match's business and an NPC's is permanent
+            // (ADR 0022), and the two happen to agree. Stated here so the
+            // agreement is a fact somebody checked rather than a coincidence.
+            debug_assert_eq!(
+                seed.config.tuning.respawn,
+                ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
+                "an NPC placement's death is permanent (ADR 0022)"
+            );
+            return (seed, render_size);
+        }
         let seed = Self {
             kin: BodyKinematics {
                 pos,

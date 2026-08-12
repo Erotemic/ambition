@@ -111,13 +111,31 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
         "and its locomotion, not the shared player top speed"
     );
 
-    // ⛔ AI POLICY IS NOT THE BODY'S TO STATE. How fast it CAN move is the
-    // character's fact; how fast it chooses to amble is the controller's, and a
-    // character authoring 225 must not turn an idle stroll into a sprint.
+    // ⛔ AI POLICY IS NOT THE BODY'S TO STATE — and this assertion had to be
+    // rewritten when the road changed under it, which is the interesting part.
+    //
+    // It used to demand the shared `NPC_PATROL_SPEED` constant. That was the
+    // right PRINCIPLE (a character authoring 225 must not turn an idle stroll
+    // into a sprint) attached to the wrong MECHANISM: a fixed constant is what a
+    // body gets when nobody knows who it is, the same answer as `max_health: 1`.
+    // §4.7's seam is `body's top speed × controller's effort` — both halves
+    // stated by their own authority — and that is what the character road has
+    // always used.
+    //
+    // ⇒ the invariant, stated so it cannot be satisfied by a coincidence: the
+    // amble is the PROFILE's fraction of the body's top speed, and it is strictly
+    // slower than the body can move.
+    let effort = crate::features::ecs::actor_tuning::BrainProfile::default().patrol_effort;
     assert_eq!(
         tuning.patrol_speed,
-        ambition_characters::brain::NPC_PATROL_SPEED,
-        "patrol speed is controller policy and must be untouched by the body"
+        225.0 * effort,
+        "patrol speed is the controller's EFFORT against the body's top speed, \
+         not a number either one states alone"
+    );
+    assert!(
+        tuning.patrol_speed < tuning.max_run_speed,
+        "and it must still be an amble: a character that authors a fast body \
+         does not thereby decide to stroll at a sprint"
     );
     assert_eq!(
         tuning.respawn,

@@ -60,6 +60,13 @@ pub(crate) fn hostile_brain_id_for_actor() -> &'static str {
 /// ⚠ its identity parameters went with the matcher's (see
 /// [`hostile_brain_id_for_actor`]): there is one fallback spec, and a signature
 /// that still asked who the body was would imply otherwise.
+/// ⚠ **TEST-ONLY since 2026-08-12**, and the reason is a deletion. Its last
+/// production caller was the peaceful-NPC spawn, which asked the roster for
+/// `combatant`'s spec to build a provoked body's kit; that now reads
+/// `brain_builders::default_fighting_kit()` directly. What remains is the
+/// EQUIVALENCE test proving those two are the same swipe — so this function
+/// exists to be compared against, and goes when `combatant` does.
+#[cfg(test)]
 pub(crate) fn hostile_spec_for_actor(
     roster: &super::super::super::enemies::CharacterRoster,
 ) -> super::super::super::enemies::ArchetypeSpec {

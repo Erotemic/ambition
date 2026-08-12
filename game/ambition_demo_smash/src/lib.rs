@@ -1347,6 +1347,13 @@ fn start_the_battle_when_asked(
             ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
         >,
     >,
+    // ⭐ **THE STAGE'S OWN DECLARATION**, read rather than re-stated. The floor a
+    // kit-less seat gets used to be a helper in `select.rs`; it is
+    // `DeclaredCombatRules::unarmed_melee` now, which is where a ruleset fact
+    // lives. `Option` because this system runs before the resource exists on the
+    // very first frame of a boot, and a screen with no rules yet has no floor to
+    // hand out either.
+    rules: Option<bevy::prelude::Res<ambition_platformer2d::combat::rules::DeclaredCombatRules>>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
@@ -1396,6 +1403,9 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
+        rules
+            .as_deref()
+            .and_then(|rules| rules.unarmed_melee.clone()),
     ) else {
         return;
     };
@@ -1456,6 +1466,25 @@ fn start_the_battle_when_asked(
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,
+        // ⭐⭐ **THE STAGE'S FLOOR, DECLARED** (P3.24/P2.20, 2026-08-12). This
+        // lived in `select::smash_fighter_kit()` — a helper this crate applied to
+        // every seat whose character says nothing — while EXPLORATION answered
+        // the same question with a different swipe. Two spellings of "what does
+        // an unarmed body swing", neither owned by anybody.
+        //
+        // ⛔ these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
+        // damage, 34 reach. A stage's floor is faster, harder and longer than an
+        // exploration provoke's, and moving it here is not the place to decide
+        // that differently.
+        unarmed_melee: Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
+            ambition_platformer2d::character::SwipeSpec {
+                windup_s: 0.22,
+                active_s: 0.08,
+                damage: 4,
+                reach_px: 34.0,
+                recover_s: 0.26,
+            },
+        )),
     });
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),

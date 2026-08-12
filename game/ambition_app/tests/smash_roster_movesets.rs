@@ -239,10 +239,27 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     select.set_occupant(1, SlotOccupant::Cpu);
     select.set_pick(1, unarmed[1]);
 
+    // ⚠ **the floor is DECLARED here because a stage declares it** (2026-08-12).
+    // `roster()` is the convenience wrapper and it declares nothing, so calling
+    // it seats a kit-less character with no kit — correctly. What the shipped
+    // smash experience does is put this swipe on
+    // `DeclaredCombatRules::unarmed_melee`, and a fixture that skipped that step
+    // would be asserting about a stage nobody ships.
     let roster = select
-        .roster(
+        .roster_seeded(
             &grid,
+            0,
             ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
+            &Default::default(),
+            Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
+                ambition_platformer2d::character::SwipeSpec {
+                    windup_s: 0.22,
+                    active_s: 0.08,
+                    damage: 4,
+                    reach_px: 34.0,
+                    recover_s: 0.26,
+                },
+            )),
         )
         .expect("two decided seats are a match");
     for participant in &roster.participants {

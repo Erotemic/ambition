@@ -577,7 +577,12 @@ impl SmashSelect {
         fighters: &SmashRoster,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
     ) -> Option<MatchParticipantRoster> {
-        self.roster_seeded(fighters, 0, policy, &Default::default())
+        // ⚠ **DECLARES NO FLOOR and knows no repertoires** — this is the
+        // convenience wrapper, so a kit-less character seated through it reaches
+        // the stage unarmed. That is the honest answer for a caller that has not
+        // said what its experience grants; production goes through
+        // `roster_seeded` with the stage's `DeclaredCombatRules::unarmed_melee`.
+        self.roster_seeded(fighters, 0, policy, &Default::default(), None)
     }
 
     /// **The match this screen decided, with the random squares resolved.**
@@ -619,6 +624,11 @@ impl SmashSelect {
         //
         // Empty = nobody authors anything, which is what every seat got before.
         repertoires: &std::collections::BTreeSet<String>,
+        // **The floor this EXPERIENCE declares** for a seat whose character
+        // states no kit — `DeclaredCombatRules::unarmed_melee`. `None` means the
+        // stage says nothing, and a kit-less seat gets whatever the engine's own
+        // default is wherever it is built.
+        unarmed_melee: Option<ambition_platformer2d::character::MeleeActionSpec>,
     ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
@@ -684,10 +694,21 @@ impl SmashSelect {
                     // thing to watch: this kit's goal is DELETION, and every
                     // character that gains a repertoire removes an adopter.
                     .on_team(format!("seat {}", slot + 1));
-                Some(if authors_its_own {
-                    seat
-                } else {
-                    seat.with_action_set(smash_fighter_kit())
+                Some(match (authors_its_own, unarmed_melee.clone()) {
+                    // Its own repertoire outranks any floor.
+                    (true, _) => seat,
+                    // The stage declared one: hand it over.
+                    (false, Some(melee)) => {
+                        let mut kit = ambition_platformer2d::character::ActionSet::default();
+                        kit.melee = Some(melee);
+                        seat.with_action_set(kit)
+                    }
+                    // ⚠ the stage said nothing AND this character says nothing.
+                    // Leaving the seat bare is the honest outcome — it is what a
+                    // composition with no declared floor asked for — and it is
+                    // reachable only from a fixture, because the shipped smash
+                    // experience always declares one.
+                    (false, None) => seat,
                 })
             })
             .collect();
@@ -825,46 +846,14 @@ pub fn local_source_under(
 /// not own and must not edit. Numbers match `SMASH_CATALOG_RON`'s `duelist`
 /// action set — a real swipe, because the whole point of the stage is that a hit
 /// LAUNCHES and a fighter with no melee cannot knock anybody off anything.
-/// **The STAGE's answer to "what does a body that authored no kit fight with?"**
-///
-/// ⭐⭐ **the engine asks the same question and answers it differently, and the
-/// difference is the DESIGN** (measured 2026-08-12). Exploration's answer is
-/// `brain_builders::default_fighting_kit()` — the swipe a provoked Hall NPC
-/// swings, because a body that authored `peaceful` has nothing otherwise:
-///
-/// ```text
-///                    windup  active  recover  damage  reach
-///   this stage        0.22    0.08     0.26      4      34
-///   exploration       0.28    0.08     0.32      1      28
-/// ```
-///
-/// Faster, harder, longer. That is a platform fighter's floor against an
-/// exploration provoke, and it is correct that they differ.
-///
-/// ⛔ **SO DO NOT MERGE THEM.** They looked like one duplicated helper until the
-/// numbers were put side by side; unifying them would retune one mode while
-/// wearing a refactor's commit. What they share is the CONCEPT, and the
-/// conclusion the pair forces is that this default belongs to the SESSION
-/// RULESET — the campaign's third authority — rather than to the engine or to
-/// any character. A stage states what an unarmed fighter swings for; a room
-/// states something else; neither is a fact about a body.
-///
-/// ⚠ its goal is still DELETION, per character: every fighter that authors a
-/// repertoire stops reaching this, and the count is falling (robot, goblin,
-/// admiral, patent clerk).
-fn smash_fighter_kit() -> ambition_platformer2d::character::ActionSet {
-    let mut kit = ambition_platformer2d::character::ActionSet::default();
-    kit.melee = Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
-        ambition_platformer2d::character::SwipeSpec {
-            windup_s: 0.22,
-            active_s: 0.08,
-            damage: 4,
-            reach_px: 34.0,
-            recover_s: 0.26,
-        },
-    ));
-    kit
-}
+// ⛔ **`smash_fighter_kit()` IS DELETED** (2026-08-12). It was this crate's answer
+// to "what does a body that authored no kit swing?" — one swipe, granted to every
+// seat whose character says nothing — and EXPLORATION answered the same question
+// with different numbers in a different crate. Two spellings, neither owned.
+//
+// ⇒ the numbers moved to `DeclaredCombatRules::unarmed_melee`, verbatim, where a
+// ruleset fact belongs: a STAGE states what an unarmed fighter swings for. This
+// screen reads the declaration instead of carrying one.
 
 #[cfg(test)]
 mod tests;

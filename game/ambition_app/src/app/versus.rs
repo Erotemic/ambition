@@ -764,6 +764,12 @@ fn track_versus_roster(
                 // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
                 downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
                 friendly_fire: false,
+                // ⚠ **the versus route says NOTHING here** (2026-08-12). Its
+                // seats are the shipped cast, every one of which authors its own
+                // kit; a floor is what a stage needs when a body does not, and
+                // this stage does not have that body. `None` leaves the engine's
+                // exploration default standing, which nothing here reaches.
+                unarmed_melee: None,
             });
             // A FRESH match. `VersusMatch` is a long-lived resource, so without
             // this, leaving mid-round and coming back resumes the old score —

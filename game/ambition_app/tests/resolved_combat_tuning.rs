@@ -135,6 +135,8 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         knockback_growth: 0.0,
         friendly_fire: false,
         downward_hit: Default::default(),
+        // this fixture is about DI and knockback growth, not the floor
+        unarmed_melee: None,
     });
     app.update();
 

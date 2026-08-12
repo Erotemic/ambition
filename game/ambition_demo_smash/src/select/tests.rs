@@ -41,8 +41,28 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
         select.set_occupant(slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Fighter(pick));
     }
+    // ⚠ **the fixture DECLARES a floor, because the shipped experience does**
+    // (2026-08-12). This passed `None` for one commit after `smash_fighter_kit()`
+    // became `DeclaredCombatRules::unarmed_melee`, and the test went red exactly
+    // as it should have: a stage that declares no floor seats an unarmed
+    // character unarmed. The invariant did not change — the fixture had stopped
+    // modelling how a stage is built.
     let roster = select
-        .roster_seeded(&fighters, 7, UNIFIED, &repertoires)
+        .roster_seeded(
+            &fighters,
+            7,
+            UNIFIED,
+            &repertoires,
+            Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
+                ambition_platformer2d::character::SwipeSpec {
+                    windup_s: 0.22,
+                    active_s: 0.08,
+                    damage: 4,
+                    reach_px: 34.0,
+                    recover_s: 0.26,
+                },
+            )),
+        )
         .expect("two decided seats are a match");
 
     let seat_of = |id: &str| {
@@ -580,7 +600,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default())
+        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None)
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -597,7 +617,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ⚠ **SEEDED, not ambient** (ADR 0023). The same seed draws the same match,
     // which is what makes a desync explicable and a test able to name a draw.
     let again = select
-        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default())
+        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None)
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -607,7 +627,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ...and a different seed is allowed to differ. Asserting it MUST differ
     // would be asserting a hash collision never happens on a grid this small.
     let other = select
-        .roster_seeded(&fighters, 99, UNIFIED, &Default::default())
+        .roster_seeded(&fighters, 99, UNIFIED, &Default::default(), None)
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }

@@ -99,6 +99,30 @@ pub struct DeclaredCombatRules {
     /// on to let two humans hit each other also makes teammates hittable — the
     /// 2v2 bug this seam exists to stop recurring.
     pub friendly_fire: bool,
+    /// **What a body that authored NO melee swings, in this experience.**
+    ///
+    /// ⭐⭐ **the third authority finally owning a scaffold that had been spelled
+    /// twice** (2026-08-12). Two places answered this question independently:
+    /// Smash's `smash_fighter_kit()` granted a seated fighter one swipe, and the
+    /// PROVOCATION path handed a peaceful body a whole enemy archetype to get a
+    /// melee out of it. Putting their numbers side by side is what settled it —
+    /// `0.22/0.08/0.26`, 4 damage, 34 reach on the stage against
+    /// `0.28/0.08/0.32`, 1 damage, 28 reach in exploration. Faster, harder,
+    /// longer: a platform fighter's floor is not an exploration provoke, and the
+    /// difference is a RULESET's to state.
+    ///
+    /// ⇒ same shape as `knockback_growth` one field up, and for the same reason:
+    /// *what a stage says when the move authors nothing*. A character that
+    /// states its own repertoire never reaches this.
+    ///
+    /// ⚠ `None` means *this experience does not say*, and the engine's own
+    /// exploration default stands — which is every room in Ambition, and is why
+    /// this is an `Option` rather than a value every declaration must invent.
+    ///
+    /// ⛔ its goal is DELETION, per character rather than per mode: when every
+    /// body in an experience authors its own kit, that experience's declaration
+    /// goes back to `None` and the scaffold has no adopters left.
+    pub unarmed_melee: Option<ambition_characters::brain::MeleeActionSpec>,
 }
 
 /// **The rules combat actually reads this tick.**
@@ -217,6 +241,7 @@ mod tests {
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 friendly_fire: false,
+                unarmed_melee: None,
             }),
             baseline_di,
             true,
@@ -239,6 +264,7 @@ mod tests {
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             friendly_fire: true,
+            unarmed_melee: None,
         });
         assert_eq!(
             ResolvedCombatTuning::resolve(declared, 0.12, false).di_max_angle,

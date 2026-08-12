@@ -874,7 +874,11 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
             .body_blueprint()
             .expect("it states its locomotion")
             .locomotion
-            .flies,
+            .flies
+            // ⚠ `Some(true)`, not merely truthy: `flies` is a THREE-state since
+            // 2026-08-11 (ledger D89) and a prepared character always resolves
+            // it, so `None` here would mean preparation left the question open.
+            == Some(true),
         "the catalog says this body floats and the character did not say \
          otherwise, so the PREPARED character has to carry it — a constructor \
          asking the catalog again is the thing §14 deletes"
@@ -888,12 +892,17 @@ fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
         Some(&catalog),
     )
     .prepared;
-    assert!(
-        !grounded
+    assert_eq!(
+        grounded
             .body_blueprint()
             .expect("it states its locomotion")
             .locomotion
-            .flies
+            .flies,
+        // ⚠ **`Some(false)`, and the difference is the whole three-state.** An
+        // unknown id has no catalog answer to fold, so preparation resolves the
+        // silence to "does not fly" — and a reader must not have to tell that
+        // apart from "nobody said".
+        Some(false),
     );
 }
 

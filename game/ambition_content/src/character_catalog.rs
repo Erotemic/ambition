@@ -485,7 +485,7 @@ pub fn authored_intrinsics(
                     // Knocked off its surface when hit — falls with gravity for
                     // a moment, then re-attaches on landing.
                     cling_breaks_on_hit: true,
-                    flies: false,
+                    flies: Some(false),
                 })
                 .with_contact_damage(ContactDamage {
                     strength: 0.55,
@@ -564,7 +564,7 @@ pub fn authored_intrinsics(
                 .with_locomotion(CharacterLocomotion {
                     run_speed: if paper { 58.0 } else { 38.0 },
                     move_style: MoveStyleSpec::Float,
-                    flies: true,
+                    flies: Some(true),
                     ..Default::default()
                 })
                 .with_contact_damage(ContactDamage {

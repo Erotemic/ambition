@@ -57,11 +57,22 @@ pub struct CharacterLocomotion {
     /// live in another provider's catalog, so migrating them in the standalone
     /// demo produced snakes riding paper airplanes with gravity applied.
     ///
-    /// ⚠ **`false` does not mean "grounded", it means "this character did not
-    /// say"** — construction still consults the catalog's `body_kind` for a
-    /// character that has not stated one, which is every unmigrated flyer.
+    /// ⛔⛔ **`None` IS NOT `Some(false)`, and that distinction is the whole
+    /// point** (2026-08-11). This was a bare `bool` whose own doc admitted
+    /// *"`false` does not mean grounded, it means this character did not say"* —
+    /// so a character that flies, one that deliberately does NOT, and one that is
+    /// silent were two values for three facts. Construction fills silence from
+    /// the catalog's `body_kind: Floating`, and a character had no way to
+    /// disagree with it.
+    ///
+    /// ⭐ **`ArchetypeSpec::is_aerial` already made this distinction, and its doc
+    /// already named the live case**: the Perfect Cellular Automaton, *"`Floating`
+    /// in its catalog row, played grounded by the shipped duel"*. This is that
+    /// answer migrated onto the character, not a new idea — and until it landed,
+    /// the character-first PCA flew every frame of its own duel and never
+    /// blocked.
     #[serde(default)]
-    pub flies: bool,
+    pub flies: Option<bool>,
 }
 
 impl Default for CharacterLocomotion {
@@ -76,7 +87,8 @@ impl Default for CharacterLocomotion {
             move_style: MoveStyleSpec::Walk,
             surface_walker: false,
             cling_breaks_on_hit: false,
-            flies: false,
+            // ⚠ SILENT, not grounded — see the field.
+            flies: None,
         }
     }
 }

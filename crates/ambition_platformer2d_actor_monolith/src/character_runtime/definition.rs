@@ -1843,11 +1843,19 @@ fn finalize_character(
         // never overrule it.
         locomotion: locomotion.map(
             |locomotion| ambition_characters::actor::CharacterLocomotion {
-                flies: locomotion.flies
-                    || matches!(
-                    catalog.and_then(|catalog| catalog.body_kind(&id)),
-                    Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
-                ),
+                // ⭐ **the catalog fills SILENCE and never overrules a stated
+                // answer.** A character that says `Some(false)` is grounded even
+                // though its row says `Floating` — which is the PCA exactly: its
+                // row is `Floating` (that is also what shapes its collision box)
+                // and it is a grounded hybrid that takes to the air only to close
+                // a gap. Before `flies` could say no, this line made it a
+                // permanent flyer.
+                flies: Some(locomotion.flies.unwrap_or_else(|| {
+                    matches!(
+                        catalog.and_then(|catalog| catalog.body_kind(&id)),
+                        Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+                    )
+                })),
                 ..locomotion
             },
         ),

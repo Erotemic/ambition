@@ -821,7 +821,10 @@ impl ActorClusterSeed {
         // The fold now happens in `finalize_character`, so `flies` on a prepared
         // character already carries the catalog's answer for every body that did
         // not state one.
-        let is_aerial = locomotion.flies;
+        // ⚠ silence reads as GROUNDED here: preparation has already folded the
+        // catalog answer in, so an unresolved  at construction means no
+        // authority said this body flies.
+        let is_aerial = locomotion.flies.unwrap_or(false);
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
         // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
         // default otherwise: the stage has to give a body that has never said

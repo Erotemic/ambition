@@ -454,3 +454,69 @@ fn the_grid_fighters_with_a_real_repertoire_only_grow() {
          adopters left: P3.24 is complete and this ratchet should go with it"
     );
 }
+
+/// **THE STAND-IN ROBOTS STEP ASIDE IN A HOST THAT CARRIES THE REAL LINEAGE —
+/// and the copies stay in the standalone demo for a reason that is not
+/// historical.**
+///
+/// ⛔ P5.39 asks whether the standalone demo's two robot copies can be deleted
+/// now that provider registration is clean. The answer is NO, and the exact
+/// dependency reason is one line of `game/ambition_demo_smash/Cargo.toml`:
+///
+/// ```text
+/// ambition_platformer2d + bevy, and nothing else   (the E9 oracle rule)
+/// ```
+///
+/// `player_robot_v3` / `player_robot_v2` are authored in `ambition_content`, a
+/// GAME crate. Depending on it would delete the one property that demo exists
+/// for — that a stocks match is expressible through the ENGINE facade alone —
+/// so the copies are the packaging boundary rather than a leftover.
+///
+/// ⭐ what makes them harmless is that the duplication is CONDITIONAL:
+/// `SmashRoster::assemble` drops each copy the moment the character it stands in
+/// for resolves, so no host ever shows two robots side by side with one of them
+/// wearing a made-up name. Three test files rely on that in a comment; nothing
+/// asserted it, and a stand-in that stopped stepping aside would show up as a
+/// duplicate portrait nobody was looking for.
+///
+/// ⚠ **the poison is the standalone default**, which must still contain them —
+/// otherwise this test passes on a build where the copies were simply gone from
+/// the roster and the drop rule had stopped running.
+#[test]
+fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .expect("the composed host has a prepared-character registry");
+    let assembled = SmashRoster::assemble(registry);
+    let grid: Vec<String> = assembled.ids().map(str::to_string).collect();
+
+    // The real lineage is what this host offers.
+    assert!(
+        grid.iter().any(|id| id == "player_robot_v3"),
+        "the composed host must actually carry the real robot, or 'the copy \
+         stepped aside' is a statement about a grid that has neither: {grid:?}"
+    );
+
+    for copy in ambition_demo_smash::select::OWN_FIGHTERS {
+        assert!(
+            !grid.iter().any(|id| id == copy),
+            "`{copy}` is a stand-in for a character THIS composition registers, \
+             so the grid is showing two robots and one of them has a made-up \
+             name: {grid:?}"
+        );
+        // ⭐ THE POISON: the standalone demo still declares it. Without this the
+        // assertion above passes on a build where the copies were deleted
+        // outright and the conditional drop had quietly stopped working.
+        assert!(
+            ambition_demo_smash::select::SmashRoster::default()
+                .ids()
+                .any(|id| id == *copy),
+            "`{copy}` is gone from the standalone demo's own cast, so the drop \
+             rule above is not what removed it from the host grid"
+        );
+    }
+}

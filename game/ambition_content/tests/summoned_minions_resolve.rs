@@ -15,34 +15,13 @@
 //! constant can each be individually defensible while the pair is broken, and
 //! only the second question sees it.
 
-/// The archetype/character ids this game's CONTENT names by string, with where
-/// each one is written. ⚠ a new summon constant or wave kind belongs here the day
-/// it is written.
+/// ⛔ **THERE WAS A HAND-WRITTEN LIST HERE AND IT IS DELETED** (2026-08-12). It
+/// named the two Gradient Sentinel constants and the puppy-slug gun's, which is
+/// exactly the set the scanner below finds on its own — and a transcription that
+/// duplicates a scan is a second place to forget. The class had already outrun the
+/// list three times before the scan existed; keeping both would have preserved the
+/// habit that made that possible.
 ///
-/// ⭐ **the encounter waves joined this list the moment the question was asked of
-/// them** (2026-08-12): `goblin_encounter.ron` names `kind: "large_brute"` three
-/// times, and that row is gone too. Same defect as the boss, same week, found by
-/// asking the same question one file over — which is the argument for the guard
-/// being about the QUESTION rather than about the two constants that prompted it.
-const SUMMONED_MINIONS: &[(&str, &str)] = &[
-    (
-        "npc_puppy_slug",
-        "gradient_sentinel.rs MINIMA_TRAP_MINION_ARCHETYPE",
-    ),
-    (
-        "small_lurker",
-        "gradient_sentinel.rs GRADIENT_CASCADE_MINION_ARCHETYPE",
-    ),
-    // ⚠ the ENGINE names this one, not content — a player weapon that summons a
-    // creature is still a summon, and it was the third instance of this defect.
-    // Listed here because this is where the question gets asked, even though the
-    // constant lives one crate over.
-    (
-        "npc_puppy_slug",
-        "abilities/thrown/puppy_slug_gun.rs SLUG_ARCHETYPE",
-    ),
-];
-
 /// Every encounter file whose wave `kind`s are read STRAIGHT FROM THE SHIPPED
 /// BYTES rather than transcribed into the list above.
 ///
@@ -63,6 +42,71 @@ fn wave_kinds(ron: &str) -> Vec<&str> {
             rest.find('"').map(|end| &rest[..end])
         })
         .collect()
+}
+
+/// **Every `*_ARCHETYPE` constant in the workspace, found by SCANNING rather than
+/// by transcription.**
+///
+/// ⛔⛔ **the list above is a snapshot and the class has already outrun it three
+/// times.** `puppy_slug` and `small_lurker` in the Gradient Sentinel, then
+/// `puppy_slug` again in a PLAYER WEAPON one crate away — each found by a human
+/// asking "who else names an archetype by string?", never by a guard. A list
+/// somebody has to remember to extend is exactly as good as the memory.
+///
+/// ⇒ this walks the source tree for `const …ARCHETYPE…: &str = "…"` and checks
+/// each value the same way. A new constant is covered the moment it is written,
+/// which is the only version of this guard that survives the next person who
+/// adds one.
+///
+/// ⚠ **it asserts it FOUND some**, because a scanner that matches nothing passes
+/// silently — the failure mode of every source-scanning test ever written.
+fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<(String, String)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().is_some_and(|n| n == "target") {
+                    continue;
+                }
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                for line in text.lines() {
+                    let trimmed = line.trim_start();
+                    if !trimmed.starts_with("const ") && !trimmed.starts_with("pub const ") {
+                        continue;
+                    }
+                    // ⛔ the NAME must END in `_ARCHETYPE`, not merely contain it.
+                    // The first version matched `CHARACTER_ARCHETYPES_FILE` and
+                    // friends and reported a RON path as an unresolvable creature
+                    // — a scanner that over-matches gets muted exactly as fast as
+                    // one that under-matches.
+                    let Some(name_end) = trimmed.find(':') else {
+                        continue;
+                    };
+                    if !trimmed[..name_end].trim_end().ends_with("_ARCHETYPE")
+                        || !trimmed.contains("&str")
+                    {
+                        continue;
+                    }
+                    let Some(open) = trimmed.find('"') else {
+                        continue;
+                    };
+                    let rest = &trimmed[open + 1..];
+                    let Some(end) = rest.find('"') else { continue };
+                    out.push((rest[..end].to_string(), path.display().to_string()));
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, &mut out);
+    out
 }
 
 /// **Each summoned id names a registered character, or an archetype row that
@@ -95,16 +139,38 @@ fn every_summoned_minion_id_resolves_a_body() {
         ambition_content::character_catalog::buildable_cast().collect();
     let rows = ambition_content::enemy_roster::CHARACTER_ROSTER_RON;
 
-    let mut named: Vec<(&str, &str)> = SUMMONED_MINIONS.to_vec();
+    // ⭐ the SCANNED half: every `*_ARCHETYPE` constant in the engine and the
+    // games, wherever somebody writes the next one.
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("the content crate sits two levels under the repo root")
+        .to_path_buf();
+    let scanned: Vec<(String, String)> = ["crates", "game"]
+        .into_iter()
+        .flat_map(|dir| archetype_constants(&repo.join(dir)))
+        .collect();
+    assert!(
+        !scanned.is_empty(),
+        "the `*_ARCHETYPE` constant scan found NOTHING under {}, so this half of \
+         the guard is reading an empty tree — check the path or the pattern",
+        repo.display()
+    );
+
+    let mut named: Vec<(&str, &str)> = scanned
+        .iter()
+        .map(|(id, site)| (id.as_str(), site.as_str()))
+        .collect();
+    let before_waves = named.len();
     for (ron, site) in ENCOUNTER_FILES {
         for kind in wave_kinds(ron) {
             named.push((kind, site));
         }
     }
     assert!(
-        named.len() > SUMMONED_MINIONS.len(),
-        "the encounter parse found no wave kinds at all, so this guard is reading \
-         nothing — the file's shape changed under it"
+        named.len() > before_waves,
+        "the encounter parse found no wave kinds at all, so that half of this \
+         guard is reading nothing — the file's shape changed under it"
     );
 
     let mut unresolved = Vec::new();

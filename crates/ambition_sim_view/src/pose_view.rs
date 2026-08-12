@@ -24,7 +24,10 @@ use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 ///
 /// AJ14 Tier-0: `pos` + `vel` are the per-body read-model velocity fields the
 /// slower-light observer views ride.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+/// ⚠ **not `Copy` since it gained the active move's clip chain** (2026-08-11):
+/// the chain is owned strings, because a materialized pose view outlives the
+/// query that built it.
+#[derive(bevy::prelude::Component, Clone, Debug)]
 pub struct BodyPoseView {
     pub pos: ambition_platformer2d_core::Vec2,
     pub vel: ambition_platformer2d_core::Vec2,
@@ -46,6 +49,10 @@ pub struct BodyPoseView {
     /// The picked animation row for this tick (the player picker over the
     /// body's real clusters).
     pub anim: CharacterAnim,
+    /// **What this body's ACTIVE MOVE asks to be drawn as**, when one is
+    /// playing — see `ActorAnimFrame::clip`, which is the same request on the
+    /// actor road. `None` means *draw the semantic pose*.
+    pub clip: Option<crate::ClipRequest>,
     /// Seconds remaining on the damage flash (`BodyCombat::hit_flash`).
     pub hit_flash_secs: f32,
     pub hp_current: i32,
@@ -94,6 +101,8 @@ impl Default for BodyPoseView {
             size: ambition_platformer2d_core::Vec2::ONE,
             base_size: ambition_platformer2d_core::Vec2::ONE,
             facing: 1.0,
+            // A body with no pose yet is playing no move.
+            clip: None,
             roll_angle: 0.0,
             stance_ratio_y: 1.0,
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
@@ -170,6 +179,11 @@ pub fn rebuild_body_pose_views(
                 bevy::prelude::Has<
                     ambition_sprite_sheet::character::SpritePosedBody,
                 >,
+                // **The move this body is playing**, so the drawn row can be the
+                // one the move NAMES — the same request the actor path carries
+                // on `ActorAnimFrame::clip` (sprite redirect P0). Fifteen members
+                // in this sub-tuple; Bevy's limit is sixteen.
+                Option<&ambition_combat::moveset::MovePlayback>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -197,6 +211,7 @@ pub fn rebuild_body_pose_views(
             authored_render,
             authored_offset,
             sheet_authored_body,
+            playback,
             pose,
         ),
     ) in &mut bodies
@@ -254,6 +269,10 @@ pub fn rebuild_body_pose_views(
             stance_ratio_y,
             gravity_dir,
             anim,
+            clip: playback.map(|playback| crate::ClipRequest {
+                clip: playback.spec.clip.clip.clone(),
+                fallbacks: playback.spec.clip.fallbacks.clone(),
+            }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),
@@ -319,16 +338,14 @@ pub fn rebuild_shield_rings_view(
     )>,
 ) {
     view.0.clear();
-    view.0.extend(
-        bodies
-            .iter()
-            .filter(|(_, shield, _)| shield.active)
-            .map(|(kin, shield, presented)| ShieldRingFact {
+    view.0
+        .extend(bodies.iter().filter(|(_, shield, _)| shield.active).map(
+            |(kin, shield, presented)| ShieldRingFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
                 size: kin.size,
                 parrying: shield.parrying(),
-            }),
-    );
+            },
+        ));
 }
 
 #[cfg(test)]

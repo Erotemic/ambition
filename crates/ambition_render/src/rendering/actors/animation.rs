@@ -142,12 +142,11 @@ pub fn animate_player(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             pose.anim,
-            // ▢ **THE PLAYER PATH DOES NOT CARRY ITS MOVE'S CLIP YET** (sprite
-            // redirect P0). `PlayerPoseView` is rebuilt from a query already near
-            // Bevy's 16-member tuple limit, so adding `MovePlayback` there is its
-            // own change rather than a line in this one. Every ACTOR — which is
-            // every CPU fighter and every NPC — resolves its clip below.
-            None,
+            // ⭐ **and the local player's move names its row too** — the same
+            // request the actor road carries, so a human-driven fighter and a
+            // CPU one on the same character draw the same animation for the same
+            // move. That is the property the whole seam exists for.
+            pose.clip.as_ref(),
             dt,
             pose.facing,
             pose.gravity_dir,

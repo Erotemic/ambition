@@ -2283,6 +2283,27 @@ pub(super) fn spawn_encounter_mob(
         },
     };
     let definition = prepared_character.filter(|definition| definition.body_blueprint().is_ok());
+    // ⛔⛔ **AND THE WAVE'S `kind` HAS THE SAME FAILURE MODE THE BOSS SUMMON HAD**
+    // (ledger D93, 2026-08-12). `goblin_encounter.ron` names `kind:
+    // "large_brute"` three times and that archetype row is DELETED, so
+    // `spec_for_brain` answers `combatant` and three waves of a shipped fight
+    // spawn a generic body. Nothing fails, because a fallback IS a body.
+    //
+    // ⚠ warned, not refused: the fallback keeps the encounter playable, and which
+    // creature a goblin fight's heavy should be is a content decision. What must
+    // not happen again is it being invisible.
+    if definition.is_none() {
+        if let Some(key) = brain_key(&brain) {
+            if !roster.has_brain_key(key) {
+                bevy::log::warn_once!(
+                    target: "ambition_platformer2d_actor_monolith::spawn",
+                    "encounter wave kind `{key}` names no archetype row and no \
+                     character, so mob `{id}` spawns the generic `combatant` \
+                     fallback — a real body, and not the one the wave asked for.",
+                );
+            }
+        }
+    }
     let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(

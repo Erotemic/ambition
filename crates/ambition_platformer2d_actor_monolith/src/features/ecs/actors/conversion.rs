@@ -280,20 +280,35 @@ pub(crate) fn provoke_actor_in_place(
             held_item,
             em.abilities.abilities,
         );
-        em.config.tuning = proj.tuning;
-        // Re-sync gravity to the hostile archetype's locomotion mode — the same
-        // invariant `reset_to_spawn` enforces. Without it a peaceful *Floating* NPC
-        // (gravity 0) provoking into a grounded archetype would freeze mid-air (the
-        // grounded brain never sets `velocity_target`). The Perfect Cell-ular
-        // Automaton hits exactly this: floats peacefully, then descends to brawl.
+        // ⭐⭐ **THE MIND CHANGES. THE BODY DOES NOT.**
+        //
+        // ⛔ four assignments stood here and every one of them replaced the
+        // creature: `em.config.tuning` (its speed and gait),
+        // `em.surface.gravity_scale` (whether it flies),
+        // `em.config.sprite_override_npc_name` (what it looks like) and an
+        // inserted `proj.capabilities` (what it may reach for) — all from the
+        // `combatant` row. A struck villager did not become an angry villager,
+        // it became a `combatant` wearing a villager's name, and the
+        // paragraph above this branch has always said otherwise.
+        //
+        // ⚠ **the gravity re-sync is NOT among them, and it is the exception
+        // that names the next defect.** A body at `gravity_scale: 0` driven by
+        // a GROUNDED policy freezes, so provocation still re-grounds one — a
+        // body change, kept because the freeze is real and deleting the write
+        // on the strength of an argument would ship it. The actual defect is one
+        // level up: generic provocation hands every body the same grounded
+        // policy, so a flying creature is given a mind that cannot drive it.
+        // See `ProvokedArchetype::gravity_scale`.
         em.surface.gravity_scale = proj.gravity_scale;
         em.config.brain_profile = proj.brain_profile;
         em.config.brain = proj.config_brain;
-        // Take on the hostile archetype's HP pool (the peaceful seed spawned at
-        // health=1; a provoked actor fights at full archetype HP).
+        // ⛔ **THE ONE BODY FACT LEFT, AND IT IS D96 ITEM 7.** A peaceful NPC
+        // placement spawns at `max_health: 1`, so a provoked one that kept its
+        // own pool dies to a single hit. What a provoked villager's health pool
+        // should be is Jon's open decision; until it is answered this borrows
+        // the archetype row's number, and it is the last thing generic
+        // provocation takes from one. See `ProvokedArchetype::max_health`.
         *em.health = super::super::autonomous_reconcile::fresh_health_pool(proj.max_health);
-        em.config.sprite_override_npc_name = proj.sprite_override_npc_name;
-        commands.entity(entity).insert(proj.capabilities);
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE

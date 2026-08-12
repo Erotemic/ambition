@@ -47,35 +47,80 @@ use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// The complete set of components a provoked hostile archetype installs on an
-/// actor — the deterministic projection of `(archetype spec, current config,
-/// combat kit, held item)`.
+/// **What provocation produces: a MIND and a KIT. Never a body.**
+///
+/// ⛔⛔ **THIS USED TO REPLACE THE CREATURE.** A peaceful body that got struck
+/// had its tuning, its gravity scale, its HP pool, its combat capabilities and
+/// its sprite override overwritten from the `combatant` archetype row — so a
+/// provoked villager did not become an angry villager, it became a `combatant`
+/// wearing a villager's name. The comment three lines above the code that did it
+/// already stated the correct invariant: *"provocation is one body, a different
+/// driver, a changed relationship. The body stays exactly as its character built
+/// it."* It was describing the OTHER branch.
+///
+/// ⇒ what a provocation may change is the POLICY the body is driven by, the KIT
+/// it swings if it has none of its own, and its relationship to whoever struck
+/// it. Its speed, its locomotion, its capabilities and its silhouette are facts
+/// about the creature, and being hit is not an argument about any of them.
+///
+/// ⚠ **and the brain is lowered against the BODY's tuning now**, not the
+/// archetype's — §4.7, a policy states normalized effort and the body states the
+/// speed. A provoked villager chases at a villager's top speed, which is the
+/// same sentence as the paragraph above with the consequence attached.
 ///
 /// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
 /// reconstruction apply this exact projection, so a provoked actor is identical
 /// whether it was just challenged or rebuilt after a GGRS load.
 pub(crate) struct ProvokedArchetype {
-    pub tuning: ActorTuning,
     pub brain_profile: BrainProfile,
-    pub gravity_scale: f32,
+    /// **THE ONE BODY FACT STILL PROJECTED, and it is a decision rather than a
+    /// design.**
+    ///
+    /// A peaceful NPC placement spawns at `max_health: 1` — the generic
+    /// stroller seed — so a provoked one that kept its own pool would die to a
+    /// single hit. What a provoked villager's health pool should be is **D96
+    /// item 7**, open and Jon's. Until it is answered this borrows the archetype
+    /// row's number, and it is the last thing generic provocation takes from
+    /// one.
+    ///
+    /// ⛔ do not quietly widen this back out. Every other field that used to sit
+    /// beside it is gone on purpose; a second one reappearing is the ontology
+    /// growing back.
     pub max_health: i32,
-    pub capabilities: CombatCapabilities,
-    pub sprite_override_npc_name: Option<String>,
+    /// **THE SECOND, and it is a MISMATCH being patched rather than a fact.**
+    ///
+    /// A body at `gravity_scale: 0` driven by a GROUNDED policy freezes: the
+    /// aerial integrator reads a `velocity_target` the grounded brain never
+    /// sets. So provocation re-grounds a floating body, which is a body change,
+    /// and `a_floating_npc_grounds_when_provoked_into_a_grounded_archetype`
+    /// pins it.
+    ///
+    /// ⛔ **the guard was probed rather than dropped.** GPT 5.6's redirect says
+    /// no gravity replacement, and it is right about the direction — but the
+    /// freeze is real, and deleting the write on the strength of an argument
+    /// would ship it. The actual defect is one level up: a generic provocation
+    /// hands every body the same GROUNDED policy, so a flying creature is given
+    /// a mind that cannot drive it. Fixing THAT deletes this field; forcing the
+    /// body to match the policy is the ontology arguing back.
+    ///
+    /// ⚠ the example this used to cite is already gone: the Perfect Cellular
+    /// Automaton "floats peacefully, then descends to brawl" and now authors
+    /// `baseline_free_flight: Some(false)` itself (D89). What remains reachable
+    /// is a body whose CHARACTER says it flies — the parrot, the burning shark.
+    pub gravity_scale: f32,
     /// The `ActorConfig.brain` read-model marker for a provoked actor.
     pub config_brain: CharacterBrain,
     pub brain: Brain,
     pub action_set: ambition_characters::brain::ActionSet,
 }
 
-/// Project a hostile roster archetype onto an actor's config. Pure: no ECS, no
+/// Project a hostile roster archetype's POLICY onto an actor. Pure: no ECS, no
 /// mutation — the single definition of "what provocation produces", so the live
 /// flip and a snapshot rebuild can never drift.
 ///
-/// `current_config` is the actor's config at call time. The projection clones it
-/// to hand the archetype's HOSTILE tuning / brain-spec / id to the brain builder
-/// (which reads them). It keeps NO live combat values from the caller — with one
-/// deliberate exception: the PLACEMENT-owned respawn policy, which the archetype
-/// does not get to overwrite (ADR 0022, see `ActorTuning::adopting_archetype`).
+/// `current_config` is the actor's config at call time, and it is the body the
+/// policy is lowered against. The projection clones it to swap in the hostile
+/// `brain_profile` and nothing else.
 pub(crate) fn project_provoked_archetype(
     spec: &ArchetypeSpec,
     archetype: &str,
@@ -87,17 +132,11 @@ pub(crate) fn project_provoked_archetype(
     // abilities it already had, and the driver may only reach for those.
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
-    // The archetype supplies COMBAT tuning; the placement keeps the fields it
-    // owns (respawn policy — ADR 0022). See `ActorTuning::adopting_archetype`.
-    let tuning = current_config.tuning.adopting_archetype(spec.tuning());
     let brain_profile = spec.brain_profile();
     let config_brain = CharacterBrain::Custom(archetype.to_string());
 
-    // The brain builder selects the concrete hostile brain from the actor's
-    // config (id + the HOSTILE tuning/brain_profile), so hand it a config carrying
-    // those. Every other field is irrelevant to the builder.
+    // ⭐ the POLICY is the archetype's; the BODY is the one that was struck.
     let mut hostile_config = current_config.clone();
-    hostile_config.tuning = tuning.clone();
     hostile_config.brain_profile = brain_profile;
     hostile_config.brain = config_brain.clone();
     let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
@@ -107,24 +146,14 @@ pub(crate) fn project_provoked_archetype(
         body,
     );
 
-    // Keep the actor's own sprite sheet (its NPC name) when hostile — except the
-    // Kernel Guide, which uses the default enemy sheet (legacy quirk). Mirrors
-    // the live provoke flip.
-    let sprite_override_npc_name = if current_config.name != "Kernel Guide NPC" {
-        Some(current_config.name.clone())
-    } else {
-        None
-    };
-
     ProvokedArchetype {
-        gravity_scale: if tuning.is_aerial { 0.0 } else { 1.0 },
+        // See the field doc: the POLICY is grounded, so a floating body has to
+        // be grounded to be drivable by it. The mismatch is the bug.
+        gravity_scale: if spec.tuning().is_aerial { 0.0 } else { 1.0 },
         max_health: spec.max_health,
-        capabilities: spec.combat_capabilities(),
-        sprite_override_npc_name,
         config_brain,
         brain,
         action_set,
-        tuning,
         brain_profile,
     }
 }
@@ -352,13 +381,23 @@ fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
     let Ok(mut em) = world.get_entity_mut(entity) else {
         return;
     };
+    // ⭐ the twin of the live flip, and it lost the same four writes: a rewind
+    // into a provoked snapshot restores the MIND and the KIT, because those are
+    // all the provocation ever changed.
     if let Some(mut config) = em.get_mut::<ActorConfig>() {
-        config.tuning = proj.tuning;
         config.brain_profile = proj.brain_profile;
         config.brain = proj.config_brain;
-        config.sprite_override_npc_name = proj.sprite_override_npc_name;
     }
-    em.insert((proj.brain, proj.action_set, proj.capabilities));
+    // ⚠ **the twins must write the SAME set**, which is this module's whole
+    // contract: a provoked actor is identical whether it was just challenged or
+    // rebuilt from a snapshot. Both write the mind, the kit, and the two body
+    // facts that are still projected — see `ProvokedArchetype`, where each of
+    // the two says why it is there and what deletes it.
+    em.insert(fresh_health_pool(proj.max_health));
+    if let Some(mut surface) = em.get_mut::<crate::features::enemies::ActorSurfaceState>() {
+        surface.gravity_scale = proj.gravity_scale;
+    }
+    em.insert((proj.brain, proj.action_set));
 }
 
 /// **Put a character-first body back on its own character's policy** — and touch
@@ -881,33 +920,52 @@ mod tests {
             .expect("wanderer builds")
     }
 
-    /// Provocation borrows a mob archetype's COMBAT numbers but must not borrow
-    /// its liveness policy (ADR 0022). A named NPC is a person: killing it is
-    /// permanent, even though it fights as a `combatant`, which is authored
-    /// `OnRoomReenter` like every other trash mob.
+    /// **PROVOCATION PROJECTS NO TUNING AT ALL, so a body keeps everything it
+    /// was.**
     ///
-    /// The regression this pins: `project_provoked_archetype` assigned
-    /// `spec.tuning()` wholesale, so a provoked NPC silently became
-    /// `OnRoomReenter`. The kill hook then wrote no death flag, save-sync had
-    /// nothing to read, and the NPC was rebuilt alive by the next room
-    /// construction — "kill an NPC, it respawns immediately".
+    /// ⛔ this test used to be narrower and its name says so: *"borrows COMBAT
+    /// numbers but never the placement respawn policy"*. It existed because
+    /// `project_provoked_archetype` assigned `spec.tuning()` wholesale and a
+    /// provoked NPC silently became `OnRoomReenter` — the kill hook wrote no
+    /// death flag, save-sync had nothing to read, and the NPC was rebuilt alive
+    /// by the next room construction ("kill an NPC, it respawns immediately",
+    /// ADR 0022).
+    ///
+    /// ⭐ the fix at the time carved ONE field out of the wholesale assignment.
+    /// The projection now assigns no tuning whatever — a provocation changes the
+    /// mind and the kit, never the body — so the respawn policy survives for the
+    /// same reason the run speed and the gait do, and the narrow claim became a
+    /// special case of a general one. Asserting the general one is what stops a
+    /// future widening putting a second field back.
+    ///
+    /// ⚠ the poison is the second half: the projection must still produce a real
+    /// hostile MIND. "It changed nothing" would satisfy the first assertion
+    /// perfectly while describing a provocation that does not provoke.
     #[test]
-    fn provocation_borrows_combat_numbers_but_never_the_placement_respawn_policy() {
+    fn provocation_changes_the_mind_and_leaves_every_body_fact_alone() {
         use ambition_entity_catalog::placements::RespawnPolicy;
 
         let roster = test_roster();
         let spec = roster.spec_for_brain(&CharacterBrain::Custom("combatant".into()));
-        // Pre-poison: if the borrowed archetype were ALSO DeadStaysDead this
-        // test could not distinguish "preserved" from "coincidence".
+        // The fixture body disagrees with the archetype on every field checked
+        // below, so "preserved" cannot be read as "coincidentally equal".
         assert_eq!(
             spec.tuning().respawn,
             RespawnPolicy::OnRoomReenter,
-            "fixture assumption: the borrowed combat archetype respawns per room"
+            "fixture assumption: the archetype respawns per room"
         );
 
         let mut config = config_fixture();
         config.tuning.respawn = RespawnPolicy::DeadStaysDead;
+        config.tuning.max_run_speed = 91.0;
+        config.tuning.surface_walker = true;
+        assert_ne!(
+            config.tuning.max_run_speed,
+            spec.tuning().max_run_speed,
+            "fixture assumption: the body is not already running at the archetype's speed"
+        );
 
+        let before = config.clone();
         let proj = project_provoked_archetype(
             &spec,
             "combatant",
@@ -917,15 +975,33 @@ mod tests {
             ambition_platformer2d_core::AbilitySet::default(),
         );
 
+        // The projection is pure, so the only way a body fact could change is
+        // through a field on the result. There is none — this asserts the input
+        // is untouched AND names what the result is allowed to carry.
         assert_eq!(
-            proj.tuning.respawn,
-            RespawnPolicy::DeadStaysDead,
-            "the PLACEMENT owns respawn policy; the borrowed archetype must not overwrite it"
+            before.tuning, config.tuning,
+            "the projection mutated its input"
+        );
+
+        // ⭐ THE POISON. Without this, deleting the whole projection passes.
+        assert_eq!(
+            proj.brain_profile,
+            spec.brain_profile(),
+            "the provoked POLICY is the archetype's — that is the one thing a \
+             generic provocation is for"
+        );
+        assert!(
+            !matches!(
+                proj.config_brain,
+                ambition_entity_catalog::placements::CharacterBrain::Passive
+            ),
+            "a provoked body's read-model still says it is not passive"
         );
         assert_eq!(
-            proj.tuning.max_health,
-            spec.tuning().max_health,
-            "everything else still comes from the archetype"
+            proj.max_health, spec.max_health,
+            "the HP pool is the one body fact still borrowed, and it is D96 \
+             item 7 rather than a design — if this stops being true the ledger \
+             row was answered and this comment is the changelog"
         );
     }
 
@@ -1083,8 +1159,21 @@ mod tests {
     }
 
     /// A rewind INTO a provoked snapshot reruns the roster construction: the
-    /// hostile archetype config (brain kind marker + HP pool) is reconstructed
-    /// from the stable archetype id alone.
+    /// hostile mind, kit and HP pool are reconstructed from the stable archetype
+    /// id alone.
+    ///
+    /// ⛔⛔ **THE TWINS DISAGREED ABOUT WHERE THE HP POOL LIVES, and this test
+    /// was asserting the reconstruct's side of it.** The live flip writes
+    /// `BodyHealth` (`*em.health = fresh_health_pool(..)`) and never touched
+    /// `config.tuning.max_health`; the reconstruct wrote `config.tuning`
+    /// wholesale and so set the second. They looked identical because the
+    /// wholesale write happened to carry the archetype's number into both.
+    ///
+    /// `tuning.max_health` is read at SPAWN only — `ActorClusterSeed` sizes the
+    /// initial `BodyHealth` from it — so after construction it is a stale
+    /// record, and the LIVE pool is the authority. Now that provocation projects
+    /// no tuning at all, the two twins write the one place that matters, and
+    /// this asserts that place.
     #[test]
     fn reconstructs_a_provoked_actor_from_its_archetype_id() {
         let mut w = World::new();
@@ -1115,8 +1204,16 @@ mod tests {
             "config.brain marks the provoked archetype"
         );
         assert_eq!(
-            config.tuning.max_health, 4,
-            "the combatant HP pool is reconstructed from the roster"
+            config.tuning.max_health, 1,
+            "the placement's own tuning is untouched: provocation projects no \
+             body facts, so the spawn-time record still says what it said"
+        );
+        assert_eq!(
+            w.get::<BodyHealth>(e).map(|health| health.max()),
+            Some(4),
+            "the combatant HP pool is reconstructed from the roster, into the \
+             LIVE pool the live provoke flip writes — the two twins must reach \
+             the same field or a rewind changes a fighter's health"
         );
         assert_ne!(
             w.get::<Brain>(e).unwrap().label(),

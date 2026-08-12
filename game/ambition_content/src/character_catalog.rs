@@ -975,6 +975,18 @@ pub fn authored_intrinsics(
         "special_patent_clerk" => {
             definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset())
         }
+        // **THE SHADOW ONI LEADER'S ANSWERS.** The fourth adopter removed from
+        // the generic floor (P3.24), and the first table authored from a
+        // character's BARKS rather than a design note — his row carries no
+        // `gameplay_description`, and *"the shadow answers"* / *"one breath
+        // left"* / *"the order obeyed instantly"* are one.
+        //
+        // ⛔ MOVES ONLY. His body still comes from his catalog row; authoring
+        // vitals here would be a retune wearing a migration's commit, and a
+        // table is the whole job.
+        "npc_ninja_shadow_oni_leader" => definition.with_moveset(
+            crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset(),
+        ),
         // **THE PIRATE ADMIRAL'S CUTLASS.** The second adopter removed from
         // `smash_fighter_kit()` (P3.24), and the character was already telling us
         // what its moves are: its row says `default_action_set: "pirate_pistol"`,

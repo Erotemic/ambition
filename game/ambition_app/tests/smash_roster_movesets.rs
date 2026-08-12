@@ -357,11 +357,10 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
 fn the_grid_fighters_with_a_real_repertoire_only_grow() {
     /// Grid fighters that author their OWN move timelines.
     ///
-    /// ⚠ **measured 2026-08-12 against the shipped host: SIX of fourteen.** The
-    /// eight on the generic floor are Mary-O and Sanic (other demos'
-    /// protagonists, who bring their own bodies but no smash table), the Shadow
-    /// Oni Leader, and the five Hall NPCs who were authored to stand in a room
-    /// and talk.
+    /// ⚠ **measured 2026-08-12 against the shipped host: SEVEN of fourteen.**
+    /// The seven on the generic floor are Mary-O and Sanic (other demos'
+    /// protagonists, who bring their own bodies but no smash table) and the five
+    /// Hall NPCs who were authored to stand in a room and talk.
     const WITH_REPERTOIRE: &[&str] = &[
         // The protagonist's canonical table, consumed identically by both games
         // (redirect §15) — the reason it lives on the Robot provider at all.
@@ -388,6 +387,10 @@ fn the_grid_fighters_with_a_real_repertoire_only_grow() {
         // `MovesetContract`, authored when its ninety-line archetype row was
         // deleted (D89).
         "perfect_cellular_automaton",
+        // The counter-puncher, authored from his own BARKS — the fourth adopter
+        // removed from the generic floor, and this ratchet is what asked for him
+        // by name the moment his table landed.
+        "npc_ninja_shadow_oni_leader",
     ];
 
     let mut app =

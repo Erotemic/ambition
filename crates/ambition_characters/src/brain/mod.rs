@@ -31,7 +31,7 @@ pub mod state_machine;
 pub use action_set::{
     held_item_by_id, held_item_ids, resolve as resolve_action_requests, ActionRequest, ActionSet,
     BiteSpec, HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
-    RangedActionSpec, SlamSpec, SpecialActionSpec, SwipeSpec,
+    RangedActionSpec, RangedExecution, SlamSpec, SpecialActionSpec, SwipeSpec,
 };
 pub use ambition_entity_catalog::{BrainProfileId, BrainProfileRef};
 #[allow(unused_imports)]

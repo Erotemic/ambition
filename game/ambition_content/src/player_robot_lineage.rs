@@ -332,9 +332,8 @@ fn definition_from(
     // Ambition and in Smash, and a mode changes interpretation and restrictions
     // rather than silently replacing its moves. Authoring it here is what lets
     // `HostCode` be deleted without the robot losing the Hadouken.
-    definition = definition.with_ranged_execution(
-        ambition_platformer2d_actor_monolith::avatar::RangedExecution::ChargedProjectile,
-    );
+    definition = definition
+        .with_ranged_execution(ambition_characters::brain::RangedExecution::ChargedProjectile);
     // ⭐ **THEOREM CHAIN, on the incarnation the duel fields.** v3 carries the
     // platform-fighter table instead; two incarnations of one robot with
     // different repertoires is what a lineage IS.

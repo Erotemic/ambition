@@ -249,7 +249,7 @@ pub fn simulation_world(
     }
     // ⭐ **HOW THIS BODY FIRES**, resolved by the overlay the bundle already runs
     // and kept rather than discarded — see below.
-    let mut ranged = crate::avatar::RangedExecution::ChargedProjectile;
+    let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
     let player_bundle = if starting_character.is_default() {
         crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {

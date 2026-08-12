@@ -1014,3 +1014,72 @@ pub fn resolve(
 
 #[cfg(test)]
 mod tests;
+
+// ⭐⭐ **THE ONE FIELD TYPE THAT KEPT `CharacterDefinition` IN THE MONOLITH.**
+//
+// D73 checklist item 2 moves the authored character type down into this crate,
+// and item 1 says the compiler is the instrument. Asking it once, the answer was
+// short: every other field on that struct is already an `ambition_characters`,
+// `ambition_platformer2d_core` or `ambition_entity_catalog` type — and
+// `ranged_execution` was a monolith one, so the struct could not follow.
+//
+// It belongs here on its own merits, not only to unblock a move. It decides how
+// an `ActionSet`'s `ranged` and `special` presets fold into a body's moves,
+// which is a question about the action set sitting one screen up; the crate that
+// happens to BUILD the character today is not the authority on how that
+// character fires. Its own doc already says as much about the `HostCharge`
+// rename: *"Charging is a fact about a CHARACTER's ranged attack, not about
+// which crate happens to build that character today."*
+
+/// **HOW a body fires — the single fact four decisions used to make separately.**
+///
+/// A body that fires has exactly one mechanism for it, and which one it is
+/// decides more than it looks:
+///
+/// * whether the action set's `ranged` preset folds into the derived moveset,
+/// * whether its `special` preset does,
+/// * whether the protagonist's blade SFX is stamped over the derived melee,
+/// * and whether the body carries `ChargesProjectiles` and its projectile state.
+///
+/// All four are the same question, and until this enum they were asked in three
+/// places in two spellings: a `bool` named for the fourth, and two hard-coded
+/// arguments (`None` for ranged here, `None` for special at the catalog site)
+/// each carrying a comment explaining that it was the opposite of the other. A
+/// fifth consultation could have been written in a third spelling without
+/// contradicting anything, which is what the queue meant by warning that a new
+/// name is only worth having if it becomes the SOLE switch.
+///
+/// It is not a component. `ChargesProjectiles` is the runtime marker and stays
+/// exactly as it was; this is the derivation-time decision that installs it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RangedExecution {
+    /// **A CHARGEABLE PROJECTILE owns the ranged press** — hold to build, release
+    /// to fire.
+    ///
+    /// ⭐ **this was called `HostCharge`, and the rename is the point** (GPT 5.6
+    /// §4, 2026-08-11). Charging is a fact about a CHARACTER's ranged attack, not
+    /// about which crate happens to build that character today. The old name
+    /// exposed the special case and made the mechanic look like scaffolding to be
+    /// deleted along with `HostCode` — but Jon's product rule is that Player
+    /// Robot v3 is the same character with the same repertoire in Ambition and in
+    /// Smash, so removing the charge to delete a host-code branch would be a
+    /// gameplay regression wearing a refactor's commit.
+    ///
+    /// ⚠ its ranged verb is NOT a moveset move — folding one in would make one
+    /// press do two things, which is the test that went red when the queue's H2
+    /// first tried passing `set.ranged` unconditionally.
+    ChargedProjectile,
+    /// A moveset verb derived from the action set's own `ranged` preset.
+    ///
+    /// What content-authored personas use. They have no charge mechanic and no
+    /// shell `special` marker, so their special is authored into their moves
+    /// rather than folded from the set.
+    MovesetVerb,
+}
+
+impl RangedExecution {
+    /// Whether a body executing this way carries the charge capability.
+    pub fn charges_projectiles(self) -> bool {
+        matches!(self, Self::ChargedProjectile)
+    }
+}

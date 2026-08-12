@@ -157,7 +157,7 @@ impl PlayerSimulationBundle {
         let moveset = crate::combat::moveset::ActorMoveset(
             crate::avatar::starting_character::derive_persona_moveset(
                 &action_set,
-                crate::avatar::RangedExecution::ChargedProjectile,
+                ambition_characters::brain::RangedExecution::ChargedProjectile,
                 None,
             ),
         );
@@ -261,7 +261,7 @@ impl PlayerSimulationBundle {
         // construction: the two projectile markers a `Bundle` cannot
         // conditionally omit were the derive's only remaining job, and the
         // answer they need was computed right here and thrown away.
-        ranged: &mut crate::avatar::RangedExecution,
+        ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {
         // The body's code-side capability set — the source of the protagonist's
         // kit, captured before `scratch` folds into the movement bundle so the
@@ -396,7 +396,7 @@ mod tests {
             Health::new(20),
             "player_robot_v3",
             None,
-            &mut crate::avatar::RangedExecution::ChargedProjectile,
+            &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert!(bundle.brain.is_player());
@@ -425,7 +425,7 @@ mod tests {
             Health::new(20),
             "npc_pirate_admiral",
             None,
-            &mut crate::avatar::RangedExecution::ChargedProjectile,
+            &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
         assert!(bundle.brain.is_player(), "still keyboard-controlled");
@@ -455,7 +455,7 @@ mod tests {
             Health::new(20),
             "not_a_real_character",
             None,
-            &mut crate::avatar::RangedExecution::ChargedProjectile,
+            &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert!(bundle.brain.is_player());
         assert_eq!(

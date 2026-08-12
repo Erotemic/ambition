@@ -63,8 +63,8 @@ mod live_refresh;
 /// content NPC acquires a charge mechanic it never asked for.
 #[test]
 fn an_authored_character_decides_whether_it_charges() {
-    use crate::avatar::RangedExecution;
     use crate::character_runtime::CharacterDefinition;
+    use ambition_characters::brain::RangedExecution;
 
     let charged = CharacterDefinition::new("charger", "Charger", "test")
         .with_ranged_execution(RangedExecution::ChargedProjectile);
@@ -836,8 +836,14 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     // Two characters, identical but for how they fire.
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     for (id, execution) in [
-        ("gunner", crate::avatar::RangedExecution::ChargedProjectile),
-        ("swordfighter", crate::avatar::RangedExecution::MovesetVerb),
+        (
+            "gunner",
+            ambition_characters::brain::RangedExecution::ChargedProjectile,
+        ),
+        (
+            "swordfighter",
+            ambition_characters::brain::RangedExecution::MovesetVerb,
+        ),
     ] {
         registry.insert_prepared(
             crate::character_runtime::prepare_and_finalize_against_for_test(
@@ -1840,7 +1846,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     );
     let rewarn = crate::avatar::starting_character::derive_persona_moveset(
         &action_set,
-        crate::avatar::RangedExecution::ChargedProjectile,
+        ambition_characters::brain::RangedExecution::ChargedProjectile,
         None,
     );
 

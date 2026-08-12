@@ -492,7 +492,7 @@ pub struct CharacterDefinition {
     ///
     /// ⚠ the DEFAULT is `MovesetVerb`, which is what every character that has
     /// never had a charge already does.
-    pub ranged_execution: crate::avatar::RangedExecution,
+    pub ranged_execution: ambition_characters::brain::RangedExecution,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
     ///
@@ -571,7 +571,7 @@ impl CharacterDefinition {
             autonomous_profile_ref: None,
             provoked_profile_ref: None,
             ranged_vfx: None,
-            ranged_execution: crate::avatar::RangedExecution::MovesetVerb,
+            ranged_execution: ambition_characters::brain::RangedExecution::MovesetVerb,
             practice_target: false,
             held_item: None,
             mount: None,
@@ -640,7 +640,10 @@ impl CharacterDefinition {
     /// Author what this character's projectile looks like. See
     /// [`Self::ranged_vfx`].
     /// See [`Self::ranged_execution`]. A character that charges says so here.
-    pub fn with_ranged_execution(mut self, execution: crate::avatar::RangedExecution) -> Self {
+    pub fn with_ranged_execution(
+        mut self,
+        execution: ambition_characters::brain::RangedExecution,
+    ) -> Self {
         self.ranged_execution = execution;
         self
     }
@@ -825,7 +828,7 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::ranged_vfx`]. Carried.
     ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::ranged_execution`]. Carried.
-    ranged_execution: crate::avatar::RangedExecution,
+    ranged_execution: ambition_characters::brain::RangedExecution,
     /// See [`CharacterDefinition::provoked_profile_ref`]. RESOLVED at finalize.
     provoked_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
@@ -1138,7 +1141,7 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::ranged_execution`]. Read by the persona derive so
     /// the charge is a fact about the CHARACTER rather than about which arm of
     /// `PlayableKitSource` built it.
-    pub ranged_execution: crate::avatar::RangedExecution,
+    pub ranged_execution: ambition_characters::brain::RangedExecution,
     /// **The policy this creature adopts when provoked**, RESOLVED — see
     /// [`CharacterDefinition::provoked_profile_ref`].
     pub provoked_profile: Option<ambition_characters::brain::BrainProfile>,

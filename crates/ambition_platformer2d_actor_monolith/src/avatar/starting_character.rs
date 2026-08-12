@@ -31,7 +31,7 @@ use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
-use ambition_characters::brain::ActionSet;
+use ambition_characters::brain::{ActionSet, RangedExecution};
 
 use crate::combat::moveset::{build_actor_moveset, ActorMoveset};
 use crate::features::MotionModel;
@@ -274,59 +274,6 @@ fn sync_worn_motion_model_preserving_state(
 /// capability marker (`bubble_shield`) with no authored move behind it; an
 /// authored persona drives its special through its own path, so folding a
 /// generic shell move there would make one press fire two things.
-/// **HOW a body fires — the single fact four decisions used to make separately.**
-///
-/// A body that fires has exactly one mechanism for it, and which one it is
-/// decides more than it looks:
-///
-/// * whether the action set's `ranged` preset folds into the derived moveset,
-/// * whether its `special` preset does,
-/// * whether the protagonist's blade SFX is stamped over the derived melee,
-/// * and whether the body carries `ChargesProjectiles` and its projectile state.
-///
-/// All four are the same question, and until this enum they were asked in three
-/// places in two spellings: a `bool` named for the fourth, and two hard-coded
-/// arguments (`None` for ranged here, `None` for special at the catalog site)
-/// each carrying a comment explaining that it was the opposite of the other. A
-/// fifth consultation could have been written in a third spelling without
-/// contradicting anything, which is what the queue meant by warning that a new
-/// name is only worth having if it becomes the SOLE switch.
-///
-/// It is not a component. `ChargesProjectiles` is the runtime marker and stays
-/// exactly as it was; this is the derivation-time decision that installs it.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum RangedExecution {
-    /// **A CHARGEABLE PROJECTILE owns the ranged press** — hold to build, release
-    /// to fire.
-    ///
-    /// ⭐ **this was called `HostCharge`, and the rename is the point** (GPT 5.6
-    /// §4, 2026-08-11). Charging is a fact about a CHARACTER's ranged attack, not
-    /// about which crate happens to build that character today. The old name
-    /// exposed the special case and made the mechanic look like scaffolding to be
-    /// deleted along with `HostCode` — but Jon's product rule is that Player
-    /// Robot v3 is the same character with the same repertoire in Ambition and in
-    /// Smash, so removing the charge to delete a host-code branch would be a
-    /// gameplay regression wearing a refactor's commit.
-    ///
-    /// ⚠ its ranged verb is NOT a moveset move — folding one in would make one
-    /// press do two things, which is the test that went red when the queue's H2
-    /// first tried passing `set.ranged` unconditionally.
-    ChargedProjectile,
-    /// A moveset verb derived from the action set's own `ranged` preset.
-    ///
-    /// What content-authored personas use. They have no charge mechanic and no
-    /// shell `special` marker, so their special is authored into their moves
-    /// rather than folded from the set.
-    MovesetVerb,
-}
-
-impl RangedExecution {
-    /// Whether a body executing this way carries the charge capability.
-    pub fn charges_projectiles(self) -> bool {
-        matches!(self, Self::ChargedProjectile)
-    }
-}
-
 /// Derive a persona's moves from its action set, given HOW it fires.
 ///
 /// The `authored` contract, when present, replaces the derivation outright: a

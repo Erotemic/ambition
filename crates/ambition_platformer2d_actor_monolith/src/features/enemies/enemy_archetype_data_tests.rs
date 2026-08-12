@@ -45,39 +45,17 @@ fn ron_carries_every_known_brain_key() {
     }
 }
 
-/// Phase-0 authoring proof (fable review §A1, Path B): the PCA
-/// (`cellular_automaton_fighter`) authors a data-driven signature MOVE on its
-/// archetype — a normal actor carrying a boss-grade move as DATA. Guards that
-/// the `character_archetypes.ron` moveset deserializes into a well-formed
-/// `MovesetContract`: the `special` verb resolves the "cellular_pulse" move, and
-/// that move has an Active window with a hit volume (so it lands damage through
-/// the shared moveset runtime). A regen or a schema drift that dropped the move
-/// trips here.
-#[test]
-fn pca_fighter_authors_a_data_driven_signature_move() {
-    use ambition_entity_catalog::WindowTag;
-    let pca = test_spec("cellular_automaton_fighter");
-    let moveset = pca
-        .signature_move
-        .as_ref()
-        .expect("the PCA authors a signature move on its archetype");
-    let mv = moveset
-        .move_for_verb("special")
-        .expect("the `special` verb resolves a move");
-    assert_eq!(mv.id, "cellular_pulse");
-    assert!(mv.duration_s > 0.0, "the move has a positive timeline");
-    assert!(
-        mv.windows
-            .iter()
-            .any(|w| { matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty() }),
-        "the Cellular Pulse has an Active window carrying a hit volume"
-    );
-    // Most archetypes carry NO moveset — the field is opt-in data.
-    assert!(
-        test_spec("combatant").signature_move.is_none(),
-        "a plain archetype authors no signature move"
-    );
-}
+/// ⛔⛔ **DELETED 2026-08-11 (ledger D89): `pca_fighter_authors_a_data_driven_
+/// signature_move`.** It proved that `character_archetypes.ron`'s
+/// `cellular_automaton_fighter` row carried "Cellular Pulse" as an inline
+/// `signature_move` — the first data-driven move in the repository, and a good
+/// proof at the time.
+///
+/// **That row is deleted.** The pulse is a real `MovesetContract` on the PCA's
+/// character definition now (`ambition_content::cellular_automaton_moveset`),
+/// with the same 0.40s tell, 0.14s active window and `pca.cellular_pulse` cue —
+/// and a test in that crate asserts it there, which is where a character's moves
+/// belong. A test of a table entry that no longer exists cannot fail usefully.
 
 // ⛔ **`player_robot_authors_a_multi_hit_signature_combo` was deleted here on
 // 2026-08-11 with the row it tested** (ledger D83). The claim did not go away —

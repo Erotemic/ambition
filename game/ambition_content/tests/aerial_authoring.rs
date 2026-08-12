@@ -14,10 +14,20 @@
 //! `deny_unknown_fields` is there because a misspelled key "looks identical to
 //! authoring nothing". So did a deliberate `false`.
 //!
-//! ⚠ **this decides nothing about the PCA.** Whether it flies when it fights is
-//! Jon's call (`review-gpt56-through-32eb27a.md` P5). What is pinned here is that
-//! the question became EXPRESSIBLE — the half that needs no answer — and that
-//! the shipped content still says what it said before.
+//! ⭐⭐ **AND THE PROPERTY MOVED TO THE CHARACTER, 2026-08-11 (ledger D89).** The
+//! PCA was the only shipped archetype that authored `is_aerial` at all, and its
+//! row is DELETED — so a census of `ArchetypeSpec` can no longer reach `Some`,
+//! exactly as this file's own body predicted: *"a census of a file that is
+//! deliberately shrinking to nothing is not a property; it is a countdown, and it
+//! fails for the exact reason the campaign is succeeding."*
+//!
+//! ⇒ the three-state now lives on `CharacterLocomotion::flies`, which is where
+//! the fact belongs, and shipped content authors all three cases. Jon's call is
+//! also in: *"in smash PCA should not have the fly ability"* — so the automatons
+//! say `Some(false)` while the parrot and the burning shark say `Some(true)`.
+//! ⚠ what is pinned is unchanged: **stated-grounded and silent must be
+//! distinguishable in shipped content.** Only the type carrying the distinction
+//! moved.
 
 use ambition_combat::archetype_spec::ArchetypeSpec;
 use std::collections::BTreeMap;
@@ -28,56 +38,46 @@ fn roster() -> BTreeMap<String, ArchetypeSpec> {
 }
 
 #[test]
-fn the_shipped_archetypes_state_their_aerial_answer_explicitly() {
-    let roster = roster();
-    assert!(
-        !roster.is_empty(),
-        "no archetypes parsed, so this check has nothing to look at"
+fn shipped_characters_state_their_flight_answer_explicitly() {
+    use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+
+    let authored = |id: &str| {
+        ambition_content::character_catalog::authored_intrinsics(
+            id,
+            CharacterDefinition::new(id, id, "ambition_content"),
+        )
+        .locomotion
+        .and_then(|locomotion| locomotion.flies)
+    };
+
+    // ⭐ **a character that says it FLIES.** Without one, `Some(true)` is
+    // unreachable from shipped content and the type is decorative.
+    assert_eq!(
+        authored("stochastic_parrot"),
+        Some(true),
+        "the parrot flies and must say so itself — its catalog row's \
+         `body_kind: Floating` stopped deciding locomotion (D89)"
     );
 
-    let decided: Vec<&String> = roster
-        .iter()
-        .filter(|(_, spec)| spec.is_aerial.is_some())
-        .map(|(id, _)| id)
-        .collect();
-    let flying: Vec<&String> = roster
-        .iter()
-        .filter(|(_, spec)| spec.is_aerial == Some(true))
-        .map(|(id, _)| id)
-        .collect();
-
-    // ⚠ the floor: if nothing authors the key, `Some`/`None` is untested by the
-    // shipped content and this file is asserting against an empty set.
-    //
-    // ⛔ **this said `decided.len() == 4` and `flying.len() == 2`, and those
-    // numbers were wrong within a week.** The D73 migration moves creatures OFF
-    // this file one at a time — the sky parrot and the burning flying shark were
-    // two of the four, and both now state `flies` on their character
-    // definitions, which is where the fact belongs. A census of a file that is
-    // deliberately shrinking to nothing is not a property; it is a countdown,
-    // and it fails for the exact reason the campaign is succeeding. What this
-    // test is FOR is that `Some(false)` and `None` are distinguishable in
-    // shipped content, so that is what it asserts.
-    assert!(
-        !decided.is_empty(),
-        "no shipped archetype authors `is_aerial` at all, so `Some` is \
-         unreachable from content and this file tests nothing"
-    );
-    assert!(
-        flying.len() <= decided.len(),
-        "impossible census: {flying:?} of {decided:?}"
+    // ⭐ **a character that says it does NOT**, which is the case that could not
+    // be expressed at all before: the PCA's row still says `Floating`, and that
+    // is now a claim about its SILHOUETTE only.
+    assert_eq!(
+        authored("perfect_cellular_automaton"),
+        Some(false),
+        "the PCA is a grounded-base hybrid and its own definition has to say so, \
+         or a presentation enum decides its locomotion again"
     );
 
-    // ⭐ and the distinction that did not exist before: an archetype that says
-    // nothing is SILENT, not grounded.
-    let silent = roster
-        .iter()
-        .find(|(_, spec)| spec.is_aerial.is_none())
-        .map(|(id, _)| id);
-    assert!(
-        silent.is_some(),
-        "every archetype now authors `is_aerial`, so `None` is unreachable from \
-         shipped content and the silent case is untested"
+    // ⭐ **and SILENCE, distinct from both.** A character that never mentions
+    // flight leaves the question open at the source layer; preparation resolves
+    // it once, so nothing downstream has to re-ask.
+    assert_eq!(
+        authored("npc_exploding_mite"),
+        None,
+        "a character that authors no flight answer must read as SILENT here — if \
+         this becomes `Some(false)`, `None` is unreachable and the three-state is \
+         a two-state wearing three names"
     );
 }
 
@@ -101,4 +101,45 @@ fn absence_still_resolves_to_grounded() {
             );
         }
     }
+}
+
+/// **THE PULSE SURVIVED ITS ARCHETYPE ROW.**
+///
+/// ⛔ "Cellular Pulse" was the repository's first data-driven move and it lived
+/// inline on `character_archetypes.ron`'s `cellular_automaton_fighter` row, with
+/// a monolith test proving the row deserialized. That row is deleted (ledger
+/// D89); this is the same proof where the move now lives.
+///
+/// ⚠ the numbers are the row's verbatim — a migration that retuned on the way
+/// would be a retune wearing a migration's commit.
+#[test]
+fn the_cellular_pulse_survived_its_archetype_row() {
+    let moveset = ambition_content::cellular_automaton_moveset::cellular_pulse_moveset();
+    assert_eq!(
+        moveset.verbs.get("special").map(String::as_str),
+        Some("cellular_pulse"),
+        "the `special` verb must still resolve the pulse, or the PCA presses a \
+         button and nothing happens"
+    );
+    let pulse = moveset
+        .moves
+        .iter()
+        .find(|m| m.id == "cellular_pulse")
+        .expect("the verb names a move that exists");
+    let active = pulse
+        .windows
+        .iter()
+        .find(|w| {
+            matches!(
+                w.tag,
+                ambition_platformer2d::entity_catalog::WindowTag::Active
+            )
+        })
+        .expect("a move with no ACTIVE window is a telegraph that never lands");
+    assert!(
+        !active.volumes.is_empty(),
+        "the active window carries no hit volume, so the pulse cannot damage \
+         anybody through the shared moveset runtime"
+    );
+    assert_eq!((active.start_s, active.end_s), (0.40, 0.54));
 }

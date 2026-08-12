@@ -10,28 +10,31 @@
 use super::super::*;
 use super::*;
 
-/// Resolve the spawn-brain key of the hostile archetype a peaceful actor turns
-/// into when provoked, from its identity + dialogue id (string matching only —
-/// no roster enum). Generalized from the old `hostile_enemy_brain_for_npc`.
-pub(crate) fn hostile_brain_id_for_actor(
-    id: &str,
-    name: &str,
-    dialogue_id: Option<&str>,
-) -> &'static str {
-    let id = id.to_ascii_lowercase();
-    let name = name.to_ascii_lowercase();
-    let dialogue = dialogue_id.unwrap_or("").to_ascii_lowercase();
-    // The Perfect Cell-ular Automaton boss: a dedicated reactive Smash
-    // archetype with boss HP + a quick jab (see `cellular_automaton_fighter`
-    // in character_archetypes.ron). Matches the catalog id, the display name, or
-    // the encounter's dialogue node so any of the three placements resolves.
-    let looks_like_cellular_automaton = id.contains("cellular_automaton")
-        || name.contains("cell-ular automaton")
-        || name.contains("cellular automaton")
-        || dialogue.contains("cellular_automaton");
-    if looks_like_cellular_automaton {
-        return "cellular_automaton_fighter";
-    }
+/// **What a peaceful actor with NO authored provoked policy becomes.** One
+/// answer, for everybody.
+///
+/// ⭐⭐ **it used to be a string matcher over identity and dialogue, and every
+/// arm is now deleted** (ledger D84 and D89, 2026-08-11). It read a body's id,
+/// display name and encounter dialogue node looking for `"pirate"`,
+/// `"iron mary"`, `"cellular automaton"` — guessing at how content spells itself
+/// — and handed back a whole ARCHETYPE. Eleven characters answered those arms and
+/// every one of them publishes its own `provoked_profile_ref` now, so a provoked
+/// creature rebuilds the mind IT authored rather than one recognised by its name.
+///
+/// ⚠ **the parameters are gone with the arms.** A function that takes an identity
+/// and cannot use it invites the next matcher; taking nothing says what is true —
+/// this is the fallback for a body whose character said nothing.
+pub(crate) fn hostile_brain_id_for_actor() -> &'static str {
+    // ⛔⛔ **THE CELLULAR-AUTOMATON ARM IS DELETED TOO (2026-08-11, ledger D89),
+    // and it was the LAST one.** It asked whether an id, a display name or a
+    // dialogue node contained "cellular automaton" — three spellings, because a
+    // matcher on prose has to guess how content spells itself — and handed the
+    // body a whole archetype.
+    //
+    // ⭐ both automatons publish `cellular_duelist` as their PROVOKED profile
+    // now, so a creature that is attacked rebuilds the mind it authored instead
+    // of being recognised by its name. That is the whole of what this function
+    // was for.
     // ⛔ **THE TWO PIRATE ARMS ARE DELETED (2026-08-11, ledger D84), with the
     // rows they pointed at.** They asked whether an id, a display name or a
     // dialogue node contained `"pirate"` — or one of `"broadside bess"` /
@@ -54,14 +57,14 @@ pub(crate) fn hostile_brain_id_for_actor(
 /// Resolve the hostile archetype spec a peaceful actor would become when
 /// provoked. Spawn-time use: feeds the actor's stored `CombatKit` so a provoked
 /// NPC fights with the right weapon. Generalized from `hostile_enemy_spec_for_npc`.
+/// ⚠ its identity parameters went with the matcher's (see
+/// [`hostile_brain_id_for_actor`]): there is one fallback spec, and a signature
+/// that still asked who the body was would imply otherwise.
 pub(crate) fn hostile_spec_for_actor(
     roster: &super::super::super::enemies::CharacterRoster,
-    id: &str,
-    name: &str,
-    dialogue_id: Option<&str>,
 ) -> super::super::super::enemies::ArchetypeSpec {
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(
-        hostile_brain_id_for_actor(id, name, dialogue_id).into(),
+        hostile_brain_id_for_actor().into(),
     );
     roster.spec_for_brain(&brain)
 }
@@ -179,7 +182,10 @@ pub(crate) fn provoke_actor_in_place(
     disposition: &mut ActorDisposition,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
-    dialogue_id: Option<&str>,
+    // ⚠ **the DIALOGUE NODE is gone with the matcher it fed** (ledger D89). It
+    // existed so a provoked body could be recognised by its encounter's dialogue
+    // id — one of three prose spellings `hostile_brain_id_for_actor` guessed at —
+    // and a creature that publishes its own provoked policy needs none of them.
     // ⭐⭐ **WHICH CHARACTER THIS BODY IS — the GAMEPLAY identity.**
     //
     // ⛔ this read `em.config.sprite_character_id`, which is the identity its ART
@@ -248,7 +254,7 @@ pub(crate) fn provoke_actor_in_place(
         return;
     }
     if disposition.is_peaceful() {
-        let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
+        let hostile_id = hostile_brain_id_for_actor();
         let spec = roster.spec_for_brain(
             &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
         );

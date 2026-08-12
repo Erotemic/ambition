@@ -62,7 +62,11 @@ pub fn apply_actor_stimuli(
             mut aggression,
             combat_kit,
             held_item,
-            interaction,
+            // ⚠ the INTERACTION is no longer read here: it existed to fetch a
+            // dialogue node for the provoked-archetype matcher, which is deleted
+            // (ledger D89). Left in the query rather than removed because the
+            // tuple's shape is shared with the sibling systems below.
+            _interaction,
             mut identity,
             mut disposition,
             mut combat,
@@ -109,13 +113,6 @@ pub fn apply_actor_stimuli(
         // lines only.
         aggression.grudge = source.or(aggression.grudge);
 
-        let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
-            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
-                dialogue_id.as_deref()
-            }
-            _ => None,
-        });
-
         let mut em = cq.as_actor_mut();
         super::actors::provoke_actor_in_place(
             &roster,
@@ -125,7 +122,6 @@ pub fn apply_actor_stimuli(
             &mut disposition,
             combat_kit,
             held_item,
-            dialogue_id,
             worn.map(ambition_characters::actor::WornCharacter::id),
             prepared.as_deref(),
             // Chase immediately when challenged (the duel is on), or when a

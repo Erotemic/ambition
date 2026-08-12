@@ -259,91 +259,24 @@ fn peaceful_npc_brain_is_not_hostile() {
         "peaceful NPC brain must report !is_hostile"
     );
 }
-
-/// The Perfect Cell-ular Automaton resolves to its dedicated boss
-/// archetype when provoked — by catalog id, display name, or the
-/// encounter's dialogue node. Pins the dialogue-gated boss wiring so a
-/// rename in any of the three doesn't silently drop the PCA to the
-/// generic `combatant` grunt.
-#[test]
-fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
-    use crate::features::ecs::hostile_brain_id_for_actor;
-    use crate::features::enemies::test_spec;
-    assert_eq!(
-        hostile_brain_id_for_actor(
-            "perfect_cellular_automaton",
-            "Perfect Cellular Automaton",
-            None
-        ),
-        "cellular_automaton_fighter",
-    );
-    assert_eq!(
-        hostile_brain_id_for_actor("npc_unknown", "Mystery", Some("perfect_cellular_automaton")),
-        "cellular_automaton_fighter",
-    );
-    // The boss archetype is beefier than a grunt (60 HP — bumped so the duel
-    // bout breathes — vs the combatant's 4) and is a hostile Smash fighter.
-    let spec = test_spec("cellular_automaton_fighter");
-    assert_eq!(spec.max_health, 60);
-    // It is a grounded-base HYBRID (S3b): it prefers to fight on the ground
-    // (so on provoke its gravity re-syncs to grounded and it descends), but
-    // carries the `can_fly` kit to take to the air and cover a long traversal
-    // gap. Flight is a brain *preference* (I4), not a fixed body mode.
-    // ⭐ `Some(false)`, not merely falsy. The PCA is the live case in the open
-    // aerial-authority question (`review-gpt56-through-32eb27a.md` P5): its
-    // CATALOG row says `body_kind: Floating` while this archetype says grounded,
-    // and the two spawn paths read different ones. Asserting `Some(false)` pins
-    // that the archetype's answer is DELIBERATE — so "the catalog wins because
-    // the archetype never said" is not available as a resolution.
-    assert_eq!(
-        spec.is_aerial,
-        Some(false),
-        "the PCA boss is grounded-base (prefers grounded), not a permanent flyer"
-    );
-    assert!(
-        spec.can_fly,
-        "the PCA boss has the fly kit so it can traverse long distances airborne"
-    );
-    // It carries the glider as its ranged zoning tool.
-    assert!(
-        spec.ranged.is_some(),
-        "the PCA should have a ranged glider poke"
-    );
-    // S3c: it carries the reactive-block kit. One authored verb feeds BOTH
-    // ports: the body's movement `AbilitySet` (enforce, via `movement_kit`) AND
-    // the brain's attempt (`SmashCfg::can_shield`, via `brain_profile`).
-    assert!(
-        spec.can_shield,
-        "the PCA boss has the reactive-block kit so it can guard a lunge it won't blink"
-    );
-    assert!(
-        spec.movement_kit().shield,
-        "the authored shield kit must appear in the body's movement AbilitySet"
-    );
-    // ⛔ **and it reaches the brain's ATTEMPT side through the body, not through
-    // a second copy on the policy.** `spec.brain_profile().smash_can_shield` was
-    // the assertion here until 2026-08-11; the mirror is deleted, and the one
-    // authored verb now feeds both ports from the `AbilitySet` above.
-    assert!(
-        crate::features::ecs::smash_cfg_for_test(
-            &spec.brain_profile(),
-            &spec.tuning(),
-            spec.movement_kit(),
-        )
-        .can_shield,
-        "the authored shield kit must reach the driver, which now asks the BODY"
-    );
-    // S3d: it carries the dash kit (the body turns its dash-to-close decision
-    // into a real burst). Appears in the body's movement `AbilitySet`.
-    assert!(
-        spec.can_dash,
-        "the PCA boss has the dash kit so its dash-to-close becomes a real burst"
-    );
-    assert!(
-        spec.movement_kit().dash,
-        "the authored dash kit must appear in the body's movement AbilitySet"
-    );
-}
+/// ⛔⛔ **DELETED 2026-08-11 (ledger D89): `perfect_cellular_automaton_provokes_
+/// to_its_boss_archetype`.** It asserted that a string matcher resolved the PCA's
+/// id, display name or dialogue node to `cellular_automaton_fighter`, and then
+/// read that archetype row for the PCA's grounded-hybrid semantics — 60 HP,
+/// `is_aerial: Some(false)` beside `can_fly: true`, the glider, the reactive
+/// block.
+///
+/// **Every one of those facts is now authored on the CHARACTER**
+/// (`ambition_content::character_catalog::authored_intrinsics`), the matcher arm
+/// is gone, and the row is deleted — so this test asserted a mechanism that no
+/// longer exists and a table that no longer has an entry. A red demanding a value
+/// that lives nowhere is a product decided against, not a regression.
+///
+/// ⚠ **what it knew is not lost.** The grounded-hybrid reading it pinned — a body
+/// that prefers the ground and carries flight for traversal — is exactly what
+/// `flies: Some(false)` plus an intrinsic fly capability says on her definition,
+/// and the D89 row records the measurement that proved parity before the row was
+/// deleted.
 
 #[test]
 fn enemy_brain_keys_resolve_to_their_rows() {

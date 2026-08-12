@@ -82,12 +82,6 @@ pub fn sync_ecs_actors_with_save(
         if interaction.is_some() && data.flag(&super::super::npcs::npc_flag_id(&id)) {
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster
             // swap), keeping its entity + sprite.
-            let dialogue_id = interaction.and_then(|i| match &i.interactable.kind {
-                ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
-                    dialogue_id.as_deref()
-                }
-                _ => None,
-            });
             aggression.mode = AggressionMode::Hostile;
             aggression.grudge = stable_player_grudge;
             let mut em = cq.as_actor_mut();
@@ -99,7 +93,6 @@ pub fn sync_ecs_actors_with_save(
                 &mut disposition,
                 combat_kit,
                 held_item,
-                dialogue_id,
                 worn.map(ambition_characters::actor::WornCharacter::id),
                 prepared.as_deref(),
                 false,

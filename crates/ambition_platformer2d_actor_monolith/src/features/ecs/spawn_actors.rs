@@ -600,12 +600,6 @@ impl NpcActorSpawnPlan {
     ) -> Self {
         let id = id.into();
         let name = name.into();
-        let dialogue_id = match &interactable.kind {
-            ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
-                dialogue_id.as_deref()
-            }
-            _ => None,
-        };
         // The hostile archetype this actor becomes when provoked: feeds its
         // stored CombatKit (so a provoked NPC fights with the right weapon) and
         // the seed's inert reconstruction spec.
@@ -640,8 +634,7 @@ impl NpcActorSpawnPlan {
         let combat_kit = match authored_kit {
             Some(kit) => kit,
             None => {
-                let hostile_spec =
-                    super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
+                let hostile_spec = super::actors::hostile_spec_for_actor(roster);
                 super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec)
             }
         };

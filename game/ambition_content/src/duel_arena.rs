@@ -89,7 +89,9 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 //
                 // ⛔ do not flip this to make the row deletable. A duel where the
                 // PCA never blocks is a worse game than one archetype row.
-                character: None,
+                character: Some(ambition_entity_catalog::CharacterId::from(
+                    DUEL_PCA_CHARACTER,
+                )),
             },
         },
         SpawnActorRequest {

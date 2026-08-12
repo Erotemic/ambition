@@ -110,92 +110,21 @@
         ))),
         move_style: Walk,
     ),
-    // Perfect Cell-ular Automaton — the dialogue-gated boss. Resolved when an
-    // actor whose id/name reads "perfect cellular automaton" is provoked (see
-    // `hostile_brain_id_for_actor`). A FLYING reactive Smash duelist: `is_aerial`
-    // keeps it a free-mover when provoked, so the (now aerial-capable) Smash brain
-    // drives it via velocity_target — it perches above the player, zones with its
-    // glider (the `ranged` poke), and dives in for the jab. The aerial dive/perch
-    // + glider + dive-melee all resolve through existing integration (the floating-
-    // body integrator + the enemy ranged/melee paths), so this floats peacefully
-    // as an NPC and then FIGHTS, descending to brawl on the ground. Blink, the
-    // reactive block, and the hybrid fly-toggle are all body-enforced capabilities
-    // now (resolved in `update_ecs_actors` / the actor damage path), so a
-    // possessing player inherits the same kit.
-    "cellular_automaton_fighter": (
-        respawn: OnRoomReenter,
-        max_health: 60,
-        run_speed: 168.0,
-        patrol_effort: 0.5714,
-        chase_effort: 1.0,
-        aggro_radius: 540.0,
-        attack_range: 150.0,
-        contact_strength: 0.75,
-        damage_amount: 1,
-        // Grounded-base HYBRID: it prefers to fight on the ground (so it descends
-        // on provoke), and uses `can_fly` below to take to the air only to
-        // cover a long traversal gap, then land.
-        is_aerial: Some(false),
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.24,
-            active_s: 0.08,
-            recover_s: 0.30,
-            damage: 1,
-            reach_px: 30.0,
-        ))),
-        // The glider: a cellular-automaton spaceship as the ranged zoning tool.
-        // Functional `Rock` projectile; the Conway-glider sprite is selected by
-        // its authored visual id below (the render layer resolves `ranged_visual`
-        // through the content-owned projectile visual catalog, not the owner-id
-        // string).
-        ranged: Some((style: Rock, speed: 300.0, damage: 1)),
-        ranged_visual: "glider",
-        smash_dash_to_close: true,
-        // Platform-fighter neutral game: footsies + neutral hops + spacing, so the
-        // PCA weaves and moves instead of camping at point-blank.
-        smash_duelist: true,
-        // Blink-evade: the PCA teleports out of a perceived lunge (body-enforced
-        // capability + cooldown; a possessing player gets the same blink).
-        can_blink: true,
-        // Fly kit: prefers grounded, but takes to the air to close a long gap
-        // (brain preference; flight is free for now). Body-enforced capability.
-        can_fly: true,
-        // Reactive block: the PCA guards a perceived lunge it won't blink away
-        // from. The body negates a guarded hit from the faced side (a possessing
-        // player gets the same shield). Body-enforced capability + the same
-        // directional `shield_blocks_hit` rule the player's shield uses.
-        can_shield: true,
-        // Dash kit: the burst it uses to close (it already decides to dash via
-        // `smash_dash_to_close`; this lets the body turn that into a real burst
-        // above walk speed). Body-enforced capability + cooldown.
-        can_dash: true,
-        // Signature data-driven MOVE (fable review §A1, Path B — the first real
-        // moveset consumer): "Cellular Pulse", a telegraphed close-range burst
-        // authored entirely as data — a 0.40s Startup tell, a 0.14s Active window
-        // with one forward hit volume, then Recovery, on the owner's proper-time
-        // clock. Triggered by the `special` verb through the shared moveset runtime;
-        // no bespoke Rust. This is a NORMAL actor carrying a boss-grade move as
-        // data, proving smash-like characters are designed in content, not code.
-        signature_move: Some((
-            verbs: {"special": "cellular_pulse"},
-            moves: [(
-                id: "cellular_pulse",
-                clip: (clip: "special", fallbacks: ["idle"]),
-                duration_s: 0.85,
-                windows: [
-                    (start_s: 0.0, end_s: 0.40, tag: Startup, volumes: []),
-                    (start_s: 0.40, end_s: 0.54, tag: Active, volumes: [
-                        (shape: Rect(offset: (30.0, 0.0), half_extents: (34.0, 28.0)),
-                         damage: 3, knockback: 140.0),
-                    ]),
-                    (start_s: 0.54, end_s: 0.85, tag: Recovery, volumes: []),
-                ],
-                events: [(at_s: 0.40, kind: Sfx(cue: "pca.cellular_pulse"))],
-            )],
-        )),
-        move_style: Walk,
-    ),
+    // ⛔⛔ **THE PERFECT CELLULAR AUTOMATON IS GONE FROM THIS FILE** (2026-08-11,
+    // ledger D89) — 90 lines, the richest row it still held: 60 HP, the swipe,
+    // the glider, four body capabilities, a Smash policy, and "Cellular Pulse"
+    // as an inline `signature_move`.
+    //
+    // Every one of those is authored on `perfect_cellular_automaton` now: the
+    // body and capabilities on its `CharacterDefinition`, the policy as a
+    // published `cellular_duelist` `BrainProfile`, and the pulse as a real
+    // `MovesetContract`. Its LAST reader was a string matcher over id, display
+    // name and dialogue node — deleted with it.
+    //
+    // ⚠ parity was MEASURED before the deletion, not assumed: with the duel
+    // arena flipped to the character road, all four of its tests pass with
+    // identical numbers to the archetype road (body 22.3 x 68.8, shield 157
+    // frames, dash 6, melee 29).
     // The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the player-
     // robot's full movement kit authored as a droppable archetype, so the same
     // body the human pilots can be dropped as a boss or fielded as the second

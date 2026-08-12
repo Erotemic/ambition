@@ -288,22 +288,6 @@ const WAIVED: &[(&str, &str)] = &[
         "npc_robot_heavy",
         "a family id whose three named variants are ALSO uncast; awaiting Jon (2026-08-06)",
     ),
-    // ⚠ **AN IN-PROGRESS TARGET, and the waiver is for the WORK not the id**
-    // (Jon, 2026-08-11: *"I have an updated no-ether sprite… not quite done
-    // yet"*). The target declares the bare `noether` while the catalog registers
-    // `npc_noether`, and the target's OWN generated sidecar
-    // (`generated/noether/noether_actor.ron`) already says `npc_noether` — so
-    // this is a mismatch inside a file being actively edited, not a cast
-    // question.
-    //
-    // ⛔ **remove this waiver when the sprite lands**, and do not "fix" it by
-    // editing the target: it is Jon's working file, an agent already changed one
-    // word in it once, and the change was correctly lost to a regeneration.
-    (
-        "noether",
-        "an in-progress sprite target Jon is authoring; its own sidecar already \
-         says `npc_noether` (2026-08-11)",
-    ),
 ];
 
 fn waived(id: &str) -> Option<&'static str> {

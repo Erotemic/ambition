@@ -248,29 +248,32 @@ pub fn tag_mary_o_sparks(
 /// the order-dependence it was written to avoid.
 #[derive(Resource, Default, Clone)]
 pub struct SpentPowerBlocks {
-    spent: std::collections::HashSet<ae::GeoId>,
+    spent: std::collections::BTreeSet<ae::GeoId>,
     /// **Hits taken by a multi-coin block that is not exhausted yet.**
     ///
-    /// ⛔ a `HashMap` for the same reason the set above is a `HashSet` — nothing
-    /// iterates it in an order-dependent way, and [`Self::checksum`] folds it
-    /// commutatively. A `Vec` here would make two peers' hashes depend on strike
-    /// order.
+    /// ⛔ **a `BTreeMap`, and the set above a `BTreeSet`, since 2026-08-11.**
+    /// They were `HashMap`/`HashSet` with a correct argument attached — nothing
+    /// iterates them order-dependently and [`Self::checksum`] folds
+    /// commutatively — but ADR 0023's determinism policy flags any traversal of
+    /// a std hash container, and it is right to: the argument has to be re-made
+    /// by every future reader and re-checked by every future edit. An ordered
+    /// container makes the question unaskable. ⚠ a `Vec` would still be wrong —
+    /// two peers' hashes would depend on strike ORDER.
     ///
     /// ⚠ **absent means untouched, not exhausted.** The authority for "this
     /// block is done" stays `spent`: a partial entry is a block mid-payout, and
     /// the caller promotes it to `spent` when the count runs out. Two facts, one
     /// owner, and the older half keeps its exact meaning.
-    partial: std::collections::HashMap<ae::GeoId, u8>,
+    partial: std::collections::BTreeMap<ae::GeoId, u8>,
 }
 
 impl SpentPowerBlocks {
     /// **A checksum over WHICH blocks are spent, order-independent.**
     ///
-    /// ⛔ **this is a `HashSet`, so an order-DEPENDENT projection would be
-    /// nondeterministic between two peers running identical simulations.** XOR
-    /// of per-id hashes is commutative, so the answer does not depend on the
-    /// traversal. See [[reference_bevy_entity_ordering_traps]] for the family
-    /// this belongs to.
+    /// ⚠ XOR of per-id hashes is commutative, so the answer does not depend on
+    /// the traversal — which was load-bearing while these were hash containers
+    /// and is now belt-and-braces. Keep it: the property is free and it is what
+    /// lets a future reader change the container without re-deriving safety.
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         // ⚠ **both halves, and the partial one folds its COUNT too** — a block

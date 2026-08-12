@@ -69,6 +69,20 @@ pub struct BodyMotionFacts {
     pub skidding: bool,
     /// Ledge engagement, if any.
     pub ledge: Option<LedgeFacts>,
+    /// **This body crawls along surfaces** rather than walking a gravity axis —
+    /// the `AdhesiveCrawler` policy, published as a FACT.
+    ///
+    /// ⛔ **ADR 0024 §8 forbids reading `ActorTuning::surface_walker` at
+    /// runtime**, because that boolean is spawn-time SELECTION: it chooses the
+    /// motion model once and is then a stale copy of a decision the body already
+    /// carries explicitly. One consumer still read it — the brain snapshot's
+    /// `turns_at_walls`, where "does a wall mean turn around" is genuinely
+    /// different for a body whose whole locomotion is walls. It reads this now.
+    ///
+    /// ⚠ **a FACT, not the model**: consumers outside the kernel ask what is
+    /// true of the body, never which enum variant produced it. That is the same
+    /// rule the animation layer follows for `tumbling` and `knocked_down`.
+    pub adhesive_crawling: bool,
 }
 
 impl BodyMotionFacts {
@@ -83,11 +97,23 @@ impl BodyMotionFacts {
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
     pub fn from_model(model: &MotionModel) -> Self {
+        // ⚠ **the crawler is answered BEFORE the early return.** Every fact below
+        // is axis-swept state, so the old `else { return default() }` gave a
+        // crawler a facts block claiming it was not crawling — which is the exact
+        // reason its one consumer went on reading the spawn-time flag instead.
+        if matches!(model, MotionModel::AdhesiveCrawler(_)) {
+            return Self {
+                adhesive_crawling: true,
+                ..Self::default()
+            };
+        }
         let MotionModel::AxisSwept(axis) = model else {
             return Self::default();
         };
         let state = &axis.state;
         Self {
+            // Answered above; an axis-swept body never crawls.
+            adhesive_crawling: false,
             dashing: state.dash_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             air_dodging: state.air_dodge_timer > 0.0,

@@ -16,7 +16,11 @@
 /// synthesized `"{room}:{index}"`). The [W-d] record-layer id, lifted to
 /// engine_core because `GeoSource` (geometry vocabulary) names it and Tier-0/2
 /// both sit around this crate.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+/// ⭐ `Ord`, so an id may key an ORDERED container. A durable identity that can
+/// only live in a hash container forces every holder to re-argue determinism.
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct PlacementId(pub String);
 
 impl PlacementId {
@@ -30,7 +34,10 @@ impl PlacementId {
 }
 
 /// WHERE a piece of geometry came from — the durable half of a [`GeoId`].
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+/// ⭐ see [`PlacementId`] on why this is `Ord`.
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum GeoSource {
     /// Entity-authored geometry (a Solid/OneWay/SurfaceChain LDtk entity, or any
     /// backend's placement): the placement id IS the identity.
@@ -55,7 +62,10 @@ pub enum GeoSource {
 
 /// Durable identity of one piece of ROOM geometry: WHERE it came from + its
 /// deterministic ordinal within that source's emission.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+/// ⭐ see [`PlacementId`] on why this is `Ord`.
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct GeoId {
     pub source: GeoSource,
     pub index: u16,

@@ -239,6 +239,13 @@ pub fn tick_actor_brains(
                 // `Option` because a body with no moveset (a peaceful NPC, a
                 // prop) has no kit, and an empty kit is the honest answer.
                 Option<&crate::combat::moveset::ActorMoveset>,
+                // **WHAT IS TRUE OF THIS BODY'S LOCOMOTION**, published once per
+                // tick by the movement kernel. The brain snapshot's
+                // `turns_at_walls` reads it instead of the spawn-time
+                // `tuning.surface_walker` flag ADR 0024 §8 forbids at runtime.
+                // `Option` because a body without the movement clusters has no
+                // facts, and "not crawling" is the honest default for one.
+                Option<&ambition_platformer2d_core::BodyMotionFacts>,
             ),
             // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
             // which pacifies a hostile actor that holds no combat target, and
@@ -393,7 +400,7 @@ pub fn tick_actor_brains(
         _,
         _,
         _,
-        (clusters, _, faction, _, _, _, _),
+        (clusters, _, faction, _, _, _, _, _),
         in_a_fight,
     ) in &actors
     {
@@ -479,7 +486,16 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, resolved_frame, faction, aggression, mut perception_memory, perception, moveset),
+        (
+            clusters,
+            resolved_frame,
+            faction,
+            aggression,
+            mut perception_memory,
+            perception,
+            moveset,
+            motion_facts,
+        ),
         in_a_fight,
     ) in &mut actors
     {
@@ -589,6 +605,10 @@ pub fn tick_actor_brains(
                         enemy_gravity_dir,
                         moveset,
                         Some(brain_ref),
+                        // A body with no movement clusters publishes no
+                        // locomotion facts, and "none of them true" is the
+                        // honest reading of that.
+                        &motion_facts.copied().unwrap_or_default(),
                     );
                     // POSSESSION IS BRAIN TRANSFER: a body carrying
                     // `Brain::Player(slot)` (transferred by possession) reads its
@@ -1709,6 +1729,9 @@ fn build_enemy_brain_snapshot(
     // Which brain this body carries, so the kit is built only for one that reads
     // it. See `attack_kit_of`.
     brain: Option<&ambition_characters::brain::Brain>,
+    // **What is TRUE of this body's locomotion**, published by the movement
+    // kernel — see `turns_at_walls` below for why this replaced a tuning read.
+    motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
         actor_pos: em.kin.pos,
@@ -1722,7 +1745,17 @@ fn build_enemy_brain_snapshot(
         // decides whether it means "turn around"; integration never mutates
         // facing merely because a wall exists.
         side_contact_normal: em.wall.on_wall.then_some(em.wall.wall_normal_x.signum()),
-        turns_at_walls: em.config.brain_profile.turns_at_walls && !em.config.tuning.surface_walker,
+        // ⛔ **the second term read `em.config.tuning.surface_walker`, which ADR
+        // 0024 §8 forbids at runtime** — that boolean is spawn-time SELECTION
+        // (it chooses the `MotionModel` once) and is afterwards a stale copy of a
+        // decision the body carries explicitly. The workspace policy checker had
+        // been reporting it; nothing in the run's gate builds that crate's tests,
+        // so it went unread (ledger D88).
+        //
+        // ⚠ the LOGIC is unchanged and is not a detail: a wall means "turn
+        // around" to a walker and means "keep going" to a body whose entire
+        // locomotion is walls.
+        turns_at_walls: em.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a
         // moveset itself, so this is body-derived truth arriving through the

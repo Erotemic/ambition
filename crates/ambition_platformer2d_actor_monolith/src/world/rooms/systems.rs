@@ -169,9 +169,46 @@ pub fn detect_room_transition_system(
     let delta = sweep
         .map(|sample| sample.delta())
         .unwrap_or_else(|| kin.vel * world_time.sim_dt());
-    let Some(zone) =
-        room_set.transition_for_player(kin.aabb(), delta, slot_gestures.primary().buffered())
-    else {
+    let wants_interact = slot_gestures.primary().buffered();
+    let Some(zone) = room_set.transition_for_player(kin.aabb(), delta, wants_interact) else {
+        // ⭐ **"at the very least maybe we need more logs"** (Jon, 2026-08-12, on
+        // standing in a loading zone that did nothing). A body ON a zone that
+        // does not transition is the one state this system had no voice for: it
+        // returned, and the game reported that as the room simply not changing —
+        // which is what sent an investigation into the key bindings.
+        //
+        // So when the body is TOUCHING a zone and the swept test still said no,
+        // say every fact the decision was made from. The three that matter are
+        // exactly the three ways this goes wrong: `delta` (is the path being
+        // seen at all — the bug this replaced), `wants_interact` (a `Door` needs
+        // a press and an `EdgeExit` does not), and the activation kind (which of
+        // those two this zone is).
+        //
+        // ⚠ `warn_once`: a stuck body re-enters this branch every tick, and the
+        // situation is a standing one — the first report is the whole message.
+        // ⚠ and it costs nothing on the normal path: it runs only after the
+        // swept test has already declined, and only for a body actually
+        // overlapping an authored zone.
+        use ae::AabbExt as _;
+        if let Some(touching) = room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| kin.aabb().strict_intersects(zone.aabb))
+        {
+            bevy::log::warn_once!(
+                target: "ambition_platformer2d_actor_monolith::rooms",
+                "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \
+                 transition did not fire. path delta = {:?} (sweep sample {}), \
+                 interact buffered = {wants_interact}. A `Door` needs the press; \
+                 an `EdgeExit` does not. A zero delta on a body that moved means \
+                 the path is being reconstructed from a velocity collision has \
+                 already zeroed.",
+                touching.id,
+                touching.activation,
+                delta,
+                if sweep.is_some() { "present" } else { "ABSENT" },
+            );
+        }
         return;
     };
     // Portal check: if this zone is registered as a portal, the

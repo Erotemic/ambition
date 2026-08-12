@@ -365,12 +365,12 @@ impl<'a> ActorMut<'a> {
         ae::Aabb::new(self.kin.pos, size * 0.5)
     }
 
-    pub fn rotation_rad(&self) -> f32 {
-        f32::atan2(
-            -self.surface.surface_normal.x,
-            -self.surface.surface_normal.y,
-        )
-    }
+    // ⛔ **`rotation_rad()` WAS HERE and nothing ever asked for it**
+    // (compiler-verified across the workspace, 2026-08-12). A body's presented
+    // rotation is derived by the RENDER family from the same surface normal;
+    // this was a second way to compute it, on the sim read-model, with no
+    // reader — the shape `reference_a_comment_describes_intent` warns about,
+    // where two derivations of one fact drift apart because only one is used.
 
     pub fn bark_anchor(&self) -> ae::Vec2 {
         self.kin.pos + ae::Vec2::new(0.0, -self.kin.size.y * 0.72 - 16.0)
@@ -380,9 +380,12 @@ impl<'a> ActorMut<'a> {
         self.attack_aabb_dir(ae::Vec2::new(self.kin.facing, 0.0))
     }
 
-    pub fn attack_telegraph_aabb(&self) -> ae::Aabb {
-        self.attack_aabb()
-    }
+    // ⛔⛔ **`attack_telegraph_aabb()` WAS HERE, AND IT WAS WORSE THAN DEAD.** It
+    // returned `self.attack_aabb()` verbatim — a differently-NAMED accessor for
+    // the identical box. A reader reaching for a "telegraph" box is looking for
+    // the windup's warning volume, which is normally LARGER and earlier than the
+    // hitbox; this would have handed them the hitbox and looked right. No caller
+    // ever did, which is the only reason it never mattered.
 
     pub fn attack_aabb_dir(&self, axis: ae::Vec2) -> ae::Aabb {
         let gravity_dir = -self

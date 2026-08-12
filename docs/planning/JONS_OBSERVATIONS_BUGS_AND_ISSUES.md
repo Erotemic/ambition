@@ -124,3 +124,16 @@
 
 
 * Holding up for 2 seconds should be an alternative way of entering a door or interacting with an object.
+
+
+* There isn't a quit to title option in the smash menu selection.
+
+
+* The smash UI for character select looks good, but the controls don't feel good, they are very hard to use with a gamepad. 
+
+* In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
+
+
+*  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.                           
+
+* When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 

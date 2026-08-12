@@ -333,3 +333,121 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
         );
     }
 }
+
+/// **AND THE QUESTION THIS FILE IS NAMED FOR — who actually has a REPERTOIRE?**
+///
+/// ⛔ the file is titled *"Does every fighter on the smash grid have a
+/// MOVESET?"*, quotes Jon asking for movesets, and then measures ACTION SETS: a
+/// preset melee, one swing, the thing a body reaches for. That was the honest
+/// measurement in August when nobody authored a moveset — a census of a set
+/// everyone was empty in reports nothing. Four characters author one now, so the
+/// question the title asks is finally answerable, and it is the one P3.24's
+/// count is supposed to be falling on.
+///
+/// ```text
+///   action set   CAN this body swing            (a preset, one melee)
+///   moveset      what its eleven presses ARE    (jab, tilts, smashes, aerials)
+/// ```
+///
+/// ⚠ **a ratchet, not a target**, exactly like `KNOWN_UNARMED` above: the list
+/// is the record of who still takes the generic floor, and it may only shrink.
+/// Authoring a repertoire is a content job and this exists so the count cannot
+/// quietly grow while one is being done.
+#[test]
+fn the_grid_fighters_with_a_real_repertoire_only_grow() {
+    /// Grid fighters that author their OWN move timelines.
+    ///
+    /// ⚠ **measured 2026-08-12 against the shipped host: SIX of fourteen.** The
+    /// eight on the generic floor are Mary-O and Sanic (other demos'
+    /// protagonists, who bring their own bodies but no smash table), the Shadow
+    /// Oni Leader, and the five Hall NPCs who were authored to stand in a room
+    /// and talk.
+    const WITH_REPERTOIRE: &[&str] = &[
+        // The protagonist's canonical table, consumed identically by both games
+        // (redirect §15) — the reason it lives on the Robot provider at all.
+        "player_robot_v3",
+        // Ambition's own, written to remove adopters from the generic floor
+        // (P3.24): shorter/faster/weaker than the robot, longer/slower/harder,
+        // and the heavyweight controller respectively.
+        "goblin",
+        "npc_pirate_admiral",
+        "special_patent_clerk",
+        // ⭐ **THE TWO I DID NOT EXPECT, and the test found them rather than my
+        // memory.** I wrote this list from what I knew had been authored — the
+        // robot's table plus the three written to remove adopters — and it was
+        // wrong by two, in the direction that matters least and proves the most:
+        // there is MORE authored content than the person writing the ratchet
+        // believed.
+        //
+        // The demo's own fighter, whose eleven-move table is built on the law of
+        // the excluded middle its catalog row quotes. It reaches the HOST grid
+        // because the smash provider registers it, which is the crossover
+        // working.
+        "smash_george_booul",
+        // The Perfect Cellular Automaton's Cellular Pulse — a real
+        // `MovesetContract`, authored when its ninety-line archetype row was
+        // deleted (D89).
+        "perfect_cellular_automaton",
+    ];
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
+    let grid = SmashRoster::assemble(registry);
+    assert!(
+        grid.len() >= 8,
+        "the assembled grid is {} fighters — too short to be the shipped host's",
+        grid.len()
+    );
+
+    let mut authored: Vec<&str> = Vec::new();
+    let mut generic: Vec<&str> = Vec::new();
+    for id in grid.ids() {
+        let has = registry
+            .get(id)
+            .is_some_and(|definition| definition.authored_moveset.is_some());
+        if has {
+            authored.push(id);
+        } else {
+            generic.push(id);
+        }
+    }
+    eprintln!("[repertoires] authored={authored:?}\n              generic={generic:?}");
+
+    let lost: Vec<&&str> = WITH_REPERTOIRE
+        .iter()
+        .filter(|id| !authored.contains(id))
+        .collect();
+    assert!(
+        lost.is_empty(),
+        "these fighters authored their own moves and no longer reach the grid \
+         with them: {lost:?}. A repertoire that stops arriving is silent — the \
+         body still swings, it just swings the generic floor's swipe."
+    );
+
+    // ⭐ the ratchet's other half: a NEW repertoire must be recorded here, so
+    // the count is a fact rather than a memory.
+    let unrecorded: Vec<&&str> = authored
+        .iter()
+        .filter(|id| !WITH_REPERTOIRE.contains(id))
+        .collect();
+    assert!(
+        unrecorded.is_empty(),
+        "these fighters author a repertoire and the ledger above does not say \
+         so: {unrecorded:?}. Add them — the list is what makes P3.24's count \
+         mean something."
+    );
+
+    // ⛔ and the poison: some fighter must still be on the generic floor, or
+    // this test has stopped distinguishing anything and P3.24 is DONE — in
+    // which case delete it rather than leave it passing.
+    assert!(
+        !generic.is_empty(),
+        "every grid fighter authors a repertoire, so the generic floor has no \
+         adopters left: P3.24 is complete and this ratchet should go with it"
+    );
+}

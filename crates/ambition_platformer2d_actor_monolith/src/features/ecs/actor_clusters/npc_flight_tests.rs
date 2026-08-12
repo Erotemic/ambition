@@ -68,7 +68,6 @@ fn seed_for(
     let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
-        &crate::features::enemies::test_roster(),
         prepared,
         "flyer",
         "Flyer",
@@ -77,6 +76,49 @@ fn seed_for(
         &[],
     );
     seed
+}
+
+/// **A PEACEFUL NPC HAS NO ARCHETYPE — and the roster is no longer even in the
+/// room** (campaign P2.18).
+///
+/// ⛔ this road used to hand its seed `Some(roster.spec_for_brain(Passive))`,
+/// which is the `combatant` fallback row: 4 HP, a 155 px/s run, a 1-damage
+/// swipe. The comment beside it said *inert*, and it was — but `Some` is a
+/// CLAIM, and the one reader of this field (`EnemySpawnPlan::new`) reads it as
+/// *this body has an archetype, ask it* and takes action set, combat kit, held
+/// item and moveset off the answer. A villager was one routing change away from
+/// arriving armed.
+///
+/// ⭐ the poison is the second half: an ENEMY seed built from a roster key must
+/// still carry its spec. Without it this test would also pass on a build where
+/// `spec` had become `None` for everybody and the archetype road had quietly
+/// stopped working — which is the difference between a deletion and a break.
+#[test]
+fn a_peaceful_npc_seed_carries_no_archetype_and_an_enemy_seed_still_does() {
+    assert!(
+        seed_for(None, None).spec.is_none(),
+        "a peaceful placement builds a body without an archetype"
+    );
+    assert!(
+        seed_for(Some(&cast_saying(Some(true))), Some("npc_test_flyer"))
+            .spec
+            .is_none(),
+        "and naming a migrated character does not acquire one either"
+    );
+
+    let hostile = ActorClusterSeed::new(
+        "e",
+        "E",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
+        &[],
+    );
+    assert!(
+        hostile.spec.is_some(),
+        "while a placement that names a roster key still resolves one — the \
+         archetype road is being emptied of populations, not switched off \
+         underneath the two placements that still need it"
+    );
 }
 
 /// **An NPC that names a migrated character gets ITS vitals and ITS top speed,
@@ -188,7 +230,6 @@ fn is_aerial(
     let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
-        &crate::features::enemies::test_roster(),
         prepared,
         "flyer",
         "Flyer",

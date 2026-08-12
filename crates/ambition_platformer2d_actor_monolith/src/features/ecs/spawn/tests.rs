@@ -619,7 +619,6 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &roster,
                 // No prepared cast in this fixture: the catalog default stands,
                 // which is what this test is about.
                 &Default::default(),

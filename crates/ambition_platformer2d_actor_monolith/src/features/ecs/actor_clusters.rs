@@ -590,7 +590,6 @@ impl ActorClusterSeed {
     pub fn new_peaceful_npc_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
-        roster: &CharacterRoster,
         // **The prepared cast, so this road can ask the CHARACTER** whether it
         // flies before it asks the catalog. `Option` because a composition with
         // no registered characters is the ordinary case, not a degraded one.
@@ -839,12 +838,23 @@ impl ActorClusterSeed {
             body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
             caps: crate::combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
-            // Inert: peaceful actors never spawn through the archetype path that
-            // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: Some(
-                roster
-                    .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
-            ),
+            // ⭐ **NONE, AND THAT IS THE WHOLE OF IT** (campaign P2.18).
+            //
+            // ⛔ this was `Some(roster.spec_for_brain(Passive))` with a comment
+            // calling it *inert* — a `combatant` row (4 HP, a 155 px/s run, a
+            // 1-damage swipe) fabricated for a body that never reads it, purely
+            // because a `CharacterRoster` was in scope. It was the ONLY use of
+            // the `roster` parameter on this constructor, and the parameter went
+            // with it: four call sites stopped needing a roster to build a
+            // peaceful NPC.
+            //
+            // ⚠ inert is not harmless. `EnemySpawnPlan::new` reads exactly this
+            // field to decide a body's action set, combat kit, held item and
+            // moveset, and `Some` there means *this body has an archetype, ask
+            // it* — so a road that fabricated one was one routing change away
+            // from handing every villager the fallback's swipe. `None` is the
+            // true statement, and it is the same one `new_character_in` makes.
+            spec: None,
         };
         (seed, render_size)
     }
@@ -1297,7 +1307,6 @@ impl ActorClusterSeed {
             // sheets — the empty registry is the honest value, not a stand-in.
             &Default::default(),
             &CharacterCatalog::empty(),
-            &super::super::enemies::test_roster(),
             // A content-free constructor registers no characters either, so the
             // catalog rule is the only one that can apply.
             None,

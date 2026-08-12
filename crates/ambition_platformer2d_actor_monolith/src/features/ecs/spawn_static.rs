@@ -300,7 +300,6 @@ pub(crate) fn lower_interactable_placement(
         ctx.commands,
         &ctx.context.characters,
         &ctx.context.sheets,
-        &ctx.context.roster,
         &ctx.context.prepared,
         ctx.session_scope,
         ctx.root,

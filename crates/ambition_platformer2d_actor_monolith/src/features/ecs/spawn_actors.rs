@@ -588,7 +588,6 @@ impl NpcActorSpawnPlan {
     pub(super) fn peaceful(
         catalog: &CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        roster: &CharacterRoster,
         prepared: &crate::character_runtime::PreparedCharacterRegistry,
         entity_name: impl Into<String>,
         feature_aabb: CenteredAabb,
@@ -679,7 +678,6 @@ impl NpcActorSpawnPlan {
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,
-            roster,
             Some(prepared),
             id.clone(),
             name.clone(),
@@ -2095,7 +2093,6 @@ pub(crate) fn spawn_interactable_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -2121,7 +2118,6 @@ pub(crate) fn spawn_interactable_into(
         NpcActorSpawnPlan::peaceful(
             catalog,
             authored_sheets,
-            roster,
             prepared,
             format!("Feature actor npc: {label}"),
             feature_aabb,

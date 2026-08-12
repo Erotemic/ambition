@@ -17,8 +17,9 @@ pub fn spawn_cut_rope_victory_npc(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
-    mut released: MessageReader<ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased>,
+    mut released: MessageReader<
+        ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased,
+    >,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
@@ -63,7 +64,6 @@ pub fn spawn_cut_rope_victory_npc(
         &mut commands,
         &character_catalog,
         &authored_sheets,
-        &character_roster,
         spawn_pos,
     );
 }
@@ -76,7 +76,6 @@ fn spawn_victory_npc_entity(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_roster: &ambition_platformer2d_actor_monolith::features::CharacterRoster,
     pos: ae::Vec2,
 ) -> Entity {
     let size = victory_npc_size();
@@ -97,19 +96,19 @@ fn spawn_victory_npc_entity(
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
-    let (mut seed, _render) = ambition_platformer2d_actor_monolith::features::ActorClusterSeed::new_peaceful_npc_in(
-        authored_sheets,
-        character_catalog,
-        character_roster,
-        // The victory NPC names no character, so nothing here can be decided by
-        // one — see the flight rule in `new_peaceful_npc_in`.
-        None,
-        CUT_ROPE_VICTORY_NPC_ID,
-        CUT_ROPE_VICTORY_NPC_NAME,
-        aabb,
-        &interactable,
-        &[],
-    );
+    let (mut seed, _render) =
+        ambition_platformer2d_actor_monolith::features::ActorClusterSeed::new_peaceful_npc_in(
+            authored_sheets,
+            character_catalog,
+            // The victory NPC names no character, so nothing here can be decided by
+            // one — see the flight rule in `new_peaceful_npc_in`.
+            None,
+            CUT_ROPE_VICTORY_NPC_ID,
+            CUT_ROPE_VICTORY_NPC_NAME,
+            aabb,
+            &interactable,
+            &[],
+        );
     seed.kin.facing = -1.0;
     let combat_kit = ambition_platformer2d_actor_monolith::features::CombatKit::default();
     let facing = seed.kin.facing;
@@ -142,9 +141,11 @@ fn spawn_victory_npc_entity(
                 faction: ambition_platformer2d_actor_monolith::features::ActorFaction::Npc,
                 target: ambition_platformer2d_actor_monolith::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
-                motion_model: ambition_platformer2d_actor_monolith::features::MotionModel::default(),
+                motion_model: ambition_platformer2d_actor_monolith::features::MotionModel::default(
+                ),
                 combat_kit,
-                aggression: ambition_platformer2d_actor_monolith::features::ActorAggression::passive(),
+                aggression:
+                    ambition_platformer2d_actor_monolith::features::ActorAggression::passive(),
                 combat,
                 intent,
                 cooldowns,

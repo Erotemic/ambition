@@ -236,10 +236,11 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // body capabilities, and a Smash policy that notices at 540.
     "perfect_cellular_automaton",
     "imperfect_cellular_automaton",
-    // The intro raid corridor's guard, off `gradient_seeker` — see its arm in
-    // `authored_intrinsics`. It is not on the select grid, which is exactly what
-    // this list is for.
+    // The intro raid corridor's two, off `gradient_seeker` and `medium_striker`
+    // — see their arms in `authored_intrinsics`. Neither is on the select grid,
+    // which is exactly what this list is for.
     "npc_salvage_guard",
+    "npc_lab_raider",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -880,6 +881,38 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(6);
+            definition
+        }
+        // **THE LAB RAIDER.** The intro raid corridor's other spawn, and the
+        // SECOND creature to point at the shared `medium_striker` policy — which
+        // is what makes that entry a role rather than the goblin's private
+        // profile under a general name. The campaign named this one explicitly:
+        // *"`npc_lab_raider` and `npc_salvage_guard` for the two intro
+        // placements that are literally named that."*
+        //
+        // ⚠ its body facts are the goblin's, because the archetype it wore gave
+        // both the same ones — 5 HP, 170 px/s, 0.70 contact. Carried across
+        // unchanged; making a raider tougher than a goblin is a design decision
+        // and it should be made where design decisions are visible, not
+        // smuggled in by a migration.
+        //
+        // ⛔ no `action_set` here, exactly like the goblin: its kit comes from
+        // its catalog row's `default_action_set: "striker_swipe"`. Authoring one
+        // would be a SECOND declaration of the same fact, which is the muddle
+        // this campaign removes rather than a completeness improvement.
+        "npc_lab_raider" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 170.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.70,
+                    amount: 1,
+                })
+                .with_autonomous_profile_named("medium_striker");
+            definition.vitals.max_health = Some(5);
             definition
         }
         // **THE SALVAGE GUARD.** The intro raid corridor's two `EnemySpawn`s,

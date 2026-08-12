@@ -107,7 +107,13 @@
             ],
             fields: (
                 name: "Lab Raider",
+                // ⭐ the CHARACTER, since 2026-08-12. `medium_striker`'s
+                // controller half is a SHARED policy the definition names, and
+                // this placement is its second adopter beside the goblin band —
+                // which is what makes that entry a role rather than the goblin's
+                // private profile under a general name.
                 brain: "medium_striker",
+                character_id: "npc_lab_raider",
             ),
         ),
         (

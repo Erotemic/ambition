@@ -99,7 +99,7 @@ pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
 pub fn smash_roster<I, S>(characters: I) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
-    S: Into<String>,
+    S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
     let mut roster = MatchParticipantRoster::of(Vec::<String>::new());
     roster.participants = characters
@@ -219,7 +219,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
 pub fn smash_roster_at_level<I, S>(characters: I, level: u8) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
-    S: Into<String>,
+    S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
     let mut roster = smash_roster(characters);
     for participant in &mut roster.participants {
@@ -255,7 +255,7 @@ where
 pub fn smash_roster_at_levels<I, S>(characters: I, levels: &[u8]) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
-    S: Into<String>,
+    S: Into<ambition_platformer2d::entity_catalog::CharacterId>,
 {
     let mut roster = smash_roster(characters);
     for (index, participant) in roster.participants.iter_mut().enumerate() {

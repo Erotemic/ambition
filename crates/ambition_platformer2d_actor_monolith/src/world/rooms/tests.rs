@@ -62,7 +62,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     );
 
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(app.world_mut(), set);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        set,
+    );
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
@@ -157,7 +160,10 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     );
 
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(app.world_mut(), set);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        set,
+    );
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
@@ -198,6 +204,143 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         "a body that tunnelled through the walk zone in one frame still triggers \
          the transition — the reader sweeps its path (CC2), it does not sample \
          the endpoint",
+    );
+}
+
+/// **A body that WALKED into an edge exit and was stopped by the boundary still
+/// transitions — even though its velocity is now zero.**
+///
+/// ⭐⭐ Jon, 2026-08-12: *"I moved into a loading zone and the room didn't change.
+/// that is not a key binding issue."* He was right, and the two zone tests above
+/// are why nobody found it: **both hand the detector a velocity chosen to make
+/// the answer come out.** The tunnel test computes `vel = (end - start) / dt`
+/// after picking both endpoints, which is precisely the assumption production
+/// breaks; the door tests place the body inside the zone and press a key. Neither
+/// runs a body through the movement kernel, so neither could see this.
+///
+/// What production does, in order:
+///
+/// ```text
+/// 1. the kernel integrates prev → curr and writes SweepSample
+/// 2. collision advances to time-of-impact and calls zero_axis_vel
+/// 3. the detector reconstructs the path as vel · dt  ⇒  ZERO
+/// ```
+///
+/// An edge exit sits at a room boundary — the one place step 2 always happens —
+/// so the segment that proves the body entered the zone was being discarded on
+/// exactly the frame it mattered. A body left TOUCHING the band rather than
+/// strictly inside it then never transitions, however long it stands there.
+///
+/// ⛔ the fixture models step 2 rather than pretending it away: `vel` is ZERO and
+/// the sample carries the travelled segment, which is what a body stopped by a
+/// wall actually looks like. The second half is the poison — the identical body
+/// with no sample falls back to `vel · dt` and does NOT fire, which is the bug
+/// this test exists to keep out.
+#[test]
+fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
+    use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+    use crate::control::SlotInteractionState;
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Captured(Option<usize>);
+
+    fn capture(mut reqs: MessageReader<RoomTransitionRequested>, mut out: ResMut<Captured>) {
+        if let Some(req) = reqs.read().last() {
+            out.0 = Some(req.transition.target_room);
+        }
+    }
+
+    // The exit band at the room's east edge, and a body stopped with its right
+    // face exactly ON the band's left face — touching, not overlapping. This is
+    // what a collision solver leaves behind when it advances to time-of-impact.
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let body_half = ae::Vec2::new(12.0, 20.0);
+    let stopped_at = ae::Vec2::new(zone_center.x - 8.0 - body_half.x, 100.0);
+
+    let build = |sample: Option<ae::SweepSample>| {
+        let mut room_a = spec_with(RoomMetadata::default(), "a");
+        room_a.loading_zones = vec![LoadingZone {
+            id: "exit_a".into(),
+            name: "east".into(),
+            activation: LoadingZoneActivation::EdgeExit,
+            aabb: ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
+        }];
+        let mut room_b = spec_with(RoomMetadata::default(), "b");
+        room_b.loading_zones = vec![LoadingZone {
+            id: "entry_b".into(),
+            name: "west".into(),
+            activation: LoadingZoneActivation::EdgeExit,
+            aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
+        }];
+        let set = RoomSet::from_parts(
+            "a",
+            vec![room_a, room_b],
+            vec![RoomLink {
+                from_room: "a".into(),
+                from_zone: "exit_a".into(),
+                to_room: "b".into(),
+                to_zone: "entry_b".into(),
+                bidirectional: false,
+            }],
+        );
+
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            set,
+        );
+        app.insert_resource(crate::RoomTransitionCooldown::default());
+        app.insert_resource(GatePortalRegistry::default());
+        app.init_resource::<SlotInteractionState>();
+        app.init_resource::<Captured>();
+        app.insert_resource(ambition_time::WorldTime {
+            scaled_dt: 1.0 / 60.0,
+            ..Default::default()
+        });
+        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+        app.add_message::<RoomTransitionRequested>();
+        app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+        let body = BodyKinematics {
+            pos: stopped_at,
+            // ⛔ ZERO, and that is the whole point: the wall took it.
+            vel: ae::Vec2::ZERO,
+            size: body_half * 2.0,
+            facing: 1.0,
+        };
+        let mut entity = app.world_mut().spawn((PlayerEntity, PrimaryPlayer, body));
+        if let Some(sample) = sample {
+            entity.insert(sample);
+        }
+        app.update();
+        app.world().resource::<Captured>().0
+    };
+
+    // The kernel's record of the frame: it walked 40 px east and was stopped.
+    let travelled = ae::SweepSample {
+        prev: stopped_at - ae::Vec2::new(40.0, 0.0),
+        curr: stopped_at,
+        vel: ae::Vec2::new(2400.0, 0.0),
+        half: body_half,
+    };
+    assert_eq!(
+        build(Some(travelled)),
+        Some(1),
+        "the body walked into the exit band and was stopped ON it. Its TRUE path \
+         (SweepSample) crosses the zone, so the transition fires — the reader must \
+         read the kernel's segment, not the velocity collision just zeroed",
+    );
+
+    // ⛔ THE POISON, and it is the shipped bug: same body, same position, no
+    // sample ⇒ the reader falls back to `vel · dt`, which is zero, and the zone
+    // it is standing against goes unnoticed.
+    assert_eq!(
+        build(None),
+        None,
+        "and with no sample the reconstruction is `vel · dt` = 0, which cannot \
+         describe that movement at all — if this ever returns Some(1) the fixture \
+         has stopped modelling the collision that makes the bug possible",
     );
 }
 
@@ -300,9 +443,9 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
     );
 
     // Empty active metadata clears the request.
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
-        app.world_mut(),
-    )
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+        ActiveRoomMetadata,
+    >(app.world_mut())
     .expect("session active-room metadata")
     .0
     .music_track = None;
@@ -355,7 +498,10 @@ fn sync_active_room_metadata_publishes_active_value() {
         ],
         Vec::new(),
     );
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(app.world_mut(), set);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        set,
+    );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
         ActiveRoomMetadata::default(),
@@ -363,9 +509,9 @@ fn sync_active_room_metadata_publishes_active_value() {
     app.add_systems(Update, sync_active_room_metadata);
     app.update();
     assert_eq!(
-        &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ActiveRoomMetadata>(
-            app.world()
-        )
+        &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ActiveRoomMetadata,
+        >(app.world())
         .expect("session active-room metadata")
         .0,
         &m_hub
@@ -378,9 +524,9 @@ fn sync_active_room_metadata_publishes_active_value() {
     .set_active(1);
     app.update();
     assert_eq!(
-        &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ActiveRoomMetadata>(
-            app.world()
-        )
+        &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ActiveRoomMetadata,
+        >(app.world())
         .expect("session active-room metadata")
         .0,
         &m_lab

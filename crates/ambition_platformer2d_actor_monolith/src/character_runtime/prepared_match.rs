@@ -187,7 +187,10 @@ pub struct PreparedSeat {
     /// Which seat of the match this is. Stable across a rewind, unlike an
     /// `Entity`, which is why placement and the view policy are keyed on it.
     pub seat: usize,
-    pub character_id: String,
+    /// ⭐ typed for the same reason the participant's is (P0.3): this is the id
+    /// the prepared registry is keyed on, and `Borrow<str>` keeps every existing
+    /// `&str` lookup working without minting an id to ask a question.
+    pub character_id: ambition_entity_catalog::CharacterId,
     /// **This BODY's stable identity**, distinct from the character it wears.
     ///
     /// ⛔ a match may legitimately be a MIRROR — two seats, one character — and
@@ -641,7 +644,7 @@ pub fn prepare_match(
         // the failure had no words anywhere in the engine, and a select screen
         // that filtered its grid by the CATALOG could offer eight fighters this
         // host cannot seat.
-        let Some(definition) = registry.get(&participant.character) else {
+        let Some(definition) = registry.get(participant.character.as_str()) else {
             seat_problem(format!(
                 "asks for character `{}`, which this composition has not REGISTERED. \
                  ⚠ a catalog row is not a registration: the catalog says what a \

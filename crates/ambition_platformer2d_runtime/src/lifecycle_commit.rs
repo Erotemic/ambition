@@ -59,7 +59,25 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // and the mismatch both fire at the check horizon, so they coincide. If the
     // old timeline is unhealthy, leave the diagnostic visible and do not commit;
     // a rebase must never launder a divergence into a clean baseline.
-    if crate::rollback::session_health(world).is_err() {
+    //
+    // ⛔ **BUT IT MUST NOT BE SILENT** (GPT 5.6 via Jon, 2026-08-12). This is the
+    // veto that decides whether a CONFIRMED room transition happens, so while a
+    // session is unhealthy every door and every loading zone in the game is
+    // inert — detection fired, the intent was recorded, and nothing moves. A bare
+    // `return` here reports that as *the room simply did not change*, which is
+    // indistinguishable from the content being wrong and is what sent an
+    // investigation into the input layer.
+    //
+    // ⚠ `_once`: an unhealthy timeline stays unhealthy, and this runs per frame.
+    // The line names the transition it is holding, because "which one" is the
+    // first thing anybody reading this asks.
+    if let Err(error) = crate::rollback::session_health(world) {
+        bevy::log::error_once!(
+            "a confirmed lifecycle commit is being HELD because the rollback \
+             session is unhealthy ({error:?}) — until this clears, doors and \
+             loading zones will detect and never move. The room is not the \
+             problem; the desync is."
+        );
         return;
     }
 

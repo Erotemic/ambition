@@ -108,7 +108,34 @@ pub fn detect_room_transition_system(
     // "is this the home avatar". Falls back to the primary player at startup.
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
-    bodies: Query<&crate::actor::BodyKinematics>,
+    // ⛔⛔ **THE PATH IS THE SWEEP SAMPLE, NEVER `vel · dt`** — this system was the
+    // last swept reader in the engine still reconstructing motion from the
+    // POST-collision velocity, and that is the bug Jon reported as *"I moved into
+    // a loading zone and the room didn't change"* (2026-08-12).
+    //
+    // The collision solver advances a body to time-of-impact and then ZEROES that
+    // axis (`zero_axis_vel`). An edge exit sits at a room boundary, which is
+    // exactly where that happens — so on the frame the body arrives, the truth is:
+    //
+    // ```text
+    // actually travelled:  prev ─────────────────► curr, inside the zone
+    // SweepSample.delta(): that segment, correct
+    // kin.vel after collision: 0
+    // vel · dt:            ZERO — the segment that proves entry, discarded
+    // ```
+    //
+    // and a body that ended TOUCHING the boundary rather than strictly inside it
+    // then fails the overlap test forever. `SweepSample` exists precisely to
+    // record `prev → curr` inside the movement kernel; the hazard reader and the
+    // portal sweep already consume it and the collision doctrine forbids
+    // reconstructing a path from velocity when a sample exists. Room transitions
+    // simply missed that migration.
+    //
+    // ⚠ `Option`, and `vel · dt` survives as the FALLBACK — the sample's own
+    // contract says bodies without the component (legacy spawns, scratch fixtures)
+    // keep the historical approximation at the read site. Deleting the fallback is
+    // for the day every mover writes a sample, not for this fix.
+    bodies: Query<(&crate::actor::BodyKinematics, Option<&ae::SweepSample>)>,
     // The triggering body's rollback-stable identity, recorded into the deferred
     // transition so the confirmed commit transports the body that CROSSED the
     // exit — not whatever is controlled later, after a possession change (GPT
@@ -131,13 +158,17 @@ pub fn detect_room_transition_system(
     else {
         return;
     };
-    let Ok(kin) = bodies.get(subject_entity) else {
+    let Ok((kin, sweep)) = bodies.get(subject_entity) else {
         return;
     };
     // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
     // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
-    // discrete standing-in-it case is `delta == 0`, preserved exactly.
-    let delta = kin.vel * world_time.sim_dt();
+    // discrete standing-in-it case is `delta == 0`, preserved exactly — a body
+    // that did not move produces a zero-length sample and the test degrades to
+    // the overlap it always was.
+    let delta = sweep
+        .map(|sample| sample.delta())
+        .unwrap_or_else(|| kin.vel * world_time.sim_dt());
     let Some(zone) =
         room_set.transition_for_player(kin.aabb(), delta, slot_gestures.primary().buffered())
     else {

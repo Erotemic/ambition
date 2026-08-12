@@ -65,7 +65,12 @@ impl StagesCharacters for RoomStagingPlan {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchParticipant {
     /// The stable `CharacterDefinitionId` this seat wears.
-    pub character: String,
+    ///
+    /// ⭐ **typed, so a seat cannot be handed a display name** (P0.3). It was a
+    /// bare `String` for as long as the roster existed, which made
+    /// `MatchParticipant::new("Iron Mary", ..)` — a display name where an id
+    /// belongs — a thing the compiler had no opinion about.
+    pub character: ambition_entity_catalog::CharacterId,
     /// Who drives it. Lives HERE and not on the definition, because the same
     /// character must be playable by a human, a CPU, a replay, and an RL policy
     /// without four definitions.
@@ -97,7 +102,7 @@ pub struct MatchParticipant {
 }
 
 impl MatchParticipant {
-    pub fn new(character: impl Into<String>) -> Self {
+    pub fn new(character: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self {
             character: character.into(),
             // ⚠ **the first PAD, not "seat zero".** A roster that seats two of
@@ -472,7 +477,7 @@ impl MatchParticipantRoster {
     pub fn of<I, S>(characters: I) -> Self
     where
         I: IntoIterator<Item = S>,
-        S: Into<String>,
+        S: Into<ambition_entity_catalog::CharacterId>,
     {
         Self {
             participants: characters
@@ -645,7 +650,7 @@ impl StagesCharacters for MatchParticipantRoster {
     fn character_tokens(&self) -> Vec<String> {
         self.participants
             .iter()
-            .map(|p| p.character.clone())
+            .map(|p| p.character.to_string())
             .collect()
     }
 }

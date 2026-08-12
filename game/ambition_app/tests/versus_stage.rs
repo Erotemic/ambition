@@ -2819,7 +2819,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
     let (before, stamped_generation) = {
         let mut roster = app.world_mut().resource_mut::<MatchParticipantRoster>();
         for participant in &mut roster.participants {
-            participant.character = format!("{}_impostor", participant.character);
+            participant.character = format!("{}_impostor", participant.character).into();
         }
         // ⚠ **`activate(None)`, not `Proposed`.** The match is LIVE — these
         // bodies are on the stage — so the roster stays activated and only the

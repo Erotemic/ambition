@@ -242,11 +242,17 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     let fighters = app.world().resource::<SmashRoster>().clone();
     assert_eq!(
         roster.participants[0].character,
-        fighters.get(nth_of(&fighters, 0)).expect("a fighter")
+        fighters
+            .get(nth_of(&fighters, 0))
+            .expect("a fighter")
+            .into()
     );
     assert_eq!(
         roster.participants[1].character,
-        fighters.get(nth_of(&fighters, 1)).expect("a fighter")
+        fighters
+            .get(nth_of(&fighters, 1))
+            .expect("a fighter")
+            .into()
     );
 }
 
@@ -297,14 +303,14 @@ fn a_player_who_never_touched_the_grid_starts_on_random() {
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(
         roster.participants[0].character,
-        fighters.get(nth(&app, 1)).expect("a fighter"),
+        fighters.get(nth(&app, 1)).expect("a fighter").into(),
         "the slot that CHOSE did not get what it chose"
     );
     assert!(
         fighters
             .0
             .iter()
-            .any(|id| *id == roster.participants[1].character),
+            .any(|id| id.as_str() == roster.participants[1].character.as_str()),
         "the random seat drew `{}`, which is not on the grid",
         roster.participants[1].character
     );

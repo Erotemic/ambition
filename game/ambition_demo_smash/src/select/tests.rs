@@ -49,7 +49,7 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
         roster
             .participants
             .iter()
-            .find(|p| p.character == id)
+            .find(|p| p.character.as_str() == id)
             .unwrap_or_else(|| panic!("`{id}` was not seated"))
     };
     assert!(
@@ -585,7 +585,10 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
         assert!(
-            fighters.0.iter().any(|id| *id == participant.character),
+            fighters
+                .0
+                .iter()
+                .any(|id| id.as_str() == participant.character.as_str()),
             "a random seat drew `{}`, which is not on the grid",
             participant.character
         );

@@ -451,12 +451,25 @@ fn losing_a_stock_announces_a_body_restart() {
 
     // Throw it out of the world, which is how a stock is spent here.
     //
-    // ⛔⛔ **AND IT NO LONGER LANDS — measured 2026-08-11, ledger D90.** After
-    // this write the body is back at a normal stage height (`y ≈ 266`) with all
-    // three stocks, walking around as though nothing happened. Something UNDOES a
-    // direct `BodyKinematics::pos` write within the sampling window, so this test
-    // has been asserting a restart that no knockout ever caused. Do not "fix" it
-    // by raising the flag somewhere; find out what moved the body back.
+    // ⛔⛔ **MEASURED 2026-08-11 (ledger D90), and it is TWO facts, not one.**
+    //
+    // ONE app update after this write the body is at `(537, 320)` — a normal
+    // stage position, not a clamp of `100_000` — so the body IS restarted, and
+    // promptly. But `FighterStocks::remaining` is still 3 after the whole window:
+    // **a restart happened and no stock was spent.**
+    //
+    // ⚠ `restart_pending` is a ONE-SIM-TICK flag: the reset raises it and
+    // `announce_body_restarts` clears it in the next `WorldPrep`. This test
+    // samples between `app.update()` calls, and under a fixed-tick host one app
+    // update advances SEVERAL sim ticks — so the raise and the clear can both
+    // happen inside a single sample gap and the flag is unobservable from here.
+    // The engine publishes a `BodyRestarted` TRIGGER for exactly this reason;
+    // that is what an observer should collect.
+    //
+    // ⛔ **do not make this pass by collecting the trigger alone.** The name of
+    // this test says a STOCK LOSS announces the restart, and the measurement says
+    // a restart occurred without one. Fixing the instrument while that is true
+    // would hide the more interesting half.
     {
         let world = app.world_mut();
         let mut kin = world

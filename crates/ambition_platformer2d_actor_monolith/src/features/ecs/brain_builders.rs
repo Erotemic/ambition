@@ -38,6 +38,19 @@ use ambition_characters::brain::{
 /// ⛔ this is a FALLBACK, not a design. Every character that authors its own
 /// repertoire stops consuming it, which is the same falling-adopter-count P3.24
 /// measures — and when the count is zero this function is deleted, not retuned.
+///
+/// ⛔⛔ **AND IT IS NOT THE ONLY ONE, WHICH IS THE POINT.** Smash's
+/// `smash_fighter_kit()` answers the same question with different numbers —
+/// `0.22/0.08/0.26`, 4 damage, 34 reach, against this one's `0.28/0.08/0.32`,
+/// 1 damage, 28 reach. Faster, harder, longer: a platform fighter's floor rather
+/// than an exploration provoke. **Merging them would retune a mode while wearing
+/// a refactor's commit.**
+///
+/// ⇒ what the pair proves is that this default belongs to the SESSION RULESET —
+/// the campaign's third authority — and not to the engine or to any character. A
+/// stage states what an unarmed fighter swings for; a room states something else;
+/// neither is a fact about a body. Naming it here is the step that made the
+/// question askable, not the final home.
 pub(crate) fn default_fighting_kit() -> CombatKit {
     CombatKit {
         innate_melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(

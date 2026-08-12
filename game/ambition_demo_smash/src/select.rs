@@ -825,6 +825,33 @@ pub fn local_source_under(
 /// not own and must not edit. Numbers match `SMASH_CATALOG_RON`'s `duelist`
 /// action set — a real swipe, because the whole point of the stage is that a hit
 /// LAUNCHES and a fighter with no melee cannot knock anybody off anything.
+/// **The STAGE's answer to "what does a body that authored no kit fight with?"**
+///
+/// ⭐⭐ **the engine asks the same question and answers it differently, and the
+/// difference is the DESIGN** (measured 2026-08-12). Exploration's answer is
+/// `brain_builders::default_fighting_kit()` — the swipe a provoked Hall NPC
+/// swings, because a body that authored `peaceful` has nothing otherwise:
+///
+/// ```text
+///                    windup  active  recover  damage  reach
+///   this stage        0.22    0.08     0.26      4      34
+///   exploration       0.28    0.08     0.32      1      28
+/// ```
+///
+/// Faster, harder, longer. That is a platform fighter's floor against an
+/// exploration provoke, and it is correct that they differ.
+///
+/// ⛔ **SO DO NOT MERGE THEM.** They looked like one duplicated helper until the
+/// numbers were put side by side; unifying them would retune one mode while
+/// wearing a refactor's commit. What they share is the CONCEPT, and the
+/// conclusion the pair forces is that this default belongs to the SESSION
+/// RULESET — the campaign's third authority — rather than to the engine or to
+/// any character. A stage states what an unarmed fighter swings for; a room
+/// states something else; neither is a fact about a body.
+///
+/// ⚠ its goal is still DELETION, per character: every fighter that authors a
+/// repertoire stops reaching this, and the count is falling (robot, goblin,
+/// admiral, patent clerk).
 fn smash_fighter_kit() -> ambition_platformer2d::character::ActionSet {
     let mut kit = ambition_platformer2d::character::ActionSet::default();
     kit.melee = Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(

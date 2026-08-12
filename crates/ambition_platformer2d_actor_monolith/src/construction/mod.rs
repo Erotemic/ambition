@@ -1238,7 +1238,8 @@ pub fn mount_capabilities_of(
             // point of there being one construction path.
             SpawnActorKind::Enemy { brain, character } => authored_mount_capabilities(
                 resolve_planned_character(prepared, character.as_ref()),
-                &roster.spec_for_brain(brain),
+                // The honest lookup — see the function's own note.
+                roster.try_spec_for_brain(brain).as_ref(),
             ),
             // A boss takes `CanPilot` from its behaviour profile and is never
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
@@ -1255,14 +1256,21 @@ pub fn mount_capabilities_of(
             },
         },
         ActorConstructionParams::SummonedMinion(minion) => {
-            let spec = roster.spec_for_brain(
+            // ⛔ a summoned minion names its archetype by STRING, and a boss
+            // casting a spell for a row nobody authored is the case
+            // `every_summoned_minion_id_resolves_a_body` guards. Asking the
+            // honest lookup means the plan says "this body rides nothing"
+            // rather than inheriting the fallback's mount answers.
+            let spec = roster.try_spec_for_brain(
                 &ambition_entity_catalog::placements::CharacterBrain::Custom(
                     minion.archetype_id.clone(),
                 ),
             );
             PlannedMountCapabilities {
-                mount_class: spec.mount_class.clone(),
-                pilots: spec.pilotable_mount_classes.clone(),
+                mount_class: spec.as_ref().and_then(|spec| spec.mount_class.clone()),
+                pilots: spec
+                    .map(|spec| spec.pilotable_mount_classes.clone())
+                    .unwrap_or_default(),
             }
         }
         // A giant host is a mount (its archetype carries `mount_class`); its hands
@@ -1270,7 +1278,8 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
             resolve_planned_character(prepared, authored.payload.character_id.as_ref()),
-            &roster.spec_for_brain(&authored.payload.brain),
+            // The honest lookup — see the function's own note.
+            roster.try_spec_for_brain(&authored.payload.brain).as_ref(),
         ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
         // Same profile resolution as the staged boss arm above — and never a
@@ -1304,9 +1313,14 @@ pub fn mount_capabilities_of(
 /// ⚠ character-first as a WHOLE, not field by field: a definition that authors a
 /// mount block states both halves of the pair, and merging the two sources would
 /// let a deleted row keep contributing a `pilotable_classes` nobody can see.
+/// ⚠ **the spec is OPTIONAL** (2026-08-12), for the reason `is_limbed_host`'s
+/// is: a brain key with no row says NOTHING about what this body can ride or be
+/// ridden by. Callers asked `spec_for_brain`, which cannot fail, so a misspelled
+/// or migrated key inherited the reserved `combatant` row's mount answers —
+/// and the plan is what the mount-link legality rules are checked against.
 fn authored_mount_capabilities(
     character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
-    spec: &crate::features::enemies::ArchetypeSpec,
+    spec: Option<&crate::features::enemies::ArchetypeSpec>,
 ) -> PlannedMountCapabilities {
     match character.and_then(|definition| definition.mount.as_ref()) {
         Some(mount) => PlannedMountCapabilities {
@@ -1314,8 +1328,10 @@ fn authored_mount_capabilities(
             pilots: mount.pilotable_classes.clone(),
         },
         None => PlannedMountCapabilities {
-            mount_class: spec.mount_class.clone(),
-            pilots: spec.pilotable_mount_classes.clone(),
+            mount_class: spec.and_then(|spec| spec.mount_class.clone()),
+            pilots: spec
+                .map(|spec| spec.pilotable_mount_classes.clone())
+                .unwrap_or_default(),
         },
     }
 }

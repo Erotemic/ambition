@@ -111,10 +111,19 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &["combatant", "medium_striker"];
 /// `character_archetypes.ron`: the two mites author their own health, run speed,
 /// gait, contact damage, swipe, death blast and Smash policy on their character
 /// DEFINITIONS, and their placements name them, so construction never resolves
-/// an archetype for them. The eight LDtk placements still carry
-/// `brain: "exploding_mite"` — a string that now resolves to the `combatant`
-/// fallback and is read for exactly one field, the placement's respawn policy,
-/// which has nowhere else to live yet.
+/// an archetype for them.
+///
+/// ⭐ **AND SINCE 2026-08-12 THEIR BRAIN STRING DECIDES NOTHING AT ALL.** This
+/// said the eight LDtk placements still carry `brain: "exploding_mite"` because
+/// it is *"read for exactly one field, the placement's respawn policy, which has
+/// nowhere else to live yet"*. It has somewhere to live — the shark riders proved
+/// it the same day, authoring `respawn: OnRest` on their own placements — so all
+/// eight mite placements author `OnRoomReenter` themselves now.
+///
+/// ⚠ **that value is what the deleted rows said AND what `combatant` answers**,
+/// which is precisely why it needed authoring: since the rows went, the mites had
+/// the right respawn policy BY COINCIDENCE, and would have silently inherited a
+/// different one the day somebody retuned the fallback.
 ///
 /// ⭐ **and the SHARK RIDERS left on 2026-08-11 too, with their respawn policy
 /// going WITH them.** `pirate_shark_rider` and `pirate_heavy_shark_rider` are

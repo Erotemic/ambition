@@ -133,11 +133,11 @@ pub(crate) fn provoked_projection(
 }
 
 /// The fixed peaceful catalog config a catalog-backed NPC spawns with. Mirrors
-/// `ActorClusterSeed::new_peaceful_npc_in`: a health-1 stroller with default
+/// `ActorClusterSeed::new_peaceful_npc_in`: an undescribed-pool stroller with default
 /// brain-spec / capabilities, its authored combat kit as body-capability action
-/// set, and `is_aerial` from the character's catalog body kind. The only
-/// non-constant input is `character_id` (for `is_aerial` + the resolved
-/// `config.brain` read-model).
+/// set, and `is_aerial` from the CHARACTER's own locomotion — the catalog's
+/// silhouette only for a character nobody prepared (D89; see the body of
+/// [`peaceful_config`] for why that distinction is not cosmetic).
 pub(crate) struct PeacefulConfig {
     pub(crate) tuning: ActorTuning,
     pub(crate) brain_profile: BrainProfile,
@@ -148,12 +148,42 @@ pub(crate) struct PeacefulConfig {
 
 pub(crate) fn peaceful_config(
     catalog: &CharacterCatalog,
+    // **THE PREPARED CAST, asked FIRST** — see below.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     character_id: Option<&str>,
     combat_kit: &CombatKit,
     resolved_brain: &Brain,
 ) -> PeacefulConfig {
+    // ⛔⛔ **THIS READ `body_kind: Floating` AND NOTHING ELSE**, which is the one
+    // rule the invariant list forbids by name: *do not reintroduce
+    // `body_kind => is_aerial` as authority*. D89 settled that a body kind
+    // describes a SHAPE — `CharacterLocomotion::baseline_free_flight` is
+    // `Option<bool>` precisely so a character can refuse flight out loud, which a
+    // silhouette cannot express — and the Perfect Cellular Automaton is the
+    // standing example: `body_kind: Floating` in its catalog row,
+    // `baseline_free_flight: Some(false)` in its own definition.
+    //
+    // ⚠ **the wrong answer was UNREACHABLE, and that is why it survived.** Six
+    // catalog rows say `Floating`; every one of them that is PREPARED also
+    // authors an autonomous profile, and `apply_catalog_mode` returns before
+    // this call when a character states its own policy. The only Floating row
+    // with no prepared definition is `npc_snakes_on_a_cartesian_plane`, for
+    // which the catalog IS the right authority. So this was a trap rather than a
+    // bug — and a trap that springs the day somebody deletes a profile.
+    //
+    // ⇒ it now mirrors `new_peaceful_npc_in` for real, which is what this
+    // function's own doc has always claimed: the PREPARED character answers, and
+    // the catalog is the fallback for a character nobody registered.
     let is_aerial = character_id
-        .map(|cid| matches!(catalog.body_kind(cid), Some(CharacterBodyKind::Floating)))
+        .map(|cid| {
+            prepared
+                .and_then(|registry| registry.get(cid))
+                .and_then(|prepared| prepared.locomotion)
+                .and_then(|locomotion| locomotion.baseline_free_flight)
+                .unwrap_or_else(|| {
+                    matches!(catalog.body_kind(cid), Some(CharacterBodyKind::Floating))
+                })
+        })
         .unwrap_or(false);
     let tuning = ActorTuning {
         // The same undescribed-body pool the seed this mirrors installs; a
@@ -290,5 +320,96 @@ mod tests {
             brain: _,
             action_set: _,
         } = proj;
+    }
+}
+
+#[cfg(test)]
+mod peaceful_flight_tests {
+    use super::*;
+
+    const FLOATING_CATALOG: &str = r#"(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: { "peaceful": (move_style: Walk) },
+    characters: {
+        "pca": (
+            display_name: "Automaton", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+            tier: MainHall, body_kind: Floating, composition: None,
+            default_brain: "stand_still", default_action_set: "peaceful", tags: [],
+        ),
+    },
+)"#;
+
+    fn catalog() -> CharacterCatalog {
+        CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(FLOATING_CATALOG),
+        )
+    }
+
+    /// A character with the PCA's exact disagreement: a floating silhouette and
+    /// an authored refusal to fly.
+    fn grounded_floater() -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let definition =
+            crate::character_runtime::CharacterDefinition::new("pca", "Automaton", "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed: 120.0,
+                    baseline_free_flight: Some(false),
+                    ..Default::default()
+                });
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    /// **A SILHOUETTE IS NOT A CLAIM ABOUT FLIGHT** — the one rule the invariant
+    /// list forbids reintroducing by name.
+    ///
+    /// ⛔⛔ `peaceful_config` read `body_kind: Floating` and nothing else, so a
+    /// catalog switch back to peaceful would have made the Perfect Cellular
+    /// Automaton fly — a character whose own definition says
+    /// `baseline_free_flight: Some(false)`. D89 settled this: a body kind
+    /// describes a SHAPE, and `Option<bool>` exists precisely so a character can
+    /// refuse flight out loud.
+    ///
+    /// ⚠ **the wrong answer was UNREACHABLE, which is why it survived.** Six
+    /// catalog rows say `Floating`; every PREPARED one also authors an autonomous
+    /// profile, and `apply_catalog_mode` returns before this call when a
+    /// character states its own policy. It was a trap that springs the day
+    /// somebody deletes a profile — so it is fixed at the rule rather than left
+    /// resting on a reachability argument nobody would re-derive.
+    #[test]
+    fn a_prepared_characters_refusal_to_fly_outranks_a_floating_silhouette() {
+        let catalog = catalog();
+        let cast = grounded_floater();
+        let brain = Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill);
+
+        // ⭐ THE POISON FIRST, because it is what makes the assertion below about
+        // PRECEDENCE. With no prepared cast the catalog is the only authority and
+        // it really does say this body floats — so an empty-catalog fixture, or a
+        // resolver that answered `false` for everything, could not fake this pair.
+        let unprepared =
+            peaceful_config(&catalog, None, Some("pca"), &CombatKit::default(), &brain);
+        assert!(
+            unprepared.tuning.is_aerial,
+            "the fixture catalog must genuinely say `Floating`, or the test below \
+             passes for the wrong reason"
+        );
+
+        let prepared = peaceful_config(
+            &catalog,
+            Some(&cast),
+            Some("pca"),
+            &CombatKit::default(),
+            &brain,
+        );
+        assert!(
+            !prepared.tuning.is_aerial,
+            "the character authored `baseline_free_flight: Some(false)` and the \
+             catalog's silhouette overruled it — `body_kind => is_aerial` is the \
+             authority D89 deleted, and this is the PCA exactly"
+        );
     }
 }

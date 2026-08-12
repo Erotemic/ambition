@@ -398,6 +398,7 @@ pub fn apply_brain_commands(
         if changed {
             apply_catalog_mode(
                 &catalog,
+                prepared.as_deref(),
                 &brain,
                 config,
                 kit,
@@ -422,6 +423,9 @@ pub fn apply_brain_commands(
 /// back to keeping only the `config.brain` read-model in sync (the prior behavior).
 fn apply_catalog_mode(
     catalog: &CharacterCatalog,
+    // **The prepared cast, so the peaceful projection asks the CHARACTER whether
+    // it flies before it asks the catalog's silhouette.** See `peaceful_config`.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     brain: &Brain,
     config: Option<Mut<ActorConfig>>,
     kit: Option<&CombatKit>,
@@ -458,6 +462,7 @@ fn apply_catalog_mode(
     };
     let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(
         catalog,
+        prepared,
         character_id.as_deref(),
         kit,
         brain,

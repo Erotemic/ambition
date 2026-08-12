@@ -522,7 +522,6 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["enemy", "base"],
         barks: (
@@ -717,7 +716,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["pirate", "enemy"],
         barks: (
@@ -912,7 +917,13 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            default_brain: "melee_brute_brute",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
         barks: (
@@ -1325,7 +1336,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
@@ -1342,7 +1359,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
@@ -1378,7 +1401,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["enemy"],
         barks: (
@@ -1627,7 +1656,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["enemy", "robot"],
         barks: (
@@ -1645,7 +1680,13 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors a
+            // policy, and the preset it used to name carried `aggressiveness:
+            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
+            // placement already means. ⚠ the parrot's case was the opposite and
+            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
+            // it changed a body; `1.0` restates a default, so dropping it does
+            // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
             tags: ["enemy", "robot"],
         barks: (

@@ -1364,38 +1364,11 @@ mod tests {
     fn a_character_states_its_policy_in_one_place() {
         /// `(character, preset it still names, why it cannot drop it yet)`
         const KNOWN_DOUBLE_STATED: &[(&str, &str, &str)] = &[
-            ("goblin", "medium_striker", "aggressiveness: 1.0"),
-            ("npc_ai_slop", "melee_brute_striker", "aggressiveness: 1.0"),
-            (
-                "npc_dividing_mite",
-                "melee_brute_striker",
-                "aggressiveness: 1.0",
-            ),
-            (
-                "npc_exploding_mite",
-                "melee_brute_striker",
-                "aggressiveness: 1.0",
-            ),
-            (
-                "npc_lab_raider",
-                "melee_brute_striker",
-                "aggressiveness: 1.0",
-            ),
-            (
-                "npc_pirate_raider",
-                "melee_brute_striker",
-                "aggressiveness: 1.0",
-            ),
-            (
-                "npc_pirate_heavy_iron_mary",
-                "melee_brute_brute",
-                "aggressiveness: 1.0",
-            ),
-            (
-                "npc_salvage_guard",
-                "melee_brute_striker",
-                "aggressiveness: 1.0",
-            ),
+            // ⭐ EMPTY as of 2026-08-12. Every character that authors a policy
+            // now states it in exactly one place. ⛔ an entry added here must
+            // carry the reason its character cannot drop the preset yet, and it
+            // must LEAVE the moment that stops being true — the rot-check below
+            // enforces that, and it has already caught one wrong entry.
         ];
 
         let catalog = load_catalog();

@@ -727,6 +727,26 @@ impl CharacterBindings {
         self
     }
 
+    /// Fill in the engine's baked PORTRAIT vocabulary unless the caller supplied
+    /// one — the twin of [`Self::with_engine_sheet_vocabulary`], and for the
+    /// same argument.
+    ///
+    /// ⛔⛔ **portrait targets were checked NOWHERE until this existed** (ledger
+    /// D106). `with_available_portraits` was the only way to populate the
+    /// resolver and nothing called it, so `self.portraits` was `None` in every
+    /// composition, `PortraitTarget::NAME` never joined a prepared character's
+    /// `checked` list, and preparation reported *"we did not look"* about
+    /// portraits — permanently, correctly, and therefore invisibly. A character
+    /// naming a portrait nobody authored was a fault nothing could raise.
+    pub fn with_engine_portrait_vocabulary(mut self) -> Self {
+        if self.portraits.is_none() {
+            self.portraits = Some(Resolver::new(
+                ambition_sprite_sheet::available_portrait_targets(),
+            ));
+        }
+        self
+    }
+
     /// Fill in the engine's baked sheet vocabulary unless the caller supplied one.
     ///
     /// Kept OUT of `prepare_character`, which stays a pure function of its
@@ -1832,7 +1852,14 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // registration gets its sheet reference checked with a did-you-mean whether
         // or not the provider thought to pass a resolver. A boundary that only
         // works when the caller opts in is a boundary most callers will not have.
-        let bindings = bindings.with_engine_sheet_vocabulary();
+        // ⭐ **BOTH vocabularies, at the ONE seam every registration passes
+        // through.** Sheets have been checked here since the boundary landed;
+        // portraits were not checked anywhere at all (D106), and adding it here
+        // rather than at the three call sites is what stops the next provider
+        // forgetting one of them.
+        let bindings = bindings
+            .with_engine_sheet_vocabulary()
+            .with_engine_portrait_vocabulary();
         let PreparedCharacter {
             prepared, report, ..
         } = prepare_character(definition, &bindings);

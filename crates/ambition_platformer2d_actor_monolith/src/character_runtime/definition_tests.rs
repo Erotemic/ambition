@@ -475,6 +475,44 @@ fn sheets_portraits_and_derived_vfx_are_resolved_at_preparation() {
     );
 }
 
+/// **A PORTRAIT TARGET NOBODY AUTHORED IS NAMED — and until 2026-08-12 it was
+/// not, in any composition** (ledger D106).
+///
+/// ⛔⛔ **the test above is titled *"Sheets, PORTRAITS and the derived vfx
+/// inventory are resolved too"* and only ever asserted sheets.** That is how the
+/// gap survived: the claim was in the name, the coverage was not, and a reader
+/// checking whether portraits were handled would have found a test saying yes.
+///
+/// The mechanism was there — `with_available_portraits` populates the resolver
+/// and `checked()` reports it — and nothing ever called it, so `self.portraits`
+/// was `None` everywhere and preparation's honest *"we did not look"* was the
+/// permanent answer.
+///
+/// ⚠ **this asserts the SEAM, not the resolver.** It goes through
+/// `try_register_character`, which is where `with_engine_portrait_vocabulary` is
+/// applied — a test that passed the resolver by hand would prove the check works
+/// while leaving it disconnected, which is exactly the state this replaces.
+#[test]
+fn a_portrait_target_nobody_authored_is_named_at_registration() {
+    let mut definition = mary_o();
+    definition.portrait = Some("no_such_portrait_target".to_string());
+
+    let mut app = App::new();
+    app.register_character(definition);
+    finalize(&mut app);
+
+    let prepared = app
+        .world()
+        .resource::<PreparedCharacterRegistry>()
+        .get("mary_o")
+        .expect("published");
+    assert!(
+        prepared.was_checked(PortraitTarget::NAME),
+        "the registration seam did not supply a portrait vocabulary, so nothing \
+         looked — which is the D106 state, not a pass"
+    );
+}
+
 /// A derived vfx tag nobody can draw is named — the same treatment cues get.
 #[test]
 fn a_derived_vfx_tag_no_renderer_knows_is_named() {

@@ -46,8 +46,9 @@ pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePac
 pub mod portrait;
 mod snapshot_impls;
 pub use portrait::{
-    baked_portrait_registry, parse_portrait_manifest, PortraitClipRecord, PortraitFrameRect,
-    PortraitSheetManifest, PortraitSheetRegistry, PortraitSheetRegistryPlugin,
+    available_portrait_targets, baked_portrait_registry, parse_portrait_manifest,
+    PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest, PortraitSheetRegistry,
+    PortraitSheetRegistryPlugin,
 };
 
 /// One sprite-sheet's metadata as serialized by the generator. Field

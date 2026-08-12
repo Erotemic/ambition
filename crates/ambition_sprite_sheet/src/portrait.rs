@@ -224,6 +224,38 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
     PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::BAKED_PORTRAIT_RONS)
 }
 
+/// **Every baked portrait target, sorted** — the vocabulary a character's
+/// `portrait` reference resolves against at preparation.
+///
+/// ⭐ the exact twin of `character::sheets::available_targets`, and it exists for
+/// the reason that one does: the engine always knows this vocabulary because it
+/// is baked, so a provider should never have to hand it over just to have its
+/// typo caught. [`PortraitSheetRegistry::available_targets`] already carried the
+/// note *"so a preparation-time did-you-mean list is the same on every
+/// machine"* — a doc naming the use nothing was connected to (ledger D106).
+///
+/// ⚠ **`OnceLock`, because [`baked_portrait_registry`] PARSES.** Preparation
+/// runs per character, and calling the registry constructor there would re-parse
+/// every baked portrait manifest once per registered character — the startup
+/// decode storm §7.1 deleted, rebuilt from the other end. The sheet index is a
+/// process-global `OnceLock` for the same reason and classifies itself as an
+/// immutable asset cache; this is that.
+pub fn available_portrait_targets() -> Vec<&'static str> {
+    static INDEX: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    INDEX
+        .get_or_init(|| {
+            let mut out: Vec<String> = baked_portrait_registry()
+                .available_targets()
+                .map(str::to_owned)
+                .collect();
+            out.sort_unstable();
+            out
+        })
+        .iter()
+        .map(String::as_str)
+        .collect()
+}
+
 /// Install the compile-time portrait manifest index. Presentation code consumes
 /// this resource; simulation remains independent of portrait assets.
 pub struct PortraitSheetRegistryPlugin;

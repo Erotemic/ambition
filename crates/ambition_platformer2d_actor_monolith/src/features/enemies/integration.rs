@@ -72,8 +72,30 @@ fn evaluate_enemy_ai_output(
         } else {
             0.0
         };
+    // ⛔⛔ **A `Passive => 0.0` ARM STOOD HERE, AND IT WAS A SECOND ANSWER TO A
+    // QUESTION THE PROFILE ALREADY OWNS** (campaign P2.20, 2026-08-13).
+    //
+    // How far a body notices from is `BrainProfile::aggro_radius`. The arm made
+    // the integrator-facing `CharacterBrain` read-model a co-authority over the
+    // same fact — and that read-model is a SILHOUETTE, written as `Passive` for
+    // anything that is not a patrol brain, including a boss whose real mind is a
+    // `BossPattern`. Two authorities over one number is what this campaign
+    // exists to end.
+    //
+    // ⚠ **inert by measurement, not by argument**: every production site that
+    // writes `Passive` writes `BrainProfile::default()` beside it, and that
+    // default's `aggro_radius` is `0.0` — the peaceful NPC seed
+    // (`actor_clusters`), the boss config (`spawn_actors`) and the reconcile
+    // projection all do. So the arm was restating what the profile already said.
+    //
+    // ⇒ and it is what made provocation write an ARCHETYPE NAME. A provoked body
+    // took `CharacterBrain::Custom("combatant")` so it would miss this arm and
+    // reach its policy's radius — the read-model standing in for "hostile",
+    // which is the last reason the provoke road spells a roster key at all.
+    //
+    // ⚠ `Guard` stays, and is not the same shape: `leash_radius` is a PLACEMENT
+    // fact — this guard, at this post — not a property of the policy driving it.
     let effective_aggro_radius = match brain {
-        ambition_entity_catalog::placements::CharacterBrain::Passive => 0.0,
         ambition_entity_catalog::placements::CharacterBrain::Guard { leash_radius } => {
             *leash_radius
         }
@@ -572,3 +594,95 @@ impl ContactAttack {
 mod dash_tests;
 #[cfg(test)]
 mod respawn_policy_tests;
+
+#[cfg(test)]
+mod aggro_authority_tests {
+    use super::evaluate_enemy_ai_output;
+    use ambition_characters::actor::ai::CharacterAiMode;
+    use ambition_entity_catalog::placements::CharacterBrain;
+
+    fn look(brain: CharacterBrain, aggro_radius: f32) -> CharacterAiMode {
+        let tuning = crate::features::ecs::actor_tuning::ActorTuning::default();
+        let profile = crate::features::ecs::actor_tuning::BrainProfile {
+            aggro_radius,
+            attack_range: 8.0,
+            ..Default::default()
+        };
+        evaluate_enemy_ai_output(
+            ambition_platformer2d_core::Vec2::new(0.0, 0.0),
+            // Well inside a 200px notice radius and well outside an 8px reach, so
+            // the answer is Chase or it is not noticing at all.
+            ambition_platformer2d_core::Vec2::new(100.0, 0.0),
+            &brain,
+            &tuning,
+            &profile,
+            &crate::features::BodyMelee::default(),
+            true,
+        )
+        .mode
+    }
+
+    /// **HOW FAR A BODY NOTICES FROM IS ITS PROFILE'S, AND ONLY ITS PROFILE'S.**
+    ///
+    /// ⛔ the first two rows are the deleted `Passive => 0.0` arm's whole
+    /// subject: a body whose read-model says `Passive` now notices exactly what
+    /// its POLICY says it notices, which for every production body that carries
+    /// that read-model is still nothing — `BrainProfile::default()` authors
+    /// `0.0` and is what the peaceful seed, the boss config and the reconcile
+    /// projection all pair it with.
+    ///
+    /// ⭐ the third row is why this matters to P2.20: a hostile policy is heard
+    /// through a `Passive` read-model. That is what lets provocation stop writing
+    /// `CharacterBrain::Custom("combatant")` to be noticed — the archetype name
+    /// was standing in for "this body is hostile now".
+    #[test]
+    fn the_notice_radius_comes_from_the_policy_not_from_the_read_model() {
+        // ⚠ **`!= Chase`, not a named idle mode.** What the body does INSTEAD of
+        // chasing is `patrol_enabled`'s answer, and that flag is still read off
+        // the read-model — a second co-authority, and the next step of this row.
+        // Asserting `Patrol` here would quietly pin the coupling this test is
+        // about removing.
+        assert_ne!(
+            look(CharacterBrain::Passive, 0.0),
+            CharacterAiMode::Chase,
+            "a body whose policy authors no notice radius chased anyway"
+        );
+        assert_ne!(
+            look(CharacterBrain::Custom("anything".into()), 0.0),
+            CharacterAiMode::Chase,
+            "the read-model, not the policy, decided this body notices — a \
+             non-`Passive` silhouette is being read as hostility again"
+        );
+        assert_eq!(
+            look(CharacterBrain::Passive, 200.0),
+            CharacterAiMode::Chase,
+            "a body carrying a hostile policy did not notice a target 100px away \
+             because its integrator read-model still said `Passive`. That is the \
+             coupling that forces provocation to write an archetype name"
+        );
+    }
+
+    /// `Guard` is NOT the same shape and does not follow the policy: its
+    /// `leash_radius` is a placement fact — this guard, at this post — so it
+    /// overrides. The poison is the same profile read through a different brain.
+    #[test]
+    fn a_guards_leash_is_the_placements_answer_and_still_overrides() {
+        assert_ne!(
+            look(CharacterBrain::Guard { leash_radius: 0.0 }, 200.0),
+            CharacterAiMode::Chase,
+            "a guard posted with a zero leash chased on its policy's radius, so \
+             the placement's answer is no longer overriding"
+        );
+        assert_eq!(
+            look(
+                CharacterBrain::Guard {
+                    leash_radius: 200.0
+                },
+                0.0
+            ),
+            CharacterAiMode::Chase,
+            "a guard with a real leash did not notice, so the override is gone \
+             in the other direction too"
+        );
+    }
+}

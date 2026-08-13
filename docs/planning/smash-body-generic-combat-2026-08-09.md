@@ -1204,6 +1204,42 @@ the cheap kind to re-check:
 ⚠ this file's citations of `is_attacker_side` are correct HISTORY, not staleness —
 one is the rename table, one is the finding that it did not exist.
 
+### ⇥ ⛔⛔ THE ONE THING SMASH HAS EXPOSED THAT THIS FILE HAD NOT NAMED
+
+Three defects found on 2026-08-13 are the same defect wearing three names, and
+the campaign's own proposition is what they violate:
+
+```text
+  D107  BodyCombat::attacking     written only With<PlayerEntity>, and only from
+                                  the FLAT swing road — so the causal trace says
+                                  "not attacking" about a moveset fighter
+  D108  landing_lag_timer         armed for any body; carried, decayed and gated
+                                  only for the player. A CPU lands clean out of
+                                  the aerial that costs a human 0.10–0.28s
+  D110  hitstop_timer             armed for victim AND attacker "from the one
+                                  hitlag law"; read only by the player road and a
+                                  `With<PrimaryPlayer>` clock request, so a hit
+                                  between two non-primary fighters has no freeze
+```
+
+⭐ **the pattern: a REACTION TIMER is written body-generically and consumed
+player-specifically.** Each was authored as a fact about a body — the resolver
+arms it on whatever it touches — and each is read by a system whose query says
+`With<PlayerEntity>` or `With<PrimaryPlayer>`. The body-generic half landed; the
+consumption half never did.
+
+⇒ **this is exactly what the campaign said Smash would find.** *"Smash is one of
+the strongest tests of whether the character architecture is actually
+compositional"* — and a stage where every fighter is a body and at most one is
+the primary player is the first place a player-scoped consumer becomes visible.
+In exploration the player is the only body anyone watches, so all three hid.
+
+⚠ **the fix shape is the same for all three and one of them has it already**:
+name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
+is that for the landing-lag half of D108 — the actor road not calling it is now
+visible rather than inferable. ⛔ none of the three is fixed here, because each
+changes how a CPU fight FEELS and that is Jon's.
+
 ### ⇥ ⭐⭐ AND WHY THIS FILE HELD WHERE NINE ROWS ELSEWHERE DID NOT
 
 Across this run, four ledger rows, five campaign rows, a decision-file index and a

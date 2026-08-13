@@ -386,10 +386,32 @@ autonomous_reconcile                1045
     be `Custom(_)`. That assertion used to say `!= Passive`, which was the
     archetype name's fingerprint — it could not have passed without the roster
     key it was supposed to be guarding against.
-18. ▢ **Prepared completeness** (ruling 8): `None` must stop meaning "ask the
+18. ◐ **Prepared completeness** (ruling 8): `None` must stop meaning "ask the
     archetype". ⚠ gated on (10)–(11): flipping death traits to
     `CharacterDeathTraits::default()` today makes an unmigrated mite stop
     exploding.
+
+    ⇥ ✔ **THE GATE IS SPENT — the mites are migrated** (measured 2026-08-13).
+    `npc_exploding_mite` authors `explodes_on_death` and `npc_dividing_mite`
+    authors `divides_on_death`, both `with_death_traits` on their own
+    definitions; four characters author them in total (the two mites, the burning
+    shark, `sandbag_infinite`). There is no unmigrated mite left to stop
+    exploding.
+
+    ⇥ ✔ **AND THE RULING IS ALREADY IN FORCE WHERE IT DECIDES ANYTHING.** The
+    character-first road reads `definition.death_traits.clone().unwrap_or_default()`
+    — `None` means *the character said nothing* and takes the default, which is
+    exactly ruling 8. The `if let Some(..)` that still reads "ask the archetype"
+    is `adopt_character_intrinsics`, on the LEGACY road, and it is correct there:
+    a HALF-migrated character's unstated facts have no other source, so patching
+    rather than defaulting is what keeps a partial migration honest.
+
+    ⇒ **so this item does not need a flip; it completes when the legacy road
+    goes**, which is item (9) behind item (7). ⚠ and that road already carries
+    **zero shipped placements**: every `EnemySpawn` in the four worlds names a
+    complete character except `under_town_pipes` and `dive_drill`, and neither
+    names a character at all, so `adopt_character_intrinsics` has live code and no
+    live data (see `every_shipped_enemy_placement_can_be_built`).
 19. ▢ **Remove `PreparedKit::HostCode`** — the protagonist is a definition plus
     runtime body state like everything else.
 20. ▢ **Remove the scaffolding**: `BUILDABLE_ONLY_CAST` (a registered complete

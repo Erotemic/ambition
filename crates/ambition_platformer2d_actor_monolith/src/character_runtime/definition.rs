@@ -34,10 +34,9 @@ pub use ambition_characters::binding_namespaces::{
     MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
 };
 pub use ambition_characters::prepared::{
-    finalize_cast, prepare_for_registration, CharacterBindings, CharacterBodyBlueprint,
-    CharacterCatalogGeneration, CharacterRegistrationError, MissingCharacterFacts,
-    PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit, StagedCharacter,
-    StagedRegistration,
+    CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
+    CharacterPreparationPlugin, CharacterRegistrationError, MissingCharacterFacts,
+    PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
 };
 
 use ambition_characters::actor::definition::CharacterDefinition;
@@ -51,7 +50,6 @@ use ambition_characters::actor::definition::CharacterDefinition;
 pub(crate) use ambition_characters::prepared::{
     prepare_and_finalize_against_for_test, prepare_and_finalize_for_test, FinalizedCharacter,
 };
-use std::collections::BTreeMap;
 
 /// **The single registration seam.** (§4.1)
 ///
@@ -135,19 +133,6 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         definition: CharacterDefinition,
         bindings: CharacterBindings,
     ) -> Result<&mut Self, CharacterRegistrationError> {
-        if definition.id.as_str().trim().is_empty() {
-            return Err(CharacterRegistrationError::BlankId);
-        }
-        // Registration installs its own barrier. Deliberately not a composition
-        // requirement: `register_character` is an App extension anybody may call
-        // on a bare App, and a finalizer that only runs when the caller also
-        // remembered a plugin is a finalizer most callers will not have — which
-        // is the same shape as every other "the app forgot the step" defect this
-        // module exists because of.
-        if !self.is_plugin_added::<CharacterPreparationPlugin>() {
-            self.add_plugins(CharacterPreparationPlugin);
-        }
-        let provider = definition.provider.clone();
         // The engine supplies its OWN vocabulary. A sheet target resolves against
         // the baked manifest index, which the engine always knows, so every
         // registration gets its sheet reference checked with a did-you-mean whether
@@ -158,194 +143,21 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // portraits were not checked anywhere at all (D106), and adding it here
         // rather than at the three call sites is what stops the next provider
         // forgetting one of them.
+        //
+        // ⭐⭐ **and enriching the BINDINGS is the whole of what this layer does
+        // now.** Staging, the barrier and the fold went down to
+        // `ambition_characters::prepared` (2026-08-12): while they were up here,
+        // the low crate had to publish a public mint and a public consumer for
+        // this function to call, and two public ends make a public fold no matter
+        // how opaque the value between them. What crosses the boundary is a
+        // CONTRIBUTION, and what this crate contributes on top of the provider's
+        // is the engine's own art vocabulary — which is the one fact
+        // `ambition_characters` must not know, because `ambition_sprite_sheet`
+        // depends on it.
         let bindings = with_engine_vocabularies(bindings);
-        let StagedRegistration {
-            staged: prepared,
-            report,
-        } = prepare_for_registration(definition, &bindings);
-        let id = prepared.id().to_string();
-
-        // Transactional: assemble the candidate, and only publish if the id is
-        // free. A rejected registration leaves the previous authority active.
-        let mut candidate = self
-            .world()
-            .get_resource::<StagedCharacterOverrides>()
-            .cloned()
-            .unwrap_or_default();
-        if candidate.finalized {
-            panic!(
-                "character `{id}` was registered after the preparation barrier closed. \
-                 Authoring is a `Plugin::build` operation: a contribution that arrives \
-                 after finalization would be folded against a catalog the published cast \
-                 was already built without, so half the session would know a character the \
-                 other half does not. A later cast change is a separate explicit \
-                 transaction (see docs/planning/character-preparation-finalization-plan.md)"
-            );
-        }
-        // A display name already spoken for by a DIFFERENT id is rejected before the
-        // insert, so the registry can never hold the ambiguity that
-        // `id_for_display_name` would then have to resolve arbitrarily.
-        if let Some(first_id) = candidate.id_for_display_name(prepared.display_name()) {
-            if first_id != prepared.id() {
-                return Err(CharacterRegistrationError::AmbiguousDisplayName {
-                    display_name: prepared.display_name().to_string(),
-                    first_id: first_id.to_string(),
-                    second_id: prepared.id().to_string(),
-                });
-            }
-        }
-        if let Some(first_provider) = candidate.insert(prepared) {
-            return Err(CharacterRegistrationError::DuplicateId {
-                character_id: id,
-                first_provider,
-                second_provider: provider,
-            });
-        }
-        self.insert_resource(candidate);
-
-        if !report.is_empty() {
-            report.log(&format!("preparing character `{id}`"));
-        }
+        ambition_characters::prepared::stage_authored_character(self, definition, &bindings)?;
         Ok(self)
     }
-}
-
-/// **What providers have authored, before the catalog exists to fold against.**
-///
-/// The preparation-phase half of the registry. Holds partial values and is
-/// consumed by [`CharacterPreparationPlugin::finish`]; nothing downstream can
-/// FOLD one, because [`StagedCharacter`] is opaque — it has no public
-/// constructor and `finalize_cast` is the only thing that consumes it.
-///
-/// ⚠ **that used to read "nothing downstream can READ one, because
-/// `PreparedCharacterOverrides` does not escape this module"**, and the module
-/// it could not escape was in this crate. The partial escapes now — it has to,
-/// the model lives in `ambition_characters` — so the guarantee moved from
-/// visibility to TYPE. Weaker in what it hides, stronger in what it prevents.
-#[derive(bevy::prelude::Resource, Debug, Clone, Default)]
-struct StagedCharacterOverrides {
-    by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
-    /// Set when the barrier closes, so a late contribution is a panic rather than
-    /// a value nobody will ever fold.
-    finalized: bool,
-}
-
-impl StagedCharacterOverrides {
-    fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
-        self.by_id
-            .values()
-            .find(|staged| staged.display_name() == display_name)
-            .map(StagedCharacter::id)
-    }
-
-    /// Returns the previous author when the id was already spoken for.
-    fn insert(&mut self, staged: StagedCharacter) -> Option<String> {
-        self.by_id
-            .insert(staged.id().to_string().into(), staged)
-            .map(|previous| previous.provider().to_string())
-    }
-}
-
-/// **The finalization barrier.** (H1, 2026-07-29)
-///
-/// Bevy runs every plugin's `build` during registration and every `finish` once
-/// all of them are ready. That ordering is the whole reason this is a plugin
-/// rather than a startup system or an eager fold at registration time: a provider
-/// registering its cast before the App installs `CharacterCatalog` would otherwise
-/// inherit an empty row and bake the absence in permanently. Which provider goes
-/// first is a composition detail no provider can see.
-///
-/// Installed automatically by [`CharacterDefinitionAppExt::try_register_character`].
-///
-/// ⚠ **`App::update` does not run `finish`** — Bevy's runners do. A hand-driven
-/// App (every headless test, every fixture, every tool in this repository) must
-/// call [`ambition_platformer2d_runtime::finalize`] or it will have a staged cast and no
-/// published one. That is not silent: `PreparedCharacterRegistry` is absent
-/// rather than empty, and absent already means "no registered characters" to
-/// every consumer.
-pub struct CharacterPreparationPlugin;
-
-impl bevy::prelude::Plugin for CharacterPreparationPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.init_resource::<StagedCharacterOverrides>();
-        // THE BACKSTOP, for the apps Bevy's runner never touches.
-        //
-        // `App::update` does not run `finish` — runners do — and this repository
-        // drives `update` by hand almost everywhere: every headless test, the
-        // external-consumer fixture, the rollback harnesses, the tools. Without
-        // this, all of them would register a cast and publish none, and the
-        // symptom is the worst kind: every character silently falls back to the
-        // host's compatibility kit, so a consumer's peaceful wanderer comes out
-        // swinging the protagonist's sword. That is not hypothetical — it is
-        // what the outlander fixture reported within an hour of the barrier
-        // landing.
-        //
-        // Not a second authority: it calls the SAME finalizer, guarded by the
-        // same `finalized` flag, so whichever trigger fires first wins and the
-        // other is a no-op. And it is not a weaker barrier — `PreStartup` runs
-        // after every plugin's `build`, which is the entire ordering hazard
-        // `finish` exists to remove. What `finish` still buys is that the
-        // registry exists before ANY system runs, including `Startup`.
-        app.add_systems(bevy::prelude::PreStartup, close_preparation_barrier);
-        // ⚠ **a `PreUpdate` re-close was TRIED for queue D75 and does not fix
-        // it** (2026-08-11). The hypothesis was a cast arriving after the
-        // barrier latched; the measurement says otherwise — those hosts read a
-        // registry of ZERO at spawn time whether the barrier can re-close or
-        // not, so the cast is not late, it is absent from whatever world the
-        // spawn is reading. Recorded rather than left as a plausible fix nobody
-        // re-measured.
-    }
-
-    fn finish(&self, app: &mut bevy::prelude::App) {
-        finalize_prepared_cast(app.world_mut());
-    }
-}
-
-/// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
-fn close_preparation_barrier(world: &mut bevy::prelude::World) {
-    finalize_prepared_cast(world);
-}
-
-/// **Fold the staged cast and publish it.** Idempotent; runs at most once.
-fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
-    let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
-        return;
-    };
-    // ⚠ **`App::finish` re-runs EVERY plugin's `finish`, every time it is
-    // called.** It does not track which ones already ran — it walks the whole
-    // registry and sets `plugins_state = Finished` (read in `bevy_app` 0.18.1
-    // after this bit us, 2026-07-29). The `PreStartup` backstop is a second
-    // trigger on top of that.
-    //
-    // Without a guard, a second call republished an EMPTY registry: the staged
-    // overrides had already been consumed, so the whole cast silently vanished on
-    // the fixture's second step. The barrier has to be idempotent itself;
-    // nothing upstream makes it so.
-    //
-    if staged.finalized {
-        return;
-    }
-    staged.finalized = true;
-    let staged = std::mem::take(&mut staged.by_id);
-    let catalog = world
-        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
-        .cloned();
-    // The POLICY authority, published beside the catalog by assembly.
-    let profiles = world
-        .get_resource::<ambition_characters::actor::character_catalog::BrainProfileRegistry>()
-        .cloned();
-    // TRANSACTIONAL: the whole cast is folded and only then published, so a
-    // reader can never observe a registry that holds half of one generation.
-    let previous = world
-        .get_resource::<PreparedCharacterRegistry>()
-        .map(PreparedCharacterRegistry::generation)
-        .unwrap_or_default();
-    world.insert_resource(finalize_cast(
-        staged.into_values(),
-        catalog.as_ref(),
-        profiles.as_ref(),
-        previous,
-    ));
 }
 
 // A CHILD of the preparation module, not a sibling. Its subject is the partial

@@ -451,6 +451,39 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-character-fold-is-not-a-public-capability",
+        "paths": ["crates/ambition_characters/src/prepared.rs"],
+        "patterns": [
+            # A PUBLIC mint or a PUBLIC consumer of the staged partial. Either
+            # one alone is enough: the fold is spellable the moment both ends of
+            # the pipe are reachable, and they were both `pub` for one day.
+            {
+                "grep": r"pub (fn|struct) (finalize_cast|prepare_for_registration|StagedCharacter|StagedRegistration|StagedCharacterOverrides)",
+                "match": r"^\s*pub (?:fn|struct) (?:finalize_cast|prepare_for_registration|StagedCharacter|StagedRegistration|StagedCharacterOverrides)\b",
+            },
+        ],
+        "reason": (
+            "`CharacterPreparationPlugin` exists to stop a cast being folded "
+            "before the catalog it inherits from is installed — a provider that "
+            "folded early would bake an empty row in permanently, and which "
+            "provider goes first is a composition detail no provider can see. "
+            "That guarantee was module privacy until campaign P1.7 moved the "
+            "model down and left the lifecycle up, which forced `finalize_cast` "
+            "and `prepare_for_registration` to be `pub` so the App layer could "
+            "reach them. The staged value stayed opaque and the docs called "
+            "early folding 'unspellable' — but opacity of a FIELD prevents "
+            "nothing when both ends of the pipe are public: "
+            "`finalize_cast([prepare(..).staged], whatever_catalog_exists_now, ..)` "
+            "is ordinary safe code (GPT 5.6 review, priority 2). The lifecycle "
+            "moved down beside the fold, and what crosses the crate boundary is "
+            "a CONTRIBUTION (`stage_authored_character`) and a finished READ "
+            "(`PreparedCharacterRegistry`) — never the fold. `test-support` "
+            "keeps `prepare_and_finalize_for_test` for tests of pure folding; "
+            "that is a separate, feature-gated road and this contract does not "
+            "name it."
+        ),
+    },
+    {
         "id": "fight-tests-do-not-hand-roll-damage",
         "paths": ["crates/", "game/", "fixtures/"],
         "patterns": [r"\b\w*_hp\s*-=", r"\bhp\s*-=\s*\d"],

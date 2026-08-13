@@ -1763,47 +1763,59 @@ impl std::error::Error for CharacterRegistrationError {}
 /// ordering hazard `CharacterPreparationPlugin::finish` was built to remove back
 /// on the production surface.
 ///
-/// ⭐ **so the barrier is a TYPE now, which is strictly stronger.** This is the
-/// [`ambition_binding::Bound`] pattern the repository already runs: `Bound<N>`
-/// has no public constructor, so a consumer cannot hold one it did not resolve.
-/// Here, a `StagedCharacter` can only be minted by [`prepare_for_registration`]
-/// and can only be consumed by [`finalize_cast`] — folding early is not
-/// prevented, it is UNSPELLABLE, and that survives a crate boundary where
-/// privacy does not.
+/// ⭐ **so the barrier is a TYPE now** — and, since 2026-08-12, a type nobody
+/// outside this module can name at all. This is the [`ambition_binding::Bound`]
+/// pattern the repository already runs: `Bound<N>` has no public constructor, so
+/// a consumer cannot hold one it did not resolve.
 ///
-/// ⚠ the two accessors read IDENTITY, which is not folding. The App extension
-/// needs them to reject a blank id and a display name another id already claims,
-/// both of which must happen before anything is staged.
+/// ⛔⛔ **AND THE FIRST VERSION OF THAT CLAIM WAS FALSE, WHICH IS WHY THE
+/// LIFECYCLE IS DOWN HERE NOW** (GPT 5.6 review, priority 2). This type was
+/// opaque but `pub`, minted by a `pub fn prepare_for_registration` and consumed
+/// by a `pub fn finalize_cast`. An opaque field prevents nothing when both ends
+/// of the pipe are public: any production caller could write
+/// `finalize_cast([prepare(..).staged], whatever_catalog_exists_right_now, ..)`
+/// and get exactly the early fold `CharacterPreparationPlugin` exists to remove.
+/// "Unspellable" was measured on the FIELD and claimed about the OPERATION.
+///
+/// ⇒ the fold is not a public capability of this crate. What the outside world
+/// can do is CONTRIBUTE a definition ([`stage_authored_character`]) and READ the
+/// finished [`PreparedCharacterRegistry`]; when the fold happens is the
+/// lifecycle's decision, and the lifecycle is [`CharacterPreparationPlugin`],
+/// here, beside the private functions it drives.
+///
+/// ⚠ the two accessors read IDENTITY, which is not folding. Staging needs them
+/// to reject a blank id and a display name another id already claims, both of
+/// which must happen before anything is staged.
 #[derive(Debug, Clone)]
-pub struct StagedCharacter {
+struct StagedCharacter {
     inner: PreparedCharacterOverrides,
 }
 
 impl StagedCharacter {
     /// The stable id this registration will publish under.
-    pub fn id(&self) -> &str {
+    fn id(&self) -> &str {
         &self.inner.id
     }
 
     /// The display name this registration claims.
-    pub fn display_name(&self) -> &str {
+    fn display_name(&self) -> &str {
         &self.inner.display_name
     }
 
     /// Which provider authored it — the answer a rejected duplicate id owes its
     /// caller ("`x` was already registered by `y`").
-    pub fn provider(&self) -> &str {
+    fn provider(&self) -> &str {
         &self.inner.provider
     }
 }
 
 /// What [`prepare_for_registration`] hands back: the staged value and what
 /// preparation could and could not verify.
-pub struct StagedRegistration {
+struct StagedRegistration {
     /// The partial. Opaque — see [`StagedCharacter`].
-    pub staged: StagedCharacter,
+    staged: StagedCharacter,
     /// Every reference a resolver was supplied for and could not resolve.
-    pub report: BindingReport,
+    report: BindingReport,
 }
 
 /// **Validate and flatten one authored definition, without folding it.**
@@ -1813,7 +1825,7 @@ pub struct StagedRegistration {
 /// identically in every build. What it CANNOT do is inherit, because the catalog
 /// is not knowable at registration time; that is [`finalize_cast`]'s job and the
 /// whole reason the two are separate.
-pub fn prepare_for_registration(
+fn prepare_for_registration(
     definition: CharacterDefinition,
     bindings: &CharacterBindings,
 ) -> StagedRegistration {
@@ -1835,7 +1847,7 @@ pub fn prepare_for_registration(
 /// `previous` is the generation the outgoing registry was stamped with, so the
 /// new one sorts after it — a cast hot reload must be distinguishable from the
 /// boot cast by more than its contents.
-pub fn finalize_cast(
+fn finalize_cast(
     staged: impl IntoIterator<Item = StagedCharacter>,
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
@@ -1847,6 +1859,247 @@ pub fn finalize_cast(
     }
     registry.stamp_after(previous);
     registry
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE LIFECYCLE. Staging, the barrier, and the fold it closes over.
+//
+// ⛔⛔ **this lives beside the private fold on purpose, and moving it up is the
+// regression.** It was in the actor monolith until 2026-08-12, which forced
+// `prepare_for_registration` and `finalize_cast` to be `pub` so the App layer
+// could reach them — and a public mint plus a public consumer is a public fold,
+// however opaque the value in between. The only structure that makes early
+// folding unspellable by ordinary production code is the one where the fold and
+// the thing that decides WHEN to fold are the same module's private business.
+//
+// What crosses the boundary instead is intent: `stage_authored_character` (a
+// contribution) and `PreparedCharacterRegistry` (the finished read). A host that
+// wants to enrich a registration — the engine's baked sheet and portrait
+// vocabularies, say — does that to the `CharacterBindings` it passes IN, which is
+// why `ambition_platformer2d_actor_monolith::character_runtime` still owns
+// `with_engine_vocabularies` and this crate has never heard of a sprite sheet.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **The single registration seam.** (§4.1)
+///
+/// Prepares the definition and stages it for the barrier. A provider makes ONE
+/// call and does not have to know that sheets, cues, and gameplay numbers are
+/// consumed by different subsystems.
+///
+/// # Registration is DECLARATIVE — it does not load anything
+///
+/// This used to end by requesting the character's art, on the reasoning that a
+/// provider should not need a second call. That reasoning was wrong, and the
+/// mistake gets worse the better the plan works: as more characters migrate onto
+/// this seam, merely *installing* a provider's plugin would demand every one of
+/// its characters' art — the startup decode storm §7.1 deleted, rebuilt from the
+/// other end. Loading is driven by a PROJECTION of what a session actually
+/// stages. Registration says *what exists*; staging says *what is needed now*.
+///
+/// The binding report is logged rather than returned as an error: see
+/// `prepare_character` for why an unresolved reference degrades loudly instead of
+/// refusing.
+///
+/// ⚠ **it installs its own barrier.** Deliberately not a composition
+/// requirement: this is callable on a bare `App`, and a finalizer that only runs
+/// when the caller also remembered a plugin is a finalizer most callers will not
+/// have — the same shape as every other "the app forgot the step" defect this
+/// module exists because of.
+pub fn stage_authored_character(
+    app: &mut bevy::app::App,
+    definition: CharacterDefinition,
+    bindings: &CharacterBindings,
+) -> Result<(), CharacterRegistrationError> {
+    if definition.id.as_str().trim().is_empty() {
+        return Err(CharacterRegistrationError::BlankId);
+    }
+    if !app.is_plugin_added::<CharacterPreparationPlugin>() {
+        app.add_plugins(CharacterPreparationPlugin);
+    }
+    let provider = definition.provider.clone();
+    let StagedRegistration {
+        staged: prepared,
+        report,
+    } = prepare_for_registration(definition, bindings);
+    let id = prepared.id().to_string();
+
+    // Transactional: assemble the candidate, and only publish if the id is
+    // free. A rejected registration leaves the previous authority active.
+    let mut candidate = app
+        .world()
+        .get_resource::<StagedCharacterOverrides>()
+        .cloned()
+        .unwrap_or_default();
+    if candidate.finalized {
+        panic!(
+            "character `{id}` was registered after the preparation barrier closed. \
+             Authoring is a `Plugin::build` operation: a contribution that arrives \
+             after finalization would be folded against a catalog the published cast \
+             was already built without, so half the session would know a character the \
+             other half does not. A later cast change is a separate explicit \
+             transaction (see docs/planning/character-preparation-finalization-plan.md)"
+        );
+    }
+    // A display name already spoken for by a DIFFERENT id is rejected before the
+    // insert, so the registry can never hold the ambiguity that
+    // `id_for_display_name` would then have to resolve arbitrarily.
+    if let Some(first_id) = candidate.id_for_display_name(prepared.display_name()) {
+        if first_id != prepared.id() {
+            return Err(CharacterRegistrationError::AmbiguousDisplayName {
+                display_name: prepared.display_name().to_string(),
+                first_id: first_id.to_string(),
+                second_id: prepared.id().to_string(),
+            });
+        }
+    }
+    if let Some(first_provider) = candidate.insert(prepared) {
+        return Err(CharacterRegistrationError::DuplicateId {
+            character_id: id,
+            first_provider,
+            second_provider: provider,
+        });
+    }
+    app.insert_resource(candidate);
+
+    if !report.is_empty() {
+        report.log(&format!("preparing character `{id}`"));
+    }
+    Ok(())
+}
+
+/// **What providers have authored, before the catalog exists to fold against.**
+///
+/// The preparation-phase half of the registry. Holds partial values and is
+/// consumed by [`CharacterPreparationPlugin::finish`].
+///
+/// ⛔ PRIVATE, and that is the barrier's second half. A resource this crate does
+/// not export cannot be read, taken, or reconstructed by a host — so there is no
+/// route to a `StagedCharacter` at all outside this module, let alone to folding
+/// one. It was `pub`-visible in shape (an App-layer type over a `pub` staged
+/// value) until the review that closed this hole.
+#[derive(bevy::ecs::resource::Resource, Debug, Clone, Default)]
+struct StagedCharacterOverrides {
+    by_id: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
+    /// Set when the barrier closes, so a late contribution is a panic rather than
+    /// a value nobody will ever fold.
+    finalized: bool,
+}
+
+impl StagedCharacterOverrides {
+    fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
+        self.by_id
+            .values()
+            .find(|staged| staged.display_name() == display_name)
+            .map(StagedCharacter::id)
+    }
+
+    /// Returns the previous author when the id was already spoken for.
+    fn insert(&mut self, staged: StagedCharacter) -> Option<String> {
+        self.by_id
+            .insert(staged.id().to_string().into(), staged)
+            .map(|previous| previous.provider().to_string())
+    }
+}
+
+/// **The finalization barrier.** (H1, 2026-07-29)
+///
+/// Bevy runs every plugin's `build` during registration and every `finish` once
+/// all of them are ready. That ordering is the whole reason this is a plugin
+/// rather than a startup system or an eager fold at registration time: a provider
+/// registering its cast before the App installs `CharacterCatalog` would otherwise
+/// inherit an empty row and bake the absence in permanently. Which provider goes
+/// first is a composition detail no provider can see.
+///
+/// Installed automatically by [`stage_authored_character`].
+///
+/// ⚠ **`App::update` does not run `finish`** — Bevy's runners do. A hand-driven
+/// App (every headless test, every fixture, every tool in this repository) must
+/// call `ambition_platformer2d_runtime::finalize` or it will have a staged cast
+/// and no published one. That is not silent: `PreparedCharacterRegistry` is
+/// absent rather than empty, and absent already means "no registered characters"
+/// to every consumer.
+pub struct CharacterPreparationPlugin;
+
+impl bevy::app::Plugin for CharacterPreparationPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        app.init_resource::<StagedCharacterOverrides>();
+        // THE BACKSTOP, for the apps Bevy's runner never touches.
+        //
+        // `App::update` does not run `finish` — runners do — and this repository
+        // drives `update` by hand almost everywhere: every headless test, the
+        // external-consumer fixture, the rollback harnesses, the tools. Without
+        // this, all of them would register a cast and publish none, and the
+        // symptom is the worst kind: every character silently falls back to the
+        // host's compatibility kit, so a consumer's peaceful wanderer comes out
+        // swinging the protagonist's sword. That is not hypothetical — it is
+        // what the outlander fixture reported within an hour of the barrier
+        // landing.
+        //
+        // Not a second authority: it calls the SAME finalizer, guarded by the
+        // same `finalized` flag, so whichever trigger fires first wins and the
+        // other is a no-op. And it is not a weaker barrier — `PreStartup` runs
+        // after every plugin's `build`, which is the entire ordering hazard
+        // `finish` exists to remove. What `finish` still buys is that the
+        // registry exists before ANY system runs, including `Startup`.
+        app.add_systems(bevy::app::PreStartup, close_preparation_barrier);
+        // ⚠ **a `PreUpdate` re-close was TRIED for queue D75 and does not fix
+        // it** (2026-08-11). The hypothesis was a cast arriving after the
+        // barrier latched; the measurement says otherwise — those hosts read a
+        // registry of ZERO at spawn time whether the barrier can re-close or
+        // not, so the cast is not late, it is absent from whatever world the
+        // spawn is reading. Recorded rather than left as a plausible fix nobody
+        // re-measured.
+    }
+
+    fn finish(&self, app: &mut bevy::app::App) {
+        finalize_prepared_cast(app.world_mut());
+    }
+}
+
+/// The `PreStartup` half of [`CharacterPreparationPlugin`]'s backstop.
+fn close_preparation_barrier(world: &mut bevy::ecs::world::World) {
+    finalize_prepared_cast(world);
+}
+
+/// **Fold the staged cast and publish it.** Idempotent; runs at most once.
+fn finalize_prepared_cast(world: &mut bevy::ecs::world::World) {
+    let Some(mut staged) = world.get_resource_mut::<StagedCharacterOverrides>() else {
+        return;
+    };
+    // ⚠ **`App::finish` re-runs EVERY plugin's `finish`, every time it is
+    // called.** It does not track which ones already ran — it walks the whole
+    // registry and sets `plugins_state = Finished` (read in `bevy_app` 0.18.1
+    // after this bit us, 2026-07-29). The `PreStartup` backstop is a second
+    // trigger on top of that.
+    //
+    // Without a guard, a second call republished an EMPTY registry: the staged
+    // overrides had already been consumed, so the whole cast silently vanished on
+    // the fixture's second step. The barrier has to be idempotent itself;
+    // nothing upstream makes it so.
+    if staged.finalized {
+        return;
+    }
+    staged.finalized = true;
+    let staged = std::mem::take(&mut staged.by_id);
+    let catalog = world
+        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
+        .cloned();
+    // The POLICY authority, published beside the catalog by assembly.
+    let profiles = world
+        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
+        .cloned();
+    // TRANSACTIONAL: the whole cast is folded and only then published, so a
+    // reader can never observe a registry that holds half of one generation.
+    let previous = world
+        .get_resource::<PreparedCharacterRegistry>()
+        .map(PreparedCharacterRegistry::generation)
+        .unwrap_or_default();
+    world.insert_resource(finalize_cast(
+        staged.into_values(),
+        catalog.as_ref(),
+        profiles.as_ref(),
+        previous,
+    ));
 }
 
 #[cfg(test)]

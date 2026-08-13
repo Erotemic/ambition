@@ -54,16 +54,26 @@ use ambition_time::WorldTime;
 // Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
 pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
 
-// ⭐ **THE AUTHORED TEXT MOVED DOWN; THE PINS STAYED** (campaign P1.7,
-// 2026-08-12). These six presentation ids were defined here and consumed by
-// `prefabs.rs`, which had to become lowerable to `ambition_characters` so
-// character preparation could call `build_actor_moveset` from below. Plain
-// `&str`s travel; what could NOT travel is the compile-time assertions under
-// them, which need `ambition_sfx`'s id table — so the low crate owns the text
-// and this one keeps the pin. The assertions are unchanged and still fire.
-pub use ambition_characters::moveset_prefabs::{
-    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
-    SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE,
+// ⭐ **THE GENERIC BUILDER VOCABULARY MOVED DOWN; THE PINS STAYED** (campaign
+// P1.7, 2026-08-12). These three ids are what the builders themselves author
+// into every moveset, and `prefabs.rs` had to become lowerable to
+// `ambition_characters` so character preparation could call
+// `build_actor_moveset` from below. Plain `&str`s travel; what could NOT travel
+// is the compile-time assertions under them, which need `ambition_sfx`'s id
+// table — so the low crate owns the text and this one keeps the pin.
+pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SWING_SFX_CUE};
+
+// ⛔⛔ **AND THE THREE `PLAYER_ROBOT_*` CUES CAME BACK UP** (2026-08-12). They
+// went down with the builders because they were adjacent in the file, not
+// because preparation needed them: the overlay that reads them has exactly one
+// production caller, the protagonist road, and `prepare_character` never
+// reaches it. Text in the low crate and its compile-time proof in this one was
+// the shape that move created; both are here now. See
+// `player_robot_slash`'s own doc. (GPT 5.6 review of `1579ab3`, finding 4.)
+mod player_robot_slash;
+pub use player_robot_slash::{
+    apply_player_robot_slash_sfx, PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE,
+    PLAYER_ROBOT_SWING_SFX_CUE,
 };
 
 const _: () = assert!(

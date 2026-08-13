@@ -408,6 +408,40 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-character-domain-is-not-named-after-a-character",
+        "paths": ["crates/ambition_characters/"],
+        "patterns": [
+            # An ITEM named after one creature. Comment-stripped, so the doc
+            # citations in `entry.rs` ("48.0 is not invented: it is the
+            # protagonist, `player_robot_v3`") and the `npc_puppy_slug` fixtures
+            # in `character_catalog/binding.rs` are not what this is about — a
+            # crate may EXPLAIN itself with a concrete example and may TEST with
+            # one. What it may not do is own one's policy.
+            {
+                # `git grep` prefilters with ERE, then the Python `match`
+                # refines — the declaration keyword is what makes this about
+                # OWNERSHIP rather than about the string appearing at all.
+                "grep": r"player_robot|PLAYER_ROBOT",
+                "match": r"\b(?:fn|const|static|struct|enum|trait)\s+\w*(?:player_robot|PLAYER_ROBOT)\w*",
+            },
+        ],
+        "reason": (
+            "`ambition_characters` is the reusable authored-template layer — "
+            "the crate whose whole claim is that a character is DATA. On "
+            "2026-08-12 it acquired `apply_player_robot_slash_sfx` and three "
+            "`PLAYER_ROBOT_*` cue constants: canonical protagonist presentation "
+            "policy, in the domain crate, because the bulk move that lowered "
+            "`moveset/prefabs.rs` took everything that was ADJACENT in the file "
+            "rather than everything preparation CALLS. Measured, the overlay had "
+            "exactly one production caller and it was the protagonist road; "
+            "`prepare_character` never reached it (GPT 5.6 review of 1579ab3). "
+            "The generic builder vocabulary it reads — SWING_SFX_CUE, "
+            "SLASH_ARC_VFX, SLASH_POKE_VFX — is genuinely the builders' and "
+            "stays. The test is whether preparation needs it, and an item NAMED "
+            "after one creature has already answered no."
+        ),
+    },
+    {
         "id": "fight-tests-do-not-hand-roll-damage",
         "paths": ["crates/", "game/", "fixtures/"],
         "patterns": [r"\b\w*_hp\s*-=", r"\bhp\s*-=\s*\d"],

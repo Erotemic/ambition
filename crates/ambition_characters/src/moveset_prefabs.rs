@@ -34,14 +34,16 @@ pub const SLASH_POKE_VFX: &str = "slash_poke";
 /// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
 /// resolves it to the guaranteed procedural sound.
 pub const SWING_SFX_CUE: &str = "player.slash";
-/// Dry blade-through-air cue reserved for the canonical robot protagonist.
-pub const PLAYER_ROBOT_SWING_SFX_CUE: &str = "player.robot.slash.air";
-/// Material selector carried by the canonical robot protagonist's slash volume.
-pub const PLAYER_ROBOT_IMPACT_SFX_CUE: &str = "player.robot.slash.impact";
-/// Rebound cue the canonical robot protagonist's down-air pogo authors onto its
-/// `pogo_bounce` effect. Every other body leaves it unauthored and keeps the
-/// engine's generic pogo cue.
-pub const PLAYER_ROBOT_POGO_SFX_CUE: &str = "player.robot.slash.impact.pogo";
+// ⛔⛔ **THE THREE `PLAYER_ROBOT_*` CUES AND THEIR OVERLAY ARE NOT HERE, and
+// this crate must not take them back.** They travelled down with the prefab
+// builders on 2026-08-12 for one reason — *they were adjacent in the file* —
+// and that is the whole of the bulk-move smell. The test is **does character
+// PREPARATION call it**, not *was it next to something preparation calls*:
+// `prepare_character` never reaches the overlay, whose only production caller
+// is `avatar/starting_character.rs`, the protagonist road. One character's
+// private sound policy is not the character DOMAIN.
+// ⇒ they are back in `ambition_combat::moveset`, beside the compile-time hash
+// pins that correctly never left it. (GPT 5.6 review of `1579ab3`, finding 4.)
 
 /// ⚠ **THE COMPILE-TIME PINS STAYED IN `ambition_combat`, deliberately.** Three
 /// of these cues are asserted equal to `ambition_sfx::ids` entries at compile
@@ -259,48 +261,6 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-    }
-}
-
-/// Retarget the engine-default blade presentation to the canonical robot
-/// protagonist's private SFX family. This is an explicit post-build overlay:
-/// generic actors keep `player.slash` (or their authored cues), while the robot
-/// player gets a dry air swing, a material selector on slash volumes, and its
-/// own rebound cue on the down-air's pogo.
-///
-/// It writes into the DATA, and only where the data said nothing — so every
-/// consumer downstream (the strike resolver, the pogo technique) reads one
-/// authored moveset and never has to ask which character is swinging.
-pub fn apply_player_robot_slash_sfx(moveset: &mut MovesetContract) {
-    for move_spec in &mut moveset.moves {
-        if !move_spec.id.starts_with(ATTACK_VERB) {
-            continue;
-        }
-        for event in &mut move_spec.events {
-            if let MoveEventKind::Sfx { cue } = &mut event.kind {
-                if cue == SWING_SFX_CUE {
-                    *cue = PLAYER_ROBOT_SWING_SFX_CUE.to_string();
-                }
-            }
-        }
-        for window in &mut move_spec.windows {
-            for volume in &mut window.volumes {
-                let is_slash = matches!(
-                    volume.vfx.as_deref(),
-                    Some(SLASH_ARC_VFX) | Some(SLASH_POKE_VFX)
-                );
-                if is_slash && volume.hit_sfx.is_none() {
-                    volume.hit_sfx = Some(PLAYER_ROBOT_IMPACT_SFX_CUE.to_string());
-                }
-                if let Some(effect) = volume
-                    .on_hit
-                    .as_mut()
-                    .filter(|e| e.key == crate::technique::POGO_BOUNCE_KEY)
-                {
-                    crate::technique::set_pogo_sfx(effect, PLAYER_ROBOT_POGO_SFX_CUE);
-                }
-            }
-        }
     }
 }
 

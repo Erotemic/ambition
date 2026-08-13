@@ -102,6 +102,34 @@ in wave 3 — authored `character: None` **on purpose**, with the reasoning in t
 file: no catalog row is right for them, and a body wearing someone else's art is
 worse debt than a visible placeholder.
 
+### ⇥ ⭐⭐ AND THIS IS D96 ITEM 2 — the same decision, and it blocks a DELETION
+
+Verified 2026-08-13: `goblin_encounter.ron` authors exactly three `large_brute`
+mobs (line 41 in wave 2; lines 47–48 in wave 3), so the count above is current.
+
+⭐ **but `large_brute` is not only a magenta box.** It is one of the three
+identifiers `ambition_content` declares in `enemy_roster::OPEN_CASTING` — the
+provider-owned waivers that let an uncast identifier borrow the `combatant` row
+instead of failing construction. Those three are the ONLY reason
+`character_archetypes.ron` still exists:
+
+```text
+  small_lurker  ┐
+  large_brute   ├─ borrow `combatant`  ⇒ the row survives ⇒ the FILE survives
+  SmallSkitter  ┘
+  under_town_skitter → names `medium_striker` ⇒ the other surviving row
+```
+
+⇒ **answering this question is one third of D73's acceptance signal.** Cast these
+three and `character_archetypes.ron` deletes, taking `ArchetypeSpec` (119 product
+lines), `CharacterRoster` (806) and the roster fragments with it. The magenta
+boxes are the visible half; the deletion is the other.
+
+⚠ **and option (c) — leave the placeholder — is therefore more expensive than it
+looks.** It is still a legitimate answer, but its cost is no longer "your magenta
+boxes stay": it is that the archetype ontology stays too. See queue D96 for the
+full chain and the other seven decisions.
+
 ### ⭐ and the obvious answer is a trap
 
 The cast contains exactly one goblin heavy: **`npc_goblin_cantina_chieftain`**

@@ -2033,6 +2033,14 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     .expect("melee + ranged → a moveset");
     let fire = contract.move_for_verb(RANGED_VERB).unwrap().clone();
     let attack = contract.move_for_verb(ATTACK_VERB).unwrap().clone();
+    // ⭐ **AND A SPECIAL, the third input** (added 2026-08-13, GPT 5.6 review).
+    // `MovePlayback` is not melee — it carries ranged AND specials — and a patch
+    // that read "a playback exists" as "this body is attacking" was proposed and
+    // reverted the same day (ledger D107). Ranged was already poisoned here;
+    // special took the same code path and was not, so the third arm of the rule
+    // was untested.
+    let mut special = attack.clone();
+    special.id = "special".to_string();
 
     let mut app = App::new();
     app.add_systems(Update, project_moveset_melee_to_body_melee);
@@ -2055,7 +2063,26 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
             MovePlayback::new(attack, 1.0),
         ))
         .id();
+    // Playing a SPECIAL → no swing, for the same reason as the ranged shot.
+    let specialing = app
+        .world_mut()
+        .spawn((
+            MovesetMelee,
+            BodyMelee::default(),
+            MovePlayback::new(special, 1.0),
+        ))
+        .id();
     app.update();
+    assert!(
+        app.world()
+            .get::<BodyMelee>(specialing)
+            .unwrap()
+            .swing
+            .is_none(),
+        "a body mid-SPECIAL reads as mid-swing — `is_melee_swing_move` is \
+         classifying by playback presence rather than by verb, which is exactly \
+         the phantom swing this projection exists to prevent"
+    );
     assert!(
         app.world()
             .get::<BodyMelee>(firing)

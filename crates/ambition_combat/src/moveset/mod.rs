@@ -1579,6 +1579,10 @@ fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
     if let Some(verb) = moveset.and_then(|m| verb_for_move(m, id)) {
         return is_melee_verb(verb);
     }
+    // ⛔ the id fallback is deliberately NARROW, and "is there a playback" is the
+    // wrong question — a patch that widened `BodyCombat::attacking` to
+    // `playback.is_some()` was proposed and reverted on 2026-08-13 (D107): it
+    // reported a body as attacking while it fired a bolt.
     id == ATTACK_VERB || id.starts_with("attack_") || id == SMASH_VERB || id.starts_with("smash_")
 }
 

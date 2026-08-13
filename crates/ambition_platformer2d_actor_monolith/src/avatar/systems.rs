@@ -186,16 +186,19 @@ pub fn tick_player_brains(
 /// Write the player's read-model fields on [`BodyCombat`] each frame — the
 /// symmetric counterpart to the actor's `sync_actor_components_from_cluster`.
 ///
-/// - `attacking` mirrors a swing in flight, any phase — from EITHER attack road.
-///   ⛔⛔ **it used to mirror `BodyMelee::is_swinging()` alone, and that is the
-///   FLAT swing only** (fixed 2026-08-13, ledger D107). A body attacking through
-///   the MOVESET runtime carries `MovePlayback` and never touches `BodyMelee`, so
-///   a player fighter mid-swing published `attacking: false` — and
-///   `causal.rs` and `dev/trace/detect.rs` both REPORT this field, which makes it
-///   an instrument that says "not attacking" about a fighter that is.
-///   ⚠ the other half of D107 is untouched and deliberately so: this system's
-///   query is `With<PlayerEntity>`, so no enemy or CPU body has the field written
-///   at all. Widening that is a design call recorded in the row.
+/// - `attacking` mirrors `BodyMelee::is_swinging()` — a swing in flight, any
+///   phase — and that IS the canonical melee read-model for both attack roads.
+///   ⛔⛔ **I briefly widened this to `|| playback.is_some()` and it was wrong**
+///   (2026-08-13, ledger D107). `MovePlayback` is not melee: it also carries
+///   ranged moves and content specials, so that predicate reported a fighter as
+///   attacking while it fired a bolt. The moveset runtime already projects
+///   melee playback onto `BodyMelee` in `CombatSet::Playback` — using
+///   `is_melee_swing_move`, which is the classifier that knows the difference —
+///   and this system runs later, in `PresentationSync`. There is nothing to
+///   widen.
+///   ⚠ what IS true of D107: this query is `With<PlayerEntity>`, so no enemy or
+///   CPU body has the field written at all, and `causal.rs` / `dev/trace` report
+///   it. Widening THAT is the design call the row records.
 /// - `alive` mirrors the body's liveness AUTHORITY, `BodyHealth`. For actors this
 ///   field is owned by the per-frame sync from their cluster `status.alive`; the
 ///   player has no such cluster, so without this it kept its spawn default
@@ -206,18 +209,10 @@ pub fn tick_player_brains(
 ///   (Liveness-CRITICAL gameplay should still read `BodyHealth` directly — the
 ///   authority — rather than this once-per-frame mirror, to avoid a tick of lag.)
 pub fn write_player_ecs_components(
-    mut players: Query<
-        (
-            &BodyMelee,
-            &BodyHealth,
-            Option<&crate::combat::moveset::MovePlayback>,
-            &mut BodyCombat,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut players: Query<(&BodyMelee, &BodyHealth, &mut BodyCombat), With<PlayerEntity>>,
 ) {
-    for (attack, health, playback, mut combat) in &mut players {
-        combat.attacking = attack.is_swinging() || playback.is_some();
+    for (attack, health, mut combat) in &mut players {
+        combat.attacking = attack.is_swinging();
         combat.alive = health.current() > 0;
     }
 }

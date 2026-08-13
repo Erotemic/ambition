@@ -1268,8 +1268,12 @@ kernel**: `BodyCombat`'s reaction timers are written by the damage path and
 consumed by per-road systems, and that is the only layer where a rule can be
 half-implemented. Movement cannot be, because there is one kernel.
 
-⚠ **the fix shape is the same for all three and one of them has it already**:
+⚠ **the fix shape is the same for all three and TWO of them have it already**:
 name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
+(D108's landing-lag half) and `BodyCombat::is_in_hitlag()` (D110) are both that
+— **each is called by exactly one road, which is what makes the gap greppable
+instead of inferable.** The older text:
+`BodyCombat::hard_lock_timer()`
 is that for the landing-lag half of D108 — the actor road not calling it is now
 visible rather than inferable. ⛔ none of the three is fixed here, because each
 changes how a CPU fight FEELS and that is Jon's.

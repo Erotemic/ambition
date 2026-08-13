@@ -1260,6 +1260,14 @@ to. All three defects live on exactly that seam. ⇒ **the split is not going
 away**, so the defence is the one already applied to `hard_lock_timer`: name the
 rule on the shared type, and let both sides call it rather than spell it.
 
+⭐ **and the MOVEMENT layer is clean, which bounds where this class can live.**
+Ledge grab — the P4.32 mechanic — is invoked from `movement/mod.rs`, the shared
+kernel both roads step, so it is body-generic by construction and no player
+filter can reach it. ⇒ **the divergence is specific to state read OUTSIDE the
+kernel**: `BodyCombat`'s reaction timers are written by the damage path and
+consumed by per-road systems, and that is the only layer where a rule can be
+half-implemented. Movement cannot be, because there is one kernel.
+
 ⚠ **the fix shape is the same for all three and one of them has it already**:
 name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
 is that for the landing-lag half of D108 — the actor road not calling it is now

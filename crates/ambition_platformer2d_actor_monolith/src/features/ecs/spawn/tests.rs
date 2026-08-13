@@ -422,13 +422,13 @@ fn enemy_default_brain_covers_every_combat_archetype() {
     for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
         let enemy = make_enemy(key);
         let brain = enemy_default_brain(&enemy, abilities_of(key));
-        // Aggressiveness should match the row's attacks_player.
+        // Aggressiveness should match the row's `hostile_by_default`.
         // (Wanderer / StandStill / peaceful Patrol all return
         // !is_hostile; everyone else returns is_hostile.)
         assert_eq!(
             brain.is_hostile(),
-            crate::features::enemies::test_spec(key).attacks_player,
-            "{key} brain.is_hostile mismatch with attacks_player",
+            crate::features::enemies::test_spec(key).hostile_by_default,
+            "{key} brain.is_hostile mismatch with hostile_by_default",
         );
     }
 }
@@ -470,10 +470,10 @@ fn enemy_default_action_set_covers_every_combat_archetype() {
     for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
         let spec = crate::features::enemies::test_spec(key);
         let set = enemy_default_action_set(&spec);
-        if spec.attacks_player {
+        if spec.hostile_by_default {
             assert!(
                 set.melee.is_some() || set.ranged.is_some(),
-                "{key} attacks_player but ActionSet has no melee or ranged",
+                "{key} is hostile by default but its ActionSet has no melee or ranged",
             );
         }
     }
@@ -673,13 +673,13 @@ mod authored_enemy_reads_its_character {
                     max_health: 3, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                     aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                     damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    attacks_player: false, body_contact_damage: false,
+                    hostile_by_default: false, body_contact_damage: false,
                 ),
                 "combatant": (
                     max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                     aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                     damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    attacks_player: false, body_contact_damage: false,
+                    hostile_by_default: false, body_contact_damage: false,
                 ),
             }"#,
         )
@@ -1119,7 +1119,7 @@ mod authored_enemy_reads_its_character {
     /// itself.
     ///
     /// The tell is a fact the ARCHETYPE authors and the character does not
-    /// mention: `medium_striker` says `attacks_player: false`. A patched body
+    /// mention: `medium_striker` says `is_hostile: false`. A patched body
     /// carries that; a built one carries the constructor's own answer. Run speed
     /// is the positive half — 77 px/s exists nowhere but the definition.
     #[test]

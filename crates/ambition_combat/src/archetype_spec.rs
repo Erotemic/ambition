@@ -47,7 +47,7 @@ fn default_mass() -> f32 {
 }
 
 /// Serde default for the `bool` spec fields that are true for the common
-/// case (`attacks_player`, `body_contact_damage`).
+/// case (`hostile_by_default`, `body_contact_damage`).
 pub fn default_true() -> bool {
     true
 }
@@ -287,11 +287,24 @@ pub struct ArchetypeSpec {
     /// use the template's default aggressive brain.
     #[serde(default)]
     pub provoke_forced_brute_min_aggro: Option<f32>,
-    /// Hostile by default: actively tracks the player and publishes contact
-    /// damage. Peaceful patrollers (cove crew, ambient wildlife) set false
-    /// and stay dormant until a system explicitly provokes them.
-    #[serde(default = "default_true")]
-    pub attacks_player: bool,
+    /// **Hostile by default**: actively seeks a target and publishes contact
+    /// damage. Peaceful patrollers (cove crew, ambient wildlife) set false and
+    /// stay dormant until a system explicitly provokes them.
+    ///
+    /// ⚠ **it was `attacks_player`, and the name was the last of that spelling
+    /// in this chain** (renamed 2026-08-13, campaign P2.19). `BrainProfile` had a
+    /// field of the same name and Jon deleted it on 2026-08-11 as *"player-centric
+    /// vocabulary in the one type that must never be"*; this one survived because
+    /// it is a PLACEMENT fact rather than a policy, and a placement may perfectly
+    /// well say "this creature is hostile" — what it may not say is who it is
+    /// hostile TO. A room full of hostile bodies with no player in it is an
+    /// ordinary composition.
+    ///
+    /// ⚠ **no authored row sets it**, checked before renaming: the only mention
+    /// in `character_archetypes.ron` is a doc comment. The serde alias is kept so
+    /// a provider's own roster outside this repo does not break on the rename.
+    #[serde(default = "default_true", alias = "attacks_player")]
+    pub hostile_by_default: bool,
     /// Body touch hurts the player. Training dummies and the composite shark
     /// (whose rider is the threat) opt out; the peaceful cove crew also
     /// stay non-damaging until provoked.

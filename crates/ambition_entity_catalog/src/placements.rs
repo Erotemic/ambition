@@ -484,8 +484,9 @@ impl PlacementSchema {
 /// spawns with.
 ///
 /// ⭐ **a spawn-context fact, and the last one an enemy archetype owned.** A row
-/// could say `attacks_player: false` — the puppy slug is ambient wildlife that
-/// never aggros — which made peacefulness a property of the CREATURE. It is not:
+/// could say `hostile_by_default: false` — the puppy slug is ambient wildlife
+/// that never aggros — which made peacefulness a property of the CREATURE. It is
+/// not:
 /// the same goblin is a hostile in a corridor and a bystander in a market, and
 /// under the character-template model the creature is one definition either way.
 ///
@@ -493,7 +494,7 @@ impl PlacementSchema {
 /// authored before this existed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SpawnDisposition {
-    /// Tracks the player and publishes contact damage. The ordinary enemy.
+    /// Seeks a target and publishes contact damage. The ordinary enemy.
     #[default]
     Hostile,
     /// Dormant until something provokes it: ambient wildlife, a peaceful crew.
@@ -502,7 +503,14 @@ pub enum SpawnDisposition {
 
 impl SpawnDisposition {
     /// Whether a body with this disposition attacks on sight.
-    pub fn attacks_player(self) -> bool {
+    ///
+    /// ⚠ **it was `attacks_player`** (renamed 2026-08-13, campaign P2.19). Who a
+    /// hostile body attacks is a TARGETING question with its own authority
+    /// (`ActorFaction`, `MatchTeam`, `damage_lands_between`), and naming a player
+    /// here made the engine's hostility model read as if a player were the only
+    /// thing that could be attacked. A CPU-versus-CPU match is full of bodies
+    /// that attack on sight and no player at all.
+    pub fn is_hostile(self) -> bool {
         matches!(self, Self::Hostile)
     }
 }

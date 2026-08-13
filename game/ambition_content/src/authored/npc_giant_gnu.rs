@@ -2,7 +2,7 @@
 //! RIDER is the threat — GNU-ton, who stays a boss and is not touched
 //! here.
 //!
-//! ⭐ **the first migrated body that authors `attacks_player: false`**,
+//! ⭐ **the first migrated body that authors `is_hostile: false`**,
 //! and it could not have migrated a day earlier: the character-first
 //! constructor wrote that flag as the literal `true`, so a migrated giant
 //! would have started hunting the player it exists to carry. The row's

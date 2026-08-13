@@ -653,7 +653,7 @@ mod tests {
     /// `mount_capabilities_of`).
     ///
     /// ⭐ the two facts that could not have been authored before this campaign:
-    /// `attacks_player: false` (a mount whose RIDER is the threat) and a
+    /// `is_hostile: false` (a mount whose RIDER is the threat) and a
     /// `run_speed` of exactly zero (a body that stands still, which the
     /// constructor used to read as "said nothing" and answer with a sprinter's
     /// top speed).

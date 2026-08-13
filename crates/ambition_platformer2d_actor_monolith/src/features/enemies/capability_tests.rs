@@ -146,7 +146,7 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
     // as "the deletion took the parrot's peacefulness". It had not. The parrot
     // appears three times in the sandbox — ONE `NpcSpawn` in `pirate_cove` and
     // TWO `EnemySpawn`s in `pirate_sky_lookout` — and the cove one is peaceful
-    // because it is an NPC placement (that road states `attacks_player: false`),
+    // because it is an NPC placement (that road states `is_hostile: false`),
     // while the sky ones are hostile because they are enemy placements. The
     // relationship was already on the placements, exactly where D81 says it
     // belongs; the preset's `aggressiveness: 0.0` was a third copy that decided
@@ -172,7 +172,7 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
 
 /// Parity net for the Session-6/7 data migration: the four behaviors
 /// that used to be hardcoded `match self { … }` arms on the enum are now
-/// authored RON fields (`attacks_player`, `body_contact_damage`,
+/// authored RON fields (`hostile_by_default`, `body_contact_damage`,
 /// `respawn_on_rest`, the smash/provoke flags). Re-encode the OLD
 /// identity formulas here as the oracle and assert every archetype's
 /// RON row reproduces them — replay only exercises the archetypes in the
@@ -189,7 +189,7 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         // collapsed to `true` because the next shipped row that does not attack
         // belongs here, not in a rewritten expression.
         let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
-        assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
+        assert_eq!(spec.hostile_by_default, attacks, "{key} hostile_by_default");
 
         // ⚠ the `sandbag_infinite` arm left with its shipped row (2026-08-12):
         // the lab's dummies name a character now, and the row this loop iterates

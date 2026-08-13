@@ -931,7 +931,7 @@ const BOSS_FLIGHT_SPEED: f32 = 1200.0;
 /// `BossAttackState`) layers on top unchanged.
 ///
 /// The boss is AERIAL (a gravity-free free-mover): it spawns flight-enabled so it
-/// steers through the shared flight limb (archetype swap AS4). `attacks_player` /
+/// steers through the shared flight limb (archetype swap AS4). `is_hostile` /
 /// `body_contact_damage` are false — boss offense flows through `BossAttackState`
 /// + `boss_attack_damage`, never the actor melee/contact path; the boss is a
 /// victim-side body here (the vulnerability trio rides in via the bundle below).
@@ -965,7 +965,7 @@ fn boss_actor_cluster(
     // hazard (the Smirking Behemoth run-you-down) flows through the one contact
     // system instead of the deleted `boss_attack_damage` poll. `2.6` matches the old
     // boss body-contact push. STRIKE offense is the frame-driven Boss hitboxes
-    // (`sync_boss_strike_hitboxes`), so `attacks_player` (actor melee) stays off.
+    // (`sync_boss_strike_hitboxes`), so `is_hostile` (actor melee) stays off.
     let body_damage = config.behavior.body_damage;
     let tuning = crate::features::ecs::actor_tuning::ActorTuning {
         max_health: hp_max,
@@ -975,7 +975,7 @@ fn boss_actor_cluster(
         // The BossPattern brain commands an exact per-tick velocity, so the flight
         // limb takes it verbatim (AS4c) — byte-identical to the old SNAP float.
         flight_direct_velocity: true,
-        attacks_player: false,
+        is_hostile: false,
         body_contact_damage: body_damage > 0,
         damage_amount: body_damage,
         contact_strength: 2.6,
@@ -1686,16 +1686,16 @@ pub(crate) fn spawn_enemy_with_faction_into(
             .or_else(|| spec.as_ref().map(|spec| spec.respawn))
             .unwrap_or(UNDESCRIBED_BODY_RESPAWN);
         // ⛔ **the fallback is the CONSTRUCTED value, not the archetype's.** It
-        // read `spec.attacks_player`, and `spec` for a migrated character is the
+        // read `spec.hostile_by_default`, and `spec` for a migrated character is the
         // generic `combatant` row — which says `true`. So the giant GNU, a mount
         // whose authored profile states it never seeks anybody, was handed its
         // hostility back one line after construction resolved it correctly. A
         // placement may still overrule, which is what a disposition is for.
-        enemy.config.tuning.attacks_player = authored
+        enemy.config.tuning.is_hostile = authored
             .payload
             .disposition
-            .map_or(enemy.config.tuning.attacks_player, |disposition| {
-                disposition.attacks_player()
+            .map_or(enemy.config.tuning.is_hostile, |disposition| {
+                disposition.is_hostile()
             });
         // What this body DOES when it dies, and what it may do — both the
         // character's, both already resolved on the definition.
@@ -1870,7 +1870,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // Same rule, same reason: an authored disposition is the placement's, on
     // both roads.
     if let Some(disposition) = authored.payload.disposition {
-        enemy.config.tuning.attacks_player = disposition.attacks_player();
+        enemy.config.tuning.is_hostile = disposition.is_hostile();
     }
     spawn_solo_enemy_into(
         commands,

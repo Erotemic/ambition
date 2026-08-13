@@ -318,7 +318,7 @@ fn enemy_archetype_tunings_are_finite() {
         assert!(spec.contact_strength.is_finite());
         assert!(spec.contact_strength >= 0.0);
         assert!(spec.damage_amount > 0);
-        if spec.attacks_player {
+        if spec.hostile_by_default {
             assert!(
                 spec.brain_profile().attack_range > 0.0,
                 "{key} reports it attacks but has zero attack_range",

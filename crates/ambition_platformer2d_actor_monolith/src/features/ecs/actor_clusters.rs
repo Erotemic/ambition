@@ -593,7 +593,7 @@ impl ActorClusterSeed {
     /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
     /// replacement for `NpcClusterScratch::new_with_paths`. A peaceful actor is
     /// the same cluster as a hostile enemy, just with peaceful tuning
-    /// (`attacks_player = false`, zero aggro, `max_run_speed = NPC_PATROL_SPEED`,
+    /// (`is_hostile = false`, zero aggro, `max_run_speed = NPC_PATROL_SPEED`,
     /// `health = 1`) and a `Passive`/`Patrol` AI brain; its movement is driven by
     /// the catalog `Brain` component attached at spawn, not by this `config.brain`
     /// (which only feeds the integrator's patrol-stall intent). The seed's `spec`
@@ -781,13 +781,13 @@ impl ActorClusterSeed {
             );
             // ⛔ **THE PLACEMENT'S THREE FACTS, and only those.**
             //
-            // `attacks_player` — hostility is a RELATIONSHIP, not a body fact
+            // `is_hostile` — hostility is a RELATIONSHIP, not a body fact
             // (`BrainProfile.attacks_player` was deleted for saying otherwise).
             // `new_character_in` defaults it true because every match seat is a
             // combatant; an NPC placement is the other answer, and the aggression
             // component `NpcActorSpawnPlan::peaceful` sets is the same claim said
             // to the brain.
-            seed.config.tuning.attacks_player = false;
+            seed.config.tuning.is_hostile = false;
             // The patrol PATH is authored on the interactable, and a body that
             // starts on one starts at its first waypoint.
             if let Some(start) = motion.as_ref().and_then(PathMotion::start_pos) {
@@ -1012,7 +1012,7 @@ impl ActorClusterSeed {
             // case that motivated the profile field — now says `Peaceful` there.
             // A body built here with no placement to speak for it is a
             // combatant, which is what every seat is.
-            attacks_player: true,
+            is_hostile: true,
             is_sandbag: practice_target,
             // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
@@ -1484,7 +1484,7 @@ mod tests {
     /// ⛔ these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
     /// this constructor, so every character-first body ambled at exactly half
     /// pace and treated the player as prey. That is the whole reason
-    /// `pirate_shark_rider` (patrol 0.4783) and `giant_gnu` (`attacks_player:
+    /// `pirate_shark_rider` (patrol 0.4783) and `giant_gnu` (`is_hostile:
     /// false`, a mount whose RIDER is the threat) could not migrate: the
     /// migration would have silently rounded a tuned amble and made a prop hunt.
     ///
@@ -1530,7 +1530,7 @@ mod tests {
         );
         assert_eq!(seed.config.tuning.chase_speed, 150.0, "0.75 of it, not all");
         assert!(
-            seed.config.tuning.attacks_player,
+            seed.config.tuning.is_hostile,
             "construction has no relationship to state, so it states the ordinary \
              one; the mount's PLACEMENT is what says `Peaceful`, and a policy \
              that answered this instead is the thing §6 deleted"

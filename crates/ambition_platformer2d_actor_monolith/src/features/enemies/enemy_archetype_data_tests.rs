@@ -23,13 +23,13 @@ fn enemy_roster_resolves_brain_keys_with_fallback() {
     assert!(
         !roster
             .spec_for_brain(&CharacterBrain::Custom("pirate_heavy".into()))
-            .attacks_player
+            .hostile_by_default
     );
     // Unknown key + non-Custom → fallback (Combatant is hostile).
     assert!(
         roster
             .spec_for_brain(&CharacterBrain::Custom("does_not_exist".into()))
-            .attacks_player
+            .hostile_by_default
     );
 }
 

@@ -574,7 +574,7 @@ pub fn tick_actor_brains(
         {
             // Every actor (was-NPC + was-enemy) shares the unified cluster.
             // Peaceful actors no-op the slot-board / body-contact / hostile
-            // passes via tuning (`attacks_player` / `body_contact_damage`); the
+            // passes via tuning (`is_hostile` / `body_contact_damage`); the
             // brain drives patrol/idle. Borrow the cluster as an ActorMut view.
             let Some(mut cq) = clusters else {
                 continue;

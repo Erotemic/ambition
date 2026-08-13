@@ -3020,7 +3020,7 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
                 max_health: 1, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                 aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                 damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                attacks_player: false, body_contact_damage: false,
+                hostile_by_default: false, body_contact_damage: false,
                 weight: 1.4,
             ) }"#,
     ));

@@ -228,7 +228,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let roam_radius = (110.0 + 60.0 * jitters.2).max(enemy.brain_profile.attack_range * 1.5);
     Brain::StateMachine(StateMachineCfg::Aerial {
         cfg: ambition_characters::brain::state_machine::AerialCfg {
-            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
             cruise_speed,
             dive_speed,
             aggro_radius: enemy.brain_profile.aggro_radius,
@@ -299,7 +299,7 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let attack_range = enemy.brain_profile.attack_range * (0.9 + 0.2 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
-            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
             aggro_radius,
             attack_range,
             chase_speed,
@@ -313,7 +313,7 @@ pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig) -> Brain {
         &enemy.id,
         &enemy.tuning,
         &enemy.brain_profile,
-        enemy.tuning.attacks_player,
+        enemy.tuning.is_hostile,
     )
 }
 
@@ -325,7 +325,7 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let initial_cooldown_s = fire_cooldown_s * (0.3 + 0.7 * jitters.1);
     Brain::StateMachine(StateMachineCfg::Sniper {
         cfg: SniperCfg {
-            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
             aggro_radius: enemy.brain_profile.aggro_radius,
             fire_cooldown_s,
         },
@@ -351,7 +351,7 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
     let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
     Brain::StateMachine(StateMachineCfg::ChargeCrash {
         cfg: ChargeCrashCfg {
-            aggressiveness: if t.attacks_player { 1.0 } else { 0.0 },
+            aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
             aggro_radius,
             cruise_speed,
             charge_speed,
@@ -442,7 +442,7 @@ fn skirmisher_brain_from_tuning(
     let orbit_drift_rad_s = 0.4 + 0.8 * jitters.4;
     Brain::StateMachine(StateMachineCfg::Skirmisher {
         cfg: SkirmisherCfg {
-            aggressiveness: if force_hostile || tuning.attacks_player {
+            aggressiveness: if force_hostile || tuning.is_hostile {
                 1.0
             } else {
                 0.0

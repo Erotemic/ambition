@@ -177,7 +177,7 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             // `run_speed`, now carried by the authority that decides pace.
             patrol_effort: self.patrol_effort,
             chase_effort: self.chase_effort,
-            // ⛔ **`attacks_player` does NOT come across, and that is the point.**
+            // ⛔ **`hostile_by_default` does NOT come across, and that is the point.**
             // The row holds it because the archetype ontology fused body, driver
             // and social role; a controller policy answers how to play a body,
             // never who its enemies are. The archetype path keeps reading its own
@@ -267,7 +267,7 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             contact_strength: self.contact_strength,
             damage_amount: self.damage_amount,
             attack_cooldown_mult: self.attack_cooldown_mult,
-            attacks_player: self.attacks_player,
+            is_hostile: self.hostile_by_default,
             surface_walker: self.surface_walker,
             cling_breaks_on_hit: self.cling_breaks_on_hit,
             // The ONE authored respawn policy (ADR 0022) — the kill hook and
@@ -757,7 +757,7 @@ const CONTENT_FREE_ROSTER_RON: &str = r#"{
         damage_amount: 0,
         brain_template: StandStill,
         move_style: Walk,
-        attacks_player: false,
+        hostile_by_default: false,
         body_contact_damage: false,
     ),
 }"#;
@@ -1397,7 +1397,7 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         pilotable_mount_classes: ["shark"],
         // Peaceful cove crew until provoked; then forced into an
         // aggressive MeleeBrute with a wide aggro radius.
-        attacks_player: false,
+        hostile_by_default: false,
         body_contact_damage: false,
         respawn: OnRest,
         provoke_forced_brute_min_aggro: Some(500.0),
@@ -1443,7 +1443,7 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
     "fixture_giant": (
         max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
         aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-        damage_amount: 0, attacks_player: false, body_contact_damage: false,
+        damage_amount: 0, hostile_by_default: false, body_contact_damage: false,
         mount_class: Some("giant"), mass: 8.0, default_size: Some((220.0, 220.0)),
         brain_template: StandStill, move_style: WalkHeavy,
     ),

@@ -39,7 +39,7 @@ pub struct ActorTuning {
     pub attack_cooldown_mult: f32,
     /// Hostile by default: actively tracks the player and publishes
     /// contact damage. Peaceful patrollers are false.
-    pub attacks_player: bool,
+    pub is_hostile: bool,
     /// SPAWN-TIME policy selector: this archetype crawls surfaces glued to
     /// the surface normal (the adhesive-crawler movement policy). Consumed
     /// once by [`Self::motion_model`]; runtime dispatch reads the body's
@@ -101,7 +101,7 @@ impl Default for ActorTuning {
             // Multiplicative identity — a defaulted tuning must not
             // zero out the shared attack cooldown.
             attack_cooldown_mult: 1.0,
-            attacks_player: false,
+            is_hostile: false,
             surface_walker: false,
             cling_breaks_on_hit: false,
             respawn: RespawnPolicy::default(),

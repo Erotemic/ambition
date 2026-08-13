@@ -286,7 +286,7 @@ pub struct EnemySpawnSpec {
     /// **How this body feels about the player when it spawns.**
     ///
     /// ⭐ the last spawn-context fact an enemy ARCHETYPE owned: a row could say
-    /// `attacks_player: false`, which made "ambient wildlife that never aggros"
+    /// `is_hostile: false`, which made "ambient wildlife that never aggros"
     /// a property of the creature rather than of this placement of it.
     ///
     /// `None` = the archetype's answer, which is every level authored so far.

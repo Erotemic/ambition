@@ -263,7 +263,25 @@ autonomous_reconcile                1045
    (`ambition_characters::brain::profile`). It replaced `CharacterBrainSpec`
    outright rather than joining it, and took `aggro_radius`, `attack_range` and
    `turns_at_walls` off `ActorTuning` on the way — those are decisions a DRIVER
-   makes. It is authorable with `deny_unknown_fields`. ▢ what remains is
+   makes. It is authorable with `deny_unknown_fields`.
+
+   ⇥ ⭐⭐ **ADOPTION IS DONE — 16 CHARACTERS, re-measured 2026-08-13**, and this
+   item's *"no character names one yet"* is its most stale sentence. Sixteen of
+   the authored cast carry a profile: **2 by NAME** (`goblin` and
+   `npc_lab_raider`, both pointing at the shared `medium_striker`, which is what
+   makes it a ROLE rather than one creature's private policy) and **14 INLINE**
+   — the mites, both sandbags, the slug, the parrot, the shark riders, the gnu
+   and its hands, the salvage guard, the PCA, the AI slop, the paper-plane swarm.
+
+   ⚠ **inline is not a shortfall**, and the campaign says so itself: *"one
+   adopter does not earn the indirection, and publishing a shared policy nobody
+   shares leaves a second empty role behind exactly like the one being removed."*
+
+   ⇒ what actually remains of this item is the OTHER half of its sentence: **the
+   archetype still projects one.** That is the archetype road, gated on the
+   castings — not on adoption.
+
+   ⇥ AS WRITTEN: ▢ what remains is
    ADOPTION: the archetype still projects one, and no character names one yet.
    The `smash_can_blink/fly/shield` mirror of the body's capabilities came
    across deliberately and is item 21's deletion. Originally:

@@ -731,7 +731,6 @@ pub fn prepare_match(
                 roster.published_by.as_deref(),
                 &definition.provider,
                 profiles,
-                archetypes,
             )
             .is_none()
             {
@@ -798,7 +797,6 @@ pub fn prepare_match(
                 roster.published_by.as_deref(),
                 &definition.provider,
                 profiles,
-                archetypes,
             ),
             // A human seat's body carries no autonomous policy at all. It used
             // to inherit `combatant`'s, which nothing read and which said this
@@ -1037,14 +1035,23 @@ fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting
 /// weeks, and the impossibility of a match with nobody local in it. Control is
 /// attached to the finished body by [`bind_seat_control`]; it does not get to
 /// decide how the body is made.
-/// **The controller policy a CPU seat names**, published first, archetype second.
+/// **The controller policy a CPU seat names.** Published policies, and nothing
+/// else.
 ///
-/// ⭐ **the direction is the migration** (Jon's second redirect, P4). A match's
-/// public API is *character + controller + team*, and the controller half was
-/// resolved through `CharacterRoster` — an enemy ARCHETYPE table — so a seat
-/// asking for a policy got one by way of a body definition. A published
-/// `BrainProfile` is what a controller policy IS; the archetype arm is the
-/// legacy half and shrinks as policies are published.
+/// ⭐⭐ **THE ARCHETYPE ARM IS DELETED (2026-08-13, campaign P2.18)** — the
+/// migration this doc has been describing as "the direction" since Jon's second
+/// redirect (P4) is finished. A match's public API is
+/// *character + controller + team*, and the controller half used to be resolved
+/// through `CharacterRoster` — an enemy ARCHETYPE table — so a seat asking for a
+/// policy got one by way of a body definition. A published `BrainProfile` is
+/// what a controller policy IS.
+///
+/// ⚠ **it shrank to nothing in two migrations, not by disuse**: Smash's six rows
+/// became `smash::duelist_l{n}` policies (D87) and the versus stage's single row
+/// became `ambition_versus::versus_duelist` (P2.18), after which no production
+/// seat in the workspace named an archetype key. What a miss looks like now is
+/// what a miss looked like for a published name before it — preparation REFUSES
+/// the seat, loudly, rather than seating a fighter that quietly stands still.
 ///
 /// ⛔⛔ **THE REFERENCE IS PROVIDER-RELATIVE AND THIS USED TO RESOLVE IT AGAINST
 /// NO PROVIDER**, which made the registry arm VACUOUS rather than merely
@@ -1074,26 +1081,18 @@ fn seat_brain_profile(
     match_provider: Option<&str>,
     provider: &str,
     profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
-    archetypes: &crate::features::CharacterRoster,
 ) -> Option<ambition_characters::brain::BrainProfile> {
-    profiles
-        .and_then(|profiles| {
-            let reference = ambition_entity_catalog::BrainProfileRef::new(key);
-            // ⛔ and NOTHING else — no bare-key fallback. It looks like harmless
-            // generosity and is the exact hole that was here: it makes the
-            // provider decorative, so one game's `duelist` can drive another's
-            // fighter. An already-qualified name is handled by `resolve_in`.
-            match_provider
-                .and_then(|owner| profiles.get(&reference.resolve_in(owner)))
-                .or_else(|| profiles.get(&reference.resolve_in(provider)))
-                .copied()
-        })
-        .or_else(|| {
-            archetypes
-                .has_brain_key(key)
-                .then(|| archetypes.brain_profile_for(key))
-                .flatten()
-        })
+    profiles.and_then(|profiles| {
+        let reference = ambition_entity_catalog::BrainProfileRef::new(key);
+        // ⛔ and NOTHING else — no bare-key fallback. It looks like harmless
+        // generosity and is the exact hole that was here: it makes the
+        // provider decorative, so one game's `duelist` can drive another's
+        // fighter. An already-qualified name is handled by `resolve_in`.
+        match_provider
+            .and_then(|owner| profiles.get(&reference.resolve_in(owner)))
+            .or_else(|| profiles.get(&reference.resolve_in(provider)))
+            .copied()
+    })
 }
 
 fn realize_seat(

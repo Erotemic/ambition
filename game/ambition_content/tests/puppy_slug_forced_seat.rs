@@ -76,7 +76,14 @@ fn seating_app_with_the_real_cast() -> App {
 
 fn cpu(character: &str) -> MatchParticipant {
     MatchParticipant::new(character).driven_by(ControllerBinding::Cpu {
-        brain_profile: Some("combatant".into()),
+        // ⛔⛔ **THIS SAID `combatant` UNTIL 2026-08-13, AND THAT NAMED AN ENEMY
+        // ARCHETYPE ROW.** It resolved only because `seat_brain_profile` had an
+        // archetype arm — the second controller-policy authority campaign P2.18
+        // deleted — so this fixture was seating through a road production no
+        // longer has. `medium_striker` is Ambition's own PUBLISHED policy, from
+        // the catalog this fixture registers, which is what a shipped CPU seat
+        // names.
+        brain_profile: Some("medium_striker".into()),
     })
 }
 

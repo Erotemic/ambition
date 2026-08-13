@@ -17,21 +17,65 @@ use crate::character_runtime::{
     MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
 };
 
-/// A CPU seat asking for a brain this fixture's roster ACTUALLY HAS.
+/// The fixture's own published CPU policy — see [`fixture_policies`].
+const FIXTURE_CPU_POLICY: &str = "cpu_policy";
+
+/// A CPU seat asking for a policy this fixture's composition PUBLISHES.
 ///
 /// ⚠ it said `medium_striker` until 2026-07-31, which the content-free default
 /// roster does not contain — so every one of these tests was seating the
 /// `combatant` fallback (a `StandStill` body) while naming a striker, and
 /// passing, because nothing they assert depends on the brain. That silence is
-/// what seating now refuses: a match seat whose brain profile is unknown is
-/// unsatisfiable rather than handed a generic enemy.
+/// what seating refuses: a seat whose brain profile is unknown is unsatisfiable
+/// rather than handed a generic enemy.
 ///
-/// `combatant` is the one archetype `CONTENT_FREE_ROSTER_RON` defines, so the
-/// name now says what the fixture is really seating.
+/// ⛔⛔ **and it said `combatant` until 2026-08-13, which was the same silence
+/// one layer down.** `combatant` is an ENEMY ARCHETYPE row, and naming it worked
+/// only because `seat_brain_profile` had an archetype arm — the second authority
+/// campaign P2.18 deleted. A fixture that seats through an authority production
+/// no longer has is not modelling production.
 fn cpu(character: &str) -> MatchParticipant {
     MatchParticipant::new(character).driven_by(ControllerBinding::Cpu {
-        brain_profile: Some("combatant".into()),
+        brain_profile: Some(FIXTURE_CPU_POLICY.into()),
     })
+}
+
+/// **The policy authority this fixture's composition publishes**, keyed exactly
+/// as assembly keys one.
+///
+/// ⚠ **one entry per provider these fixtures register characters under**
+/// (`demo`, `mary_o_demo`, `sanic_demo`, `arena`), because `seat_brain_profile`
+/// resolves a bare key in the CHARACTER's provider when the roster names none.
+/// The names are pre-qualified, which `from_catalog_for_test` honours verbatim —
+/// the same rule `BrainProfileRef::resolve_in` follows.
+///
+/// ⚠ a fixture that registers under a FIFTH provider seats zero bodies and says
+/// so loudly (`four_fighters_on_two_teams` caught exactly that, on `arena`) —
+/// which is the failure this list is allowed to have, and not a silent one.
+///
+/// ⚠ the numbers are `CONTENT_FREE_ROSTER_RON`'s `combatant` controller half
+/// verbatim (StandStill, every radius and effort zero), so this is the policy
+/// these fixtures were ALREADY getting through the archetype arm. Migrating the
+/// authority must not quietly retune what the fixtures seat.
+fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
+    use ambition_characters::actor::character_catalog::{
+        parse_catalog, BrainProfileRegistry, CharacterCatalog,
+    };
+    const CATALOG: &str = r#"(
+        autonomous_profiles: {
+            "demo::cpu_policy": (template: StandStill),
+            "mary_o_demo::cpu_policy": (template: StandStill),
+            "sanic_demo::cpu_policy": (template: StandStill),
+            "arena::cpu_policy": (template: StandStill),
+        },
+        brain_presets: {},
+        action_set_presets: {},
+        characters: {},
+    )"#;
+    BrainProfileRegistry::from_catalog_for_test(
+        "unused: every name above is already qualified",
+        &CharacterCatalog::from_data(parse_catalog(CATALOG)),
+    )
 }
 
 fn seating_app() -> App {
@@ -43,6 +87,10 @@ fn seating_app() -> App {
     // registry is authority the system requires. A fixture authors none.
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<crate::features::CharacterRoster>();
+    // ⭐ **THE POLICY AUTHORITY, published like a composition publishes it.** A
+    // CPU seat's controller question is answered here and nowhere else since
+    // P2.18 deleted `seat_brain_profile`'s archetype arm.
+    app.insert_resource(fixture_policies());
     // A room whose authored spawn is the stage centre.
     let world = ambition_platformer2d_core::World::new(
         "Arena",
@@ -1956,7 +2004,24 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
 /// provider. The third term is the poison — a bare-keyed registry must NOT
 /// answer, because that is the shape that lied.
 #[test]
-fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
+/// **A CPU SEAT'S POLICY COMES FROM THE PUBLISHED REGISTRY, AND FROM NOWHERE
+/// ELSE.**
+///
+/// ⛔⛔ this was `a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name`,
+/// and its subject — the PREFERENCE between two authorities — is gone with the
+/// second authority (2026-08-13, campaign P2.18). Its middle clause asserted
+/// *"the legacy road is still open, which is what makes the preference above a
+/// preference rather than a replacement"*; it is a replacement now.
+///
+/// ⭐ what survives is the part that was always the real claim, and it is
+/// stronger for having one authority: a reference resolves in a PROVIDER. The
+/// poison is unchanged and is the shape that made the published arm vacuous for
+/// weeks — a bare-key match, which would let one game's `duelist` drive
+/// another's fighter. The third clause is new and is what the archetype arm used
+/// to hide: an unpublished key resolves to NOTHING, so preparation refuses the
+/// seat instead of quietly seating a body built from a creature row.
+#[test]
+fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
     use ambition_characters::actor::character_catalog::{BrainProfileRegistry, CharacterCatalog};
 
     const CATALOG: &str = r#"(
@@ -1978,48 +2043,33 @@ fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
             ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
         ),
     );
-    let archetypes = crate::features::enemies::fixture_roster_with_mount();
 
-    let published = super::seat_brain_profile(
-        "medium_striker",
-        None,
-        PROVIDER,
-        Some(&profiles),
-        &archetypes,
-    )
-    .expect(
-        "a published policy of that name resolves — a BARE key reached a registry \
+    let published = super::seat_brain_profile("medium_striker", None, PROVIDER, Some(&profiles))
+        .expect(
+            "a published policy of that name resolves — a BARE key reached a registry \
              that holds provider::name, which is the production shape",
-    );
-    assert_eq!(
-        published.aggro_radius, 1.0,
-        "the ARCHETYPE table answered a question a published controller policy \
-         had already answered: {published:?}"
-    );
-
-    // ⚠ and the legacy road is still open, which is what makes the preference
-    // above a preference rather than a replacement.
-    let archetype_only =
-        super::seat_brain_profile("combatant", None, PROVIDER, Some(&profiles), &archetypes)
-            .expect("an archetype-only key still resolves while presets are migrating");
-    assert_ne!(archetype_only.aggro_radius, 1.0);
+        );
+    assert_eq!(published.aggro_radius, 1.0);
 
     // ⛔⛔ **THE POISON.** A policy published by a DIFFERENT provider must not
-    // answer this seat: that is the bare-key match that made the whole arm
-    // vacuous, and it would also let one game's `duelist` silently drive
-    // another's fighter.
-    let foreign = super::seat_brain_profile(
-        "medium_striker",
-        None,
-        "some_other_game",
-        Some(&profiles),
-        &archetypes,
-    )
-    .expect("the archetype table still answers, as it did before any policy was published");
-    assert_ne!(
-        foreign.aggro_radius, 1.0,
+    // answer this seat: that is the bare-key match that made this arm vacuous,
+    // and it would also let one game's `duelist` silently drive another's
+    // fighter.
+    assert!(
+        super::seat_brain_profile("medium_striker", None, "some_other_game", Some(&profiles))
+            .is_none(),
         "another provider's policy answered this seat, so the reference is not \
          being resolved in a provider at all"
+    );
+
+    // ⛔ **AND AN ARCHETYPE KEY IS JUST AN UNKNOWN NAME NOW.** `combatant` is a
+    // real row in every shipped roster and used to answer here; a seat that
+    // names it gets nothing, which is what makes preparation refuse rather than
+    // seat a fighter whose mind came from a creature definition.
+    assert!(
+        super::seat_brain_profile("combatant", None, PROVIDER, Some(&profiles)).is_none(),
+        "an enemy archetype key answered a controller question, so the archetype \
+         table is still a policy authority"
     );
 }
 

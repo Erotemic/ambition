@@ -1066,9 +1066,10 @@ fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting
 /// published for exactly this, was never once read.
 ///
 /// ⚠ **that is why publishing a policy did not shrink the archetype arm.** The
-/// arm is not shrinking because seats prefer archetypes; it was the only arm that
-/// could answer. `SMASH_ROSTER_RON` exists solely to hold brain-only rows for
-/// this lookup.
+/// arm was not shrinking because seats preferred archetypes; it was the only arm
+/// that could answer. `SMASH_ROSTER_RON` existed solely to hold brain-only rows
+/// for this lookup, and it went in D87 once the resolution was fixed — which is
+/// what let the arm itself go in P2.18.
 ///
 /// ⭐ **THE PROVIDER IS THE MATCH'S, THEN THE CHARACTER'S** — in that order,
 /// because *a seat names a policy the MATCH published*. Smash publishes

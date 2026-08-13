@@ -591,17 +591,24 @@ impl MatchParticipantRoster {
     /// Character ids are NOT checked here: `PreparedCharacterRegistry` answers
     /// that, refuses on its own, and asking twice would put two authorities on
     /// one question.
-    /// ⛔⛔ **IT ASKS BOTH AUTHORITIES, because seating does** (2026-08-11). This
-    /// consulted only the archetype table — the authority the campaign is
-    /// removing — so the day Smash published its CPU ladder as real
-    /// `BrainProfile`s and deleted its archetype fragment, this reported four
-    /// perfectly seatable fighters as unseatable. The check's INTENT (a demo must
-    /// not declare a seat its own composition cannot fill) was right and is kept;
-    /// its instrument knew one of the two places an answer can live.
+    /// ⛔⛔ **IT ASKS THE AUTHORITY SEATING ASKS, and has twice been asking a
+    /// different one.** First it consulted only the archetype table — so the day
+    /// Smash published its CPU ladder as real `BrainProfile`s and deleted its
+    /// archetype fragment, this reported four perfectly seatable fighters as
+    /// unseatable. Then it asked BOTH, which was right while a policy had two
+    /// possible homes. Since P2.18 `seat_brain_profile` has ONE arm, and a
+    /// checker that still consulted the archetype table would be the other
+    /// failure — approving a seat that seating then refuses, which is the shape
+    /// `ambition_combat::content_schema` names: the compiler must not approve
+    /// what the runtime refuses.
+    ///
+    /// The check's INTENT — a composition must not declare a seat it cannot
+    /// fill — has been right throughout; only its instrument moved.
     ///
     /// ⚠ **the published registry is `Option`** because a composition may have
-    /// none, and "no policies published" is a real state rather than an error —
-    /// the archetype arm still answers for it.
+    /// none. That is a real state rather than an error, and it is now an
+    /// ANSWER: a seat naming a policy in a composition that publishes nothing is
+    /// unsatisfiable, because seating will refuse it too.
     pub fn unsatisfiable_seats(
         &self,
         // The published controller policies, resolved exactly as

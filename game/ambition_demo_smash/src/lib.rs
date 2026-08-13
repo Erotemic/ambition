@@ -269,8 +269,9 @@ where
     }
     // ⛔⛔ **AND IT SAYS WHOSE ROSTER IT IS.** `smash_roster` above ends with the
     // same call and this one silently did not — which cost nothing while a CPU
-    // seat's `brain_profile` was an ARCHETYPE key, because an archetype table is
-    // global. It costs everything now that the key is a published POLICY:
+    // seat's `brain_profile` could still be an ARCHETYPE key, because an
+    // archetype table is global. It costs everything now that a published POLICY
+    // is the only thing a seat can name (P2.18):
     // `seat_brain_profile` resolves a provider-relative name in the MATCH's
     // provider, an unpublished roster has none, and every levelled seat this
     // helper builds was refused with *"`duelist_l1` … Known keys: [combatant]"*.

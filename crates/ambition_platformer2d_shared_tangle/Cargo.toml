@@ -15,6 +15,9 @@ crate-type = ["rlib"]
 # Authored projectile intent — content-free spawn data that left this crate so
 # `ambition_vfx` could stop depending on it. See that crate's module doc.
 ambition_projectile_spec = { path = "../ambition_projectile_spec" }
+# The binding boundary, which USED to be a module in this crate. See
+# `src/binding.rs` for why it left and why the re-export stays.
+ambition_binding = { path = "../ambition_binding" }
 # Only the ECS/state/input surface is needed: Component / Bundle / Commands /
 # EntityCommands / Entity / SystemSet / States / Reflect (via bevy::prelude). No render,
 # audio, or asset features — this crate stays reusable and headless.

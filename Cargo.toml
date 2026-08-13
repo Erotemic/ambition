@@ -31,6 +31,7 @@ members = [
     "crates/ambition_projectile_spec",
     "crates/ambition_encounter",
     "crates/ambition_vfx",
+    "crates/ambition_binding",
     "crates/ambition_platformer2d_core",
     "crates/ambition_input",
     "crates/ambition_interaction",

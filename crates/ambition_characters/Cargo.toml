@@ -14,11 +14,13 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # its own params (fable review A1 / R2.2).
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # The binding-resolution boundary (`Resolver` / `BindingReport` / `Namespace`),
-# which is what character PREPARATION is written in terms of. A downward edge:
-# shared_tangle depends on `ambition_projectile_spec` and `ambition_platformer2d_core`
-# and on nothing else, so taking it does not reach gameplay — checked against
-# `check_absence_contracts.py`'s transitive rule, not assumed (campaign P1.7).
-ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# which is what character PREPARATION is written in terms of.
+# ⭐ **the BOUNDARY, not the platformer.** This named
+# `ambition_platformer2d_shared_tangle` for one item (`Namespace`) and got 18k
+# lines of platformer lifecycle, camera, transit and schedules underneath the
+# canonical character domain for it. The edge was LEGAL — the absence contracts
+# passed — and legality is not the same question as floor.
+ambition_binding = { path = "../ambition_binding" }
 # The content compiler. A downward edge to a foundation crate with no Bevy and
 # no domain types: the character capability OWNS its authored schema, so the
 # registration lives here rather than in a central content enum.

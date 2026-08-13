@@ -7,14 +7,17 @@
 //! Jon's brief is explicit that a dependency obstacle must not be solved by
 //! leaving it up there — so this is the first slice down, and it is the one that
 //! proves the direction: these seven marker types need nothing but
-//! [`Namespace`], from `ambition_platformer2d_shared_tangle::binding`.
+//! [`Namespace`], from `ambition_binding`.
 //!
-//! ⚠ **that edge was checked, not assumed.** `shared_tangle` depends on
-//! `ambition_projectile_spec` and `ambition_platformer2d_core` and nothing else,
-//! so taking it does not reach gameplay — verified against
-//! `check_absence_contracts.py`, whose `ambition_characters` contract is
-//! TRANSITIVE, and against the capability-footprint ratchet, which is unchanged
-//! at 41 crates because shared_tangle was already in the closure.
+//! ⛔⛔ **the first version of this took the edge to
+//! `ambition_platformer2d_shared_tangle` instead, and "the contracts pass" was
+//! the wrong test.** Nothing forbids that edge, and the note here argued its
+//! safety on exactly those grounds. What it did not weigh is that shared_tangle
+//! is ~18k lines across 51 files of platformer lifecycle, camera, transit,
+//! schedules and hotkeys, and this file uses ONE name from it — so every edit to
+//! any of those files invalidated the canonical character domain. Legality is
+//! not the same question as floor (GPT 5.6 review of `1579ab3`). The boundary is
+//! its own crate now, whose entire dependency list is `tracing`.
 //!
 //! ⚠ **a namespace is a MARKER, not a table.** Each one names a kind of
 //! reference and supplies the word a diagnostic prints; the vocabulary a
@@ -22,7 +25,7 @@
 //! — which is why `RangedPayload` belongs here despite having no lookup table at
 //! all. What it shares with the others is the CHANNEL, not the mechanism.
 
-use ambition_platformer2d_shared_tangle::binding::Namespace;
+use ambition_binding::Namespace;
 
 /// The cues a session authorizes. A character's authored cues resolve against
 /// this; §4.6 note — a session's authorized set is NOT merely the union over its

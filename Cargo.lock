@@ -211,6 +211,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_binding"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "ambition_causal"
 version = "0.1.0"
 dependencies = [
@@ -234,11 +241,11 @@ dependencies = [
 name = "ambition_characters"
 version = "0.1.0"
 dependencies = [
+ "ambition_binding",
  "ambition_causal",
  "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_platformer2d_core",
- "ambition_platformer2d_shared_tangle",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -810,6 +817,7 @@ dependencies = [
 name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
+ "ambition_binding",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "bevy",

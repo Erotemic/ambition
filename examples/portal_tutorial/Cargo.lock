@@ -132,6 +132,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_binding"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "ambition_geometry"
 version = "0.1.0"
 dependencies = [
@@ -156,6 +163,7 @@ dependencies = [
 name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
+ "ambition_binding",
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "bevy",

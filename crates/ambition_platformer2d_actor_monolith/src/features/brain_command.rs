@@ -437,14 +437,21 @@ fn apply_catalog_mode(
 ) {
     // ⭐⭐ **A CHARACTER-FIRST BODY IS RESTORED IN THE MIND ONLY.**
     //
-    // ⛔ the projection below is the generic peaceful-NPC seed — `max_health: 1`,
-    // `max_run_speed: MAX_RUN_SPEED`, default capabilities, and
+    // ⛔ the projection below is the peaceful-NPC seed: default capabilities and
     // `brain_profile: BrainProfile::default()`. It is the correct answer for a
     // catalog-default NPC, whose whole body IS that seed. Over a body whose
-    // character authored its run speed, health, locomotion and kit it is a
-    // silent downgrade wearing a controller change — and the policy it zeroed
-    // was the field the CharacterProfile restoration then read back as the
-    // character's default.
+    // character authored its kit it is a silent downgrade wearing a controller
+    // change — and the policy it zeroed was the field the CharacterProfile
+    // restoration then read back as the character's default.
+    //
+    // ⚠ **it said `max_health: 1, max_run_speed: MAX_RUN_SPEED` here and neither
+    // is true any more.** The `1` moved to `DEFAULT_UNAUTHORED_BODY_HEALTH` at
+    // the spawn seeds (D101), and `peaceful_config` reads the prepared
+    // character's blueprint for BOTH numbers since 2026-08-13 (P2.19) — because
+    // this guard keys on the character's POLICY while the downgrade was to its
+    // BODY, so a character that authored locomotion and no profile fell straight
+    // through it. That population is empty today and the trap is closed at the
+    // projection, which is the layer that can see the character.
     if let Some(profile) = character_profile {
         if let Some(mut config) = config {
             config.brain_profile = profile;

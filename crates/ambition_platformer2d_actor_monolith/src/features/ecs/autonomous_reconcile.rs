@@ -197,13 +197,45 @@ pub(crate) fn peaceful_config(
                 })
         })
         .unwrap_or(false);
+    // ⛔⛔ **THE SAME TRAP THE `is_aerial` NOTE ABOVE DESCRIBES, IN THE TWO
+    // FIELDS BESIDE IT** (closed 2026-08-13, campaign P2.19).
+    //
+    // This installed `max_health: DEFAULT_UNAUTHORED_BODY_HEALTH` and
+    // `max_run_speed: MAX_RUN_SPEED` flat, with a comment claiming it was *"the
+    // same undescribed-body pool the seed this mirrors installs"*. It is not:
+    // `new_peaceful_npc_in` reads the PREPARED character's blueprint for both
+    // (P1.10), and falls back to those constants only for a body nobody
+    // authored. So a character-first body released back to peaceful would have
+    // been handed the shared player top speed and the undescribed pool — a
+    // silent downgrade wearing a controller change, which is the exact defect
+    // §2's `ProvokedArchetype` split exists to prevent, running in reverse.
+    //
+    // ⚠ **and it was UNREACHABLE, which is why it survived** — the same shape as
+    // the `is_aerial` trap above, measured the same way. `apply_catalog_mode`
+    // returns before this call when the character states its own policy, and
+    // every one of the seventeen `ambition_content` characters that authors
+    // locomotion also authors a profile. So the population that could reach it
+    // is EMPTY today and springs the day somebody authors a body without a
+    // policy — which is an ordinary thing to author.
+    let authored_body = character_id
+        .and_then(|cid| prepared.and_then(|registry| registry.get(cid)))
+        .and_then(|prepared| prepared.body_blueprint().ok());
     let tuning = ActorTuning {
-        // The same undescribed-body pool the seed this mirrors installs; a
-        // catalog switch back to peaceful must not resize the body either.
-        max_health: ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+        max_health: authored_body.as_ref().map_or(
+            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+            |body| body.max_health,
+        ),
+        // ⚠ **STILL FLAT, and that is not an oversight.** How fast a body
+        // AMBLES is the controller's fact, not the body's — `new_peaceful_npc_in`
+        // hard-codes these two for the same reason. A character authoring
+        // `run_speed: 400.0` must not make its idle stroll a sprint.
         patrol_speed: NPC_PATROL_SPEED,
         chase_speed: NPC_PATROL_SPEED,
-        max_run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+        max_run_speed: authored_body
+            .as_ref()
+            .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
+                body.locomotion.run_speed
+            }),
         is_aerial,
         // STATED, matching the spawn seed this mirrors: an NPC placement is a
         // person, so its death is permanent (ADR 0022). Rewinding a provoked
@@ -443,6 +475,93 @@ mod peaceful_flight_tests {
             "the character authored `baseline_free_flight: Some(false)` and the \
              catalog's silhouette overruled it — `body_kind => is_aerial` is the \
              authority D89 deleted, and this is the PCA exactly"
+        );
+    }
+}
+
+#[cfg(test)]
+mod peaceful_body_authority_tests {
+    use super::*;
+
+    /// **A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
+    /// AUTHORED.** (campaign P2.19)
+    ///
+    /// ⛔⛔ **the trap this closes had an EMPTY population, and that is the
+    /// reason to write the test rather than a reason not to.** `peaceful_config`
+    /// hard-coded `max_run_speed: MAX_RUN_SPEED` and the undescribed health pool
+    /// while claiming to install *"the same undescribed-body pool the seed this
+    /// mirrors installs"* — and the seed it mirrors reads the prepared
+    /// character's blueprint for both (P1.10). `apply_catalog_mode` returns
+    /// before this call when a character states its own POLICY, and every
+    /// `ambition_content` character that authors locomotion happens to author a
+    /// profile too, so nothing could reach it. A body without a policy is an
+    /// ordinary thing to author, and the day one exists the calm-down would have
+    /// handed it the player's top speed.
+    ///
+    /// ⚠ **two terms, both observed.** The character's numbers survive, AND an
+    /// unauthored body still gets the shared defaults — otherwise "reads the
+    /// blueprint" could be satisfied by a projection that reads it for
+    /// everything and quietly changes what a catalog-only NPC becomes.
+    #[test]
+    fn calming_down_restores_the_characters_body_and_not_a_generic_one() {
+        use ambition_characters::actor::definition::CharacterDefinition;
+        use ambition_characters::actor::CharacterLocomotion;
+
+        const AUTHORED_RUN_SPEED: f32 = 63.0;
+        const AUTHORED_HEALTH: i32 = 9;
+
+        use crate::character_runtime::CharacterDefinitionAppExt;
+        let mut definition = CharacterDefinition::new("wanderer", "Wanderer", "test")
+            .with_locomotion(CharacterLocomotion {
+                run_speed: AUTHORED_RUN_SPEED,
+                ..Default::default()
+            });
+        definition.vitals.max_health = Some(AUTHORED_HEALTH);
+        let mut app = bevy::prelude::App::new();
+        app.register_character(definition);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+            .clone();
+
+        let calmed = peaceful_config(
+            &CharacterCatalog::empty(),
+            Some(&prepared),
+            Some("wanderer"),
+            &CombatKit::default(),
+            &ambition_characters::brain::Brain::stand_still(),
+        );
+        assert_eq!(
+            calmed.tuning.max_run_speed, AUTHORED_RUN_SPEED,
+            "a body that calmed down was handed the shared top speed instead of \
+             the one its character authored — a silent downgrade wearing a \
+             controller change, which is what the provoke side was split to stop"
+        );
+        assert_eq!(
+            calmed.tuning.max_health, AUTHORED_HEALTH,
+            "the same, for its health pool"
+        );
+
+        // ⛔ THE OTHER TERM: a body nobody authored still gets the shared
+        // defaults, so this is "ask the character" and not "ask anything".
+        let stranger = peaceful_config(
+            &CharacterCatalog::empty(),
+            Some(&prepared),
+            Some("nobody_registered_this"),
+            &CombatKit::default(),
+            &ambition_characters::brain::Brain::stand_still(),
+        );
+        assert_eq!(
+            stranger.tuning.max_run_speed,
+            ambition_platformer2d_core::MAX_RUN_SPEED,
+            "a body no character describes stopped getting the undescribed \
+             default, so this projection is now answering for creatures nobody \
+             authored"
+        );
+        assert_eq!(
+            stranger.tuning.max_health,
+            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH
         );
     }
 }

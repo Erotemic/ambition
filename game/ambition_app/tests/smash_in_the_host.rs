@@ -1136,6 +1136,67 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     );
 }
 
+/// **HOW MANY OF THE GRID'S FIGHTERS STATE THEIR OWN MOVES** — P3.26's number.
+///
+/// P3.24's ratchet asks this of the whole prepared cast. This asks it of the
+/// SELECTION GRID, which is the population P3.26 is actually about: a fighter a
+/// player can pick and whose attacks are the stage's generic floor is the case
+/// the row names, and a migrated NPC nobody can select is not.
+///
+/// ⭐ **the shipped host is the only place this is decidable.** `SMASH_ROSTER`
+/// is filtered to what the composition can seat, so in a partial composition an
+/// unauthored fighter and an absent one look identical.
+///
+/// ⚠ **a floor and a control**, like its siblings: it must not be empty, and the
+/// day it reaches the whole grid, `DeclaredCombatRules::unarmed_melee` has no
+/// selectable adopter left and P3.26 is done.
+///
+/// **The split as measured 2026-08-13 — seven and seven:**
+///
+/// ```text
+///   states its own moves        silent, fights with the stage's floor
+///   player_robot_v3             mary_o
+///   smash_george_booul          sanic
+///   npc_pirate_admiral          npc_alice
+///   npc_ninja_shadow_oni_leader npc_bob
+///   perfect_cellular_automaton  npc_oiler
+///   goblin                      npc_noether
+///   special_patent_clerk        npc_carl_stargan
+/// ```
+///
+/// ⚠ the numbers are NOT asserted, deliberately — a count assertion here would
+/// fail on every authoring commit and teach people to edit the number. The
+/// floor and the control are what must hold; the table is the reader's.
+#[test]
+fn the_grid_fighters_that_state_their_own_moves_only_grow() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
+    let roster = app
+        .world()
+        .resource::<ambition_demo_smash::select::SmashRoster>();
+
+    let (authored, silent): (Vec<&str>, Vec<&str>) = roster.ids().partition(|id| {
+        registry
+            .get(id)
+            .is_some_and(|character| character.authored_moveset.is_some())
+    });
+    assert!(
+        !authored.is_empty(),
+        "no fighter on the grid states its own move timelines, so every pick \
+         fights with the stage's unarmed declaration: {silent:?}"
+    );
+    assert!(
+        !silent.is_empty(),
+        "every fighter on the grid now states its own moves ({authored:?}) — \
+         P3.26 is done and `DeclaredCombatRules::unarmed_melee` has no \
+         selectable adopter left. Delete the floor and this ratchet with it"
+    );
+}
+
 /// ⚠ **`SmashRoster::assemble` FILTERS to what the catalog carries, and that is
 /// correct behaviour** — a host that composes only some providers shows only the
 /// fighters it has, which is what lets the bare smash app run at all. It also

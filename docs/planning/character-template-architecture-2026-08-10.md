@@ -294,7 +294,7 @@ autonomous_reconcile                1045
    600-line move became a cut rather than a refactor, and is itself the evidence
    that item 1's answer was right: everything monolith-shaped in that file was on
    the PREPARATION side of the line.
-   ⇥ ▢ the type is re-exported from `character_runtime`, where the 277 callers
+   ⇥ the type is re-exported from `character_runtime`, where the 277 callers
    still name it. That is an import convenience over ONE definition rather than a
    second one — but the re-export is what a later slice removes, and until then
    the crate boundary is stated in only one place.
@@ -348,7 +348,7 @@ autonomous_reconcile                1045
    makes the policy unreusable, because the copy describes ONE body*. Item 21
    records it; this sentence still reads as though it were pending.
 
-   ⇥ AS WRITTEN: ▢ what remains is
+   ⇥ AS WRITTEN: what remains is
    ADOPTION: the archetype still projects one, and no character names one yet.
    The `smash_can_blink/fly/shield` mirror of the body's capabilities came
    across deliberately and is item 21's deletion. Originally:
@@ -375,7 +375,7 @@ autonomous_reconcile                1045
    (module-private staging) and the AUTHORING schemas (`EnemySpawnSpec`,
    `InteractionKind::Npc`, `EncounterSpec`) are still `String` — content-facing
    surfaces that belong with the authoring pass. ⇥ as written:
-   ▢ **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
+   **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
    several runtime accessors return. `CharacterId` should survive from authoring
    to runtime, converting only at serialization/presentation/debug boundaries.
 
@@ -450,10 +450,10 @@ autonomous_reconcile                1045
    gap: *"`PreparedCharacterRegistry` is absent rather than empty, and absent
    already means 'no registered characters' to every consumer."*
 
-   ⇥ ▢ **what is left is the NPC road, which is item 6** — so these two are one
+   ⇥ **what is left is the NPC road, which is item 6** — so these two are one
    piece of work, not two.
 
-   ⇥ AS WRITTEN: ▢ **The real common body constructor** —
+   ⇥ AS WRITTEN: **The real common body constructor** —
    `PreparedCharacterDefinition` + `CharacterSpawnPlan` → one actor. Then
    encounter, programmatic and summon paths, none of which may keep passing an
    empty prepared registry.
@@ -560,7 +560,7 @@ autonomous_reconcile                1045
     or `ai_slop` row. ⭐ Iron Mary — this item's own acceptance test for Jon's
     original observation — is `npc_pirate_heavy_iron_mary`, authored and named by
     its placement. ⇥ as written:
-    ▢ **Group A's remaining seven** — `puppy_slug` (10 spawns),
+    **Group A's remaining seven** — `puppy_slug` (10 spawns),
     `burning_flying_shark` (7), `pirate_shark_rider` (6), `sky_parrot` (2),
     `giant_gnu` (1), `pirate_heavy_shark_rider`/Iron Mary (1), `ai_slop` (1).
     Follow the mite recipe: author on the definition, register, name the
@@ -570,7 +570,7 @@ autonomous_reconcile                1045
     have an intrinsic home: `CharacterDefinition::contact_damage`
     (`ContactDamage { strength, amount }`), authored by every contact-damaging
     character that has migrated. ⇥ as written:
-    ▢ **The mites' rows disappear** once (3) gives their controller facts a
+    **The mites' rows disappear** once (3) gives their controller facts a
     home. Also still homeless: `contact_strength` / `damage_amount` (body
     contact damage) — they need an intrinsic home before any contact-damaging
     character fully migrates.
@@ -580,7 +580,7 @@ autonomous_reconcile                1045
     survive as a renamed whole-body archetype. ⚠ its ARCHETYPE row still exists
     for unmigrated placements, and that is item 7's business, not this one's.
     ⇥ as written:
-    ▢ **Group B — shared behaviour profiles.** `medium_striker` becoming a
+    **Group B — shared behaviour profiles.** `medium_striker` becoming a
     reusable `BrainProfile` is success; surviving as a renamed whole-body
     archetype is failure.
 13. ✔ **DONE — all five classified, and all five rows are deleted.** Verified
@@ -610,7 +610,7 @@ autonomous_reconcile                1045
     tracked as D96/D102. Nothing here is blocked on engineering.
 
     ⇥ as written:
-    ▢ **Group C — generic roles.** Classify each: real character, fixture-only
+    **Group C — generic roles.** Classify each: real character, fixture-only
     low-level API, or presentation borrowing. ⛔ do not force test entities into
     the character catalog for type uniformity.
 14. ◐ **SIXTY-FIVE IS NOW TWO** (re-measured 2026-08-12 by walking the LDtk
@@ -623,8 +623,9 @@ autonomous_reconcile                1045
     changes the drill. ⚠ `BossSpawn` is a separate population this item never
     counted: 11 of them carry no `character_id` field at all, and they resolve
     through `PhaseScript` boss profiles rather than the archetype road.
-    ⇥ as written:
-    ▢ **The 65 unmigrated placements.** ⚠ measured: `intro.ldtk` (16) and
+    ✔ **THE 65 PLACEMENTS ARE MIGRATED** — and the block below is why the count
+    was never the whole job. ⇥ as written:
+    **The 65 unmigrated placements.** ⚠ measured: `intro.ldtk` (16) and
     `sandbox.ldtk` (49) entity instances carry NO `character_id` field instance
     at all — this is "add the field to 65 entities", not "fill in a value".
     ⛔ surgical, formatting-preserving edits only (never `json.dumps`), and
@@ -664,7 +665,6 @@ autonomous_reconcile                1045
     is a coincidence the engine must not act on. What item 15 deletes is the ART
     road, which is tolerable precisely because a wrong sheet is visible.
 
-    ⇥ as written:
     ◐ **ACHIEVED IN BEHAVIOUR, still `Option` in the type** (2026-08-14). A
     placement that names no character can no longer produce a body: AC6.1
     deleted the archetype road and `construction::preflight_planned_bodies`
@@ -697,11 +697,16 @@ autonomous_reconcile                1045
       rollback           ✔ DELETED — `Provoked { archetype }` is payloadless
       giant limbs        ✔ DELETED — `planned_giant_host_ids` had zero callers;
                            the limbed QUESTION stays with `is_limbed_host`
-      summons            ▢ `damage_drops` → `SmallSkitter`, a casting decision
-      construction       ▢ body facts, and the last road in
-      demos              ▢ mary_o's one row-pair; the outlander fixture's own
-      CharacterBrain::Custom  ▢ the placement vocabulary itself — outlives the
-                           roster, and is not archetype-shaped
+      summons            ✔ SETTLED — Jon ruled skitters ARE Puppy Slug, and
+                           `SmallSkitter` has zero references left in the tree
+      construction       ✔ DELETED — AC6.1 removed the archetype constructor
+                           entirely; `new_character_in` is the only body road
+      demos              ✔ DELETED — Mary-O owns the plane swarms whole (catalog
+                           rows AND definitions, `1cae63776`), and there is no
+                           archetype file left for anything to name
+      CharacterBrain::Custom  ⭐ STAYS BY DESIGN — the placement vocabulary
+                           itself, which outlives the roster and is not
+                           archetype-shaped. 100 uses, and none of them a body
     ```
 
     ⇥ ⚠ **and the three dead helpers found on the way say something about the
@@ -875,10 +880,15 @@ autonomous_reconcile                1045
     (`CharacterSpawnPlan::character` is required; `report_unprepared_character`
     went from four callers to one), `SummonSpec::archetype_id` →
     `character_id`, `PlayableKitSource` deleted, and the stale roster wording in
-    the rollback waiver list and the versus assertion. ▢ what remains of the
-    vocabulary sweep is `sprite_character_id` and `art_identity`-as-gameplay,
-    plus the ~100 comment-only `archetype` mentions that record deletions rather
-    than describing live code.
+    the rollback waiver list and the versus assertion. ✔ **the vocabulary sweep
+    is DONE** (2026-08-14): `sprite_character_id` keeps its name — every seam
+    asks `WornCharacter` FIRST and falls back to it only for a body that wears
+    nothing, which is what lets a runtime character SWAP take its repertoire
+    with it — and its doc now says so; `art_identity()` did not exist and the
+    three docs citing it are corrected, including `EncounterMobSpec::character`,
+    which was documented as art-only on a field that AC6 made decide a body.
+    ⚠ what remains is comment-only `archetype` mentions that RECORD deletions,
+    which are evidence rather than description.
 
 ### Deferred by decision, not forgotten
 
@@ -988,7 +998,7 @@ traps that became RULES. The narrative of how each was found is in the commits.
   *"the last thing keeping the authoritative character model from following the
   model down"*.
 
-  ⇥ AS WRITTEN: ▢ *"`definition.rs` reaches into `ambition_combat` in exactly ONE
+  ⇥ AS WRITTEN: *"`definition.rs` reaches into `ambition_combat` in exactly ONE
   place now — `build_actor_moveset` at the fold... ⛔ answer it before moving
   anything."*
 * ▢ **`WornCharacter` → universal `CharacterIdentity`.** Blocked, and not by the
@@ -1013,11 +1023,14 @@ traps that became RULES. The narrative of how each was found is in the commits.
 * ✔ **Preparation no longer consults the catalog** for the profile's namespace
   (2026-08-11). The definition's own `provider` qualifies it, and the equality
   it rested on is a guarded fact now — see checklist item A4.
-* ▢ **Prepared completeness (appendix C ruling 8) for death traits.** Right in
-  principle, and flipping it today makes an exploding mite stop exploding:
-  `adopt_character_intrinsics` only overwrites when the definition speaks, so a
-  definition that always speaks resets every authored enemy to the default while
-  the mites' traits still live on the archetype. Gated on phase 2.
+* ▢ **Prepared completeness (appendix C ruling 8) for death traits.** ⚠ **its
+  stated blocker is GONE and the item needs re-measuring before it is worked.**
+  It was gated on phase 2 because *"`adopt_character_intrinsics` only overwrites
+  when the definition speaks, so a definition that always speaks resets every
+  authored enemy to the default while the mites' traits still live on the
+  archetype"* — that function is deleted (AC5.3, zero references), the archetype
+  is deleted (AC6.1), and the mites author their own death traits. Whether the
+  ruling is now free to take is a measurement nobody has made.
 * ▢ Still string-typed: `PreparedSeat::character_id` and several `&str`
   accessors.
 
@@ -3862,7 +3875,7 @@ CharacterSpawnPlan {
 3. ✔ The authored enemy lowers through it, `EnemyActorSpawnPlan` still the
    lowered result. The harness was already there:
    `mod authored_enemy_reads_its_character`.
-4. ▢ **NEXT: the NPC path**, then encounter/programmatic/summon, then
+4. ⇥ AS WRITTEN: **NEXT: the NPC path**, then encounter/programmatic/summon, then
    `PreparedMatch` — which appendix D names as the proving ground and which is
    where the `CharacterRoster` dependency finally comes out.
    ⚠ the NPC path's prerequisite is typing `character_id` on BOTH

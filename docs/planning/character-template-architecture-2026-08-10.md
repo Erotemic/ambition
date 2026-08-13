@@ -360,7 +360,25 @@ autonomous_reconcile                1045
     spec calls `pirate_on_shark` are named *Burning Flying Shark* and the world
     casts them as `npc_burning_flying_shark` — the key would have cast them as
     the pirate raider.
-15. ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
+15. ◐ **MEASURED AND PINNED — two placements away, and both are Jon's.**
+    `worlds::tests::only_the_uncast_placements_still_ride_the_display_name_fallback`
+    asserts the EXACT set of shipped `EnemySpawn`s that author no character:
+    `dive_drill/EnemySpawn-6126` ("Target") and
+    `under_town_pipes/EnemySpawn-104875` (the skitter) — D96 items 3 and 4, the
+    same pair item 14 counted.
+
+    ⭐ **an exact set rather than a count, so it ratchets in both directions.** A
+    new unnamed placement fails it, and so does casting the last one — at which
+    point this item stops being a survey and becomes a deletion, announced by a
+    red test rather than by somebody re-measuring.
+
+    ⚠ the split underneath is already right: `gameplay_character_id` has NO
+    fallback by design, because a display name that happens to match a character
+    is a coincidence the engine must not act on. What item 15 deletes is the ART
+    road, which is tolerable precisely because a wrong sheet is visible.
+
+    ⇥ as written:
+    ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
     display-name fallback from `presentation_identity`, once (14) is complete.
 16. ◐ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,
     `ArchetypeSpec`, `CharacterRoster` in construction, matches, summons,

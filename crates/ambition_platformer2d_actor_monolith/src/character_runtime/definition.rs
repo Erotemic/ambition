@@ -1458,6 +1458,22 @@ impl FinalizedCharacter {
 /// catalog is not knowable at registration time, so a production caller able to
 /// fold early would be choosing to inherit from whatever happened to be
 /// installed so far — which is the ordering hazard `Plugin::finish` removes.
+///
+/// ⛔⛔ **AND THE COMING CRATE MOVE IS NOT A REASON TO WIDEN IT.** Campaign
+/// P1.7's own plan said this and [`FinalizedCharacter`] "must become plain `pub`
+/// test seams in the low crate", because `#[cfg(test)]` items do not cross a
+/// crate boundary and the monolith's suite leans on them. That is the easiest
+/// mechanical relocation deciding the public architecture, and it would put the
+/// early-fold hazard back on the production surface to save a test import
+/// (GPT 5.6 review of `1579ab3`, finding 2 — corrected in the plan before any of
+/// it ran).
+///
+/// ⇒ **split the TESTS by what they actually test**: preparation/finalization
+/// tests move DOWN with this code and keep using private `cfg(test)` support;
+/// monolith-COMPOSITION tests stay up and drive the real
+/// registration/finalization lifecycle, which is a better test of them anyway.
+/// A cross-crate fixture that still needs private machinery after that gets an
+/// explicit test-support feature and dev-dependency — never an ordinary `pub`.
 #[cfg(test)]
 pub(crate) fn prepare_and_finalize_for_test(
     definition: CharacterDefinition,

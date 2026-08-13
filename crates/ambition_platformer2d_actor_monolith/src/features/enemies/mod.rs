@@ -390,14 +390,25 @@ impl CharacterRoster {
         }
     }
 
-    /// Invariant: a practice-target ("sandbag" / `is_sandbag`) archetype is
-    /// PASSIVE — it carries no melee attack and never strikes back. Pins the
-    /// authored roster against accidentally giving a dummy a counter-attack.
-    pub fn sandbags_are_passive(&self) -> bool {
-        self.by_brain
-            .values()
-            .all(|spec| !spec.is_sandbag || spec.melee.is_none())
-    }
+    // ⛔⛔ **`sandbags_are_passive()` WAS HERE AND IS DELETED (2026-08-13,
+    // campaign P2.19), because its SUBJECT left and it went quietly vacuous.**
+    //
+    // It read `all(|spec| !spec.is_sandbag || spec.melee.is_none())` and had one
+    // caller: an `ambition_content` test over the SHIPPED roster. That roster is
+    // down to `combatant` and `medium_striker`, neither of which sets
+    // `is_sandbag`, so the `all` ran over zero matching rows and returned `true`
+    // by having nothing to check — the D94 shape, a green guard whose subject
+    // migrated out from under it.
+    //
+    // ⚠ **and the claim could not be migrated literally, which is the more
+    // useful half.** Both sandbags are CHARACTERS now and both carry a real
+    // `PunchWeak` through the `sandbag_punch` action set, on purpose: an
+    // archetype row fused kit and policy, so the only way to say "never strikes
+    // back" was to remove the fist. A character says it with its POLICY, and
+    // `practice_target_characters_do_not_strike_back` asserts that instead —
+    // aggro radius and attack range both zero. Asserting the old proxy would
+    // have pushed content to strip a fist for a reason that was never the real
+    // one.
 
     #[cfg(test)]
     pub(crate) fn contains_brain(&self, brain_id: &str) -> bool {

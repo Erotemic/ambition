@@ -40,7 +40,6 @@ const POCKET_CATALOG_RON: &str = r#"(
             // room and a character, not that it can fight — so the row's own
             // peaceful kit is the honest answer and `HostCode` was borrowing the
             // protagonist's combat to say nothing with it.
-            playable_kit: Authored,
             tags: ["player", "provider_acceptance"],
         ),
     },

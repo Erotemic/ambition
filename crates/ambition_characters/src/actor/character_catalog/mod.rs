@@ -40,7 +40,7 @@ pub use content_schema::{
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
-    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, PlayableKitSource,
+    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset,
     RangedPreset, SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
@@ -332,8 +332,17 @@ impl CharacterCatalog {
             .and_then(|entry| entry.attack_vfx.as_deref())
     }
 
-    pub fn playable_kit_source(&self, character_id: &str) -> Option<PlayableKitSource> {
-        self.get(character_id).map(|entry| entry.playable_kit)
+    /// **Does this catalog know `character_id`?**
+    ///
+    /// ⛔ **this was `playable_kit_source`, returning `Option<PlayableKitSource>`**
+    /// (AC6.3). That enum had exactly one variant, `Authored`, and `#[default]`
+    /// — so every row answered the same thing and every caller was really
+    /// asking whether there was a row at all. Its second variant, `HostCode`,
+    /// was deleted in 2026-08 when no character claimed any more that engine
+    /// code owned its kit; what survived was a selector with nothing to select,
+    /// and an `Option` doing the work.
+    pub fn knows(&self, character_id: &str) -> bool {
+        self.get(character_id).is_some()
     }
 
     pub fn momentum_params(

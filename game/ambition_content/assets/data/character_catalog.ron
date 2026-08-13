@@ -388,7 +388,6 @@
             // definition, and `ranged_execution: ChargedProjectile` keeps the
             // Hadouken charging now that the charge is a character fact rather
             // than a property of this row saying `HostCode`.
-            playable_kit: Authored,
             // The protagonist's blade, and ONLY the protagonist's: the sheet's
             // silhouette is sampled from v3's own hit polygon, so a character
             // with a different swing that named it would wear art cut for

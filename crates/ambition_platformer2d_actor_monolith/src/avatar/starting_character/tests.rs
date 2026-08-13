@@ -959,15 +959,14 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     );
 }
 
-/// A typo in a known Authored row is content corruption, not permission to gain
+/// A typo in a known catalog row is content corruption, not permission to gain
 /// the host protagonist's code kit. Validation reports the bad row; the runtime
 /// fallback is deliberately inert.
 #[test]
 fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
-    use ambition_characters::actor::character_catalog::PlayableKitSource;
-
     let (set, execution) = resolve_playable_action_set(
-        Some(PlayableKitSource::Authored),
+        // the catalog HAS a row for it; its preset is what does not resolve
+        true,
         None,
         ambition_platformer2d_core::AbilitySet::sandbox_all(),
     );
@@ -1257,7 +1256,6 @@ fn catalog_granting_melee(id: &str) -> CharacterCatalog {
                     composition: None,
                     default_brain: "stand_still",
                     default_action_set: "brawler",
-                    playable_kit: Authored,
                     tags: [],
                 ),
             }},
@@ -1601,7 +1599,6 @@ fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
                     composition: None,
                     default_brain: "stand_still",
                     default_action_set: "gunbrawler",
-                    playable_kit: Authored,
                     tags: [],
                 ),
             }},

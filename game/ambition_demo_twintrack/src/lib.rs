@@ -165,7 +165,6 @@ const TWINTRACK_CATALOG_RON: &str = r#"(
                 flight_invariant_speed: Some(600.0),
             )),
             max_health: Some(1),
-            playable_kit: Authored,
             tags: ["participant", "relativity", "free_flight", "plaza"],
             barks: (
                 hall: [

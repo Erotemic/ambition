@@ -1855,7 +1855,6 @@ const SMASH_CATALOG_RON: &str = r#"(
             // and then asked engine code to build a different one. `HostCode`
             // exists to be deleted (GPT 5.6 §5); a row that already authors its
             // kit is the cheapest adopter to remove.
-            playable_kit: Authored,
             tags: ["player", "smash"],
             fallback_dialogue: ["Off the edge is the only way out."],
         ),

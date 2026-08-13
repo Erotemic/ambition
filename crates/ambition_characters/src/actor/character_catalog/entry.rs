@@ -498,42 +498,6 @@ impl CharacterBarks {
     }
 }
 
-/// Where a character's PLAYABLE action/combat kit comes from when the home box
-/// WEARS it — the catalog, or the host game's code.
-///
-/// This exists to separate two concepts that are NOT the same: "which row is the
-/// content default" and "whose kit does the playable body use". The general case
-/// is [`Authored`](Self::Authored): the worn kit IS the row's `default_action_set`
-/// (a demo speedster, a pirate, a goblin — a body earns its moveset from the same
-/// catalog row that names its sprite and brain). The exception is
-/// [`HostCode`](Self::HostCode): a protagonist whose combat abilities are a
-/// runtime-mutable code concern — an [`crate`]-external `AbilitySet` / progression
-/// / dev-toggle system — rather than static catalog data. Such a row keeps the
-/// body's code-built kit; its `default_action_set` still exists (for its Hall
-/// pedestal or when it is spawned as an NPC) but does NOT define the playable kit.
-///
-/// ⛔ **IT HAS ONE VARIANT, AND THAT IS THE POINT** (2026-08-11). A `HostCode`
-/// variant sat beside `Authored` and meant *engine code owns this row's playable
-/// kit* — which Ambition's robot used, and which made the protagonist's
-/// repertoire unauthorable. It is DELETED: the robot authors its own kit, Smash's
-/// duelists authored one and then said `HostCode` on the next line anyway, and
-/// the pocket runner never fights.
-///
-/// ⚠ the enum survives its second variant because the QUESTION survives: a row
-/// still declares that its playable kit is its own, and a future composition may
-/// need another answer. What it may not declare is that some other crate has one
-/// for it.
-///
-/// ⚠ this selector does not replace the body's movement/progression
-/// `AbilitySet`; it owns the ActionSet, derived moveset, and direct combat
-/// adjuncts.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub enum PlayableKitSource {
-    /// The worn action/combat kit is the row's `default_action_set`.
-    #[default]
-    Authored,
-}
-
 /// Optional independently published portrait product for dialogue and other
 /// close-up presentation. The image is separate from the gameplay sheet; the
 /// manifest names the default and future expression/animation clips.
@@ -637,15 +601,6 @@ pub struct CharacterCatalogEntry {
     pub default_brain: String,
     /// Name of the preset in `action_set_presets` to apply by default.
     pub default_action_set: String,
-    /// Whose action/combat kit the PLAYABLE body uses when the home box wears
-    /// this character:
-    /// the catalog's `default_action_set` ([`PlayableKitSource::Authored`], the
-    /// default) or the host game's code-built kit ([`PlayableKitSource::HostCode`],
-    /// a protagonist with a runtime `AbilitySet`/progression kit). Defaults to
-    /// `Authored`, so every existing standalone row wears its own authored kit;
-    /// only a host protagonist marks itself `HostCode`. See [`PlayableKitSource`].
-    #[serde(default)]
-    pub playable_kit: PlayableKitSource,
     /// Free-form tags. Tooling filters by these (e.g. the hall
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]

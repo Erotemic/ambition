@@ -45,7 +45,6 @@ const FIXTURE_CATALOG_RON: &str = r#"(
             // the host-built protagonist kit. That variant is deleted -- no
             // character says engine code owns its repertoire any more -- so the
             // row states what it actually is: a peaceful shell character.
-            playable_kit: Authored,
             tags: ["player"],
         ),
     },

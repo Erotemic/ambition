@@ -351,23 +351,23 @@ pub fn derive_persona_moveset(
 /// the privileged host-code fallback. The returned [`RangedExecution`] says how
 /// the body fires.
 fn resolve_playable_action_set(
-    source: Option<ambition_characters::actor::character_catalog::PlayableKitSource>,
+    // ⛔ **this was `Option<PlayableKitSource>`** (AC6.3), a one-variant enum
+    // whose `Option` was the whole signal: the arms below are "the catalog has a
+    // row" and "it does not", and neither ever read the variant.
+    catalog_knows_it: bool,
     authored: Option<ActionSet>,
     base_abilities: ambition_platformer2d_core::AbilitySet,
 ) -> (ActionSet, RangedExecution) {
-    use ambition_characters::actor::character_catalog::PlayableKitSource;
-
-    match source {
-        Some(PlayableKitSource::Authored) => {
-            // A known authored row with a missing preset is malformed content.
-            // The startup validator reports it; runtime remains fail-safe and
-            // peaceful rather than silently granting the host protagonist kit.
-            (
-                authored.unwrap_or_else(ActionSet::peaceful),
-                RangedExecution::MovesetVerb,
-            )
-        }
-        None => (
+    if catalog_knows_it {
+        // A known row with a missing preset is malformed content. The startup
+        // validator reports it; runtime remains fail-safe and peaceful rather
+        // than silently granting the host protagonist kit.
+        (
+            authored.unwrap_or_else(ActionSet::peaceful),
+            RangedExecution::MovesetVerb,
+        )
+    } else {
+        (
             // **UNKNOWN IDS**, and only unknown ids, use one explicit
             // compatibility fallback. Intentionally distinct from a
             // known-but-invalid `Authored` row, which stays peaceful.
@@ -381,7 +381,7 @@ fn resolve_playable_action_set(
             // an id nobody wrote down, which is a different question.
             crate::avatar::bundles::default_player_action_set(base_abilities),
             RangedExecution::ChargedProjectile,
-        ),
+        )
     }
 }
 
@@ -578,18 +578,14 @@ fn apply_worn_character_kit(
                     (set, derived, execution)
                 }
                 None => {
-                    let source = catalog.playable_kit_source(character_id);
+                    let catalog_knows_it = catalog.knows(character_id);
                     let authored = catalog.build_default_action_set(character_id);
-                    if matches!(
-                source,
-                Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
-            ) && authored.is_none()
-                    {
+                    if catalog_knows_it && authored.is_none() {
                         bevy::log::error!(
-                    "worn character '{character_id}' declares an Authored playable kit but its \
+                    "worn character '{character_id}' has a catalog row whose \
                      default_action_set does not resolve; installing a safe peaceful kit"
                 );
-                    } else if source.is_none() {
+                    } else if !catalog_knows_it {
                         bevy::log::warn_once!(
                     "worn character id '{character_id}' is not in the catalog; wearing the \
                      code-side compatibility kit and showing the id as the display name"
@@ -600,7 +596,7 @@ fn apply_worn_character_kit(
                     // blade SFX — which is precisely what `RangedExecution` decides, so
                     // they were the same call written twice with the answer inlined.
                     let (set, execution) =
-                        resolve_playable_action_set(source, authored, base_abilities);
+                        resolve_playable_action_set(catalog_knows_it, authored, base_abilities);
                     let derived = derive_persona_moveset(&set, execution, None);
                     (set, derived, execution)
                 }
@@ -1008,7 +1004,7 @@ pub fn apply_worn_character_gameplay(
         if abilities.is_changed() {
             // Only an UNKNOWN id rebuilds from abilities now — `HostCode` was
             // the other half of this condition and no longer exists.
-            if catalog.playable_kit_source(id).is_none() {
+            if !catalog.knows(id) {
                 // Same rule as the re-derive above: absence means "build one",
                 // into the SAME binding minted at the top of this iteration.
                 let moveset_slot = match moveset.as_deref_mut() {
@@ -1197,11 +1193,11 @@ pub fn gate_worn_player_control(
         // fact: `ranged_execution`. The unknown-id arm stays — an id nobody
         // authored still gets the compat charge kit, and it must not be gated off
         // a kit it was just handed.
-        let source = catalog.playable_kit_source(worn.id());
+        let catalog_knows_it = catalog.knows(worn.id());
         let allows_charge_projectiles = prepared
             .as_deref()
             .and_then(|prepared| prepared.get(worn.id()))
-            .map_or(source.is_none(), |prepared| {
+            .map_or(!catalog_knows_it, |prepared| {
                 prepared.ranged_execution.charges_projectiles()
             });
         if !allows_charge_projectiles || !has_charge_marker {

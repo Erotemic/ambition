@@ -198,12 +198,25 @@ pub enum PreparedKit {
     /// **NOBODY AUTHORED A KIT FOR THIS CHARACTER**, so the body's own
     /// `AbilitySet` rebuilds one — the host's code-side kit.
     ///
-    /// ⛔ **this was called `HostCode`, after a `PlayableKitSource` variant that
-    /// NO LONGER EXISTS.** A row used to select the host kit by name; that
-    /// selector is deleted and every shipped row is `Authored`. What reaches this
-    /// arm now is only the absence: an id the catalog does not know, or no
-    /// catalog at all. A name that asserts a vanished selector sends the next
-    /// reader looking for the row that chose it, and there is none.
+    /// ⛔ **this was called `HostCode`, after a `PlayableKitSource` variant, and
+    /// AC6.3 deleted that whole enum.** A row used to select the host kit by
+    /// name; when the last row stopped doing so the selector was left with ONE
+    /// variant and an `Option` that only ever answered *is there a row*. What
+    /// reaches this arm is exactly that absence: an id the catalog does not
+    /// know, or no catalog at all.
+    ///
+    /// ⭐ **MEASURED, so the reachability is a fact rather than a guess**
+    /// (2026-08-14): of the 32 characters Ambition's own registration publishes,
+    /// **zero** land here — every one has a catalog row. This arm is not
+    /// migration residue for all that: it names the one case a per-character
+    /// value structurally CANNOT hold, because the host's protagonist kit is
+    /// built from that body's runtime `AbilitySet` and progression. A host that
+    /// registers characters without shipping Ambition's catalog is its
+    /// consumer.
+    ///
+    /// ⚠ so do not "finish the migration" by deleting it. The thing to watch is
+    /// the opposite: if a SHIPPED character ever lands here it is a missing
+    /// catalog row, not a design.
     ///
     /// `authored_moveset` is still honoured: a character with no action set may
     /// still bring its own timelines.
@@ -1003,7 +1016,6 @@ fn finalize_character(
     catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
     profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
 ) -> PreparedCharacterDefinition {
-    use crate::actor::character_catalog::PlayableKitSource;
     use crate::brain::ActionSet;
 
     let PreparedCharacterOverrides {
@@ -1052,26 +1064,28 @@ fn finalize_character(
             moveset: derive_moveset(&set, moveset),
             action_set: set,
         },
-        None => match catalog.and_then(|catalog| catalog.playable_kit_source(&id)) {
-            Some(PlayableKitSource::Authored) => {
-                let set = catalog
-                    .and_then(|catalog| catalog.build_default_action_set(&id))
-                    .unwrap_or_else(|| {
-                        // A known Authored row whose preset does not resolve is
-                        // malformed content. Reported ONCE here rather than every
-                        // time a body wears it, and the body still gets a safe
-                        // peaceful kit rather than silent host privileges.
-                        bevy::log::error!(
-                            "character `{id}` declares an Authored playable kit but its \
-                             default_action_set does not resolve; preparing a safe peaceful kit"
-                        );
-                        ActionSet::peaceful()
-                    });
-                PreparedKit::Authored {
-                    moveset: derive_moveset(&set, moveset),
-                    action_set: set,
-                }
+        // ⛔ **the question is "does the catalog know this id"** (AC6.3). It was
+        // `playable_kit_source(&id)`, whose `Option<PlayableKitSource>` had one
+        // variant and was therefore already only answering membership.
+        None if catalog.is_some_and(|catalog| catalog.knows(&id)) => {
+            let set = catalog
+                .and_then(|catalog| catalog.build_default_action_set(&id))
+                .unwrap_or_else(|| {
+                    // A known row whose preset does not resolve is malformed
+                    // content. Reported ONCE here rather than every time a body
+                    // wears it, and the body still gets a safe peaceful kit
+                    // rather than silent host privileges.
+                    bevy::log::error!(
+                        "character `{id}` has a catalog row whose default_action_set does \
+                         not resolve; preparing a safe peaceful kit"
+                    );
+                    ActionSet::peaceful()
+                });
+            PreparedKit::Authored {
+                moveset: derive_moveset(&set, moveset),
+                action_set: set,
             }
+        }
             // ⭐ **AN ID THE CATALOG DOES NOT KNOW, or no catalog at all** — the
             // two states that remain now that no row can select the host kit by
             // name. Both mean the same thing to a body: nobody authored a kit, so
@@ -1117,7 +1131,6 @@ fn finalize_character(
                     }
                     moveset
                 }),
-            },
         },
     };
 

@@ -383,7 +383,6 @@ pub const MINIMAL_CHARACTER_ROSTER_RON: &str = r#"(
             composition: None,
             default_brain: "still",
             default_action_set: "walk_only",
-            playable_kit: Authored,
             tags: ["player"],
         ),
     },

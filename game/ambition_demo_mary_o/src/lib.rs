@@ -1090,7 +1090,6 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
             max_health: Some(1),
-            playable_kit: Authored,
             tags: ["player"],
             barks: (
                 hall: ["I solve masonry disputes from below.", "One jump. No second opinions, no insurance.", "Every pipe is hiding something."],
@@ -1122,7 +1121,6 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
             max_health: Some(1),
-            playable_kit: Authored,
             tags: ["player"],
             barks: (
                 hall: ["One power-up; every ceiling gets an opinion.", "Ask the doorframes whether taller is better.", "I shrink after one professional-grade mistake."],
@@ -1156,7 +1154,6 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // changes what a hit COSTS and never how much punishment the body
             // underneath can take.
             max_health: Some(1),
-            playable_kit: Authored,
             tags: ["player"],
             barks: (
                 hall: ["One beacon, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],

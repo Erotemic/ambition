@@ -1292,14 +1292,39 @@ fn resolve_autonomous_profile(
         (Some(inline), None) => Some(inline),
         (None, None) => None,
         (None, Some(named)) => {
-            let Some(profiles) = profiles.filter(|profiles| !profiles.is_empty()) else {
-                bevy::log::warn!(
-                    "character `{id}` names the shared autonomous profile `{named}`, \
-                     and this composition published no profile registry for it to \
-                     live in. Nothing can resolve it; the character prepares without \
-                     a policy"
-                );
-                return None;
+            // ⛔⛔ **THE EMPTY-REGISTRY CASE USED TO WARN AND RETURN `None`, AND
+            // THAT WAS THE SAME MISTAKE ONE LAYER DOWN** (GPT 5.6 review,
+            // priority 6; corrected 2026-08-12). A missing registry made an
+            // explicitly named policy evaporate, while a registry that merely
+            // lacked the name panicked — so the SAME authoring error produced a
+            // content error or a silent absence depending on a composition
+            // detail the author cannot see.
+            //
+            // ⭐ and "absent" is not what an unresolved reference means. A
+            // character that names NO policy leaves the archetype in charge on
+            // purpose; a character that names one nobody published leaves the
+            // archetype in charge while the definition says otherwise — the
+            // explicit-`CharacterId` mistake P0.1 made a construction error, in
+            // exactly this shape.
+            //
+            // ⚠ **a headless host is not the exception this looked like.** A
+            // composition that publishes no registry is perfectly valid for every
+            // character that names no shared policy; it is only invalid the
+            // moment one does. Measured before changing: the three production
+            // definitions that name a profile (`robot_duelist`, `medium_striker`
+            // twice) all ship in `ambition_content`, which publishes the registry
+            // beside the catalog assembly reads.
+            let profiles = profiles.filter(|profiles| !profiles.is_empty());
+            let Some(profiles) = profiles else {
+                panic!(
+                    "character `{id}` (provider `{provider}`) names the shared \
+                     autonomous profile `{named}`, and this composition published no \
+                     profile registry for it to live in. An explicitly named policy \
+                     needs an authority to resolve it — resolving it to nothing \
+                     would leave this body on its archetype while the definition \
+                     says otherwise. Publish the provider's `BrainProfileRegistry`, \
+                     or author the profile inline"
+                )
             };
             let resolved = named.resolve_in(provider);
             match profiles.get(&resolved) {

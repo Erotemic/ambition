@@ -833,3 +833,43 @@ fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
         Some(&catalog),
     );
 }
+
+/// **A HOST THAT PUBLISHED NO POLICY AUTHORITY IS FINE — UNTIL A CHARACTER
+/// NAMES ONE.**
+///
+/// ⛔⛔ these two were inconsistent, and the inconsistency was the defect: a
+/// registry that merely LACKED the name panicked (above), while no registry at
+/// all warned and returned `None`. The same authoring error produced a content
+/// error or a silent absence depending on a composition detail the author cannot
+/// see (GPT 5.6 review, priority 6).
+///
+/// ⚠ **the first half is what stops this becoming "headless hosts must publish a
+/// registry".** They must not — a composition with no shared policies at all is
+/// ordinary, and this asserts it still prepares. What is refused is an explicit
+/// reference with nothing to resolve it, which is a different claim about a
+/// different character.
+#[test]
+fn a_host_with_no_policy_registry_prepares_a_character_that_names_no_policy() {
+    let prepared = prepare_and_finalize_for_test(
+        CharacterDefinition::new("wanderer", "Wanderer", "test"),
+        &CharacterBindings::default(),
+    )
+    .prepared;
+    assert!(
+        prepared.autonomous_profile.is_none(),
+        "a character that named no shared policy came out of a registry-free \
+         composition carrying one, so something is inventing a policy where the \
+         author deliberately left the archetype in charge"
+    );
+}
+
+/// The other half: the same registry-free composition, one character that DOES
+/// name a policy. See [`a_host_with_no_policy_registry_prepares_a_character_that_names_no_policy`].
+#[test]
+#[should_panic(expected = "published no profile registry")]
+fn naming_a_policy_in_a_composition_with_no_registry_is_a_composition_error() {
+    let _ = prepare_and_finalize_for_test(
+        CharacterDefinition::new("ghost", "Ghost", "test").with_autonomous_profile_named("striker"),
+        &CharacterBindings::default(),
+    );
+}

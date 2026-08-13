@@ -33,7 +33,16 @@ use ambition_platformer2d_actor_monolith::features::ActorConfig;
 fn seating_app_with_the_real_cast() -> App {
     let mut app = App::new();
     app.init_resource::<PreparedCharacterRegistry>();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    // ⛔⛔ **THIS USED TO INSERT `CharacterCatalog::empty()`, AND THAT IS A
+    // COMPOSITION PRODUCTION NEVER MAKES.** The fixture registered Ambition's
+    // shipped cast — `goblin` among it, which names the shared autonomous
+    // profile `medium_striker` — into a world holding no catalog and therefore
+    // no `BrainProfileRegistry` to resolve it in. Preparation used to warn and
+    // hand the character back with no policy; it is a composition error now
+    // (GPT 5.6 review, priority 6), and it caught this fixture rather than any
+    // production road. Registering the real catalog is what the shipped app
+    // does, and it publishes the policy authority with it.
+    ambition_content::character_catalog::register(&mut app);
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>();
 

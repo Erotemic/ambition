@@ -781,8 +781,9 @@ pub fn prepare_match(
         // would collapse them into one: `entity_to_id`, the anti-clump slot
         // board's `requests`, `faction_by_id` and `target_entity_by_id`
         // (`features/ecs/actors/update.rs`), plus `ActorIdentity` itself. The
-        // ART still resolves from the character, which is exactly what
-        // `art_identity` is for — a body whose id is not its costume's name.
+        // ART still resolves from the character — a body whose id is not its
+        // costume's name. ⚠ this cited an `art_identity` accessor that no longer
+        // exists anywhere in the workspace (AC7.1).
         let body_id = format!("{}#seat{index}", participant.character);
         // ⭐ **CHARACTER-FIRST.** This built through `new_in`, which starts
         // `roster.spec_for_brain(&brain)` — so every fighter on the grid was
@@ -792,9 +793,11 @@ pub fn prepare_match(
         // should first build an `ArchetypeSpec` creature and then patch the
         // character over it."*
         //
-        // The CONTROLLER's policy is still resolved from the roster below and
-        // handed in as a value — a profile is a decision, and this constructor
-        // takes it rather than looking up a body to get one.
+        // The CONTROLLER's policy is resolved below and handed in as a VALUE —
+        // a profile is a decision, and this constructor takes it rather than
+        // looking up a body to get one. ⚠ it said "from the roster"; the roster
+        // is deleted (AC6.1) and what `roster` names here is the MATCH's
+        // participant roster, which is a different thing wearing the same word.
         let profile = match &authority {
             ControlAuthority::Brain { profile } => seat_brain_profile(
                 profile,

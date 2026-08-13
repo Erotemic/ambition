@@ -75,35 +75,40 @@ pub fn authored_encounter_waves(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncounterMobSpec {
-    /// `CharacterBrain::Custom(kind)` payload — picks the archetype
-    /// (`small_skitter`, `medium_striker`, `large_brute`, ...).
+    /// `CharacterBrain::Custom(kind)` payload — **what this mob DOES**, i.e.
+    /// which controller its body is driven by.
+    ///
+    /// ⛔ **it no longer picks a body** (AC6, 2026-08-13). It named an archetype
+    /// row — `small_skitter`, `medium_striker`, `large_brute` — and those rows,
+    /// the file they lived in and the lookup that read them are deleted. Three
+    /// waves of a shipped goblin fight named `large_brute` against a row that
+    /// had already been removed, the lookup answered the generic `combatant`,
+    /// and nothing failed because a fallback IS a body (ledger D93). The body
+    /// comes from [`Self::character`]; this is the brain key beside it.
     pub kind: String,
-    /// **WHAT IT LOOKS LIKE** — a catalog character id.
+    /// **WHICH CHARACTER THIS MOB IS** — a catalog character id, and the thing
+    /// its body is built from.
     ///
-    /// ⚠ **read this against `EnemySpawnSpec` next door**
-    /// (`ambition_platformer2d_world::rooms`), because the two are the same
-    /// question on two spawn paths and the near-identical names would otherwise
-    /// invite a guess. There, `brain` is *what it DOES* and `character_id` is
-    /// *what it LOOKS LIKE*, reached only through `art_identity()`. **This field
-    /// means exactly that and no more**: the sheet, the sprite-derived collision
-    /// box, hurt feedback, the catalog bark pool, and the display label.
+    /// ⭐ **THE MIGRATION THIS DOC PREDICTED HAS HAPPENED** (AC6, 2026-08-13).
+    /// It used to say *"WHAT IT LOOKS LIKE … this field means exactly that and
+    /// no more: the sheet, the sprite-derived collision box, hurt feedback, the
+    /// catalog bark pool, and the display label"*, and closed with *"when it is
+    /// [migrated], this field becomes the character the mob instantiates and
+    /// `kind` stops deciding the body."* That is now the state:
+    /// `spawn_encounter_mob` resolves this id against the prepared cast and
+    /// builds the body through `ActorClusterSeed::new_character_in`, one of the
+    /// five production roads onto the single constructor.
     ///
-    /// ⛔ **it does NOT pick up the catalog's `default_brain` or
-    /// `default_action_set`.** `kind` above answers *what it DOES*, through the
-    /// archetype roster, and it keeps answering it.
+    /// ⛔ **and a wave that names no buildable character REFUSES.** The arm that
+    /// used to fall through to an archetype panics instead — a wave "used to
+    /// fill with generic `combatant` bodies and read as a working encounter",
+    /// which is what cost a shipped goblin fight three waves of real enemies.
     ///
-    /// ⭐ **THE OPEN QUESTION THIS PARAGRAPH USED TO NAME IS ANSWERED** (Jon,
-    /// 2026-08-10, D73): an enemy IS a character. A character is a reusable
-    /// authored template, and presentation is a projection of it. The paragraph
-    /// above therefore describes a TRANSITIONAL state, not a design:
-    /// `EnemySpawnSpec` next door has already split the two questions —
-    /// `gameplay_character_id()` answers *which character*, and
-    /// `presentation_identity()` answers *which sheet*, with a display-name
-    /// fallback kept for pixels alone. **This path has not been migrated yet.**
-    /// When it is, this field becomes the character the mob instantiates and
-    /// `kind` stops deciding the body.
-    ///
-    /// See `docs/planning/character-template-architecture-2026-08-10.md`.
+    /// ⚠ two stale citations went with the rewrite: this paragraph pointed at an
+    /// `art_identity()` accessor that no longer exists anywhere in the
+    /// workspace, and at an "archetype roster" that `kind` supposedly *"keeps
+    /// answering through"*. A doc that cites a deleted function sends the next
+    /// reader looking for it.
     ///
     /// ⭐ **three fields, three questions** — and two of them were one field
     /// until 2026-08-09. The spawner passed the wave director's minted

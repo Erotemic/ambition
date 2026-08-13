@@ -296,7 +296,34 @@ autonomous_reconcile                1045
     ▢ **Group B — shared behaviour profiles.** `medium_striker` becoming a
     reusable `BrainProfile` is success; surviving as a renamed whole-body
     archetype is failure.
-13. ▢ **Group C — generic roles.** Classify each: real character, fixture-only
+13. ✔ **DONE — all five classified, and all five rows are deleted.** Verified
+    2026-08-13 against the shipped worlds rather than against the group's own
+    description, which is what changed three of the verdicts:
+
+    ```text
+      ranged_skirmisher   REAL CHARACTER   the world casts "Skirmisher" as
+                                           npc_pirate_raider — not a role at all
+      sandbag_finite      REAL CHARACTERS  `sandbag` / `sandbag_infinite`, with
+      sandbag_infinite                     practice_target and a policy that
+                                           notices nobody (0px aggro, 0px reach)
+      large_brute         SPLIT            the proving-grounds placement is cast
+                                           (npc_pirate_heavy_iron_mary); the
+                                           goblin encounter WAVE is still open
+      small_skitter       SPLIT            the proving-grounds placement is cast
+                                           (npc_puppy_slug); `SmallSkitter`, the
+                                           mite's split, is still open
+    ```
+
+    ⭐ **the "no character exists" premise was wrong for four of the five.** This
+    group was written as *pure roles* — and the migration resolved them by
+    casting real creatures, which is the outcome the brief wanted and the
+    opposite of what the group predicted. ⚠ the two SPLIT rows are not partial
+    work: a placement and a code path are different populations, and both
+    residues are provider-declared in `OPEN_CASTING` with the row they borrow,
+    tracked as D96/D102. Nothing here is blocked on engineering.
+
+    ⇥ as written:
+    ▢ **Group C — generic roles.** Classify each: real character, fixture-only
     low-level API, or presentation borrowing. ⛔ do not force test entities into
     the character catalog for type uniformity.
 14. ◐ **SIXTY-FIVE IS NOW TWO** (re-measured 2026-08-12 by walking the LDtk
@@ -317,6 +344,22 @@ autonomous_reconcile                1045
     count `EntityRef`s before and after every session.
     ⛔ the file is in the `game/ambition_map_assets` SUBMODULE: a deletion here
     and an authoring there must land together or bodies silently lose facts.
+
+    ⇥ ⛔⛔ **AND A THIRD COPY THIS ITEM NEVER COUNTED — the room GENERATORS.**
+    Fixed 2026-08-13. A room is not authored by hand; it is generated from
+    `tools/ambition_ldtk_tools/specs/*_area.ron`, which keeps its own copy of
+    every placement's fields. The worlds were fully migrated while **eleven spec
+    placements still named deleted rows and no character**, so regenerating any
+    of those rooms would have written the pre-migration placement back over the
+    migrated one. Each spec now mirrors the world's values, and
+    `tests/test_spec_brains_resolve.py` holds the condition: a spec's `brain:`
+    must name something that still resolves, or the placement must name its
+    character.
+
+    ⚠ **match by ROOM AND ENTITY NAME, never by key.** The three placements the
+    spec calls `pirate_on_shark` are named *Burning Flying Shark* and the world
+    casts them as `npc_burning_flying_shark` — the key would have cast them as
+    the pirate raider.
 15. ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
     display-name fallback from `presentation_identity`, once (14) is complete.
 16. ◐ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,

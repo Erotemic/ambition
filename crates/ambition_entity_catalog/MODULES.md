@@ -7,9 +7,10 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`action_scheme`](src/action_scheme.rs) | Character action scheme — the per-subject vocabulary of "what does each control slot do, and what is it called." |
+| [`brain_profile_ref`](src/brain_profile_ref.rs) | **Naming a shared autonomous-controller policy**, in the two forms an authored reference and a resolved identity need to be. |
 | [`placements`](src/placements.rs) | The authored-placement schema vocabulary — architecture.md §4b. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

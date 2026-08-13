@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`app_finalization`](src/app_finalization.rs) | Finish a manually driven `App` the way a runner would. |
-| [`binding`](src/binding.rs) | The binding resolution boundary: authored references resolve through the authority that knows, and what fails to resolve is named out loud. |
+| [`binding`](src/binding.rs) | **THE BINDING BOUNDARY MOVED OUT OF THIS CRATE — this is only the door.** |
 | [`block_nudge`](src/block_nudge.rs) | **A struck block flinches** — the presentation half of hitting one. |
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
 | [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates, plus the per-body [`PlayerBlinkCameraState`] the arrival ease reads. |

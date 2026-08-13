@@ -23,6 +23,24 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+///
+/// ⚠ **v27 (2026-08-14): `BodyCombat` encodes seven fields, not nine.** AC3
+/// deleted `alive` and `attacking` as duplicate authorities — liveness is
+/// `BodyHealth`'s and the melee answer is `BodyMelee`'s, and a mirror that
+/// rewinds is a second thing a peer can disagree about. The registration SET is
+/// unchanged, so both guards that watch this area stayed green: the frozen-name
+/// contract counts names and the schema baseline records name/kind/type/
+/// description, and a field inside a codec moves none of them. What noticed was
+/// `scripts/rollback_codec_shape.py`, which hashes the ordered sequence of codec
+/// primitives — exactly the question a peer depends on.
+///
+/// ⛔ **and v25/v26 have no entry here, which is the same omission one step
+/// earlier.** v26 is AC1's deletion of the `ActorIntent` and `ActorCooldowns`
+/// mirrors (two registrations left `actor.intent` / `actor.cooldowns`); the
+/// version was bumped and the log was not written. Recorded now rather than
+/// left as a gap, because a version log with holes cannot answer *what changed
+/// between these two peers*, which is the one question it exists for.
+///
 /// ⚠ **v20 (2026-08-09): a crate name stops being part of the wire format.**
 /// [`RollbackRegistry::schema_dump`] wrote `std::any::type_name` whole, so moving
 /// a registered type between crates — or between modules of one crate — moved
@@ -180,7 +198,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 26;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 27;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

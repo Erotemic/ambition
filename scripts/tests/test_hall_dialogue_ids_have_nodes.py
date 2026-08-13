@@ -34,7 +34,23 @@ _NODE = re.compile(r"^title:\s*([A-Za-z_0-9]+)\s*$", re.M)
 
 
 def _declared_ids() -> set[str]:
-    return set(_DECLARED.findall(CATALOG.read_text(encoding="utf8")))
+    """Every pedestal id, from EVERY provider that stages hall characters.
+
+    ⛔⛔ **this read the RON catalog alone, and the hall stopped being one
+    provider's** (2026-08-14). AC6's content half moved the two plane swarms to
+    Mary-O, which declares its rows in RUST — `hall_dialogue_id:
+    Some("hall_npc_snakes_on_a_paper_plane")` in `game/ambition_demo_mary_o/src`
+    — so their conversations read as prose nobody names and the check called two
+    live pedestals dead. It was the weaker half of the test reporting a fault
+    that did not exist, which is worse than not reporting one.
+
+    ⭐ the same regex matches both forms: a RON row and a Rust literal spell the
+    field identically, so widening the scan is a wider glob, not a second parser.
+    """
+    text = [CATALOG.read_text(encoding="utf8")]
+    for path in sorted(REPO.glob("game/*/src/**/*.rs")):
+        text.append(path.read_text(encoding="utf8"))
+    return set(_DECLARED.findall("\n".join(text)))
 
 
 def _authored_nodes() -> set[str]:

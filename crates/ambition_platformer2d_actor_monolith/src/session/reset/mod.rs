@@ -85,7 +85,6 @@ pub struct ResetPlayState<'w> {
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: Res<'w, crate::features::CharacterRoster>,
     boss_catalog: Res<'w, crate::boss_encounter::BossCatalog>,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
@@ -197,7 +196,6 @@ pub fn process_new_game_reset_request(
         &play_state.content_staging,
         &play_state.character_catalog,
         &play_state.authored_sheets,
-        &play_state.character_roster,
         &play_state.boss_catalog,
         session_scope,
         {

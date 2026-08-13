@@ -86,6 +86,51 @@ pub use presentation::{
     provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
 pub use seating::{match_participants, ActiveMatch, MatchSeat};
+
+/// **A body-complete fixture CAST**, for engine tests that need actors and do
+/// not care which creatures they are.
+///
+/// ⛔⛔ **this is what the fixture ROSTER used to be** (`test_roster`,
+/// `fixture_roster_with_mount`, `fixture_spec`, `test_spec` — all deleted with
+/// the archetype ontology in AC6). Those handed a test a body by BRAIN KEY, from
+/// a table that answered every key, so a spawn test could name `medium_striker`
+/// and receive a plausible body without anything registering a creature. Every
+/// spawn road resolves a CHARACTER now and refuses what it cannot find, so a
+/// test that needs an actor registers one — the same two steps production does.
+///
+/// Each id becomes a character stating the facts a body needs: the numbers are
+/// the deleted `combatant` row's, so tests that measured a generic enemy still
+/// measure the same body.
+#[cfg(test)]
+pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
+    let mut registry = PreparedCharacterRegistry::default();
+    for id in ids {
+        let mut definition = CharacterDefinition::new(*id, *id, "test")
+            .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                run_speed: 155.0,
+                move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+                ..Default::default()
+            })
+            .with_contact_damage(ambition_characters::actor::ContactDamage {
+                strength: 0.70,
+                amount: 1,
+            })
+            .with_autonomous_profile(ambition_characters::brain::BrainProfile {
+                patrol_effort: 0.6774,
+                chase_effort: 1.0,
+                aggro_radius: 460.0,
+                attack_range: 150.0,
+                ..Default::default()
+            });
+        definition.vitals.max_health = Some(4);
+        let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
+            definition,
+            &CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+    }
+    registry
+}
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
     NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating, StagesCharacters,
@@ -950,15 +995,24 @@ impl Plugin for CharacterRuntimePlugin {
                     prepared_match::release_the_opening_hold,
                 )
                     .chain()
-                    // Preparation needs an ASSEMBLED content composition. The archetype
-                    // roster is built from registered fragments, so a bare engine
-                    // App legitimately has none — and this is a run condition
-                    // rather than an `Option<Res<..>>` parameter deliberately:
-                    // `engine.character-authority-is-app-local` forbids making the
-                    // character authority optional, and it is right to. "Not part
-                    // of this composition" and "optional here" are different
-                    // claims, and only the first one is true.
-                    .run_if(resource_exists::<crate::features::CharacterRoster>)
+                    // Preparation needs an ASSEMBLED content composition, and a
+                    // bare engine App legitimately has none. This is a run
+                    // condition rather than an `Option<Res<..>>` parameter
+                    // deliberately: `engine.character-authority-is-app-local`
+                    // forbids making the character authority optional, and it is
+                    // right to. "Not part of this composition" and "optional
+                    // here" are different claims, and only the first is true.
+                    //
+                    // ⭐ **it gates on what preparation actually REQUIRES** — the
+                    // catalog its `Res<CharacterCatalog>` would panic without.
+                    // Until AC6 it gated on the enemy archetype roster instead: a
+                    // table about hostile bodies, standing in for "content was
+                    // assembled" because it happened to be assembled at the same
+                    // moment. The proxy went with the ontology; the requirement
+                    // was always this one.
+                    .run_if(resource_exists::<
+                        ambition_characters::actor::character_catalog::CharacterCatalog,
+                    >)
                     .in_set(crate::schedule::PlayerInputSet::CharacterProjection)
                     .before(presentation::project_prepared_character_definitions),
             )
@@ -985,8 +1039,11 @@ impl Plugin for CharacterRuntimePlugin {
                 // **THE MATCH IS DECIDED OUTSIDE THE ROLLBACK WINDOW.** See the
                 // activation registration above for the measured reason.
                 (
-                    prepared_match::prepare_the_match
-                        .run_if(resource_exists::<crate::features::CharacterRoster>),
+                    // The same requirement as the activation registration above,
+                    // named the same way.
+                    prepared_match::prepare_the_match.run_if(resource_exists::<
+                        ambition_characters::actor::character_catalog::CharacterCatalog,
+                    >),
                     // The camera's answer for a match with no local participant.
                     // In `Update` beside preparation because it is a projection
                     // FOR presentation, not simulation state.

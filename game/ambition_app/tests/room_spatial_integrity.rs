@@ -109,125 +109,21 @@ fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
     );
 }
 
-/// **Every archetype row is placed in a level, or named by the engine on
-/// purpose.**
-///
-/// ⛔ **`small_lurker` and `large_colossus` were neither** — authored,
-/// validated, iterated by two key lists, asserted about by three tests, and
-/// PLACED IN ZERO LEVELS (found 2026-08-11, the same way `sniper_default` was:
-/// by counting placements rather than trusting a list). They were deleted, and
-/// this is what would have caught them the day they became unreachable.
-///
-/// ⭐ **it matters most now**, while `character_archetypes.ron` is being
-/// retired: a row whose last placement migrates to a character should go red on
-/// the change that migrated it, rather than lingering as a body nobody can spawn
-/// and a migration nobody needs to do.
-///
-/// The allowlist is the honest half. Some rows are selected by NAME from Rust
-/// rather than placed — a fallback, a protagonist body, a provocation target —
-/// and each has to say which it is.
-#[test]
-fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
-    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-
-    /// Rows the engine names directly, with the reason. ⚠ adding to this list is
-    /// how a row stops needing a placement — so it is a decision, not a fix.
-    const CODE_SELECTED: &[(&str, &str)] = &[(
-        "combatant",
-        "the fallback every unresolved brain key lands on",
-    )];
-
-    let project = load_project_for_test().expect("sandbox LDtk should load");
-    let room_set = project
-        .to_room_set(
-            &ambition_content::worlds::world_manifest(),
-            &ambition_app::composed_ldtk_vocabulary(),
-        )
-        .expect("room_set should build");
-    let placed: std::collections::BTreeSet<String> = room_set
-        .rooms
-        .iter()
-        .flat_map(|room| room.enemy_spawns.iter())
-        .filter_map(|spawn| match &spawn.payload.brain {
-            CharacterBrain::Custom(key) => Some(key.clone()),
-            _ => None,
-        })
-        .collect();
-    assert!(
-        !placed.is_empty(),
-        "no placement names an archetype at all, so this sweep proved nothing"
-    );
-
-    let rows: Vec<&str> = ambition_content::enemy_roster::CHARACTER_ROSTER_RON
-        .lines()
-        .filter_map(|line| {
-            let line = line.trim_end();
-            let key = line.strip_prefix("    \"")?;
-            let (key, rest) = key.split_once('"')?;
-            rest.starts_with(": (").then_some(key)
-        })
-        .collect();
-    // ⛔ **THIS SAID `rows.len() > 3` AND THE FILE SHRANK PAST IT** (2026-08-12,
-    // deleting `gradient_seeker`). The number was never the invariant — it was a
-    // stand-in for *the scan is still reading this file*, written when four rows
-    // felt like a floor. But D73's acceptance signal is that
-    // `character_archetypes.ron` reaches ZERO rows and is deleted, so any floor
-    // above zero turns the campaign's success into a red test, and the obvious
-    // "fix" is to lower the number again next time — which is how a guard becomes
-    // a chore that eventually gets deleted instead of obeyed.
-    //
-    // ⭐ the invariant with no number in it: **if the file still declares rows,
-    // the scan must see them.** That is exactly the drift this catches (a
-    // re-indent, a different quoting style, a nested map), it stays true at three
-    // rows, and it stays true at zero — where the whole guard becomes vacuous on
-    // purpose, because there is nothing left to place.
-    let declared = ambition_content::enemy_roster::CHARACTER_ROSTER_RON
-        .matches("\": (")
-        .count();
-    assert_eq!(
-        rows.len(),
-        declared,
-        "the row scan found {} of the {declared} rows the file declares, so its \
-         shape changed under this guard and it is reading less than is there: \
-         {rows:?}",
-        rows.len(),
-    );
-
-    // ⛔ **AND THE ALLOWLIST CANNOT ROT** (2026-08-12). It carried three entries
-    // for rows that no longer exist — `cellular_automaton_fighter`,
-    // `pirate_heavy`, `pirate_raider`, all migrated to characters and deleted
-    // from this file — and two of them explained themselves by naming
-    // `hostile_brain_id_for_actor`'s by-name matcher, which is also deleted. A
-    // dead exemption is worse than a dead row: it is a REASON, and the next
-    // reader believes it.
-    //
-    // ⇒ every entry must name a row the file actually has. Adding one is a
-    // decision (the doc above says so); leaving one behind after the row goes is
-    // not a decision at all.
-    let stale: Vec<&str> = CODE_SELECTED
-        .iter()
-        .map(|(named, _)| *named)
-        .filter(|named| !rows.contains(named))
-        .collect();
-    assert!(
-        stale.is_empty(),
-        "these rows are exempted from needing a placement but no longer EXIST in \
-         the file: {stale:?}. Delete the exemption — its reason outlives the row \
-         and the next reader believes it."
-    );
-
-    let orphans: Vec<&str> = rows
-        .into_iter()
-        .filter(|key| !placed.contains(*key))
-        .filter(|key| !CODE_SELECTED.iter().any(|(named, _)| named == key))
-        .collect();
-    assert!(
-        orphans.is_empty(),
-        "archetype rows no level places and no engine path names: {orphans:?}. \
-         Delete them, or add them to CODE_SELECTED with the reason they are \
-         reachable"
-    );
-}
+// ⛔⛔ **`every_archetype_row_is_placed_somewhere_or_deliberately_code_selected`
+// WAS HERE AND IS DELETED (AC6, 2026-08-13) — its subject reached zero, which
+// was always the plan.**
+//
+// It swept `character_archetypes.ron` for rows no level placed, and it caught
+// two real ones (`small_lurker`, `large_colossus` — authored, validated,
+// iterated by two key lists, asserted about by three tests, placed in zero
+// levels). Its own note said the guard "stays true at zero — where the whole
+// guard becomes vacuous on purpose, because there is nothing left to place".
+// The file is deleted, so it is vacuous, and a vacuous guard is worse than
+// none: it reads as coverage.
+//
+// ⇒ what replaced it is not another sweep but a REFUSAL: construction panics on
+// a placement that names no buildable character, so an unplaceable body cannot
+// reach a level to be swept for.
 
 /// **A creature that is not your enemy says so on its PLACEMENT.**
 ///

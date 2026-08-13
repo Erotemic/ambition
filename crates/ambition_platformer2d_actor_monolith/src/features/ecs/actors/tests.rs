@@ -258,13 +258,19 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
 
 fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(126.0, 52.0));
-    super::actor_clusters::ActorClusterSeed::new(
+    let mut seed = super::actor_clusters::ActorClusterSeed::new(
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,
         ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
         &[],
-    )
+    );
+    // ⭐ **the capability is STATED, because it is the input under test.** It
+    // arrived from the `fixture_mount` archetype row's `charge_crash_explodes`
+    // until AC6 deleted the rows; a death trait is a character's fact now, and
+    // the function below takes the resolved capability rather than a body.
+    seed.caps.charge_crash_explodes = true;
+    seed
 }
 
 #[test]

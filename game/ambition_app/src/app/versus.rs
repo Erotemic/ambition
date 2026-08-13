@@ -1398,7 +1398,6 @@ mod roster_topology_tests {
         // own proposal because no session has an opinion.
         app.insert_resource(LocalSeatTopology::default());
         app.init_resource::<CharacterLoadDemand>();
-        app.init_resource::<ambition_platformer2d::actors::features::CharacterRoster>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
         app.update();
 

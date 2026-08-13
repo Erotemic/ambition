@@ -144,7 +144,6 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry;
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
-    pub use ambition_platformer2d_actor_monolith::features::CharacterRoster;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     pub use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};

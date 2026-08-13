@@ -66,7 +66,6 @@ fn rider_surface(
 
 fn build_app() -> App {
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_plugins(MinimalPlugins);
     // `enforce_mount_rider_link` emits `MountDied` on dissolution; register the
     // message so its `MessageWriter` resolves in the harness (Q19).
@@ -897,7 +896,6 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     );
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_plugins(MinimalPlugins);
     app.add_systems(
         Update,
@@ -1059,7 +1057,6 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     );
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();

@@ -311,20 +311,11 @@ fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
 /// The durations are compared against the sheets, not against constants: the
 /// generator owns the frame tables, and a test that copied them would agree with
 /// a stale demo and disagree with the art.
-/// An EMPTY roster fragment, kept only so the `CharacterRoster` RESOURCE
-/// exists for `spawn_encounter_mob` to ask.
-///
-/// ⭐ the demo ships NO archetype rows any more (2026-08-13: the plane swarms,
-/// the fragment's last tenants, are registered characters) — this survives
-/// solely because the spawn path still takes the resource as a parameter, and
-/// it is deleted with that parameter when the roster machinery goes.
-fn mary_o_roster_fragment(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(ambition_demo_mary_o::provider::MARY_O_EXPERIENCE, "{}")
-            .expect("an empty roster fragment is valid"),
-    );
-}
+// ⛔⛔ **`mary_o_roster_fragment` WAS HERE AND IS DELETED** (AC6). It registered
+// an EMPTY archetype fragment purely so the `CharacterRoster` RESOURCE existed
+// for `spawn_encounter_mob` to ask — the demo had shipped no rows since
+// 2026-08-13 — and its own doc said it "is deleted with that parameter when the
+// roster machinery goes". It has.
 
 #[test]
 fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
@@ -618,8 +609,8 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::features::{
-        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
-        EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
+        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, EncounterMobSeed,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
     };
     use ambition_platformer2d::actors::projectile::{step_projectiles, ProjectileBody};
     use ambition_platformer2d::characters::actor::{
@@ -677,9 +668,6 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    // 2026-08-13); the EMPTY fragment exists only so the `CharacterRoster`
-    // resource does, because the spawn path still takes it as a parameter.
-    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
@@ -702,7 +690,6 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
-        let roster = world.resource::<CharacterRoster>().clone();
         // The prepared cast this demo registers. Its two enemies are CHARACTERS
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
@@ -715,7 +702,6 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
             &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_spark_range",
@@ -806,8 +792,8 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, EncounterMobSeed,
-        FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
+        spawn_encounter_mob, ActorConfig, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
@@ -846,9 +832,6 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    // 2026-08-13); the EMPTY fragment exists only so the `CharacterRoster`
-    // resource does, because the spawn path still takes it as a parameter.
-    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -869,7 +852,6 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
-        let roster = world.resource::<CharacterRoster>().clone();
         // The prepared cast this demo registers. Its two enemies are CHARACTERS
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
@@ -882,7 +864,6 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
             &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_stomp_range",
@@ -961,8 +942,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, EncounterMobSeed,
-        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, HitSource, HitTarget,
+        spawn_encounter_mob, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent, HitSource, HitTarget,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -998,9 +979,6 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    // 2026-08-13); the EMPTY fragment exists only so the `CharacterRoster`
-    // resource does, because the spawn path still takes it as a parameter.
-    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -1023,7 +1001,6 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
-        let roster = world.resource::<CharacterRoster>().clone();
         // The prepared cast this demo registers. Its two enemies are CHARACTERS
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
@@ -1036,7 +1013,6 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
             &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_shell_range",
@@ -1110,8 +1086,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, EncounterMobSeed,
-        FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
+        spawn_encounter_mob, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::BodyHealth;
@@ -1148,9 +1124,6 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    // 2026-08-13); the EMPTY fragment exists only so the `CharacterRoster`
-    // resource does, because the spawn path still takes it as a parameter.
-    mary_o_roster_fragment(&mut app);
     ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
@@ -1170,7 +1143,6 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
-        let roster = world.resource::<CharacterRoster>().clone();
         // The prepared cast this demo registers. Its two enemies are CHARACTERS
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
@@ -1183,7 +1155,6 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
             &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_corpse_range",

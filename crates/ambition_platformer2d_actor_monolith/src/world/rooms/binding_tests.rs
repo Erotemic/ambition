@@ -1,7 +1,7 @@
 //! The room binding sweep, against a room authored the way content gets it wrong.
 
-use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::placements::CharacterBrain;
+use ambition_platformer2d_core as ae;
 
 use super::binding::RoomBindings;
 use crate::rooms::{Authored, GroundItemSpec, KinematicPathSpec, RoomSpec};
@@ -76,20 +76,22 @@ fn room_with_two_typos() -> RoomSpec {
 }
 
 /// One pass, one report, every namespace this sweep OWNS: the bad patrol path
-/// and the bad archetype come back together, each naming what declared it. The
-/// good references — including the one that addresses a path by display name
-/// rather than id — do not appear.
+/// comes back naming what declared it, and the good references — including the
+/// one that addresses a path by display name rather than id — do not appear.
 ///
-/// Before this, each was a separate silent fallback: the patrol brain went
-/// passive, the archetype defaulted. The bad pickup id is deliberately not here;
+/// ⛔ **the CHARACTER namespace left this sweep with the archetype roster**
+/// (AC6). A misspelled brain key used to resolve the generic `combatant` body
+/// silently, and this report was the only thing that could see it; construction
+/// refuses an identifier naming no character now, which is a stronger statement
+/// than a report. The bad pickup id is deliberately absent for the same reason:
 /// it fails construction outright, and one defect gets one authority.
 #[test]
 fn construction_reports_every_unresolved_ref() {
     let room = room_with_two_typos();
-    let bindings = RoomBindings::default().with_characters(["goomba", "snake_koopa"]);
+    let bindings = RoomBindings::default();
 
     let report = bindings.sweep(&room);
-    assert_eq!(report.len(), 2, "one pass finds both:\n{report}");
+    assert_eq!(report.len(), 1, "one pass finds the patrol path:\n{report}");
 
     let by_namespace: Vec<_> = report
         .unresolved()
@@ -98,23 +100,11 @@ fn construction_reports_every_unresolved_ref() {
         .collect();
     assert_eq!(
         by_namespace,
-        vec![
-            ("character", "snake_kooopa", "enemy spawn `koopa_a`"),
-            (
-                "kinematic path",
-                "ledge_patrl",
-                "patrol brain of `goomba_a`"
-            ),
-        ],
-    );
-
-    // The path report offers both spellings the real path answers to, because
-    // "the id you used is not one of these" is what a fixer needs to see.
-    let path = &report.unresolved()[1];
-    assert_eq!(path.did_you_mean.as_deref(), Some("ledge_patrol"));
-    assert_eq!(
-        path.available,
-        vec!["Ledge Patrol".to_owned(), "ledge_patrol".to_owned()],
+        vec![(
+            "kinematic path",
+            "ledge_patrl",
+            "patrol brain of `goomba_a`",
+        )],
     );
 }
 

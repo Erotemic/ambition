@@ -86,7 +86,6 @@ fn seating_app() -> App {
     // Seating sizes each body from its sheet (U1 stage B), so the authored
     // registry is authority the system requires. A fixture authors none.
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.init_resource::<crate::features::CharacterRoster>();
     // ⭐ **THE POLICY AUTHORITY, published like a composition publishes it.** A
     // CPU seat's controller question is answered here and nowhere else since
     // P2.18 deleted `seat_brain_profile`'s archetype arm.
@@ -2985,23 +2984,14 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     app.register_character(heavy);
     // ⚠ the control: a character that authors NO weight is the REFERENCE BODY.
     app.register_character(CharacterDefinition::new("light", "Light", "demo"));
-    // ⛔⛔ **the archetype's 1.4 is the POISON now, and it used to be the
-    // expectation.** This test read `1.4` for the unauthored fighter, because a
-    // seat was built out of an archetype and inherited its weight — so a
-    // character that had never said anything about how hard it is to launch
-    // weighed whatever creature the CPU's brain key happened to name. A seat is
-    // built from its CHARACTER now (campaign P1.11), so the archetype below is
-    // present precisely so that reading `1.4` again would mean the archetype had
-    // crept back in.
-    app.insert_resource(crate::features::CharacterRoster::from_ron(
-        r#"{ "combatant": (
-                max_health: 1, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                hostile_by_default: false, body_contact_damage: false,
-                weight: 1.4,
-            ) }"#,
-    ));
+    // ⛔⛔ **THE POISON WAS AN ARCHETYPE ROW, AND IT IS DELETED WITH THE
+    // ONTOLOGY** (AC6). This test once EXPECTED `1.4` for the unauthored
+    // fighter, because a seat was built out of an archetype and inherited its
+    // weight — a character that had never said how hard it is to launch weighed
+    // whatever creature the CPU's brain key happened to name. When seats became
+    // character-first (campaign P1.11) the row stayed as a poison: reading `1.4`
+    // again would have meant the archetype crept back. There is no archetype to
+    // creep back, so the reference body below is the whole claim.
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("heavy"), cpu("light")],
         ..Default::default()

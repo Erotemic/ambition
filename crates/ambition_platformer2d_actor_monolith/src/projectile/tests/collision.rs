@@ -20,25 +20,26 @@ fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.insert_resource(crate::features::enemies::test_roster());
+    // ⭐ **the mob is a registered CHARACTER**, because construction refuses a
+    // wave `kind` that names anything else (AC6). It used to name the
+    // `medium_striker` archetype row and take whatever body the fixture roster
+    // answered with.
     app.add_systems(
         Startup,
         |mut commands: Commands,
-         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-         roster: Res<crate::features::CharacterRoster>| {
+         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
             crate::features::spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &roster,
-                &crate::character_runtime::PreparedCharacterRegistry::default(),
+                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 crate::features::EncounterMobSeed {
                     id: "test_enemy".into(),
-                    character: None,
+                    character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                        "medium_striker".into(),
+                        "fixture_striker".into(),
                     ),
                     pos: ae::Vec2::new(400.0, 300.0),
                     size: ae::Vec2::new(28.0, 46.0),

@@ -100,7 +100,6 @@ pub fn advance_room_transition_content_epoch_system(
         ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
     >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
     mut epoch: ResMut<RoomTransitionContentEpoch>,
 ) {
@@ -108,7 +107,6 @@ pub fn advance_room_transition_content_epoch_system(
         || placement_lowering.is_changed()
         || content_staging.is_changed()
         || character_catalog.is_changed()
-        || character_roster.is_changed()
         || boss_catalog.is_changed()
     {
         epoch.bump();
@@ -305,7 +303,6 @@ pub fn begin_room_transition_load_system(
         Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
         Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
         Res<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
@@ -319,10 +316,9 @@ pub fn begin_room_transition_load_system(
     // means "no character states a default" — which is what this route assumed
     // before a definition could state one.
     //
-    // ⛔ outside the `construction_services` tuple deliberately: that tuple is
-    // already at seven and reads positionally at the call site
-    // (`construction_services.6`), so an eighth member would be one more number
-    // for a reader to decode.
+    // ⛔ outside the `construction_services` tuple deliberately: that tuple reads
+    // positionally at the call site (`construction_services.5`), so one more
+    // member would be one more number for a reader to decode.
     // ⚠ **PAIRED, and only because a Bevy system stops at sixteen params.** The
     // two authorities travel together anyway: a placement names a character and
     // may name the policy that drives it.
@@ -633,13 +629,12 @@ pub fn begin_room_transition_load_system(
                 &construction_services.0,
                 &construction_services.1,
                 &construction_services.2,
-                &construction_services.6,
+                &construction_services.5,
                 &construction_services.3,
-                &construction_services.4,
                 session_scope,
                 {
                     let mut context = ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
-                        &construction_services.5,
+                        &construction_services.4,
                         ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
                     );
                     // A transition rebuilds a room the ACTIVE content already

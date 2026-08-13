@@ -1041,7 +1041,6 @@ fn sanic_setup(
         >,
     >,
     authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
-    character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
         ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
@@ -1066,7 +1065,6 @@ fn sanic_setup(
             character_catalog: &character_catalog,
             prepared_characters: prepared_characters.as_deref(),
             authored_sheets: &authored_sheets,
-            character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,

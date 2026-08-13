@@ -22,8 +22,12 @@ use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
 use ambition_platformer2d::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
-use ambition_platformer2d::load::{LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress};
-use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionWorldRef};
+use ambition_platformer2d::load::{
+    LoadCoordinator, LoadEvent, LoadFailure, LoadWorkState, UnitProgress,
+};
+use ambition_platformer2d::platformer::lifecycle::{
+    ActiveSessionScope, SessionScopeId, SessionWorldRef,
+};
 use ambition_platformer2d::render::quality::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::boss::BossSpriteAsset;
 use ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset;
@@ -102,8 +106,9 @@ pub(crate) struct RoomPreparationPrefetchState {
 pub(crate) struct RoomTransitionAssetContext<'w> {
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, Platformer2dAssetCatalog>>,
-    pub(crate) character_catalog:
-        Option<Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>>,
+    pub(crate) character_catalog: Option<
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    >,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
     pub(crate) layouts: Option<ResMut<'w, Assets<TextureAtlasLayout>>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
@@ -116,12 +121,14 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
     /// `register_character`, in which case this is the only place its sheet is
     /// named — so the synchronous room decode has to consult it or a
     /// registered-only fighter reaches the reveal barrier as a placeholder.
-    pub(crate) prepared_characters:
-        Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+    pub(crate) prepared_characters: Option<
+        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
+    >,
     /// Sheets this app's providers authored (queue U1) — the other place a
     /// character's sheet can be named, and the only one reachable from outside
     /// this workspace.
-    pub(crate) authored_sheets: Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
+    pub(crate) authored_sheets:
+        Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     pub(crate) prefetch: Option<ResMut<'w, RoomPreparationPrefetchState>>,
     pub(crate) real_time: Option<Res<'w, Time<Real>>>,
 }
@@ -235,7 +242,8 @@ pub(crate) fn demand_room_character_sheets(
     // stages — that is content knowledge it legitimately has — but the decode
     // itself is the engine's, so every application gets it whether or not it has
     // a room-transition step at all.
-    let mut demand = ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
+    let mut demand =
+        ambition_platformer2d::actors::character_runtime::CharacterLoadDemand::default();
     demand.request_all(names);
     ambition_platformer2d::actors::character_runtime::materialize_character_demand(
         &mut demand,
@@ -824,10 +832,13 @@ const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
 pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
     content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
-    placement_lowering: Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
+    placement_lowering: Res<
+        ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,
+    >,
     content_staging: Res<RoomContentStagingRegistry>,
-    character_catalog: Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition_platformer2d::actors::features::CharacterRoster>,
+    character_catalog: Res<
+        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+    >,
     boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     (construction_recipes, active_binding, mut plan_prefetch): (
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
@@ -849,7 +860,8 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     active_session: Option<Res<ActiveSessionScope>>,
     mut cache: ResMut<RoomPreparationPrefetchState>,
 ) {
-    let empty_registry = ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry::default();
+    let empty_registry =
+        ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry::default();
     let Some(source_room) = room_set.rooms.get(room_set.active) else {
         cache.entries.clear();
         cache.source_room_id = None;
@@ -871,7 +883,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         || placement_lowering.is_changed()
         || content_staging.is_changed()
         || character_catalog.is_changed()
-        || character_roster.is_changed()
         || boss_catalog.is_changed()
         || catalog.is_changed()
         || quality.is_changed();
@@ -936,14 +947,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &content_staging,
                 &character_catalog,
                 &authored_sheets,
-                &character_roster,
                 &boss_catalog,
                 spawn_scope,
                 {
-                    let mut context = ambition_platformer2d::actors::features::ActorConstructionContext::new(
-                        &construction_recipes,
-                        ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
-                    );
+                    let mut context =
+                        ambition_platformer2d::actors::features::ActorConstructionContext::new(
+                            &construction_recipes,
+                            ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                        );
                     // Prefetched plans state the LIVE binding too: if a hot
                     // reload moves the session to a new generation before this
                     // plan commits, the boundary refuses the stale prefetch —

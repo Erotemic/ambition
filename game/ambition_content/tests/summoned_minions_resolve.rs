@@ -149,7 +149,6 @@ fn every_summoned_minion_id_resolves_a_body() {
 
     let buildable: std::collections::BTreeSet<&str> =
         ambition_content::character_catalog::buildable_cast().collect();
-    let rows = ambition_content::enemy_roster::CHARACTER_ROSTER_RON;
 
     // ⭐ the SCANNED half: every `*_ARCHETYPE` constant in the engine and the
     // games, wherever somebody writes the next one.
@@ -187,9 +186,10 @@ fn every_summoned_minion_id_resolves_a_body() {
 
     let mut unresolved = Vec::new();
     for (id, site) in &named {
-        let is_character = buildable.contains(id);
-        let is_row = rows.contains(&format!("\"{id}\": ("));
-        if !is_character && !is_row {
+        // ⛔ **one road** (AC6). This also accepted an archetype ROW under the
+        // id, because a row would build the body too; the rows are deleted and a
+        // summon that names no character is refused at construction.
+        if !buildable.contains(id) {
             unresolved.push((*id, *site));
         }
     }
@@ -200,11 +200,11 @@ fn every_summoned_minion_id_resolves_a_body() {
         .collect();
     assert!(
         unexpected.is_empty(),
-        "these summoned minion ids resolve NOTHING — no registered character and \
-         no archetype row — so the boss casting them spawns the generic \
-         `combatant` fallback wearing the wrong body: {unexpected:?}. Either \
-         register the character, or add it to KNOWN_UNRESOLVED with the decision \
-         that is waiting."
+        "these summoned minion ids name no registered character, so the boss \
+         casting them REFUSES mid-fight (it used to spawn a generic `combatant` \
+         wearing the wrong body, which is worse): {unexpected:?}. Either register \
+         the character, or add it to KNOWN_UNRESOLVED with the decision that is \
+         waiting."
     );
 
     // ⛔ and the exemption list cannot rot: an id that got FIXED must leave it,

@@ -12,7 +12,7 @@
 //! Most top-level modules are thin install plugins ([`plugin`], [`quests`],
 //! [`bosses`], [`dialogue`], [`items`]) that seed named rosters into
 //! machinery resources, alongside the authored data/content itself
-//! ([`quest`], [`enemy_roster`], [`banter`], [`music`], [`intro`]) and the
+//! ([`quest`], [`banter`], [`music`], [`intro`]) and the
 //! [`content_validation`] cross-reference checker. Several names re-export
 //! their machinery half (e.g. [`data`], [`features`]) so historical
 //! `crate::…` paths keep resolving.
@@ -64,7 +64,6 @@ pub use ambition_platformer2d_actor_monolith::features;
 pub mod cellular_automaton_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
-pub mod enemy_roster;
 pub mod goblin_moveset;
 pub mod input_techniques;
 pub mod intro;

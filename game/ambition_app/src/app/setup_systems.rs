@@ -60,7 +60,6 @@ pub(crate) struct CharacterAuthorities<'w> {
         Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
     sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
-    roster: Res<'w, ambition_platformer2d::actors::features::CharacterRoster>,
 }
 
 /// Sim-only startup. Calls `ambition_platformer2d::actors::session::setup::simulation_world` to spawn the
@@ -101,7 +100,6 @@ pub(super) fn setup_simulation_system(
             character_catalog: &characters.catalog,
             prepared_characters: characters.prepared.as_deref(),
             authored_sheets: &characters.sheets,
-            character_roster: &characters.roster,
             placement_lowering: &construction.placement_lowering,
             content_staging: &construction.content_staging,
             // Direct entry builds its session root at plugin-build time rather

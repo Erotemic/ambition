@@ -17,7 +17,6 @@
 //! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
-use crate::features::enemies::ArchetypeSpecExt;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
@@ -29,7 +28,7 @@ use bevy::prelude::Component;
 // from its owner; deliberately NOT re-exported.
 
 use super::super::components::BodyMelee;
-use super::super::enemies::{ActorSpawnState, ActorSurfaceState, ArchetypeSpec};
+use super::super::enemies::{ActorSpawnState, ActorSurfaceState};
 use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
@@ -376,29 +375,9 @@ pub struct ActorClusterSeed {
     pub caps: crate::combat::CombatCapabilities,
     /// Victim-owned contact material/profile resolved from the catalog row.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
-    /// The authored roster spec (resolved by string key from the spawn
-    /// brain). Spawn-time ONLY: brain / combat-kit / held-item construction
-    /// reads it here before the entity exists; it is deliberately NOT
-    /// carried onto any spawned component, so the persisted [`ActorConfig`]
-    /// stays roster-free. The named `CharacterArchetype` enum never reaches the
-    /// spawn path — only this data does. `pub(crate)`: the seed type itself is
-    /// publicly re-exported (content builds peaceful seeds) but this archetype
-    /// field is internal-only.
-    /// **The archetype this body was built from, when it was built from one.**
-    ///
-    /// ⛔ **`None` for a character-first body, and it used to be a 54-line LIE**
-    /// (Jon's second redirect, P2). `new_character_in` fabricated an entire
-    /// inert `ArchetypeSpec` — max health, a borrowed run speed, `melee: None`,
-    /// `ranged: None`, every capability `false` — purely because this field was
-    /// not optional. A character-first actor carrying a fake old-style body
-    /// definition is one of the things physically preventing `ArchetypeSpec`
-    /// from disappearing, and every reader of it had to be told which fields of
-    /// that fake were meaningful.
-    ///
-    /// Absence is the honest answer: this body has no archetype, and a reader
-    /// that needs one has to say what it does without.
-    pub(crate) spec: Option<ArchetypeSpec>,
 }
+
+/// Convert an authored LDtk actor rectangle}
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
 /// runtime collision size into the actor's initial body center.
@@ -469,128 +448,18 @@ fn actor_hurt_feedback(
 }
 
 impl ActorClusterSeed {
-    /// Build an actor seed while resolving authored character identity from the
-    /// caller's App-local catalog. Content-free tests pass an explicit empty
-    /// catalog, so production construction never has a hidden fallback.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_in(
-        authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        catalog: &CharacterCatalog,
-        // ⭐⭐ **THE RESOLVED ROW, NOT THE ROSTER** (ledger D102, 2026-08-12).
-        //
-        // ⛔ this took `&CharacterRoster` and opened with
-        // `roster.spec_for_brain(&brain)`, a lookup that CANNOT FAIL: an
-        // unresolvable key silently became the reserved `combatant` row. Every
-        // spawn road that reached this constructor inherited that downgrade
-        // without choosing it, which is how a deleted row changed three shipped
-        // things — a boss's minions, a goblin fight's heavies, an under-town
-        // skitter — while `cargo check` stayed clean.
-        //
-        // ⇒ the caller resolves. `CharacterRoster::try_spec_for_brain` answers
-        // honestly, and a caller that means to settle for the generic body says
-        // so at `generic_body_for_unresolved_brain` WITH ITS REASON. A new spawn
-        // road cannot get the downgrade for free any more; it has to write down
-        // why it wants one.
-        spec: super::super::enemies::ArchetypeSpec,
-        id: impl Into<String>,
-        name: impl Into<String>,
-        // **The ART identity, when the caller knows one that is not the label.**
-        // `None` means *resolve from `name`*, which is what every caller did
-        // before this parameter existed and what every level authored before
-        // `EnemySpawnSpec::character_id` existed. It is not a default so much as
-        // the older of two roads, and both stay open on purpose — see
-        // `ambition_platformer2d_world::rooms::EnemySpawnSpec`.
-        art_identity: Option<&str>,
-        aabb: ae::Aabb,
-        brain: ambition_entity_catalog::placements::CharacterBrain,
-        paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    ) -> Self {
-        let name: String = name.into();
-        // Resolve this enemy's uniform sprite identity from the AUTHORED art
-        // identity when one was given, and from its display name otherwise (the
-        // same name → sheet join presentation does). `None` for a generic enemy
-        // whose identity isn't a catalog character.
-        // ⭐ **id first, display name second.** An authored placement that names
-        // a `character_id` resolves directly and survives a rename; one that
-        // carries a display name (every level today) keeps working through the
-        // fallback. See `CharacterCatalog::id_for_authored_identity`.
-        let sprite_character_id = catalog
-            .id_for_authored_identity(art_identity.unwrap_or(name.as_str()))
-            .map(String::from);
-        let hurt_feedback = actor_hurt_feedback(catalog, sprite_character_id.as_deref());
-        let motion = match &brain {
-            ambition_entity_catalog::placements::CharacterBrain::Patrol {
-                path_id: Some(path_id),
-            } if !spec.is_sandbag => paths
-                .iter()
-                .find(|(p_id, _)| p_id == path_id)
-                .map(|(_, path)| PathMotion::new(path.clone())),
-            _ => None,
-        };
-        // A NAMED catalog character sizes its body to the authored sprite — the
-        // SAME `sprite_body_collision_for_character_id` resolution a peaceful NPC
-        // uses — so e.g. the Perfect Cellular Automaton has ONE consistent body /
-        // hitbox whether it spawns peaceful (waiting in the symmetry room) or
-        // hostile (the duel). A generic enemy with no catalog character keeps the
-        // archetype `default_size` / LDtk spawn box, exactly as before. The matching
-        // sprite RENDER size is lifted onto `ActorRenderSize` at the spawn sites via
-        // [`sprite_render_size_for_name_in`] (the per-frame `CenteredAabb` sync then
-        // follows this collision so the visual and hitbox stay together).
-        let ldtk_size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
-        let sprite_body = sprite_character_id.as_deref().and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id_in(
-                authored, catalog, cid, ldtk_size,
-            )
-        });
-        let size = sprite_body.map_or(ldtk_size, |b| b.collision);
-        let pos = motion
-            .as_ref()
-            .and_then(PathMotion::start_pos)
-            .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, size));
-        let seed = Self {
-            kin: BodyKinematics {
-                pos,
-                vel: ae::Vec2::ZERO,
-                size,
-                facing: -1.0,
-            },
-            status: ActorStatus {
-                respawn_timer: 0.0,
-                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
-            },
-            health: ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(spec.max_health),
-            ),
-            surface: ActorSurfaceState {
-                surface_normal: ae::Vec2::new(0.0, -1.0),
-                // Absence resolves the way the bare bool did; whether it should
-                // instead defer to the catalog is the open product question.
-                gravity_scale: if spec.is_aerial.unwrap_or(false) {
-                    0.0
-                } else {
-                    1.0
-                },
-            },
-            attack: BodyMelee::default(),
-            config: ActorConfig {
-                id: id.into(),
-                name,
-                tuning: spec.tuning(),
-                brain_profile: spec.brain_profile(),
-                brain,
-                spawn: ActorSpawnState { pos, size },
-                sprite_override_npc_name: None,
-                sprite_character_id,
-            },
-            motion: ActorMotionPath(motion),
-            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial.unwrap_or(false), size),
-            caps: spec.combat_capabilities(),
-            hurt_feedback,
-            spec: Some(spec),
-        };
-        seed
-    }
-    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
+    // ⛔⛔ **`new_in` WAS HERE AND IS DELETED (AC6, 2026-08-13) — the ARCHETYPE
+    // CONSTRUCTOR.** It took an `ArchetypeSpec` and read a body out of it: max
+    // health, `default_size`, aerial-ness, tuning, brain profile, movement kit
+    // and combat capabilities. Three spawn roads reached it, each having first
+    // settled for the generic `combatant` row whenever the identifier resolved
+    // nothing, so a misspelling produced a complete, plausible, wrong body.
+    //
+    // ⇒ [`Self::new_character_in`] is the only body constructor. A body is what
+    // its CHARACTER says it is, and an identifier that names no character is a
+    // construction refusal rather than a silent downgrade.
+
+    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
     /// replacement for `NpcClusterScratch::new_with_paths`. A peaceful actor is
     /// the same cluster as a hostile enemy, just with peaceful tuning
     /// (`is_hostile = false`, zero aggro, `max_run_speed = NPC_PATROL_SPEED`,
@@ -855,23 +724,6 @@ impl ActorClusterSeed {
             body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
             caps: crate::combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
-            // ⭐ **NONE, AND THAT IS THE WHOLE OF IT** (campaign P2.18).
-            //
-            // ⛔ this was `Some(roster.spec_for_brain(Passive))` with a comment
-            // calling it *inert* — a `combatant` row (4 HP, a 155 px/s run, a
-            // 1-damage swipe) fabricated for a body that never reads it, purely
-            // because a `CharacterRoster` was in scope. It was the ONLY use of
-            // the `roster` parameter on this constructor, and the parameter went
-            // with it: four call sites stopped needing a roster to build a
-            // peaceful NPC.
-            //
-            // ⚠ inert is not harmless. `EnemySpawnPlan::new` reads exactly this
-            // field to decide a body's action set, combat kit, held item and
-            // moveset, and `Some` there means *this body has an archetype, ask
-            // it* — so a road that fabricated one was one routing change away
-            // from handing every villager the fallback's swipe. `None` is the
-            // true statement, and it is the same one `new_character_in` makes.
-            spec: None,
         };
         (seed, render_size)
     }
@@ -1111,13 +963,6 @@ impl ActorClusterSeed {
             // second writer.
             caps: crate::combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
-            // ⛔ INERT, and it is the point: no seat path reads `spec`, so a
-            // fighter carries an empty archetype rather than somebody else's.
-            // ⛔ **NO ARCHETYPE.** This fabricated fifty-four lines of inert
-            // `ArchetypeSpec` to satisfy a non-optional field — see the field's
-            // own doc. A character-first body was never built from an archetype
-            // and now says so.
-            spec: None,
         }
     }
 
@@ -1238,10 +1083,60 @@ impl ActorClusterSeed {
     }
 }
 
+/// **A NEUTRAL fixture body**, for engine unit tests that need an actor and do
+/// not care which creature it is.
+///
+/// It states the facts the deleted `combatant` row stated, so the bodies these
+/// tests measure did not change shape when the row went: 4 HP, a 155 px/s run
+/// paced at 0.6774 idle / 1.0 engaged, and a 1-damage body contact.
+#[cfg(test)]
+pub(crate) fn fixture_body_blueprint(
+    display_name: &str,
+) -> crate::character_runtime::CharacterBodyBlueprint<'_> {
+    crate::character_runtime::CharacterBodyBlueprint {
+        character_id: "fixture_body",
+        display_name,
+        max_health: 4,
+        locomotion: ambition_characters::actor::CharacterLocomotion {
+            run_speed: 155.0,
+            ..Default::default()
+        },
+        contact_damage: Some(ambition_characters::actor::ContactDamage {
+            strength: 0.70,
+            amount: 1,
+        }),
+        dream_seed: None,
+        practice_target: false,
+        autonomous_profile: Some(ambition_characters::brain::BrainProfile {
+            patrol_effort: 0.6774,
+            chase_effort: 1.0,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            ..Default::default()
+        }),
+        mount: None,
+        held_item: None,
+        death_traits: None,
+        abilities: None,
+        ranged_vfx: None,
+    }
+}
+
 #[cfg(test)]
 impl ActorClusterSeed {
-    /// Content-free convenience constructor for unit tests. Production spawn
-    /// paths must use [`Self::new_in`] with their App-local catalog.
+    /// Content-free convenience constructor for unit tests: a NEUTRAL body,
+    /// built by the ONE production constructor.
+    ///
+    /// ⛔ **it used to resolve a fixture ARCHETYPE ROW from the brain key** —
+    /// `fixture_roster_with_mount().generic_body_for_a_test_fixture(&brain)` —
+    /// so an engine unit test named a creature-ish string (`pirate_raider`,
+    /// `small_skitter`, `fixture_mount`) and received a body shaped by a table
+    /// AC6 deleted. A test that needs a body with particular facts states them:
+    /// build a [`crate::character_runtime::CharacterBodyBlueprint`] and call
+    /// [`Self::new_character_in`], which is what production does.
+    ///
+    /// The numbers here are the ones the deleted `combatant` row carried, so a
+    /// test that did not care which row it got sees the body it always saw.
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -1249,26 +1144,19 @@ impl ActorClusterSeed {
         brain: ambition_entity_catalog::placements::CharacterBrain,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
-        // ⚠ the roster with the engine's OWN fixture rows folded in: unit
-        // tests here name shapes (a rideable body, a charge-crasher) rather
-        // than any game's creature, and those creatures are migrating out of
-        // the shipped file one row at a time.
-        let roster = super::super::enemies::fixture_roster_with_mount();
-        let spec = roster.generic_body_for_a_test_fixture(&brain);
-        Self::new_in(
+        let name: String = name.into();
+        Self::new_character_in(
             &Default::default(),
             &CharacterCatalog::empty(),
-            spec,
             id,
-            name,
-            None,
+            fixture_body_blueprint(&name),
             aabb,
             brain,
             paths,
         )
     }
 
-    /// Content-free peaceful-NPC constructor for unit tests.
+    /// Content-free peaceful-NPC constructor for unit tests.    /// Content-free peaceful-NPC constructor for unit tests.
     pub fn new_peaceful_npc(
         id: impl Into<String>,
         name: impl Into<String>,

@@ -8,7 +8,6 @@ use super::super::damage_drops::{
 use super::*;
 use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::ecs::enemy_component_snapshot;
-use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::{HitMode, HitTarget};
 use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core as ae;
@@ -68,7 +67,6 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
 fn victim_side_enemy_body_hit_does_not_damage_features() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -147,7 +145,6 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
     fn strike_an_enemy(strike_sfx: Option<ambition_sfx::SfxId>) -> App {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -215,7 +212,6 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
     fn damage_dealt_from(multiplier: f32, source: HitSource, human_controlled: bool) -> i32 {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -299,7 +295,6 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -346,7 +341,6 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
 
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -404,7 +398,6 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // path. Complements the enemy-side tests above.
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -517,11 +510,10 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
         &interactable,
         &[],
     );
-    let (identity, disposition, combat) =
-        crate::features::ecs::actors::actor_component_snapshot(
-            &seed,
-            crate::features::ActorDisposition::Peaceful,
-        );
+    let (identity, disposition, combat) = crate::features::ecs::actors::actor_component_snapshot(
+        &seed,
+        crate::features::ActorDisposition::Peaceful,
+    );
     let aggression = crate::features::ecs::ActorAggression {
         mode: crate::features::ecs::AggressionMode::RetaliatesWhenHit {
             strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
@@ -569,7 +561,6 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
     fn strike_and_count_bubbles(hp: i32) -> usize {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -633,7 +624,6 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
     fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -718,7 +708,6 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     // window never decays between the two updates — exactly the sustained-overlap case.)
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -769,7 +758,6 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
 fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -885,7 +873,6 @@ fn player_slash_shatters_a_breakable() {
     // 1-HP breakable shatters it through apply_feature_hit_events.
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -947,7 +934,6 @@ fn player_slash_shatters_a_breakable() {
 fn enemy_defeat_drops_a_collectible_currency_coin() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_currency_coin(
             &mut c,
@@ -1008,7 +994,6 @@ fn defeated_boss_drops_its_signature_ability() {
     // The drop spawns a single collectible Ability pickup.
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_ability_pickup(
             &mut c,
@@ -1090,7 +1075,6 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         spawn_death_explosion(
             &mut c,
@@ -1124,7 +1108,6 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
 fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
@@ -1132,14 +1115,15 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
         |mut c: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
-        >,
-         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+        >| {
+            // ⭐ **the offspring is a registered CHARACTER** — a summon that
+            // names anything else is refused now (AC6), where it used to become
+            // whatever the fixture roster answered for the key.
             spawn_split_offspring(
                 &mut c,
                 &catalog,
                 &Default::default(),
-                &roster,
-                None,
+                Some(&crate::character_runtime::fixture_cast(&["npc_puppy_slug"])),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),
@@ -1172,7 +1156,6 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     // The drop spawns one collectible Health pickup.
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_health_pickup(
             &mut c,
@@ -1194,14 +1177,13 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     );
 }
 
-#[test]
-fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
-    // The defeat branch's weapon drop keys off `held_item_spec()`; the shark
-    // rider carries a gun-sword, so a defeated rider drops one.
-    let spec = crate::features::enemies::fixture_spec("fixture_armed_rider").held_item_spec();
-    assert!(spec.is_some(), "the shark rider carries a weapon");
-    assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
-}
+// ⛔⛔ **`an_armed_enemy_archetype_resolves_a_weapon_to_drop` WAS HERE AND IS
+// DELETED** (AC6). It asked a fixture archetype row for its `held_item_spec()`
+// and asserted a gun-sword came back — a test of the row's field resolver. A
+// body's weapon is authored on its CHARACTER (`held_item`) and inserted by the
+// road that believes the character, so the surviving claim is
+// `drops_held_item`'s: what a body drops is its LIVE `HeldItem`, not a table
+// row.
 
 // ── S3c: body-enforced reactive block ───────────────────────────────────────
 //
@@ -1251,7 +1233,6 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
 fn shield_test_app() -> App {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1539,7 +1520,6 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1605,7 +1585,6 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     }
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1705,7 +1684,6 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
     fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1759,7 +1737,6 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
 
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1809,16 +1786,12 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     use super::actor_hit::{kill_disposition, KillDisposition};
     use ambition_entity_catalog::placements::RespawnPolicy;
 
-    let sandbag = crate::features::enemies::fixture_spec("fixture_in_place_respawner")
-        .tuning()
-        .respawn;
-    assert_eq!(
-        sandbag,
-        RespawnPolicy::InPlace(0.85),
-        "fixture: this test is only meaningful for an archetype that DOES \
-         respawn in place; if the sandbag stopped doing so, the two arms below \
-         agree by accident and prove nothing"
-    );
+    // ⚠ the policy is STATED here rather than resolved from a fixture archetype
+    // row (deleted, AC6). The claim under test belongs to `kill_disposition`:
+    // given a body that respawns in place, does leaving the world outrank it. A
+    // literal makes the precondition impossible to lose silently — which is what
+    // the assertion below it was guarding when the value came from a table.
+    let sandbag = RespawnPolicy::InPlace(0.85);
 
     assert_eq!(
         kill_disposition(&HitSource::Melee, sandbag),
@@ -1869,7 +1842,6 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     fn thrower_flash_after(source: HitSource) -> f32 {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-        app.insert_resource(crate::features::enemies::test_roster());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),

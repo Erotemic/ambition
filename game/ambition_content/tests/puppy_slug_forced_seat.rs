@@ -44,7 +44,6 @@ fn seating_app_with_the_real_cast() -> App {
     // does, and it publishes the policy authority with it.
     ambition_content::character_catalog::register(&mut app);
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.init_resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>();
 
     let world = ambition_platformer2d_core::World::new(
         "Arena",

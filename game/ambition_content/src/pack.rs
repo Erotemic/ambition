@@ -32,7 +32,6 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// rather than by silently loading an empty family.
 pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
-const ARCHETYPES_SOURCE_PATH: &str = "data/character_archetypes.ron";
 const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
 const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
 const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
@@ -71,10 +70,6 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         (
             ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
             crate::ENCOUNTER_WAVES_RON.to_string(),
-        ),
-        (
-            ARCHETYPES_SOURCE_PATH.to_string(),
-            crate::enemy_roster::CHARACTER_ROSTER_RON.to_string(),
         ),
         (
             FIGHTER_BRAIN_LADDER_SOURCE_PATH.to_string(),

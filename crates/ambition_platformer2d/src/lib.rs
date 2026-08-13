@@ -110,9 +110,6 @@ pub mod content {
             )
             .expect("the engine's own schemas are registered once");
         registry
-            .register(ambition_combat::content_schema::character_archetypes_schema())
-            .expect("the engine's own schemas are registered once");
-        registry
             .register(ambition_audio::content_schema::music_registry_schema())
             .expect("the engine's own schemas are registered once");
         registry
@@ -298,8 +295,7 @@ pub mod actor {
 
     /// What a game spawns and configures.
     pub use ambition_platformer2d_actor_monolith::features::{
-        ActorConfig, ActorFaction, CharacterRosterFragment, MotionModel, SpawnActorKind,
-        SpawnActorRequest,
+        ActorConfig, ActorFaction, MotionModel, SpawnActorKind, SpawnActorRequest,
     };
 
     /// What a room stages when it opens.
@@ -335,9 +331,6 @@ pub mod character {
     pub use ambition_characters::actor::character_catalog::{
         parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
     };
-    /// Registering a roster archetype (the enemy half of a cast).
-    pub use ambition_platformer2d_actor_monolith::features::CharacterRosterAppExt;
-
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;

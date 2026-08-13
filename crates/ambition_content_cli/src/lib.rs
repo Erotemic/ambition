@@ -50,9 +50,6 @@ pub fn default_registry() -> SchemaRegistry {
         .register(ambition_characters::brain::boss_pattern::content_schema::boss_encounter_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(ambition_combat::content_schema::character_archetypes_schema())
-        .expect("the default registry installs each schema once");
-    registry
         .register(ambition_audio::content_schema::music_registry_schema())
         .expect("the default registry installs each schema once");
     registry

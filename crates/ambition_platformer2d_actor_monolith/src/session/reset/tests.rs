@@ -2,9 +2,9 @@
 //! request/consume edge behavior, and the post-reset gameplay-state rebuild.
 
 use super::*;
-use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 /// Pin the request resource's defaults: a fresh app starts with
 /// no reset queued. Important because the reset processor must
@@ -68,16 +68,14 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
 
     // No reset queued → nothing changes.
     app.update();
-    assert!(
-        app.world()
-            .get::<crate::items::pickup::GroundItem>(ground)
-            .is_some()
-    );
-    assert!(
-        app.world()
-            .get::<crate::features::HeldItem>(player)
-            .is_some()
-    );
+    assert!(app
+        .world()
+        .get::<crate::items::pickup::GroundItem>(ground)
+        .is_some());
+    assert!(app
+        .world()
+        .get::<crate::features::HeldItem>(player)
+        .is_some());
 
     // A reset that was ASKED FOR but refused: the request resource is set and
     // no commitment was announced. Nothing may be taken away.
@@ -168,7 +166,6 @@ fn min_app() -> App {
     app.insert_resource(crate::features::GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.insert_resource(crate::features::CharacterRoster::default());
     // Explicit content-free boss authority: the reset processor reads
     // `Res<BossCatalog>` (required, not optional) to rebuild encounter state.
     app.insert_resource(crate::boss_encounter::BossCatalog::default());
@@ -303,11 +300,9 @@ fn processor_wipes_save_flags_and_clears_registries() {
     // Save is wiped.
     let save = app.world().resource::<AmbitionGameSave>();
     assert!(!save.data().flag("npc_kira_hostile"));
-    assert!(
-        !save
-            .data()
-            .flag("encounter_goblin_encounter_reward_dropped")
-    );
+    assert!(!save
+        .data()
+        .flag("encounter_goblin_encounter_reward_dropped"));
     assert_eq!(
         save.data().encounter("goblin_encounter"),
         ambition_persistence::save_data::PersistedEncounterState::Untouched
@@ -352,9 +347,9 @@ fn processor_warps_player_to_start_spawn() {
         req.request();
     }
     app.update();
-    let world = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomGeometry>(
-        app.world(),
-    )
+    let world = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        RoomGeometry,
+    >(app.world())
     .expect("session room geometry");
     let expected_spawn = world.0.spawn;
     let mut q = app
@@ -384,9 +379,9 @@ fn processor_restores_authored_start_room_platform() {
         room_set.rooms[0].moving_platforms = vec![authored.clone()];
     }
     {
-        let mut platform_set = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>();
+        let mut platform_set =
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>();
         platform_set.0 = vec![crate::world::platforms::MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -434,10 +429,11 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
     // to the session root so it dies with the session rather than outliving it
     // as a global.
     {
-        let mut rooms = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
-            crate::rooms::RoomSet,
-        >(app.world_mut())
-        .expect("the fixture staged a room set");
+        let mut rooms =
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
+                crate::rooms::RoomSet,
+            >(app.world_mut())
+            .expect("the fixture staged a room set");
         rooms.start = 999;
     }
     {

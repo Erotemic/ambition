@@ -18,9 +18,9 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity,
-    BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
+    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
+    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
+    HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
@@ -34,7 +34,6 @@ use crate::features::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
-
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
@@ -59,8 +58,10 @@ pub(crate) fn boss_damage_allowed(
     friendly_fire: crate::combat::targeting::FriendlyFire,
     boss_entity: Entity,
 ) -> bool {
-    let (Some((attacker_faction, attacker_brain, attacker_team)), Some((boss_faction, boss_brain, boss_team))) =
-        (attacker, boss)
+    let (
+        Some((attacker_faction, attacker_brain, attacker_team)),
+        Some((boss_faction, boss_brain, boss_team)),
+    ) = (attacker, boss)
     else {
         return true;
     };
@@ -207,7 +208,6 @@ pub struct FeatureHitCatalogs<'w> {
     /// from its sheet like anything else, so the damage path carries it beside
     /// the catalog it already carries.
     pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    pub hostile_archetypes: Res<'w, crate::features::CharacterRoster>,
     pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
     /// AD8: the prepared cast, so a struck or provoked character speaks in its
     /// OWN voice rather than the engine's. `Option` because a bare engine App
@@ -603,7 +603,6 @@ pub fn apply_feature_hit_events(
                 catalog,
                 prepared,
                 &catalogs.sheets,
-                &catalogs.hostile_archetypes,
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,

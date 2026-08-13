@@ -57,7 +57,6 @@ pub fn fire_puppy_slug_gun_system(
     controlled: Res<ControlledSubject>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: Res<crate::features::CharacterRoster>,
     // ⭐ the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and the empty registry is the honest value there.
@@ -98,7 +97,6 @@ pub fn fire_puppy_slug_gun_system(
         &mut commands,
         &character_catalog,
         &authored_sheets,
-        &character_roster,
         prepared.as_deref().unwrap_or(&empty_cast),
         session_scope,
         format!("puppy_slug_ally_{}", *next_id),
@@ -139,7 +137,6 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.insert_resource(crate::features::enemies::test_roster());
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -148,6 +145,9 @@ mod tests {
         // Summoned bodies size themselves from their sheets (U1 stage B); a
         // fixture authors none, and empty resolves as it always did.
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        // ⭐ **the ally the gun summons is a CHARACTER**, and a summon that names
+        // none is refused (AC6) where it used to become a generic `combatant`.
+        app.insert_resource(crate::character_runtime::fixture_cast(&[SLUG_ARCHETYPE]));
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }

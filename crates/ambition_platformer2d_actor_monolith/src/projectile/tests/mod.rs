@@ -18,8 +18,8 @@ use super::systems::{charge_projectile_input, step_projectiles};
 use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
-use ambition_platformer2d_core::RoomGeometry;
 use ambition_input::ControlFrame;
+use ambition_platformer2d_core::RoomGeometry;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -87,7 +87,6 @@ fn register_test_motion_techniques(app: &mut App) {
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(

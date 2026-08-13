@@ -588,7 +588,6 @@ fn construct_staged_actor(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
-        &ctx.services.context.roster,
         // ⭐ the cast this construction context has carried all along — the
         // staged path simply never asked for it (queue D75).
         &ctx.services.context.prepared,
@@ -611,7 +610,6 @@ fn construct_summoned_minion(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
-        &ctx.services.context.roster,
         &ctx.services.context.prepared,
         ctx.session,
         root.entity(),
@@ -643,7 +641,6 @@ fn construct_giant_host(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
-        &ctx.services.context.roster,
         &ctx.services.context.prepared,
         &ctx.services.context.brain_profiles,
         ctx.session,
@@ -666,7 +663,6 @@ fn construct_giant_hand(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
-        &ctx.services.context.roster,
         &ctx.services.context.prepared,
         &ctx.services.context.brain_profiles,
         ctx.session,
@@ -687,7 +683,6 @@ fn construct_authored_enemy(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
-        &ctx.services.context.roster,
         &ctx.services.context.prepared,
         &ctx.services.context.brain_profiles,
         ctx.session,
@@ -1210,7 +1205,6 @@ pub struct PlannedMountCapabilities {
 /// What a row will be able to do, mount-wise, once built.
 pub fn mount_capabilities_of(
     parameters: &ActorConstructionParams,
-    roster: &crate::features::CharacterRoster,
     bosses: &BossCatalog,
     // **The prepared cast, when the caller has one.** A placement that names a
     // character takes its mount facts from the DEFINITION; only one that names
@@ -1236,11 +1230,9 @@ pub fn mount_capabilities_of(
             // ⚠ the same call the authored road makes, so the two roads cannot
             // disagree about whether a body is rideable — which is the whole
             // point of there being one construction path.
-            SpawnActorKind::Enemy { brain, character } => authored_mount_capabilities(
-                resolve_planned_character(prepared, character.as_ref()),
-                // The honest lookup — see the function's own note.
-                roster.try_spec_for_brain(brain).as_ref(),
-            ),
+            SpawnActorKind::Enemy { character, .. } => {
+                authored_mount_capabilities(resolve_planned_character(prepared, character.as_ref()))
+            }
             // A boss takes `CanPilot` from its behaviour profile and is never
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
             // through the SAME pair `BossClusterScratch::new` uses, so the
@@ -1255,31 +1247,19 @@ pub fn mount_capabilities_of(
                 .clone(),
             },
         },
-        ActorConstructionParams::SummonedMinion(minion) => {
-            // ⛔ a summoned minion names its archetype by STRING, and a boss
-            // casting a spell for a row nobody authored is the case
-            // `every_summoned_minion_id_resolves_a_body` guards. Asking the
-            // honest lookup means the plan says "this body rides nothing"
-            // rather than inheriting the fallback's mount answers.
-            let spec = roster.try_spec_for_brain(
-                &ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    minion.archetype_id.clone(),
-                ),
-            );
-            PlannedMountCapabilities {
-                mount_class: spec.as_ref().and_then(|spec| spec.mount_class.clone()),
-                pilots: spec
-                    .map(|spec| spec.pilotable_mount_classes.clone())
-                    .unwrap_or_default(),
-            }
-        }
+        // ⛔ a summoned minion names its body by STRING, and a boss casting a
+        // spell for something nobody authored is the case
+        // `every_summoned_minion_id_resolves_a_body` guards. That string names a
+        // CHARACTER now — the summon road refuses anything else — so the plan
+        // reads the same authority the commit will.
+        ActorConstructionParams::SummonedMinion(minion) => authored_mount_capabilities(
+            prepared.and_then(|cast| cast.get(minion.archetype_id.as_str())),
+        ),
         // A giant host is a mount (its archetype carries `mount_class`); its hands
         // are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
             resolve_planned_character(prepared, authored.payload.character_id.as_ref()),
-            // The honest lookup — see the function's own note.
-            roster.try_spec_for_brain(&authored.payload.brain).as_ref(),
         ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
         // Same profile resolution as the staged boss arm above — and never a
@@ -1307,33 +1287,28 @@ pub fn mount_capabilities_of(
     }
 }
 
-/// **What a placement can ride and be ridden as** — the CHARACTER's answer when
-/// it has one, the archetype's otherwise.
+/// **What a placement can ride and be ridden as** — the CHARACTER's answer, and
+/// as of AC6 there is no other one.
 ///
-/// ⚠ character-first as a WHOLE, not field by field: a definition that authors a
-/// mount block states both halves of the pair, and merging the two sources would
+/// ⚠ character-first as a WHOLE, never field by field: a definition that authors
+/// a mount block states both halves of the pair, and merging two sources would
 /// let a deleted row keep contributing a `pilotable_classes` nobody can see.
-/// ⚠ **the spec is OPTIONAL** (2026-08-12), for the reason `is_limbed_host`'s
-/// is: a brain key with no row says NOTHING about what this body can ride or be
-/// ridden by. Callers asked `spec_for_brain`, which cannot fail, so a misspelled
-/// or migrated key inherited the reserved `combatant` row's mount answers —
-/// and the plan is what the mount-link legality rules are checked against.
+/// ⚠ **it took an `Option<&ArchetypeSpec>` as the other half** and fell back to
+/// it — so a misspelled or migrated brain key inherited the reserved `combatant`
+/// row's mount answers, and the plan is what the mount-link legality rules are
+/// checked against. A body that states no mount rides nothing, which is what a
+/// body that says nothing has always meant.
 fn authored_mount_capabilities(
     character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
-    spec: Option<&crate::features::enemies::ArchetypeSpec>,
 ) -> PlannedMountCapabilities {
-    match character.and_then(|definition| definition.mount.as_ref()) {
-        Some(mount) => PlannedMountCapabilities {
-            mount_class: mount.class.clone(),
-            pilots: mount.pilotable_classes.clone(),
-        },
-        None => PlannedMountCapabilities {
-            mount_class: spec.and_then(|spec| spec.mount_class.clone()),
-            pilots: spec
-                .map(|spec| spec.pilotable_mount_classes.clone())
-                .unwrap_or_default(),
-        },
-    }
+    character
+        .and_then(|definition| definition.mount.as_ref())
+        .map_or_else(PlannedMountCapabilities::default, |mount| {
+            PlannedMountCapabilities {
+                mount_class: mount.class.clone(),
+                pilots: mount.pilotable_classes.clone(),
+            }
+        })
 }
 
 /// Which construction family a row is, for diagnostics and family-legality rules.
@@ -1376,7 +1351,6 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
 /// Runs on requests, so a refusal happens while the outgoing room is whole.
 pub fn preflight_actor_relations(
     requests: &[ActorConstructionRequest],
-    roster: &crate::features::CharacterRoster,
     bosses: &BossCatalog,
     // See [`mount_capabilities_of`].
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
@@ -1476,8 +1450,8 @@ pub fn preflight_actor_relations(
         let (Some(rider_params), Some(mount_params)) = (rider_params, mount_params) else {
             continue;
         };
-        let rider_caps = mount_capabilities_of(rider_params, roster, bosses, prepared);
-        let mount_caps = mount_capabilities_of(mount_params, roster, bosses, prepared);
+        let rider_caps = mount_capabilities_of(rider_params, bosses, prepared);
+        let mount_caps = mount_capabilities_of(mount_params, bosses, prepared);
         let Some(mount_class) = mount_caps.mount_class.clone() else {
             return Err(ActorConstructionError::WrongFamilyForRelation {
                 sim_id: mount.clone(),
@@ -1556,7 +1530,6 @@ pub fn staged_actor_requests(
     room_id: &str,
     provider: &str,
     requests: &[SpawnActorRequest],
-    roster: &crate::features::CharacterRoster,
     // **The prepared cast, when the caller has one.** Planning asks the
     // CHARACTER whether a placement is a limbed host before it asks the roster
     // — see `features::is_limbed_host`. `None` is the host that has no cast
@@ -1583,25 +1556,30 @@ pub fn staged_actor_requests(
         // `spawn_enemy_with_faction_into`, which no longer spawns hands, so a
         // staged giant lost its rig entirely.)
         if let SpawnActorKind::Enemy { brain, character } = &request.kind {
-            // ⭐ the HONEST lookup (D102). This asked `spec_for_brain`, which
-            // cannot fail — so an unresolvable key answered the `combatant` row
-            // here, and the only question asked of the answer is *is this a
-            // limbed host*. `combatant` is not one, so `None` and the fallback
-            // give the same verdict; what changes is that the code no longer
-            // claims to have found a row it did not.
-            let spec = roster.try_spec_for_brain(brain);
-            if crate::features::is_limbed_host(
-                resolve_planned_character(prepared, character.as_ref()),
-                spec.as_ref(),
-            ) {
+            // ⭐ **the CHARACTER decides, and it is the only thing that does.**
+            // This also asked the roster, whose lookup could not fail — so an
+            // unresolvable key answered the `combatant` row, which is not a
+            // limbed host, so the two agreed by luck rather than by design.
+            if crate::features::is_limbed_host(resolve_planned_character(
+                prepared,
+                character.as_ref(),
+            )) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
+                // ⛔⛔ **THE HOST ROW USED TO DROP THE CHARACTER.** It was built
+                // from the brain alone, so a staged giant's `character` — the
+                // thing that says it IS a giant, and now the only thing that can
+                // build its body — never reached the row the executor spawns.
+                // Invisible while an archetype row could answer for the brain
+                // key; a refusal the moment they went (AC6).
+                let mut host_payload = crate::rooms::EnemySpawnSpec::new(brain.clone());
+                host_payload.character_id = character.clone();
                 let host_authored = crate::rooms::Authored::new(
                     request.id.clone(),
                     request.name.clone(),
                     aabb,
-                    brain.clone(),
+                    host_payload,
                 );
-                let hands = crate::features::giant_hand_plans(&request.id, aabb, spec.as_ref());
+                let hands = crate::features::giant_hand_plans(&request.id, aabb);
                 let room = room_id.to_string();
                 let provider_owned = provider.to_string();
                 let host_origin = SpawnOrigin::ProviderStaged {
@@ -1662,24 +1640,20 @@ pub fn staged_actor_requests(
 /// before the migration still restore.
 pub fn authored_actor_requests(
     room: &crate::rooms::RoomSpec,
-    roster: &crate::features::CharacterRoster,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     // See [`staged_actor_requests`].
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
-        // See the twin in `staged_actor_requests`: the only question asked of
-        // this row is *is it a limbed host*, and the `combatant` fallback is not
-        // one — so the honest lookup gives the same verdict without claiming a
-        // row it did not find (D102).
-        let spec = roster.try_spec_for_brain(&enemy.payload.brain);
-        if crate::features::is_limbed_host(
-            resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
-            spec.as_ref(),
-        ) {
+        // See the twin in `staged_actor_requests`: a character states its limbs,
+        // and nothing else does.
+        if crate::features::is_limbed_host(resolve_planned_character(
+            prepared,
+            enemy.payload.character_id.as_ref(),
+        )) {
             let giant_sim = SimId::placement(&enemy.id);
-            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, spec.as_ref());
+            let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb);
             let source = room.id.clone();
             let hand_source = source.clone();
             requests.append(&mut giant_cluster_rows(

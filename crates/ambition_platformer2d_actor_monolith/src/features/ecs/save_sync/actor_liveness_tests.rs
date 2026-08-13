@@ -57,7 +57,6 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
 #[test]
 fn a_killed_unprovoked_npc_stays_dead_on_load() {
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     let mut save = AmbitionGameSave::default();
     // The kill hook wrote the DeadStaysDead flag; the NPC was never
     // provoked, so its `npc_<id>_hostile` flag is absent.

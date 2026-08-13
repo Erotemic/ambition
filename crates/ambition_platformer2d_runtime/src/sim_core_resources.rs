@@ -76,9 +76,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // edits reach it through `apply_editable_movement_tuning`. The
             // simulation never reads the dev-tools mirror.
             .init_resource::<ambition_platformer2d_core::ActiveMovementTuning>()
-            // Content-free default. Provider plugins replace/assemble this at
-            // App build time; `init_resource` never clobbers their resource.
-            .init_resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>()
             // The room-content staging seam: providers/content register pure
             // stagers into it; an app with none stages rooms as authored.
             .init_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>()

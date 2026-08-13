@@ -63,37 +63,27 @@ impl Namespace for HeldItemId {
 
 /// The resolvers a room sweep has on hand.
 ///
-/// Paths come from the room itself, so they are always checked. The catalog-backed
-/// namespaces are optional because construction is legitimately performed in
-/// contexts that have no catalog (a geometry-only fixture, an early boot). An
-/// absent resolver means NOT CHECKED, and [`RoomBindings::checked`] says which
-/// namespaces were — "we did not look" must not read like "we looked and it was
-/// fine", which is the whole failure this boundary exists to prevent.
+/// Paths come from the room itself, so they are always checked, and
+/// [`RoomBindings::checked`] says which namespaces were — "we did not look" must
+/// not read like "we looked and it was fine", which is the whole failure this
+/// boundary exists to prevent.
+///
+/// ⛔⛔ **THE CHARACTER NAMESPACE LEFT WITH THE ARCHETYPE ROSTER** (AC6). It
+/// resolved each `EnemySpawn`'s BRAIN KEY against the roster's keys, because the
+/// lookup behind that key could not fail: a misspelling became the generic
+/// `combatant` body wearing the right name, and this sweep was the only place
+/// that could see it. Construction refuses an identifier that names no character
+/// now, which is a stronger statement than a report — and a brain key is
+/// controller policy rather than a body, so resolving one against a body table
+/// was the category error the campaign is named for.
 #[derive(Default)]
-pub struct RoomBindings {
-    characters: Option<Resolver<CharacterId>>,
-}
+pub struct RoomBindings;
 
 impl RoomBindings {
-    /// Check character-archetype references against `ids`.
-    pub fn with_characters<I, S>(mut self, ids: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.characters = Some(Resolver::new(ids));
-        self
-    }
-
     /// Which namespaces this sweep can actually decide, in report order. A caller
     /// that wants full coverage asserts on this rather than on an empty report.
     pub fn checked(&self) -> Vec<&'static str> {
-        let mut names = vec![KinematicPathId::NAME];
-        if self.characters.is_some() {
-            names.push(CharacterId::NAME);
-        }
-        names.sort_unstable();
-        names
+        vec![KinematicPathId::NAME]
     }
 
     /// Resolve every reference `room` declares that this sweep can decide.
@@ -120,44 +110,10 @@ impl RoomBindings {
                         format!("patrol brain of `{}`", enemy.id),
                     );
                 }
-                ambition_entity_catalog::placements::CharacterBrain::Custom(archetype) => {
-                    if let Some(characters) = &self.characters {
-                        ledger.resolve(
-                            characters,
-                            &Ref::new(archetype),
-                            format!("enemy spawn `{}`", enemy.id),
-                        );
-                    }
-                }
                 _ => {}
             }
         }
 
-        ledger.finish()
-    }
-
-    /// Resolve character-archetype references a provider declares OUTSIDE the
-    /// room spec — through content staging, a summon, or a scripted spawn.
-    ///
-    /// Mary-O and Sanic stage their enemies as spawn requests rather than authored
-    /// `enemy_spawns`, so [`Self::sweep`] never sees those brain keys. They are the
-    /// ones that need checking most: `CharacterRoster::spec_for_brain` cannot
-    /// fail, so a misspelled key becomes the generic `combatant` fallback and the
-    /// demo quietly ships the wrong enemy with the right name.
-    ///
-    /// Each item is `(archetype id, who declared it)`.
-    pub fn sweep_characters<I, S, D>(&self, refs: I) -> BindingReport
-    where
-        I: IntoIterator<Item = (S, D)>,
-        S: AsRef<str>,
-        D: Into<String>,
-    {
-        let mut ledger = BindingLedger::new();
-        if let Some(characters) = &self.characters {
-            for (archetype, declared_by) in refs {
-                ledger.resolve(characters, &Ref::new(archetype.as_ref()), declared_by);
-            }
-        }
         ledger.finish()
     }
 }

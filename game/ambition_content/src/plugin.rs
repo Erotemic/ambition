@@ -22,11 +22,6 @@ pub struct AmbitionContentPlugin;
 
 impl Plugin for AmbitionContentPlugin {
     fn build(&self, app: &mut App) {
-        // Contribute Ambition's hostile-archetype fragment to this App before
-        // any spawn system runs. Registration is deterministic, transactional,
-        // and independent of other Apps in the process.
-        super::enemy_roster::register(app);
-
         // Declare, per actor, which of Ambition's cast may stop thinking. The
         // engine attaches no distance rule to anything (dormancy is "not
         // something that should be inherent"), so a crate that stages bosses,

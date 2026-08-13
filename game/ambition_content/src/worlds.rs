@@ -128,15 +128,10 @@ mod tests {
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
         crate::player_robot_lineage::register_declared_cast(&mut app);
-        crate::enemy_roster::register(&mut app);
         ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
         let prepared = app
             .world()
             .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
-            .clone();
-        let roster = app
-            .world()
-            .resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>()
             .clone();
 
         // ⚠ ONE manifest, every world: `world_manifest()` declares the sandbox
@@ -161,26 +156,19 @@ mod tests {
                     if complete {
                         continue;
                     }
-                    // The archetype road, asked as construction asks it: a ROW
-                    // under this brain key, or this provider's own declared
-                    // waiver. ⚠ the waiver comes from `OPEN_CASTING`, the same
-                    // list `enemy_roster::register` hands the fragment, so this
-                    // guard cannot drift from what construction was given.
-                    let key = match &enemy.payload.brain {
-                        ambition_entity_catalog::placements::CharacterBrain::Custom(name) => {
-                            Some(name.as_str())
-                        }
-                        // A brain that names no identifier states a POLICY, and
-                        // construction builds it a plain body — there is nothing
-                        // to have gotten wrong.
-                        _ => None,
-                    };
-                    let Some(key) = key else { continue };
-                    if roster.has_brain_key(key)
-                        || crate::enemy_roster::OPEN_CASTING
-                            .iter()
-                            .any(|(identifier, ..)| *identifier == key)
-                    {
+                    // ⛔ **there is no second road left to check** (AC6). This
+                    // then asked whether the brain key named an archetype ROW or
+                    // this provider's declared casting waiver, because either
+                    // would have built the body. Both are deleted: a placement
+                    // that names no complete character is refused.
+                    //
+                    // ⚠ a brain that names no identifier at all states a POLICY,
+                    // and construction builds it a plain body — nothing to get
+                    // wrong.
+                    if !matches!(
+                        &enemy.payload.brain,
+                        ambition_entity_catalog::placements::CharacterBrain::Custom(_)
+                    ) {
                         continue;
                     }
                     unbuildable.push(format!(
@@ -193,106 +181,26 @@ mod tests {
         assert!(
             unbuildable.is_empty(),
             "shipped `EnemySpawn` placements that construction would REFUSE — \
-             each names no complete character, no archetype row, and no declared \
-             open casting:\n  {}",
+             each names no character that can build a body, and there is no \
+             second road:\n  {}",
             unbuildable.join("\n  ")
         );
     }
 
-    /// **HOW FAR IS `character_archetypes.ron` FROM BEING DELETED** — P2.22's
-    /// acceptance signal, as a countdown rather than a survey.
-    ///
-    /// The campaign's acceptance signal is a DELETION, and the roster file is
-    /// the last of it. This asks the question directly instead of reasoning
-    /// about it: rebuild the resolution every placement goes through, but with
-    /// an EMPTY roster, and list what stops resolving.
-    ///
-    /// ⭐ **that list IS the remaining work, and it is content rather than
-    /// engineering.** Each entry is a creature nobody has decided on yet — the
-    /// three identifiers this provider declares as open casting, which borrow
-    /// `combatant` while the decision stands, and the placements that name a
-    /// brain key and no character.
-    ///
-    /// ⚠ **this does NOT say the file can be deleted the moment the list is
-    /// empty.** `spawn_actors` still ASKS the roster (`try_spec_for_brain`,
-    /// `has_brain_key`); with no row left those arms answer `None` forever and
-    /// become dead code to delete, which is checklist item 22. This measures the
-    /// CONTENT half, which is the half that is blocked on Jon.
-    #[test]
-    fn what_still_needs_an_archetype_row() {
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
-
-        let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
-        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
-        let prepared = app
-            .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
-            .clone();
-
-        let manifest = world_manifest();
-        let project =
-            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
-        let room_set = project
-            .to_room_set(&manifest, &LdtkVocabulary::engine())
-            .expect("the shipped worlds compose");
-
-        let mut needs_a_row: Vec<String> = Vec::new();
-        for room in &room_set.rooms {
-            for enemy in &room.enemy_spawns {
-                let builds_as_a_character = enemy
-                    .payload
-                    .gameplay_character_id()
-                    .and_then(|id| prepared.get(id.as_str()))
-                    .is_some_and(|character| character.body_blueprint().is_ok());
-                if builds_as_a_character {
-                    continue;
-                }
-                // A brain naming no identifier states a POLICY and gets a plain
-                // body — it never needed a row.
-                if let ambition_entity_catalog::placements::CharacterBrain::Custom(key) =
-                    &enemy.payload.brain
-                {
-                    needs_a_row.push(format!("{}/{} wants row `{key}`", room.id, enemy.id));
-                }
-            }
-        }
-        // The identifiers this provider has declared open: they name no
-        // character on purpose and borrow a row until Jon casts them.
-        for (identifier, temporary_row, _) in crate::enemy_roster::OPEN_CASTING {
-            needs_a_row.push(format!(
-                "OPEN_CASTING `{identifier}` borrows row `{temporary_row}`"
-            ));
-        }
-        needs_a_row.sort();
-
-        // ⭐⭐ **EMPTY on 2026-08-13, all four by DECISION.** Jon cast
-        // `SmallSkitter` ("skitters are Puppy Slug"), `under_town_skitter`
-        // (same ruling) and `large_brute` (a real authored Goblin Brute); the
-        // last, `small_lurker`, was cast provisionally as `npc_ai_slop` — the
-        // recommendation on the decision surface, backed by the cascade's own
-        // "slop minions" design note and its already-cast sibling. Reversing
-        // that one is a single string constant in `gradient_sentinel.rs`, not
-        // a reopened architecture question.
-        //
-        // ⇒ the content half of deleting `character_archetypes.ron` is DONE:
-        // no shipped placement, summon, wave or split resolves an archetype
-        // row. What remains is deleting the code that still asks.
-        let expected: [&str; 0] = [];
-        assert_eq!(
-            needs_a_row.as_slice(),
-            expected.as_slice(),
-            "the distance to deleting `character_archetypes.ron` has changed. \
-             SHORTER means a casting decision landed — delete the row it \
-             borrowed if nothing else wants it, and update this list. LONGER \
-             means something new took a dependency on the archetype table, \
-             which is the direction the campaign exists to prevent. EMPTY means \
-             the content half is DONE: the surviving `combatant` row has no user \
-             left, and what remains is deleting the code that still asks \
-             (`try_spec_for_brain` / `has_brain_key` in `spawn_actors`)"
-        );
-    }
+    // ⛔⛔ **`what_still_needs_an_archetype_row` WAS HERE AND IS DELETED — IT
+    // REACHED ZERO** (AC6). It was P2.22's acceptance signal as a countdown: it
+    // rebuilt every shipped placement's resolution against an EMPTY roster and
+    // listed what stopped resolving, so the distance to deleting
+    // `character_archetypes.ron` was a number somebody could read. Its last
+    // entries were four uncast identifiers, and each left by a DECISION rather
+    // than a deletion (skitters are Puppy Slug; `large_brute` is the authored
+    // Goblin Brute; `small_lurker` cast provisionally as `npc_ai_slop`).
+    //
+    // ⚠ its own note said the empty list did NOT license the deletion —
+    // *"`spawn_actors` still ASKS the roster; with no row left those arms answer
+    // `None` forever and become dead code to delete, which is checklist item
+    // 22"* — and that is what this slice did. The file, the resource, the asking
+    // arms and this countdown all went together.
 
     /// **"CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
     /// SHIPPED CONTENT**, not of a fixture.

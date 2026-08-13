@@ -115,7 +115,6 @@ fn fixture_setup(
     prepared_characters: Option<
         Res<ambition_platformer2d_runtime::demo_fixture::PreparedCharacterRegistry>,
     >,
-    character_roster: Res<ambition_platformer2d_runtime::demo_fixture::CharacterRoster>,
     boss_catalog: Res<ambition_platformer2d_runtime::demo_fixture::BossCatalog>,
     placement_lowering: Res<ambition_platformer2d_runtime::demo_fixture::PlacementLoweringRegistry>,
     content_staging: Res<ambition_platformer2d_runtime::demo_fixture::RoomContentStagingRegistry>,
@@ -139,7 +138,6 @@ fn fixture_setup(
             // A smoke fixture authors no sheets; empty is the honest value and
             // resolves exactly as this test did before U1.
             authored_sheets: &Default::default(),
-            character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
             construction:

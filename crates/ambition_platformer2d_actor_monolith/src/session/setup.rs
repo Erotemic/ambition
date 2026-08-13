@@ -73,7 +73,6 @@ pub struct SimulationSetup<'a> {
     /// come from sheets, so setup needs it wherever it needs the catalog.
     pub authored_sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     /// App-local hostile archetype definitions used by authored room lowering.
-    pub character_roster: &'a crate::features::CharacterRoster,
     /// The installed App-local placement-lowering authority. Setup lowers the
     /// start room's authored placements through THIS registry — the same one
     /// room transition and snapshot restore consume — so there is no
@@ -127,7 +126,6 @@ pub fn simulation_world(
         character_catalog,
         prepared_characters,
         authored_sheets,
-        character_roster,
         placement_lowering,
         content_staging,
         construction,
@@ -171,7 +169,6 @@ pub fn simulation_world(
         content_staging,
         character_catalog,
         authored_sheets,
-        character_roster,
         boss_catalog,
         session_scope,
         construction,

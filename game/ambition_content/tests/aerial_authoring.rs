@@ -29,14 +29,6 @@
 //! distinguishable in shipped content.** Only the type carrying the distinction
 //! moved.
 
-use ambition_combat::archetype_spec::ArchetypeSpec;
-use std::collections::BTreeMap;
-
-fn roster() -> BTreeMap<String, ArchetypeSpec> {
-    ron::from_str(ambition_content::enemy_roster::CHARACTER_ROSTER_RON)
-        .expect("character_archetypes.ron parses")
-}
-
 #[test]
 fn shipped_characters_state_their_flight_answer_explicitly() {
     use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
@@ -81,27 +73,12 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
     );
 }
 
-/// **Absence still behaves exactly as the bare bool did.** The lift is
-/// expressiveness; a resolved answer must not have moved.
-#[test]
-fn absence_still_resolves_to_grounded() {
-    for (id, spec) in roster() {
-        let resolved = spec.is_aerial.unwrap_or(false);
-        if spec.is_aerial.is_none() {
-            assert!(
-                !resolved,
-                "`{id}` is silent about flight and resolved to AERIAL, which is a \
-                 behaviour change the lift was not supposed to make"
-            );
-        } else {
-            assert_eq!(
-                Some(resolved),
-                spec.is_aerial,
-                "`{id}` resolved differently from what it authored"
-            );
-        }
-    }
-}
+// ⛔⛔ **`absence_still_resolves_to_grounded` WAS HERE AND IS DELETED** (AC6). It
+// swept every archetype row's `is_aerial: Option<bool>` and asserted that silence
+// still resolved to grounded — that making the question expressible had changed
+// no behaviour. The rows are deleted; the three-state lives on
+// `CharacterLocomotion::baseline_free_flight`, and the test above pins all three
+// of its cases in shipped content.
 
 /// **THE PULSE SURVIVED ITS ARCHETYPE ROW.**
 ///

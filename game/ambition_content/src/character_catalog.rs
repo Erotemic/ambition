@@ -304,6 +304,79 @@ pub fn next_playable(current: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **A PRACTICE TARGET DOES NOT STRIKE BACK** — asked of the CHARACTERS that
+    /// are practice targets, which is where they live.
+    ///
+    /// ⛔⛔ **this ran over the archetype ROSTER and had gone vacuous** (repaired
+    /// 2026-08-13). It asserted `sandbags_are_passive()`, which reads
+    /// `all(|spec| !spec.is_sandbag || spec.melee.is_none())` — and Ambition's
+    /// shipped roster is down to `combatant` and `medium_striker`, neither of
+    /// which sets `is_sandbag`. An `all` over zero matching rows is `true`, so
+    /// the test passed by having nothing to check, which is the D94 shape: a
+    /// green guard whose subject migrated out from under it.
+    ///
+    /// ⛔⛔ **AND MIGRATING THE OLD CLAIM LITERALLY WOULD HAVE BEEN A FALSE
+    /// RULE.** The roster invariant was *"a sandbag row has `melee: None`"*, and
+    /// asked of the characters it fails immediately: both sandbags name the
+    /// `sandbag_punch` action set, which authors a real `PunchWeak`. That is
+    /// deliberate content, not a defect — an archetype row fused kit and policy,
+    /// so the only way to say "never strikes back" was to remove the fist. A
+    /// character says it with its POLICY, and `sandbag.rs`'s own note records
+    /// exactly that: *"Notices nobody and swings at nobody; the old row's
+    /// `attack_range: 150.0` sat beside `melee: None`"*.
+    ///
+    /// ⚠ **it moved here when `enemy_roster.rs` was DELETED** (AC6): its subject
+    /// was always the cast, and the file it lived in was the roster registration.
+    ///
+    /// ⇒ so this asserts the MECHANISM that actually holds — a practice target's
+    /// autonomous profile notices nobody and reaches nobody — rather than the
+    /// old rule's proxy. Asserting the proxy would have pushed content to strip
+    /// a fist for a reason that was never the real one.
+    ///
+    /// ⚠ the count assertion is what stops THIS test going vacuous the same way:
+    /// a cast with no practice targets means they moved again.
+    #[test]
+    fn practice_target_characters_do_not_strike_back() {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+
+        let mut targets = 0;
+        for id in prepared.ids() {
+            let character = prepared
+                .get(id)
+                .unwrap_or_else(|| panic!("`{id}` is in the registry's own id list"));
+            if !character.practice_target {
+                continue;
+            }
+            targets += 1;
+            let policy = character
+                .autonomous_profile
+                .unwrap_or_else(|| panic!("`{id}` is a practice target that states no policy, so what it does when hit is whatever a default happens to say"));
+            assert_eq!(
+                (policy.aggro_radius, policy.attack_range),
+                (0.0, 0.0),
+                "`{id}` is authored as a practice target and its policy notices \
+                 targets at {}px and reaches them at {}px — a dummy that \
+                 counter-attacks is not a dummy. ⚠ its KIT is not the thing to \
+                 fix: both sandbags carry `sandbag_punch` on purpose, and the \
+                 policy is what keeps the fist unused",
+                policy.aggro_radius,
+                policy.attack_range
+            );
+        }
+        assert!(
+            targets >= 2,
+            "this cast holds {targets} practice targets and Ambition ships two \
+             (`sandbag`, `sandbag_infinite`), so the guard above checked nothing \
+             — which is exactly how its roster-side ancestor went quietly vacuous"
+        );
+    }
     use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
 
     /// **THE PUPPY SLUG'S PINS, beside the definition that states them.**
@@ -1039,30 +1112,15 @@ mod tests {
         assert!(goblin.provoked_profile_ref.is_none());
     }
 
-    #[test]
-    fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
-        let rows = include_str!("../assets/data/character_archetypes.ron");
-        for key in [
-            "exploding_mite",
-            "dividing_mite",
-            "puppy_slug",
-            "sky_parrot",
-            "giant_gnu",
-            "pirate_shark_rider",
-            "pirate_heavy_shark_rider",
-            "giant_gnu_hands",
-            "sandbag_finite",
-        ] {
-            assert!(
-                !rows.contains(&format!("\"{key}\": (")),
-                "`{key}` still has a row in character_archetypes.ron, so two \
-                 authorities describe one creature"
-            );
-        }
-        // ⚠ the control: a creature that has NOT migrated must still be there,
-        // or this test would pass on an empty file.
-        assert!(rows.contains("\"combatant\": ("));
-    }
+    // ⛔⛔ **`the_migrated_characters_rows_are_gone_from_the_archetype_file` WAS
+    // HERE AND IS DELETED** (AC6). It swept `character_archetypes.ron` for rows
+    // belonging to creatures that had become characters — nine of them, each one
+    // a place where "two authorities describe one creature" would have been
+    // true. Its control asserted the file still held `combatant`, so it could not
+    // pass on an empty file.
+    //
+    // ⇒ the file is deleted, so no creature can have two authorities: a body is
+    // built from its character or construction refuses it.
 
     /// **The runtime's cast comes OUT of the compiler.**
     ///

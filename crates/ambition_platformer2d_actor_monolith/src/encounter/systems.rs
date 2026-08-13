@@ -149,9 +149,8 @@ pub fn drive_wave_encounters(
     session_content: (
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-        Res<crate::features::CharacterRoster>,
-        // The prepared cast: a wave that names a migrated character builds that
-        // character rather than an archetype wearing its face.
+        // The prepared cast: a wave names a character, and as of AC6 that is
+        // the only thing it can name.
         Res<crate::character_runtime::PreparedCharacterRegistry>,
     ),
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -338,7 +337,6 @@ pub fn drive_wave_encounters(
             &session_content.1,
             &authored_sheets,
             &session_content.2,
-            &session_content.3,
             session_scope,
             active_area.clone(),
             crate::features::EncounterMobSeed {

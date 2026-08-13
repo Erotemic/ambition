@@ -4,7 +4,6 @@
 //! invariants — all driven through the cluster scratch views without a renderer.
 
 use super::*;
-use crate::features::enemies::ArchetypeSpecExt;
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a
 /// player parked far outside the talk radius, plus the catalog Brain that
@@ -278,58 +277,18 @@ fn peaceful_npc_brain_is_not_hostile() {
 /// and the D89 row records the measurement that proved parity before the row was
 /// deleted.
 
-#[test]
-fn enemy_brain_keys_resolve_to_their_rows() {
-    use crate::features::enemies::{fixture_spec, test_spec};
-    // A known spawn brain key resolves to its own authored row...
-    // ⚠ the pair this used to name (`small_skitter`, `large_brute`) is deleted
-    // — their sandbox placements were recast over real characters (D73). The
-    // PROPERTY is unchanged and is what this pins: a known key finds its own
-    // row, an unknown one does not.
-    // ⚠ `fixture_spec`: the shipped `sandbag_infinite` row is deleted (the lab's
-    // dummies name the CHARACTER now); the engine keeps the shape.
-    assert_eq!(fixture_spec("sandbag_infinite").max_health, 9999);
-    assert_eq!(test_spec("medium_striker").max_health, 5);
-    // ...and an unknown / non-roster key falls back to the combatant row.
-    assert_eq!(
-        test_spec("unknown_brain").max_health,
-        test_spec("combatant").max_health,
-    );
-}
-
-/// Every combat archetype reports finite, non-NaN tunings. A regression
-/// here would mean a numerical typo in the authored `character_archetypes.ron`
-/// row (most likely an `f32::NAN` slipped in). Hostile archetypes
-/// additionally must have positive `attack_range` + `contact_strength`;
-/// peaceful rows (puppy_slug, pirate_heavy) may have `attack_range == 0.0`
-/// because they don't emit a melee windup.
-#[test]
-fn enemy_archetype_tunings_are_finite() {
-    use crate::features::enemies::{test_spec, COMBAT_BRAIN_KEYS};
-    for key in COMBAT_BRAIN_KEYS {
-        let spec = test_spec(key);
-        assert!(spec.max_health > 0);
-        assert!(spec.tuning().patrol_speed.is_finite());
-        assert!(spec.tuning().chase_speed.is_finite());
-        assert!(spec.brain_profile().aggro_radius.is_finite());
-        assert!(spec.brain_profile().aggro_radius >= 0.0);
-        assert!(spec.brain_profile().attack_range.is_finite());
-        assert!(spec.brain_profile().attack_range >= 0.0);
-        assert!(spec.contact_strength.is_finite());
-        assert!(spec.contact_strength >= 0.0);
-        assert!(spec.damage_amount > 0);
-        if spec.hostile_by_default {
-            assert!(
-                spec.brain_profile().attack_range > 0.0,
-                "{key} reports it attacks but has zero attack_range",
-            );
-            assert!(
-                spec.contact_strength > 0.0,
-                "{key} reports it attacks but has zero contact_strength",
-            );
-        }
-    }
-}
+// ⛔⛔ **`enemy_brain_keys_resolve_to_their_rows` AND
+// `enemy_archetype_tunings_are_finite` WERE HERE AND ARE DELETED** (AC6): both
+// were tests OF the archetype table — that a known brain key found its own row
+// and an unknown one fell back to `combatant`, and that every row's numbers were
+// finite and non-negative. There is no table, no lookup and no fallback: a body
+// is built from a character, and a name that resolves none is a construction
+// refusal rather than a downgrade to a generic body.
+//
+// ⚠ what replaced the FINITENESS half is not another sweep. Those numbers live
+// on `CharacterDefinition` now, and a character that cannot state a body refuses
+// to build one (`body_blueprint` → `MissingCharacterFacts`), which is the same
+// claim enforced at construction instead of asserted over a file.
 
 // ⛔ **`enemy_archetype_size_and_aggression_invariants` was deleted on
 // 2026-08-11 with the last of its population.** It pinned a size LADDER — small

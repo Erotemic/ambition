@@ -82,7 +82,6 @@ pub fn init_sandbox_resources(app: &mut App) {
     // `AmbitionBossContentPlugin` through the same App-local composition model.
     ambition_content::audio_registries::register(app);
     ambition_content::character_catalog::register(app);
-    ambition_content::enemy_roster::register(app);
     ambition_content::bosses::register(app);
     // This provider's world declaration. Threaded by reference into every
     // preparation-time reader below (catalog rows, the LDtk load, the room-set

@@ -1156,7 +1156,6 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: Res<'w, ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
     placement_lowering:
         Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
@@ -1220,7 +1219,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                 character_catalog: &self.character_catalog,
                 prepared_characters: self.prepared_characters.as_deref(),
                 authored_sheets: &self.authored_sheets,
-                character_roster: &self.character_roster,
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,
                 // Activation is the one place that holds the exact prepared

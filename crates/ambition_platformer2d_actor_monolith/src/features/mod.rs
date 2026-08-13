@@ -109,13 +109,13 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use npcs::speak_conversation_cut_barks;
 
 pub use components::{
-    ActorAggression, ActorDisposition, ActorFaction, ActorIdentity,
-    ActorInteraction, ActorPose, ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode,
-    AggressionTarget, BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
-    BreakableFeature, CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes,
-    EncounterMob, EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened,
-    PersistKey, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
-    RespawnTimer, RuntimeStagedActor, StandTimer,
+    ActorAggression, ActorDisposition, ActorFaction, ActorIdentity, ActorInteraction, ActorPose,
+    ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode, AggressionTarget, BodyMelee,
+    BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
+    CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
+    EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened, PersistKey,
+    PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer,
+    RuntimeStagedActor, StandTimer,
 };
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
@@ -171,9 +171,7 @@ pub use ecs::{
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
-    ActorSpawnState, ActorSurfaceState, CharacterRoster, CharacterRosterAppExt,
-    CharacterRosterAssemblyError, CharacterRosterFragment, CharacterRosterRegistry, RespawnPolicy,
-    ENEMY_DEAD_UNTIL_REST_SUFFIX,
+    ActorSpawnState, ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,

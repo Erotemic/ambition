@@ -29,6 +29,82 @@ fn empty_room(id: &str) -> crate::rooms::RoomSpec {
     )
 }
 
+/// **THE FIXTURE CAST every construction test builds bodies from.**
+///
+/// ⛔ **these tests used to name a fixture ARCHETYPE ROW** (`medium_striker`,
+/// `fixture_giant`, `fixture_mount`, `puppy_slug`) and construction resolved a
+/// body from the roster — settling for the generic `combatant` whenever the key
+/// matched nothing. The roster is deleted (AC6): a placement, a staged request
+/// and a summon each name a CHARACTER, and one that names none is refused. So
+/// the fixtures name characters, and this is where they exist.
+///
+/// ⚠ `'static` because `ActorConstructionContext` BORROWS the cast, and a
+/// per-test local would not outlive the plan it is handed to.
+fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
+    static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
+        std::sync::OnceLock::new();
+    CAST.get_or_init(|| {
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        for (id, mount) in [
+            ("medium_striker", None),
+            ("puppy_slug", None),
+            ("combatant", None),
+            ("fixture_walker", None),
+            // The giant's HANDS: `giant_cluster_rows` mints two limb rows naming
+            // this character, so a cast without it refuses the whole cluster.
+            ("npc_giant_gnu_hands", None),
+            // The limbed host: a `"giant"`-class mount lowers to host + two hand
+            // rows, and a CHARACTER is the only thing that says so now.
+            ("fixture_giant", Some(("giant", &[][..]))),
+            // The rideable body and its rider, the ADR 0020 pair.
+            ("fixture_mount", Some(("shark", &[][..]))),
+        ] {
+            let mut definition = crate::character_runtime::CharacterDefinition::new(id, id, "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed: 155.0,
+                    move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(4);
+            if let Some((class, pilotable)) = mount {
+                definition.mount = Some(ambition_characters::actor::CharacterMount {
+                    class: Some(class.to_string()),
+                    pilotable_classes: pilotable.iter().map(|c: &&str| (*c).to_string()).collect(),
+                    ..Default::default()
+                });
+            }
+            let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+                definition,
+                &crate::character_runtime::CharacterBindings::default(),
+            );
+            registry.insert_prepared(finalized.prepared);
+        }
+        // The RIDER: it pilots a `"shark"`-class mount and is not itself one.
+        let mut rider = crate::character_runtime::CharacterDefinition::new(
+            "pirate_raider",
+            "pirate_raider",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 155.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            ..Default::default()
+        });
+        rider.vitals.max_health = Some(4);
+        rider.mount = Some(ambition_characters::actor::CharacterMount {
+            class: None,
+            pilotable_classes: vec!["shark".to_string()],
+            ..Default::default()
+        });
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            rider,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        registry.insert_prepared(finalized.prepared);
+        registry
+    })
+}
+
 fn ground_item(id: &str, held_item: &str) -> crate::rooms::GroundItemSpec {
     crate::rooms::GroundItemSpec {
         id: id.to_string(),
@@ -51,7 +127,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".into(),
             ),
-            character: None,
+            character: Some(ambition_entity_catalog::CharacterId::from("medium_striker")),
         },
     }
 }
@@ -88,9 +164,8 @@ fn prepare(
         staging,
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(recipes, ae::ContentEpoch(4)),
+        ActorConstructionContext::new(recipes, ae::ContentEpoch(4)).with_prepared(fixture_cast()),
     )
 }
 
@@ -633,9 +708,11 @@ fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    world.insert_resource(crate::features::enemies::fixture_roster_with_mount());
     world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
+    // ⭐ **the CAST, because a summon names a character** (AC6). A summon that
+    // resolves none is refused where it used to become a generic `combatant`.
+    world.insert_resource(fixture_cast().clone());
 }
 
 fn summon_world() -> World {
@@ -915,8 +992,7 @@ fn every_parameter_variant_constructs_its_root() {
             "hall",
             "prov",
             &[staged_enemy("staged", None)],
-            &crate::features::enemies::fixture_roster_with_mount(),
-            None,
+            Some(fixture_cast()),
         )
         .pop()
         .expect("one request"),
@@ -956,13 +1032,12 @@ fn every_parameter_variant_constructs_its_root() {
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    world.insert_resource(crate::features::enemies::fixture_roster_with_mount());
     let services = ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::features::enemies::fixture_roster_with_mount(),
-        ),
+        )
+        .with_prepared(fixture_cast()),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
     };
     let planned = plan.planned_ids();
@@ -1125,8 +1200,7 @@ fn every_parameter_variant_matches_its_descriptor() {
         "hall",
         "prov",
         &[staged_enemy("staged", None)],
-        &crate::features::enemies::fixture_roster_with_mount(),
-        None,
+        Some(fixture_cast()),
     )
     .pop()
     .expect("one request");
@@ -1345,8 +1419,8 @@ fn test_services() -> ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::features::enemies::fixture_roster_with_mount(),
-        ),
+        )
+        .with_prepared(fixture_cast()),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
     }
 }
@@ -1838,9 +1912,8 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
 fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstructionError> {
     preflight_actor_relations(
         &requests,
-        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
-        None,
+        Some(fixture_cast()),
     )
 }
 
@@ -1993,7 +2066,10 @@ fn giant_room() -> crate::rooms::RoomSpec {
         "boss_mount",
         "Giant GNU",
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
+        )
+        .with_character_id("fixture_giant"),
     ));
     room
 }
@@ -2017,12 +2093,16 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
             "boss_mount",
             "Giant GNU",
             ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("no_such_archetype".into()),
+            crate::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "no_such_archetype".into(),
+                ),
+            )
+            .with_character_id("no_such_archetype"),
         );
     authored.payload.character_id = Some(ambition_entity_catalog::CharacterId::new("npc_giant"));
     room.enemy_spawns.push(authored);
 
-    let roster = crate::features::enemies::fixture_roster_with_mount();
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         crate::character_runtime::CharacterDefinition::new("npc_giant", "Giant GNU", "test")
             .with_mount(ambition_characters::actor::CharacterMount {
@@ -2034,7 +2114,7 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
 
-    let without_cast = crate::construction::authored_actor_requests(&room, &roster, &[], None);
+    let without_cast = crate::construction::authored_actor_requests(&room, &[], None);
     assert_eq!(
         without_cast.len(),
         1,
@@ -2042,7 +2122,7 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
          enemy — so three rows below cannot come from the roster"
     );
 
-    let requests = crate::construction::authored_actor_requests(&room, &roster, &[], Some(&cast));
+    let requests = crate::construction::authored_actor_requests(&room, &[], Some(&cast));
     assert_eq!(
         requests.len(),
         3,
@@ -2059,8 +2139,8 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
 /// authoritative roots no plan named — the last legacy family.
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
+    let requests =
+        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -2100,8 +2180,8 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 /// sees no violation — no legacy warning, because the hands are owned rows now.
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
+    let requests =
+        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2142,8 +2222,8 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 /// one of them can be rebuilt alone — the closure holds the cluster together.
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
+    let requests =
+        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2189,7 +2269,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "fixture_giant".into(),
             ),
-            character: None,
+            character: Some(ambition_entity_catalog::CharacterId::from("fixture_giant")),
         },
     }
 }
@@ -2200,8 +2280,8 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
 /// no longer spawns hands — so a staged giant was a handless host.
 #[test]
 fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = staged_actor_requests("hall", "prov", &[staged_giant("gnu")], &roster, None);
+    let requests =
+        staged_actor_requests("hall", "prov", &[staged_giant("gnu")], Some(fixture_cast()));
 
     assert_eq!(requests.len(), 3, "host + two hands");
     let host = SimId::placement("gnu");
@@ -2239,9 +2319,12 @@ fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
 /// The giant expansion does not leak onto ordinary staged actors.
 #[test]
 fn a_staged_non_giant_stays_a_single_staged_actor_row() {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests =
-        staged_actor_requests("hall", "prov", &[staged_enemy("npc", None)], &roster, None);
+    let requests = staged_actor_requests(
+        "hall",
+        "prov",
+        &[staged_enemy("npc", None)],
+        Some(fixture_cast()),
+    );
     assert_eq!(requests.len(), 1);
     assert!(matches!(
         &requests[0].parameters,
@@ -2334,15 +2417,15 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
 fn a_runtime_minion_giant_is_refused_before_it_spawns() {
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let roster = crate::features::enemies::fixture_roster_with_mount();
     let root = {
         let mut commands = world.commands();
         crate::features::ecs::spawn_runtime_minion(
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
-            &Default::default(),
+            // ⭐ **the giant IS in the cast**, so the refusal under test is the
+            // limb-rig one rather than "this names no character" (AC6).
+            fixture_cast(),
             SessionSpawnScope::UNSCOPED,
             "runaway",
             "Giant GNU",
@@ -2368,20 +2451,20 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
 fn an_encounter_wave_giant_is_refused_before_it_spawns() {
     let mut world = World::new();
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let roster = crate::features::enemies::fixture_roster_with_mount();
     {
         let mut commands = world.commands();
         crate::features::spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
-            &roster,
-            &crate::character_runtime::PreparedCharacterRegistry::default(),
+            // See the minion twin: the cast holds the giant, so the refusal
+            // under test is the limb-rig one.
+            fixture_cast(),
             SessionSpawnScope::UNSCOPED,
             "enc",
             crate::features::EncounterMobSeed {
                 id: "wave_gnu".to_string(),
-                character: None,
+                character: Some("fixture_giant"),
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "fixture_giant".into(),
                 ),
@@ -2407,8 +2490,8 @@ fn committed_giant() -> (
     ConstructionReceipt,
     TransactionBaseline,
 ) {
-    let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
+    let requests =
+        crate::construction::authored_actor_requests(&giant_room(), &[], Some(fixture_cast()));
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2637,13 +2720,19 @@ fn mounted_pair_room() -> crate::rooms::RoomSpec {
         "sky_shark",
         "Burning Flying Shark",
         ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
+        )
+        .with_character_id("fixture_mount"),
     ));
     room.enemy_spawns.push(crate::rooms::Authored::new(
         "sky_rider",
         "Pirate Raider",
         ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        )
+        .with_character_id("pirate_raider"),
     ));
     room.mount_links
         .push(("sky_rider".to_string(), "sky_shark".to_string()));
@@ -2839,7 +2928,10 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
         "second_rider",
         "Pirate Raider",
         ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        )
+        .with_character_id("pirate_raider"),
     ));
     room.mount_links
         .push(("second_rider".to_string(), "sky_shark".to_string()));
@@ -2896,7 +2988,10 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
         "walker",
         "Ordinary Walker",
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+        )
+        .with_character_id("combatant"),
     ));
     room.boss_spawns.push(crate::rooms::Authored::new(
         "warden",
@@ -2952,7 +3047,10 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
         "walker",
         "Ordinary Walker",
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+        crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+        )
+        .with_character_id("combatant"),
     ));
     room.boss_spawns.push(crate::rooms::Authored::new(
         "warden",
@@ -3098,9 +3196,9 @@ fn prepare_with_placements(
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
-        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4)),
+        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
+            .with_prepared(fixture_cast()),
     )
 }
 
@@ -3336,24 +3434,25 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     let plan = prepare(&room, &staging, &engine_construction_registry())
         .expect("an unbound reference is a content defect, not a reason to refuse the room");
 
+    // ⛔ **ONE channel now** (AC6). The staged half of this sweep resolved a
+    // BRAIN KEY against the archetype roster, and its typo (`medium_strikr`) was
+    // reported here because the lookup behind it could not fail. Construction
+    // refuses an identifier that names no character, which is a stronger
+    // statement than a report — so the patrol path is the namespace this sweep
+    // still owns, and it is the one whose failure mode is still silent (a bad
+    // path goes passive).
     let report = plan.binding_report();
-    assert_eq!(report.len(), 2, "both channels are swept:\n{report}");
+    assert_eq!(report.len(), 1, "the patrol channel is swept:\n{report}");
 
     let found: Vec<_> = report
         .unresolved()
         .iter()
         .map(|u| (u.namespace, u.id.as_str()))
         .collect();
-    assert_eq!(
-        found,
-        vec![
-            ("character", "medium_strikr"),
-            ("kinematic path", "ledge_patrl"),
-        ],
-    );
+    assert_eq!(found, vec![("kinematic path", "ledge_patrl")]);
     assert_eq!(
         report.unresolved()[0].did_you_mean.as_deref(),
-        Some("medium_striker"),
+        Some("ledge_patrol"),
     );
 
     // The clean room next door reports nothing — the sweep is discriminating,
@@ -3401,12 +3500,10 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
 
-    let roster = crate::features::enemies::test_roster();
     let bosses = crate::boss_encounter::BossCatalog::default();
     let params = ActorConstructionParams::StagedActor(request.clone());
 
-    let planned =
-        crate::construction::mount_capabilities_of(&params, &roster, &bosses, Some(&cast));
+    let planned = crate::construction::mount_capabilities_of(&params, &bosses, Some(&cast));
     assert_eq!(
         planned.mount_class.as_deref(),
         Some("shark"),
@@ -3417,7 +3514,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     // with no cast the same request falls to the archetype, which states no
     // mount. If this ALSO said `shark`, the roster would be answering and the
     // character would be decorative.
-    let without_cast = crate::construction::mount_capabilities_of(&params, &roster, &bosses, None);
+    let without_cast = crate::construction::mount_capabilities_of(&params, &bosses, None);
     assert_eq!(
         without_cast.mount_class, None,
         "the fixture roster must state no mount for this brain, or this test is \

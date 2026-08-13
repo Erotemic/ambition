@@ -431,8 +431,7 @@ fn spawn_fighter(
     // default is -1, which had both fighters swinging left and produced exactly
     // one hit in a two-attacker exchange.
     seed.kin.facing = facing;
-    let (identity, disposition, combat) =
-        crate::features::ecs::enemy_component_snapshot(&seed);
+    let (identity, disposition, combat) = crate::features::ecs::enemy_component_snapshot(&seed);
     app.world_mut()
         .spawn((
             (
@@ -481,7 +480,6 @@ fn fight_app() -> App {
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.
     app.insert_resource(crate::combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(crate::features::GameplayBanner::default());
     app.init_resource::<ambition_time::WorldTime>();
     {

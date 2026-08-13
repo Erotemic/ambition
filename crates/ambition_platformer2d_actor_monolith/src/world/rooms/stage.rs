@@ -160,23 +160,49 @@ impl RoomConstructionPlan {
                 .ok_or(missing("CharacterCatalog"))?,
             &authored_sheets,
             world
-                .get_resource::<features::CharacterRoster>()
-                .ok_or(missing("CharacterRoster"))?,
-            world
                 .get_resource::<crate::boss_encounter::BossCatalog>()
                 .ok_or(missing("BossCatalog"))?,
             session_scope,
-            features::ActorConstructionContext::new(
-                world
-                    .get_resource::<crate::construction::ActorConstructionRegistry>()
-                    .ok_or(missing("ActorConstructionRegistry"))?,
-                // The activation generation this world is running, published on
-                // the session root beside the prepared content it identifies.
-                // A world with no prepared session states none.
-                session_world_component::<ambition_platformer2d_core::ContentEpoch>(world)
-                    .copied()
-                    .unwrap_or_default(),
-            ),
+            {
+                let mut construction = features::ActorConstructionContext::new(
+                    world
+                        .get_resource::<crate::construction::ActorConstructionRegistry>()
+                        .ok_or(missing("ActorConstructionRegistry"))?,
+                    // The activation generation this world is running, published
+                    // on the session root beside the prepared content it
+                    // identifies. A world with no prepared session states none.
+                    session_world_component::<ambition_platformer2d_core::ContentEpoch>(world)
+                        .copied()
+                        .unwrap_or_default(),
+                );
+                // ⛔⛔ **THIS ROAD BUILT ITS ROOMS WITHOUT THE CAST, AND NOTHING
+                // SAID SO** (found by AC6, 2026-08-13). Every other preparation
+                // site hands the context the prepared characters and the
+                // published policies; this one — the EXCLUSIVE-WORLD form, used
+                // by the confirmed deferred room transition under a rollback
+                // host — read every other service off the world and not these
+                // two. So the same room was character-first through the eager
+                // transition and archetype-first through the confirmed one: a
+                // body whose character was registered got the generic
+                // `combatant` instead, with the right name on it.
+                //
+                // ⚠ it was invisible precisely because the archetype road worked.
+                // Deleting the fallback turned it into a refusal on the first
+                // door a rollback host opened
+                // (`a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one`),
+                // which is the deletion doing what it is for.
+                if let Some(prepared) =
+                    world.get_resource::<crate::character_runtime::PreparedCharacterRegistry>()
+                {
+                    construction = construction.with_prepared(prepared);
+                }
+                if let Some(profiles) = world.get_resource::<
+                    ambition_characters::actor::character_catalog::BrainProfileRegistry,
+                >() {
+                    construction = construction.with_brain_profiles(profiles);
+                }
+                construction
+            },
         )
     }
 
@@ -190,7 +216,6 @@ impl RoomConstructionPlan {
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
         construction: features::ActorConstructionContext<'_>,
@@ -207,7 +232,6 @@ impl RoomConstructionPlan {
             content_staging,
             character_catalog,
             authored_sheets,
-            character_roster,
             boss_catalog,
             session_scope,
             construction,
@@ -224,7 +248,6 @@ impl RoomConstructionPlan {
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        character_roster: &features::CharacterRoster,
         boss_catalog: &crate::boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
         construction: features::ActorConstructionContext<'_>,
@@ -235,7 +258,6 @@ impl RoomConstructionPlan {
             content_staging,
             character_catalog,
             authored_sheets,
-            character_roster,
             boss_catalog,
             construction,
         )
@@ -526,6 +548,36 @@ mod tests {
         )
     }
 
+    /// **THE FIXTURE CAST**, because every body is built from a character (AC6)
+    /// and a placement that names none is refused at construction.
+    ///
+    /// ⚠ `'static`: `ActorConstructionContext` BORROWS the cast, so a per-test
+    /// local would not outlive the plan it is handed to.
+    fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistry {
+        static CAST: std::sync::OnceLock<crate::character_runtime::PreparedCharacterRegistry> =
+            std::sync::OnceLock::new();
+        CAST.get_or_init(|| {
+            let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+            // `npc_giant_gnu_hands` is minted by `giant_cluster_rows` for the two
+            // limb rows, so a cast without it refuses the whole giant cluster.
+            for id in ["combatant", "npc_giant_gnu_hands"] {
+                let mut definition =
+                    crate::character_runtime::CharacterDefinition::new(id, id, "test")
+                        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                            run_speed: 155.0,
+                            ..Default::default()
+                        });
+                definition.vitals.max_health = Some(4);
+                let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+                    definition,
+                    &crate::character_runtime::CharacterBindings::default(),
+                );
+                registry.insert_prepared(finalized.prepared);
+            }
+            registry
+        })
+    }
+
     fn prepare(spec: RoomSpec) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
         RoomConstructionPlan::prepare_spec(
@@ -535,10 +587,10 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &features::CharacterRoster::default(),
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, Default::default()),
+            features::ActorConstructionContext::new(&recipes, Default::default())
+                .with_prepared(fixture_cast()),
         )
     }
 
@@ -553,11 +605,16 @@ mod tests {
         );
     }
 
-    /// As [`prepare`], but with an explicit roster and content epoch — the two
+    /// As [`prepare`], but with an explicit CAST and content epoch — the two
     /// preparation inputs OUTSIDE the `RoomSpec` that shape the derived plan.
+    ///
+    /// ⛔ **it took a `&CharacterRoster`** and the giant tests below handed it
+    /// rows declaring `mount_class: Some("giant")`. A character states its mount
+    /// now (AC6), so the cast is the input that decides whether a placement
+    /// lowers to a limbed host.
     fn prepare_with(
         spec: RoomSpec,
-        roster: &features::CharacterRoster,
+        cast: &crate::character_runtime::PreparedCharacterRegistry,
         epoch: ae::ContentEpoch,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
@@ -568,50 +625,61 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            roster,
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, epoch),
+            features::ActorConstructionContext::new(&recipes, epoch).with_prepared(cast),
         )
     }
 
-    /// A minimal roster whose `"giant_gnu"` is a `"giant"`-class limbed host
-    /// with the given body size. The size drives `giant_hand_plans` geometry —
-    /// hand boxes and `home_offset` relation payloads — which lives NOWHERE in
-    /// the `RoomSpec`.
-    fn giant_roster(default_size: f32) -> features::CharacterRoster {
-        features::CharacterRoster::from_ron(&format!(
-            r#"{{
-                "combatant": (
-                    max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                ),
-                "giant_gnu": (
-                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    mount_class: Some("giant"),
-                    default_size: Some(({default_size}, {default_size})),
-                ),
-                "giant_gnu_hands": (
-                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                ),
-            }}"#
-        ))
+    /// A cast whose `"giant_gnu"` is a `"giant"`-class limbed host.
+    fn giant_cast(
+        mount_class: Option<&str>,
+    ) -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut definition =
+            crate::character_runtime::CharacterDefinition::new("giant_gnu", "Giant GNU", "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed: 0.0,
+                    ..Default::default()
+                });
+        definition.vitals.max_health = Some(42);
+        if let Some(class) = mount_class {
+            definition.mount = Some(ambition_characters::actor::CharacterMount {
+                class: Some(class.to_string()),
+                ..Default::default()
+            });
+        }
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        // The hands travel with the host: `giant_cluster_rows` mints two limb
+        // rows naming `npc_giant_gnu_hands`.
+        let mut registry = fixture_cast().clone();
+        registry.insert_prepared(finalized.prepared);
+        registry
     }
 
-    fn giant_spec(id: &str) -> RoomSpec {
+    /// A giant placement of the given body half-extent. The size drives
+    /// `giant_hand_plans` geometry — hand boxes and `home_offset` relation
+    /// payloads — and it is the PLACEMENT's now: the archetype `default_size`
+    /// that used to override it is deleted with the rows (AC6).
+    fn giant_spec_sized(id: &str, half: f32) -> RoomSpec {
         let mut spec = empty_spec(id);
+        let mut payload = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+        );
+        payload.character_id = Some(ambition_entity_catalog::CharacterId::from("giant_gnu"));
         spec.enemy_spawns.push(crate::rooms::Authored::new(
             "gnu",
             "Giant GNU",
-            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(half)),
+            payload,
         ));
         spec
+    }
+
+    fn giant_spec(id: &str) -> RoomSpec {
+        giant_spec_sized(id, 60.0)
     }
 
     /// **The plan id tracks the DERIVED construction surface, not just the
@@ -622,14 +690,14 @@ mod tests {
     #[test]
     fn the_plan_id_tracks_the_derived_relation_payloads() {
         let small = prepare_with(
-            giant_spec("arena"),
-            &giant_roster(120.0),
+            giant_spec_sized("arena", 60.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("small-giant plan");
         let large = prepare_with(
-            giant_spec("arena"),
-            &giant_roster(140.0),
+            giant_spec_sized("arena", 70.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("large-giant plan");
@@ -647,17 +715,13 @@ mod tests {
     fn the_plan_id_tracks_the_giant_expansion() {
         let giant = prepare_with(
             giant_spec("arena"),
-            &giant_roster(120.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("giant plan");
-        // Same spec, but the roster has no idea "giant_gnu" is a giant.
-        let plain = prepare_with(
-            giant_spec("arena"),
-            &features::CharacterRoster::default(),
-            ae::ContentEpoch(4),
-        )
-        .expect("plain plan");
+        // Same spec, but the cast has no idea "giant_gnu" is a giant.
+        let plain = prepare_with(giant_spec("arena"), &giant_cast(None), ae::ContentEpoch(4))
+            .expect("plain plan");
         assert_ne!(giant.id(), plain.id());
     }
 
@@ -667,13 +731,13 @@ mod tests {
     fn the_plan_id_tracks_the_content_epoch() {
         let four = prepare_with(
             giant_spec("arena"),
-            &giant_roster(120.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("epoch-4 plan");
         let five = prepare_with(
             giant_spec("arena"),
-            &giant_roster(120.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(5),
         )
         .expect("epoch-5 plan");
@@ -686,7 +750,7 @@ mod tests {
     fn the_plan_id_tracks_frozen_path_content() {
         let bare = prepare_with(
             giant_spec("arena"),
-            &giant_roster(120.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("pathless plan");
@@ -699,7 +763,7 @@ mod tests {
                 ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
                 ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 24.0),
             ));
-        let pathed = prepare_with(with_path, &giant_roster(120.0), ae::ContentEpoch(4))
+        let pathed = prepare_with(with_path, &giant_cast(Some("giant")), ae::ContentEpoch(4))
             .expect("pathed plan");
         assert_ne!(bare.id(), pathed.id());
     }
@@ -712,7 +776,7 @@ mod tests {
     fn a_giant_rooms_rosters_agree_from_plan_to_receipt_to_verifier() {
         let plan = prepare_with(
             giant_spec("arena"),
-            &giant_roster(120.0),
+            &giant_cast(Some("giant")),
             ae::ContentEpoch(4),
         )
         .expect("giant plan");
@@ -776,13 +840,19 @@ mod tests {
             "same-id",
             "first",
             aabb,
-            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            crate::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            )
+            .with_character_id("combatant"),
         ));
         spec.enemy_spawns.push(crate::rooms::Authored::new(
             "same-id",
             "second",
             aabb,
-            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            crate::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            )
+            .with_character_id("combatant"),
         ));
         let error = prepare(spec).expect_err("duplicate roots must fail preparation");
         assert!(matches!(
@@ -832,7 +902,7 @@ mod tests {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                             "combatant".into(),
                         ),
-                        character: None,
+                        character: Some(ambition_entity_catalog::CharacterId::from("combatant")),
                     },
                 }]
             })
@@ -845,10 +915,10 @@ mod tests {
             &staging,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::features::enemies::test_roster(),
             &crate::boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
-            features::ActorConstructionContext::new(&recipes, Default::default()),
+            features::ActorConstructionContext::new(&recipes, Default::default())
+                .with_prepared(fixture_cast()),
         )
         .expect("plan");
 
@@ -910,7 +980,10 @@ mod tests {
             "enemy-1",
             "enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            crate::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+            )
+            .with_character_id("combatant"),
         ));
         let plan = prepare(spec).expect("plan");
         let expected = plan.predicted_authoritative_ids().clone();

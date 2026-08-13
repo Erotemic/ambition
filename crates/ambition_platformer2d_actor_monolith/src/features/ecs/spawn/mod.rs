@@ -7,7 +7,6 @@
 
 use super::spawn_actors::EncounterMobSeed;
 use crate::boss_encounter::BossCatalog;
-use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
@@ -219,7 +218,6 @@ impl RoomFeatureConstructionPlan {
         content_staging: &RoomContentStagingRegistry,
         catalog: &CharacterCatalog,
         sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        roster: &CharacterRoster,
         boss_catalog: &BossCatalog,
         construction: ActorConstructionContext<'_>,
     ) -> Result<Self, RoomFeatureConstructionError> {
@@ -236,33 +234,23 @@ impl RoomFeatureConstructionPlan {
             .collect();
         // Every id this room POINTS AT that has NO failure mode of its own,
         // resolved before construction mutates anything: an unknown patrol path
-        // goes passive. ⚠ an unknown BRAIN KEY used to become the `combatant`
-        // fallback here and no longer does — construction refuses it (D102) — so
-        // this pass is now about the failure modes that still pass silently,
-        // which is the patrol road.
+        // goes passive.
         //
-        // Held items are deliberately absent. `authored_ground_item_requests`
-        // REFUSES a room that names an unregistered one, which is stronger than
-        // reporting it, and it now raises the same `UnresolvedRef` this sweep
-        // would have produced. One defect, one authority, one diagnostic.
-        let bindings = crate::rooms::RoomBindings::default().with_characters(roster.brain_keys());
-        let mut binding_report = bindings.sweep(room);
-        binding_report.absorb(bindings.sweep_characters(content_requests.iter().filter_map(
-            |request| match &request.kind {
-                // ⚠ a staged spawn that NAMES A CHARACTER is not asking the
-                // roster for a body, so sweeping its brain key against the
-                // roster would refuse a request that is correct. Only the
-                // archetype-road requests are swept.
-                super::spawn_actors::SpawnActorKind::Enemy {
-                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(archetype),
-                    character: None,
-                } => Some((
-                    archetype.clone(),
-                    format!("staged spawn `{}`", request.id),
-                )),
-                _ => None,
-            },
-        )));
+        // ⛔⛔ **THE CHARACTER NAMESPACE LEFT THIS SWEEP WITH THE ROSTER** (AC6).
+        // It resolved each placement's BRAIN KEY against `roster.brain_keys()`,
+        // because the lookup behind it could not fail and a misspelling became
+        // the generic `combatant` body with the right name on it. There is no
+        // such lookup and no such body: an identifier that names no character is
+        // a construction REFUSAL, which is a stronger statement than a report
+        // nobody has to read, and a brain key is controller policy rather than a
+        // body, so sweeping one against a body table was the category error the
+        // campaign is named for.
+        //
+        // Held items are deliberately absent for the same reason:
+        // `authored_ground_item_requests` REFUSES a room that names an
+        // unregistered one. One defect, one authority, one diagnostic.
+        let bindings = crate::rooms::RoomBindings::default();
+        let binding_report = bindings.sweep(room);
         binding_report.log(&format!("room `{}` construction", room.id));
         // Authored-id uniqueness across every family, checked in the RAW authored
         // namespace while the outgoing room is still whole. This stays separate
@@ -297,7 +285,6 @@ impl RoomFeatureConstructionPlan {
                 &room.id,
                 provider,
                 std::slice::from_ref(request),
-                roster,
                 construction.prepared,
             ));
         }
@@ -318,7 +305,6 @@ impl RoomFeatureConstructionPlan {
         // loops that used to build these in `spawn` are deleted.
         requests.extend(crate::construction::authored_actor_requests(
             room,
-            roster,
             &paths,
             construction.prepared,
         ));
@@ -334,7 +320,6 @@ impl RoomFeatureConstructionPlan {
         // this domain can state.
         crate::construction::preflight_actor_relations(
             &requests,
-            roster,
             boss_catalog,
             construction.prepared,
         )
@@ -365,7 +350,7 @@ impl RoomFeatureConstructionPlan {
             .collect();
 
         let mut placement_context =
-            crate::world::placements::ActorPlacementContext::new(catalog, sheets, roster);
+            crate::world::placements::ActorPlacementContext::new(catalog, sheets);
         if let Some(prepared) = construction.prepared {
             placement_context = placement_context.with_prepared(prepared);
         }
@@ -563,7 +548,6 @@ pub fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
@@ -573,7 +557,6 @@ pub fn spawn_encounter_mob(
         commands,
         catalog,
         authored_sheets,
-        roster,
         prepared,
         session_scope,
         encounter_id,

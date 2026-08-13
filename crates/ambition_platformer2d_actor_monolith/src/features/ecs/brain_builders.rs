@@ -6,12 +6,10 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::ArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
-use crate::features::enemies::ArchetypeSpecExt;
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
@@ -110,21 +108,16 @@ pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::B
 // provocation no longer writes health at all. The VALUE is unchanged and D96
 // item 7 still owns it.
 
-/// Build the enemy's durable combat capability kit from archetype data.
-///
-/// The kit intentionally does **not** include held item overlays; a held item is
-/// a separate component and can be dropped/swapped later. `ActionSet` is derived
-/// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_combat_kit_for_spec(spec: &ArchetypeSpec) -> CombatKit {
-    CombatKit {
-        innate_melee: spec.melee_spec(),
-        innate_ranged: spec.ranged_spec(),
-        // An archetype authors no special today; the field exists so a kit built
-        // from an ActionSet round-trips one (see `CombatKit::from_action_set`).
-        innate_special: None,
-        move_style: spec.move_style(),
-    }
-}
+// ⛔⛔ **`enemy_combat_kit_for_spec` WAS HERE AND IS DELETED (AC6)** with its two
+// siblings `enemy_default_action_set` and `held_item_for_spec`. All three read a
+// body's weapons off an `ArchetypeSpec` — the melee timings, the ranged spec, the
+// gait, the held item, the signature move — and their one production caller was
+// `EnemyActorSpawnPlan::hostile`, which asked them only when the seed carried an
+// archetype. A character-first seed never did, so they had already stopped
+// answering for any shipped body before the type they read went.
+//
+// ⇒ what a body fights with comes from its CHARACTER, through the one persona
+// writer (`grant_prepared_character_body`).
 
 pub(super) fn action_set_from_combat_kit(
     kit: &CombatKit,
@@ -133,42 +126,7 @@ pub(super) fn action_set_from_combat_kit(
     kit.to_action_set(held_item.map(|item| &item.spec))
 }
 
-/// Build the enemy's default `ActionSet` from its authored spec.
-///
-/// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight off the
-/// data-driven `ArchetypeSpec` — every spec value (timings, damage,
-/// reach) lives in `character_archetypes.ron`. Spawn-time only: the spec is
-/// resolved on the spawn seed before the entity exists, so the spawn path
-/// never names the roster enum.
-pub(super) fn enemy_default_action_set(spec: &ArchetypeSpec) -> ActionSet {
-    let mut actions = enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref());
-    // The special is a data-driven MOVE now (the moveset subsumes `ActionSet.special`,
-    // fable review §A1): if the archetype authors a signature move on the `special`
-    // verb, mark the capability so the brain knows to press special. The move itself
-    // executes through the moveset runtime (`trigger_moveset_moves`), never the
-    // retired flat resolve arm.
-    if let Some(move_id) = spec
-        .signature_move
-        .as_ref()
-        .and_then(|m| m.verbs.get("special"))
-    {
-        actions.special = Some(ambition_characters::brain::SpecialActionSpec::Special(
-            move_id.clone(),
-        ));
-    }
-    actions
-}
-
-pub(super) fn held_item_for_spec(
-    spec: &ArchetypeSpec,
-) -> Option<ambition_characters::brain::HeldItemSpec> {
-    spec.held_item_spec()
-}
-
-/// Build the enemy's default `Brain` from its archetype spec.
-///
-/// Reads `brain_template()` off the consolidated `ArchetypeSpec` so adding
-/// a new archetype is a single row, not a parallel match.
+/// Build the enemy's default `Brain` from its resolved controller profile.
 pub(crate) fn enemy_default_brain(
     enemy: &ActorConfig,
     // ⭐ **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
@@ -664,156 +622,20 @@ mod ladder_projection_tests {
     }
 }
 
-#[cfg(test)]
-mod tests {
-
-    /// **THE UNDESCRIBED-BODY RESPAWN POLICY IS THE `combatant` ROW's**, so
-    /// deleting the row does not quietly change what a body nobody described
-    /// does when it dies.
-    ///
-    /// ⛔ **the poison is the second assertion.** `RespawnPolicy::default()` is
-    /// `DeadStaysDead` — the answer for a NAMED, unique actor — and an
-    /// undescribed body is the opposite case. If the constant had drifted to the
-    /// type's default, the first assertion alone would only fail if the ROW had
-    /// drifted too, and the two drifting together is exactly what a shared
-    /// default makes likely.
-    #[test]
-    fn the_undescribed_respawn_policy_matches_the_combatant_row() {
-        use ambition_entity_catalog::placements::RespawnPolicy;
-        assert_eq!(
-            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
-            crate::features::enemies::test_spec("combatant").respawn,
-        );
-        assert_ne!(
-            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
-            RespawnPolicy::default(),
-            "an undescribed body took the type's default, which is the policy \
-             for a NAMED unique actor — the opposite case"
-        );
-    }
-
-    /// **THE ENGINE'S DEFAULT PROVOKED POLICY IS THE `combatant` ROW, and this
-    /// is what makes deleting the row a no-op rather than a retune.**
-    ///
-    /// ⭐ the same shape as `default_fighting_kit`'s equivalence test one
-    /// authority over: name the concept in the engine, pin it against the
-    /// legacy data while the data survives, and the deletion is then a
-    /// bookkeeping change. Without this the row's departure would silently
-    /// retune every provoked NPC in the game and every test would still pass.
-    ///
-    /// ⛔ **when `combatant` goes, this test goes WITH it** — not by being
-    /// weakened. There is nothing left to compare against at that point, and a
-    /// test that pins a constant to itself is the vacuous kind.
-    #[test]
-    fn an_engine_default_provoked_policy_matches_the_combatant_row() {
-        let row = crate::features::enemies::test_spec("combatant");
-        let engine = default_provoked_policy();
-        let from_row = crate::features::enemies::ArchetypeSpecExt::brain_profile(&row);
-
-        assert_eq!(
-            engine.template, from_row.template,
-            "the provoked TEMPLATE moved; a provoked NPC would fight with a \
-             different kind of mind than it did yesterday"
-        );
-        assert_eq!(engine.aggro_radius, from_row.aggro_radius);
-        assert_eq!(engine.attack_range, from_row.attack_range);
-        assert_eq!(engine.patrol_effort, from_row.patrol_effort);
-        assert_eq!(engine.chase_effort, from_row.chase_effort);
-        // ⚠ **the HP half of this test is gone, and it is not a weakening.** It
-        // asserted `DEFAULT_PROVOKED_HEALTH == row.max_health` while provocation
-        // installed a pool. It does not: a body's pool is settled at
-        // construction from `DEFAULT_UNAUTHORED_BODY_HEALTH`, which the
-        // `combatant` row has no say over and never did. Pinning them would now
-        // be asserting a coincidence.
-        assert_eq!(
-            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
-            row.max_health,
-            "the undescribed-body pool and the combatant row have drifted apart, \
-             so a provoked NPC no longer fights with the toughness it did — D96 \
-             item 7 is that decision and this is not the place it gets made by \
-             accident"
-        );
-
-        // ⭐ THE POISON. `BrainProfile::default()` is a MeleeBrute, so a
-        // constant that had quietly become the default would still match a row
-        // that had also become one. The row must be saying something.
-        assert_ne!(
-            engine,
-            crate::features::ecs::actor_tuning::BrainProfile::default(),
-            "the engine default is indistinguishable from `BrainProfile::default()`, \
-             so this test would pass on a constant nobody authored"
-        );
-    }
-    use super::*;
-    // Test-only: the brain fixtures below author ranged styles; nothing in this
-    // module's production code names one.
-    use ambition_characters::brain::action_set::RangedStyle;
-    use ambition_platformer2d_core as ae;
-
-    fn enemy(brain_key: &str) -> super::super::actor_clusters::ActorClusterSeed {
-        super::super::actor_clusters::ActorClusterSeed::new(
-            "e",
-            "E",
-            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
-            ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.into()),
-            &[],
-        )
-    }
-
-    #[test]
-    fn medium_striker_archetype_gets_a_smash_brain() {
-        // The common striker (goblins) runs the Smash state machine; this
-        // guards the archetype-template -> concrete-Brain dispatch.
-        let e = enemy("medium_striker");
-        assert!(
-            matches!(
-                enemy_default_brain(&e.config, ambition_platformer2d_core::AbilitySet::default()),
-                Brain::StateMachine(StateMachineCfg::Smash { .. })
-            ),
-            "medium_striker should default to a Smash brain"
-        );
-    }
-
-    #[test]
-    fn default_action_set_is_derived_without_panicking_for_a_striker() {
-        // The combat-kit -> action-set projection should yield a usable set
-        // (the striker has a melee verb).
-        let e = enemy("medium_striker");
-        let set = enemy_default_action_set(
-            e.spec
-                .as_ref()
-                .expect("a fixture built from a roster key has an archetype"),
-        );
-        assert!(set.melee.is_some(), "a striker should expose a melee verb");
-    }
-
-    #[test]
-    fn medium_striker_carries_a_ranged_rock() {
-        // Goblins now poke with a thrown rock at mid-range and close for the
-        // swing — the Smash brain's verb-selection-by-range. Lock the
-        // RON(`ranged: Some(Rock)`) → CombatKit → ActionSet wiring so a future
-        // edit can't silently drop the ranged verb (which would revert goblins
-        // to melee-only without any test noticing).
-        let e = enemy("medium_striker");
-        let set = enemy_default_action_set(
-            e.spec
-                .as_ref()
-                .expect("a fixture built from a roster key has an archetype"),
-        );
-        assert!(
-            matches!(
-                set.ranged,
-                Some(ambition_characters::brain::RangedActionSpec {
-                    style: RangedStyle::Rock,
-                    ..
-                })
-            ),
-            "medium_striker should carry a ranged Rock verb; got {:?}",
-            set.ranged
-        );
-        assert!(set.melee.is_some(), "and still keeps its melee swing");
-    }
-}
+// ⛔⛔ **`mod tests` WAS HERE AND IS EMPTY OF SUBJECTS, so it is deleted** (AC6).
+// It held five archetype-table tests: two that pinned engine constants against
+// the reserved `combatant` row while it survived
+// (`the_undescribed_respawn_policy_matches_the_combatant_row`,
+// `an_engine_default_provoked_policy_matches_the_combatant_row` — both of which
+// said in as many words that they go WITH the row rather than being weakened),
+// and three that measured `medium_striker`'s row through
+// `enemy_default_action_set`.
+//
+// ⇒ the constants those pins protected are unchanged, which is what the pins
+// were for: `UNDESCRIBED_BODY_RESPAWN` and `default_provoked_policy()` are now
+// the only authorities on their questions and they say what the row said. The
+// template → brain-family mapping is pinned off a CHARACTER's profile by
+// `enemy_default_brain_picks_the_family_its_policy_names` in the spawn tests.
 
 /// **A fighter brain gets the GAME's rung, not the engine's floor.**
 ///
@@ -870,48 +692,13 @@ pub fn project_authored_fighter_ladder(
     }
 }
 
-#[cfg(test)]
-mod default_fighting_kit_tests {
-    use super::*;
-
-    /// **The named default IS what the provocation fallback produces today.**
-    ///
-    /// ⛔ a transcription is a claim, and this campaign has already been bitten
-    /// by three of them (a boss summoning a deleted row, a weapon summoning
-    /// another, twenty tests measuring a fallback). So the numbers are checked
-    /// against the row they came from rather than believed.
-    ///
-    /// ⚠ when `combatant` is finally deleted this test goes with it — and by
-    /// then the default has to be a DECISION somebody made rather than a copy,
-    /// which is exactly what this asserts is still true in the meantime.
-    #[test]
-    fn the_default_kit_equals_what_the_provocation_fallback_builds() {
-        // ⚠ **it names the ROW directly now** (2026-08-13). This went through
-        // `actors::hostile_spec_for_actor`, whose only purpose was to be the
-        // roster's side of this comparison; it was deleted with
-        // `hostile_brain_id_for_actor` when provocation stopped naming a roster
-        // key at all (P2.20). The comparison's subject was never that function —
-        // it is the `combatant` row — so naming the row is what the test always
-        // meant.
-        let roster = crate::features::enemies::test_roster();
-        let fallback = roster
-            .archetype_for(crate::features::enemies::GENERIC_BODY_ROW)
-            .expect("the engine's fixture roster carries its generic row")
-            .clone();
-        let from_row = enemy_combat_kit_for_spec(&fallback);
-        let named = default_fighting_kit();
-        assert_eq!(named.innate_melee, from_row.innate_melee, "the swipe");
-        assert_eq!(named.innate_ranged, from_row.innate_ranged);
-        assert_eq!(named.innate_special, from_row.innate_special);
-        assert_eq!(named.move_style, from_row.move_style);
-
-        // ⛔ and the control: the row must actually AUTHOR a melee, or both sides
-        // being `None` would make the comparison above vacuous — the exact shape
-        // of the twenty tests that measured nothing (ledger D94).
-        assert!(
-            from_row.innate_melee.is_some(),
-            "the provocation fallback authors no melee at all, so this comparison \
-             proves nothing about what a provoked body swings"
-        );
-    }
-}
+// ⛔⛔ **`default_fighting_kit_tests` WAS HERE AND IS DELETED, exactly as its one
+// test asked to be** (AC6). `the_default_kit_equals_what_the_provocation_fallback_builds`
+// pinned `default_fighting_kit()` against the `combatant` row's kit so that
+// naming the concept in the engine was provably a rename rather than a retune —
+// and it said so: *"when `combatant` is finally deleted this test goes with it,
+// and by then the default has to be a DECISION somebody made rather than a
+// copy."*
+//
+// ⇒ the row is gone and the constant is unchanged, so the decision is made:
+// `default_fighting_kit()` is the only authority on what a provoked body swings.

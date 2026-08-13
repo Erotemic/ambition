@@ -7,7 +7,6 @@
 //! process-global cross-App contamination.
 
 use ambition_platformer2d::actors::boss_encounter::{BossCatalog, BossCatalogRegistry};
-use ambition_platformer2d::actors::features::CharacterRosterRegistry;
 use ambition_platformer2d::audio::catalog::AudioCatalogRegistry;
 use ambition_platformer2d::characters::actor::character_catalog::{
     CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners,
@@ -16,7 +15,6 @@ use bevy::prelude::*;
 
 fn register_ambition(app: &mut App) {
     ambition_content::character_catalog::register(app);
-    ambition_content::enemy_roster::register(app);
     ambition_content::bosses::register(app);
     ambition_content::audio_registries::register(app);
 }
@@ -40,14 +38,6 @@ fn character_ids(app: &App) -> Vec<String> {
 fn audio_providers(app: &App) -> Vec<String> {
     app.world()
         .resource::<AudioCatalogRegistry>()
-        .providers()
-        .map(str::to_string)
-        .collect()
-}
-
-fn hostile_providers(app: &App) -> Vec<String> {
-    app.world()
-        .resource::<CharacterRosterRegistry>()
         .providers()
         .map(str::to_string)
         .collect()
@@ -79,7 +69,23 @@ fn three_real_providers_compose_independent_of_registration_order() {
         reverse.world().resource::<CharacterCatalog>()
     );
     assert_eq!(audio_providers(&forward), audio_providers(&reverse));
-    assert_eq!(hostile_providers(&forward), hostile_providers(&reverse));
+    // ⭐ **the hostile half is asserted through the OWNERS map now** (AC6): the
+    // provider-keyed archetype registry this line used to compare is deleted, and
+    // every creature that lived in it is a character owned by the same provider.
+    for id in ["sanic", "npc_snakes_on_a_paper_plane", "npc_ai_slop"] {
+        assert_eq!(
+            forward
+                .world()
+                .resource::<CharacterCatalogOwners>()
+                .provider_for(id),
+            reverse
+                .world()
+                .resource::<CharacterCatalogOwners>()
+                .provider_for(id),
+            "`{id}`'s owning provider depends on registration ORDER, which is the \
+             cross-App contamination this test exists to refuse"
+        );
+    }
     assert_eq!(boss_providers(&forward), boss_providers(&reverse));
 
     let catalog = forward.world().resource::<CharacterCatalog>();
@@ -110,14 +116,12 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // ⭐ **Sanic left the hostile-roster list on 2026-08-11, Mary-O on
-    // 2026-08-13 — and leaving is the achievement.** Sanic's badnik and every
-    // Mary-O enemy (snake, slop, both plane swarms) are CHARACTERS now, so
-    // neither demo publishes archetype rows. Ambition's fragment is the last
-    // one standing, and it is one borrowerless row awaiting the ontology
-    // deletion. The composition property this test exists for is asserted
-    // against the authority the creatures actually live in: the owners map.
-    assert_eq!(hostile_providers(&forward), vec!["ambition"]);
+    // ⭐ **THERE IS NO HOSTILE-ROSTER LIST TO LEAVE ANY MORE** (AC6). Sanic's
+    // badnik left it on 2026-08-11 and Mary-O's plane swarms on 2026-08-13, and
+    // the ontology itself went the same day the last provider stopped publishing
+    // one. Every creature in every provider is a CHARACTER, so the composition
+    // property this test exists for is asserted against the authority they
+    // actually live in: the owners map.
     assert_eq!(
         owners.provider_for("sanic"),
         Some("sanic"),
@@ -163,33 +167,19 @@ fn separate_apps_select_independent_provider_sets() {
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
 
-    // **Sanic authors NO hostile roster** — its badnik is a character, and the
-    // demo's archetype fragment was deleted with it (2026-08-11). What the
-    // App-local property is asserted over instead is the character owners map:
-    // Sanic's own provider, and nobody else's.
-    assert!(
-        sanic
-            .world()
-            .get_resource::<CharacterRosterRegistry>()
-            .is_none_or(|roster| roster.providers().next().is_none()),
-        "Sanic publishes no hostile archetypes; its enemy is a character"
-    );
+    // **Sanic's enemy is a character** — the badnik's archetype fragment was
+    // deleted with it (2026-08-11), and the ontology followed (AC6). The
+    // App-local property is asserted over the character owners map: Sanic's own
+    // provider, and nobody else's.
     let sanic_owners = sanic
         .world()
         .get_resource::<CharacterCatalogOwners>()
         .expect("Sanic content publishes its own catalog");
     assert_eq!(sanic_owners.provider_for("sanic"), Some("sanic"));
 
-    // **Mary-O authors NO hostile roster either** (2026-08-13): the plane
-    // swarms — her last rows, kept as a standalone-build fallback — are her
-    // own registered characters now, like the snake and the slop before them.
-    assert!(
-        mary_o
-            .world()
-            .get_resource::<CharacterRosterRegistry>()
-            .is_none_or(|roster| roster.providers().next().is_none()),
-        "Mary-O publishes no hostile archetypes; every enemy is a character"
-    );
+    // **Mary-O's every enemy is a character too** (2026-08-13): the plane
+    // swarms — her last rows, kept as a standalone-build fallback — are her own
+    // registered characters, like the snake and the slop before them.
     let mary_o_owners = mary_o
         .world()
         .get_resource::<CharacterCatalogOwners>()

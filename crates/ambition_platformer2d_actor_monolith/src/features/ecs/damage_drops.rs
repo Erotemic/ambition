@@ -199,7 +199,6 @@ pub(super) fn spawn_split_offspring(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_roster: &crate::features::CharacterRoster,
     // The offspring are a CHARACTER when one is registered for them — the same
     // resolution every other spawn road does.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
@@ -216,7 +215,6 @@ pub(super) fn spawn_split_offspring(
             commands,
             character_catalog,
             authored_sheets,
-            character_roster,
             prepared.unwrap_or(&empty_cast),
             session_scope,
             format!("{parent_id}:split{i}"),

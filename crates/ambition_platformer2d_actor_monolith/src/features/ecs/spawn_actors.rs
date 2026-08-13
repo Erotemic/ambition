@@ -4,10 +4,7 @@
 //! boss minions, and encounter mobs. Static pickups/chests/breakables live in
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
-use super::super::enemies::CharacterRoster;
-use super::brain_builders::{
-    enemy_combat_kit_for_spec, enemy_default_action_set, enemy_default_brain,
-};
+use super::brain_builders::enemy_default_brain;
 use super::*;
 use crate::boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -143,7 +140,6 @@ pub fn apply_spawn_actor_requests(
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: bevy::prelude::Res<CharacterRoster>,
     // **The prepared cast** — a runtime-staged actor that names a migrated
     // character builds that character, like every other road (queue D75).
     //
@@ -179,7 +175,6 @@ pub fn apply_spawn_actor_requests(
             &mut commands,
             &character_catalog,
             &authored_sheets,
-            &character_roster,
             prepared.as_deref().unwrap_or(&empty_cast),
             &boss_catalog,
             session_scope,
@@ -209,7 +204,6 @@ pub(crate) fn spawn_staged_actor(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
@@ -219,7 +213,7 @@ pub(crate) fn spawn_staged_actor(
     // mint a giant's host + two hand rows — refuse a giant-class spec like
     // every other runtime origin, instead of silently producing a handless
     // host.
-    if let SpawnActorKind::Enemy { brain, character } = &req.kind {
+    if let SpawnActorKind::Enemy { character, .. } = &req.kind {
         // ⭐ **ASK THE CHARACTER, because this path HAS one.** The doc on
         // `spec_is_limbed_host` says the runtime refusals cannot be
         // character-aware because *"making the refusal character-aware means
@@ -229,25 +223,13 @@ pub(crate) fn spawn_staged_actor(
         // non-giant mount was still being refused by whatever archetype its
         // brain key happened to name.
         if reject_runtime_giant(
-            character
-                .as_ref()
-                .and_then(|id| prepared.get(id.as_str()))
-                // ⭐ **the HONEST lookup**: a brain key with no row means no
-                // archetype says this body is limbed, which is the answer — not
-                // "whatever the reserved `combatant` row says". `spec_for_brain`
-                // cannot fail, so asking it here made a misspelled key inherit
-                // the fallback's limb answer.
-                .map(|definition| {
-                    is_limbed_host(
-                        Some(definition),
-                        character_roster.try_spec_for_brain(brain).as_ref(),
-                    )
-                })
-                .unwrap_or_else(|| {
-                    character_roster
-                        .try_spec_for_brain(brain)
-                        .is_some_and(|spec| spec_is_limbed_host(&spec))
-                }),
+            // ⭐ **ONE question, asked of the CHARACTER.** This resolved the
+            // character AND the placement's brain key against the roster and
+            // merged the two answers, so a body whose character said nothing
+            // inherited whatever archetype its brain key happened to name — and a
+            // misspelled key inherited the reserved `combatant` row's limb answer.
+            // A character is the only thing that states limbs now.
+            is_limbed_host(character.as_ref().and_then(|id| prepared.get(id.as_str()))),
             "programmatic staged actor",
             &req.id,
         ) {
@@ -259,7 +241,6 @@ pub(crate) fn spawn_staged_actor(
         commands,
         character_catalog,
         authored_sheets,
-        character_roster,
         prepared,
         boss_catalog,
         session_scope,
@@ -275,7 +256,6 @@ pub(crate) fn spawn_staged_actor_into(
     commands: &mut Commands,
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    character_roster: &CharacterRoster,
     // **The prepared cast**, so a staged actor that names a migrated character
     // builds that character (queue D75 / campaign P1.12).
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
@@ -310,22 +290,9 @@ pub(crate) fn spawn_staged_actor_into(
             // refusals must agree, or the programmatic path would allocate a
             // root the recipe then refuses to fill.
             if reject_runtime_giant(
-                character
-                    .as_ref()
-                    .and_then(|id| prepared.get(id.as_str()))
-                    // See the twin above: the honest lookup, so a key with no
-                    // row is not given the fallback's limb answer.
-                    .map(|definition| {
-                        is_limbed_host(
-                            Some(definition),
-                            character_roster.try_spec_for_brain(brain).as_ref(),
-                        )
-                    })
-                    .unwrap_or_else(|| {
-                        character_roster
-                            .try_spec_for_brain(brain)
-                            .is_some_and(|spec| spec_is_limbed_host(&spec))
-                    }),
+                // See the twin above: the character is the only authority on
+                // limbs, so the two refusals cannot drift apart.
+                is_limbed_host(character.as_ref().and_then(|id| prepared.get(id.as_str()))),
                 "programmatic staged actor",
                 &req.id,
             ) {
@@ -342,7 +309,6 @@ pub(crate) fn spawn_staged_actor_into(
                 commands,
                 character_catalog,
                 authored_sheets,
-                character_roster,
                 // ⭐ **WIRED 2026-08-11 (queue D75).** This passed
                 // `&Default::default()` — an EMPTY registry — with a note saying
                 // the programmatic path had no cast in scope yet. It reads as a
@@ -431,51 +397,30 @@ impl EnemyActorSpawnPlan {
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
         // ⭐⭐ **A CHARACTER-FIRST BODY HAS NO ARCHETYPE TO ASK** (Jon's second
-        // redirect, P2). Every value below used to come off a fabricated
-        // `ArchetypeSpec` that said `melee: None`, `ranged: None` and every
-        // capability `false` — fifty-four lines of inert legacy carried purely so
-        // these four lines had something to read. The kit that actually reaches
-        // such a body arrives from `grant_prepared_character_body` moments later,
-        // so the honest answer here is nothing at all.
-        let action_set = enemy
-            .spec
-            .as_ref()
-            .map(enemy_default_action_set)
-            .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
-        let combat_kit = enemy
-            .spec
-            .as_ref()
-            .map(enemy_combat_kit_for_spec)
-            .unwrap_or_default();
-        let held_item = enemy
-            .spec
-            .as_ref()
-            .and_then(super::brain_builders::held_item_for_spec);
-        // The character's signature moves AND its basic melee/ranged are authored on
-        // its archetype (data); `build_actor_moveset` folds them into ONE moveset —
-        // the melee subsumption (§A1 / §3a): a plain swing is a `"attack"`-verb move
-        // run by the SAME moveset runtime as the specials. Every hostile spawn path
-        // (authored rooms, encounter mobs, runtime minions) carries them without a
-        // per-path branch.
+        // redirect, P2) — and as of AC6 there is no other kind of body. All three
+        // values below used to come off the seed's `ArchetypeSpec`; a
+        // character-first seed never carried one, so each already resolved to
+        // nothing through an `Option` that was always `None`. The kit that
+        // actually reaches such a body arrives from
+        // `grant_prepared_character_body` moments later, so nothing at all is
+        // both the honest answer and the only one.
+        let action_set = ambition_characters::brain::ActionSet::peaceful();
+        let combat_kit = crate::combat::CombatKit::default();
+        let held_item = None;
+        // A character's signature moves AND its basic melee/ranged fold into ONE
+        // moveset — the melee subsumption (§A1 / §3a): a plain swing is an
+        // `"attack"`-verb move run by the SAME moveset runtime as the specials.
         //
         // The melee/ranged SOURCE is the resolved `action_set` (kit + held item),
-        // the SAME capability the brain's `emit_brain_action_messages` gate reads —
-        // NOT the raw `spec.melee`. Now that the flat melee driver is gone, a body
-        // that can emit a melee (its `ActionSet.melee` is `Some`, e.g. granted by a
-        // held weapon) MUST have a moveset `"attack"` move, or it could never swing.
-        // Building from `action_set` closes that gap definitionally: capability and
-        // moveset share one source.
+        // the SAME capability the brain's `emit_brain_action_messages` gate reads.
+        // A body that can emit a melee (its `ActionSet.melee` is `Some`, e.g.
+        // granted by a held weapon) MUST have a moveset `"attack"` move or it
+        // could never swing; building from `action_set` closes that gap
+        // definitionally, because capability and moveset share one source.
         let moveset = crate::combat::moveset::build_actor_moveset(
-            enemy
-                .spec
-                .as_ref()
-                .and_then(|spec| spec.signature_move.as_ref()),
+            None,
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
-            // Enemy/boss specials are AUTHORED in the archetype `signature_move`
-            // (real hitboxes/timelines); the `ActionSet.special` marker only
-            // mirrors it, so do NOT re-fold it here or it would clobber the
-            // authored move with the generic capability shell.
             None,
         );
         Self {
@@ -1286,7 +1231,6 @@ pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
@@ -1307,7 +1251,6 @@ pub(crate) fn spawn_runtime_minion(
         commands,
         catalog,
         authored_sheets,
-        roster,
         prepared,
         session_scope,
         root,
@@ -1329,7 +1272,6 @@ pub(crate) fn spawn_runtime_minion_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     // **The prepared cast**, so a summon can name a CHARACTER — see the
     // resolution below, and the shipped regression that made it urgent.
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
@@ -1349,104 +1291,57 @@ pub(crate) fn spawn_runtime_minion_into(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
-    // ⭐⭐ **A SUMMON MAY NAME A CHARACTER, AND ONE OF THEM ALWAYS MEANT TO.**
+    // ⭐⭐ **A SUMMON NAMES A CHARACTER. THERE IS NO OTHER KIND.**
     //
     // ⛔⛔ **THIS CAMPAIGN BROKE A SHIPPED BOSS AND NOTHING SAID SO.** The
     // Gradient Sentinel summons two minions — one from `minima_trap`, one from
     // `gradient_cascade` — and both named archetype rows that had been DELETED:
     // the slug because it became `npc_puppy_slug`, the lurker because a census
     // found it "PLACED IN ZERO LEVELS". That census counted LDtk placements and
-    // could not see a Rust constant, so `spec_for_brain` was quietly answering
+    // could not see a Rust constant, so the roster lookup quietly answered
     // `combatant` for every minion the boss cast: wrong health, wrong speed,
     // wrong body, no crawl, no cling.
     //
-    // ⚠ **BOTH ARE FIXED as of 2026-08-13.** `MINIMA_TRAP_MINION_ARCHETYPE` is
-    // `"npc_puppy_slug"`; `GRADIENT_CASCADE_MINION_ARCHETYPE` is `"npc_ai_slop"`
-    // (cast provisionally per the decision surface's recommendation — the
-    // reversal is that one constant). Every shipped summon now resolves a
-    // registered character on the prepared-cast branch above.
-    //
-    // ⇒ the id is resolved against the PREPARED CAST first. A summon naming a
-    // body-complete character is built from it, by the same constructor the
-    // enemy road, the NPC road and the match seat use.
-    let character = prepared
+    // ⚠ **BOTH WERE FIXED on 2026-08-13** (`MINIMA_TRAP_MINION_ARCHETYPE` →
+    // `"npc_puppy_slug"`, `GRADIENT_CASCADE_MINION_ARCHETYPE` → `"npc_ai_slop"`),
+    // and AC6 removed the road that hid them: there is no generic body to settle
+    // for any more, so a summon that resolves nothing REFUSES rather than casting
+    // a stranger.
+    let Some(body) = prepared
         .get(archetype_id)
-        .and_then(|prepared| prepared.body_blueprint().ok());
-    let mut enemy = match character {
-        Some(body) => super::actor_clusters::ActorClusterSeed::new_character_in(
-            authored_sheets,
-            catalog,
-            id.clone(),
-            body,
-            aabb,
-            brain.clone(),
-            &[],
-        ),
-        None => {
-            // ⚠ **LOUD when nothing can build it, because silence is what cost
-            // the boss its minions.** A key that resolves neither a character nor
-            // an authored archetype row lands on the `combatant` fallback — a
-            // real body, so this warns rather than refusing, but it is never the
-            // body the author asked for.
-            if !roster.has_brain_key(archetype_id) {
-                super::spawn::report_unprepared_character(
-                    archetype_id,
-                    &format!("summoned minion `{id}`"),
-                    prepared,
-                    Some("the generic `combatant` fallback, which is not what it named"),
-                );
-            }
-            let spec = roster
-                .generic_body_for_unresolved_brain(
-                    &brain,
-                    "a boss summon whose id names neither a prepared character nor a \
-                     row. Whether one is temporarily allowed is the PROVIDER's \
-                     declaration, not this road's — this road only says why it \
-                     settles when there is one: a minion of the wrong body beats a \
-                     boss that casts nothing mid-fight.",
-                )
-                .or_else(|| {
-                    // The HOST waiver: a composition that published no cast at
-                    // all cannot be said to be missing this one.
-                    prepared
-                        .is_empty()
-                        .then(|| roster.generic_body_for_a_composition_with_no_cast())
-                        .flatten()
-                })
-                .unwrap_or_else(|| {
-                    panic!(
-                        "boss summon `{id}` names `{archetype_id}`, which is neither a \
-                         prepared character nor an archetype row, and is not on the \
-                         identifier its provider has declared still uncast. A \
-                         summon that resolves nothing used to become a generic \
-                         `combatant` silently — that is what cost the Gradient \
-                         Sentinel its minions. Register the character, add the row, \
-                         or declare the open decision on the provider's own roster \
-                         fragment (`with_open_casting_decision`) with the ledger \
-                         row that will retire it."
-                    )
-                });
-            super::actor_clusters::ActorClusterSeed::new_in(
-                authored_sheets,
-                catalog,
-                spec,
-                id.clone(),
-                name.clone(),
-                None,
-                aabb,
-                brain,
-                &[],
-            )
-        }
+        .and_then(|prepared| prepared.body_blueprint().ok())
+    else {
+        super::spawn::report_unprepared_character(
+            archetype_id,
+            &format!("summoned minion `{id}`"),
+            prepared,
+            None,
+        );
+        panic!(
+            "boss summon `{id}` names `{archetype_id}`, which is not a prepared \
+             character. A summon that resolved nothing used to become a generic \
+             `combatant` silently — that is what cost the Gradient Sentinel its \
+             minions, and the row it borrowed no longer exists. Register the \
+             character."
+        );
     };
+    let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+        authored_sheets,
+        catalog,
+        id.clone(),
+        body,
+        aabb,
+        brain,
+        &[],
+    );
     if reject_runtime_giant(
-        enemy.spec.as_ref().is_some_and(spec_is_limbed_host),
+        is_limbed_host(prepared.get(archetype_id)),
         "runtime minion",
         &id,
     ) {
         return;
     }
-    // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
+    // `new_character_in` already set HP from the character's own vitals.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
@@ -1473,16 +1368,6 @@ pub(crate) fn spawn_runtime_minion_into(
         commands
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
-    }
-}
-
-/// The archetype key a placement's brain names, when it names one. `None` for
-/// the built-in brains (`Passive`, `Patrol`, `Guard`), which never resolve a
-/// row and therefore never claim one.
-fn brain_key(brain: &ambition_entity_catalog::placements::CharacterBrain) -> Option<&str> {
-    match brain {
-        ambition_entity_catalog::placements::CharacterBrain::Custom(key) => Some(key.as_str()),
-        _ => None,
     }
 }
 
@@ -1517,7 +1402,6 @@ pub(crate) fn spawn_enemy_with_faction_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     // **The published controller policies**, so this PLACEMENT may name one.
     // See `EnemySpawnSpec::brain_profile`.
@@ -1541,12 +1425,6 @@ pub(crate) fn spawn_enemy_with_faction_into(
         },
     );
 
-    // ⭐ **the HONEST lookup, and this site reads exactly ONE field off it.**
-    // Everything else a character-first body needs comes from its own
-    // definition; `spec.respawn` is the placement fallback below. Asking
-    // `spec_for_brain` here meant a brain key with no row silently took the
-    // reserved `combatant` row's respawn policy.
-    let spec = roster.try_spec_for_brain(&authored.payload.brain);
     // **WHICH CHARACTER, decided before the body is built rather than after.**
     //
     // ⛔ the arms below are the migration itself, and the middle one is new:
@@ -1591,17 +1469,14 @@ pub(crate) fn spawn_enemy_with_faction_into(
             // produced a second, slightly different policy on the path nobody
             // looks at, which is how this defect gets back in.
             //
-            // The fallback here is the placement's ARCHETYPE, and it exists only
-            // if the brain key names one — no key, no archetype, and the body
-            // would be a generic `combatant` wearing this character's name.
-            let archetype = brain_key(&authored.payload.brain)
-                .filter(|key| roster.has_brain_key(key))
-                .map(|key| format!("its `{key}` archetype"));
+            // ⭐ **and there is no fallback left to name.** This reported "its
+            // `{key}` archetype" while a row could still build the body; AC6
+            // deleted the rows, so the sentence after the report is a refusal.
             super::spawn::report_unprepared_character(
                 missing.as_str(),
                 &format!("enemy `{}`", authored.id),
                 prepared,
-                archetype.as_deref(),
+                None,
             );
             None
         }
@@ -1668,19 +1543,16 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // DELETED that means the `combatant` row's. It is the last thread from
         // this file to a migrated enemy; a placement that authors its own cuts
         // it.
-        // ⛔ **THREE authorities in precedence order, and the third is stated
-        // rather than borrowed.** The PLACEMENT owns respawn policy (ADR 0022);
-        // an archetype row answers for a body it describes; and a body that
-        // neither describes takes the engine's own answer for an undescribed
-        // one — which used to be `combatant`'s, reached by a lookup that could
-        // not fail.
-        enemy.config.tuning.respawn = authored
-            .payload
-            .respawn
-            .or_else(|| spec.as_ref().map(|spec| spec.respawn))
-            .unwrap_or(UNDESCRIBED_BODY_RESPAWN);
-        // ⛔ **the fallback is the CONSTRUCTED value, not the archetype's.** It
-        // read `spec.hostile_by_default`, and `spec` for a migrated character is the
+        // ⛔ **TWO authorities now, and the second is STATED rather than
+        // borrowed.** The PLACEMENT owns respawn policy (ADR 0022); a body whose
+        // placement says nothing takes the engine's own answer for an undescribed
+        // one. The middle authority — "whatever archetype row this brain key
+        // happens to name" — is what AC6 deleted, and it was reached by a lookup
+        // that could not fail. It answered `OnRoomReenter` for every body that
+        // got this far, which is what `UNDESCRIBED_BODY_RESPAWN` says on purpose.
+        enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(UNDESCRIBED_BODY_RESPAWN);
+        // ⛔ **the fallback is the CONSTRUCTED value, not an archetype's.** It
+        // read `spec.hostile_by_default`, and `spec` for a migrated character was the
         // generic `combatant` row — which says `true`. So the giant GNU, a mount
         // whose authored profile states it never seeks anybody, was handed its
         // hostility back one line after construction resolved it correctly. A
@@ -1769,8 +1641,18 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // because of what a shark IS; the saddle is measured off the body this
         // construction actually resolved rather than off an archetype's
         // `default_size`, which is the same silhouette by a shorter road.
-        match definition.mount.as_ref() {
-            Some(mount) => attach_mount_role_from(
+        // **THE MOUNT ROLE FROM THE CHARACTER** (ADR 0020). A shark is rideable
+        // because of what a shark IS; the saddle is measured off the body this
+        // construction actually resolved rather than off an archetype's
+        // `default_size`, which is the same silhouette by a shorter road.
+        //
+        // ⚠ **a body that states no mount gets no role, and that is the whole
+        // rule now.** The other arm read the archetype row this placement's brain
+        // key happened to name — which for every migrated character was the
+        // reserved `combatant` row, stating no mount class, so it was already
+        // answering "nothing" by the longest available route.
+        if let Some(mount) = definition.mount.as_ref() {
+            attach_mount_role_from(
                 commands,
                 root,
                 mount.class.as_deref(),
@@ -1778,104 +1660,28 @@ pub(crate) fn spawn_enemy_with_faction_into(
                 mount.death_splash,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
-            ),
-            None => attach_mount_role(commands, root, spec.as_ref()),
+            );
         }
         return;
     }
-    // ⭐ the AUTHORED placement road, and **NO SHIPPED PLACEMENT REACHES THE
-    // WAIVER** — measured 2026-08-12 by instrumenting the fallback and running
-    // the whole app suite. `under_town_skitter`, which the comment here used to
-    // name as "the one placement that reaches this", names `medium_striker`,
-    // and that row still EXISTS: it resolves normally and never came near this.
-    // A citation nobody re-measured across two campaigns.
+    // ⛔⛔ **THE ARCHETYPE ROAD ENDED HERE** (AC6, 2026-08-13). What stood below
+    // was a SECOND constructor: resolve a row for the placement's brain key —
+    // settling for the generic `combatant` when nothing matched — build the body
+    // from it, then re-apply the placement's respawn and disposition because the
+    // character-first road above had already done both on its own.
     //
-    // ⇒ so this road refuses outright now. The only keys the probe caught here
-    // were TEST FIXTURES still naming rows D73 deleted (`pirate_raider`,
-    // `burning_flying_shark`, `cellular_automaton_fighter`, `puppy_slug`) —
-    // repaired to name their characters, because a fixture that asks for a
-    // specific creature and silently gets a generic is the whole defect in
-    // miniature.
-    let placement_spec = roster
-        .generic_body_for_unresolved_brain(
-            &authored.payload.brain,
-            "an authored placement that names neither a buildable character nor a \
-             row — no shipped placement does, and the waiver survives only for an \
-             identifier whose casting is explicitly still open (ledger D96)",
-        )
-        .or_else(|| {
-            // The HOST waiver: a composition that published no cast at all
-            // cannot be said to be missing this creature.
-            prepared
-                .is_empty()
-                .then(|| roster.generic_body_for_a_composition_with_no_cast())
-                .flatten()
-        })
-        .unwrap_or_else(|| {
-            panic!(
-                "authored placement `{}` names brain `{:?}`, which is neither a \
-                 buildable character nor an archetype row, and is not an \
-                 identifier its provider has declared still uncast. It used to \
-                 spawn a generic `combatant` wearing this placement's name, which \
-                 is the defect D73 was written to end. Give the placement a \
-                 `character_id`, add the row back, or declare the open decision on \
-                 the provider's own roster fragment.",
-                plan.context().feature_id,
-                authored.payload.brain,
-            )
-        });
-    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
-        authored_sheets,
-        catalog,
-        placement_spec,
-        plan.context().feature_id.to_string(),
-        authored.name.clone(),
-        Some(authored.payload.presentation_identity(&authored.name)),
-        plan.context().aabb,
-        authored.payload.brain.clone(),
-        paths,
+    // ⇒ a body is built from a character. There is no second way, so there is no
+    // second set of numbers to keep in agreement, and a placement naming a
+    // creature nobody registered can no longer spawn a stranger wearing its name
+    // — the defect D73 was written to end.
+    panic!(
+        "authored placement `{}` names brain `{:?}` and no character that can \
+         build a body. Every body is built from a character now: give the \
+         placement a `character_id` naming a registered one, or register the \
+         character it already names.",
+        plan.context().feature_id,
+        authored.payload.brain,
     );
-    // ⭐⭐ **THE BODY-ASSIST SEAM IS GONE** (AC5, D73 checklist item 9). A
-    // a body-assist call stood here: a character that was
-    // registered but could not build its own body still got to CORRECT one that
-    // the archetype had built, field by field, with the character winning
-    // wherever it had authored something.
-    //
-    // It was the right seam for a migration that had to move one fact at a time,
-    // and its deletion condition was always the same — the population it served
-    // reaching zero. On 2026-08-13 it did: every registered character can build
-    // its own body, so this fall-through can only be reached by a placement that
-    // names no character at all, and there are none of those left either.
-    //
-    // ⇒ so a body is built from a character's own facts or from an archetype,
-    // and never from one patched over the other. Two writers racing over one
-    // body is the shape this campaign exists to remove, and the last instance of
-    // it in construction was this line.
-    // **The placement's respawn policy on BOTH roads.** `ActorTuning`'s own
-    // `adopting_archetype` already calls respawn placement-scoped and protects
-    // it from an archetype projection; this is the authoring half of the same
-    // rule, and leaving it on the character-first road alone would mean a fact
-    // an author wrote was honoured for migrated characters and ignored for
-    // everybody else.
-    if let Some(respawn) = authored.payload.respawn {
-        enemy.config.tuning.respawn = respawn;
-    }
-    // Same rule, same reason: an authored disposition is the placement's, on
-    // both roads.
-    if let Some(disposition) = authored.payload.disposition {
-        enemy.config.tuning.is_hostile = disposition.is_hostile();
-    }
-    spawn_solo_enemy_into(
-        commands,
-        catalog,
-        authored_sheets,
-        session_scope,
-        root,
-        enemy,
-        authored,
-        faction,
-    );
-    attach_mount_role(commands, root, spec.as_ref());
 }
 
 /// Populate a `"giant"`-class LIMBED HOST onto an executor-allocated root: the
@@ -1891,7 +1697,6 @@ pub(crate) fn populate_giant_host_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
@@ -1904,7 +1709,6 @@ pub(crate) fn populate_giant_host_into(
         commands,
         catalog,
         authored_sheets,
-        roster,
         prepared,
         profiles,
         session_scope,
@@ -1927,7 +1731,6 @@ pub(crate) fn populate_giant_hand_into(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
@@ -1943,7 +1746,6 @@ pub(crate) fn populate_giant_hand_into(
         commands,
         catalog,
         authored_sheets,
-        roster,
         prepared,
         profiles,
         session_scope,
@@ -1969,19 +1771,7 @@ pub struct GiantHandPlan {
     pub home_offset: ae::Vec2,
 }
 
-/// Whether an archetype is a limbed `"giant"`-class host.
-///
-/// ⚠ **the roster-only form, and its only remaining caller is
-/// [`reject_runtime_giant`]** — a refusal on paths (summons, encounter waves,
-/// runtime minions) that hold a spec and no placement, so they have no character
-/// to ask. Planning uses [`is_limbed_host`] instead. Making the refusal
-/// character-aware means giving those paths a placement, which they do not have.
-pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::ArchetypeSpec) -> bool {
-    mount_has_hand_limbs(spec)
-}
-
-/// **Is this placement a limbed `"giant"`-class host — asking the CHARACTER
-/// first?**
+/// **Is this body a limbed `"giant"`-class host?**
 ///
 /// ⛔ **the roster-only form is what kept the giant chained to
 /// `character_archetypes.ron`.** A character may author
@@ -1990,26 +1780,21 @@ pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::ArchetypeSpec) -
 /// every giant a handless host (measured: 18 red tests, "host + two hands",
 /// `left: 1, right: 3` — ledger D76).
 ///
-/// Character-first-then-spec, the same shape `new_character_in` already uses for
-/// `is_aerial`: a character that states a mount at all is believed, and one that
-/// says nothing leaves its archetype in charge — which is every unmigrated
-/// creature.
+/// ⭐ **AC6 removed the other half of the question rather than answering it.**
+/// This took an `Option<&ArchetypeSpec>` as well and fell back to it whenever the
+/// character said nothing, with a companion `spec_is_limbed_host` for the runtime
+/// paths that "hold a spec and no placement, so they have no character to ask".
+/// Every one of those paths resolves a character now, so the fallback and the
+/// companion are both gone and there is one predicate again.
 ///
 /// ⚠ still scoped to the `"giant"` string. A data-driven "which mounts have
-/// limbs" flag waits for a SECOND limbed mount, exactly as
-/// [`mount_has_hand_limbs`] has said all along.
-/// ⚠ **the spec is OPTIONAL now** (2026-08-12). Callers used to hand it
-/// `spec_for_brain`, which cannot fail — so a brain key with no row inherited
-/// the reserved `combatant` row's limb answer. A key nobody authored says
-/// nothing about limbs, and `None` is that.
+/// limbs" flag waits for a SECOND limbed mount.
 pub(crate) fn is_limbed_host(
     character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
-    spec: Option<&super::super::enemies::ArchetypeSpec>,
 ) -> bool {
-    match character.and_then(|definition| definition.mount.as_ref()) {
-        Some(mount) => mount.class.as_deref() == Some("giant"),
-        None => spec.is_some_and(mount_has_hand_limbs),
-    }
+    character
+        .and_then(|definition| definition.mount.as_ref())
+        .is_some_and(|mount| mount.class.as_deref() == Some("giant"))
 }
 
 /// Refuse a `"giant"`-class archetype on a runtime hostile-spawn path.
@@ -2052,23 +1837,14 @@ pub(crate) fn reject_runtime_giant(
 /// Resolve the two hand plans for a giant, at plan time. The geometry that used
 /// to live inside `spawn_giant_hand_limbs` is pure and moves here so the hands
 /// can be prepared as rows before anything is spawned.
-pub(crate) fn giant_hand_plans(
-    giant_id: &str,
-    giant_aabb: ae::Aabb,
-    // ⭐ **`Option`, because a giant may have no row at all** (D102). A
-    // character-authored giant is a limbed host by what its CHARACTER says, and
-    // its callers used to hand this the reserved `combatant` fallback purely to
-    // satisfy the signature — so the hands of a body with no archetype were
-    // sized by an archetype's `default_size`. Neither surviving row authors one,
-    // so this is the same geometry with the pretence removed; the point is that
-    // the next row to author a `default_size` cannot silently resize somebody
-    // else's hands.
-    spec: Option<&super::super::enemies::ArchetypeSpec>,
-) -> Vec<GiantHandPlan> {
-    let giant_half = spec
-        .and_then(|spec| spec.default_size)
-        .map(|s| s * 0.5)
-        .unwrap_or_else(|| giant_aabb.half_size());
+pub(crate) fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<GiantHandPlan> {
+    // ⭐ **the giant's own placement decides the hand geometry.** This took an
+    // `Option<&ArchetypeSpec>` and preferred that row's `default_size`; callers
+    // handed it the reserved `combatant` fallback purely to satisfy the
+    // signature, so the hands of a body with no archetype were sized by an
+    // archetype. No surviving row authored one, so this is the same geometry
+    // with the pretence removed.
+    let giant_half = giant_aabb.half_size();
     let giant_center = giant_aabb.center();
     let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
     let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
@@ -2089,13 +1865,6 @@ pub(crate) fn giant_hand_plans(
     .collect()
 }
 
-/// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
-/// the `"giant"` class — the only limbed mount today. Generalizing to a
-/// data-driven archetype flag is deferred until a second limbed mount exists.
-fn mount_has_hand_limbs(spec: &super::super::enemies::ArchetypeSpec) -> bool {
-    spec.mount_class.as_deref() == Some("giant")
-}
-
 /// A giant hand's stable `FeatureId`, derived from the giant's AUTHORED id and the
 /// hand's fixed side — an entity-free game fact, so two sims that spawn the same
 /// giant give its hands the same identity. It deliberately takes `giant_id: &str`,
@@ -2106,42 +1875,12 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
     format!("giant_gnu_hand_{side}_{giant_id}")
 }
 
-/// ADR 0020: give a standalone actor its mount role from its archetype. A
-/// `mount_class` archetype becomes [`Mountable`] (a rideable platform); a
-/// `pilotable_mount_classes` archetype becomes a would-be rider ([`CanPilot`]).
-/// The `RidingOn`/`MountSlot` link itself is installed by the planned
-/// `ambition.mount` relation's engine-owned wiring (the room construction
-/// planner turns each authored `mounted_on` ref into one) — this only tags the
-/// two roles.
-/// ⚠ **the spec is OPTIONAL**, like every other single-fact archetype read on
-/// this road: a brain key with no row states no mount class and no pilotable
-/// classes, and both branches of `attach_mount_role_from` are gated on those
-/// being present — so `None` is exactly what the reserved `combatant` row was
-/// already producing here, with the lookup removed.
-fn attach_mount_role(
-    commands: &mut Commands,
-    entity: bevy::ecs::entity::Entity,
-    spec: Option<&super::super::enemies::ArchetypeSpec>,
-) {
-    let Some(spec) = spec else {
-        return;
-    };
-    attach_mount_role_from(
-        commands,
-        entity,
-        spec.mount_class.as_deref(),
-        spec.default_size,
-        spec.mount_death_splash,
-        spec.mass,
-        &spec.pilotable_mount_classes,
-    );
-}
-
-/// **The mount role, from values rather than from an archetype.**
+/// **The mount role, from values.**
 ///
-/// ⭐ the same function the archetype road uses, reached with the pieces spelled
-/// out — so a CHARACTER that states it is rideable gets a `Mountable` without an
-/// archetype existing to state it (D73 group A: the shark family).
+/// ⚠ it had a sibling that took an `ArchetypeSpec` and unpacked the same seven
+/// values off it; AC6 deleted the sibling with the rows, so a CHARACTER that
+/// states it is rideable is the only thing that produces a `Mountable` (D73
+/// group A: the shark family).
 #[allow(clippy::too_many_arguments)]
 fn attach_mount_role_from(
     commands: &mut Commands,
@@ -2388,7 +2127,6 @@ pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &CharacterRoster,
     // **The prepared cast**, so a wave that names a migrated character builds
     // that character rather than an archetype wearing its face (campaign P1.12).
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
@@ -2458,27 +2196,15 @@ pub(super) fn spawn_encounter_mob(
         },
     };
     let definition = prepared_character.filter(|definition| definition.body_blueprint().is_ok());
-    // ⛔⛔ **AND THE WAVE'S `kind` HAS THE SAME FAILURE MODE THE BOSS SUMMON HAD**
-    // (ledger D93, 2026-08-12). `goblin_encounter.ron` names `kind:
-    // "large_brute"` three times and that archetype row is DELETED, so
-    // `spec_for_brain` answers `combatant` and three waves of a shipped fight
-    // spawn a generic body. Nothing fails, because a fallback IS a body.
+    // ⛔⛔ **AND THE WAVE'S `kind` HAD THE SAME FAILURE MODE THE BOSS SUMMON DID**
+    // (ledger D93, 2026-08-12). `goblin_encounter.ron` named `kind:
+    // "large_brute"` three times against a row that had been DELETED, so the
+    // lookup answered `combatant` and three waves of a shipped fight spawned a
+    // generic body. Nothing failed, because a fallback IS a body.
     //
-    // ⚠ warned, not refused: the fallback keeps the encounter playable, and which
-    // creature a goblin fight's heavy should be is a content decision. What must
-    // not happen again is it being invisible.
-    if definition.is_none() {
-        if let Some(key) = brain_key(&brain) {
-            if !roster.has_brain_key(key) {
-                bevy::log::warn_once!(
-                    target: "ambition_platformer2d_actor_monolith::spawn",
-                    "encounter wave kind `{key}` names no archetype row and no \
-                     character, so mob `{id}` spawns the generic `combatant` \
-                     fallback — a real body, and not the one the wave asked for.",
-                );
-            }
-        }
-    }
+    // ⇒ AC6 removed the fallback rather than the silence. A wave whose `kind`
+    // names no buildable character refuses, so the next regression of this shape
+    // is a stopped test rather than a fight that plays slightly wrong.
     let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
@@ -2501,51 +2227,20 @@ pub(super) fn spawn_encounter_mob(
             );
             enemy
         }
-        None => super::actor_clusters::ActorClusterSeed::new_in(
-            authored_sheets,
-            catalog,
-            roster
-                .generic_body_for_unresolved_brain(
-                    &brain,
-                    "an encounter wave whose `kind` names neither a character nor a \
-                     row. The waiver keeps the encounter playable where its \
-                     provider declared the casting still open; the warning above \
-                     names the wave, and the provider's declaration names why.",
-                )
-                .or_else(|| {
-                    // The HOST waiver: a composition that published no cast at
-                    // all cannot be said to be missing this creature.
-                    prepared
-                        .is_empty()
-                        .then(|| roster.generic_body_for_a_composition_with_no_cast())
-                        .flatten()
-                })
-                .unwrap_or_else(|| {
-                    panic!(
-                        "encounter wave mob `{id}` is of kind `{brain:?}`, which is \
-                         neither a character nor an archetype row, and is not on the \
-                         identifier its provider has declared still uncast. The \
-                         wave used to fill with generic `combatant` bodies and read \
-                         as a working encounter."
-                    )
-                }),
-            id.clone(),
-            label.clone(),
-            // The ART identity, id-first: it survives a display-name rename.
-            character,
-            aabb,
-            brain,
-            &[],
+        None => panic!(
+            "encounter wave mob `{id}` is of kind `{brain:?}`, which names no \
+             character that can build a body. The wave used to fill with generic \
+             `combatant` bodies and read as a working encounter."
         ),
     };
     if reject_runtime_giant(
-        enemy.spec.as_ref().is_some_and(spec_is_limbed_host),
+        is_limbed_host(character.and_then(|id| prepared.get(id))),
         "encounter wave",
         &id,
     ) {
         return;
     }
-    // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
+    // `new_character_in` already set HP from the character's own vitals.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
@@ -2630,7 +2325,6 @@ pub fn apply_summon_effects(
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    character_roster: bevy::prelude::Res<CharacterRoster>,
     // The prepared cast, so a summoned body can take its character's own default
     // autonomous profile (D73 phase 1). `Option` like every other reader of it:
     // a composition with no registered characters is ordinary, not degraded.
@@ -2729,7 +2423,6 @@ pub fn apply_summon_effects(
             let context = crate::world::placements::ActorPlacementContext::new(
                 &character_catalog,
                 &authored_sheets,
-                &character_roster,
             );
             match prepared_characters.as_deref() {
                 Some(prepared) => context.with_prepared(prepared),
@@ -2865,21 +2558,11 @@ mod runtime_giant_refusal_tests {
     fn a_refused_programmatic_giant_allocates_no_entity() {
         let mut app = App::new();
         app.add_message::<SpawnActorRequest>();
-        app.insert_resource(crate::features::enemies::CharacterRoster::from_ron(
-            r#"{
-                    "combatant": (
-                        max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                        aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                        damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    ),
-                    "test_giant": (
-                        max_health: 2, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                        aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                        damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                        mount_class: Some("giant"),
-                    ),
-                }"#,
-        ));
+        // ⭐ **the giant is a CHARACTER that states its mount class** — the
+        // only authority on limbs since AC6, where this used to publish a
+        // two-row roster whose `test_giant` declared `mount_class:
+        // Some("giant")`.
+        app.insert_resource(giant_cast());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
@@ -2901,7 +2584,7 @@ mod runtime_giant_refusal_tests {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "test_giant".to_string(),
                 ),
-                character: None,
+                character: Some(ambition_entity_catalog::CharacterId::from("test_giant")),
             },
         });
         app.update();
@@ -2911,5 +2594,28 @@ mod runtime_giant_refusal_tests {
             "a refused giant request must allocate NOTHING — an empty root \
              would rejoin the grudge map as a phantom spawned enemy"
         );
+    }
+
+    /// A cast of one `"giant"`-class limbed host, which is what the refusal
+    /// above reads.
+    fn giant_cast() -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut definition =
+            crate::character_runtime::CharacterDefinition::new("test_giant", "Test Giant", "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed: 0.0,
+                    ..Default::default()
+                });
+        definition.vitals.max_health = Some(2);
+        definition.mount = Some(ambition_characters::actor::CharacterMount {
+            class: Some("giant".to_string()),
+            ..Default::default()
+        });
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        registry
     }
 }

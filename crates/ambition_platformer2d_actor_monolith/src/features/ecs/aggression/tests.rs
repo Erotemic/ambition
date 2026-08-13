@@ -86,7 +86,6 @@ fn run(app: &mut App, actor: bevy::prelude::Entity) {
 #[test]
 fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     // Already at the strike threshold (the damage system increments
@@ -127,7 +126,6 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
     // until the grace (counted only in `Playing`, i.e. after the dialog box
     // closes) elapses — so the player isn't attacked point-blank mid-dialog.
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(ambition_time::WorldTime {
         scaled_dt: 1.0,
         ..Default::default()
@@ -177,7 +175,6 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
 #[test]
 fn npc_below_the_threshold_stays_peaceful() {
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, NPC_HOSTILE_STRIKE_THRESHOLD - 1);
@@ -196,7 +193,6 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
     // threshold — because picking "challenge" IS consent to fight. This
     // is the gate the Perfect Cell-ular Automaton encounter rides on.
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
@@ -234,7 +230,6 @@ fn a_challenge_flips_a_peaceful_npc_hostile_with_zero_strikes() {
 fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);
@@ -377,7 +372,6 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_flying_npc(&mut app);
@@ -478,7 +472,6 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     use ambition_characters::actor::BodyHealth;
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), Some(9)));
@@ -557,7 +550,6 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     use ambition_characters::brain::{ActionSet, Brain, PlayerSlot, StateMachineCfg};
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
 
@@ -631,7 +623,6 @@ fn an_unauthored_body_gets_the_undescribed_pool_before_anybody_hits_it() {
     use ambition_characters::actor::{BodyHealth, DEFAULT_UNAUTHORED_BODY_HEALTH};
 
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
@@ -668,7 +659,6 @@ fn an_un_challenged_passive_npc_ignores_damage() {
     // actor stays peaceful when merely damaged — only the challenge (or
     // crossing the retaliation threshold) arms the fight.
     let mut app = App::new();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_message::<ActorStimulus>();
     app.add_systems(Update, apply_actor_stimuli);
     let npc = spawn_npc_with_strikes(&mut app, 0);

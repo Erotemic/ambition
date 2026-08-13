@@ -32,7 +32,6 @@
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
         (path: "data/encounters/goblin_encounter.ron", schema: "encounter_waves", version: 1),
-        (path: "data/character_archetypes.ron", schema: "character_archetypes", version: 1),
         // Nine difficulty rungs. ⛔ authored since 2026-07 and read by NOTHING until
         // this line: the engine floor (`for_level`) was consulted instead, so every
         // rung scored moves with the level-9 weight set.

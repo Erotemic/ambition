@@ -1,13 +1,11 @@
 //! Tests for the ECS feature spawn paths: authored actors/bosses, dynamic
 //! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
-use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain};
+use super::super::brain_builders::enemy_default_brain;
 use super::super::spawn_actors::spawn_boss_with_overrides_into;
 use super::*;
-use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::{
-    ActorAggression, ActorConfig, ActorDisposition, ActorIdentity,
-    AggressionMode, CombatKit,
+    ActorAggression, ActorConfig, ActorDisposition, ActorIdentity, AggressionMode, CombatKit,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
@@ -32,16 +30,15 @@ use bevy::prelude::{App, Commands, Update};
 /// name happened to resolve to.
 #[test]
 fn a_body_built_from_a_named_character_remembers_which_one() {
-    let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
+    let cast = crate::character_runtime::fixture_cast(&["npc_pirate_quartermaster"]);
+    let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
         &Default::default(),
         &crate::character_roster::catalog(),
-        crate::features::enemies::CharacterRoster::default()
-            .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
         "cove_pirate".to_string(),
-        // The LABEL a level author typed, deliberately not the character id —
-        // the two roads this parameter exists to keep open.
-        "Pirate Quartermaster".to_string(),
-        Some("npc_pirate_quartermaster"),
+        cast.get("npc_pirate_quartermaster")
+            .expect("the fixture cast holds the character it was asked for")
+            .body_blueprint()
+            .expect("a fixture character states everything a body needs"),
         ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
@@ -54,39 +51,50 @@ fn a_body_built_from_a_named_character_remembers_which_one() {
     );
 }
 
-fn make_enemy(brain_key: &str) -> ActorConfig {
-    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-    crate::features::ecs::actor_clusters::ActorClusterSeed::new(
-        "test".to_string(),
-        "test".to_string(),
-        aabb,
-        ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
-        &[],
-    )
-    .config
-}
-
-/// The body's REAL verb set for a brain key — the same seed `make_enemy` reads
-/// its config from, asked for the other half.
+/// A body whose CHARACTER declares `template` as its controller policy.
 ///
-/// ⛔ it exists because `enemy_default_brain` stopped taking the driver's word
-/// for what a body can do (Jon's redirect §7): the `smash_can_*` mirrors are
-/// gone, so a fixture that hands the builder a default `AbilitySet` is asserting
-/// about a body that cannot blink, fly or shield — which is a different body
-/// from the one the archetype authored.
-fn abilities_of(brain_key: &str) -> ambition_platformer2d_core::AbilitySet {
-    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
-    crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+/// ⛔ **`make_enemy(brain_key)` stood here** and built through an archetype row
+/// resolved from the key, so a test named a creature-ish string and got whatever
+/// the fixture roster said that creature was. The rows are deleted (AC6) and a
+/// body's policy comes from the character that states it — which is what these
+/// tests were always really asserting about.
+fn body_driven_by(
+    template: ambition_characters::brain::CharacterBrainTemplate,
+) -> (ActorConfig, ambition_platformer2d_core::AbilitySet) {
+    let mut definition =
+        crate::character_runtime::CharacterDefinition::new("fixture_body", "Fixture Body", "test")
+            .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                run_speed: 155.0,
+                move_style: MoveStyleSpec::Walk,
+                ..Default::default()
+            })
+            .with_autonomous_profile(ambition_characters::brain::BrainProfile {
+                template,
+                aggro_radius: 460.0,
+                attack_range: 150.0,
+                patrol_effort: 0.6774,
+                chase_effort: 1.0,
+                ..Default::default()
+            });
+    definition.vitals.max_health = Some(4);
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        definition,
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    let seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
+        &Default::default(),
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         "test".to_string(),
-        "test".to_string(),
-        aabb,
-        ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
+        finalized
+            .prepared
+            .body_blueprint()
+            .expect("the fixture character states everything a body needs"),
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_body".to_string()),
         &[],
-    )
-    .body
-    .0
-    .abilities
-    .abilities
+    );
+    let abilities = seed.body.0.abilities.abilities;
+    (seed.config, abilities)
 }
 
 /// The room-construction choke point lowers authored placements through EXACTLY
@@ -145,7 +153,6 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     ));
 
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let roster = crate::features::enemies::test_roster();
     let boss_catalog = crate::boss_encounter::test_boss_catalog();
 
     let plan = RoomFeatureConstructionPlan::prepare(
@@ -154,7 +161,6 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         &Default::default(),
         &catalog,
         &Default::default(),
-        &roster,
         &boss_catalog,
         crate::features::ActorConstructionContext::new(
             &crate::construction::engine_construction_registry(),
@@ -182,37 +188,39 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     );
 }
 
-/// Regression net: spawning an encounter mob attaches a
-/// per-archetype Brain. `medium_striker` migrated from
-/// `MeleeBrute` to `Smash` in `character_archetypes.ron`; the test
-/// follows that and pins the Smash variant instead.
+/// Regression net: an encounter mob's brain comes from the CONTROLLER POLICY
+/// its character declares.
+///
+/// ⛔ **it used to come from an archetype row**, and this test read
+/// `medium_striker`'s — a row that "migrated from `MeleeBrute` to `Smash` in
+/// `character_archetypes.ron`", which the test then followed. The row is
+/// deleted (AC6); the claim survives because it was never really about the row:
+/// a body's driver is the profile SOMETHING published, and now the only thing
+/// that can publish one is a character or a placement.
 #[test]
-fn encounter_mob_brain_is_per_archetype_melee_brute() {
+fn encounter_mob_brain_comes_from_its_characters_profile() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,
         |mut commands: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
-        >,
-         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+        >| {
             spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &roster,
-                &crate::character_runtime::PreparedCharacterRegistry::default(),
+                &smash_fixture_cast(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 crate::features::EncounterMobSeed {
                     id: "test_mob".to_string(),
-                    character: None,
+                    character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                        "medium_striker".into(),
+                        "fixture_striker".into(),
                     ),
                     pos: ae::Vec2::new(100.0, 100.0),
                     size: ae::Vec2::new(20.0, 30.0),
@@ -223,11 +231,42 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
     app.update();
     let mut q = app.world_mut().query::<&Brain>();
     let brain = q.iter(app.world()).next().expect("encounter mob exists");
-    // medium_striker is a hostile archetype with Smash brain.
-    assert!(matches!(
-        brain,
-        Brain::StateMachine(StateMachineCfg::Smash { .. })
-    ));
+    assert!(
+        matches!(brain, Brain::StateMachine(StateMachineCfg::Smash { .. })),
+        "the character declares a Smash policy and its body is driven by \
+         something else"
+    );
+}
+
+/// A body-complete fixture character that declares a SMASH controller policy —
+/// the shape the deleted `medium_striker` row carried.
+fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
+    let mut definition = crate::character_runtime::CharacterDefinition::new(
+        "fixture_striker",
+        "Fixture Striker",
+        "test",
+    )
+    .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+        run_speed: 155.0,
+        move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+        ..Default::default()
+    })
+    .with_autonomous_profile(ambition_characters::brain::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Smash,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        patrol_effort: 0.6774,
+        chase_effort: 1.0,
+        ..Default::default()
+    });
+    definition.vitals.max_health = Some(4);
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        definition,
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+    registry.insert_prepared(finalized.prepared);
+    registry
 }
 
 /// Regression net: the boss populate function attaches Brain (BossPattern) +
@@ -310,7 +349,10 @@ fn boss_spawn_attaches_brain_components() {
     // AC3.1.A: ONE liveness answer. The line below used to assert a `BodyCombat`
     // mirror agreed with it, which is the duplication rather than a check of it.
     assert!(health.alive());
-    assert_eq!(combat.hit_flash, 0.0, "a freshly spawned boss is not blinking");
+    assert_eq!(
+        combat.hit_flash, 0.0,
+        "a freshly spawned boss is not blinking"
+    );
     assert!(kit.can_ranged(None));
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }
@@ -324,27 +366,24 @@ fn encounter_mob_spawns_with_brain_components() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,
         |mut commands: Commands,
          catalog: bevy::prelude::Res<
             ambition_characters::actor::character_catalog::CharacterCatalog,
-        >,
-         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+        >| {
             spawn_encounter_mob(
                 &mut commands,
                 &catalog,
                 &Default::default(),
-                &roster,
-                &crate::character_runtime::PreparedCharacterRegistry::default(),
+                &crate::character_runtime::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 crate::features::EncounterMobSeed {
                     id: "test_mob".to_string(),
-                    character: None,
+                    character: Some("fixture_striker"),
                     brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                        "medium_striker".into(),
+                        "fixture_striker".into(),
                     ),
                     pos: ae::Vec2::new(100.0, 100.0),
                     size: ae::Vec2::new(20.0, 30.0),
@@ -363,160 +402,86 @@ fn encounter_mob_spawns_with_brain_components() {
     );
 }
 
-/// enemy_default_brain picks a per-archetype template — pins
-/// the mapping so a future refactor that re-keys archetypes
-/// can't silently lose the Wanderer/StandStill assignments
-/// PuppySlug and the training dummy rely on.
+/// `enemy_default_brain` picks the brain FAMILY its controller policy names.
+///
+/// ⛔ **it used to pin a KEY→family map** (`sandbag_infinite` → StandStill,
+/// `fixture_mount` → ChargeCrash, `medium_striker` → Smash) read out of the
+/// archetype table, and its own comments record two creatures leaving that table
+/// underneath it. The mapping under test was never the creature's — it is
+/// `template → StateMachineCfg`, and a character states the template.
 #[test]
-fn enemy_default_brain_picks_per_archetype_template() {
-    // ⚠ the puppy slug used to be the Wanderer half of this pair. Its archetype
-    // row is deleted (2026-08-11) — it authors a `Wanderer` BrainProfile on its
-    // character now — so asking `make_enemy("puppy_slug")` would silently build
-    // the `combatant` fallback and assert about that.
-    let sandbag = make_enemy("sandbag_infinite");
+fn enemy_default_brain_picks_the_family_its_policy_names() {
+    use ambition_characters::brain::CharacterBrainTemplate as Template;
+
+    let (sandbag, abilities) = body_driven_by(Template::StandStill);
     assert!(matches!(
-        enemy_default_brain(&sandbag, abilities_of("sandbag_infinite")),
+        enemy_default_brain(&sandbag, abilities),
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
-    // ⚠ the shark's row is deleted; the engine's own rideable fixture carries
-    // the ChargeCrash template this pins.
-    let shark = make_enemy("fixture_mount");
+    let (diver, abilities) = body_driven_by(Template::ChargeCrash);
     assert!(matches!(
-        enemy_default_brain(&shark, abilities_of("fixture_mount")),
+        enemy_default_brain(&diver, abilities),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
-    // `MediumStriker` was migrated to the Smash brain template in
-    // `character_archetypes.ron` — assert against the live data path
-    // rather than reverting to MeleeBrute. The chase_speed pin
-    // moves over to the `SmashCfg` row.
-    let striker = make_enemy("medium_striker");
-    match enemy_default_brain(&striker, abilities_of("medium_striker")) {
+    let (brute, abilities) = body_driven_by(Template::MeleeBrute);
+    assert!(matches!(
+        enemy_default_brain(&brute, abilities),
+        Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
+    ));
+
+    let (striker, abilities) = body_driven_by(Template::Smash);
+    match enemy_default_brain(&striker, abilities) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
-            assert!(
-                (cfg.chase_speed
-                    - crate::features::enemies::test_spec("medium_striker")
-                        .tuning()
-                        .chase_speed)
-                    .abs()
-                    < 0.01
-            );
+            // ⭐ **the PROFILE's pacing against the BODY's top speed** (§4.7),
+            // which is the seam the archetype row used to collapse into one
+            // number: 155 px/s at `chase_effort: 1.0`.
+            assert!((cfg.chase_speed - 155.0).abs() < 0.01);
         }
-        other => panic!("expected Smash for MediumStriker, got {:?}", other),
+        other => panic!("expected Smash for a Smash policy, got {other:?}"),
     }
 }
 
-/// Coverage lint: every combat brain key maps to a
-/// usable Brain (no panic, non-empty per design). Catches a
-/// future archetype addition that forgets to update
-/// enemy_default_brain.
+// ⛔⛔ **FOUR ARCHETYPE-TABLE TESTS WERE HERE AND ARE DELETED** (AC6):
+// `enemy_default_brain_covers_every_combat_archetype`,
+// `mounted_rider_archetype_carries_a_ranged_kit`,
+// `enemy_default_action_set_covers_every_combat_archetype` and
+// `enemy_default_action_set_picks_per_archetype_specs`. Each swept
+// `COMBAT_BRAIN_KEYS` or a `fixture_spec(..)` row and asserted that the table's
+// rows produced sensible kits — a coverage lint over a table that no longer
+// exists, and whose replacement is not another sweep: what a body fights with is
+// authored on its character and reaches it through one persona writer, and a
+// character that cannot state a body refuses to build one.
+
+/// A body forced hostile must be able to SWING, not merely to approach — the
+/// "walks toward you but never swings" state where only movement was made
+/// hostile.
+///
+/// ⚠ the action set is stated here rather than resolved: the claim under test is
+/// the BRAIN's, and the kit is its input. It used to be read off the
+/// `pirate_heavy` archetype row, which made a brain test depend on a content
+/// table (deleted, AC6).
 #[test]
-fn enemy_default_brain_covers_every_combat_archetype() {
-    for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
-        let enemy = make_enemy(key);
-        let brain = enemy_default_brain(&enemy, abilities_of(key));
-        // Aggressiveness should match the row's `hostile_by_default`.
-        // (Wanderer / StandStill / peaceful Patrol all return
-        // !is_hostile; everyone else returns is_hostile.)
-        assert_eq!(
-            brain.is_hostile(),
-            crate::features::enemies::test_spec(key).hostile_by_default,
-            "{key} brain.is_hostile mismatch with hostile_by_default",
-        );
-    }
-}
-
-/// ADR 0020 parity: the mounted rider archetype (`pirate_shark_rider`) carries
-/// its own orbit-and-fire kit — a ranged Bolt (the gun-sword) — so that, under a
-/// mount's Total control grant, its Skirmisher brain drives the shark's orbit
-/// and it fires. The fused `pirate_on_shark` row is gone; the loadout now lives
-/// on the standalone rider archetype, spawned as a solo actor linked to the
-/// shark by a `mounted_on` ref.
-#[test]
-fn mounted_rider_archetype_carries_a_ranged_kit() {
-    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec(
-        "fixture_armed_rider",
-    ));
-    assert!(
-        set.ranged.is_some(),
-        "the shark rider fires a Bolt (gun_sword) — its mounted attack",
-    );
-    assert!(matches!(set.move_style, MoveStyleSpec::Walk));
-
-    let heavy = enemy_default_action_set(&crate::features::enemies::fixture_spec(
-        "fixture_armed_rider_heavy",
-    ));
-    assert!(
-        heavy.ranged.is_some(),
-        "the heavy shark rider also fires a Bolt"
-    );
-    assert!(matches!(heavy.move_style, MoveStyleSpec::WalkHeavy));
-}
-
-/// Coverage lint: every hostile-by-default combat archetype gets at least one
-/// offensive ActionSet verb. Peaceful-by-default archetypes may still carry a
-/// dormant verb when another system explicitly forces them hostile (PirateHeavy
-/// after provocation / dismount); default hostility remains controlled by the
-/// brain's aggressiveness, not by stripping the capability out of the ActionSet.
-#[test]
-fn enemy_default_action_set_covers_every_combat_archetype() {
-    for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
-        let spec = crate::features::enemies::test_spec(key);
-        let set = enemy_default_action_set(&spec);
-        if spec.hostile_by_default {
-            assert!(
-                set.melee.is_some() || set.ranged.is_some(),
-                "{key} is hostile by default but its ActionSet has no melee or ranged",
-            );
-        }
-    }
-}
-
-/// enemy_default_action_set picks a per-archetype concrete
-/// attack spec — the EFFECTS consumers read these to spawn
-/// distinct hitboxes / projectiles per archetype.
-#[test]
-fn enemy_default_action_set_picks_per_archetype_specs() {
-    // ⚠ the puppy slug's row is deleted; its `Slither` gait and empty melee are
-    // authored on its character and pinned beside the definition.
-    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec("pirate_heavy"));
-    assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
-    assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
-
-    // ⚠ `large_brute` was the second heavy arm here and its row is deleted
-    // (2026-08-11): its one sandbox placement is a real character now. The
-    // `pirate_heavy` case above is the same shape and still stands.
-
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("medium_striker"));
-    assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
-
-    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec(
-        "fixture_armed_rider",
-    ));
-    assert!(set.ranged.is_some(), "pirate_shark_rider has ranged");
-    assert!(matches!(set.move_style, MoveStyleSpec::Walk));
-}
-
-/// PirateHeavy is peaceful by default via brain aggressiveness, but once a
-/// cove heavy is explicitly provoked the same archetype/action data must be
-/// capable of producing a melee request. This prevents the "walks toward you
-/// but never swings" state where only movement was made hostile.
-#[test]
-fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
-    let enemy = make_enemy("pirate_heavy");
-    let mut brain = enemy_default_brain(&enemy, abilities_of("pirate_heavy"));
+fn a_body_forced_hostile_swings_when_its_kit_can() {
+    let (enemy, abilities) =
+        body_driven_by(ambition_characters::brain::CharacterBrainTemplate::MeleeBrute);
+    let mut brain = enemy_default_brain(&enemy, abilities);
     match &mut brain {
         Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
             cfg.aggressiveness = 1.0;
             cfg.aggro_radius = 500.0;
             cfg.attack_range = 160.0;
         }
-        other => panic!("expected PirateHeavy to use MeleeBrute, got {other:?}"),
+        other => panic!("expected a MeleeBrute policy to build a MeleeBrute, got {other:?}"),
     }
-    let actions = enemy_default_action_set(&crate::features::enemies::fixture_spec("pirate_heavy"));
-    assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
+    let actions = ActionSet {
+        melee: Some(MeleeActionSpec::Lunge(
+            ambition_characters::brain::action_set::LungeSpec::BRUTE_DEFAULT,
+        )),
+        ..ActionSet::peaceful()
+    };
 
     let snapshot = ambition_characters::brain::BrainSnapshot {
         // A fixture body: unattributed facts are the honest answer here.
@@ -559,7 +524,8 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
     brain.tick_with_actions(&actions, &snapshot, None, &mut frame);
     assert!(
         frame.melee_pressed,
-        "provoked PirateHeavy should commit a melee swing when in range",
+        "a body forced hostile with a melee in its kit should commit a swing \
+         when in range",
     );
 }
 
@@ -585,7 +551,6 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
 
     let mut app = App::new();
     app.insert_resource(crate::character_roster::catalog());
-    app.insert_resource(crate::features::enemies::CharacterRoster::default());
 
     let authored = crate::rooms::Authored::new(
         "NpcSpawn-107741",
@@ -653,32 +618,12 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
 mod authored_enemy_reads_its_character {
     use super::*;
 
-    /// A roster whose `medium_striker` gives a body 3 HP. Deliberately NOT the
-    /// engine default, so "the archetype's pool stood" is distinguishable from
-    /// "something wrote an ambient default".
-    ///
-    /// ⚠ `combatant` is required (the roster panics without it) and is given a
-    /// DIFFERENT pool on purpose: `spec_for_brain` silently answers `combatant`
-    /// for an unknown key, so identical pools would hide a spawn that never
-    /// found `medium_striker` at all.
-    fn roster() -> crate::features::CharacterRoster {
-        crate::features::CharacterRoster::from_ron(
-            r#"{
-                "medium_striker": (
-                    max_health: 3, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    hostile_by_default: false, body_contact_damage: false,
-                ),
-                "combatant": (
-                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
-                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
-                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
-                    hostile_by_default: false, body_contact_damage: false,
-                ),
-            }"#,
-        )
-    }
+    // ⛔⛔ **`roster()` WAS HERE AND IS DELETED** (AC6). It published two rows
+    // with deliberately different pools so "the character's HP won" could be
+    // told apart from "the archetype's did" — the comparison this module was
+    // built to make. There is no second authority to lose to: a body's pool is
+    // its character's, and a placement naming no buildable character is refused
+    // rather than handed a generic body with a plausible pool.
 
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
@@ -770,7 +715,6 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -778,7 +722,6 @@ mod authored_enemy_reads_its_character {
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -787,7 +730,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     &Default::default(),
                     SessionSpawnScope::UNSCOPED,
@@ -922,7 +864,6 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -930,7 +871,6 @@ mod authored_enemy_reads_its_character {
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -939,7 +879,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     &profiles,
                     SessionSpawnScope::UNSCOPED,
@@ -1068,7 +1007,6 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
         app.insert_resource(registry);
         app.add_systems(
             Update,
@@ -1076,7 +1014,6 @@ mod authored_enemy_reads_its_character {
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -1085,7 +1022,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
@@ -1172,33 +1108,24 @@ mod authored_enemy_reads_its_character {
         // hatch rather than this rule.
         spawn_with_prepared_and_brain(prepared(), Some("iron_mary"), "no_such_archetype");
     }
+    // ⛔⛔ **`a_composition_with_no_cast_at_all_falls_back_instead_of_refusing`
+    // WAS HERE AND IS DELETED** (AC6) — the HOST WAIVER, the last fallback road
+    // in construction. It asserted that a composition publishing no characters
+    // still built SOMETHING, because refusing *"would take down the multi-game
+    // shell over a registry that publishes no characters"*. Every composition in
+    // the repository publishes one now; a body with nothing to build it from is
+    // a construction error in all of them, which is what makes the road
+    // deletable rather than merely unused.
 
-    /// **And the escape hatch is real**: a composition that registered NOTHING
-    /// falls back rather than refusing, because in that host every placement's
-    /// character is "missing" and the fault is the host's.
-    #[test]
-    fn a_composition_with_no_cast_at_all_falls_back_instead_of_refusing() {
-        let (max, _, _) = spawn_with_brain(Some("iron_mary"), "no_such_archetype");
-        assert_eq!(
-            max, 42,
-            "an empty-cast host must still build SOMETHING — 42 is the fixture's \
-             `combatant` fallback, and refusing here would take down the \
-             multi-game shell over a registry that publishes no characters"
-        );
-    }
-
-    /// **And a BORROWED character still falls back**, or a partial composition
-    /// stops booting.
-    #[test]
-    fn a_spawn_naming_an_unregistered_character_with_a_real_archetype_falls_back() {
-        let (max, _, _) = spawn_with_brain(Some("iron_mary"), "medium_striker");
-        assert_eq!(
-            max, 3,
-            "the archetype's pool must stand for a character this composition \
-             does not have — that is what makes a standalone demo able to run \
-             with a borrowed cast"
-        );
-    }
+    // ⛔⛔ **`a_spawn_naming_an_unregistered_character_with_a_real_archetype_falls_back`
+    // WAS HERE AND IS DELETED** (AC6). It asserted that a placement naming a
+    // character this composition does NOT have still got the archetype's body,
+    // *"that is what makes a standalone demo able to run with a borrowed cast"*.
+    // The borrowed-cast case was real and it is closed at the source instead:
+    // every demo registers the characters it places (Mary-O's plane swarms were
+    // the last borrowers, 2026-08-13), so there is nothing left to borrow FOR —
+    // and a placement that names a character nobody registered is refused rather
+    // than built as a stranger with the right name.
 
     /// **A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.**
     ///
@@ -1211,24 +1138,26 @@ mod authored_enemy_reads_its_character {
     /// ⛔ the reason it became urgent: a MIGRATED character has no row, so its
     /// respawn arrived through the `combatant` fallback. That worked by luck.
     #[test]
-    fn a_placement_authors_its_own_respawn_and_outranks_the_archetypes() {
+    fn a_placement_authors_its_own_respawn_and_outranks_the_default() {
         use ambition_entity_catalog::placements::RespawnPolicy;
 
-        // The fixture archetype says nothing, so it defaults to DeadStaysDead —
-        // and the placement asks for the opposite, which is the only way to tell
-        // "the placement was read" from "the default stood".
-        let authored = spawn_respawn(Some(RespawnPolicy::OnRoomReenter));
+        // ⭐ **the two answers must DIFFER, or neither assertion can tell "the
+        // placement was read" from "the default stood".** The unauthored answer
+        // is `UNDESCRIBED_BODY_RESPAWN` — the engine's stated policy for a body
+        // nobody described — so the placement asks for the opposite.
+        let authored = spawn_respawn(Some(RespawnPolicy::DeadStaysDead));
         assert_eq!(
             authored,
-            RespawnPolicy::OnRoomReenter,
+            RespawnPolicy::DeadStaysDead,
             "the placement's policy did not reach the body"
         );
         let unauthored = spawn_respawn(None);
         assert_eq!(
             unauthored,
-            RespawnPolicy::DeadStaysDead,
-            "a placement that says nothing must keep the archetype's answer, or \
-             every level authored before the field existed changes meaning"
+            crate::features::ecs::spawn_actors::UNDESCRIBED_BODY_RESPAWN,
+            "a placement that says nothing must take the engine's stated answer \
+             for an undescribed body — it used to inherit whatever archetype row \
+             its brain key happened to name (AC6)"
         );
     }
 
@@ -1241,6 +1170,9 @@ mod authored_enemy_reads_its_character {
                 "medium_striker".to_string(),
             ),
         );
+        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
+            "npc_busy_beaver",
+        ));
         spec.respawn = respawn;
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
@@ -1251,15 +1183,15 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
-        app.insert_resource(prepared());
+        // The character must be able to BUILD a body: respawn is a placement
+        // fact, and reading it requires a body to write it onto.
+        app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
             move |mut commands: Commands,
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -1268,7 +1200,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
@@ -1327,7 +1258,6 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
         app.insert_resource(prepared);
         app.add_systems(
             Update,
@@ -1335,7 +1265,6 @@ mod authored_enemy_reads_its_character {
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -1344,7 +1273,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
@@ -1385,7 +1313,6 @@ mod authored_enemy_reads_its_character {
 
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
-        app.insert_resource(roster());
         app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
@@ -1393,7 +1320,6 @@ mod authored_enemy_reads_its_character {
                   catalog: bevy::prelude::Res<
                 ambition_characters::actor::character_catalog::CharacterCatalog,
             >,
-                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
                   prepared: bevy::prelude::Res<
                 crate::character_runtime::PreparedCharacterRegistry,
             >| {
@@ -1402,7 +1328,6 @@ mod authored_enemy_reads_its_character {
                     &mut commands,
                     &catalog,
                     &Default::default(),
-                    &roster,
                     &prepared,
                     // These fixtures author no placement-side policy, so an
                     // empty registry is the state they model.
@@ -1441,27 +1366,12 @@ mod authored_enemy_reads_its_character {
         );
         assert_eq!(sprite.as_deref(), Some("npc_busy_beaver"));
     }
-
-    /// ⛔⛔ **THE POISON THIS MODULE EXISTS FOR.** Re-wire the lookup back
-    /// through `config.sprite_character_id` and this reds with 9, because the
-    /// display name DOES resolve to the registered character — which the second
-    /// assertion proves rather than assumes. Without that assertion the test
-    /// could pass because the name never resolved at all, which would be a
-    /// check that cannot fail.
-    #[test]
-    fn a_spawn_that_only_looks_like_a_character_does_not_become_one() {
-        let (max, sprite) = spawn("Busy Beaver", None);
-        assert_eq!(
-            sprite.as_deref(),
-            Some("npc_busy_beaver"),
-            "the PRESENTATION join must still resolve the display name, or the \
-             gameplay assertion below is vacuous"
-        );
-        assert_eq!(
-            max, 3,
-            "it wears the beaver's sheet and it is not a beaver: the archetype's \
-             3 must stand. 9 here means gameplay identity is being inferred from \
-             presentation identity again"
-        );
-    }
+    // ⛔⛔ **`a_spawn_that_only_looks_like_a_character_does_not_become_one` WAS
+    // HERE AND IS DELETED — the inference it guarded is now UNSTATEABLE** (AC6).
+    // It spawned a placement whose DISPLAY NAME matched a catalog character and
+    // asserted the body kept the archetype's 3 HP rather than the character's 9,
+    // because gameplay identity must not be inferred from presentation identity.
+    // A body is built from `gameplay_character_id()` — the placement's
+    // `character_id` and nothing else — and a placement that names none has no
+    // second road to be built on, so the display name cannot supply one.
 }

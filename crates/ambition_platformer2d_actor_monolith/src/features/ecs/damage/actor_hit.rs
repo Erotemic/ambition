@@ -95,7 +95,6 @@ pub(crate) fn apply_actor_hit(
     // did not have one.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    roster: &crate::features::CharacterRoster,
     actor_entity: Entity,
     disposition: ActorDisposition,
     // Does a RULESET own this body's death? A match fighter's KO belongs to the
@@ -555,7 +554,6 @@ pub(crate) fn apply_actor_hit(
                         &mut writers.commands,
                         catalog,
                         authored_sheets,
-                        roster,
                         prepared,
                         session_scope,
                         &em.config.id,

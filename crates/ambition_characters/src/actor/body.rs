@@ -583,8 +583,14 @@ mod hard_lock_tests {
 
     /// ⛔ the expression was `recoil_lock.max(landing_lag)` written at the call
     /// site, so reducing it to `recoil_lock` alone would have stopped landing lag
-    /// locking anything and no test would have said so. That is not
-    /// hypothetical — the ACTOR road passes exactly that reduced form today.
+    /// locking anything and no test would have said so. That was not
+    /// hypothetical: the ACTOR road passed exactly that reduced form.
+    ///
+    /// ⭐ **it cannot any more, and the type is why** —
+    /// `engine_input_from_actor_control` takes `&BodyCombat` instead of two
+    /// loose `f32`s, so there is no parameter a caller can fill with the wrong
+    /// field. This test guards the remaining half: that the method itself keeps
+    /// asking for both.
     #[test]
     fn landing_lag_alone_still_locks_control() {
         let mut combat = BodyCombat::default();

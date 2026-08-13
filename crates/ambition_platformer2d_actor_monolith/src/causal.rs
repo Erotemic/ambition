@@ -270,11 +270,20 @@ pub fn record_body_control_frame(
             // charge and a live cooldown with `dash_pressed` false.
             .field("dash_charges", i64::from(dash.charges_available))
             .field("dash_cooldown", dash.cooldown)
-            // A HARD lock (`recoil_lock_timer`) means the body has no input
-            // authority at all this tick — a disagreement under one is the
-            // system working. `hitstun_timer` is the partial-control penalty,
-            // and `attacking` is a move owning the body's motion.
-            .field("recoil_lock", combat.map_or(0.0, |c| c.recoil_lock_timer))
+            // A HARD lock means the body has no input authority at all this
+            // tick — a disagreement under one is the system working.
+            // `hitstun_timer` is the partial-control penalty, and `attacking` is
+            // a move owning the body's motion.
+            //
+            // ⛔⛔ **this published `recoil_lock_timer`, which is HALF the gate.**
+            // The lock `apply_post_hit_input_gates` applies is
+            // `recoil_lock.max(landing_lag)` — so a body locked by landing lag
+            // alone traced as `recoil_lock: 0.0` and read as fully in control
+            // while its input was being zeroed. ⚠ that is the instrument shaped
+            // exactly like the bug it hunts: a causal trace exists to say WHY two
+            // runs diverged, and this one would have sent the reader past the
+            // reason. It asks the body for the whole gate now.
+            .field("hard_lock", combat.map_or(0.0, ambition_characters::actor::BodyCombat::hard_lock_timer))
             .field("hitstun", combat.map_or(0.0, |c| c.hitstun_timer))
             .field("attacking", melee.is_some_and(|m| m.is_swinging()))
             // The two acceleration terms the integrator adds, in world units per

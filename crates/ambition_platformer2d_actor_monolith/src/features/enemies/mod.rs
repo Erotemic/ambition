@@ -431,26 +431,21 @@ impl CharacterRoster {
         self.by_brain.keys().cloned().collect()
     }
 
-    /// **The CONTROLLER POLICY filed under `key`** — the archetype's other half,
-    /// on its own.
-    ///
-    /// ⭐ **a caller that wants a brain does not want a body.** A match seat
-    /// needs to know how a CPU decides; it used to get that by resolving a whole
-    /// archetype and building the fighter's body out of it, which is how every
-    /// fighter on the smash grid ended up physically a `combatant`. This answers
-    /// the controller question alone.
-    ///
-    /// ⚠ **a projection, and therefore temporary.** The endpoint is a registry
-    /// of authored [`BrainProfile`]s a character or a placement NAMES, at which
-    /// point this method's subject stops existing. `None` for an unregistered
-    /// key — no fallback, because a seat that asked for a policy nobody
-    /// registered must be refused rather than handed a generic one.
-    pub fn brain_profile_for(
-        &self,
-        key: &str,
-    ) -> Option<crate::features::ecs::actor_tuning::BrainProfile> {
-        self.by_brain.get(key).map(ArchetypeSpecExt::brain_profile)
-    }
+    // ⛔⛔ **`brain_profile_for()` WAS HERE AND IS DELETED (2026-08-13, campaign
+    // P2.18/P2.19) — the roster's LAST controller-policy surface.**
+    //
+    // Its own doc called it *"a projection, and therefore temporary… the endpoint
+    // is a registry of authored `BrainProfile`s a character or a placement NAMES,
+    // at which point this method's subject stops existing"*. That endpoint
+    // arrived: Smash publishes `smash::duelist_l{n}` (D87), the versus stage
+    // publishes `ambition_versus::versus_duelist`, and `seat_brain_profile` has
+    // one arm. The compiler-backed census (`probe_dead_public_fns.py`, D105)
+    // found it with zero call sites in the workspace or any excluded consumer.
+    //
+    // ⇒ `CharacterRoster` answers BODY questions now, and nothing else. Two of
+    // the three fused authorities Jon's brief names are out of it — controller
+    // policy here, placement policy as its fields migrate — and what is left is
+    // the intrinsic body, which goes with the last two rows.
 
     /// Whether this roster actually has an archetype for `key`.
     ///

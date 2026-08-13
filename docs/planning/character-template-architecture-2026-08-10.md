@@ -191,6 +191,25 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 
 ## ⇥⇥ REMAINING WORK — THE ONE CHECKLIST (agent, 2026-08-10)
 
+### ⇥ WHERE THE 23 STAND — tallied 2026-08-13, so a fresh session need not count
+
+```text
+  ✔ DONE     10   1, 4, 5, 8, 10, 11, 12, 13, 17, 19
+  ◐ PARTIAL   8   2, 3, 14, 15, 16, 18, 20, 21
+  ▢ OPEN      5   6, 7, 9, 22, 23
+```
+
+⭐ **and the shape matters more than the tally: almost every remaining ▢ and ◐
+is gated on the SAME four casting decisions.** 14, 15, 16, 20, 21, 22 all wait
+on `character_archetypes.ron` losing its last two rows; 9 waits on the fourteen
+body-incomplete characters; 23 is a rename that comes last by design. **6 and 7
+are the only ones that are engineering and not waiting on Jon.**
+
+⚠ **the four decisions are written up with options and a recommendation each** —
+`awaiting-maintainer-decision.md`, which now indexes ELEVEN open questions
+(it had been showing five while six sat un-indexed in its own body).
+
+
 ⛔ **this is the resumption list. Everything below the appendices is context;
 this is the work.** Ordered by dependency: an item's blockers are above it. Each
 carries the measurement that sizes it, so no step begins with a survey.

@@ -2985,16 +2985,52 @@ is a decision the migration must make deliberately, with what is known:
    of thing the brief means by *"semantically migrated, not blindly trusted"*.
    `Option<bool>` must survive the move: `None` ≠ `Some(false)` is why the
    conflict is expressible at all.
-2. **`is_sandbag`** — reads as a character fact and behaves as a placement role.
+2. ✔ **`is_sandbag`** — read as a character fact and behaved as a placement role.
    It reaches the RENDER read model (`ActorRenderView.is_sandbag`, a
    sprite-upgrade fallback), `save_sync`, and cluster pathing. A sandbag is a
    training instance of some body, which argues placement; but three consumers
    treat it as identity. Decide once, and move all three.
-3. **`never_dies`** — same shape, cleaner answer: `damage_apply` uses it to make
+
+   ⇒ ✔ **ANSWERED BY MEASUREMENT 2026-08-13: it is a CHARACTER fact, and there
+   is nothing left to move.** No shipped archetype row sets `is_sandbag` — the
+   only two that do are ENGINE FIXTURE rows, kept (by their own note) for *"tests
+   about the archetype machinery itself … about the SHAPE, not about Ambition's
+   dummy"*, so they retire with `ArchetypeSpec` rather than before it. Every
+   shipped practice target is a CHARACTER authoring `as_practice_target()`, and
+   all three consumers read `ActorTuning::is_sandbag`, a projection fed from
+   `CharacterDefinition::practice_target` on the character-first road.
+
+   ⭐ **and the one behaviour that reads the archetype field DIRECTLY already
+   agrees across both roads**: `new_in` suppresses patrol-path attachment for a
+   sandbag row, and `new_character_in` suppresses it for `practice_target` — with
+   a note saying why the second was added (*"a dummy on a patrol path is a dummy
+   that walks away from the player practising on it"*). That is the fork this
+   appendix worried about, already unified, and unified in the direction this
+   ruling would have chosen.
+
+   ⚠ the invariant that used to guard it, `CharacterRoster::sandbags_are_passive`,
+   went vacuous when its subject migrated and is deleted; the claim lives on the
+   characters now (`practice_target_characters_do_not_strike_back`), and it
+   asserts the POLICY rather than the old rule's `melee: None` proxy — both
+   sandbags carry a real `PunchWeak` on purpose.
+3. ✔ **`never_dies`** — same shape, cleaner answer: `damage_apply` uses it to make
    a body take no health damage. That is either an intrinsic trait (an immortal
    creature) or a training-mode ruleset fact. The brief allows the intrinsic
    reading *"only where these really are properties of the character"* — the
    shipped users are sandbags, which suggests it travels with `is_sandbag`.
+
+   ⇒ ✔ **AND IT TRAVELLED, 2026-08-13's measurement finding it already there.**
+   No shipped archetype row sets `never_dies`; `sandbag_infinite` authors it on
+   its own definition, and that file's doc already argues the intrinsic reading —
+   it is *"a separate creature rather than a flag on the sandbag"*. So the
+   appendix's suggested answer is the shipped one, reached by the content rather
+   than by this ruling.
+
+   ⚠ its own note records the residue worth keeping: `9999` health AND
+   `never_dies` is *"one fact stated twice"*, with each half read by a different
+   consumer (the number by damage readouts, the flag by the death check). That is
+   a smaller duplication than this appendix is about, and it belongs to whoever
+   unifies mortality.
 4. **`death_policy`** — the brief puts ruleset-owned death behaviour in session
    context, and `HpDepleted` vs `Unbounded` is precisely a ruleset fact (Ambition
    has health, a platform fighter has stocks and a blast zone). ⚠ but it is

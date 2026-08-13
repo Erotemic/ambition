@@ -1978,32 +1978,6 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
     );
 }
 
-/// **A CPU SEAT RESOLVES A PUBLISHED POLICY BEFORE AN ARCHETYPE KEY.**
-///
-/// ⭐ **the direction Jon's second redirect (P4) asks for.** A match's public API
-/// is *character + controller + team*, and the controller half was resolved
-/// through `CharacterRoster` — an enemy ARCHETYPE table — so a seat asking for a
-/// policy received one by way of a body definition, and Smash was not yet
-/// proving the controller architecture it advertises.
-///
-/// Two terms: a published policy WINS over an archetype key of the same name,
-/// and an archetype-only key still resolves. The first alone would pass if the
-/// registry were simply consulted; the second is what says the legacy road is
-/// still open while presets are migrated.
-///
-/// ⛔⛔ **AND A THIRD, BECAUSE THE FIRST TWO PASSED WHILE THE LOOKUP WAS DEAD**
-/// (ledger D87). This built its registry with `from_catalog_for_test`, which
-/// copied the catalog map VERBATIM and so keyed policies by BARE name;
-/// production assembly keys them `provider::name`. The seat asked for a bare
-/// key, matched the fixture, and matched NOTHING in any real game — every CPU
-/// seat fell through to the archetype table, including Smash's, whose `duelist`
-/// profile was published for exactly this and never once read.
-///
-/// The fixture is repaired rather than the assertion weakened: it namespaces
-/// like assembly does, and the seat resolves the reference in the CHARACTER's
-/// provider. The third term is the poison — a bare-keyed registry must NOT
-/// answer, because that is the shape that lied.
-#[test]
 /// **A CPU SEAT'S POLICY COMES FROM THE PUBLISHED REGISTRY, AND FROM NOWHERE
 /// ELSE.**
 ///
@@ -2017,7 +1991,11 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
 /// stronger for having one authority: a reference resolves in a PROVIDER. The
 /// poison is unchanged and is the shape that made the published arm vacuous for
 /// weeks — a bare-key match, which would let one game's `duelist` drive
-/// another's fighter. The third clause is new and is what the archetype arm used
+/// another's fighter. ⚠ the fixture is how it got there:
+/// `from_catalog_for_test` copied the catalog map VERBATIM and so keyed
+/// policies by BARE name, while production assembly keys them
+/// `provider::name` — so the seat matched the fixture and matched NOTHING
+/// in any real game (ledger D87). The third clause is new and is what the archetype arm used
 /// to hide: an unpublished key resolves to NOTHING, so preparation refuses the
 /// seat instead of quietly seating a body built from a creature row.
 #[test]

@@ -1782,24 +1782,6 @@ mod app_local_roster_tests {
         );
     }
 
-    fn open_key(brain: &ambition_entity_catalog::placements::CharacterBrain) -> String {
-        match brain {
-            ambition_entity_catalog::placements::CharacterBrain::Custom(name) => name.clone(),
-            other => panic!("the fixture built a non-Custom brain: {other:?}"),
-        }
-    }
-
-    /// **Two linked providers' authored defaults stay THEIRS.**
-    ///
-    /// ⛔⛔ **and the thing that made this test necessary is DELETED** (D102).
-    /// The roster used to promote a single provider's default to a process-wide
-    /// fallback and quietly use an inert engine one when two providers disagreed
-    /// — so the same misspelling built two different bodies depending on how
-    /// many games were linked into the App, and this test could only pin the
-    /// tie-break rather than object to the concept. There is no cross-game
-    /// default left to leak: the second half asserts its ABSENCE, which is a
-    /// stronger claim than the number it used to check.
-    #[test]
     /// **NO DEFAULT ANSWERS FOR AN UNKNOWN KEY, however many games are linked.**
     ///
     /// ⛔⛔ this test used to open by reading each provider's authored default

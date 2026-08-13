@@ -199,6 +199,93 @@ mod tests {
         );
     }
 
+    /// **"CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
+    /// SHIPPED CONTENT**, not of a fixture.
+    ///
+    /// The `basement_enemies` gallery used to be a row of one-of-each ARCHETYPE
+    /// — `patrol cutter`, `small skitter`, `guard striker`, `medium striker`,
+    /// `gradient seeker`, `large brute` — six slots with no creature identity,
+    /// which left the campaign a product question: invent characters for them,
+    /// or delete the row. Neither was needed. Once the archetypes separated into
+    /// a body and a controller policy, the same six slots became a MATRIX.
+    ///
+    /// ⭐ **this is the campaign's central proposition standing up in a room a
+    /// player can walk into**: one body wearing three different controllers, and
+    /// one controller worn by four different bodies. A demo that shows six
+    /// archetypes proves nothing about composition; this one cannot be authored
+    /// at all unless body and controller are genuinely separable.
+    ///
+    /// ⚠ **both directions, because either alone is satisfiable by accident.**
+    /// Several bodies under one controller is just "a shared policy"; several
+    /// controllers on one body is just "a versatile creature". Only the two
+    /// together say the axes are independent.
+    #[test]
+    fn the_basement_gallery_shows_one_body_under_many_controllers_and_the_reverse() {
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use std::collections::{BTreeMap, BTreeSet};
+
+        let manifest = world_manifest();
+        let project =
+            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+
+        let room = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "basement_enemies")
+            .expect("`basement_enemies` is a shipped sandbox room");
+
+        // body -> the distinct controllers it is placed under, and the reverse.
+        let mut controllers_per_body: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        let mut bodies_per_controller: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for enemy in &room.enemy_spawns {
+            let Some(body) = enemy.payload.gameplay_character_id() else {
+                continue;
+            };
+            let controller = format!("{:?}", enemy.payload.brain);
+            controllers_per_body
+                .entry(body.as_str().to_string())
+                .or_default()
+                .insert(controller.clone());
+            bodies_per_controller
+                .entry(controller)
+                .or_default()
+                .insert(body.as_str().to_string());
+        }
+
+        let most_controllers = controllers_per_body
+            .iter()
+            .max_by_key(|(_, controllers)| controllers.len())
+            .map(|(body, controllers)| (body.clone(), controllers.len()))
+            .unwrap_or_default();
+        assert!(
+            most_controllers.1 >= 3,
+            "no body in `basement_enemies` is placed under 3 or more distinct \
+             controllers — the best is {} at {}. The gallery no longer shows \
+             that a controller can be changed without changing the body.\n\
+             bodies -> controllers: {controllers_per_body:#?}",
+            most_controllers.0,
+            most_controllers.1
+        );
+
+        let most_bodies = bodies_per_controller
+            .iter()
+            .max_by_key(|(_, bodies)| bodies.len())
+            .map(|(controller, bodies)| (controller.clone(), bodies.len()))
+            .unwrap_or_default();
+        assert!(
+            most_bodies.1 >= 4,
+            "no controller in `basement_enemies` is worn by 4 or more distinct \
+             bodies — the best is {} at {}. The gallery no longer shows that one \
+             policy serves many creatures.\n\
+             controllers -> bodies: {bodies_per_controller:#?}",
+            most_bodies.0,
+            most_bodies.1
+        );
+    }
+
     /// **WHO IS STILL RIDING THE DISPLAY-NAME ROAD** — the measurement that
     /// sizes checklist item 15, kept as an exact set rather than a count.
     ///

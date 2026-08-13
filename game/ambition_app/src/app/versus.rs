@@ -1405,8 +1405,9 @@ mod roster_topology_tests {
         assert!(
             !roster.seating.may_seat(),
             "a roster naming brain profile `{VERSUS_CPU_BRAIN}`, which this \
-             composition's CharacterRoster does not have, was activated anyway. \
-             Seating will refuse it every tick and the stage will never open"
+             composition's BrainProfileRegistry does not publish, was activated \
+             anyway. Seating will refuse it every tick and the stage will never \
+             open"
         );
 
         // ⭐ and the SAME roster activates once the composition can answer for it,

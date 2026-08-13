@@ -1126,11 +1126,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::features::banter::CombatBanterRegistry",
         "authored banter registry",
     ),
-    ("::features::enemies::CharacterRoster", "authored roster"),
-    (
-        "::features::enemies::CharacterRosterRegistry",
-        "authored roster fragment registry",
-    ),
+    // ⛔ **`CharacterRoster` and `CharacterRosterRegistry` WERE WAIVED HERE and
+    // the types are DELETED** (AC6.1). A waiver answers a checker's question
+    // about something that exists; two entries naming nothing answered nothing,
+    // and this list is exactly where that goes unnoticed.
     (
         "::actor::character_catalog::",
         "authored character catalog family",

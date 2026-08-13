@@ -177,11 +177,11 @@ path works beside the old one.
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the TYPES ARE NAMED AND THE EXPRESSIVENESS HALF IS DONE.** ✔ `CharacterId` (entity_catalog, serde-transparent) · ✔ `BrainProfileRef` vs `BrainPresetId` (authored reference vs resolved key) · ✔ `CharacterDeathTraits` extracted below the runtime component · ✔ knockback weight and a default autonomous profile authorable and adopted. ✔ **THE TYPE MOVE IS DONE** (landed 2026-08-12, still marked ▢ here on 08-13): the authored `CharacterDefinition` lives in `ambition_characters` and `PreparedCharacterDefinition` stayed above, which is the design call this row was waiting on. ⭐ the coupling INVERTED rather than moved — `ambition_characters` does not depend on `ambition_combat` at all, and `ambition_combat` re-exports the derivation · ▢ `WornCharacter` → universal `CharacterIdentity`, blocked on the persona derive still resolving through the CATALOG |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ◐ **THE CONTENT HALF IS DONE; the deletion is in flight** (2026-08-13). The last borrower was closed by casting `small_lurker` as `npc_ai_slop` — provisionally, under Jon's stated precedents; reversal is one string constant in `gradient_sentinel.rs`. `OPEN_CASTING` is empty, `what_still_needs_an_archetype_row` expects `[]`, and `combatant` is a row NOTHING borrows, standing only until the ontology deletion (AC6) removes the file, the schema, `ArchetypeSpec`, `CharacterRoster` and the waiver machinery together. ⇥ AS WRITTEN: ◐ **NEARLY DONE, AND THE DISTANCE IS FOUR CASTING DECISIONS** (re-measured 2026-08-13). `character_archetypes.ron` is **263 lines and TWO rows** — `combatant`, which exists only as the row three `OPEN_CASTING` waivers borrow, and `medium_striker`, which exists only because one placement names it. ⭐ `worlds::tests::what_still_needs_an_archetype_row` rebuilds every placement's resolution against an EMPTY roster and reports exactly four things that stop resolving; **every other enemy placement in all four worlds builds as a character with no archetype table at all.** ⇒ all four are content decisions with options, evidence and a recommendation written up in `awaiting-maintainer-decision.md`, so what is left of this phase is agreement rather than migration. ⇥ AS WRITTEN: ◐ ◐ **STARTED — the first two characters are off the roster.** `npc_exploding_mite` and `npc_dividing_mite` author their death traits and health pools as CHARACTERS, their 8 sandbox placements name them, and the two `*_on_death` lines are DELETED from `character_archetypes.ron`. The diff is negative in the legacy file for the first time. ▢ their controller facts (patrol/chase/aggro/attack_range/brain_template) still need a `BrainProfile` type before those rows can go entirely. Formerly: mapped, and deliberately not started — appendix C reorders it after the constructor. `BUILDABLE_ONLY_CAST` is short-lived scaffolding, not architecture. Otherwise as mapped; the DOOR is open — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
 | 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **RE-MEASURED 2026-08-13 — two of the three ▢s below were STALE.** ✔ `PreparedMatch` no longer builds through `CharacterRoster`: all three mentions left in `prepared_match.rs` are historical comments recording its removal (*"that arm is deleted; preparation no longer takes the roster at all"*), and this row carried the claim TWICE, from two eras. ✔ the ENCOUNTER path takes `Res<PreparedCharacterRegistry>` **required**, documented as *"a wave that names a migrated character builds that character rather than an archetype wearing its face"*. ▢ what actually remains is the PROGRAMMATIC pair — `damage_drops` (the mite's split) and `puppy_slug_gun` (the summoned ally) — which take `Option<Res<..>>` and fall back to an `empty_cast`. ⚠ **and that pair is NOT a defect — I filed it as one and was wrong.** `prepared.rs` states the contract deliberately: *"`PreparedCharacterRegistry` is absent rather than empty, and absent already means 'no registered characters' to every consumer"*. When the resource is missing there are no characters to resolve, so the archetype road is the only available answer — and it is instrumented, not silent: the open-casting arm warns with the identifier, the declaring provider, the borrowed row and the reason. ⇒ P0.1's conflation is about an EXPLICIT `CharacterId` missing from a PUBLISHED registry, which is a different fact from no registry at all. ▢ `controller` and the profile override are still not on the plan, and that one is deliberate and documented — no current caller has either. ⇥ AS WRITTEN, and preserved because its first half is still right: **`CharacterSpawnPlan` EXISTS and DISTINGUISHES a missing registration from an unmigrated placement** (`Result<Option<..>, &CharacterId>`) — an authored character that is not prepared is a fault, warned today and a hard error once phase 4 makes the field required. Earlier: **it EXISTS and the authored enemy lowers through it** (`spawn/character_spawn_plan.rs`) — it owns the character question and the placement context; `plan.definition(registry)` is the ONE place construction asks which character a body is. ▢ `controller` and the profile override are NOT on it yet: no current caller has either, and they arrive with the NPC and match paths. ▢ the encounter/programmatic paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground. Earlier: **the authored enemy reads its character from the PLACEMENT** — `adopt_character_intrinsics`, guarded end-to-end by `mod authored_enemy_reads_its_character`. ⛔ appendix C: that method is a PROBE SEAM; the next step is `CharacterSpawnPlan` (appendix E), not more fields through it. ▢ the programmatic and encounter-mob paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground | |
-| 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
-| 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
-| 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |
-| 7 | Remove legacy authored infrastructure (`ArchetypeSpec`, `CharacterRoster`, fragments, schema) | ▢ |
-| 8 | Rename and document the final architecture | ▢ |
+| 4 | Migrate the 93 authored placements, encounters, summons | ✔ **DONE, and PROVEN BY CONSTRUCTION rather than counted** (2026-08-14). Every authored ENEMY placement in the shipped worlds names a character that resolves to a body blueprint — not because a census says so, but because `construction::preflight_planned_bodies` REFUSES a room whose body-bearing rows do not, before the world is touched, and every app/demo suite boots. The same holds for summons (the batch is refused before it is planned) and encounter waves (`spawn_encounter_mob` panics on an unbuildable kind). ⚠ what is NOT covered by that proof is the peaceful-NPC road, which still has a real fallback: an unregistered-but-cataloged character gets the right body from its catalog row and only its KIT is borrowed — 109 of 163 NPC placements, measured at AC5.2, and AC4's rule stands that inventing bodies to move that number is the failure mode, not the fix |
+| 5 | Controller/provocation simplification; rollback becomes controller-only | ◐ **provocation is controller-only** (D101, verified 2026-08-14): it changes a mind and a kit, never a body — `project_provoked_archetype` projects no tuning, and `apply_catalog_mode`'s pool restore went with `ActorTuning::max_health` in AC6.2 because it was a mirror nothing applied to `BodyHealth`. ▢ the ROLLBACK half is the successor campaign (registration inversion), which this campaign's non-goals forbid starting |
+| 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ◐ ✔ `CharacterBrainSpec` is GONE (0 references) · ✔ `ActorTuning` COLLAPSED by field in AC6.2 — and the answer is that it does not disappear: `max_health`/`death_policy` → `BodyHealth`, `is_sandbag` → `BodyCombat`, while `is_hostile` and `respawn` are placement facts with no existing owner and the two presentation values would cost `ambition_sim_view` a character-resolution dependency. What survives is a resolved-body-scalars projection, not a legacy one · ▢ `sprite_character_id` remains, and it is the AC7.1 naming item |
+| 7 | Remove legacy authored infrastructure (`ArchetypeSpec`, `CharacterRoster`, fragments, schema) | ✔ **DONE 2026-08-13 (`74bd5e9ae`, AC6.1)** — 68 files, ≈2,600 lines, including `character_archetypes.ron` and the waiver machinery. Verified 2026-08-14: `ArchetypeSpec` survives only in comments recording its removal |
+| 8 | Rename and document the final architecture | ◐ **IN PROGRESS as AC7.1/AC7.2.** The archetype-fallback SEMANTICS are gone from the body-bearing APIs, `PlayableKitSource` is deleted, `archetype_id` → `character_id` on the summon road, and the stale roster wording is cleared from the rollback waiver list and the versus assertion. ▢ `sprite_character_id` and `art_identity`-as-gameplay remain |
 
 ⚠ **the deletion target is the acceptance signal.** ~2,437 lines are obvious
 legacy (`ArchetypeSpec` 319, roster/enemies module 1,198,
@@ -194,10 +194,17 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 ### ⇥ WHERE THE 23 STAND — tallied 2026-08-13, so a fresh session need not count
 
 ```text
-  ✔ DONE     11   1, 4, 5, 8, 9, 10, 11, 12, 13, 17, 19
-  ◐ PARTIAL   8   2, 3, 14, 15, 16, 18, 20, 21
-  ▢ OPEN      4   6, 7, 22, 23
+  ✔ DONE     13   1, 4, 5, 8, 9, 10, 11, 12, 13, 17, 19, 22, and item 7's row
+  ◐ PARTIAL  10   2, 3, 14, 15, 16, 18, 20, 21, 23, and item 6's row
+  ▢ OPEN      0
 ```
+
+⭐ **re-tallied 2026-08-14, after AC6 closed.** The four that were OPEN are
+answered: (7) and (22) are the AC6.1 deletion, (6) is AC6.2's field collapse —
+whose answer is that `ActorTuning` does NOT disappear — and (23) is the AC7
+naming pass, which is in flight rather than unstarted. ⛔ **the ▢ marks in the
+prose below have not all been re-verified**; the phase table above is the
+tallied surface.
 
 ⭐⭐ **and the shape matters more than the tally: what was FOUR casting decisions
 is now ONE.** Jon settled three on 2026-08-13 — skitters are Puppy Slug,
@@ -480,7 +487,8 @@ autonomous_reconcile                1045
    the striker chase are POLICY and `run_speed` is what the body could do if
    something drove it.
 
-   ⇥ AS WRITTEN: ▢ Delete it once (7) replaces the precedence it performs.
+   ⇥ AS WRITTEN: ✔ *"Delete it once (7) replaces the precedence it performs."*
+   Both happened — AC6.1 deleted the roster and AC5.3 deleted the bridge.
 
    ⇥ ⭐ **SIZED 2026-08-13, and it had no size before.** One production caller
    (`spawn_actors.rs`), whose comment says it serves *"the shrinking population
@@ -776,19 +784,24 @@ autonomous_reconcile                1045
     once, and the `.filter(|id| !PLAYABLE_ROSTER.contains(id))` is that note
     turned into code.
 
-    ⇥ ▢ **what is left is `REGISTERED_WITHOUT_A_BODY`, and it is D96 item 8.**
-    Six pirates plus Stargan: characters registered so their POLICY reaches a
-    body (D98) while their vitals stay unauthored, because *how tough a pirate
-    quartermaster is* is a content decision and authoring a number to empty the
-    list would be inventing one. Its own doc already says it should shrink.
+    ⇥ ✔ **`REGISTERED_WITHOUT_A_BODY` IS EMPTY** (AC4; verified 2026-08-14:
+    `const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];`). It held six pirates plus
+    Stargan — characters registered so their POLICY reached a body (D98) while
+    their vitals stayed unauthored, because *how tough a pirate quartermaster is*
+    is a content decision and authoring a number to empty the list would have
+    been inventing one. Jon settled it on 2026-08-13 by RULING the numbers
+    (humanoid/NPC 4, pirate 4, heavy pirate 6, Patent Clerk 6) and stating that
+    they are initial tuning choices, so the seven bodies were authored rather
+    than guessed.
     ⚠ it cannot be derived from the pirate RULE that gives them their policy —
     `starts_with("npc_pirate_")` covers a pirate added tomorrow, which is the
     property that rule exists for, while this list answers the different question
     of which ids to REGISTER, and that needs names.
 
-    ⇥ ▢ **the archetype precedence bridge** is `adopt_character_intrinsics`,
-    which item (9) deletes behind item (7) — and it already has zero shipped
-    placements to serve (see item 18).
+    ⇥ ✔ **the archetype precedence bridge is DELETED** — `adopt_character_intrinsics`
+    has zero references in the workspace (AC5.3; verified 2026-08-14, and the
+    goal guard asserts it). It was the build-legacy-body-then-patch seam this
+    row expected item (9) to remove behind item (7); both happened.
 21. ◐ **Split or delete `ActorTuning` and `CharacterBrainSpec`** by their actual
     remaining responsibilities. ⚠ the capability-authored-twice set is exactly
     `can_blink`/`can_fly`/`can_shield` vs `smash_can_*`.
@@ -807,17 +820,40 @@ autonomous_reconcile                1045
     Smash brain reads the BODY (`can_fly: body.fly || body.fly_toggle`), never
     the row. One authored source, two readers, no copy.
 
-    ⇥ ▢ **what is left is `ActorTuning` the TYPE.** Its fields are already divided
-    by authority (campaign P2.19: 13 body, 3 controller, 4 placement) and two of
-    those divisions have landed as behaviour — the notice radius and patrol
-    decision read `BrainProfile` rather than a silhouette read-model, and
-    `attacks_player` is `is_hostile`/`hostile_by_default`. The struct itself goes
-    with `ArchetypeSpec` in item (22), because every remaining field has a live
-    reader and the projection that fills them is the archetype road.
-22. ▢ **Delete** `ArchetypeSpec`, `CharacterRoster`, the roster fragments and
-    registry, `spec_for_brain`, `character_archetypes.ron`, `enemy_roster.rs`.
-23. ▢ **Rename and document** the final architecture; retire `archetype`,
-    `sprite_character_id` and `art_identity`-as-gameplay from the vocabulary.
+    ⇥ ✔ **`ActorTuning` WAS COLLAPSED, AND IT DID NOT GO WITH `ArchetypeSpec`**
+    (AC6.2, 2026-08-14). This row expected the struct to leave with item (22)
+    "because every remaining field has a live reader and the projection that
+    fills them is the archetype road". The first half was right and the second
+    was not: the projection is filled from the body's `CharacterBodyBlueprint`,
+    its `BrainProfile` and its placement, none of which the archetype road owned
+    by the end. So the collapse was by FIELD, not by struct: `max_health` and
+    `death_policy` left for `BodyHealth` (which already carried both, and the
+    actor damage gate had been reading a `death_policy` copy nothing ever set),
+    and `is_sandbag` left for `BodyCombat::training_dummy`. ⚠ **`is_hostile` and
+    `respawn` STAY, and that is an answer rather than a deferral**: both are
+    placement facts (ADR 0022; Jon's redirect §6 put hostility on the placement)
+    with no existing owner, and inventing one is what AC6.2 forbids. What
+    survives is a resolved-body-scalars projection with three stated passengers,
+    every field in a column an exhaustive destructure holds.
+22. ✔ **DONE 2026-08-13 (`74bd5e9ae`, AC6.1)** — `ArchetypeSpec`,
+    `CharacterRoster`, the roster fragments and registry, `spec_for_brain`,
+    `character_archetypes.ron` and `enemy_roster.rs` are DELETED: 68 files,
+    ≈2,600 lines. Verified 2026-08-14: `ArchetypeSpec` survives only in comments
+    recording its removal, and the last two live `CharacterRoster` mentions — a
+    rollback-waiver pair naming the deleted types, and an assertion message that
+    said `CharacterRoster` where it meant `BrainProfileRegistry` — went with
+    AC7.1. ⭐ the deletion exposed and fixed two real defects: the confirmed
+    rollback room rebuild never passed the prepared cast, and a staged giant's
+    host row dropped its `character`.
+23. ◐ **IN PROGRESS as AC7.1/AC7.2** (2026-08-14). Landed so far: the
+    archetype-fallback SEMANTICS are gone from the body-bearing APIs
+    (`CharacterSpawnPlan::character` is required; `report_unprepared_character`
+    went from four callers to one), `SummonSpec::archetype_id` →
+    `character_id`, `PlayableKitSource` deleted, and the stale roster wording in
+    the rollback waiver list and the versus assertion. ▢ what remains of the
+    vocabulary sweep is `sprite_character_id` and `art_identity`-as-gameplay,
+    plus the ~100 comment-only `archetype` mentions that record deletions rather
+    than describing live code.
 
 ### Deferred by decision, not forgotten
 

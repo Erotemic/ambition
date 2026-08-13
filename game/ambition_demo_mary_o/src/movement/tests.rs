@@ -4,7 +4,7 @@ use super::*;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core::ControlFrame;
 
-use crate::powerups::{star_wand, cinder_beacon};
+use crate::powerups::{cinder_beacon, star_wand};
 
 fn body(app: &mut App) -> Entity {
     app.world_mut()
@@ -142,7 +142,8 @@ fn her_authored_gait_makes_speed_something_she_builds_and_keeps() {
     crate::add_demo_content(&mut app);
     let catalog = app
         .world()
-        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
+        .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>(
+    );
     let tuning = catalog
         .axis_tuning(crate::provider::MARY_O_CHARACTER_ID)
         .expect("Mary-O authors her gait");
@@ -393,5 +394,78 @@ fn the_slot_label_follows_the_power_state() {
         label(&app).as_deref(),
         Some("Run / Spark"),
         "with the beacon the same slot advertises both roles"
+    );
+}
+
+/// **THE CLASSIC TWO-ON-SCREEN RULE, ENFORCED BY COUNTING HER LIVE SHOTS** —
+/// Jon's observation *"in mary-o she can only have 1 fireball out a time. We
+/// should allow her to have 2 out a time"* (ledger D109).
+///
+/// ⛔ **the rule was implemented and guarded by nothing.** `MAX_LIVE_SPARKS`
+/// appeared in exactly two places — its own declaration and the gate below — so
+/// a one-character edit restored the behaviour Jon reported and no test noticed.
+///
+/// ⚠ **asserting `MAX_LIVE_SPARKS == 2` would be worthless.** The rule is not
+/// the number, it is that the gate COUNTS her live shots against it; a version
+/// that read the constant and compared against something else would pass. So
+/// this fires with the screen empty, with one spark up, and with the cap
+/// reached, and only the third refuses.
+///
+/// ⛔⛔ **AND THE MECHANISM ALONE IS NOT ENOUGH — the first version of this test
+/// passed with `MAX_LIVE_SPARKS = 1`.** Deriving every expectation from the
+/// constant made it blind to the constant, so it held for any cap ≥ 1 — and the
+/// cap being 1 IS the thing Jon reported. A guard that cannot see the reported
+/// bug is not a guard.
+///
+/// ⇒ so this asserts BOTH: the gate counts her live shots (the mechanism, which
+/// survives a retune), and the cap is at least two (the product decision, which
+/// is what the observation was about).
+#[test]
+fn she_may_have_max_live_sparks_out_at_once_and_not_one_more() {
+    fn fires_with(live: usize) -> bool {
+        let mut app = App::new();
+        let body = body(&mut app);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![cinder_beacon()]));
+        for _ in 0..live {
+            app.world_mut().spawn(crate::powerups::MaryOSpark);
+        }
+        {
+            let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
+            control.0.modifier_pressed = true;
+        }
+        app.add_systems(Update, fire_spark_on_run_press);
+        app.update();
+        app.world()
+            .get::<ActorControl>(body)
+            .unwrap()
+            .0
+            .fire
+            .is_some()
+    }
+
+    assert!(
+        fires_with(0),
+        "she cannot fire with an empty screen, so this test measures nothing \
+         about the cap"
+    );
+    assert!(
+        fires_with(MAX_LIVE_SPARKS - 1),
+        "she refuses to fire her {MAX_LIVE_SPARKS}th spark while only \
+         {} are live — the cap is one shot tighter than authored, which is \
+         exactly the report",
+        MAX_LIVE_SPARKS - 1
+    );
+    assert!(
+        !fires_with(MAX_LIVE_SPARKS),
+        "she fires past the cap with {MAX_LIVE_SPARKS} already live"
+    );
+    // ⛔ THE PRODUCT DECISION, and the half that actually sees Jon's report.
+    assert!(
+        MAX_LIVE_SPARKS >= 2,
+        "Mary-O may only have {MAX_LIVE_SPARKS} spark out at a time. Jon asked \
+         for the classic TWO on screen; everything above still passes at a cap \
+         of one, because a mechanism test cannot see the number it counts to"
     );
 }

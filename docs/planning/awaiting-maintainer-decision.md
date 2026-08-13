@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **8 open** (recounted 2026-08-13; D68 reopened; +`unarmed_melee`, the three acceptance-signal castings, and D96's four non-casting decisions)
+## ⇥ INDEX — **11 open** (recounted against the table 2026-08-13; D68 reopened, and six rows added for the decisions D96 had been holding out of sight)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -41,9 +41,15 @@ drift.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | ⚠ **nothing, and the stated cost is now FALSE** — this said it kept the parent tree dirty and the *"nothing uncommitted"* check failing; rechecked 2026-08-13, `git status` is empty, every submodule pointer matches its checkout, and that check PASSES | ▢ **needs Jon**, 30 seconds — and the only live question left is whether a commit titled `wip` should be the recorded pointer (see below) |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
+| **What IS a `small_lurker`, what does a `DividingMite` split into, and what is `under_town_skitter`?** (D96 1/3/3b) | ⛔⛔ **`character_archetypes.ron` — D73's ACCEPTANCE SIGNAL.** With the goblin heavy these four are the entire remaining content side; `what_still_needs_an_archetype_row` counts them down | ▢ **needs Jon** — three casting calls, each with a recommendation, see below |
+| **What is a provoked villager's HEALTH POOL?** (D96 7) | ⛔ **the largest single unblock in the ledger** — P2.20, P2.21 and D81 ENTIRELY (107 preset adopters, none authoring a `BrainProfile`) | ▢ **needs Jon** — a difficulty statement, three routes, see below |
+| **How tough is a pirate quartermaster?** (D96 8, queue D98) | seven characters that author facts reaching no body; six of them are six of the fourteen keeping `adopt_character_intrinsics` alive | ▢ **needs Jon** — one number, or seven |
+| **Is `DeclaredCombatRules::unarmed_melee` scaffolding, or permanent architecture?** | P3.24 and P3.26's remaining ▢ — and whether seven peaceful characters on the Smash grid should be re-authored as fighters | ▢ **needs Jon** — ⚠ raised 2026-08-13 because both ratchets USED to instruct the deletion by default |
+| **Does Carl Stargan fight?** (D96 5) | one `REGISTERED_WITHOUT_A_BODY` entry — ⭐ and he is on the Smash grid TODAY, fighting with the stage's generic floor | ▢ **needs Jon** — one yes/no |
+| **Is a Sanic badnik the 1-HP wanderer its own file describes?** (D96 6) | the sanic demo's own row; the smallest of these and the only one confined to one demo | ▢ **needs Jon** — one yes/no |
 | **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
-⇒ **5 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
+⇒ **11 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
 (reopened 2026-08-13, see below). The goblin-heavy casting call blocks a visible
 artefact **and one third of D73's acceptance signal** — it is queue D96 item 2,
 `large_brute`, one of the three uncast identifiers keeping

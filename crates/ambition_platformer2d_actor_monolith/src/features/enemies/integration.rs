@@ -92,12 +92,11 @@ fn evaluate_enemy_ai_output(
     // because the first version of this note got the consequence wrong.** Its
     // output goes to `ActorStatus::ai_mode` and nowhere else, and `ai_mode` now
     // has exactly ONE reader left: the rollback snapshot. ⭐ **AC1 deleted the
-    // other one.** `ActorIntent` was the component this fed — the one whose doc
-    // claimed it existed "so rendering and HUD systems can branch on actor
-    // state", which no rendering or HUD system ever did — and it is gone, along
-    // with `is_dangerous()`, which never had a gameplay caller. What a body
-    // actually chases is decided by its BRAIN from the same `BrainProfile`, not
-    // here.
+    // other one** — the ECS read-model component this fed, whose own doc claimed
+    // it existed "so rendering and HUD systems can branch on actor state", which
+    // no rendering or HUD system ever did. Its danger predicate went with it,
+    // never having had a gameplay caller. What a body actually chases is decided
+    // by its BRAIN from the same `BrainProfile`, not here.
     //
     // ⇒ **so `ai_mode` itself is now a candidate for the same treatment**: a
     // field computed every frame and snapshotted for rollback, with no consumer

@@ -739,3 +739,95 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         "a ladder round opens on the countdown too"
     );
 }
+
+/// **THE THREE PLATFORM-FIGHTER VERBS REACH A LIVE SEATED BODY** — campaign
+/// P4.29 (shield/parry), P4.30 (grounded dodge) and P4.32 (ledge), whose rows
+/// all read *"authored, ▢ unverified in play"*.
+///
+/// ⭐ **the gap those three ▢ marks name is not a capability, it is a
+/// MEASUREMENT.** The verbs are authored on the fighters' `CharacterDefinition`
+/// and the engine has had the machinery all along — a bubble shield with a parry
+/// window, a dodge roll with i-frames, a full ledge system. What nothing checked
+/// was the whole distance between the two: a definition authors an `AbilitySet`,
+/// preparation folds it, seating builds a body, and a match may MASK it
+/// (`fighter_abilities` is an intersection, so a stage that forgot a verb
+/// silently removes it). Every step of that had its own test; the chain did not.
+///
+/// ⛔ **which is exactly how these three went missing before.** The row records
+/// it: a capability had ONE authoring surface, the enemy archetype, so a fighter
+/// seating through `combatant` could not have them; the match then stamped one
+/// flat set over every body, and three verbs were simply absent from that set.
+/// Both halves would pass a test of either end alone.
+///
+/// ⚠ **and the poison is a verb the fighters DELIBERATELY do not author.**
+/// `fly` and `blink` are the exploration protagonist's traversal kit and are
+/// stated absent on purpose ("this is a platform fighter's ground game").
+///
+/// ⛔⛔ **what the two falsifiers actually measured, which is narrower than
+/// "the character decides" and is the real contract** (run 2026-08-13):
+///
+/// ```text
+///   character drops `shield`         -> body cannot shield   (character NECESSARY)
+///   character adds `fly`, mask omits -> body still cannot    (mask NECESSARY)
+///   character adds `fly`, mask adds  -> body CAN fly         (both SUFFICIENT)
+/// ```
+///
+/// ⇒ that is `AbilitySet` INTERSECTION, end to end, through a live stage: a
+/// character states what its body can do, a ruleset states what this mode
+/// permits, and a verb needs both. The middle row is the one worth keeping —
+/// authoring a capability onto a character is NOT enough to smuggle it into a
+/// mode, which is what makes P3.25's mask a real restriction rather than
+/// decoration. The first row is P4.29/30/32's actual subject.
+#[test]
+fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyAbilities;
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    decide_a_two_player_match(&mut app);
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut query = world.query::<(&MatchSeat, &BodyAbilities)>();
+    let mut seated: Vec<(usize, ambition_platformer2d::engine_core::AbilitySet)> = query
+        .iter(world)
+        .map(|(seat, abilities)| (seat.0, abilities.abilities))
+        .collect();
+    seated.sort_by_key(|(seat, _)| *seat);
+    assert_eq!(
+        seated.len(),
+        2,
+        "the stage seated {} bodies with abilities, so this measures nothing \
+         about what a fighter can do",
+        seated.len()
+    );
+
+    for (seat, abilities) in &seated {
+        // ⭐ P4.29 / P4.30 / P4.32, on the LIVE body, through the real route.
+        assert!(
+            abilities.shield,
+            "seat {seat} cannot shield, so P4.29's authored capability does not \
+             survive the trip from definition to seated body — either \
+             preparation dropped it or the match's ability mask is intersecting \
+             it away"
+        );
+        assert!(abilities.dodge, "seat {seat} cannot dodge (P4.30)");
+        assert!(
+            abilities.ledge_grab,
+            "seat {seat} cannot grab a ledge (P4.32)"
+        );
+        // ⛔ THE POISON: verbs these fighters state they do NOT have.
+        assert!(
+            !abilities.fly && !abilities.blink_through_hard_walls,
+            "seat {seat} came out able to fly or blink, which its character does \
+             not author — so the body is wearing a generic set (the engine's, or \
+             a match-wide grant) rather than its own"
+        );
+    }
+}

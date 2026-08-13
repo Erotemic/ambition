@@ -2083,13 +2083,16 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             app.register_character(definition);
         }
     }
-    // **THE ARCHETYPE A CPU SEAT ACTUALLY NAMES.**
-    //
-    // `ControllerBinding::Cpu { brain_profile }` is a `CharacterRoster` key, not
-    // a catalog preset — two vocabularies sharing one word, which cost an hour
-    // on 2026-07-31. Without this fragment the seat is now REFUSED (seating
-    // stopped falling back to a generic enemy the same day); before that it
-    // silently became a stand-still body.
+    // ⛔⛔ **A COMMENT ABOUT A DELETED ARCHETYPE FRAGMENT STOOD HERE, ABOVE THE
+    // AUDIO REGISTRATION** (removed 2026-08-13). It read *"THE ARCHETYPE A CPU
+    // SEAT ACTUALLY NAMES… `ControllerBinding::Cpu { brain_profile }` is a
+    // `CharacterRoster` key, not a catalog preset… Without this fragment the seat
+    // is now REFUSED"*, and the fragment it described went with `SMASH_ROSTER_RON`
+    // in ledger D87. It survived the deletion, drifted onto the next statement,
+    // and told a reader that a `brain_profile` is an archetype key — which is the
+    // opposite of what this demo proves. A CPU seat names a PUBLISHED policy
+    // (`autonomous_profiles`, above), and since campaign P2.18 there is nowhere
+    // else it could come from.
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             SMASH_EXPERIENCE,

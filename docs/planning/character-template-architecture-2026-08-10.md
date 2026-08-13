@@ -465,9 +465,31 @@ autonomous_reconcile                1045
     ⇥ ▢ **the archetype precedence bridge** is `adopt_character_intrinsics`,
     which item (9) deletes behind item (7) — and it already has zero shipped
     placements to serve (see item 18).
-21. ▢ **Split or delete `ActorTuning` and `CharacterBrainSpec`** by their actual
+21. ◐ **Split or delete `ActorTuning` and `CharacterBrainSpec`** by their actual
     remaining responsibilities. ⚠ the capability-authored-twice set is exactly
     `can_blink`/`can_fly`/`can_shield` vs `smash_can_*`.
+
+    ⇥ ✔ **`CharacterBrainSpec` IS DELETED** — zero mentions in the workspace
+    (verified 2026-08-13). Half of this item resolved by removal rather than by
+    splitting.
+
+    ⇥ ✔ **AND THE ⚠ POINTS AT NOTHING: the capability duplication is gone.**
+    `smash_can_blink` / `smash_can_fly` / `smash_can_shield` have zero mentions;
+    they were mirrored onto the controller profile and deleted 2026-08-11 (Jon's
+    redirect §7) on the rule that *a capability copied onto a controller policy
+    makes the policy unreusable, because the copy describes ONE body*. The three
+    `can_*` survive on `ArchetypeSpec` as an archetype row's authored VERBS, and
+    they feed exactly one port: `movement_kit()` → the body's `AbilitySet`. The
+    Smash brain reads the BODY (`can_fly: body.fly || body.fly_toggle`), never
+    the row. One authored source, two readers, no copy.
+
+    ⇥ ▢ **what is left is `ActorTuning` the TYPE.** Its fields are already divided
+    by authority (campaign P2.19: 13 body, 3 controller, 4 placement) and two of
+    those divisions have landed as behaviour — the notice radius and patrol
+    decision read `BrainProfile` rather than a silhouette read-model, and
+    `attacks_player` is `is_hostile`/`hostile_by_default`. The struct itself goes
+    with `ArchetypeSpec` in item (22), because every remaining field has a live
+    reader and the projection that fills them is the archetype road.
 22. ▢ **Delete** `ArchetypeSpec`, `CharacterRoster`, the roster fragments and
     registry, `spec_for_brain`, `character_archetypes.ron`, `enemy_roster.rs`.
 23. ▢ **Rename and document** the final architecture; retire `archetype`,

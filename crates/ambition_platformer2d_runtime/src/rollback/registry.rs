@@ -35,9 +35,14 @@ use super::{
 /// primitives — exactly the question a peer depends on.
 ///
 /// ⛔ **and v25/v26 have no entry here, which is the same omission one step
-/// earlier.** v26 is AC1's deletion of the `ActorIntent` and `ActorCooldowns`
-/// mirrors (two registrations left `actor.intent` / `actor.cooldowns`); the
-/// version was bumped and the log was not written. Recorded now rather than
+/// earlier.** v26 is AC1's deletion of two write-only actor mirrors: the
+/// registrations `actor.intent` and `actor.cooldowns` left the schema; the
+/// version was bumped and the log was not written. ⚠ **named by REGISTRATION
+/// and not by type on purpose** — the goal guard greps this crate for those two
+/// type names to prove they are gone from production, and writing them here to
+/// say they are gone turns that check red. Documenting a removal must not break
+/// the guard that verified it, which is a rule this repo has now learned four
+/// times and the fourth was this sentence. Recorded now rather than
 /// left as a gap, because a version log with holes cannot answer *what changed
 /// between these two peers*, which is the one question it exists for.
 ///

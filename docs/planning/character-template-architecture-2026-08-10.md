@@ -367,9 +367,34 @@ autonomous_reconcile                1045
    ⚠ measured prerequisite: `character_id` is `Option<String>` on both
    `ambition_interaction::InteractionKind::Npc` and its `InteractionKindSpec`
    mirror, ~37 construction/match sites. Wide, mechanical, wants its own slice.
-7. ▢ **The real common body constructor** — `PreparedCharacterDefinition` +
-   `CharacterSpawnPlan` → one actor. Then encounter, programmatic and summon
-   paths, none of which may keep passing an empty prepared registry.
+
+   ⇥ ⚠ **re-measured 2026-08-13: it is 29 sites, not ~37** — still wide, still
+   mechanical, and the field is still `Option<String>` on the variant
+   (`lib.rs:56`). ⭐ **and item 7's census makes these ONE piece of work**: the
+   common constructor already serves match, enemy, summon and encounter, so the
+   NPC road is the last authoring surface outside it. This is the biggest
+   unblocked item in the checklist.
+7. ◐ **THE CONSTRUCTOR EXISTS AND FOUR OF THE SIX ROADS USE IT** (census
+   2026-08-13, by call site rather than by claim). `ActorClusterSeed::
+   new_character_in` is called by the MATCH seat (`prepared_match.rs`), the
+   AUTHORED ENEMY (`spawn_actors.rs:1668`), the SUMMON (`:1389`) and the
+   ENCOUNTER MOB (`:2498`).
+
+   ⇥ ✔ **and this item's second sentence is satisfied where it can be**: the
+   encounter road takes `Res<PreparedCharacterRegistry>` REQUIRED, and the summon
+   road resolves against the prepared cast first and falls back loudly. ⚠ the two
+   PROGRAMMATIC sites (`damage_drops`, `puppy_slug_gun`) still take
+   `Option<Res<..>>` — and that is the DOCUMENTED contract, not an empty-registry
+   gap: *"`PreparedCharacterRegistry` is absent rather than empty, and absent
+   already means 'no registered characters' to every consumer."*
+
+   ⇥ ▢ **what is left is the NPC road, which is item 6** — so these two are one
+   piece of work, not two.
+
+   ⇥ AS WRITTEN: ▢ **The real common body constructor** —
+   `PreparedCharacterDefinition` + `CharacterSpawnPlan` → one actor. Then
+   encounter, programmatic and summon paths, none of which may keep passing an
+   empty prepared registry.
 8. ✔ **`PreparedMatch` drops `CharacterRoster` / `ArchetypeSpec`** — appendix
    D's proving ground, and the point where `smash_fighter_kit()` and
    `roster.fighter_abilities` should stop being necessary. ⭐ take this EARLY

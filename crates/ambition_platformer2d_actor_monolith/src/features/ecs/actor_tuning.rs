@@ -5,9 +5,14 @@
 //! (`character_archetypes.ron`) and projected onto the enemy config component at
 //! spawn". There are no archetypes; every value here is resolved from the
 //! body's `CharacterBodyBlueprint`, its `BrainProfile`, or its placement. What
-//! survives of the old sentence is the SHAPE: this is a projection, written once
-//! at construction, and nothing whose previous value affects future simulation
-//! belongs in it.
+//! survives of the old sentence is the SHAPE: this is mostly a projection,
+//! written once at construction.
+//!
+//! ⚠ **MOSTLY, and the exception is load-bearing**: `body_contact_damage` is
+//! toggled per tick by Mary-O's snake shells, so this type does carry one fact
+//! whose previous value decides the next frame. That is legal here only because
+//! `ActorConfig` is rollback-registered; see the classification test below
+//! before adding a second.
 //!
 //! Combat reads none of this — spawn projects the combat-relevant facts onto
 //! `CombatTuning` (the legal actors → combat arrow).
@@ -15,17 +20,17 @@
 use crate::combat::BodyMovementTuning;
 use ambition_entity_catalog::placements::RespawnPolicy;
 
-/// Per-actor numeric/flag tuning the RUNTIME combat loops read each
-/// frame, derived from the actor's authored archetype DATA at spawn
-/// (like [`CombatCapabilities`], but plain tuning rather than special
-/// behaviors). Carried as a field on the enemy config component so
-/// the per-frame systems never call back into a named archetype enum.
+/// Per-actor numeric/flag tuning the RUNTIME combat loops read each frame,
+/// resolved at spawn from the body's blueprint, its controller profile and its
+/// placement (like [`CombatCapabilities`], but plain tuning rather than special
+/// behaviors). Carried as a field on the actor's config component so the
+/// per-frame systems never re-resolve content.
 ///
 /// `Clone` (not `Copy`): the open `ranged_visual` id is an owned `String`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorTuning {
-    /// Resolved movement physics for this body (composed from the archetype
-    /// hierarchy). The spine reads gravity/run/jump/fall from here, not constants.
+    /// Resolved movement physics for this body. The spine reads
+    /// gravity/run/jump/fall from here, not constants.
     pub movement: BodyMovementTuning,
     /// Patrol walking speed (px/s).
     pub patrol_speed: f32,
@@ -39,11 +44,19 @@ pub struct ActorTuning {
     pub contact_strength: f32,
     /// Damage dealt by an attack / body contact.
     pub damage_amount: i32,
-    /// Multiplier on the shared attack cooldown (fast skirmishers
-    /// Hostile by default: actively tracks the player and publishes
-    /// contact damage. Peaceful patrollers are false.
+    /// **Does this body's driver seek the player.** Hostile bodies track and
+    /// publish contact damage; peaceful patrollers are false. A PLACEMENT
+    /// decision (`SpawnDisposition`), not a body fact — the same creature is
+    /// ambient wildlife in one room and a threat in another.
+    ///
+    /// ⚠ **distinct from the `ActorDisposition` component**, which is the live,
+    /// rewinding answer to *is this body fighting right now* and gates damage
+    /// standing and dialogue. This one is the spawn policy the brain's
+    /// aggressiveness is built from. ⛔ a dangling half-sentence about a
+    /// deleted `attack_cooldown_mult` was stranded here; it moved to
+    /// `BrainProfile` on 2026-08-13.
     pub is_hostile: bool,
-    /// SPAWN-TIME policy selector: this archetype crawls surfaces glued to
+    /// SPAWN-TIME policy selector: this body crawls surfaces glued to
     /// the surface normal (the adhesive-crawler movement policy). Consumed
     /// once by [`Self::motion_model`]; runtime dispatch reads the body's
     /// explicit `MotionModel`, never this flag.
@@ -59,7 +72,7 @@ pub struct ActorTuning {
     pub respawn: RespawnPolicy,
     /// Knockback weight (CM1): heavier bodies launch less under the same growth
     /// term (`knockback_growth * damage_taken / weight`). `1.0` is the reference body;
-    /// the default keeps every un-authored archetype at the reference.
+    /// the default keeps every body that states no weight at the reference.
     pub weight: f32,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
@@ -78,7 +91,7 @@ pub struct ActorTuning {
     /// Deep-dream visual jitter seed; `None` = no dream pass.
     pub dream_seed: Option<f32>,
     /// Open visual id of this actor's ranged projectile, authored on the
-    /// archetype. The ranged-fire effects consumer stamps it onto the spawned
+    /// CHARACTER (`CharacterDefinition::ranged_vfx`). The ranged-fire effects consumer stamps it onto the spawned
     /// shot so the render layer resolves art by id through the content-owned
     /// catalog (e.g. the PCA's `"glider"`) rather than by reading the owner-id
     /// string. The empty string is the generic orange shot.
@@ -96,14 +109,11 @@ impl Default for ActorTuning {
             max_run_speed: 0.0,
             contact_strength: 0.0,
             damage_amount: 0,
-            // Multiplicative identity — a defaulted tuning must not
-            // zero out the shared attack cooldown.
             is_hostile: false,
             surface_walker: false,
             cling_breaks_on_hit: false,
             respawn: RespawnPolicy::default(),
-            // Reference body: the default tuning must not zero out the growth
-            // divisor, and every un-authored archetype dies at pool max.
+            // Reference body: the default must not zero out the growth divisor.
             weight: 1.0,
             is_aerial: false,
             flight_direct_velocity: false,
@@ -224,7 +234,6 @@ mod authority_split_tests {
             max_run_speed: _,
             contact_strength: _,
             damage_amount: _,
-            body_contact_damage: _,
             surface_walker: _,
             cling_breaks_on_hit: _,
             weight: _,
@@ -265,11 +274,25 @@ mod authority_split_tests {
             // the same archetype row as the gameplay numbers.
             dream_seed: _,
             ranged_visual: _,
-            // ── RUNTIME HISTORY — DELIBERATELY EMPTY ────────────────────────
+            // ── RUNTIME STATE — one entry, and I claimed there were none ────
             //
-            // ⛔ nothing whose PREVIOUS value can affect future simulation may
-            // live here. Reaction history is `BodyCombat`'s and rewinds with it;
-            // a timer added to this type would be state that does not.
+            // ⛔⛔ **`body_contact_damage` IS MUTATED PER TICK BY A SHIPPED GAME**,
+            // and this column said "deliberately empty" until somebody read
+            // Mary-O. `step_snake_shell` clears it when a stomped snake becomes a
+            // shell and sets it again when the shell walks — *a shell is
+            // harmless to touch* — so its PREVIOUS value decides whether the next
+            // frame's contact hurts.
+            //
+            // ⚠ **legal, and only because `ActorConfig` is rollback-registered**
+            // (`actor.config`, component-clone). A mutable gameplay fact on a
+            // component that did NOT rewind would be a desync waiting for a
+            // rollback; check that before adding a second one.
+            //
+            // ⭐ it is filed here rather than under CHARACTER FACT even though a
+            // character authors the underlying `ContactDamage`, because what this
+            // bool holds is the CURRENT answer, not the authored one — and the
+            // two differ for exactly as long as a snake is a shell.
+            body_contact_damage: _,
             // ── OBSOLETE / DEAD — empty, and it is checked ──────────────────
             //
             // ⛔⛔ `max_health` and `death_policy` WERE HERE and left for

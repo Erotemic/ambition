@@ -476,6 +476,47 @@ mod tests {
 mod hard_lock_tests {
     use super::*;
 
+    /// **EVERY REACTION TIMER SAYS WHETHER [`BodyCombat::decay_reaction_timers`]
+    /// TICKS IT** — ledger D108, third site and the most telling one.
+    ///
+    /// That method exists *"retiring the two hand-copied five-line decay blocks"*
+    /// — it was written precisely because a hand-kept list had been duplicated.
+    /// **It is still a hand-kept list**, and `landing_lag_timer` was added to
+    /// this struct later and never joined it.
+    ///
+    /// ⇒ so the consolidation solved the DUPLICATION and not the ROT, and a
+    /// destructure is what solves the rot: adding a timer to `BodyCombat` is now
+    /// a compile error here until somebody says whether it decays.
+    #[allow(dead_code)]
+    fn every_timer_declares_whether_the_shared_decay_ticks_it(combat: &BodyCombat) {
+        let BodyCombat {
+            // ── DECAYED by `decay_reaction_timers` (5) ─────────────────────
+            damage_invuln_timer: _,
+            hit_flash: _,
+            hitstun_timer: _,
+            recoil_lock_timer: _,
+            hitstop_timer: _,
+
+            // ── NOT TIMERS — nothing to decay ──────────────────────────────
+            alive: _,
+            attacking: _,
+            strike_count: _,
+            training_dummy: _,
+
+            // ── TIMERS OWNED ELSEWHERE (2) — the attack timeline is advanced
+            // by the attack itself, not by the reaction decay.
+            attack_windup_timer: _,
+            attack_timer: _,
+
+            // ── ⛔ NOT DECAYED AND SHOULD BE (1) — see D108.
+            //
+            // Set by the moveset runtime on any body that lands mid-move. The
+            // player's own decrement covers it; this shared decay, which the
+            // actor and boss ticks call, does not.
+            landing_lag_timer: _,
+        } = combat;
+    }
+
     /// **LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL** — ledger D108,
     /// and the assertion the player road's inline expression never had.
     ///

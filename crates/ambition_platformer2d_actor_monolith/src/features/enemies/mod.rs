@@ -296,7 +296,14 @@ impl ArchetypeSpecExt for ArchetypeSpec {
     fn combat_capabilities(&self) -> crate::combat::CombatCapabilities {
         crate::combat::CombatCapabilities {
             explodes_on_death: self.explodes_on_death,
-            divides_on_death: self.divides_on_death,
+            // ⛔ **an archetype row cannot say WHAT it splits into** (AC5.4).
+            // The fact is now `divides_into: Option<CharacterId>` on the
+            // character, because the offspring's identity is content and an
+            // archetype row has no field for it — the engine used to hold the
+            // name instead. No shipped row ever set `divides_on_death`, so this
+            // is `None` rather than a lie, and the row's own dead field goes
+            // with the ontology in AC6.
+            divides_into: None,
             charge_crash_explodes: self.charge_crash_explodes,
             never_dies: self.never_dies,
             // An archetype that authors an intrinsic weapon drops one. WHICH

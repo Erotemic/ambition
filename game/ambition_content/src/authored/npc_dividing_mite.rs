@@ -1,5 +1,16 @@
 //! The splitter: four hit points, slower and tankier, and it becomes two
-//! on death.
+//! Puppy Slugs on death.
+//!
+//! ⭐⭐ **it names its own offspring now** (AC5.4, closing D102's engine half).
+//! The character used to say only `divides_on_death: true`, and WHAT it divided
+//! into was a string literal inside the engine's split path — `"SmallSkitter"`,
+//! then `"npc_puppy_slug"` after Jon cast the skitters on 2026-08-13. A reusable
+//! platformer has no business knowing what an Ambition mite becomes: any other
+//! game linking it inherited the creature name, and changing the answer meant
+//! editing the engine.
+//!
+//! ⇒ the parent states it, the engine reads it, and the split path names no
+//! creature at all.
 
 use ambition_characters::actor::CharacterDeathTraits;
 use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
@@ -13,7 +24,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition
         .with_death_traits(CharacterDeathTraits {
-            divides_on_death: true,
+            divides_into: Some("npc_puppy_slug".to_string()),
             ..Default::default()
         })
         .with_locomotion(CharacterLocomotion {

@@ -547,8 +547,10 @@ pub(crate) fn apply_actor_hit(
                         scale: 0.85,
                     });
                 }
-                // Replicating blobs divide on death into two fast offspring.
-                if caps.divides_on_death {
+                // Replicating blobs divide on death into two offspring — and the
+                // CHARACTER says which (AC5.4). The engine used to hold that
+                // name itself.
+                if let Some(offspring) = caps.divides_into.as_deref() {
                     spawn_split_offspring(
                         &mut writers.commands,
                         catalog,
@@ -558,6 +560,7 @@ pub(crate) fn apply_actor_hit(
                         session_scope,
                         &em.config.id,
                         em.kin.pos,
+                        offspring,
                     );
                 }
                 if let (true, Some(parent)) = (id_drops_health(&em.config.id), &parent) {

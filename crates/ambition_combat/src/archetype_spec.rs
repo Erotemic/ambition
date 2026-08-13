@@ -161,9 +161,6 @@ pub struct ArchetypeSpec {
     /// Detonates at the corpse on death (see `CombatCapabilities`).
     #[serde(default)]
     pub explodes_on_death: bool,
-    /// Splits into offspring on death.
-    #[serde(default)]
-    pub divides_on_death: bool,
     /// A fast charge stopped dead by a wall destroys this actor.
     #[serde(default)]
     pub charge_crash_explodes: bool,
@@ -389,7 +386,6 @@ mod authority_split_tests {
             damage_amount: _,
             body_contact_damage: _,
             explodes_on_death: _,
-            divides_on_death: _,
             charge_crash_explodes: _,
             mount_class: _,
             pilotable_mount_classes: _,

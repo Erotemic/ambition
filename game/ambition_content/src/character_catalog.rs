@@ -1163,9 +1163,9 @@ mod tests {
     /// stands next to one.
     #[test]
     fn the_migrated_mites_author_their_own_death_and_health() {
-        for (id, explodes, divides, health) in [
-            ("npc_exploding_mite", true, false, 2),
-            ("npc_dividing_mite", false, true, 4),
+        for (id, explodes, divides_into, health) in [
+            ("npc_exploding_mite", true, None, 2),
+            ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
         ] {
             let bare =
                 ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
@@ -1179,7 +1179,7 @@ mod tests {
                 .as_ref()
                 .unwrap_or_else(|| panic!("{id} is registered, so it must author its own death"));
             assert_eq!(traits.explodes_on_death, explodes, "{id}");
-            assert_eq!(traits.divides_on_death, divides, "{id}");
+            assert_eq!(traits.divides_into.as_deref(), divides_into, "{id}");
             assert_eq!(
                 authored.vitals.max_health,
                 Some(health),

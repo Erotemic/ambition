@@ -1143,6 +1143,9 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "divider_1",
                 ae::Vec2::new(100.0, 100.0),
+                // AC5.4: the offspring is the CALLER's to name, from the parent
+                // character's `divides_into`. This module used to hold it.
+                "npc_puppy_slug",
             );
         },
     );

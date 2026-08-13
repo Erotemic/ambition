@@ -35,8 +35,18 @@
 pub struct CharacterDeathTraits {
     /// Detonates at the corpse on death, so a point-blank kill is punished.
     pub explodes_on_death: bool,
-    /// Splits into offspring on death.
-    pub divides_on_death: bool,
+    /// **What this body splits into on death, if anything.**
+    ///
+    /// ⭐⭐ **it names the OFFSPRING, and it used to be a bare `bool`** (AC5.4,
+    /// D102). The engine's split path carried the answer instead — a literal
+    /// `"SmallSkitter"`, later `"npc_puppy_slug"`, compiled into a reusable
+    /// platformer that has no business knowing what an Ambition mite divides
+    /// into. Any other game linking the engine inherited that creature name, and
+    /// changing what a mite becomes meant editing the engine.
+    ///
+    /// ⇒ a character states what it becomes. `None` is "does not divide", which
+    /// is what every body that says nothing gets.
+    pub divides_into: Option<String>,
     /// A fast charge stopped dead by a wall destroys this body.
     pub charge_crash_explodes: bool,
     /// Damage never kills — a training dummy with an effectively infinite pool.

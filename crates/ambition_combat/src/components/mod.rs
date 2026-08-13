@@ -79,8 +79,10 @@ pub struct CombatCapabilities {
     /// Detonates at the corpse on death (Enemy-faction blast), so a
     /// point-blank kill is punished.
     pub explodes_on_death: bool,
-    /// Splits into offspring on death.
-    pub divides_on_death: bool,
+    /// The character this body splits into on death, if any. See
+    /// [`ambition_characters::actor::CharacterDeathTraits::divides_into`] — the
+    /// engine used to hold this creature name itself.
+    pub divides_into: Option<String>,
     /// A fast charge stopped dead by a wall destroys this actor.
     pub charge_crash_explodes: bool,
     /// Damage never kills (training dummy with an effectively
@@ -111,14 +113,14 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
     fn from(traits: &ambition_characters::actor::CharacterDeathTraits) -> Self {
         let ambition_characters::actor::CharacterDeathTraits {
             explodes_on_death,
-            divides_on_death,
+            divides_into,
             charge_crash_explodes,
             never_dies,
             drops_held_item,
         } = traits;
         Self {
             explodes_on_death: *explodes_on_death,
-            divides_on_death: *divides_on_death,
+            divides_into: divides_into.clone(),
             charge_crash_explodes: *charge_crash_explodes,
             never_dies: *never_dies,
             drops_held_item: *drops_held_item,

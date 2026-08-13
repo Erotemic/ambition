@@ -121,7 +121,7 @@ fn the_shipped_cast_has_one_authority_per_character() {
 
 /// **The migrated mites reach the SHIPPED composition with their bodies.**
 ///
-/// D73 phase 2 moved `explodes_on_death` and `divides_on_death` off
+/// D73 phase 2 moved `explodes_on_death` and the split trait off
 /// `character_archetypes.ron` and onto the two mite CHARACTERS. That leg —
 /// authored in `ambition_content`, registered through `buildable_only_cast()`,
 /// prepared into the registry the spawn path reads — is only true of the
@@ -142,9 +142,13 @@ fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
         .get_resource::<PreparedCharacterRegistry>()
         .expect("the shipped composition registers characters through the one seam");
 
-    for (id, explodes, divides, health) in [
-        ("npc_exploding_mite", true, false, 2),
-        ("npc_dividing_mite", false, true, 4),
+    // ⭐ AC5.4: the divider names its OFFSPRING, not a bare "yes". The engine's
+    // split path used to hold that creature name; asserting the id here is what
+    // makes "the character decides what it becomes" checkable in the shipped
+    // composition rather than in the authoring file alone.
+    for (id, explodes, divides_into, health) in [
+        ("npc_exploding_mite", true, None, 2),
+        ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
     ] {
         let prepared = registry.get(id).unwrap_or_else(|| {
             panic!(
@@ -158,7 +162,7 @@ fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
             .as_ref()
             .unwrap_or_else(|| panic!("`{id}` prepared without the death traits it authors"));
         assert_eq!(traits.explodes_on_death, explodes, "{id}");
-        assert_eq!(traits.divides_on_death, divides, "{id}");
+        assert_eq!(traits.divides_into.as_deref(), divides_into, "{id}");
         assert_eq!(
             prepared.vitals.max_health,
             Some(health),

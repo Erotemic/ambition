@@ -206,6 +206,9 @@ pub(super) fn spawn_split_offspring(
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
+    // ⭐ AC5.4: WHAT it splits into, from the parent character's own
+    // `divides_into`. This module used to hold the creature name.
+    offspring: &str,
 ) {
     let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
@@ -220,7 +223,7 @@ pub(super) fn spawn_split_offspring(
             "Divided cell",
             pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
             SPLIT_OFFSPRING_HALF,
-            "npc_puppy_slug",
+            offspring,
             format!("{parent_id}:split"),
             crate::features::ActorFaction::Enemy,
             crate::features::ActorAggression::hostile(),

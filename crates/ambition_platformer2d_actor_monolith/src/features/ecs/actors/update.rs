@@ -532,12 +532,15 @@ pub fn tick_actor_brains(
         //
         // ⭐ **and it is no longer about DAMAGE**, which is the half that has
         // moved: `apply_actor_hit` asks `CombatStanding`, so a fighter that
-        // stood down is still damageable. What this defends now is what a
-        // peaceful body's own read-model does — `BodyCombat::peaceful` drops the
-        // attack windup and swing timers every frame, so a stood-down fighter
-        // could be hit and could not SWING, and the anti-clump slot board stops
-        // seeing it. Standing a fighter down was always wrong; it is now wrong
-        // for reasons that are about the fight rather than about survivability.
+        // stood down is still damageable.
+        //
+        // ⚠ **nor is it about the read-model any more** (AC3, 2026-08-13). This
+        // used to say that `BodyCombat::peaceful` dropped a stood-down fighter's
+        // attack windup and swing timers every frame — true when written, and
+        // now describing machinery that no longer exists: those fields were dead
+        // and are deleted, and the per-frame rebuild that dropped them is gone.
+        // What survives the correction is the anti-clump slot board, which stops
+        // seeing a body that leaves the fight.
         //
         // ⚠ the original symptom is worth keeping written down, because it is
         // what the two questions sharing one field cost: a peaceful body takes

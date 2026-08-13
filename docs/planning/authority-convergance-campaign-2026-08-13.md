@@ -17,7 +17,7 @@
 | AC0 census + surface maintainer decisions | ⏳ | 2026-08-13 | | AC0.1 ✔ (below) · AC0.5 ✔ — Jon settled the whole casting/completeness backlog unprompted, see the decisions section. anchors confirmed live 2026-08-13: `ActorIntent` 29, `ActorCooldowns` 25, `adopt_character_intrinsics` 10, `CharacterRoster` 223, `ArchetypeSpec` 93, `ActorTuning` 57 |
 | AC1 delete dead actor mirrors | ✔ | 2026-08-13 | 2026-08-13 `839b5887d` | **DELETED**, 24 files. 4 maintenance roads removed (construction, per-frame sync, reset/damage/aggression, rollback), 2 bundle fields, 2 schema rows (v25→v26), the boss's per-frame `CharacterAiMode` classification that existed only to fill the mirror, and the sync-only tests. ⚠ finding for AC3/AC6: `ActorStatus::ai_mode`'s only remaining reader is now the rollback snapshot |
 | AC2 scheduler-perturbation determinism guard | ✔ | 2026-08-13 | 2026-08-13 | `app_it::scheduler_perturbation` — A/B over two GRAPHS (the desync canary compares one graph against itself and structurally cannot see this class). Three benign readers placed by PHASE only, execution COUNTED so a filtered-out probe cannot pass as a perturbation. Falsification kept as a second test: a real conflicting writer must make the digests differ. ⚠ green means *no implicit ordering was disturbed by this perturbation*, which is weaker than *the graph has none* — stated in the module docs rather than overclaimed |
-| AC3 converge body/reaction authority | ▢ | | | `sync_actor_components_from_cluster` 14 refs |
+| AC3 converge body/reaction authority | ✔ | 2026-08-13 | 2026-08-13 | **`BodyCombat` 12 fields → 7.** A(`alive`) B(`attacking`) C(3 dead fields) D(`training_dummy`→construction) all gone; save→rebuild→restore deleted from BOTH roads; ONE decay and ONE reset for every body, closing D108 and D107. `sync_actor_components_from_cluster` is now a single string comparison and writes NO `BodyCombat` field. Falsifier below |
 | AC4 complete prepared character bodies | ▢ | | | |
 | AC5 construction convergence, delete build-then-patch | ▢ | | | |
 | AC6 delete archetype/roster/tuning authority | ▢ | | | `character_archetypes.ron` still present (16K) |
@@ -834,6 +834,54 @@ Before closing AC3, answer:
 The answer must no longer include parallel player/actor/boss mirror carry lists or a save/rebuild/restore list.
 
 ---
+
+### ✔ AC3 change-amplification falsifier, answered against HEAD 2026-08-13
+
+> If a new reaction timer analogous to landing lag were added now, which
+> production files would need edits?
+
+```text
+ambition_characters/src/actor/body.rs        declare it · decay it · reset it   (ONE owner)
+ambition_characters/src/snapshot_impls.rs    say whether its history rewinds
+ambition_combat/src/moveset/mod.rs           the event that arms it
+<its consumers>                              whoever reads it
+```
+
+Plus two destructure guards that stop compiling until somebody answers *does the
+shared decay tick it* and *does reset clear it*. Those are the mechanism, not
+amplification: they are the reason D108 was findable at all.
+
+⛔ **the list no longer contains what AC3 required it not to contain**: no
+parallel player/actor/boss carry lists, and no save→rebuild→restore list. Before
+AC3 it contained five — two `sync` carry lists, two decay lists, and `reset()` —
+and four of the five had already forgotten `landing_lag_timer`.
+
+⚠ **and the two that had it RIGHT are why nobody noticed.** `lifecycle_commit`
+and `room_transition/commit` cleared it by hand, so the only paths that exercised
+landing lag across a boundary were the two that happened to be correct. Both now
+call `reset()` instead of restating the list.
+
+### AC3 exit criteria, verified
+
+| Criterion | State |
+|---|---|
+| `ActorIntent` / `ActorCooldowns` remain gone | ✔ 0 references |
+| duplicate liveness mirror gone | ✔ `BodyCombat.alive` deleted; a damage gate stopped reading a stale one |
+| duplicate melee/attack mirror gone | ✔ `BodyCombat.attacking` deleted; D107 closed by deletion, not by widening |
+| no save → rebuild → restore for the surviving component | ✔ both roads write derived fields in place; `BodyCombat::hostile`/`peaceful` no longer exist |
+| no separate per-family reaction-timer lifecycles | ✔ one `decay_reaction_timers`, one `reset()`, called by player / actor / boss / transition |
+| liveness-critical gameplay reads `BodyHealth` | ✔ incl. `ecs_hit_event_hits_actor`, the projectile despawn gate |
+| attack-state gameplay reads the authoritative signal | ✔ both instruments read `BodyMelee`; brains always used their own authorities |
+| each surviving field has one owner, reset rule, decay rule, rollback justification | ✔ six reaction timers + one authored flag |
+| scheduler perturbation green | ✔ |
+| focused suites green | ✔ app_it 342, monolith 1256, characters 508, combat 165, sim_view 51, encounter 31, smash 18 |
+| `cargo check -p ambition_app` green | ✔ |
+
+⚠ **one deliberate behaviour change, for Jon rather than for the architecture**:
+CPU fighters and bosses now pay the landing lag their authored aerials owe — the
+same 0.10–0.28s a human pays. D108 parked this as a difficulty question; the
+architecture no longer has an opinion, because there is no longer a second list
+to forget. Feel is his call.
 
 # AC4 — Complete prepared character bodies before widening construction
 

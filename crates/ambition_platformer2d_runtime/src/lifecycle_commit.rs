@@ -394,12 +394,12 @@ fn commit_transition(
     // borrow so no query aliases. Optional components (safety/blink) are absent
     // for a possessed non-home body, exactly as the canonical path allows.
     if let Some(mut combat) = world.get_mut::<ambition_characters::actor::BodyCombat>(subject) {
+        // AC3.3: `reset()` IS this list — every reaction timer a body reset
+        // clears — so a transition asks for it rather than restating it. The
+        // arrival flash is the one thing a transition adds, so it is written
+        // after, not folded in.
+        combat.reset();
         combat.hit_flash = if edge_exit { edge_flash } else { door_flash };
-        combat.hitstop_timer = 0.0;
-        combat.damage_invuln_timer = 0.0;
-        combat.hitstun_timer = 0.0;
-        combat.recoil_lock_timer = 0.0;
-        combat.landing_lag_timer = 0.0;
     }
     if let Some(mut safety) =
         world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(subject)

@@ -153,16 +153,16 @@ fn apply_room_transition_resets(
             ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME
         };
     }
+    // AC3.3: one reset rule, asked for rather than restated. This list and the
+    // twin in `lifecycle_commit` were the only two places `landing_lag_timer`
+    // was cleared correctly, which is precisely why D108's four OTHER lists
+    // could forget it without producing a visible symptom.
+    combat.reset();
     combat.hit_flash = if edge_exit {
         feel.edge_transition_flash
     } else {
         feel.door_transition_flash
     };
-    combat.hitstop_timer = 0.0;
-    combat.damage_invuln_timer = 0.0;
-    combat.hitstun_timer = 0.0;
-    combat.recoil_lock_timer = 0.0;
-    combat.landing_lag_timer = 0.0;
     if let Some(safety) = safety {
         safety.last_safe_pos = arrival_pos;
     }

@@ -52,4 +52,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "message.fireworks_request",
     );
     app.clear_message_on_rollback::<ambition_vfx::VfxMessage>(OWNER, "message.vfx");
+    // P0.1: the camera-shake intent. It belongs with the other presentation
+    // effect families rather than in the central registrar — it is quarantined
+    // beside them in `quarantine_presentation_effects`, and an un-rewound cursor
+    // would hand presentation an intent from a branch the session abandoned. The
+    // journal holds pending intents in its own resource, so clearing the channel
+    // on load complements `discard_abandoned_predictions` rather than competing
+    // with it.
+    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>(
+        OWNER,
+        "message.camera_shake_request",
+    );
 }

@@ -1157,9 +1157,13 @@ fn finalize_character(
         // that still needs the catalog to say whether a body flies is only
         // partly prepared.
         //
-        // ⚠ `baseline_free_flight: false` means *"this character did not say"* (see the field's
-        // own doc), which is exactly why the catalog's answer may fill it and
-        // never overrule it.
+        // ⚠ **the catalog does NOT fill it** — this line said *"the catalog's
+        // answer may fill it and never overrule it"* and D89 (below) cut that
+        // edge entirely rather than demoting it. `Option<bool>` still carries the
+        // distinction the field's own doc names, and preparation is where silence
+        // becomes an ANSWER: `None` resolves to `Some(false)`, so a prepared
+        // character is never mute about flight and no constructor downstream has
+        // a second authority to consult.
         locomotion: locomotion.map(|locomotion| crate::actor::CharacterLocomotion {
             // ⛔⛔ **`body_kind` IS NOT LOCOMOTION AUTHORITY** (ledger D89,
             // 2026-08-11). This read

@@ -2938,13 +2938,45 @@ movement/collision policy."* The field had the answer written on it.
 These are the fields where the three-way split does not answer itself. Each one
 is a decision the migration must make deliberately, with what is known:
 
-1. **`is_aerial`** — a live TWO-SOURCE CONFLICT, already documented on the field,
+1. ✔ **`is_aerial`** — was a live TWO-SOURCE CONFLICT, already documented on the field,
    ⛔ **and I cited queue D74 as it breaking in the wild — WRONGLY, retracted
    2026-08-10.** The probe measured `gravity_scale = 1.0` on the registered PCA,
    so nothing floated it; that symptom is a movement divergence during
    possession and is not an instance of this conflict. The conflict itself is
    still real and still unresolved — two authorities state one body's
    aerial-ness — but it has no witness yet, which is exactly what it had before.
+
+   ⇒ ✔✔ **RESOLVED 2026-08-13, and structurally rather than by a decision.**
+   Traced through all three construction roads with the PCA finally registered
+   (ledger D74), each has exactly ONE authority and no body can see two:
+
+   ```text
+     new_character_in      prepared `baseline_free_flight`  — catalog folded at
+                                                              PREPARATION
+     new_peaceful_npc_in   the character first; the catalog only for a
+                           character with NO PREPARED ENTRY
+     new_in (archetype)    `spec.is_aerial` — reached only by a placement that
+                           names no complete character
+   ```
+
+   ⭐ **the fold is what closes it.** `finalize_character` resolves
+   `baseline_free_flight: None` to `Some(false)`, so a prepared character is
+   never MUTE about flight — and "complete" (the test that sends a placement down
+   the character-first road) requires locomotion, which carries that field. A body
+   whose character states flight therefore cannot reach the archetype road, and a
+   body on the archetype road has no character answer to contradict.
+
+   ⚠ **and D89 cut the catalog edge rather than demoting it**: `finalize_character`
+   does not read `body_kind` at all. `Floating` still answers a real question —
+   it supplies no `default_standing_height`, which is why the PCA is 68px and not
+   `Standard`'s 48 — so geometry and locomotion were decoupled through the one
+   enum and only the locomotion edge was cut. ⚠ a stale ⚠ line above that fix
+   still claimed *"the catalog's answer may fill it"*; corrected the same day.
+
+   ⇒ what REMAINS is not a conflict but an `unwrap_or` arm: the peaceful road's
+   catalog fallback, which answers for ~150 unprepared NPC placements and becomes
+   unreachable when the registry holds everything. `Option<bool>` must still
+   survive the move for the reason below.
    `new_peaceful_npc_in` reads the catalog's `body_kind: Floating`; the hostile
    `EnemySpawn` path reads this. **The Perfect Cellular Automaton is `Floating`
    in its catalog row and played grounded by the shipped duel.** Unifying the two

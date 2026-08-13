@@ -1245,6 +1245,21 @@ player-specific by design, because a heal message targets a player.
 difference between a class somebody must keep hunting and a class somebody can
 close.
 
+⭐⭐ **AND THE MIRROR SWEEP NAMED THE ROOT CAUSE.** Looking for the opposite
+defect — actor-scoped systems handling a rule a player body also needs — found
+none, because every `Without<PlayerEntity>` in the monolith is there for BEVY
+QUERY DISJOINTNESS, and says so: *"here to keep the two queries provably
+non-aliasing"*, *"the actor query (`With<PlayerEntity>` vs
+`Without<PlayerEntity>`), so both borrow"*.
+
+⇒ **the player/actor split is a BORROW-CHECKER artefact that became a semantic
+boundary.** Bevy cannot hand two `&mut` queries the same entity, so the code
+splits player and actor into parallel systems — and then each parallel pair is a
+place where one side can implement a body-generic rule and the other can forget
+to. All three defects live on exactly that seam. ⇒ **the split is not going
+away**, so the defence is the one already applied to `hard_lock_timer`: name the
+rule on the shared type, and let both sides call it rather than spell it.
+
 ⚠ **the fix shape is the same for all three and one of them has it already**:
 name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
 is that for the landing-lag half of D108 — the actor road not calling it is now

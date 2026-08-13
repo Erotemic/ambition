@@ -36,25 +36,39 @@ drift.
 |---|---|---|
 | **Does a bolt test the AUTHORED hurtbox, or the coarse box?** (queue D23) | ⛔ retiring `HitTarget::UnresolvedFeatures` for bosses — **the combat campaign's last remainder** | ▢ **needs Jon**, one word — see below |
 | ~~Is an enemy a CHARACTER, or an ARCHETYPE wearing one?~~ (queue D48) | ~~goblins/Iron Mary art + behaviour~~ | ✔✔ **ANSWERED by Jon 2026-08-10** — a character is a reusable TEMPLATE; brief in `character-template-architecture-2026-08-10.md`, queue D73 |
-| **Who is the goblin lab's HEAVY?** (Jon's magenta-box observation) | 3 mobs in `goblin_encounter` still draw placeholders | ▢ **needs Jon** — one casting call, see below |
+| ~~Who is the goblin lab's HEAVY?~~ (Jon's magenta-box observation) | ~~3 mobs in `goblin_encounter` still draw placeholders~~ | ✔✔ **ANSWERED by Jon 2026-08-13** — `large_brute` becomes a real authored **Goblin Brute** character, with its own Python sprite generator target. Ruling in `maintainer-decisions.md` |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | ⚠ **nothing, and the stated cost is now FALSE** — this said it kept the parent tree dirty and the *"nothing uncommitted"* check failing; rechecked 2026-08-13, `git status` is empty, every submodule pointer matches its checkout, and that check PASSES | ▢ **needs Jon**, 30 seconds — and the only live question left is whether a commit titled `wip` should be the recorded pointer (see below) |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
-| **What IS a `small_lurker`, what does a `DividingMite` split into, and what is `under_town_skitter`?** (D96 1/3/3b) | ⛔⛔ **`character_archetypes.ron` — D73's ACCEPTANCE SIGNAL.** With the goblin heavy these four are the entire remaining content side; `what_still_needs_an_archetype_row` counts them down | ▢ **needs Jon** — three casting calls, each with a recommendation, see below |
-| **What is a provoked villager's HEALTH POOL?** (D96 7) | ⛔ **the largest single unblock in the ledger** — P2.20, P2.21 and D81 ENTIRELY (107 preset adopters, none authoring a `BrainProfile`) | ▢ **needs Jon** — a difficulty statement, three routes, see below |
-| **How tough is a pirate quartermaster?** (D96 8, queue D98) | seven characters that author facts reaching no body; six of them are six of the fourteen keeping `adopt_character_intrinsics` alive | ▢ **needs Jon** — one number, or seven |
-| **Is `DeclaredCombatRules::unarmed_melee` scaffolding, or permanent architecture?** | P3.24 and P3.26's remaining ▢ — and whether seven peaceful characters on the Smash grid should be re-authored as fighters | ▢ **needs Jon** — ⚠ raised 2026-08-13 because both ratchets USED to instruct the deletion by default |
-| **Does Carl Stargan fight?** (D96 5) | one `REGISTERED_WITHOUT_A_BODY` entry — ⭐ and he is on the Smash grid TODAY, fighting with the stage's generic floor | ▢ **needs Jon** — one yes/no |
+| **What IS a `small_lurker`?** (D96 1 — ⚠ **the other two are ANSWERED**) | ⛔ `character_archetypes.ron`, D73's acceptance signal — but its remaining content side is now ONE identifier, not four | ⚠ **2 of 3 ANSWERED by Jon 2026-08-13**: *"Skitters are Puppy Slug"* — `SmallSkitter` (the `DividingMite` split) and `under_town_skitter` are both authored as `npc_puppy_slug`, and any other ordinary legacy skitter identity preferentially becomes Puppy Slug. ▢ `small_lurker` — the Gradient Sentinel's *"slop minions"* — is a LURKER, not a skitter, so his skitter ruling does not reach it; ⭐ **but his standing instruction does**: AI-invented placeholder content is deleted rather than preserved with architecture, so recompute whether this identifier still has a justified consumer before asking again |
+| ~~What is a provoked villager's HEALTH POOL?~~ (D96 7) | ~~P2.20, P2.21 and D81 ENTIRELY~~ | ✔✔ **ANSWERED by Jon 2026-08-13** — health is TUNING, not a blocked product decision: author explicit values now (ordinary humanoid/NPC baseline **4 HP**), and ⛔ *"provocation/control changes must preserve current body health"* — health is a BODY fact. Ruling in `maintainer-decisions.md` |
+| ~~How tough is a pirate quartermaster?~~ (D96 8, queue D98) | ~~seven characters that author facts reaching no body~~ | ✔✔ **ANSWERED by Jon 2026-08-13** — ordinary pirate **4 HP**, heavy/large pirate variants **6 HP**, Patent Clerk **6 HP**; author them. ⛔ *"do not retain fallback health or incomplete body definitions because we are waiting for balance decisions."* |
+| **Is `DeclaredCombatRules::unarmed_melee` scaffolding, or permanent architecture?** | P3.24 and P3.26's remaining ▢ | ▢ **needs Jon** on the RULESET half only — ⚠ **its second half is ANSWERED 2026-08-13**: *"seven peaceful characters re-authored as fighters"* was the wrong question, because a body fights exactly to the extent it has authored damaging abilities. ⭐ his ruling also constrains this one: *"a ruleset may restrict available verbs but does not create combat abilities that the body lacks"* |
+| ~~Does Carl Stargan fight?~~ (D96 5) | ~~one `REGISTERED_WITHOUT_A_BODY` entry~~ | ✔✔ **ANSWERED by Jon 2026-08-13, and then GENERALISED** — Carl does NOT fly; he fights because his BODY has authored abilities. ⛔⛔ **the question's own framing is now rejected**: *"there is no separate 'can fight' character property"* — never introduce a `can_fight`/`combatant`/peaceful-vs-fighter taxonomy. Both rulings in `maintainer-decisions.md` |
 | **Is a Sanic badnik the 1-HP wanderer its own file describes?** (D96 6) | the sanic demo's own row; the smallest of these and the only one confined to one demo | ▢ **needs Jon** — one yes/no |
 | **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
-⇒ **11 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
-(reopened 2026-08-13, see below). The goblin-heavy casting call blocks a visible
-artefact **and one third of D73's acceptance signal** — it is queue D96 item 2,
-`large_brute`, one of the three uncast identifiers keeping
-`character_archetypes.ron` alive (cross-linked 2026-08-13; that file and this one
-had disjoint halves of the same decision).
+⇒ **7 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
+(reopened 2026-08-13, see below).
+
+⭐⭐ **FOUR ROWS CLOSED AT ONCE ON 2026-08-13**, in one unprompted handoff from
+Jon while the Authority Convergence campaign was running: the goblin-lab heavy
+(`large_brute` → an authored Goblin Brute), the provoked villager's health pool,
+the pirate quartermaster's, and *"does Carl Stargan fight"* — plus two thirds of
+the skitter row and half the `unarmed_melee` row. **He also settled the rule
+underneath them**, which is worth more than the four answers: *"there is no
+separate 'can fight' character property — a character can fight exactly to the
+extent that its body has abilities/capabilities that can produce combat
+effects."* ⛔ **so a question of the form "is X a fighter?" should not be asked
+again**; the answerable question is what abilities X's body authors. Every
+ruling is in [`maintainer-decisions.md`](maintainer-decisions.md), verbatim.
+
+⚠ **the pattern worth noticing**: three of the four were blocked on *product
+decisions Jon did not consider product decisions at all*. Health was tuning;
+Carl's fighting was a category error; the skitters were AI-invented taxonomy he
+never cared about. ⇒ **when a row's cost is "one number", state the number you
+would pick and what it blocks** — that is the shape that got answered.
 
 ⚠ **and a BLOCKS column rots exactly like a state does.** The submodule-pointer
 row claimed it kept the parent tree dirty and the run's *"nothing uncommitted"*

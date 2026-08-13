@@ -254,6 +254,12 @@ fn only_presentation_facing_effects_are_quarantined() {
         ExplosionRequest,
         FireworksRequest,
         DebrisBurstMessage,
+        // P0.1: a screen kick leaves the process exactly as a sound does. It
+        // used to be written straight onto `CameraShakeState` from inside the
+        // combat schedule, behind a `replaying_history` guard that could see the
+        // duplicate and not the phantom — the first pass over a predicted frame
+        // is not a replay.
+        ambition_platformer2d::platformer::camera_ease::CameraShakeRequest,
     );
     assert_not_quarantined!(EffectRequest, ambition_platformer2d::projectiles::SpawnProjectile);
 }

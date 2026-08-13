@@ -148,6 +148,51 @@ impl CameraShakeState {
     }
 }
 
+/// **A simulation-produced request to kick the camera.** (P0.1)
+///
+/// ⛔⛔ **the simulation must not touch [`CameraShakeState`] directly.** A
+/// rollback host runs each frame more than once, and the FIRST of those passes is
+/// already unconfirmed: GGRS predicts the remote input, so a hit that a later
+/// correction erases has, by then, already kicked the live camera. That pass is
+/// not a replay, so a `replaying_history` guard cannot see it — it suppresses the
+/// *duplicate* and keeps the *phantom*, which is the exact failure
+/// `external_effects` was written to end for sound and VFX.
+///
+/// So the shake became what the sound already was: an **intent**, written into a
+/// quarantined channel, journalled per frame, and released once the host confirms
+/// the frame that produced it. A re-simulation that no longer produces the hit
+/// replaces its frame's batch with an empty one and the kick never happens; a
+/// confirmed hit is released exactly once. On every non-rollback host — fixed
+/// tick, render frame, headless, every unit fixture — no quarantine is installed
+/// and the request flows straight through in the same frame, which is why this
+/// costs nothing where nothing is predicted.
+///
+/// ⚠ **strongest-wins survives the trip.** [`CameraShakeState::kick`] is a `max`,
+/// so several requests released together settle on the loudest exactly as several
+/// direct kicks did.
+#[derive(bevy::ecs::message::Message, Clone, Copy, Debug)]
+pub struct CameraShakeRequest {
+    /// Desired amplitude in world pixels, before [`CameraShakeTuning`]'s cap.
+    pub amplitude_px: f32,
+}
+
+/// Apply released [`CameraShakeRequest`]s to the live shake state.
+///
+/// The presentation half of the seam above: the only writer of
+/// [`CameraShakeState`] on behalf of the simulation. Runs in `Update` beside
+/// [`tick_camera_shake`], downstream of the quarantine's `PreUpdate` release, so
+/// what it reads is a confirmed frame's intent under a rollback host and this
+/// frame's under every other one.
+pub fn apply_camera_shake_requests(
+    mut requests: bevy::ecs::message::MessageReader<CameraShakeRequest>,
+    tuning: bevy::prelude::Res<CameraShakeTuning>,
+    mut shake: bevy::prelude::ResMut<CameraShakeState>,
+) {
+    for request in requests.read() {
+        shake.kick(request.amplitude_px, *tuning);
+    }
+}
+
 /// Per-second decay rate of `CameraShakeState::amplitude_px`. At 30 px/s,
 /// a 6 px shake (mid-strength land) decays to 0 in ~0.2 s — long enough
 /// to feel a thump, short enough not to interfere with the next move.

@@ -179,6 +179,27 @@ impl Plugin for SimCoreResourcesPlugin {
             ambition_platformer2d_actor_monolith::time::time_control::report_sim_clock_changes,
         );
 
+        // **The presentation half of the camera shake** (P0.1). The simulation
+        // publishes a `CameraShakeRequest`; this is the only thing that turns one
+        // into a screen the player sees, which is what lets the confirmed-frame
+        // quarantine hold a predicted hit's shake back until the host settles the
+        // frame that produced it.
+        //
+        // ⛔ **in the ENGINE group, not the windowed host.** `tick_camera_shake`
+        // and `camera_follow` are the host's because a headless run has no camera
+        // to move — but a headless run still ASKS for shakes and still has the
+        // amplitude read off it (`app_it::hit_shakes_the_camera` watches a duel
+        // through the sim harness). Registering the applier beside the resource
+        // it writes keeps the seam wired in every composition that owns the
+        // state, which is the same reason `shake_camera_on_landed_hits` lives in
+        // the engine combat schedule rather than in `ambition_app`.
+        app.add_message::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>()
+            .add_systems(
+                Update,
+                ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
+                    .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
+            );
+
         // The engine's own construction recipes. `init_resource` above never
         // clobbers a provider's pre-inserted registry, and registration is
         // idempotent, so composing this plugin twice is not an error.

@@ -331,3 +331,197 @@ fn the_journal_depth_tracks_the_unconfirmed_window() {
         "exactly the frames between confirmed and current stay pending"
     );
 }
+
+/// **The camera shake, held to the confirmed boundary.** (P0.1)
+///
+/// ⛔ these three cases exist because the shake's first rollback guard was a
+/// `replaying_history` check inside the producer, and that check is blind to the
+/// case that matters. Under predicted remote input the FIRST execution of a frame
+/// is not a replay, so a hit that never really happened passed the guard and
+/// kicked the live camera; when the correction arrived there was nothing left to
+/// undo, because `CameraShakeState` is presentation and is not rewound.
+///
+/// ⭐ **nothing here is a re-proof of the journal.** The cases above already pin
+/// the rule with a stand-in message. What this drives is the REAL producer
+/// (`shake_camera_on_landed_hits`), the REAL applier
+/// (`apply_camera_shake_requests`) and the REAL amplitude the player would see,
+/// so a regression that reconnects the simulation to the camera directly fails
+/// here rather than passing on a message nobody applies.
+mod camera_shake {
+    use super::*;
+    use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits;
+    use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d_shared_tangle::camera_ease::{
+        apply_camera_shake_requests, CameraShakeRequest, CameraShakeState, CameraShakeTuning,
+    };
+    use bevy::prelude::Entity;
+
+    /// A speculating host holding one body, the quarantine, and a camera.
+    struct Fight {
+        world: World,
+        body: Entity,
+    }
+
+    impl Fight {
+        fn new() -> Self {
+            let mut world = World::new();
+            world.init_resource::<Messages<CameraShakeRequest>>();
+            world.init_resource::<ExternalEffectJournal<CameraShakeRequest>>();
+            world.init_resource::<CameraShakeState>();
+            world.init_resource::<CameraShakeTuning>();
+            world.init_resource::<Platformer2dFeelTuningMonolith>();
+            world.insert_resource(ConfirmedFrameBoundary {
+                current: 0,
+                confirmed: -1,
+                session: 0,
+            });
+            let body = world.spawn(BodyCombat::default()).id();
+            Self { world, body }
+        }
+
+        /// The hardest connect the hitlag band admits — a smash, not a poke.
+        fn hard_hit(&self) -> f32 {
+            self.world
+                .resource::<Platformer2dFeelTuningMonolith>()
+                .hitlag_time
+                * 4.0
+        }
+
+        /// Arm (or clear) the body's hitlag: what "a hit landed this frame"
+        /// physically IS to every reader of it, the camera included.
+        fn hitstop(&mut self, seconds: f32) {
+            self.world
+                .entity_mut(self.body)
+                .get_mut::<BodyCombat>()
+                .expect("the body keeps its combat state")
+                .hitstop_timer = seconds;
+        }
+
+        /// One simulation advance in the exact order the plugin schedules it,
+        /// with the real combat-schedule producer in the middle.
+        fn advance(&mut self, frame: i32, confirmed: i32) {
+            {
+                let mut boundary = self.world.resource_mut::<ConfirmedFrameBoundary>();
+                boundary.current = frame;
+                boundary.confirmed = confirmed;
+            }
+            self.world
+                .run_system_cached(open_sim_effect_outbox::<CameraShakeRequest>)
+                .expect("outbox opens");
+            self.world
+                .run_system_cached(shake_camera_on_landed_hits)
+                .expect("the combat schedule's shake producer runs");
+            self.world
+                .run_system_cached(journal_sim_effects::<CameraShakeRequest>)
+                .expect("journal runs");
+        }
+
+        /// The host's release, then presentation's applier: the amplitude this
+        /// returns is what a player would actually see.
+        fn present(&mut self) -> f32 {
+            self.world
+                .run_system_cached(release_confirmed_effects::<CameraShakeRequest>)
+                .expect("release runs");
+            self.world
+                .run_system_cached(apply_camera_shake_requests)
+                .expect("the applier runs");
+            self.world.resource::<CameraShakeState>().amplitude_px
+        }
+
+        fn load(&mut self, frame: i32) {
+            self.world.resource_mut::<ConfirmedFrameBoundary>().current = frame;
+            self.world
+                .run_system_cached(discard_abandoned_predictions::<CameraShakeRequest>)
+                .expect("discard runs");
+        }
+
+        fn released(&self) -> u64 {
+            self.world
+                .resource::<ExternalEffectJournal<CameraShakeRequest>>()
+                .released()
+        }
+    }
+
+    /// **A predicted hit does not move the screen.**
+    #[test]
+    fn a_hit_on_an_unconfirmed_frame_does_not_shake_the_camera_yet() {
+        let mut fight = Fight::new();
+        let hard = fight.hard_hit();
+        fight.hitstop(hard);
+        fight.advance(0, -1);
+
+        assert_eq!(
+            fight.present(),
+            0.0,
+            "a hit on a frame the host has not confirmed already kicked the \
+             camera. The remote input can still contradict it, and a screen that \
+             has moved cannot be moved back"
+        );
+    }
+
+    /// **A hit the correction erases never reaches the screen at all.**
+    ///
+    /// ⛔ this is the clause a `replaying_history` guard structurally cannot
+    /// satisfy: the pass that produced the phantom was not a replay.
+    #[test]
+    fn a_hit_the_correction_erases_never_shakes_the_camera() {
+        let mut fight = Fight::new();
+        let hard = fight.hard_hit();
+
+        // The predicted timeline: a smash connects on frame 1.
+        fight.advance(0, -1);
+        fight.hitstop(hard);
+        fight.advance(1, -1);
+        assert_eq!(fight.present(), 0.0, "frame 1 is not confirmed yet");
+
+        // The real input arrives and it was a whiff. Rewind, and re-simulate a
+        // frame 1 on which nobody was ever hit.
+        fight.load(0);
+        fight.hitstop(0.0);
+        fight.advance(1, 1);
+
+        assert_eq!(
+            fight.present(),
+            0.0,
+            "the screen shook for a hit that, on the timeline the session \
+             actually settled on, never landed"
+        );
+        assert_eq!(
+            fight.released(),
+            0,
+            "an intent from the abandoned branch was handed to presentation"
+        );
+    }
+
+    /// **A confirmed hit shakes the screen, exactly once.**
+    ///
+    /// ⭐ the clause that makes the two above mean "held" rather than "broken".
+    /// The count is the exactly-once half: `kick` is a `max`, so a shake released
+    /// twice is invisible in the amplitude and obvious in the journal.
+    #[test]
+    fn a_confirmed_hit_shakes_the_camera_exactly_once() {
+        let mut fight = Fight::new();
+        let hard = fight.hard_hit();
+        fight.hitstop(hard);
+        fight.advance(0, -1);
+        fight.present();
+
+        // Frame 0 settles. The body is still in hitlag — hitstop counts down
+        // over several frames — but frame 1's own intent is its own.
+        fight.hitstop(0.0);
+        fight.advance(1, 0);
+
+        assert!(
+            fight.present() > 0.0,
+            "the hit survived confirmation and the camera never answered it, so \
+             the quarantine is not a delay — it is a hole"
+        );
+        assert_eq!(
+            fight.released(),
+            1,
+            "the confirmed frame's single shake request reached presentation a \
+             different number of times than once"
+        );
+    }
+}

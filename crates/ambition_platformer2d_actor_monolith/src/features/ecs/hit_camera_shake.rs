@@ -33,29 +33,38 @@
 //! order, which is the determinism rule this repository has been bitten by more
 //! than once.
 //!
-//! ⛔⛔ **AND IT READS TWO CLOCKS, WHICH IS THE HAZARD BEING BODY-GENERIC PUT IT
-//! IN REACH OF.** This runs in the SIMULATION schedule, which a rollback host
-//! re-executes over historical frames; `CameraShakeState` is PRESENTATION state
-//! and is not rollback-registered, so it is not rewound between those passes.
-//! Without a guard, one landed hit is observed once when it happens and again on
-//! every resimulation of that frame, each time kicking the PRESENT camera —
-//! a ghost shake with no hit under it, arriving whenever the network hiccups.
+//! ⛔⛔ **AND IT REACHES PRESENTATION FROM INSIDE THE SIMULATION, WHICH IS THE
+//! HAZARD BEING BODY-GENERIC PUT IT IN REACH OF.** This runs in the SIMULATION
+//! schedule, which a rollback host executes more than once per frame;
+//! `CameraShakeState` is PRESENTATION state and is not rollback-registered, so
+//! it is not rewound between those passes.
 //!
-//! ⚠ **and the opposite policy is right one module over**, which is why this
-//! says which case it is rather than citing the doctrine flatly.
-//! `dev/trace`'s recorders were once gated this way and it was WRONG: rows keyed
-//! by `(generation, frame)` are REPLACED by a resimulation, so skipping the
-//! corrected pass preserved the guess forever. A camera kick is not keyed by
-//! anything and replaces nothing — it is a monotone `max` onto live presentation
-//! state, so a replayed pass can only ADD. Idempotent-by-key wants the last
-//! pass; accumulate-onto-present wants the authoritative one only.
+//! ⛔ **the first fix for that was a `replaying_history` guard, and it was half
+//! the answer.** It removed the duplicate a local rollback produces and kept the
+//! PHANTOM: under predicted remote input the FIRST execution of a frame is not a
+//! replay, so it passed the guard and kicked the live camera — and when the real
+//! input arrived and erased the hit, nothing could unkick it. A shake with no hit
+//! under it, arriving exactly when the network hiccups, which is precisely the
+//! failure `ambition_platformer2d_runtime::external_effects` exists to end.
+//!
+//! ⭐ **so this publishes a [`CameraShakeRequest`] and lets the existing
+//! confirmed-frame quarantine decide when it is real.** The mechanism was already
+//! built and already carries sound, VFX, explosions, fireworks and debris: the
+//! frame's intents are journalled, a re-simulation REPLACES that frame's batch
+//! (an empty batch erases the phantom — the half a boolean gate structurally
+//! cannot do), and release happens once the host confirms the frame. There is no
+//! replay guard here any more because there is nothing left to guard: the system
+//! writes a message, and a message from an abandoned branch is discarded rather
+//! than suppressed.
+//!
+//! ⚠ **and it stays free where nothing is predicted.** Every non-rollback host
+//! installs no quarantine at all, so the request is read by
+//! `apply_camera_shake_requests` in the same frame it was written, exactly as the
+//! direct kick was.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::camera_ease::{
-    hit_shake_amplitude, CameraShakeState, CameraShakeTuning,
-};
-use ambition_platformer2d_shared_tangle::schedule::SimulationReplayState;
+use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, CameraShakeRequest};
 
 /// Kick the camera by the hardest hitlag any body in the world is currently
 /// serving, measured against the route's reference connect.
@@ -71,43 +80,30 @@ use ambition_platformer2d_shared_tangle::schedule::SimulationReplayState;
 /// for falls through the freeze while the decay pulls the live value down too —
 /// the hit peaks on the frame it lands and eases out, which is the beat.
 ///
-/// Every resource is optional for the same reason the rest of this feel layer's
-/// are: a headless fixture that installed no camera still runs the combat
-/// schedule, and a missing route means no shake rather than a panic.
+/// The feel tuning is optional for the same reason the rest of this layer's
+/// resources are: a headless fixture that installed no route still runs the
+/// combat schedule, and a missing one means no shake rather than a panic.
 ///
-/// ⛔ **the replay guard is a PARAMETER, not a `run_if` at the registration.**
-/// This is the one system in the combat schedule that writes non-rollback
-/// presentation state, so "only on an authoritative pass" is a property of the
-/// system itself rather than of one call site — a second registration (a host, a
-/// demo, a fixture) that forgot the run condition would reintroduce the ghost
-/// shake silently, and the module docs above explain why the usual doctrine
-/// points the other way for its neighbours. Reading it here also lets the
-/// regression drive the real system with `replaying_history` raised.
+/// ⛔ **it publishes an INTENT and touches no presentation state.** The cap, the
+/// clamp and the live amplitude belong to `apply_camera_shake_requests` on the
+/// far side of the confirmed-frame boundary; see the module docs for why the
+/// earlier in-place kick could not be made correct by any guard living here.
 pub fn shake_camera_on_landed_hits(
     feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
-    shake: Option<ResMut<CameraShakeState>>,
-    shake_tuning: Option<Res<CameraShakeTuning>>,
-    // Absent on every non-rollback host, which is the ordinary case: a
-    // fixed-tick or render-frame host never replays, so no marker means the pass
-    // is authoritative.
-    replay: Option<Res<SimulationReplayState>>,
+    mut requests: MessageWriter<CameraShakeRequest>,
     bodies: Query<&ambition_characters::actor::BodyCombat>,
 ) {
-    if replay.is_some_and(|replay| replay.replaying_history) {
-        return;
-    }
-    let (Some(feel), Some(mut shake)) = (feel, shake) else {
+    let Some(feel) = feel else {
         return;
     };
-    // Absent, the historical cap rather than no cap — an unclamped kick is a
-    // screen nobody can read.
-    let tuning = shake_tuning.map(|tuning| *tuning).unwrap_or_default();
     let mut hardest = 0.0f32;
     for combat in &bodies {
         hardest = hardest.max(hit_shake_amplitude(combat.hitstop_timer, feel.hitlag_time));
     }
     if hardest > 0.0 {
-        shake.kick(hardest, tuning);
+        requests.write(CameraShakeRequest {
+            amplitude_px: hardest,
+        });
     }
 }
 
@@ -115,21 +111,36 @@ pub fn shake_camera_on_landed_hits(
 mod tests {
     use super::*;
     use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_shared_tangle::camera_ease::{
+        apply_camera_shake_requests, CameraShakeState, CameraShakeTuning,
+    };
 
     /// The fixture a home avatar CANNOT satisfy: bodies with no `PlayerEntity`
     /// and no `PrimaryPlayer` at all, which is what a CPU-versus-CPU match is.
+    ///
+    /// ⚠ **the applier is installed too, deliberately.** These tests measure the
+    /// amplitude a hit produces, which is a claim about the whole seam; a fixture
+    /// that only counted the request would go green on a request nobody applies.
+    /// This models the ordinary NON-ROLLBACK host, where no quarantine exists and
+    /// the request is read in the frame it was written — the confirmed-boundary
+    /// behaviour is the app-level `effect_quarantine` suite's to prove, because
+    /// only there does a journal exist to prove it against.
     fn app_with_bodies(hitstops: &[f32]) -> App {
         let mut app = App::new();
         app.init_resource::<CameraShakeState>();
         app.init_resource::<CameraShakeTuning>();
         app.init_resource::<crate::time::feel::Platformer2dFeelTuningMonolith>();
+        app.add_message::<CameraShakeRequest>();
         for &hitstop in hitstops {
             app.world_mut().spawn(BodyCombat {
                 hitstop_timer: hitstop,
                 ..Default::default()
             });
         }
-        app.add_systems(Update, shake_camera_on_landed_hits);
+        app.add_systems(
+            Update,
+            (shake_camera_on_landed_hits, apply_camera_shake_requests).chain(),
+        );
         app
     }
 
@@ -228,50 +239,48 @@ mod tests {
         assert!(solo > 0.0, "the smash itself shook nothing");
     }
 
-    /// **A REPLAYED frame must not shake the present camera — and an
-    /// authoritative one must.**
+    /// **The simulation half writes an INTENT and touches nothing the player can
+    /// see.** (P0.1)
     ///
-    /// ⛔ both terms observed in ONE fixture, on ONE unchanged hit: the same
-    /// world, the same `hitstop_timer`, the same system, differing only in
-    /// whether the host says it is resimulating history. A guard that returned
-    /// early unconditionally passes the first clause alone, and the second
-    /// clause is what makes the first mean "gated" rather than "broken".
-    ///
-    /// ⚠ the hit is left ARMED across the two passes deliberately. Rollback does
-    /// not clear `hitstop_timer` — it RESTORES it, which is precisely how a hit
-    /// that already shook the camera gets observed a second time.
+    /// ⛔ this is the property that makes the quarantine capable of holding the
+    /// shake at all. The system used to `kick` the live resource, and no
+    /// mechanism downstream could take that back once a predicted hit turned out
+    /// not to have happened. Here the applier is deliberately NOT installed: an
+    /// armed hit runs the producer alone, and the camera must still be perfectly
+    /// still while exactly one request stands waiting.
     #[test]
-    fn a_hit_resimulated_during_rollback_does_not_shake_the_present_camera() {
-        let mut app = app_with_bodies(&[]);
-        let hard = reference(&app) * 4.0;
+    fn the_simulation_half_only_requests_the_shake_and_never_moves_the_camera() {
+        let mut app = App::new();
+        app.init_resource::<CameraShakeState>();
+        app.init_resource::<CameraShakeTuning>();
+        app.init_resource::<crate::time::feel::Platformer2dFeelTuningMonolith>();
+        app.add_message::<CameraShakeRequest>();
+        let hard = app
+            .world()
+            .resource::<crate::time::feel::Platformer2dFeelTuningMonolith>()
+            .hitlag_time
+            * 4.0;
         app.world_mut().spawn(BodyCombat {
             hitstop_timer: hard,
             ..Default::default()
         });
-        app.insert_resource(SimulationReplayState {
-            replaying_history: true,
-        });
+        app.add_systems(Update, shake_camera_on_landed_hits);
 
         app.update();
+
         assert_eq!(
             app.world().resource::<CameraShakeState>().amplitude_px,
             0.0,
-            "a rollback host resimulating a historical frame kicked the LIVE \
-             camera. `CameraShakeState` is presentation and is not rewound \
-             between passes, so this is a shake with no hit under it — one \
-             landed blow rattling the screen once per resimulation"
+            "the combat schedule moved the live camera itself. That write is not \
+             rewindable: under a rollback host the FIRST pass over a frame is \
+             already speculative, so a hit the next correction erases would have \
+             kicked the screen before anyone could know it did not happen"
         );
-
-        // The same frame, now claimed as authoritative: the hit is still there
-        // and the camera must answer it.
-        app.world_mut()
-            .resource_mut::<SimulationReplayState>()
-            .replaying_history = false;
-        app.update();
-        assert!(
-            app.world().resource::<CameraShakeState>().amplitude_px > 0.0,
-            "the authoritative pass over the same armed hit shook nothing, so \
-             the replay guard is not a gate — it is an off switch"
+        assert_eq!(
+            app.world().resource::<Messages<CameraShakeRequest>>().len(),
+            1,
+            "the hardest connect the hitlag band allows produced no shake \
+             request, so the seam is not merely deferred — it is severed"
         );
     }
 }

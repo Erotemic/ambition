@@ -2,8 +2,61 @@
 
 **Status:** OPEN  
 **Date:** 2026-08-13  
+**Run:** armed 2026-08-13T13:10Z as the 72h run's first ordering authority (`.goal/queue-72h-2026-08-13.json`, deadline 2026-08-16T13:10Z).  
 **Primary objective:** close D73 by deleting duplicate actor/body authority, making intrinsic character construction genuinely common, and deleting the remaining enemy-archetype authority.  
 **Finish line:** D73 closure. Rollback-registration inversion and `tick_actor_brains` decomposition are successor campaigns, not part of this campaign's definition of done.
+
+## Run progress (live updates)
+
+⛔ **This table is the resumption point after a compact, and the goal guard's engine.** A phase flips to ✔ only when its own hard exit criteria are met AND its named deletion has happened — flipping a box without the deletion is the one dishonesty that breaks the run.
+
+| Phase | Status | Started | Landed | Note |
+|---|---|---|---|---|
+| P0.1 confirm presentation effects before rollback escape | ⏳ | 2026-08-13 | | the mechanism already existed: `external_effects` carries five families to the confirmed boundary. The shake became the sixth — `CameraShakeRequest` published by the sim, applied by `apply_camera_shake_requests`. Deleted: the `replaying_history` parameter guard, which saw the duplicate and not the phantom |
+| P0.2 rollback-consistent boss phase edges | ▢ | | | the authoritative edge ALREADY EXISTS: `ActorPhaseState::tick` returns `BossPhaseEvent::PhaseChanged`, and `update_boss_encounters` fans it to `publish_events` inline. `boss_phase_transition_feedback` re-derives that same edge from a non-rollback `Local<HashMap<String, Phase>>` — so on a resimulation the Local already holds the new phase, the diff is empty, and the shockwave `DamageBox` is LOST on the authoritative timeline. Fix: consume the authority, delete the Local |
+| AC0 census + surface maintainer decisions | ▢ | | | anchors confirmed live 2026-08-13: `ActorIntent` 29, `ActorCooldowns` 25, `adopt_character_intrinsics` 10, `CharacterRoster` 223, `ArchetypeSpec` 93, `ActorTuning` 57 |
+| AC1 delete dead actor mirrors | ▢ | | | |
+| AC2 scheduler-perturbation determinism guard | ▢ | | | |
+| AC3 converge body/reaction authority | ▢ | | | `sync_actor_components_from_cluster` 14 refs |
+| AC4 complete prepared character bodies | ▢ | | | |
+| AC5 construction convergence, delete build-then-patch | ▢ | | | |
+| AC6 delete archetype/roster/tuning authority | ▢ | | | `character_archetypes.ron` still present (16K) |
+| AC7 final naming/docs + D73 closure + amplification probes | ▢ | | | |
+
+## ⭐⭐ Maintainer decisions given 2026-08-13, during this campaign
+
+Jon settled the campaign's whole casting/completeness backlog in one handoff,
+unprompted, hours after AC0 began. **These are settled. Do not reopen them as
+architectural questions.** Verbatim in
+[`maintainer-decisions.md`](maintainer-decisions.md); the operative content here:
+
+**The architectural invariant** — *"there is no separate 'can fight' character
+property. A character can fight exactly to the extent that its body has
+abilities/capabilities that can produce combat effects."* Body owns abilities and
+moves; controller decides whether and when to use them; disposition owns who is
+friendly; a ruleset may restrict verbs but never creates an ability the body
+lacks. ⛔⛔ **do not introduce a `can_fight`, `combatant`, or
+peaceful-vs-fighter taxonomy while completing bodies in AC4.**
+
+**The five content rulings, each a deletion the campaign can now take:**
+
+| Ruling | What it unblocks |
+|---|---|
+| the dive-drill and its anonymous `Target` may be DELETED — *"deletion over architecture for disposable AI-authored content"* | AC5's required-character-id work; ⛔ do not build a fixture/exception to preserve it, and re-home any engine behaviour only it exercised |
+| previously unauthored health is TUNING — author it now: humanoid/NPC **4**, pirate **4**, heavy pirate **6**, Patent Clerk **6** | AC4 entirely; ⛔ *"do not retain fallback health or incomplete body definitions because we are waiting for balance decisions"* |
+| **Carl Stargan does not fly**; he fights because his body authors abilities | one `REGISTERED_WITHOUT_A_BODY` entry; ⛔ do not infer flight from art, `body_kind`, NPC role or a legacy archetype |
+| **skitters ARE Puppy Slug** — `SmallSkitter` and `under_town_skitter` author as `npc_puppy_slug` | AC6's `medium_striker` justification where that is its only remaining purpose |
+| **`large_brute` becomes a real authored Goblin Brute character**, with a SEPARATE Python sprite generator target (may share helpers/vocabulary with the ordinary goblin) | the last uncast identifier that earns a character rather than a deletion; ⛔ no image-generation tooling — sprites stay code-generated |
+
+⚠ **the distinction Jon drew himself, and it decides how these age**: the
+invariants persist; the HP numbers are *"initial tuning choices, intentionally
+easy to retune later"*. Changing a number later is not reopening a decision.
+
+⛔ **his closing instruction**: *"do not invent replacement compatibility
+machinery for rows whose only consumers disappear or become character-first."*
+Recompute which `CharacterRoster` / `ArchetypeSpec` / `character_archetypes.ron`
+rows remain justified after applying these — that recomputation is AC0 work and
+its answer sizes AC6.
 
 ## Purpose
 

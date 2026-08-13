@@ -244,17 +244,16 @@ impl BodyHealth {
 /// `ActorCombatState` (the actor presentation read-model) into a single type, so
 /// the HUD, nameplates, and animation read ONE component for any body.
 ///
-/// The field sets were disjoint, so the union preserves both vocabularies: the
-/// player fills the reaction timers (`hitstop_timer` / `damage_invuln_timer` /
-/// `hitstun_timer` / `recoil_lock_timer` / `attacking`), while an actor fills the
-/// status/attack fields (`alive` / `strike_count` / `attack_windup_timer` /
-/// `attack_timer` / `training_dummy`, synced each frame from its authoritative
-/// cluster state). `hit_flash` is the ONE damage-blink field, shared by both.
+/// The field sets were disjoint when they merged, and the union preserved both
+/// vocabularies. AC3 is unpicking that: three of the actor-side status fields
+/// (`strike_count`, `attack_windup_timer`, `attack_timer`) turned out to be
+/// maintained and rewound for no reader at all and are gone, and the reaction
+/// timers now have ONE decay and ONE reset for every body rather than a list per
+/// actor family. `hit_flash` is the ONE damage-blink field, shared by both.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyCombat {
-    /// Presentation flash (damage hit-blink) — the one field for every body.
-    /// Decays in the player `cleanup_timers_system`; for an actor it is synced
-    /// from the cluster each frame.
+    /// Presentation flash (damage hit-blink) — the one field for every body,
+    /// decayed for every body by [`Self::decay_reaction_timers`].
     pub hit_flash: f32,
     // ── Player reaction / control-lock timers ──
     /// Hitstop: freezes `time_scale` to 0 while positive.
@@ -289,9 +288,6 @@ pub struct BodyCombat {
     /// Read-model for presentation/AI; liveness-critical gameplay reads `BodyHealth`
     /// directly to avoid a tick of mirror lag.
     pub alive: bool,
-    pub strike_count: i32,
-    pub attack_windup_timer: f32,
-    pub attack_timer: f32,
     pub training_dummy: bool,
 }
 
@@ -342,53 +338,70 @@ impl BodyCombat {
         self.damage_invuln_timer <= 0.0
     }
 
-    /// Advance the body-generic reaction timers one frame — the post-hit i-frame
-    /// window, the damage-blink the renderer reads, and the §A2 stagger set
-    /// (hitstun / recoil-lock / hitstop). ONE decay for every body: the actor tick
-    /// and the boss tick both call this on their `BodyCombat`, retiring the two
-    /// hand-copied five-line decay blocks (fable review §A1). Each clamps at zero.
+    /// **THE decay for every body's reaction timers** — the post-hit i-frame
+    /// window, the damage-blink the renderer reads, the §A2 stagger set
+    /// (hitstun / recoil-lock / hitstop), and the landing lag an aerial owes.
+    /// Each clamps at zero.
+    ///
+    /// ⛔⛔ **it is THE decay now, and it was not before** (AC3.3, closing
+    /// D108's decay site). This method was written to retire two hand-copied
+    /// decay blocks — and a THIRD survived on the player road, spelling its own
+    /// five lines. The two lists disagreed in BOTH directions: the shared one
+    /// decayed `hit_flash` and forgot `landing_lag_timer`; the player's decayed
+    /// `landing_lag_timer` and forgot `hit_flash`, which a separate
+    /// home-avatar-only system did instead. So a CPU kept its landing lag
+    /// forever, and a co-op/clone body — a `PlayerEntity` that is not the
+    /// `PrimaryPlayer` — kept its damage blink forever, because the system that
+    /// decayed the blink queried only the home avatar.
+    ///
+    /// ⚠ **the caller supplies its own `dt` deliberately.** The actor and boss
+    /// ticks pass the SIM delta; the player road passes the frame delta. That
+    /// difference is a time-domain question this method does not decide, and
+    /// collapsing it here would change feel while pretending to consolidate a
+    /// list.
     pub fn decay_reaction_timers(&mut self, dt: f32) {
         self.damage_invuln_timer = (self.damage_invuln_timer - dt).max(0.0);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
         self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
+        self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
     }
 
-    /// Reset the player reaction timers + attacking mirror (the actor status
-    /// fields are owned by the per-frame sync from the cluster).
+    /// Reset every reaction timer a body reset clears, plus the attacking
+    /// mirror. (The remaining status fields are owned by the per-frame sync from
+    /// the cluster.)
+    ///
+    /// ⛔ **`landing_lag_timer` is in it now** — D108's fourth site. It cleared
+    /// six fields and not that one, so a body reset mid-landing-lag kept up to
+    /// 0.28s of input lock through the reset. Three production callers reach
+    /// this (`sandbox_reset`, `features::ecs::reset`, `session::reset`); the
+    /// room-transition and lifecycle-commit paths cleared it by hand, which is
+    /// why the symptom stayed hidden.
     pub fn reset(&mut self) {
         self.hit_flash = 0.0;
         self.hitstop_timer = 0.0;
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
+        self.landing_lag_timer = 0.0;
         self.attacking = false;
     }
 
     /// Presentation state for a peaceful actor (the former `ActorCombatState::peaceful`).
-    pub fn peaceful(strike_count: i32, hit_flash: f32) -> Self {
+    pub fn peaceful(hit_flash: f32) -> Self {
         Self {
             alive: true,
             hit_flash,
-            strike_count,
             ..Default::default()
         }
     }
 
     /// Presentation state for a hostile actor (the former `ActorCombatState::hostile`).
-    pub fn hostile(
-        alive: bool,
-        hit_flash: f32,
-        attack_windup_timer: f32,
-        attack_timer: f32,
-        training_dummy: bool,
-    ) -> Self {
+    pub fn hostile(alive: bool, hit_flash: f32, training_dummy: bool) -> Self {
         Self {
             alive,
             hit_flash,
-            attack_windup_timer,
-            attack_timer,
             training_dummy,
             ..Default::default()
         }
@@ -495,80 +508,64 @@ mod hard_lock_tests {
     use super::*;
 
     /// **EVERY REACTION TIMER SAYS WHETHER [`BodyCombat::decay_reaction_timers`]
-    /// TICKS IT** — ledger D108, third site and the most telling one.
+    /// TICKS IT.**
     ///
-    /// That method exists *"retiring the two hand-copied five-line decay blocks"*
-    /// — it was written precisely because a hand-kept list had been duplicated.
-    /// **It is still a hand-kept list**, and `landing_lag_timer` was added to
-    /// this struct later and never joined it.
+    /// ⭐ **this guard did its job, and AC3 collected.** It was added because the
+    /// consolidation that produced `decay_reaction_timers` solved the
+    /// DUPLICATION and not the ROT — `landing_lag_timer` joined the struct later
+    /// and never joined the list, and a comment cannot fail. A destructure can:
+    /// adding a timer to `BodyCombat` is a compile error here until somebody
+    /// says whether it decays.
     ///
-    /// ⇒ so the consolidation solved the DUPLICATION and not the ROT, and a
-    /// destructure is what solves the rot: adding a timer to `BodyCombat` is now
-    /// a compile error here until somebody says whether it decays.
+    /// It now records a list with nothing left in the "should be and is not"
+    /// bucket. Keep it that way by answering the compile error rather than
+    /// adding a field to the bottom group.
     #[allow(dead_code)]
     fn every_timer_declares_whether_the_shared_decay_ticks_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── DECAYED by `decay_reaction_timers` (5) ─────────────────────
+            // ── DECAYED by `decay_reaction_timers` (6) ─────────────────────
             damage_invuln_timer: _,
             hit_flash: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
+            // Joined the list in AC3.3. It is set by the moveset runtime on any
+            // body that lands mid-move, and before AC3 only the player road
+            // decremented it — so a CPU never paid the landing lag its own
+            // authored aerial owed.
+            landing_lag_timer: _,
 
             // ── NOT TIMERS — nothing to decay ──────────────────────────────
             alive: _,
             attacking: _,
-            strike_count: _,
             training_dummy: _,
-
-            // ── TIMERS OWNED ELSEWHERE (2) — the attack timeline is advanced
-            // by the attack itself, not by the reaction decay.
-            attack_windup_timer: _,
-            attack_timer: _,
-
-            // ── ⛔ NOT DECAYED AND SHOULD BE (1) — see D108.
-            //
-            // Set by the moveset runtime on any body that lands mid-move. The
-            // player's own decrement covers it; this shared decay, which the
-            // actor and boss ticks call, does not.
-            landing_lag_timer: _,
         } = combat;
     }
 
     /// **LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL** — ledger D108,
     /// and the assertion the player road's inline expression never had.
     ///
-    /// **AND `reset()` IS THE FOURTH LIST WITH THE SAME OMISSION** — D108.
-    ///
-    /// It clears six fields and not `landing_lag_timer`, so a body reset while
-    /// mid-landing-lag keeps the lock. Three production callers reach it —
-    /// `sandbox_reset`, `features::ecs::reset` and `session::reset` — and for the
-    /// PLAYER, whose road actually reads the timer, that is up to 0.28s of input
-    /// lock carried through a reset.
-    ///
-    /// ⚠ the room-transition and lifecycle-commit paths DO clear it explicitly,
-    /// which is why this has never been the visible symptom.
+    /// **AND `reset()` WAS THE FOURTH LIST WITH THE SAME OMISSION.** It cleared
+    /// six fields and not `landing_lag_timer`, so a body reset while
+    /// mid-landing-lag kept the lock — for the PLAYER, whose road actually reads
+    /// the timer, up to 0.28s of input lock carried through a reset. AC3.3
+    /// closed it; this destructure is what will notice the next omission.
     #[allow(dead_code)]
     fn every_field_declares_whether_reset_clears_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── CLEARED by `reset()` (6) ───────────────────────────────────
+            // ── CLEARED by `reset()` (7) ───────────────────────────────────
             hit_flash: _,
             hitstop_timer: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
+            landing_lag_timer: _,
             attacking: _,
 
             // ── OWNED ELSEWHERE — the actor status fields are rebuilt by the
             // per-frame sync from the cluster, as this method's doc says.
             alive: _,
-            strike_count: _,
             training_dummy: _,
-            attack_windup_timer: _,
-            attack_timer: _,
-
-            // ── ⛔ NOT CLEARED AND SHOULD BE (1) — see D108, fourth site.
-            landing_lag_timer: _,
         } = combat;
     }
 

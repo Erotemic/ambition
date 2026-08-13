@@ -84,9 +84,6 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             ambition_characters::actor::BodyCombat {
                 alive: true,
                 hit_flash: 0.0,
-                strike_count: 0,
-                attack_windup_timer: 0.0,
-                attack_timer: 0.0,
                 training_dummy: false,
                 ..Default::default()
             },

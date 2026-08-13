@@ -1891,35 +1891,35 @@ pub fn sync_actor_components_from_cluster(
     // Health is no longer synced — it lives on the shared `BodyHealth` the cluster
     // (`em.health`) reads/writes directly; there is no separate copy to mirror.
     //
-    // `BodyCombat` is otherwise a per-frame read-model rebuilt from the cluster's
-    // derived presentation fields — EXCEPT the reaction timers (post-hit i-frame +
-    // damage-blink), which are now the body's authoritative state (set on a landed
-    // hit, decremented in the actor tick), the SAME fields the player carries. Carry
-    // them across the read-model rebuild so the refresh can't wipe them.
-    let damage_invuln_timer = combat.damage_invuln_timer;
-    let hit_flash = combat.hit_flash;
-    let hitstun_timer = combat.hitstun_timer;
-    let recoil_lock_timer = combat.recoil_lock_timer;
-    let hitstop_timer = combat.hitstop_timer;
-    *combat =
-        if crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage() {
-            BodyCombat::hostile(
-                em.health.alive(),
-                hit_flash,
-                em.attack.windup_remaining(),
-                em.attack.active_remaining(),
-                em.config.tuning.is_sandbag,
-            )
-        } else {
-            BodyCombat::peaceful(0, hit_flash)
-        };
-    // (`hit_flash` is carried through the rebuild via the constructor param above;
-    // the other reaction timers — post-hit i-frame + the §A2 stagger set — aren't
-    // constructor fields, so restore them explicitly.)
-    combat.damage_invuln_timer = damage_invuln_timer;
-    combat.hitstun_timer = hitstun_timer;
-    combat.recoil_lock_timer = recoil_lock_timer;
-    combat.hitstop_timer = hitstop_timer;
+    // ⭐⭐ **THE SAVE → REBUILD → RESTORE IS GONE** (AC3.2). This used to copy
+    // five reaction timers into locals, replace `*combat` wholesale with a
+    // freshly constructed read-model, and write the five back. Three things were
+    // wrong with that and only one of them was visible:
+    //
+    // 1. it made a hand-kept carry list load-bearing, and the list had drifted —
+    //    `landing_lag_timer` joined `BodyCombat` later, joined neither the save
+    //    nor the restore, and was therefore ERASED one frame after the moveset
+    //    runtime set it. That is D108: a CPU paid no landing lag while a human
+    //    paid 0.10–0.28s out of the same authored aerial;
+    // 2. the same list was copied into the boss road, comment and all, so one
+    //    omission became two;
+    // 3. it forced a component that owns authoritative history to be
+    //    reconstructed every frame, which is the mixed-authority shape this
+    //    campaign exists to remove.
+    //
+    // ⇒ so it writes the DERIVED fields in place and touches nothing else. The
+    // reaction timers are not carried because they are never disturbed; adding a
+    // seventh one requires no edit here at all, which is AC3's
+    // change-amplification test stated as code.
+    let takes_damage =
+        crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage();
+    combat.alive = if takes_damage { em.health.alive() } else { true };
+    combat.training_dummy = takes_damage && em.config.tuning.is_sandbag;
+    // ⚠ still clobbered every frame, deliberately unchanged by this slice: it is
+    // the melee mirror AC3.1.B deletes, and re-deriving it here is what the old
+    // rebuild did. Preserving the behaviour keeps this slice honest about being
+    // a shape change rather than a behaviour change.
+    combat.attacking = false;
 }
 
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
@@ -2043,58 +2043,41 @@ pub fn tick_npc_idle_barks(
 
 #[cfg(test)]
 mod body_combat_rebuild_contract {
-    use super::*;
 
-    /// **EVERY `BodyCombat` FIELD SAYS WHETHER IT SURVIVES THE REBUILD** —
-    /// ledger D108, and the reason that defect existed.
+    /// **EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT IN THE PER-FRAME SYNC.**
     ///
-    /// [`sync_actor_components_from_cluster`] REPLACES `*combat` wholesale every
-    /// frame and then restores a hand-written list of timers. That list is
-    /// enumerated in a comment as *"the SAME fields the player carries"*, and
-    /// nothing enforced it: `landing_lag_timer` was added to `BodyCombat` later,
-    /// never joined the list, and a CPU's landing lag has been erased one frame
-    /// after it is set ever since.
+    /// ⭐⭐ **this guard found D108 and AC3.2 removed the shape that caused it.**
+    /// `sync_actor_components_from_cluster` used to REPLACE `*combat` wholesale
+    /// and then restore a hand-written list of timers — a list enumerated in a
+    /// comment as *"the SAME fields the player carries"*, which nothing enforced.
+    /// `landing_lag_timer` joined `BodyCombat` later, never joined the list, and
+    /// was erased one frame after the moveset runtime set it.
     ///
-    /// ⇒ **this destructure makes the next such field a COMPILE ERROR** until
-    /// somebody decides which column it belongs in. It is the same remedy the
-    /// three authority splits use (`ActorTuning`, `ArchetypeSpec`,
-    /// `CharacterDefinition`) applied to a carry list instead of a field census.
-    ///
-    /// ⛔⛔ **the DROPPED column below is not a design, it is the open defect.**
-    /// It is written down rather than fixed because the fix has three parts that
-    /// must land together — carry, decrement, and gate — and applying them makes
-    /// every CPU fighter commit to its aerials the way a human must, which is a
-    /// difficulty statement for Jon. See D108.
+    /// ⇒ **there is no carry list any more.** The sync writes the derived fields
+    /// in place and touches nothing else, so a new reaction timer needs no edit
+    /// there at all. What this destructure now guards is the smaller and more
+    /// durable question — *does the per-frame sync write this field?* — and the
+    /// answer must stay "no" for everything the body owns.
     #[allow(dead_code)]
-    fn every_body_combat_field_declares_whether_it_survives_the_rebuild(
+    fn every_body_combat_field_declares_whether_the_sync_writes_it(
         combat: &ambition_characters::actor::BodyCombat,
     ) {
         let ambition_characters::actor::BodyCombat {
-            // ── CARRIED ACROSS (5) — the body's authoritative reaction state,
-            // set on a landed hit and decremented in the actor tick. Wiping
-            // these on the refresh would cancel a stagger mid-flight.
+            // ── WRITTEN by the sync (3) — derived facts with an authority
+            // elsewhere, which is the whole job of a read-model refresh.
+            alive: _,
+            training_dummy: _,
+            // The melee mirror. AC3.1.B deletes it; until then the sync
+            // re-derives it exactly as the old rebuild did.
+            attacking: _,
+
+            // ── UNTOUCHED (6) — the body's own reaction history. Not "carried":
+            // never disturbed. A seventh timer belongs here and costs no edit.
             damage_invuln_timer: _,
             hit_flash: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
-
-            // ── REBUILT FROM THE CLUSTER (5) — derived presentation/read-model
-            // facts with an authority elsewhere, so the refresh is the point.
-            alive: _,
-            attacking: _,
-            strike_count: _,
-            attack_windup_timer: _,
-            attack_timer: _,
-            training_dummy: _,
-
-            // ── ⛔ DROPPED (1) — NOT a decision. See D108.
-            //
-            // Set by the moveset runtime for ANY body that lands mid-move, then
-            // erased here on the very next frame because it is in neither list
-            // above. The actor road never gates on it either, so a CPU pays no
-            // landing lag while a human pays 0.10–0.28s out of the same authored
-            // aerial.
             landing_lag_timer: _,
         } = combat;
     }

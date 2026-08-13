@@ -25,38 +25,32 @@ pub struct BossSpriteMetricsApplied;
 /// components used by NPCs and enemies. This keeps future
 /// faction, targeting, HUD, and held-item work from needing to pattern-match
 /// directly on `BossFeature` for ordinary combat facts.
+/// ⭐⭐ **IT NO LONGER RETURNS A `BodyCombat`** (AC3.2). It used to build one
+/// from the boss's HP and then copy four reaction timers out of the previous
+/// value — the same save/rebuild/restore the actor road did, written by reading
+/// that road's comment, which is how one omission became two. Both lists forgot
+/// `landing_lag_timer`, so a boss that landed out of an authored aerial had its
+/// lag erased on the very next frame.
+///
+/// ⛔ **a citation is only as correct as the thing it cites.** The comment here
+/// said "the same rule as `sync_actor_components_from_cluster`" and it was
+/// accurate; the rule it named was wrong.
+///
+/// The liveness the caller now writes in place is the last derived fact this
+/// produced, and AC3.1.A deletes even that.
 pub fn boss_component_snapshot(
     boss: super::super::boss_clusters::BossRef<'_>,
-    attack_state: &BossAttackState,
     // The boss's HP authority (§A1) — liveness is `health.alive()`, never a
     // boss-state shadow flag.
     health: &BodyHealth,
-    // The body's current `BodyCombat`: the reaction timers (hit_flash,
-    // post-hit i-frame, the §A2 stagger set) are AUTHORITATIVE state written
-    // by the damage path — carry them across the presentation rebuild, the
-    // same rule as `sync_actor_components_from_cluster`.
-    prev_combat: &BodyCombat,
-) -> (
-    ActorIdentity,
-    ActorDisposition,
-    BodyCombat,
-) {
-    let alive = health.alive();
-    let mut combat = BodyCombat::hostile(
-        alive,
-        prev_combat.hit_flash,
-        attack_state.telegraph_remaining,
-        attack_state.active_remaining,
-        false,
-    );
-    combat.damage_invuln_timer = prev_combat.damage_invuln_timer;
-    combat.hitstun_timer = prev_combat.hitstun_timer;
-    combat.recoil_lock_timer = prev_combat.recoil_lock_timer;
-    combat.hitstop_timer = prev_combat.hitstop_timer;
+    // Derived liveness written into the caller's `BodyCombat` in place; nothing
+    // else about that component is this function's business.
+    combat: &mut BodyCombat,
+) -> (ActorIdentity, ActorDisposition) {
+    combat.alive = health.alive();
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
-        combat,
     )
 }
 
@@ -81,7 +75,7 @@ pub fn sync_boss_actor_components(
 ) {
     for (
         feature,
-        attack_state,
+        _attack_state,
         action_set,
         mut combat_kit,
         mut identity,
@@ -91,12 +85,11 @@ pub fn sync_boss_actor_components(
     ) in &mut bosses
     {
         // `health` is the boss's HP AUTHORITY now (§A1) — read, never rebuilt.
-        let (next_identity, next_disposition, next_combat) =
-            boss_component_snapshot(feature.as_boss_ref(), attack_state, &health, &combat);
+        let (next_identity, next_disposition) =
+            boss_component_snapshot(feature.as_boss_ref(), &health, &mut combat);
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
-        *combat = next_combat;
     }
 }
 
@@ -288,47 +281,33 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 mod boss_combat_rebuild_contract {
     use super::*;
 
-    /// **THE BOSS ROAD'S CARRY LIST, DECLARED FIELD BY FIELD** — ledger D108,
-    /// second site.
+    /// **EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.**
     ///
-    /// [`boss_component_snapshot`] rebuilds `BodyCombat` and restores the
-    /// reaction timers by hand, and its own comment says it follows *"the same
-    /// rule as `sync_actor_components_from_cluster`"*. **It does — including
-    /// that function's omission.** Both carry five timers and neither carries
-    /// `landing_lag_timer`, because this list was written by reading that one.
+    /// ⛔ **the original of this guard recorded a propagated error.**
+    /// `boss_component_snapshot` rebuilt `BodyCombat` and restored a list of
+    /// timers *"the same rule as `sync_actor_components_from_cluster`"* — an
+    /// accurate citation of a wrong rule, so both roads forgot
+    /// `landing_lag_timer` and a boss landing out of an authored aerial had its
+    /// lag erased on the next frame.
     ///
-    /// ⛔ **a citation is only as correct as the thing it cites.** The comment
-    /// was accurate and the rule it named was wrong, so the error propagated
-    /// intact to a second road.
-    ///
-    /// ⇒ same remedy, same reason: adding a field to `BodyCombat` is now a
-    /// compile error here until somebody says whether a boss keeps it.
+    /// ⇒ AC3.2 removed the rebuild from both roads at once. The boss snapshot no
+    /// longer returns a `BodyCombat` at all; it writes derived liveness in place.
     #[allow(dead_code)]
-    fn every_body_combat_field_declares_whether_a_boss_keeps_it(combat: &BodyCombat) {
+    fn every_body_combat_field_declares_whether_the_boss_sync_writes_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── CARRIED ACROSS (5) — authoritative reaction state written by
-            // the damage path; the presentation rebuild must not cancel it.
+            // ── WRITTEN by the boss sync (1) — derived from the HP authority.
+            alive: _,
+
+            // ── UNTOUCHED (8) — reaction history the damage path owns, plus the
+            // authored sandbag flag and the melee mirror AC3.1.B deletes.
             hit_flash: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
-
-            // ── REBUILT (6) — derived from the boss's own attack state and HP
-            // authority, which is the point of the refresh.
-            alive: _,
-            attacking: _,
-            strike_count: _,
-            attack_windup_timer: _,
-            attack_timer: _,
-            training_dummy: _,
-
-            // ── ⛔ DROPPED (1) — NOT a decision. See D108.
-            //
-            // Bosses run the shared moveset runtime, so a boss that lands out of
-            // an authored aerial has the same lag written and erased here that a
-            // CPU fighter does.
             landing_lag_timer: _,
+            attacking: _,
+            training_dummy: _,
         } = combat;
     }
 }

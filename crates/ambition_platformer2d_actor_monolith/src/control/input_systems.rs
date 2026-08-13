@@ -56,12 +56,19 @@ pub fn input_timer_system(
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
     sim_state.remaining = (sim_state.remaining - frame_dt).max(0.0);
+    // ⭐ **ONE decay, called — not a fourth spelling of it** (AC3.3). This was
+    // five inline lines that decayed `landing_lag_timer` and forgot `hit_flash`,
+    // while the shared `decay_reaction_timers` the actor and boss ticks call
+    // decayed `hit_flash` and forgot `landing_lag_timer`. Two lists for one rule,
+    // disagreeing in both directions.
+    //
+    // ⚠ **and picking up `hit_flash` here FIXES a body nobody was decaying.**
+    // The blink used to decay in `cleanup_timers_system`, whose query is
+    // `PrimaryPlayerOnly` — the HOME AVATAR. This query is `With<PlayerEntity>`,
+    // every player body, so a co-op or clone body that took a hit no longer keeps
+    // its damage blink lit forever.
     for mut combat in &mut home_feel_q {
-        combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
-        combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
-        combat.recoil_lock_timer = (combat.recoil_lock_timer - frame_dt).max(0.0);
-        combat.landing_lag_timer = (combat.landing_lag_timer - frame_dt).max(0.0);
-        combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
+        combat.decay_reaction_timers(frame_dt);
     }
     let interaction = slot_gestures.primary_mut();
     // Fast-fall = double-tap local-down for the controlled body. Raw cardinal
@@ -202,17 +209,19 @@ pub fn cleanup_timers_system(
         (
             &ae::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
-    let Ok((motion_facts, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() else {
+    let Ok((motion_facts, mut anim, mut blink_cam)) = player_q.single_mut() else {
         return;
     };
-    combat.hit_flash = (combat.hit_flash - frame_dt).max(0.0);
+    // ⛔ `hit_flash` is NOT decayed here any more (AC3.3). It is a body-generic
+    // reaction timer and it decays with the rest of them in `input_timer_system`,
+    // which iterates every `PlayerEntity` rather than the home avatar alone —
+    // this system's query could not see a second player body at all.
     dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     // Player-specific presentation timers (the blink-camera lerp) decay here; the
     // body-generic anim OVERLAYS advance through the shared helper the actor tick

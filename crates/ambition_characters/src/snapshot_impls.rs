@@ -38,9 +38,6 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     recoil_lock_timer: f32,
     attacking: bool,
     alive: bool,
-    strike_count: i32,
-    attack_windup_timer: f32,
-    attack_timer: f32,
     training_dummy: bool,
 });
 

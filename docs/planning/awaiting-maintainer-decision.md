@@ -39,13 +39,23 @@ drift.
 | **Who is the goblin lab's HEAVY?** (Jon's magenta-box observation) | 3 mobs in `goblin_encounter` still draw placeholders | ▢ **needs Jon** — one casting call, see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
-| **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but it is one of THREE lines keeping the parent tree dirty, and the run's own "nothing uncommitted" check failing | ▢ **needs Jon**, 30 seconds — see below · ⚠ rechecked 2026-08-10, the submodule is no longer clean inside |
+| **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | ⚠ **nothing, and the stated cost is now FALSE** — this said it kept the parent tree dirty and the *"nothing uncommitted"* check failing; rechecked 2026-08-13, `git status` is empty, every submodule pointer matches its checkout, and that check PASSES | ▢ **needs Jon**, 30 seconds — and the only live question left is whether a commit titled `wip` should be the recorded pointer (see below) |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
 | **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
 ⇒ **5 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
 (reopened 2026-08-13, see below). The goblin-heavy casting call blocks a visible
-artefact rather than a build.
+artefact **and one third of D73's acceptance signal** — it is queue D96 item 2,
+`large_brute`, one of the three uncast identifiers keeping
+`character_archetypes.ron` alive (cross-linked 2026-08-13; that file and this one
+had disjoint halves of the same decision).
+
+⚠ **and a BLOCKS column rots exactly like a state does.** The submodule-pointer
+row claimed it kept the parent tree dirty and the run's *"nothing uncommitted"*
+check failing; both are false as of 2026-08-13. A maintainer triaging by cost
+would have prioritised a row that breaks nothing. ⇒ **re-verify the BLOCKS cell,
+not just the state, when touching this file** — the two rot independently and
+this table is ordered by the one that rotted.
 
 ⛔⛔ **AND THE FOURTH MISCOUNT WAS A STATE, NOT A NUMBER — which is worse.**
 D68's row read *"✔✔ ANSWERED by Jon 2026-08-09 — nothing owed"* while **the

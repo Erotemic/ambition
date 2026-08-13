@@ -3236,8 +3236,8 @@ truncates silently; a destructure cannot.
 
 ⚠ **two judgement calls are marked in the code rather than hidden**: the four
 `smash_*` fields are filed as CONTROLLER policy wearing a mode's name, with
-`smash_heavy` flagged as the weakest of them (a weight class is a body fact and
-`weight` already is one — check for a duplicate before migrating it), and
+`smash_heavy` **checked and confirmed policy** — it reads like a weight class but selects
+`SmashCfg::BRUTE_DEFAULT` over `STRIKER_DEFAULT`, a whole AI preset, so it is not a duplicate of `weight`, and
 `dream_seed` / `ranged_visual` are presentation projected FROM the body rather
 than a fourth authority.
 

@@ -419,9 +419,12 @@ mod authority_split_tests {
             // but each describes how this body is DRIVEN in a platform fight
             // (which band it strikes in, whether it closes with a dash, whether
             // it duels), which is controller policy wearing a mode's name.
-            // ⛔ `smash_heavy` is the weakest of the four: a weight class is a
-            // body fact, and `weight` above already is one. Whoever splits this
-            // should check whether it is a duplicate rather than a policy.
+            // ⚠ `smash_heavy` READS like a weight class, which would make it a
+            // body fact duplicating `weight` above. **Checked 2026-08-13: it is
+            // not.** `brain_builders` uses it to select
+            // `SmashCfg::BRUTE_DEFAULT` over `STRIKER_DEFAULT` — a whole AI
+            // preset, i.e. *play this body like a brute*. That is policy, and it
+            // is filed correctly. Recorded so the next reader does not re-ask.
             smash_hit_band: _,
             smash_heavy: _,
             smash_dash_to_close: _,

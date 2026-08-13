@@ -1,0 +1,31 @@
+# The under-town pipes' skitter names the character it is: a Puppy Slug.
+#
+# ⭐⭐ JON, 2026-08-13: *"All of the generic 'skitter' concepts were AI-invented
+# and Jon does not care about preserving them as distinct identities. Skitters
+# are Puppy Slug. … `under_town_skitter` should resolve to / be authored as
+# `npc_puppy_slug`."*
+#
+# This placement is the LAST shipped `EnemySpawn` that names no character and
+# borrows an archetype row — `what_still_needs_an_archetype_row` counts it as
+# `under_town_pipes/EnemySpawn-104875 wants row 'medium_striker'`, and it is one
+# of the two things standing between the campaign and deleting
+# `character_archetypes.ron`.
+#
+#   body        -> `npc_puppy_slug`'s CharacterDefinition
+#   controller  -> `brain: medium_striker` STAYS. Jon: *"preserve placement/session
+#                  differences where needed; the reusable character/body identity
+#                  is Puppy Slug."* A slug in the pipes that strikes like a
+#                  striker is a placement decision, and this is the placement.
+#   placement   -> stays here: which room, and where in it
+#
+# ⚠ the repo had already made this call once: the proving grounds' placement
+# literally named `pg_skitter` carries `character_id: npc_puppy_slug` today. This
+# is the site that had not caught up.
+#
+#   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity set-field \
+#       tools/ambition_ldtk_tools/specs/under_town_skitter_is_a_puppy_slug.yaml \
+#       --ldtk game/ambition_content/assets/worlds/intro.ldtk --in-place
+level_id: under_town_pipes
+edits:
+  - target: { iid: EnemySpawn-104875 }
+    fields: { character_id: "npc_puppy_slug" }

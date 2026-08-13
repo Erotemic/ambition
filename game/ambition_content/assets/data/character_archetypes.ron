@@ -110,55 +110,30 @@
         ))),
         move_style: Walk,
     ),
-    // ⛔⛔ **THIS ROW WAS DELETED ON 2026-08-12 AND RESTORED THE SAME DAY,
-    // because deleting it silently NERFED A SHIPPED BODY.**
+    // ⛔⛔ **`medium_striker` IS GONE (2026-08-13), and the story of the row is
+    // worth keeping because it is the campaign's rule working.**
     //
-    // `under_town_pipes` places `under_town_skitter` naming this brain key and
-    // NO `character_id`, so the key is the only thing deciding what that body
-    // is. Without the row it builds as the `combatant` fallback: 4 HP and
-    // melee-only, where this row gives it 5 HP, a thrown rock and dash-to-close.
-    // `cargo check --all-targets` was clean and the app suite stayed green —
-    // neither can see LDtk, and `spec_for_brain` cannot fail.
+    // It was deleted on 2026-08-12 and RESTORED the same day, because deleting
+    // it silently nerfed a shipped body: `under_town_pipes` placed
+    // `under_town_skitter` naming this brain key and NO `character_id`, so the
+    // key was the only thing deciding what that body was. Without the row it
+    // built as the `combatant` fallback — 4 HP and melee-only, where the row
+    // gave it 5 HP, a thrown rock and dash-to-close. `cargo check --all-targets`
+    // was clean and the app suite stayed green: neither can see LDtk, and
+    // `spec_for_brain` cannot fail.
     //
-    // ⚠ **it is retained for ONE placement, and that is the whole reason.** Its
-    // seven test readers were migrated to the engine's own
-    // `fixture_roster_with_mount` and do NOT bring it back; if the skitter is
-    // cast as a character, this row goes with it and nothing else notices.
-    // What a small skitter IS is ledger D96 item 3, open and Jon's.
+    // ⇒ **so it survived on honest pressure — one placement needed it — and what
+    // removed the pressure was a DECISION, not a deletion.** Jon cast the
+    // skitters as Puppy Slug on 2026-08-13, the placement now names
+    // `character_id: npc_puppy_slug`, and its body is that character's. The row
+    // has no user left in either sense: nothing borrows it and nothing loses
+    // anything by its absence.
     //
-    // ⇒ a legacy row surviving because a placement needs it is honest pressure.
-    // Shipping a nerf to a body in a level nobody asked to change is not, and
-    // "the acceptance signal is a deletion" does not buy one.
-    "medium_striker": (
-        respawn: OnRoomReenter,
-        max_health: 5,
-        run_speed: 170.0,
-        patrol_effort: 0.6176,
-        chase_effort: 1.0,
-        aggro_radius: 460.0,
-        attack_range: 150.0,
-        contact_strength: 0.70,
-        damage_amount: 1,
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.28,
-            active_s: 0.08,
-            recover_s: 0.32,
-            damage: 1,
-            reach_px: 28.0,
-        ))),
-        // Goblins poke with a thrown rock at mid-range, then close for the
-        // swing — the Smash brain's verb-selection-by-range (see
-        // `brain::smash::maybe_substitute_ranged`). Modest speed so it is
-        // readable/dodgeable; damage matches the swing. The 1.1s ranged
-        // cadence keeps it from plinking. NOTE: no dedicated throw animation
-        // yet — the rock just spawns from the goblin; sprite/feel is a handoff.
-        ranged: Some((style: Rock, speed: 360.0, damage: 1)),
-        smash_hit_band: Some(32.0),
-        // Goblins dash to close a large gap (richer action set).
-        smash_dash_to_close: true,
-        move_style: Walk,
-    ),
+    // ⚠ the `medium_striker` that REMAINS is a different thing with the same
+    // name: `autonomous_profiles.medium_striker` in `character_catalog.ron`, the
+    // shared controller policy the goblin band points at. An archetype row and a
+    // brain profile are exactly the two authorities D73 exists to separate, and
+    // they were spelled identically — which is itself the argument.
     // ⛔⛔ **THE PERFECT CELLULAR AUTOMATON IS GONE FROM THIS FILE** (2026-08-11,
     // ledger D89) — 90 lines, the richest row it still held: 60 HP, the swipe,
     // the glider, four body capabilities, a Smash policy, and "Cellular Pulse"

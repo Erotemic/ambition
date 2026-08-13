@@ -272,16 +272,16 @@ mod tests {
         // authored Goblin Brute, with the separate sprite generator that already
         // existed). Neither needed new architecture; both needed an answer.
         //
-        // ⚠ what is left is two, and they are not the same kind of open:
-        // `small_lurker` is a genuine casting question his skitter ruling does
-        // not reach (a lurker is not a skitter), and the `under_town_pipes`
-        // placement is `under_town_skitter`, which HE DID cast as
-        // `npc_puppy_slug` — it survives here only because the placement lives in
-        // LDtk and is edited with the LDtk tooling, not by hand.
-        let expected = [
-            "OPEN_CASTING `small_lurker` borrows row `combatant`",
-            "under_town_pipes/EnemySpawn-104875 wants row `medium_striker`",
-        ];
+        // ⚠ **ONE LEFT, and it is the only genuinely open casting question in
+        // the game.** `small_lurker` is the Gradient Sentinel's gradient-cascade
+        // summon. Jon's skitter ruling does not reach it — a lurker is not a
+        // skitter — so it is neither cast nor deleted, and inventing a creature
+        // to empty this list is the exact move his handoff forbids.
+        //
+        // ⇒ what closes it is a decision or a deletion, not engineering. Until
+        // then the cascade spawns generic combatants and the summon road warns
+        // every time it does.
+        let expected = ["OPEN_CASTING `small_lurker` borrows row `combatant`"];
         assert_eq!(
             needs_a_row.as_slice(),
             expected.as_slice(),
@@ -527,10 +527,14 @@ mod tests {
         // ⚠ the ids are LDtk iids, not display names — the two placements are
         // dive_drill's "Target" and under_town_pipes' skitter, D96 items 3 and 4,
         // and they are exactly the pair checklist item 14 counted.
-        let expected = [
-            "dive_drill/EnemySpawn-6126",
-            "under_town_pipes/EnemySpawn-104875",
-        ];
+                // ⇒ **ONE placement left, and Jon has already ruled on it.** The
+        // dive-drill's anonymous `Target` is AI-invented placeholder content he
+        // does not care about preserving: *"remove the dive-drill and its
+        // anonymous Target if doing so simplifies the character/construction
+        // migration … do not let dive-drill block making ordinary authored
+        // EnemySpawn character-first or required-character-id work."* Deleting it
+        // is what empties this list and unblocks checklist item 15.
+        let expected = ["dive_drill/EnemySpawn-6126"];
         assert_eq!(
             unnamed.as_slice(),
             expected.as_slice(),

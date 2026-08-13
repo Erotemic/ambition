@@ -106,14 +106,10 @@ fn the_honest_lookup_and_the_downgrading_one_answer_differently() {
 /// ```text
 ///   combatant       no longer reserved — nothing resolves to it by accident
 ///                   (D102 is answered: an undeclared identifier is a
-///                   construction ERROR). It survives as the row three OPEN
-///                   CASTING DECISIONS borrow while they stand, declared by
-///                   `ambition_content` itself: small_lurker, large_brute,
-///                   SmallSkitter. Deleting it means casting those three.
-///   medium_striker  retained for ONE placement — `under_town_skitter` names
-///                   it and carries no character_id, so deleting it silently
-///                   nerfed a shipped body from 5 HP with a thrown rock to the
-///                   4-HP melee-only fallback. Ledger D96 item 3.
+///                   construction ERROR). It survives as the row ONE open
+///                   casting decision borrows while it stands, declared by
+///                   `ambition_content` itself: small_lurker. Deleting it means
+///                   casting or deleting that one creature.
 /// ```
 ///
 /// ⛔ **this test went red when the row came back, which is what it is for.**
@@ -132,16 +128,10 @@ fn the_shipped_archetype_file_holds_only_rows_that_state_why() {
             "combatant",
             "not reserved and not a fallback any more — the schema rule that \
              required it is deleted with the downgrade it served. It is the row \
-             `ambition_content` names in its three `with_open_casting_decision` \
-             declarations, so deleting it means casting small_lurker, \
-             large_brute and SmallSkitter — ledger D93/D96.",
-        ),
-        (
-            "medium_striker",
-            "one placement, `under_town_pipes` / `under_town_skitter`, names it \
-             with no character_id. Deleting it nerfed that body from 5 HP with a \
-             thrown rock to the 4-HP melee-only fallback, silently. Ledger D96 \
-             item 3 casts the skitter; the row goes with the casting.",
+             `ambition_content` names in its ONE remaining \
+             `with_open_casting_decision`, so deleting it means casting or \
+             deleting `small_lurker` — the Gradient Sentinel's cascade summon, \
+             and the last open casting question in the game.",
         ),
     ];
 
@@ -160,6 +150,10 @@ fn the_shipped_archetype_file_holds_only_rows_that_state_why() {
         "pirate_raider",
         "small_lurker",
         "large_brute",
+        // Left 2026-08-13 when Jon cast the skitters as Puppy Slug: the one
+        // placement that borrowed it now names `npc_puppy_slug`, so the body it
+        // was protecting is that character's.
+        "medium_striker",
     ] {
         assert!(
             !shipped.contains_brain(key),

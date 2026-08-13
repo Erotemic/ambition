@@ -195,15 +195,21 @@ mod loading_tests {
         }
 
         // Escalation: wave 1 is light strikers, wave 3 is all heavies.
+        //
+        // ⚠ **the heavy is a CHARACTER now, not a role** (2026-08-13). Jon cast
+        // `large_brute` as `npc_goblin_brute`, a distinct authored creature with
+        // its own sprite generator, rather than an archetype row. The shape this
+        // asserts — the third wave is uniformly the heavy — is unchanged; what
+        // the heavy IS finally has an answer.
         assert!(waves[0].mobs.iter().all(|m| m.kind == "medium_striker"));
-        assert!(waves[2].mobs.iter().all(|m| m.kind == "large_brute"));
+        assert!(waves[2].mobs.iter().all(|m| m.kind == "npc_goblin_brute"));
 
         // Wave 2 carries a timed heavy reinforcement (positive delay).
         assert!(
             waves[1]
                 .mobs
                 .iter()
-                .any(|m| m.kind == "large_brute" && m.delay > 0.0),
+                .any(|m| m.kind == "npc_goblin_brute" && m.delay > 0.0),
             "wave 2 should include a delayed heavy",
         );
     }

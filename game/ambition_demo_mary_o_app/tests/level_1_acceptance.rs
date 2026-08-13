@@ -1147,15 +1147,29 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
     let (_, snake, _) = some_snake(&mut app).expect("level 1-1 stages Solid Snakes");
     let lives_before = level(&mut app).0;
 
-    // Stand her beside it, on the ground, and let it walk into her. A SIDE
-    // contact is the hit; from the top it would be a stomp.
+    // ⛔⛔ **THIS FIXTURE MODELLED A STOMP WHILE ASSERTING A SIDE CONTACT**
+    // (ledger D112, diagnosed 2026-08-14). It read
+    // `snake.max.y - kin.size.y * 0.5`, which puts her FEET exactly on the
+    // snake's top — the stomp position, and the same one
+    // `landing_on_a_snake_stomps_it_instead_of_hurting_her` uses on purpose. So
+    // on the very first frame the snake was already `Retreating`, its shell
+    // clears `body_contact_damage` (a shell is harmless to touch), and it then
+    // fell away off the platform: by frame 200 there was no snake within 40px of
+    // her at all. Nothing could hurt her for the remaining 400 frames, and the
+    // test read as "the death road is broken" for a day.
+    //
+    // ⭐ **the comment above the old line was already right** — *a SIDE contact
+    // is the hit; from the top it would be a stomp* — the arithmetic simply did
+    // the opposite of what it said. She goes at the snake's own centre: level
+    // with it, overlapping it, feet BELOW its top, which is a side contact and
+    // cannot be read as landing on it.
     {
         let mut kin = app
             .world_mut()
             .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>()
             .single_mut(app.world_mut())
             .expect("the controlled body");
-        kin.pos = ae::Vec2::new(snake.center().x, snake.max.y - kin.size.y * 0.5);
+        kin.pos = snake.center();
         kin.vel = ae::Vec2::ZERO;
     }
 

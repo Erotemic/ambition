@@ -281,6 +281,12 @@ autonomous_reconcile                1045
    archetype still projects one.** That is the archetype road, gated on the
    castings — not on adoption.
 
+   ⚠ **and the `smash_can_*` mirror this item forward-references as "item 21's
+   deletion" is ALREADY DELETED** — zero mentions workspace-wide, removed
+   2026-08-11 on the rule that *a capability copied onto a controller policy
+   makes the policy unreusable, because the copy describes ONE body*. Item 21
+   records it; this sentence still reads as though it were pending.
+
    ⇥ AS WRITTEN: ▢ what remains is
    ADOPTION: the archetype still projects one, and no character names one yet.
    The `smash_can_blink/fly/shield` mirror of the body's capabilities came

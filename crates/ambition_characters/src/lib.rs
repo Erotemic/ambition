@@ -29,5 +29,7 @@ pub mod equipment;
 pub mod moveset_prefabs;
 pub mod perception;
 pub mod prepared;
+#[cfg(any(test, feature = "test-support"))]
+pub mod prepared_fixtures;
 mod snapshot_impls;
 pub mod technique;

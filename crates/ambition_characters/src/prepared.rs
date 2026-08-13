@@ -1848,3 +1848,7 @@ pub fn finalize_cast(
     registry.stamp_after(previous);
     registry
 }
+
+#[cfg(test)]
+#[path = "prepared_tests.rs"]
+mod prepared_tests;

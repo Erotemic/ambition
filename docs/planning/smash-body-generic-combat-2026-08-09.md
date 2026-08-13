@@ -1234,6 +1234,17 @@ compositional"* — and a stage where every fighter is a body and at most one is
 the primary player is the first place a player-scoped consumer becomes visible.
 In exploration the player is the only body anyone watches, so all three hid.
 
+⭐ **AND THE SWEEP FOUND NO FOURTH, which bounds the problem.** The monolith has
+**45** systems filtered `With<PlayerEntity>` / `With<PrimaryPlayer>`; of those,
+the ones reading body-generic combat state are `emit_player_time_intent_system`
+(D110), `write_player_ecs_components` (D107) and the reaction-timer decrement in
+`input_systems` (D107/D108). The rest read `BodyHealth` for heals or mana —
+player-specific by design, because a heal message targets a player.
+
+⇒ **three, and the sweep says three** — not "at least three". That is the
+difference between a class somebody must keep hunting and a class somebody can
+close.
+
 ⚠ **the fix shape is the same for all three and one of them has it already**:
 name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
 is that for the landing-lag half of D108 — the actor road not calling it is now

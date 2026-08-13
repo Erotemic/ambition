@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **4 open** (recounted 2026-08-10, after Jon answered D48)
+## ⇥ INDEX — **5 open** (recounted 2026-08-13; D68 reopened)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -41,10 +41,24 @@ drift.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but it is one of THREE lines keeping the parent tree dirty, and the run's own "nothing uncommitted" check failing | ▢ **needs Jon**, 30 seconds — see below · ⚠ rechecked 2026-08-10, the submodule is no longer clean inside |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
-| ~~Your *"in mary-o when you die the level doesn't restart"*  — was it actually Mary-O?~~ (queue D68) | ~~that investigation~~ | ✔✔ **ANSWERED by Jon 2026-08-09** — nothing owed |
+| **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
-⇒ **4 open**, and **only the FIRST one blocks CODE** — D23, added 2026-08-10. The
-goblin-heavy casting call blocks a visible artefact rather than a build.
+⇒ **5 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
+(reopened 2026-08-13, see below). The goblin-heavy casting call blocks a visible
+artefact rather than a build.
+
+⛔⛔ **AND THE FOURTH MISCOUNT WAS A STATE, NOT A NUMBER — which is worse.**
+D68's row read *"✔✔ ANSWERED by Jon 2026-08-09 — nothing owed"* while **the
+section it links to still ends by asking the question** (*"What I need from you
+instead — one line, and a different one. Was it Mary-O?"*), and TWO ledger rows
+treat it as open: queue D68's own status is *"needs one word from Jon: which
+GAME?"*, and D70 says *"do not dispatch before Jon answers the D68 question"*.
+⇒ an undercount hides a question below the fold; a false ✔✔ **removes it from
+triage entirely**, and this one had been invisible since 2026-08-10.
+⚠ the likely cause is that Jon DID answer an earlier version — this file says the
+question *"was asked badly once already"* — and the row was struck for that
+answer while the re-asked question stayed open. **A struck row must name WHICH
+question was answered.**
 ⚠ the ordering claim in this table's own header ("ordered by what each one
 BLOCKS") had drifted: D68 sat at the bottom labelled as the only blocker for a
 day after Jon answered it. Both facts are fixed in the same edit as the count.
@@ -383,6 +397,28 @@ the room was put back 0 time(s), she is at Vec2(78.0, 973.4) and spawn is Vec2(7
 
 ⇒ ⛔ **so "which death was it" no longer narrows anything, and I am not asking
 you to remember.** Every route works.
+
+### ⇥ ⭐⭐ AND 2026-08-13 REMOVED THE LAST ALTERNATIVE — this is now the ONLY
+### explanation standing for BOTH reports
+
+The section below already said the block half *"probably settles"* with this
+answer. It is stronger than that now: the alternative is **eliminated**, not
+merely unfound.
+
+* ⭐ **`ambition_demo_mary_o` declares exactly FIVE resources** — `BrokenBricks`,
+  `SpentPowerBlocks`, `FlagPole`, `MaryOEntryRoom`,
+  `MaryOQuasarShaderSettings`. Only the first two hold per-attempt BLOCK state and
+  **both consume `RoomReplayRequested`**. That is an enumeration of the crate, not
+  a search through it.
+* ⭐ **and neither block kind touches an ENTITY**: `break_bricks`'s whole effect
+  is `broken.mark(&name)`, and the overlay re-derives from the set every frame.
+  State in a set, picture derived — there is nothing for a replay to miss.
+
+⇒ **so there is no third kind of per-attempt block state, and all three death
+routes replay.** Every mechanism that could produce either of Jon's sentences has
+been tested green or ruled out by enumeration. **What remains is which GAME and
+WHEN** — and if the answer is *"Ambition"* or *"before 2026-08-08"*, both reports
+close together without another line of code.
 
 ### What I need from you instead — one line, and a different one
 

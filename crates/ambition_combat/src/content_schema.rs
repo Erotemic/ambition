@@ -37,9 +37,6 @@ pub const ARCHETYPE_SCHEMA: &str = "character_archetype";
 
 pub const CHARACTER_ARCHETYPES_VERSION: SchemaVersion = SchemaVersion(1);
 
-/// The reserved fallback row every unknown brain key resolves to.
-const FALLBACK_BRAIN_KEY: &str = "combatant";
-
 /// The parsed roster: `{ "<brain_key>": ArchetypeSpec }`.
 pub type Archetypes = std::collections::BTreeMap<String, ArchetypeSpec>;
 
@@ -59,22 +56,19 @@ impl ContentSchemaHandler for ArchetypesSchema {
             }
         };
 
-        // ⚠ the fallback is what makes an unknown brain key a downgrade rather
-        // than a crash. Without it there is nothing to downgrade TO.
-        if !archetypes.contains_key(FALLBACK_BRAIN_KEY) {
-            out.report(
-                facet
-                    .diagnostic(
-                        DiagnosticCode::UnresolvedReference,
-                        format!(
-                            "the roster has no `{FALLBACK_BRAIN_KEY}` row — it is the reserved \
-                             fallback every unknown spawn brain key resolves to"
-                        ),
-                    )
-                    .fix("add a `combatant` row, or point the provider's fallback at another key"),
-            );
-        }
-
+        // ⛔⛔ **A REQUIRED `combatant` ROW USED TO BE CHECKED HERE, and its
+        // removal is the point of D102.** The rule it enforced was *"every
+        // roster must carry the reserved row that every unknown brain key
+        // resolves to"*, which is the global downgrade written as a schema
+        // obligation: it made a misspelled key, a row deleted by a migration and
+        // a genuinely open casting decision produce the same generic body, and
+        // the first two hid inside the third for three campaigns. An unknown
+        // identifier is a construction ERROR now (see
+        // `CharacterRoster::generic_body_for_unresolved_brain` and its explicit
+        // short list of still-open names), so there is nothing to downgrade TO
+        // and no row a roster is obliged to carry. `combatant` is an ordinary
+        // row that ordinary things may name.
+        //
         // ⛔ **THE COMPILER MUST NOT APPROVE WHAT THE RUNTIME REFUSES.** The
         // roster assembly rejects a blank brain key (`EmptyBrainId`) and any
         // inheritance CYCLE (`MovementInheritanceCycle`, a full DFS). Checking

@@ -248,12 +248,21 @@ fn possession_survives_the_real_rollback_window() {
         >();
         q.single(world).expect("primary player").pos
     };
-    sim.spawn_enemy_at(
+    // ⭐ **it NAMES its character** (D102). This said only
+
+    // `Custom("cellular_automaton_fighter")`, and that archetype row was
+
+    // DELETED when the automaton became a character — so this fixture had
+
+    // been quietly spawning a generic `combatant` and asserting on it.
+
+    sim.spawn_enemy_character_at(
         "possess_target_rollback",
         "Perfect Cellular Automaton",
         (player.x + 60.0, player.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        Some("perfect_cellular_automaton"),
     );
     let target = {
         let world = sim.world_mut();

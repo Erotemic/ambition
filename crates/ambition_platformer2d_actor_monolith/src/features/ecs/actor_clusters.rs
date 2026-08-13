@@ -1299,11 +1299,7 @@ impl ActorClusterSeed {
         // than any game's creature, and those creatures are migrating out of
         // the shipped file one row at a time.
         let roster = super::super::enemies::fixture_roster_with_mount();
-        let spec = roster.generic_body_for_unresolved_brain(
-            &brain,
-            "a unit-test fixture naming a shape the engine's own roster may no \
-             longer carry — the tests that CARE which body they got assert on it",
-        );
+        let spec = roster.generic_body_for_a_test_fixture(&brain);
         Self::new_in(
             &Default::default(),
             &CharacterCatalog::empty(),

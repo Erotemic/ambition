@@ -1402,14 +1402,36 @@ pub(crate) fn spawn_runtime_minion_into(
                     Some("the generic `combatant` fallback, which is not what it named"),
                 );
             }
-            let spec = roster.generic_body_for_unresolved_brain(
-                &brain,
-                "a boss summon whose id names neither a prepared character nor a \
-                 row — `small_lurker` is the live one, and WHAT it is is a \
-                 content decision (ledger D93/D96). A minion of the wrong body \
-                 beats a boss that casts nothing mid-fight; \
-                 `every_summoned_minion_id_resolves_a_body` holds the waiver.",
-            );
+            let spec = roster
+                .generic_body_for_unresolved_brain(
+                    &brain,
+                    "a boss summon whose id names neither a prepared character nor a \
+                     row — `small_lurker` (the gradient cascade) and `SmallSkitter` \
+                     (what a `DividingMite` splits into) are the live ones, and WHAT \
+                     they are is a content decision (ledger D93/D96). A minion of \
+                     the wrong body beats a boss that casts nothing mid-fight; \
+                     `every_summoned_minion_id_resolves_a_body` holds the waiver.",
+                )
+                .or_else(|| {
+                    // The HOST waiver: a composition that published no cast at
+                    // all cannot be said to be missing this one.
+                    prepared
+                        .is_empty()
+                        .then(|| roster.generic_body_for_a_composition_with_no_cast())
+                        .flatten()
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "boss summon `{id}` names `{archetype_id}`, which is neither a \
+                         prepared character nor an archetype row, and is not on the \
+                         short list of identifiers whose casting is still open. A \
+                         summon that resolves nothing used to become a generic \
+                         `combatant` silently — that is what cost the Gradient \
+                         Sentinel its minions. Register the character, add the row, \
+                         or put the id on `IDENTIFIERS_AWAITING_A_CASTING_DECISION` \
+                         with the ledger row that will retire it."
+                    )
+                });
             super::actor_clusters::ActorClusterSeed::new_in(
                 authored_sheets,
                 catalog,
@@ -1767,18 +1789,46 @@ pub(crate) fn spawn_enemy_with_faction_into(
         }
         return;
     }
-    // ⭐ the AUTHORED placement road. `under_town_skitter` is the one placement
-    // in the shipped worlds that reaches this with no character to build from
-    // (`every_authored_spawn_names_a_character_or_a_row_that_exists` holds the
-    // exemption and the ledger row); everything else here names a key that
-    // resolves, so the waiver is about the shape of the road rather than a
-    // standing defect.
-    let placement_spec = roster.generic_body_for_unresolved_brain(
-        &authored.payload.brain,
-        "an authored placement that names neither a buildable character nor a \
-         row — a real body keeps the level playable while the casting decision \
-         is open (ledger D96)",
-    );
+    // ⭐ the AUTHORED placement road, and **NO SHIPPED PLACEMENT REACHES THE
+    // WAIVER** — measured 2026-08-12 by instrumenting the fallback and running
+    // the whole app suite. `under_town_skitter`, which the comment here used to
+    // name as "the one placement that reaches this", names `medium_striker`,
+    // and that row still EXISTS: it resolves normally and never came near this.
+    // A citation nobody re-measured across two campaigns.
+    //
+    // ⇒ so this road refuses outright now. The only keys the probe caught here
+    // were TEST FIXTURES still naming rows D73 deleted (`pirate_raider`,
+    // `burning_flying_shark`, `cellular_automaton_fighter`, `puppy_slug`) —
+    // repaired to name their characters, because a fixture that asks for a
+    // specific creature and silently gets a generic is the whole defect in
+    // miniature.
+    let placement_spec = roster
+        .generic_body_for_unresolved_brain(
+            &authored.payload.brain,
+            "an authored placement that names neither a buildable character nor a \
+             row — no shipped placement does, and the waiver survives only for an \
+             identifier whose casting is explicitly still open (ledger D96)",
+        )
+        .or_else(|| {
+            // The HOST waiver: a composition that published no cast at all
+            // cannot be said to be missing this creature.
+            prepared
+                .is_empty()
+                .then(|| roster.generic_body_for_a_composition_with_no_cast())
+                .flatten()
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "authored placement `{}` names brain `{:?}`, which is neither a \
+                 buildable character nor an archetype row, and is not on the short \
+                 list of identifiers whose casting is still open. It used to spawn \
+                 a generic `combatant` wearing this placement's name, which is the \
+                 defect D73 was written to end. Give the placement a `character_id`, \
+                 add the row back, or record the open decision.",
+                plan.context().feature_id,
+                authored.payload.brain,
+            )
+        });
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
@@ -2460,14 +2510,32 @@ pub(super) fn spawn_encounter_mob(
         None => super::actor_clusters::ActorClusterSeed::new_in(
             authored_sheets,
             catalog,
-            roster.generic_body_for_unresolved_brain(
-                &brain,
-                "an encounter wave whose `kind` names neither a character nor a \
-                 row — `large_brute` is the live one, three waves of the goblin \
-                 fight, and which creature its heavy IS is content (ledger D93). \
-                 The fallback keeps the encounter playable; the warning above \
-                 names the wave.",
-            ),
+            roster
+                .generic_body_for_unresolved_brain(
+                    &brain,
+                    "an encounter wave whose `kind` names neither a character nor a \
+                     row — `large_brute` is the live one, three waves of the goblin \
+                     fight, and which creature its heavy IS is content (ledger D93). \
+                     The waiver keeps the encounter playable; the warning above \
+                     names the wave.",
+                )
+                .or_else(|| {
+                    // The HOST waiver: a composition that published no cast at
+                    // all cannot be said to be missing this creature.
+                    prepared
+                        .is_empty()
+                        .then(|| roster.generic_body_for_a_composition_with_no_cast())
+                        .flatten()
+                })
+                .unwrap_or_else(|| {
+                    panic!(
+                        "encounter wave mob `{id}` is of kind `{brain:?}`, which is \
+                         neither a character nor an archetype row, and is not on the \
+                         short list of identifiers whose casting is still open. The \
+                         wave used to fill with generic `combatant` bodies and read \
+                         as a working encounter."
+                    )
+                }),
             id.clone(),
             label.clone(),
             // The ART identity, id-first: it survives a display-name rename.

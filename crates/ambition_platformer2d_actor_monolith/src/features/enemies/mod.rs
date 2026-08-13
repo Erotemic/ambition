@@ -304,6 +304,49 @@ impl ArchetypeSpecExt for ArchetypeSpec {
     }
 }
 
+/// **The one row a caller with an OPEN CASTING DECISION settles for.**
+///
+/// ⚠ it is an ordinary row now, not a reserved error value. Nothing resolves to
+/// it by accident: the only road that reaches it is
+/// [`CharacterRoster::generic_body_for_unresolved_brain`], and that road refuses
+/// every identifier not on the list below.
+pub(crate) const GENERIC_BODY_ROW: &str = "combatant";
+
+/// **THE WHOLE LIST OF IDENTIFIERS WHOSE CASTING IS STILL OPEN** — every name
+/// that is allowed to build a generic body instead of failing construction.
+///
+/// ⛔⛔ **it used to be "any unknown string", and that is what a global fallback
+/// IS.** A roster that answers every key answers a misspelling, a stale row name
+/// and a genuinely open content question identically, so the first two hid
+/// inside the third. This campaign paid for that three times as rows migrated
+/// out: five engine mount tests became tests about `combatant` the day the shark
+/// became a character, and the respawn-policy tests went VACUOUS because
+/// `combatant` happens to author `OnRoomReenter` too.
+///
+/// ⭐ **the list is MEASURED, not guessed** (2026-08-12). Instrumenting the
+/// fallback and running the whole app suite produced five live keys, and only
+/// these of them are real open questions:
+///
+/// - `small_lurker` — the Gradient Sentinel's gradient-cascade summon (D93/D96).
+/// - `large_brute` — three waves of the goblin encounter's heavy (D93).
+/// - `SmallSkitter` — what a `DividingMite` splits INTO (`damage_drops`), and
+///   the last CamelCase archetype name left in shipped code.
+///
+/// The other two roads the probe lit up were TEST FIXTURES naming rows that had
+/// been deleted (`pirate_raider`, `burning_flying_shark`,
+/// `cellular_automaton_fighter`, `puppy_slug`) — repaired to name their
+/// characters rather than added here, because a fixture that wants a specific
+/// creature and silently gets a generic is the original defect in miniature.
+///
+/// ⚠ **and the stale comment this replaces claimed `under_town_skitter` was the
+/// live one on the authored-placement road.** It is not: that placement names
+/// `medium_striker`, which still HAS a row, so it never reached the fallback at
+/// all. A citation nobody re-measured for two campaigns.
+///
+/// ⇒ shrinking this list to empty is what closes D102.
+pub(crate) const IDENTIFIERS_AWAITING_A_CASTING_DECISION: &[&str] =
+    &["small_lurker", "large_brute", "SmallSkitter"];
+
 /// App-local hostile-archetype authority: a brain-key → spec table plus the
 /// fallback used for unknown brain keys and non-`Custom` brains. This is the
 /// spawn path's only resolution surface and it is **roster-enum-free** — a
@@ -317,7 +360,6 @@ impl ArchetypeSpecExt for ArchetypeSpec {
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct CharacterRoster {
     by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
-    fallback: ArchetypeSpec,
     /// ⚠ **TEST-ONLY, and load-bearing** — the observation seam for
     /// `provider_defaults_coexist_without_becoming_a_cross_game_global`, which
     /// pins that two linked providers' authored defaults stay THEIRS instead of
@@ -335,13 +377,9 @@ impl CharacterRoster {
     /// Build a roster from a brain-key → spec table and the fallback spec
     /// (resolved for any unknown brain key, mirroring `from_brain`'s
     /// `Combatant` default).
-    pub(crate) fn new(
-        by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
-        fallback: ArchetypeSpec,
-    ) -> Self {
+    pub(crate) fn new(by_brain: std::collections::BTreeMap<String, ArchetypeSpec>) -> Self {
         Self {
             by_brain,
-            fallback,
             #[cfg(test)]
             provider_fallbacks: std::collections::BTreeMap::new(),
         }
@@ -349,14 +387,12 @@ impl CharacterRoster {
 
     fn with_provider_fallbacks(
         by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
-        fallback: ArchetypeSpec,
         provider_fallbacks: std::collections::BTreeMap<String, ArchetypeSpec>,
     ) -> Self {
         #[cfg(not(test))]
         let _ = &provider_fallbacks;
         Self {
             by_brain,
-            fallback,
             #[cfg(test)]
             provider_fallbacks,
         }
@@ -375,7 +411,6 @@ impl CharacterRoster {
     pub fn sandbags_are_passive(&self) -> bool {
         self.by_brain
             .values()
-            .chain(std::iter::once(&self.fallback))
             .all(|spec| !spec.is_sandbag || spec.melee.is_none())
     }
 
@@ -475,7 +510,50 @@ impl CharacterRoster {
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,
     ) -> ArchetypeSpec {
-        self.generic_body_for_unresolved_brain(brain, "a unit-test fixture")
+        self.generic_body_for_a_test_fixture(brain)
+    }
+
+    /// **THE GENERIC BODY A COMPOSITION WITH NO CAST AT ALL SETTLES FOR.**
+    ///
+    /// ⚠ **this is a SECOND reason, and it must not be folded into the first.**
+    /// `report_unprepared_character` already argues it for the character road
+    /// and the argument is the same here: several hosts — the multi-game shell,
+    /// the rollback door fixture, every unit test that composes one system —
+    /// reach construction with a prepared registry holding ZERO characters. In
+    /// those, EVERY identifier is "unknown", and refusing would blame the
+    /// content for a COMPOSITION gap. A host that published a cast and still
+    /// cannot name this creature is the defect;  a host that published none is
+    /// simply not that host.
+    ///
+    /// ⇒ so the two waivers stay separately named: this one is about the HOST,
+    /// [`Self::generic_body_for_unresolved_brain`] is about the IDENTIFIER, and
+    /// only the second one shrinks as content decisions land.
+    pub(crate) fn generic_body_for_a_composition_with_no_cast(&self) -> Option<ArchetypeSpec> {
+        self.by_brain.get(GENERIC_BODY_ROW).cloned()
+    }
+
+    /// **THE GENERIC BODY A FIXTURE SETTLES FOR — TEST-ONLY, AND NAMED SO.**
+    ///
+    /// ⛔ production has no equivalent, deliberately: an identifier that names
+    /// nothing is a construction ERROR out there (D102), and the whole reason
+    /// this is a separate `#[cfg(test)]` method rather than a permissive branch
+    /// of [`Self::generic_body_for_unresolved_brain`] is that the two callers
+    /// want opposite things. A unit test naming "a rideable body" against the
+    /// engine's fixture roster is not asserting on which row answered; a spawn
+    /// road that cannot resolve what a level asked for is a defect.
+    ///
+    /// ⚠ **it is still the thing that hid five mount tests' subject** the day
+    /// the shark became a character, so a test that CARES which body it got must
+    /// assert on it rather than trusting this.
+    #[cfg(test)]
+    pub(crate) fn generic_body_for_a_test_fixture(
+        &self,
+        brain: &ambition_entity_catalog::placements::CharacterBrain,
+    ) -> ArchetypeSpec {
+        self.try_spec_for_brain(brain)
+            .or_else(|| self.by_brain.get(GENERIC_BODY_ROW).cloned())
+            .or_else(|| self.by_brain.values().next().cloned())
+            .expect("a fixture roster with no rows at all cannot build any body")
     }
 
     /// **THE GENERIC BODY A CALLER SETTLES FOR, ASKED FOR BY NAME.**
@@ -508,21 +586,33 @@ impl CharacterRoster {
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,
         waiver: &str,
-    ) -> ArchetypeSpec {
+    ) -> Option<ArchetypeSpec> {
         if let Some(spec) = self.try_spec_for_brain(brain) {
-            return spec;
+            return Some(spec);
         }
-        if let ambition_entity_catalog::placements::CharacterBrain::Custom(name) = brain {
-            bevy::prelude::warn!(
-                target: "ambition_platformer2d_actor_monolith::enemies",
-                "no archetype row for brain key `{name}` — this body is being built as the \
-                 generic `combatant` fallback, wearing whatever the placement named. The \
-                 caller settled for it because: {waiver}",
-                name = name,
-                waiver = waiver,
-            );
+        let ambition_entity_catalog::placements::CharacterBrain::Custom(name) = brain else {
+            // ⭐ **A BRAIN THAT NAMES NOTHING IS NOT A BRAIN THAT NAMED SOMETHING
+            // WRONG.** `Passive` and its siblings state a POLICY, not an
+            // identifier — a shipped `EnemySpawn` in the intro world does exactly
+            // this — so there is no misspelling to catch and nothing to wait on:
+            // the placement asked for a plain body and a plain body is a correct
+            // answer. Refusing here was measured wrong the first time this rule
+            // ran, and this is the distinction D102 is actually about.
+            return self.by_brain.get(GENERIC_BODY_ROW).cloned();
+        };
+        if !IDENTIFIERS_AWAITING_A_CASTING_DECISION.contains(&name.as_str()) {
+            return None;
         }
-        self.fallback.clone()
+        bevy::prelude::warn!(
+            target: "ambition_platformer2d_actor_monolith::enemies",
+            "no archetype row and no prepared character for `{name}` — it is on the \
+             short list of identifiers whose casting is still OPEN, so this body is \
+             being built as the generic `{GENERIC_BODY_ROW}` row while that decision \
+             stands. The caller settled for it because: {waiver}",
+            name = name,
+            waiver = waiver,
+        );
+        self.by_brain.get(GENERIC_BODY_ROW).cloned()
     }
 
     /// Build a roster from a brain-keyed spec map. The reserved `"combatant"`
@@ -542,11 +632,7 @@ impl CharacterRoster {
             .collect();
         resolve_movement_inheritance(&mut by_brain, &owners)
             .expect("internal character roster movement inheritance must be valid");
-        let fallback = by_brain
-            .get("combatant")
-            .cloned()
-            .expect("enemy roster must define a \"combatant\" fallback row");
-        Self::new(by_brain, fallback)
+        Self::new(by_brain)
     }
 
     /// Internal parser used by the engine-generic empty default and test
@@ -882,22 +968,18 @@ impl CharacterRosterRegistry {
             })?;
             provider_fallbacks.insert(provider_id, spec);
         }
-        // Preserve the historical single-game fallback without allowing two
-        // linked providers to fight over one process-wide default. A host with
-        // multiple provider defaults must select one through session authority;
-        // until then, unknown/non-Custom brains use the inert engine fallback.
-        let fallback = if provider_fallbacks.len() == 1 {
-            provider_fallbacks
-                .values()
-                .next()
-                .expect("length checked")
-                .clone()
-        } else {
-            CharacterRoster::default().fallback
-        };
+        // ⛔ **THE PROCESS-WIDE DEFAULT USED TO BE PICKED HERE, and it is gone**
+        // (D102). A single-provider host promoted that provider's fallback row
+        // to the answer for every unknown brain key in the App; a multi-provider
+        // host quietly used the inert engine one instead, so the same
+        // misspelling built two different bodies depending on how many games
+        // were linked. Nothing resolves by fallback now — an identifier either
+        // names a row, names a prepared character, sits on
+        // `IDENTIFIERS_AWAITING_A_CASTING_DECISION`, or fails construction — so
+        // there is no default left to fight over. The per-provider map survives
+        // for the test that pins providers' defaults staying THEIRS.
         Ok(CharacterRoster::with_provider_fallbacks(
             by_brain,
-            fallback,
             provider_fallbacks,
         ))
     }
@@ -1552,6 +1634,69 @@ mod app_local_roster_tests {
         );
     }
 
+    /// **THE SHORT LIST IS THE WHOLE LIST, AND IT IS NOT A SYNONYM FOR "ANY".**
+    ///
+    /// ⭐ the two halves are one claim. A roster that answers every identifier
+    /// passes the first; a roster that answers none passes the second. What D102
+    /// asks for is exactly the difference: a name whose casting is an OPEN
+    /// QUESTION gets a body and says so, and a name that is simply wrong does
+    /// not get one at all.
+    ///
+    /// ⚠ the poison runs against the SAME roster in the SAME test, so a fixture
+    /// that accidentally lost its `combatant` row cannot make the refusal look
+    /// like a pass.
+    #[test]
+    fn an_open_casting_decision_gets_a_body_and_a_misspelling_does_not() {
+        use ambition_entity_catalog::placements::CharacterBrain;
+        let mut app = bevy::prelude::App::new();
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap(),
+        );
+        let roster = app.world().resource::<CharacterRoster>();
+
+        let open = CharacterBrain::Custom(
+            (*IDENTIFIERS_AWAITING_A_CASTING_DECISION
+                .first()
+                .expect("D102 is closed when this list empties — delete this test with it"))
+            .to_string(),
+        );
+        assert!(
+            roster
+                .generic_body_for_unresolved_brain(&open, "this test")
+                .is_some(),
+            "an identifier whose casting is still open was refused a body, which \
+             breaks the content it is waiting on rather than the rule"
+        );
+
+        // ⛔ one character off a name that IS on the list — the misspelling class
+        // the old global fallback swallowed for three campaigns.
+        let typo = CharacterBrain::Custom(format!("{}_", open_key(&open)));
+        assert!(
+            roster
+                .generic_body_for_unresolved_brain(&typo, "this test")
+                .is_none(),
+            "a misspelled identifier was handed the generic body, so the roster \
+             is answering for names nobody chose again"
+        );
+    }
+
+    fn open_key(brain: &ambition_entity_catalog::placements::CharacterBrain) -> String {
+        match brain {
+            ambition_entity_catalog::placements::CharacterBrain::Custom(name) => name.clone(),
+            other => panic!("the fixture built a non-Custom brain: {other:?}"),
+        }
+    }
+
+    /// **Two linked providers' authored defaults stay THEIRS.**
+    ///
+    /// ⛔⛔ **and the thing that made this test necessary is DELETED** (D102).
+    /// The roster used to promote a single provider's default to a process-wide
+    /// fallback and quietly use an inert engine one when two providers disagreed
+    /// — so the same misspelling built two different bodies depending on how
+    /// many games were linked into the App, and this test could only pin the
+    /// tie-break rather than object to the concept. There is no cross-game
+    /// default left to leak: the second half asserts its ABSENCE, which is a
+    /// stronger claim than the number it used to check.
     #[test]
     fn provider_defaults_coexist_without_becoming_a_cross_game_global() {
         let mut app = bevy::prelude::App::new();
@@ -1565,15 +1710,28 @@ mod app_local_roster_tests {
         assert_eq!(roster.fallback_for_provider("a").unwrap().max_health, 2);
         assert_eq!(roster.fallback_for_provider("b").unwrap().max_health, 7);
         let unknown = ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
-        assert_eq!(
-            roster.spec_for_brain(&unknown).max_health,
-            1,
-            "without active-provider selection, an ambiguous default must not leak across games"
+        assert!(
+            roster.try_spec_for_brain(&unknown).is_none(),
+            "an unknown brain key resolved a spec, so some default is answering \
+             for it again — with two providers linked, WHOSE?"
+        );
+        assert!(
+            roster
+                .generic_body_for_unresolved_brain(&unknown, "this test")
+                .is_none(),
+            "an identifier that is not on `IDENTIFIERS_AWAITING_A_CASTING_DECISION` \
+             was handed a generic body anyway, which is the global fallback back \
+             under another name"
         );
     }
 
+    /// **A provider that declares no default keeps its rows and gets NO default.**
+    ///
+    /// ⚠ this used to assert "…and uses the explicit engine-generic default",
+    /// which was the global fallback stated as a feature. The rows still
+    /// resolve; the absence is the point.
     #[test]
-    fn provider_without_fallback_keeps_its_rows_and_uses_generic_default() {
+    fn provider_without_a_default_keeps_its_rows_and_gets_no_default() {
         let mut app = bevy::prelude::App::new();
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron("b", None::<String>, B).unwrap(),
@@ -1581,11 +1739,16 @@ mod app_local_roster_tests {
         let roster = app.world().resource::<CharacterRoster>();
         let beta = ambition_entity_catalog::placements::CharacterBrain::Custom("beta".into());
         let unknown = ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
-        assert_eq!(roster.spec_for_brain(&beta).max_health, 7);
         assert_eq!(
-            roster.spec_for_brain(&unknown).max_health,
-            1,
-            "an App with no provider fallback uses the explicit engine-generic default"
+            roster
+                .try_spec_for_brain(&beta)
+                .expect("the provider's own row still resolves")
+                .max_health,
+            7
+        );
+        assert!(
+            roster.try_spec_for_brain(&unknown).is_none(),
+            "a provider that declared no default was given one"
         );
     }
 }

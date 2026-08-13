@@ -11,6 +11,8 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::BodyMelee;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::combat::components::{ActorDisposition, ActorTarget};
@@ -18,8 +20,6 @@ use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::brain::{ActionSet, ActorControl};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::World;
 
 const ENEMY_ID: &str = "test_aggressor";
@@ -77,20 +77,29 @@ fn observe(world: &mut World, player: ae::Vec2, t: &mut EnemyTally) {
 
 #[test]
 fn a_hostile_enemy_next_to_the_player_attacks_it() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // Drop a melee fighter (the duel PCA archetype) a short stride from the player
     // so it is immediately in engage range — same archetype that DOES attack in the
     // duel, but here a normal Enemy-faction `hostile_to_player` actor aimed at the
     // human, which is the path Jon reported broken.
     let p = player_pos(sim.world_mut());
-    sim.spawn_enemy_at(
+    // ⭐ **it NAMES its character** (D102). This said only
+
+    // `Custom("cellular_automaton_fighter")`, and that archetype row was
+
+    // DELETED when the automaton became a character — so this fixture had
+
+    // been quietly spawning a generic `combatant` and asserting on it.
+
+    sim.spawn_enemy_character_at(
         ENEMY_ID,
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        Some("perfect_cellular_automaton"),
     );
 
     let mut t = EnemyTally::default();

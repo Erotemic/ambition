@@ -20,14 +20,14 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ACTOR_ID: &str = "possess_target";
@@ -67,12 +67,21 @@ fn faction(world: &mut World, e: Entity) -> ActorFaction {
 /// nudged us onto — the mechanic itself is unchanged.
 fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
-    sim.spawn_enemy_at(
+    // ⭐ **it NAMES its character** (D102). This said only
+
+    // `Custom("cellular_automaton_fighter")`, and that archetype row was
+
+    // DELETED when the automaton became a character — so this fixture had
+
+    // been quietly spawning a generic `combatant` and asserting on it.
+
+    sim.spawn_enemy_character_at(
         ACTOR_ID,
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        Some("perfect_cellular_automaton"),
     );
     let actor = actor_entity(sim.world_mut());
     for i in 0..900 {
@@ -96,8 +105,8 @@ fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
 /// frame — not next frame. Before the schedule fix this read last frame's input.
 #[test]
 fn possessed_actor_reads_this_frame_slot_input() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let actor = spawn_and_possess(&mut sim);
 
     // The possess gesture drove `move_y` (down); horizontal was zero, so the
@@ -127,8 +136,8 @@ fn possessed_actor_reads_this_frame_slot_input() {
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
 
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let home = {
         let mut q = sim
             .world_mut()
@@ -212,18 +221,27 @@ fn down_interact(edge: bool) -> AgentAction {
 
 #[test]
 fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // Drop a normal actor one short stride from the player — inside POSSESS_RADIUS
     // (150px). Same known-good melee archetype the enemy-attacks test uses.
     let p = player_pos(sim.world_mut());
-    sim.spawn_enemy_at(
+    // ⭐ **it NAMES its character** (D102). This said only
+
+    // `Custom("cellular_automaton_fighter")`, and that archetype row was
+
+    // DELETED when the automaton became a character — so this fixture had
+
+    // been quietly spawning a generic `combatant` and asserting on it.
+
+    sim.spawn_enemy_character_at(
         ACTOR_ID,
         "Perfect Cellular Automaton",
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        Some("perfect_cellular_automaton"),
     );
     let actor = actor_entity(sim.world_mut());
     assert_eq!(

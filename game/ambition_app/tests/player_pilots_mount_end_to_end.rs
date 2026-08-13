@@ -80,12 +80,17 @@ fn a_player_pilots_a_mount_end_to_end() {
         CharacterBrain::Custom("burning_flying_shark".to_string()),
         Some("npc_burning_flying_shark"),
     );
-    sim.spawn_enemy_at(
+    // ⭐ **and so does the RIDER** (D102). The mount named its character three
+    // lines up and the pilot beside it did not, so the pair under test was half
+    // migrated: the raider's `CanPilot(["shark"])` comes from the character, and
+    // a generic `combatant` cannot pilot anything.
+    sim.spawn_enemy_character_at(
         RIDER_ID,
         "Pirate Raider",
         rider_pos,
         (22.0, 39.0),
         CharacterBrain::Custom("pirate_raider".to_string()),
+        Some("npc_pirate_raider"),
     );
     let mount = entity_by_feature_id(sim.world_mut(), MOUNT_ID);
     let rider = entity_by_feature_id(sim.world_mut(), RIDER_ID);

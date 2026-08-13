@@ -731,7 +731,12 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         .expect("the player has a body")
         .pos;
 
-    sim.spawn_enemy_at(
+    // ⭐ **the pair NAMES its characters** (D102). Both said only a brain key,
+    // and both of those archetype rows were DELETED when the shark and the
+    // raider became characters — so this rollback sweep had been walking a pair
+    // of generic `combatant` bodies: not a mount, not a pilot, and none of the
+    // components it is here to register.
+    sim.spawn_enemy_character_at(
         "sweep_mount",
         "Burning Flying Shark",
         (anchor.x + 120.0, anchor.y),
@@ -739,8 +744,9 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
             "burning_flying_shark".to_string(),
         ),
+        Some("npc_burning_flying_shark"),
     );
-    sim.spawn_enemy_at(
+    sim.spawn_enemy_character_at(
         "sweep_rider",
         "Pirate Raider",
         (anchor.x + 120.0, anchor.y - 66.0),
@@ -748,6 +754,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
             "pirate_raider".to_string(),
         ),
+        Some("npc_pirate_raider"),
     );
     let by_id = |sim: &mut Platformer2dSimHarness, id: &str| {
         let world = sim.world_mut();

@@ -20,12 +20,14 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{
+    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "phase_split_enemy";
@@ -62,12 +64,21 @@ fn brain_intent_seam_holds(fixed_tick: bool) {
     // Drop the enemy a stride to the player's RIGHT; a chasing brain wants to move
     // LEFT toward the player, so its intent has a definite sign we can assert.
     let p = player_pos(sim.world_mut());
-    sim.spawn_enemy_at(
+    // ⭐ **it NAMES its character** (D102). This said only
+
+    // `Custom("cellular_automaton_fighter")`, and that archetype row was
+
+    // DELETED when the automaton became a character — so this fixture had
+
+    // been quietly spawning a generic `combatant` and asserting on it.
+
+    sim.spawn_enemy_character_at(
         ENEMY_ID,
         "Perfect Cellular Automaton",
         (p.x + 120.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
+        Some("perfect_cellular_automaton"),
     );
     let enemy = enemy_entity(sim.world_mut());
     let x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;

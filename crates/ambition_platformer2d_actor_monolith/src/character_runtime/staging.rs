@@ -808,7 +808,9 @@ mod roster_validation_tests {
         for key in keys {
             map.insert((*key).to_string(), crate::features::enemies::test_spec(key));
         }
-        crate::features::CharacterRoster::new(map, crate::features::enemies::test_spec("combatant"))
+        map.entry("combatant".to_string())
+            .or_insert_with(|| crate::features::enemies::test_spec("combatant"));
+        crate::features::CharacterRoster::new(map)
     }
 
     /// **The bug this seam exists for, twice on 2026-07-31.**

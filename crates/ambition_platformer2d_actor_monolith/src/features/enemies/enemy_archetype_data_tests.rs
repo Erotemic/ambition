@@ -17,7 +17,8 @@ fn enemy_roster_resolves_brain_keys_with_fallback() {
     use ambition_entity_catalog::placements::CharacterBrain;
     let mut by_brain = std::collections::BTreeMap::new();
     by_brain.insert("pirate_heavy".to_string(), fixture_spec("pirate_heavy"));
-    let roster = CharacterRoster::new(by_brain, test_spec("combatant"));
+    by_brain.insert("combatant".to_string(), test_spec("combatant"));
+    let roster = CharacterRoster::new(by_brain);
     // Known key → its spec (PirateHeavy is peaceful by default).
     assert!(
         !roster

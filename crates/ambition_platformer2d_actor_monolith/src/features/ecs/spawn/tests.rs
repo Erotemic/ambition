@@ -1084,28 +1084,28 @@ mod authored_enemy_reads_its_character {
     /// shark-rider body because Iron Mary was accidentally omitted from some
     /// registration list."*
     ///
-    /// ⛔ **the condition is "nothing can build it", not "the character is
-    /// missing"**, and the second test below is why. A demo that BORROWS another
-    /// provider's character legitimately runs without it — Mary-O's plane swarms
-    /// are Ambition's, and standalone Mary-O falls back to a roster row that
-    /// still describes them. Refusing that would refuse a shipping build.
+    /// ⛔ **the condition WAS "nothing can build it", and is now simply "it
+    /// cannot be built"** (AC6). The distinction existed because a demo that
+    /// BORROWS another provider's character could legitimately run without it,
+    /// falling back to a roster row that still described the body — Mary-O's
+    /// plane swarms were the case. Mary-O owns those characters outright now and
+    /// the rows are deleted, so there is no second thing that could build any
+    /// body and the condition has one term.
+    ///
+    /// ⚠ **this is the SPAWN-seam regression, and the seam is no longer where a
+    /// shipped composition meets it**: `construction::preflight_planned_bodies`
+    /// refuses the same placement at preparation, with the room whole. What this
+    /// keeps is the assertion that the enemy road itself does not quietly build
+    /// something — a caller reaching it unplanned must still fail loudly.
     #[test]
-    // ⚠ re-baselined when the rule moved beside the plan
-    // (`report_unprepared_character`) so the NPC and encounter roads could share
-    // it: the refusal is the same, its wording is now road-agnostic. What this
-    // test owns is that the ENEMY road reaches it — the shared rule's own
-    // regressions live next to the rule.
-    #[should_panic(expected = "nothing else can build this body")]
+    #[should_panic(expected = "which this composition has not registered")]
     fn a_spawn_naming_nothing_buildable_is_refused() {
-        // A character nobody registered AND a brain key nobody authored: the
-        // body would be a generic `combatant` wearing Iron Mary's name.
+        // A character nobody registered: the body would be a generic
+        // `combatant` wearing Iron Mary's name.
         //
-        // ⚠ the registry is NON-EMPTY here on purpose. The refusal is scoped to
-        // compositions that publish a cast, because several hosts reach
-        // construction with zero characters registered — a defect of its own,
-        // and panicking there would refuse a shipping host over somebody else's
-        // fault. A fixture with an empty registry would exercise that escape
-        // hatch rather than this rule.
+        // ⚠ the registry is NON-EMPTY here on purpose — an empty one is the
+        // shape a host with no cast has, and this asserts the content rule
+        // rather than that shape.
         spawn_with_prepared_and_brain(prepared(), Some("iron_mary"), "no_such_archetype");
     }
     // ⛔⛔ **`a_composition_with_no_cast_at_all_falls_back_instead_of_refusing`

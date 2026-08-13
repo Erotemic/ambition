@@ -475,7 +475,7 @@ const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
 ///
 /// ⭐ the name is unchanged in spirit and now names a CHARACTER: the summon road
 /// resolves the prepared cast first and builds from the definition.
-const MINIMA_TRAP_MINION_ARCHETYPE: &str = "npc_puppy_slug";
+const MINIMA_TRAP_MINION_CHARACTER: &str = "npc_puppy_slug";
 const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
 /// Horizontal offset (px) from the pit center where the minion
 /// spawns. Pushed toward the boss side so the player sees the
@@ -615,7 +615,7 @@ pub fn spawn_minima_trap_from_special_messages(
                     name: "Puppy Slug".to_string(),
                     pos: minion_pos,
                     half_size: MINIMA_TRAP_MINION_HALF_SIZE,
-                    archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
+                    character_id: MINIMA_TRAP_MINION_CHARACTER.to_string(),
                     encounter_id,
                     faction: ambition_vfx::HitSide::Enemy,
                 }),
@@ -786,14 +786,14 @@ pub fn spawn_saddle_point_from_special_messages(
 /// Jon. The cast applied is the recommendation that sat on the decision surface:
 /// this technique's own design note has always read *"spawn N **\"slop\"
 /// minions**"*, `npc_ai_slop` is the registered, body-complete character of that
-/// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_ARCHETYPE`)
+/// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_CHARACTER`)
 /// was already cast the same way.
 ///
 /// ⚠ **provisional means the reversal is THIS ONE STRING** — a casting choice in
 /// Jon's "easy to retune" category, not an architectural fact. If a small lurker
 /// turns out to be its own creature, author the character and point this at it;
 /// nothing else in the game names one.
-const GRADIENT_CASCADE_MINION_ARCHETYPE: &str = "npc_ai_slop";
+const GRADIENT_CASCADE_MINION_CHARACTER: &str = "npc_ai_slop";
 const GRADIENT_CASCADE_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// Vertical y where slop minions spawn (top of the arena, just below
 /// the ceiling). The arena ceiling sits at y=32; minions spawn at
@@ -884,7 +884,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     name: "Slop Lurker".to_string(),
                     pos: spawn_pos,
                     half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
-                    archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
+                    character_id: GRADIENT_CASCADE_MINION_CHARACTER.to_string(),
                     encounter_id: encounter_id.clone(),
                     faction: ambition_vfx::HitSide::Enemy,
                 }),

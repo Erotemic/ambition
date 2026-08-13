@@ -246,7 +246,7 @@ pub struct SummonedMinionParams {
     pub name: String,
     pub pos: ambition_platformer2d_core::Vec2,
     pub half_size: ambition_platformer2d_core::Vec2,
-    pub archetype_id: String,
+    pub character_id: String,
     pub encounter_id: String,
     pub faction: crate::features::ActorFaction,
 }
@@ -372,7 +372,7 @@ impl ConstructionDomain for ActorConstruction {
                 }
             ),
             ActorConstructionParams::SummonedMinion(minion) => {
-                format!("minion {} {}", minion.feature_id, minion.archetype_id)
+                format!("minion {} {}", minion.feature_id, minion.character_id)
             }
             ActorConstructionParams::GiantHost { authored, .. } => {
                 format!("giant-host {} {}", authored.id, authored.name)
@@ -662,7 +662,7 @@ fn construct_summoned_minion(
         minion.name.clone(),
         minion.pos,
         minion.half_size,
-        &minion.archetype_id,
+        &minion.character_id,
         minion.encounter_id.clone(),
         minion.faction,
         crate::features::ActorAggression::hostile(),
@@ -1298,7 +1298,7 @@ pub fn mount_capabilities_of(
         // CHARACTER now — the summon road refuses anything else — so the plan
         // reads the same authority the commit will.
         ActorConstructionParams::SummonedMinion(minion) => authored_mount_capabilities(
-            prepared.and_then(|cast| cast.get(minion.archetype_id.as_str())),
+            prepared.and_then(|cast| cast.get(minion.character_id.as_str())),
         ),
         // A giant host is a mount (its archetype carries `mount_class`); its hands
         // are neither mount nor pilot.
@@ -1402,12 +1402,12 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<Planne
             // A staged boss builds from the boss catalog, like an authored one.
             crate::features::SpawnActorKind::Boss { .. } => None,
         },
-        // ⚠ **`archetype_id` IS a character id** and has been since the summon
-        // road stopped resolving roster rows; the field name is the last of the
-        // old vocabulary on this path.
+        // ⚠ **this field was `archetype_id` until AC6** and held a character id
+        // long before the name admitted it — the summon road stopped resolving
+        // roster rows well before the rows were deleted.
         ActorConstructionParams::SummonedMinion(minion) => Some(PlannedBody {
-            character: Some(minion.archetype_id.as_str()),
-            named_by: minion.archetype_id.clone(),
+            character: Some(minion.character_id.as_str()),
+            named_by: minion.character_id.clone(),
         }),
         ActorConstructionParams::AuthoredBoss { .. }
         | ActorConstructionParams::Placement { .. }
@@ -1911,9 +1911,12 @@ fn giant_cluster_rows(
                             ),
                         );
                     // ⭐ **the hand NAMES its character**, so its body comes from
-                    // a definition like every other migrated creature. The brain
-                    // key stays as the fallback for a composition that has not
-                    // registered the cast.
+                    // a definition like every other creature. ⛔ the brain key
+                    // beside it used to be the fallback for a composition that
+                    // had not registered the cast; there is no such fallback, so
+                    // a host whose cast lacks `npc_giant_gnu_hands` is refused
+                    // the whole cluster at preparation rather than given two
+                    // generic hands.
                     authored.payload.character_id = Some(
                         ambition_entity_catalog::CharacterId::new("npc_giant_gnu_hands"),
                     );
@@ -1943,10 +1946,13 @@ fn giant_cluster_rows(
 /// plan row now, and building it on the loop too would duplicate it.
 /// The prepared definition a placement names, if it names one the cast knows.
 ///
-/// ⚠ an id the cast does NOT know resolves to `None` — planning falls back to
-/// the archetype rather than refusing here, because the refusal for an unknown
-/// `CharacterId` belongs at the spawn seam (P0.1) where it can say which
-/// placement named it.
+/// ⚠ **`None` is not a verdict here.** This answers the question that shapes the
+/// PLAN — *is this a limbed host, what can it pilot* — and an unresolvable id
+/// answers "no limbs" the same way a resolvable ordinary body does. The verdict
+/// on the id itself belongs to [`preflight_planned_bodies`], which runs over the
+/// finished rows and can say which placement named it. ⛔ this used to say that
+/// planning *"falls back to the archetype rather than refusing here"*; planning
+/// refuses, and there is no archetype.
 fn resolve_planned_character<'a>(
     prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
     character: Option<&ambition_entity_catalog::CharacterId>,

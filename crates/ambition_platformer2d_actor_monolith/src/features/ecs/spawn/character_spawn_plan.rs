@@ -80,16 +80,20 @@ pub(crate) struct SpawnContext<'a> {
 pub(crate) struct CharacterSpawnPlan<'a> {
     /// Which `CharacterDefinition` to instantiate.
     ///
-    /// ⚠ `Option` only while the migration runs: a placement that has not named
-    /// a character falls back to its legacy archetype, and that gap must stay
-    /// VISIBLE rather than be filled by guessing from a display name. When the
-    /// authored content is migrated this becomes required.
-    character: Option<&'a CharacterId>,
+    /// ⛔⛔ **REQUIRED, since AC6** (2026-08-14). This was `Option` for one
+    /// reason: *"a placement that has not named a character falls back to its
+    /// legacy archetype, and that gap must stay VISIBLE"*. The gap closed from
+    /// the other end — the archetype ontology is deleted, so an unnamed
+    /// character does not fall back to anything, and an `Option` here would
+    /// describe a road that no longer exists while quietly reintroducing the
+    /// question *what builds a body that names nobody*. There is no answer, and
+    /// the type is now the one that says so.
+    character: &'a CharacterId,
     context: SpawnContext<'a>,
 }
 
 impl<'a> CharacterSpawnPlan<'a> {
-    pub(crate) fn new(character: Option<&'a CharacterId>, context: SpawnContext<'a>) -> Self {
+    pub(crate) fn new(character: &'a CharacterId, context: SpawnContext<'a>) -> Self {
         Self { character, context }
     }
 
@@ -99,41 +103,48 @@ impl<'a> CharacterSpawnPlan<'a> {
 
     /// The prepared definition this plan names.
     ///
-    /// ⭐ the ONE place construction asks "which character is this body?", so
-    /// there is one answer to change when the fallback is removed.
+    /// ⭐ the ONE place construction asks "which character is this body?".
     ///
-    /// ⛔⛔ **THREE OUTCOMES, NOT TWO, and collapsing the last two is a bug I
-    /// shipped and a reviewer caught.** An earlier version returned plain
-    /// `Option`, which made *"this placement has not been migrated"* and *"this
-    /// placement names a character that is not registered"* indistinguishable —
-    /// so a spawn authored as `IronMary` whose registration was missing kept its
-    /// shark-rider archetype **silently**, which is the original bug wearing the
-    /// new architecture.
+    /// ⛔ **TWO OUTCOMES, and the third one is now a TYPE.** This returned
+    /// `Result<Option<_>, _>` so that *"this placement has not been migrated"*
+    /// could be told apart from *"this placement names a character that is not
+    /// registered"* — the distinction whose collapse once let a spawn authored
+    /// as `IronMary` keep its shark-rider archetype silently. The first of those
+    /// two is no longer a state a plan can be in ([`Self::character`]), so what
+    /// remains is the fault:
     ///
     /// ```text
-    /// Ok(None)     no character authored  → legacy archetype, migration pending
-    /// Ok(Some(d))  authored and prepared  → the character decides
-    /// Err(id)      authored, NOT prepared → a configuration fault
+    /// Ok(d)     prepared      → the character decides
+    /// Err(id)   NOT prepared  → a configuration fault
     /// ```
     pub(crate) fn definition<'r>(
         &self,
         registry: &'r crate::character_runtime::PreparedCharacterRegistry,
-    ) -> Result<Option<&'r crate::character_runtime::PreparedCharacterDefinition>, &'a CharacterId>
-    {
-        let Some(character) = self.character else {
-            return Ok(None);
-        };
-        registry.get(character.as_str()).map(Some).ok_or(character)
+    ) -> Result<&'r crate::character_runtime::PreparedCharacterDefinition, &'a CharacterId> {
+        registry.get(self.character.as_str()).ok_or(self.character)
     }
 }
 
-/// **What answers `Err(missing)` — one rule, for every road that can hit it.**
+/// **What answers a missing character on the ONE road that still has a fallback
+/// to name.**
 ///
-/// ⭐ the enemy road wrote this policy inline first, and it is subtle enough that
-/// a second road re-deriving it would get a *slightly* different rule — which is
-/// how "named but unprepared" becomes silent again on the path nobody looked at.
-/// So the enemy road's own arm now calls this, and there is one place to argue
-/// with.
+/// ⛔⛔ **its population was four roads and is now one** (AC6, 2026-08-14), and
+/// that is the honest reading rather than a loss. This rule exists to decide
+/// between warning and refusing, and warning is only defensible when something
+/// else will build the body. Three of its four callers had nothing:
+///
+/// ```text
+/// authored enemy    the plan REFUSES at preparation (`preflight_planned_bodies`)
+/// boss summon       the same, on the summon batch
+/// encounter wave    passed `Some("its archetype")` — and the archetype is deleted
+/// peaceful NPC      ← the fallback is REAL: the catalog row's body, kit borrowed
+/// ```
+///
+/// The NPC road is different in kind, not merely unmigrated: an NPC's BODY comes
+/// from its catalog row, so an unregistered-but-cataloged character still gets
+/// the right body and only the KIT is borrowed. What has no fallback even there
+/// is a character in NEITHER, where the road drops to a display-name match — a
+/// person built by resembling somebody — and that is what this refuses.
 ///
 /// The rule has three outcomes and the middle one is the reason it is not just a
 /// panic:
@@ -214,15 +225,17 @@ mod tests {
         }
     }
 
-    /// **A plan that names no character resolves no definition, even when its
-    /// display name matches one.**
+    /// **A plan resolves the character it NAMES, and nothing else.**
     ///
-    /// The same invariant the authored-enemy path is guarded on, pinned at the
-    /// layer that will own it once every surface lowers here — so widening the
-    /// plan to the NPC, encounter and match paths cannot reintroduce the
-    /// name-matching route one caller at a time.
+    /// ⛔ **the other half of this test is now a COMPILE ERROR** and that is the
+    /// stronger form. It used to assert that a plan naming no character resolved
+    /// none *"however its placement is labelled"* — the guard against a body
+    /// being matched by display name. `CharacterSpawnPlan::character` is
+    /// required since AC6, so a plan that names nobody cannot be constructed to
+    /// be asked; there is no fallback for it to resolve TO. What survives here
+    /// is the positive half, which the assertion above was measured against.
     #[test]
-    fn an_unnamed_plan_resolves_nothing() {
+    fn a_plan_resolves_the_character_it_names() {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             crate::character_runtime::CharacterDefinition::new(
@@ -234,18 +247,22 @@ mod tests {
         );
         registry.insert_prepared(finalized.prepared);
 
-        let plan = CharacterSpawnPlan::new(None, context());
-        assert!(
-            matches!(plan.definition(&registry), Ok(None)),
-            "a plan that names no character resolves none, however its \
-             placement is labelled",
+        let named = CharacterId::new("npc_busy_beaver");
+        let plan = CharacterSpawnPlan::new(&named, context());
+        assert_eq!(
+            plan.definition(&registry)
+                .expect("the registry holds this character")
+                .id
+                .as_str(),
+            "npc_busy_beaver",
         );
 
-        let named = CharacterId::new("npc_busy_beaver");
-        let plan = CharacterSpawnPlan::new(Some(&named), context());
+        let stranger = CharacterId::new("npc_nobody");
+        let plan = CharacterSpawnPlan::new(&stranger, context());
         assert!(
-            matches!(plan.definition(&registry), Ok(Some(_))),
-            "and naming it does resolve, or the assertion above is vacuous",
+            plan.definition(&registry).is_err(),
+            "and a name the registry does not hold resolves nothing, or the \
+             assertion above is vacuous",
         );
     }
 
@@ -255,18 +272,19 @@ mod tests {
     /// The state this separates out: content says `IronMary`, her registration
     /// is missing for any reason, and the body quietly keeps the archetype it
     /// would have had — which is the exact defect this campaign exists to
-    /// remove, reproduced by the machinery meant to remove it. It has to be
-    /// distinguishable from an unmigrated placement, because only one of the
-    /// two is allowed to fall back.
+    /// remove, reproduced by the machinery meant to remove it.
     ///
-    /// ⛔ poison: make `definition` return a plain `Option` again and this stops
-    /// compiling — which is the point. The distinction is in the type, so it
-    /// cannot be lost by a caller forgetting to check.
+    /// ⛔ poison: make `definition` return a plain `Option` and this stops
+    /// compiling — which is the point. The fault is in the type, so it cannot be
+    /// lost by a caller forgetting to check. ⚠ it used to have to be
+    /// distinguishable from an UNMIGRATED placement because only one of the two
+    /// could fall back; there is nothing to fall back to now, so the type
+    /// carries one distinction instead of two.
     #[test]
     fn an_authored_character_that_is_not_prepared_is_an_error() {
         let registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let named = CharacterId::new("iron_mary");
-        let plan = CharacterSpawnPlan::new(Some(&named), context());
+        let plan = CharacterSpawnPlan::new(&named, context());
         assert_eq!(
             plan.definition(&registry).err().map(CharacterId::as_str),
             Some("iron_mary"),

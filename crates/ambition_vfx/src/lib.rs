@@ -103,7 +103,7 @@ pub struct SummonSpec {
     pub name: String,
     pub pos: ae::Vec2,
     pub half_size: ae::Vec2,
-    pub archetype_id: String,
+    pub character_id: String,
     pub encounter_id: String,
     pub faction: HitSide,
 }

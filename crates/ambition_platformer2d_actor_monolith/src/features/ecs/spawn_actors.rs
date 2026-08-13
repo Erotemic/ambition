@@ -1217,13 +1217,14 @@ pub(crate) fn spawn_boss_with_overrides_into(
 /// attaches the right sprite. Without that marker the minion would
 /// spawn invisibly (ECS-only).
 ///
-/// `archetype_id` names a row of the assembled roster; an id that names none of
-/// them, and no prepared character, fails construction unless its provider
-/// declared the casting still open (D102). `half_size` is
-/// the spawn AABB half-extent (the archetype spec's `default_size`
-/// usually overrides this anyway). `id` should be unique per spawn
-/// so per-entity systems don't collide on identity. `encounter_id`
-/// scopes the minion to a parent encounter so room reset / boss
+/// `character_id` names a PREPARED CHARACTER — it was `archetype_id` until AC6,
+/// naming a row of the assembled roster, and the field held a character id long
+/// before the name admitted it. An id that names no prepared character fails
+/// construction, and fails it at PREPARATION
+/// (`construction::preflight_planned_bodies`), so a refused summon batch has
+/// built nothing. `half_size` is the spawn AABB half-extent. `id` should be
+/// unique per spawn so per-entity systems don't collide on identity.
+/// `encounter_id` scopes the minion to a parent encounter so room reset / boss
 /// despawn cleans it up alongside the boss.
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
@@ -1237,7 +1238,7 @@ pub(crate) fn spawn_runtime_minion(
     name: impl Into<String>,
     world_pos: ae::Vec2,
     half_size: ae::Vec2,
-    archetype_id: &str,
+    character_id: &str,
     encounter_id: impl Into<String>,
     // Allegiance of the spawned minion. Boss adds pass `Enemy` +
     // `hostile_to_player`; the puppy-slug-gun passes `Player` + `passive` so the
@@ -1258,7 +1259,7 @@ pub(crate) fn spawn_runtime_minion(
         name,
         world_pos,
         half_size,
-        archetype_id,
+        character_id,
         encounter_id,
         faction,
         aggression,
@@ -1281,7 +1282,7 @@ pub(crate) fn spawn_runtime_minion_into(
     name: impl Into<String>,
     world_pos: ae::Vec2,
     half_size: ae::Vec2,
-    archetype_id: &str,
+    character_id: &str,
     encounter_id: impl Into<String>,
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
@@ -1290,7 +1291,7 @@ pub(crate) fn spawn_runtime_minion_into(
     let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
-    let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
+    let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(character_id.into());
     // ⭐⭐ **A SUMMON NAMES A CHARACTER. THERE IS NO OTHER KIND.**
     //
     // ⛔⛔ **THIS CAMPAIGN BROKE A SHIPPED BOSS AND NOTHING SAID SO.** The
@@ -1302,27 +1303,33 @@ pub(crate) fn spawn_runtime_minion_into(
     // `combatant` for every minion the boss cast: wrong health, wrong speed,
     // wrong body, no crawl, no cling.
     //
-    // ⚠ **BOTH WERE FIXED on 2026-08-13** (`MINIMA_TRAP_MINION_ARCHETYPE` →
-    // `"npc_puppy_slug"`, `GRADIENT_CASCADE_MINION_ARCHETYPE` → `"npc_ai_slop"`),
+    // ⚠ **BOTH WERE FIXED on 2026-08-13** (`MINIMA_TRAP_MINION_CHARACTER` →
+    // `"npc_puppy_slug"`, `GRADIENT_CASCADE_MINION_CHARACTER` → `"npc_ai_slop"`),
     // and AC6 removed the road that hid them: there is no generic body to settle
     // for any more, so a summon that resolves nothing REFUSES rather than casting
     // a stranger.
+    //
+    // ⚠ **and the refusal is a PREPARATION refusal now** (AC6.1b). The summon
+    // batch is a construction plan like any other, and
+    // `construction::preflight_planned_bodies` resolves this against the same
+    // registry before the batch is planned — where a rejected batch has spent
+    // nothing and built nothing. What is left here says the two agree.
+    //
+    // ⛔ the `report_unprepared_character` call that stood here went with the
+    // fallback vocabulary: it takes *what will build this body INSTEAD*, was
+    // passed `None`, and its own assertion then fired one line before this
+    // panic said the same thing better.
     let Some(body) = prepared
-        .get(archetype_id)
+        .get(character_id)
         .and_then(|prepared| prepared.body_blueprint().ok())
     else {
-        super::spawn::report_unprepared_character(
-            archetype_id,
-            &format!("summoned minion `{id}`"),
-            prepared,
-            None,
-        );
         panic!(
-            "boss summon `{id}` names `{archetype_id}`, which is not a prepared \
-             character. A summon that resolved nothing used to become a generic \
-             `combatant` silently — that is what cost the Gradient Sentinel its \
-             minions, and the row it borrowed no longer exists. Register the \
-             character."
+            "boss summon `{id}` names `{character_id}`, which is not a prepared \
+             character that can build a body — and it reached construction, so \
+             the row was never preflighted. A summon that resolved nothing used \
+             to become a generic `combatant` silently; that is what cost the \
+             Gradient Sentinel its minions, and the row it borrowed no longer \
+             exists. Register the character."
         );
     };
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
@@ -1335,7 +1342,7 @@ pub(crate) fn spawn_runtime_minion_into(
         &[],
     );
     if reject_runtime_giant(
-        is_limbed_host(prepared.get(archetype_id)),
+        is_limbed_host(prepared.get(character_id)),
         "runtime minion",
         &id,
     ) {
@@ -1382,19 +1389,22 @@ pub(crate) fn spawn_runtime_minion_into(
 /// `ambition.limb` relations. This function stays the path for every ordinary,
 /// unlimbed enemy.
 #[allow(clippy::too_many_arguments)]
-/// **What a body nobody described does when it dies.**
+/// **What a placement that says nothing about respawn gets.**
 ///
 /// ⚠ **deliberately NOT `RespawnPolicy::default()`**, which is `DeadStaysDead`
 /// — the answer for a NAMED, unique actor. A placement that authors no respawn
-/// policy and names a brain key with no row is the opposite: a body nothing in
-/// the game says anything about, which is the trash-grunt case its own doc
-/// describes (*"fresh every time the player enters the room"*).
+/// policy is the opposite: an ordinary room body nothing in particular is said
+/// about, which is the trash-grunt case `OnRoomReenter`'s own doc describes
+/// (*"fresh every time the player enters the room"*).
 ///
 /// ⭐ this is what the reserved `combatant` row was silently supplying through a
 /// lookup that could not fail. Stated here, it is a decision somebody can read
-/// and disagree with; pinned equal to the row by
-/// `the_undescribed_respawn_policy_matches_the_combatant_row` while the row
-/// survives, so deleting it is a no-op rather than a change to every such body.
+/// and disagree with. ⛔ **it WAS pinned equal to that row by
+/// `the_undescribed_respawn_policy_matches_the_combatant_row`, which went with
+/// the row** — deliberately, and the deletion commit says so: the pin existed to
+/// prove the constant changed nothing while both existed, and there is nothing
+/// left to be equal to. Respawn is the PLACEMENT's fact (ADR 0022); this is the
+/// engine's answer when the placement declines to state it.
 pub(crate) const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
     ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
 
@@ -1417,92 +1427,63 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // that are not the archetype's: WHICH character this instantiates, and who
     // drives it. Everything the seed still reads off `authored` below is what
     // phases 2–4 move onto the character.
+    // ⛔⛔ **THE THREE OUTCOMES ARE TWO** (AC6). This read *complete character →
+    // built from it · unnamed or incomplete → the archetype builds it and the
+    // character patches it · named but unprepared → a fault, and the archetype
+    // keeps the body*. Two of those three arms end at an archetype, and there is
+    // no archetype. So the question is no longer *which road builds this body*
+    // but simply *which character is it*, and the answer is required.
+    //
+    // ⚠ **and every failure here was already decided at PREPARATION.**
+    // `construction::preflight_planned_bodies` asks these same three questions
+    // against the same registry, before the world is touched; the panics below
+    // exist so the two cannot silently disagree, and each one names its
+    // preflight twin.
+    let character = authored.payload.gameplay_character_id().unwrap_or_else(|| {
+        panic!(
+            "authored placement `{}` names brain `{:?}` and no character, and \
+             reached construction — so the row was never preflighted (see \
+             `ActorConstructionError::BodyNamesNoCharacter`)",
+            authored.id, authored.payload.brain,
+        )
+    });
     let plan = super::spawn::CharacterSpawnPlan::new(
-        authored.payload.gameplay_character_id(),
+        character,
         super::spawn::SpawnContext {
             feature_id: &authored.id,
             aabb: authored.aabb,
         },
     );
-
-    // **WHICH CHARACTER, decided before the body is built rather than after.**
-    //
-    // ⛔ the arms below are the migration itself, and the middle one is new:
-    //
-    // ```text
-    // complete character   → the body is BUILT from it; no archetype involved
-    // incomplete/unnamed   → the archetype builds it, the character patches it
-    // named but unprepared → a fault, reported, archetype keeps the body
-    // ```
-    let named = match plan.definition(prepared) {
-        Ok(definition) => definition,
-        // ⛔ **the placement NAMED a character and construction could not find
-        // it.** Distinct from "not migrated" and never silent: a body authored
-        // as Iron Mary and quietly built as a shark rider is the original
-        // defect, and it would look exactly like a working spawn.
-        //
-        // ⭐ **A REFUSAL when nothing else can build this body** (2026-08-11).
-        // This was a warning while 28 authored spawns carried a `character_id`
-        // as an ART claim; every one of them names a registered character now,
-        // so the warning's reason is spent.
-        //
-        // ⛔ **the condition is "nothing can build it", not "the character is
-        // missing"** — and the difference is a real composition. A demo that
-        // BORROWS another provider's character legitimately runs without it:
-        // Mary-O's plane swarms are Ambition's, and standalone Mary-O falls back
-        // to the roster row that still describes them. Refusing that would
-        // refuse a shipping build.
-        //
-        // What must never be silent is the case with no fallback at all: a
-        // placement names a character nobody registered AND a brain key nobody
-        // authored, so the body it gets is the generic `combatant` wearing
-        // somebody's name. That is the original Iron Mary defect, and it looks
-        // exactly like a working spawn.
-        Err(missing) => {
-            // ⛔ **REFUSED when this composition HAS a cast and this character
-            // is not in it, and its brain key names no archetype either** — the
-            // Iron Mary case: nothing can build this body, so it would spawn as
-            // a generic combatant wearing her name.
-            //
-            // ⭐ **THE RULE ITSELF LIVES BESIDE THE PLAN** — this road wrote it,
-            // and the NPC road needed the same one. Restating it there would have
-            // produced a second, slightly different policy on the path nobody
-            // looks at, which is how this defect gets back in.
-            //
-            // ⭐ **and there is no fallback left to name.** This reported "its
-            // `{key}` archetype" while a row could still build the body; AC6
-            // deleted the rows, so the sentence after the report is a refusal.
-            super::spawn::report_unprepared_character(
-                missing.as_str(),
-                &format!("enemy `{}`", authored.id),
-                prepared,
-                None,
-            );
-            None
-        }
-    };
-    // ⭐ **CHARACTER-FIRST, when the character can carry a body.** This is the
-    // road the deleted body-assist seam was a probe for — appendix C calls that
-    // method a probe seam and says the constructor comes next, and this is it.
-    // A migrated character's body is built from its own facts and it WEARS
-    // itself, so its kit arrives through the one writer every worn body uses
-    // rather than from an archetype's `melee` row.
-    // ⛔ **the fall-through is NAMED now, not silent** (Jon's redirect §5). A
-    // character that cannot build its own body drops to the archetype road, which
-    // is correct while the migration is unfinished — but it used to happen on a
-    // bare `is_complete_body()` bool, so an author who added a character and
-    // forgot a fact got a body that looked unmigrated rather than incomplete.
-    let blueprint =
-        named.map(crate::character_runtime::PreparedCharacterDefinition::body_blueprint);
-    if let Some(Err(missing)) = &blueprint {
-        bevy::log::warn!(
-            target: "ambition_platformer2d_actor_monolith::spawn",
-            "enemy `{}`: {missing}. It falls back to its archetype",
+    // ⛔ **the placement NAMED a character and construction cannot find it** —
+    // the Iron Mary case, and the reason this is a refusal rather than a
+    // shrug: a body authored as Iron Mary and quietly built as a shark rider
+    // looks exactly like a working spawn.
+    let definition = plan.definition(prepared).unwrap_or_else(|missing| {
+        panic!(
+            "enemy `{}` names character `{missing}`, which this composition has \
+             not registered — and it reached construction, so the row was never \
+             preflighted (see `ActorConstructionError::BodyCharacterNotRegistered`)",
             authored.id,
-        );
-    }
-    if let (Some(definition), Some(Ok(body))) = (named, &blueprint) {
-        let mut body = *body;
+        )
+    });
+    // ⭐ **CHARACTER-FIRST, and there is no second road.** A character's body is
+    // built from its own facts and it WEARS itself, so its kit arrives through
+    // the one writer every worn body uses.
+    //
+    // ⛔ **`body_blueprint`'s `Err` used to be the fall-through to the archetype
+    // road**, named rather than silent so an author who forgot a fact could tell
+    // "incomplete" from "unmigrated". Both readings ended at the same place once
+    // the rows went; what is left is the fact itself, and it is fatal.
+    let body = definition.body_blueprint().unwrap_or_else(|missing| {
+        panic!(
+            "enemy `{}`: {missing}. It reached construction, so the row was \
+             never preflighted (see \
+             `ActorConstructionError::BodyCharacterIsIncomplete`)",
+            authored.id,
+        )
+    });
+    {
+        let mut body = body;
         // ⭐⭐ **WHO DRIVES THIS ONE, if the placement said.** The last of the
         // three authorities to become authorable at the placement: a character
         // states what a body IS, a `BrainProfile` states how a driver decides,
@@ -1662,7 +1643,6 @@ pub(crate) fn spawn_enemy_with_faction_into(
                 &mount.pilotable_classes,
             );
         }
-        return;
     }
     // ⛔⛔ **THE ARCHETYPE ROAD ENDED HERE** (AC6, 2026-08-13). What stood below
     // was a SECOND constructor: resolve a row for the placement's brain key —
@@ -1673,23 +1653,10 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // ⇒ a body is built from a character. There is no second way, so there is no
     // second set of numbers to keep in agreement, and a placement naming a
     // creature nobody registered can no longer spawn a stranger wearing its name
-    // — the defect D73 was written to end.
-    //
-    // ⚠ **and reaching HERE is now a planner defect, not a content one.**
-    // `construction::preflight_planned_bodies` resolves this exact question
-    // during preparation, against the same registry these services carry, so a
-    // content error is refused while the outgoing room is still whole. What
-    // survives here is the assertion that the two agree: a row that reaches this
-    // line was planned without being preflighted.
-    panic!(
-        "authored placement `{}` names brain `{:?}` and no character that can \
-         build a body — and it reached construction, so the row was never \
-         preflighted. Content fix: give the placement a `character_id` naming a \
-         registered character. Engine fix: route this origin through \
-         `preflight_planned_bodies` so it refuses before the world is touched.",
-        plan.context().feature_id,
-        authored.payload.brain,
-    );
+    // — the defect D73 was written to end. The `if let` that used to guard the
+    // character-first half went with it: there is nothing to fall through TO, so
+    // the resolutions above are `unwrap_or_else` panics naming their preflight
+    // twins rather than arms of a road-selection match.
 }
 
 /// Populate a `"giant"`-class LIMBED HOST onto an executor-allocated root: the
@@ -2189,16 +2156,15 @@ pub(super) fn spawn_encounter_mob(
         Some(character_id) => match prepared.get(character_id) {
             Some(definition) => Some(definition),
             None => {
-                super::spawn::report_unprepared_character(
-                    character_id,
-                    &format!("encounter mob `{id}`"),
-                    prepared,
-                    // A wave always has an archetype to fall back to — `new_in`
-                    // resolves one from the roster — so this warns rather than
-                    // refusing. The archetype is a real body, just not this
-                    // character's.
-                    Some("its archetype"),
-                );
+                // ⛔ **A `report_unprepared_character(.., Some("its archetype"))`
+                // STOOD HERE AND WAS A LIE** (AC6). It warned rather than
+                // refused, on the reasoning that *"a wave always has an
+                // archetype to fall back to — `new_in` resolves one from the
+                // roster"*. `new_in` and the roster are deleted, so the sentence
+                // after the warning was the `None` arm's panic, three statements
+                // later — a report describing a road the code did not take. This
+                // road refuses in its own words instead; the shared rule is for
+                // the one road that still HAS a fallback to name.
                 None
             }
         },
@@ -2236,9 +2202,11 @@ pub(super) fn spawn_encounter_mob(
             enemy
         }
         None => panic!(
-            "encounter wave mob `{id}` is of kind `{brain:?}`, which names no \
-             character that can build a body. The wave used to fill with generic \
-             `combatant` bodies and read as a working encounter."
+            "encounter wave mob `{id}` is of kind `{brain:?}` and names no \
+             character that can build a body — either the wave names none, or \
+             the one it names is unregistered or cannot state how it moves. The \
+             wave used to fill with generic `combatant` bodies and read as a \
+             working encounter."
         ),
     };
     if reject_runtime_giant(
@@ -2409,7 +2377,7 @@ pub fn apply_summon_effects(
                 name: s.name.clone(),
                 pos: s.pos,
                 half_size: s.half_size,
-                archetype_id: s.archetype_id.clone(),
+                character_id: s.character_id.clone(),
                 encounter_id: s.encounter_id.clone(),
                 faction: crate::combat::actor_faction_from_hit_side(s.faction),
             },

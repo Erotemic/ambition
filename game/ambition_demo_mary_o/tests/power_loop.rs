@@ -321,7 +321,6 @@ fn mary_o_roster_fragment(app: &mut bevy::prelude::App) {
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron(
             ambition_demo_mary_o::provider::MARY_O_EXPERIENCE,
-            None::<String>,
             &ambition_demo_mary_o::mary_o_roster_ron(),
         )
         .expect("Mary-O roster fragment should be valid"),

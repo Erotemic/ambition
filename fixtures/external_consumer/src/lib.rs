@@ -280,7 +280,6 @@ pub fn install_outlander_content(app: &mut App) {
         CharacterRosterFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_ROSTER_RON",
             OUTLANDER_EXPERIENCE,
-            None::<String>,
             OUTLANDER_ROSTER_RON,
         )
         .expect("Outlander roster fragment should be valid"),

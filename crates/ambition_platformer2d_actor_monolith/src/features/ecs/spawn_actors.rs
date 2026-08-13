@@ -1284,9 +1284,9 @@ pub(crate) fn spawn_boss_with_overrides_into(
 /// attaches the right sprite. Without that marker the minion would
 /// spawn invisibly (ECS-only).
 ///
-/// `archetype_id` matches one of the strings in `BRAIN_NAME_TO_ARCHETYPE`
-/// (`"puppy_slug"`, `"small_lurker"`, …); unknown strings fall back
-/// to `Combatant` via `spec_for_brain`. `half_size` is
+/// `archetype_id` names a row of the assembled roster; an id that names none of
+/// them, and no prepared character, fails construction unless its provider
+/// declared the casting still open (D102). `half_size` is
 /// the spawn AABB half-extent (the archetype spec's `default_size`
 /// usually overrides this anyway). `id` should be unique per spawn
 /// so per-entity systems don't collide on identity. `encounter_id`
@@ -1406,11 +1406,10 @@ pub(crate) fn spawn_runtime_minion_into(
                 .generic_body_for_unresolved_brain(
                     &brain,
                     "a boss summon whose id names neither a prepared character nor a \
-                     row — `small_lurker` (the gradient cascade) and `SmallSkitter` \
-                     (what a `DividingMite` splits into) are the live ones, and WHAT \
-                     they are is a content decision (ledger D93/D96). A minion of \
-                     the wrong body beats a boss that casts nothing mid-fight; \
-                     `every_summoned_minion_id_resolves_a_body` holds the waiver.",
+                     row. Whether one is temporarily allowed is the PROVIDER's \
+                     declaration, not this road's — this road only says why it \
+                     settles when there is one: a minion of the wrong body beats a \
+                     boss that casts nothing mid-fight.",
                 )
                 .or_else(|| {
                     // The HOST waiver: a composition that published no cast at
@@ -1424,12 +1423,13 @@ pub(crate) fn spawn_runtime_minion_into(
                     panic!(
                         "boss summon `{id}` names `{archetype_id}`, which is neither a \
                          prepared character nor an archetype row, and is not on the \
-                         short list of identifiers whose casting is still open. A \
+                         identifier its provider has declared still uncast. A \
                          summon that resolves nothing used to become a generic \
                          `combatant` silently — that is what cost the Gradient \
                          Sentinel its minions. Register the character, add the row, \
-                         or put the id on `IDENTIFIERS_AWAITING_A_CASTING_DECISION` \
-                         with the ledger row that will retire it."
+                         or declare the open decision on the provider's own roster \
+                         fragment (`with_open_casting_decision`) with the ledger \
+                         row that will retire it."
                     )
                 });
             super::actor_clusters::ActorClusterSeed::new_in(
@@ -1820,11 +1820,12 @@ pub(crate) fn spawn_enemy_with_faction_into(
         .unwrap_or_else(|| {
             panic!(
                 "authored placement `{}` names brain `{:?}`, which is neither a \
-                 buildable character nor an archetype row, and is not on the short \
-                 list of identifiers whose casting is still open. It used to spawn \
-                 a generic `combatant` wearing this placement's name, which is the \
-                 defect D73 was written to end. Give the placement a `character_id`, \
-                 add the row back, or record the open decision.",
+                 buildable character nor an archetype row, and is not an \
+                 identifier its provider has declared still uncast. It used to \
+                 spawn a generic `combatant` wearing this placement's name, which \
+                 is the defect D73 was written to end. Give the placement a \
+                 `character_id`, add the row back, or declare the open decision on \
+                 the provider's own roster fragment.",
                 plan.context().feature_id,
                 authored.payload.brain,
             )
@@ -2514,10 +2515,9 @@ pub(super) fn spawn_encounter_mob(
                 .generic_body_for_unresolved_brain(
                     &brain,
                     "an encounter wave whose `kind` names neither a character nor a \
-                     row — `large_brute` is the live one, three waves of the goblin \
-                     fight, and which creature its heavy IS is content (ledger D93). \
-                     The waiver keeps the encounter playable; the warning above \
-                     names the wave.",
+                     row. The waiver keeps the encounter playable where its \
+                     provider declared the casting still open; the warning above \
+                     names the wave, and the provider's declaration names why.",
                 )
                 .or_else(|| {
                     // The HOST waiver: a composition that published no cast at
@@ -2531,7 +2531,7 @@ pub(super) fn spawn_encounter_mob(
                     panic!(
                         "encounter wave mob `{id}` is of kind `{brain:?}`, which is \
                          neither a character nor an archetype row, and is not on the \
-                         short list of identifiers whose casting is still open. The \
+                         identifier its provider has declared still uncast. The \
                          wave used to fill with generic `combatant` bodies and read \
                          as a working encounter."
                     )

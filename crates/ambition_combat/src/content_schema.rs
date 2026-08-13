@@ -13,11 +13,18 @@
 //! ## The key IS the spawn brain key
 //!
 //! Each top-level key is what a `LoadingZone` or an encounter authors as
-//! `Brain::Custom("…")`. That makes the key the identity, and it is why the
-//! reserved `"combatant"` fallback row matters: an unknown brain key resolves to
-//! it rather than failing, so a typo'd key is a SILENT downgrade to the generic
-//! archetype. The schema cannot see the LDtk side, but it can insist the
-//! fallback exists — without it the downgrade has nothing to land on.
+//! `Brain::Custom("…")`. That makes the key the identity.
+//!
+//! ⛔ **there is no reserved row and no fallback** (D102, and this paragraph
+//! said the opposite until 2026-08-12). It used to read: *"the reserved
+//! `combatant` fallback row matters: an unknown brain key resolves to it rather
+//! than failing, so a typo'd key is a SILENT downgrade"* — and it justified a
+//! schema rule requiring every roster to carry that row. Both are gone. An
+//! unknown identifier is a construction ERROR unless the PROVIDER that authored
+//! it has declared its casting still open
+//! (`CharacterRosterFragment::with_open_casting_decision`), so there is nothing
+//! for a typo to downgrade to and no row a roster owes anyone. `combatant` is an
+//! ordinary row that ordinary things may name.
 
 use std::sync::Arc;
 
@@ -64,9 +71,10 @@ impl ContentSchemaHandler for ArchetypesSchema {
         // a genuinely open casting decision produce the same generic body, and
         // the first two hid inside the third for three campaigns. An unknown
         // identifier is a construction ERROR now (see
-        // `CharacterRoster::generic_body_for_unresolved_brain` and its explicit
-        // short list of still-open names), so there is nothing to downgrade TO
-        // and no row a roster is obliged to carry. `combatant` is an ordinary
+        // `CharacterRoster::generic_body_for_unresolved_brain`, which resolves
+        // only identifiers the authoring PROVIDER has explicitly declared still
+        // uncast — the engine holds no list of names), so there is nothing to
+        // downgrade TO and no row a roster is obliged to carry. `combatant` is an ordinary
         // row that ordinary things may name.
         //
         // ⛔ **THE COMPILER MUST NOT APPROVE WHAT THE RUNTIME REFUSES.** The
@@ -280,8 +288,9 @@ pub fn character_archetypes_schema() -> SchemaRegistration {
         capability: CapabilityId::new(COMBAT_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
         doc: "The hostile-archetype roster: how each spawn brain key fights. Keys are the \
-              spawn brain keys; `combatant` is the reserved fallback. Defines \
-              `character_archetype` identities.",
+              spawn brain keys, and no key is reserved — an identifier that names no row \
+              and no character is a construction error unless its provider declared the \
+              casting still open. Defines `character_archetype` identities.",
         handler: Arc::new(ArchetypesSchema),
     }
 }

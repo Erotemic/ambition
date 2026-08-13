@@ -819,7 +819,7 @@ pub fn compose_versus_experience(app: &mut App) {
             CharacterRosterAppExt, CharacterRosterFragment,
         };
         app.register_character_roster_fragment(
-            CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, None::<String>, VERSUS_ROSTER_RON)
+            CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, VERSUS_ROSTER_RON)
                 .expect("the versus archetype roster is valid"),
         );
     }
@@ -1453,7 +1453,6 @@ mod roster_topology_tests {
             .register(
                 ambition_platformer2d::actors::features::CharacterRosterFragment::from_ron(
                     VERSUS_EXPERIENCE,
-                    None::<String>,
                     VERSUS_ROSTER_RON,
                 )
                 .expect("the versus archetype roster is valid"),

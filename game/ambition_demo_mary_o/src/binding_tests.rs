@@ -32,7 +32,6 @@ fn mary_o_roster() -> CharacterRoster {
     app.register_character_roster_fragment(
         CharacterRosterFragment::from_ron(
             crate::provider::MARY_O_EXPERIENCE,
-            None::<String>,
             // ⭐ **the SHIPPED string, not a copy of it.** This rebuilt the
             // same braces from the same constants — under a doc comment saying a
             // specially-assembled roster would prove nothing — and had already

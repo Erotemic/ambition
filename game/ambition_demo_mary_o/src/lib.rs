@@ -1367,12 +1367,8 @@ pub fn install_mary_o_content(app: &mut App) {
             CharacterRosterAppExt, CharacterRosterFragment,
         };
         app.register_character_roster_fragment(
-            CharacterRosterFragment::from_ron(
-                provider::MARY_O_EXPERIENCE,
-                None::<String>,
-                &mary_o_roster_ron(),
-            )
-            .expect("Mary-O enemy roster should be valid"),
+            CharacterRosterFragment::from_ron(provider::MARY_O_EXPERIENCE, &mary_o_roster_ron())
+                .expect("Mary-O enemy roster should be valid"),
         );
     }
     // ⛔ **Mary-O stages NO enemies of her own, and must not.** She used to

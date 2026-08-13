@@ -282,12 +282,8 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
     // rename goes wrong.
     {
         use ambition_platformer2d::actor::CharacterRosterFragment;
-        let broken = CharacterRosterFragment::from_ron(
-            "outlander",
-            None::<String>,
-            "( roster: { \"missing\": ",
-        )
-        .expect_err("truncated roster RON must be refused");
+        let broken = CharacterRosterFragment::from_ron("outlander", "( roster: { \"missing\": ")
+            .expect_err("truncated roster RON must be refused");
         let message = broken.to_string();
         assert!(
             message.contains("outlander"),
@@ -317,7 +313,7 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
         );
 
         use ambition_platformer2d::actor::CharacterRosterFragment as Roster;
-        let broken = Roster::from_ron_at(source, "outlander", None::<String>, "( roster: {")
+        let broken = Roster::from_ron_at(source, "outlander", "( roster: {")
             .expect_err("truncated roster RON must be refused");
         assert!(
             broken.to_string().contains(source),

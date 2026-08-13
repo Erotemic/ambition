@@ -236,9 +236,10 @@ impl RoomFeatureConstructionPlan {
             .collect();
         // Every id this room POINTS AT that has NO failure mode of its own,
         // resolved before construction mutates anything: an unknown patrol path
-        // goes passive, an unknown brain key becomes the `combatant` fallback.
-        // Both used to construct without complaint and simply come out wrong, so
-        // this pass is the only place those typos are ever going to be visible.
+        // goes passive. ⚠ an unknown BRAIN KEY used to become the `combatant`
+        // fallback here and no longer does — construction refuses it (D102) — so
+        // this pass is now about the failure modes that still pass silently,
+        // which is the patrol road.
         //
         // Held items are deliberately absent. `authored_ground_item_requests`
         // REFUSES a room that names an unregistered one, which is stronger than

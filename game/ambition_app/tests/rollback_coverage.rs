@@ -1051,7 +1051,11 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "prepared authored definitions; immutable within a session and bound by PreparedContentIdentity",
     ),
     (
-        "::character_runtime::definition::StagedCharacterOverrides",
+        // ⚠ ALSO REPATHED, and by the same crate move as the entry above — the
+        // staging lifecycle followed the fold down to `ambition_characters` so
+        // the fold could stop being public (GPT 5.6 review, priority 2). The
+        // resource and its reason are unchanged; only its address is.
+        "::prepared::StagedCharacterOverrides",
         "preparation-private staging input, resolved before the session's first simulated frame",
     ),
     // The ROSTER, not the activation. It is authored by whoever entered the

@@ -104,10 +104,12 @@ fn the_honest_lookup_and_the_downgrading_one_answer_differently() {
 /// ⭐ two rows, and neither is a creature anybody designed:
 ///
 /// ```text
-///   combatant       the reserved FALLBACK_BRAIN_KEY — what an unknown key
-///                   resolves to. Deleting it means answering that question
-///                   (ledger D102): GPT 5.6's redirect says a construction
-///                   ERROR, the rule P0.1 set for an absent CharacterId.
+///   combatant       no longer reserved — nothing resolves to it by accident
+///                   (D102 is answered: an undeclared identifier is a
+///                   construction ERROR). It survives as the row three OPEN
+///                   CASTING DECISIONS borrow while they stand, declared by
+///                   `ambition_content` itself: small_lurker, large_brute,
+///                   SmallSkitter. Deleting it means casting those three.
 ///   medium_striker  retained for ONE placement — `under_town_skitter` names
 ///                   it and carries no character_id, so deleting it silently
 ///                   nerfed a shipped body from 5 HP with a thrown rock to the
@@ -128,9 +130,11 @@ fn the_shipped_archetype_file_holds_only_rows_that_state_why() {
     const SURVIVORS: &[(&str, &str)] = &[
         (
             "combatant",
-            "the reserved FALLBACK_BRAIN_KEY (ambition_combat's content schema \
-             requires it). Deleting it means deciding what an unknown brain key \
-             resolves to — ledger D102.",
+            "not reserved and not a fallback any more — the schema rule that \
+             required it is deleted with the downgrade it served. It is the row \
+             `ambition_content` names in its three `with_open_casting_decision` \
+             declarations, so deleting it means casting small_lurker, \
+             large_brute and SmallSkitter — ledger D93/D96.",
         ),
         (
             "medium_striker",
@@ -212,9 +216,10 @@ fn legacy_baseline_pins() {
     //
     // ⛔ they were not dropped, they MOVED: `ambition_content` pins them beside
     // the definition that states them. Leaving them here would have been worse
-    // than deleting them — `test_spec` answers an unknown key with `combatant`,
-    // so these six assertions would have gone on passing about the wrong
-    // creature until one of the numbers happened to differ.
+    // than deleting them — `test_spec` reads the TEST-ONLY fixture road, which
+    // still answers an unknown key with `combatant`, so these six assertions
+    // would have gone on passing about the wrong creature until one of the
+    // numbers happened to differ.
 }
 
 /// The two gun-sword archetypes reference their weapon by id in the

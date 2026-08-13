@@ -1338,24 +1338,22 @@ pub fn integrate_sim_bodies(
     }
 }
 
-/// PHASE — sync actor read-model. Mirrors each actor's integrated body state onto
-/// the ECS read-model components consumers read (`ActorIdentity` / `BodyCombat`
-/// presentation fields). It changes no control
-/// and moves no body — it only reflects already-integrated state. Runs after
-/// `integrate_actor_bodies`. Disposition is owned by spawn/provoke, so it is read
-/// (to pick peaceful vs hostile combat state) but not written.
+/// PHASE — sync the actor identity read-model.
+///
+/// ⭐⭐ **this phase used to mirror `BodyCombat` too, and now mirrors nothing but
+/// a name** (AC3). Every combat fact it wrote turned out to be a duplicate of an
+/// authority the reader could ask directly: liveness (`BodyHealth`), melee
+/// (`BodyMelee`), the sandbag flag (authored, set at construction), and three
+/// fields nobody read at all. So the query loses `ActorDisposition`,
+/// `BodyCombat` and `Has<ActiveCombatant>` — the last of which existed ONLY to
+/// choose between a peaceful and a hostile rebuild that no longer happens.
+///
+/// It changes no control and moves no body. Runs after `integrate_actor_bodies`.
 pub fn sync_actor_read_model(
     mut actors: Query<
         (
-            &ActorDisposition,
             &mut ActorIdentity,
-            &mut BodyCombat,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
-            // Is this body in a fight? A combatant keeps its attack windup and
-            // swing timers through the rebuild; `BodyCombat::peaceful` drops
-            // them every frame, so a socially non-hostile fighter could be hit
-            // and could not swing.
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         (
             With<FeatureSimEntity>,
@@ -1369,19 +1367,12 @@ pub fn sync_actor_read_model(
         ),
     >,
 ) {
-    for (disposition, mut identity, mut combat, clusters, in_a_fight) in &mut actors
-    {
+    for (mut identity, clusters) in &mut actors {
         let Some(mut cq) = clusters else {
             continue;
         };
         let em = cq.as_actor_mut();
-        sync_actor_components_from_cluster(
-            &em,
-            *disposition,
-            in_a_fight,
-            &mut identity,
-            &mut combat,
-        );
+        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 
@@ -1859,28 +1850,27 @@ fn build_enemy_brain_snapshot(
     }
 }
 
-/// Mirror the authoritative actor cluster onto the ECS read-model components
-/// consumers read. Disposition is OWNED by spawn/provoke (not derived from the
-/// cluster), so it is read here (with `in_a_fight`, to pick peaceful vs hostile
-/// `BodyCombat`) but never written.
+/// Keep the actor's `ActorIdentity` read-model in step with its cluster.
 ///
-/// ⚠ **`in_a_fight` is the caller's `Has<ActiveCombatant>`**, and it is a
-/// parameter rather than a lookup so every caller has to answer it. A body that
-/// is in a fight keeps its attack windup and swing timers in the read-model;
-/// `BodyCombat::peaceful` drops them every frame, so a socially non-hostile
-/// combatant — which is what a human-driven fighter is for most of a round —
-/// could be hit and could not SWING.
+/// ⭐⭐ **IT NO LONGER TOUCHES `BodyCombat` AT ALL** (AC3). What this function
+/// did to that component, slice by slice: AC3.1.C deleted three fields it
+/// rebuilt for no reader; AC3.2 replaced the save→rebuild→restore with in-place
+/// writes; AC3.1.A and .B deleted the liveness and melee mirrors it wrote; and
+/// AC3.1.D moved `training_dummy` to construction, where an AUTHORED fact
+/// belongs. What is left is one string comparison.
+///
+/// ⇒ **that is the change-amplification answer stated as code**: adding a
+/// reaction timer to `BodyCombat` now requires no edit here, and none in the
+/// boss road either. It used to require a carry line in two hand-kept lists that
+/// had already drifted apart.
+///
+/// ⚠ identity is rebuilt only when it actually differs. This runs per actor per
+/// frame, and an unconditional rebuild is a string clone plus a spurious
+/// change-detection tick for every actor in the room.
 pub fn sync_actor_components_from_cluster(
     em: &super::super::actor_clusters::ActorMut<'_>,
-    disposition: ActorDisposition,
-    in_a_fight: bool,
     identity: &mut ActorIdentity,
-    combat: &mut BodyCombat,
 ) {
-    // Identity is stable after spawn — only rebuild it (which clones the id/name
-    // strings AND wakes Bevy change-detection on `ActorIdentity`) when it actually
-    // differs, not every tick. This mirror runs per actor per frame, so the
-    // unconditional rebuild was pure clone + change-mark churn.
     if identity.id != em.config.id
         || identity.name != em.config.name
         || identity.sprite_override_npc_name != em.config.sprite_override_npc_name
@@ -1888,32 +1878,6 @@ pub fn sync_actor_components_from_cluster(
         *identity = ActorIdentity::new(em.config.id.clone(), em.config.name.clone())
             .with_sprite_override(em.config.sprite_override_npc_name.clone());
     }
-    // Health is no longer synced — it lives on the shared `BodyHealth` the cluster
-    // (`em.health`) reads/writes directly; there is no separate copy to mirror.
-    //
-    // ⭐⭐ **THE SAVE → REBUILD → RESTORE IS GONE** (AC3.2). This used to copy
-    // five reaction timers into locals, replace `*combat` wholesale with a
-    // freshly constructed read-model, and write the five back. Three things were
-    // wrong with that and only one of them was visible:
-    //
-    // 1. it made a hand-kept carry list load-bearing, and the list had drifted —
-    //    `landing_lag_timer` joined `BodyCombat` later, joined neither the save
-    //    nor the restore, and was therefore ERASED one frame after the moveset
-    //    runtime set it. That is D108: a CPU paid no landing lag while a human
-    //    paid 0.10–0.28s out of the same authored aerial;
-    // 2. the same list was copied into the boss road, comment and all, so one
-    //    omission became two;
-    // 3. it forced a component that owns authoritative history to be
-    //    reconstructed every frame, which is the mixed-authority shape this
-    //    campaign exists to remove.
-    //
-    // ⇒ so it writes the DERIVED fields in place and touches nothing else. The
-    // reaction timers are not carried because they are never disturbed; adding a
-    // seventh one requires no edit here at all, which is AC3's
-    // change-amplification test stated as code.
-    let takes_damage =
-        crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage();
-    combat.training_dummy = takes_damage && em.config.tuning.is_sandbag;
 }
 
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
@@ -2037,38 +2001,31 @@ pub fn tick_npc_idle_barks(
 
 #[cfg(test)]
 mod body_combat_rebuild_contract {
-
-    /// **EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT IN THE PER-FRAME SYNC.**
+    /// **NOTHING IN `BodyCombat` IS WRITTEN BY THE PER-FRAME ACTOR SYNC.**
     ///
-    /// ⭐⭐ **this guard found D108 and AC3.2 removed the shape that caused it.**
-    /// `sync_actor_components_from_cluster` used to REPLACE `*combat` wholesale
-    /// and then restore a hand-written list of timers — a list enumerated in a
-    /// comment as *"the SAME fields the player carries"*, which nothing enforced.
-    /// `landing_lag_timer` joined `BodyCombat` later, never joined the list, and
-    /// was erased one frame after the moveset runtime set it.
+    /// ⭐⭐ **this destructure found D108 and then outlived the defect.** The sync
+    /// used to REPLACE `*combat` wholesale and restore a hand-written list of
+    /// timers — a list a comment described as *"the SAME fields the player
+    /// carries"*, which nothing enforced. `landing_lag_timer` joined
+    /// `BodyCombat` later, never joined the list, and was erased one frame after
+    /// the moveset runtime set it.
     ///
-    /// ⇒ **there is no carry list any more.** The sync writes the derived fields
-    /// in place and touches nothing else, so a new reaction timer needs no edit
-    /// there at all. What this destructure now guards is the smaller and more
-    /// durable question — *does the per-frame sync write this field?* — and the
-    /// answer must stay "no" for everything the body owns.
+    /// ⇒ AC3 removed every field the sync had a reason to write. Keeping the
+    /// destructure keeps the claim honest: if a future field is added to this
+    /// component AND written from the cluster, this stops compiling and somebody
+    /// has to say why the read-model is growing a second authority again.
     #[allow(dead_code)]
-    fn every_body_combat_field_declares_whether_the_sync_writes_it(
-        combat: &ambition_characters::actor::BodyCombat,
-    ) {
+    fn the_per_frame_sync_writes_none_of_these(combat: &ambition_characters::actor::BodyCombat) {
         let ambition_characters::actor::BodyCombat {
-            // ── WRITTEN by the sync (1) — the authored sandbag flag, which is
-            // all that is left of what this refresh used to rebuild.
-            training_dummy: _,
-
-            // ── UNTOUCHED (6) — the body's own reaction history. Not "carried":
-            // never disturbed. A seventh timer belongs here and costs no edit.
+            // ── Reaction history the body owns. Never disturbed by the sync.
             damage_invuln_timer: _,
             hit_flash: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
             landing_lag_timer: _,
+            // ── Authored at construction (AC3.1.D), not re-derived per frame.
+            training_dummy: _,
         } = combat;
     }
 }

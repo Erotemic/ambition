@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use super::{
     sync_actor_components_from_cluster, ActorAggression, ActorDisposition,
-    ActorIdentity, ActorInteraction, AggressionMode, BodyCombat, CombatKit,
+    ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
     FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
@@ -33,11 +33,7 @@ pub fn apply_actor_stimuli(
             Option<&ActorInteraction>,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyCombat,
             super::actor_clusters::ActorClusterQueryData,
-            // Is this body in a fight? A provoked body's read model is rebuilt
-            // here, and a combatant keeps its attack state through the rebuild.
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
             // ⭐ **WHICH CHARACTER THIS BODY IS** — the gameplay identity, not
             // the sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
@@ -66,9 +62,7 @@ pub fn apply_actor_stimuli(
             _interaction,
             mut identity,
             mut disposition,
-            mut combat,
             mut cq,
-            in_a_fight,
             worn,
         )) = actors.get_mut(actor)
         else {
@@ -122,13 +116,7 @@ pub fn apply_actor_stimuli(
             // damage source is known.
             challenged || source.is_some(),
         );
-        sync_actor_components_from_cluster(
-            &em,
-            *disposition,
-            in_a_fight,
-            &mut identity,
-            &mut combat,
-        );
+        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 

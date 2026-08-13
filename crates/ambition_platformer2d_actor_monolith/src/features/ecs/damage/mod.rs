@@ -629,13 +629,7 @@ pub fn apply_feature_hit_events(
             ) {
                 actor_hit_this_event = true;
                 landed_keys.push(format!("{prefix}:{}", id.as_str()));
-                sync_actor_components_from_cluster(
-                    &em,
-                    *disposition,
-                    active_combatant,
-                    &mut identity,
-                    &mut combat,
-                );
+                sync_actor_components_from_cluster(&em, &mut identity);
             }
         }
         let mut boss_hit_this_event = false;

@@ -53,14 +53,10 @@ pub fn reset_ecs_room_features(
             &mut CenteredAabb,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyCombat,
             &mut ActorAggression,
             Option<&ActorInteraction>,
             &mut crate::features::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
-            // Is this body in a fight? A room reset restores fight state, and a
-            // combatant's attack windup is part of the read model it restores.
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
         // query (via `ActorClusterQueryData`) and the boss query take
@@ -163,12 +159,10 @@ pub fn reset_ecs_room_features(
         mut aabb,
         mut identity,
         mut disposition,
-        mut combat,
         mut aggression,
         interaction,
         mut motion_model,
         mut cq,
-        in_a_fight,
     ) in &mut actors
     {
         // Restore authored spawn state for EVERY actor through the unified
@@ -196,13 +190,7 @@ pub fn reset_ecs_room_features(
             aggression.strikes = 0;
             aggression.target = None;
         }
-        sync_actor_components_from_cluster(
-            &em,
-            *disposition,
-            in_a_fight,
-            &mut identity,
-            &mut combat,
-        );
+        sync_actor_components_from_cluster(&em, &mut identity);
     }
     for (
         mut cq,

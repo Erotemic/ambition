@@ -27,7 +27,6 @@ pub fn sync_ecs_actors_with_save(
             Entity,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &mut BodyCombat,
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
@@ -37,7 +36,6 @@ pub fn sync_ecs_actors_with_save(
             super::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
             // ⭐ **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
             // sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
@@ -57,13 +55,11 @@ pub fn sync_ecs_actors_with_save(
         entity,
         mut identity,
         mut disposition,
-        mut combat,
         mut aggression,
         combat_kit,
         held_item,
         interaction,
         mut cq,
-        in_a_fight,
         worn,
     ) in &mut actors
     {
@@ -111,13 +107,7 @@ pub fn sync_ecs_actors_with_save(
         }
 
         let em = cq.as_actor_mut();
-        sync_actor_components_from_cluster(
-            &em,
-            *disposition,
-            in_a_fight,
-            &mut identity,
-            &mut combat,
-        );
+        sync_actor_components_from_cluster(&em, &mut identity);
     }
 }
 

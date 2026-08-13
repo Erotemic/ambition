@@ -612,3 +612,100 @@ mod hit_feedback_tests {
         assert_eq!(by_sword.debris, 1);
     }
 }
+
+/// **THE FOUR REASONS A BODY CANNOT BE HIT, each one alone.** (campaign P4.29)
+///
+/// ⛔⛔ **`body_vulnerable` had SIX production callers and no test.** It is the
+/// single gate every damage boundary consults — hazards, empowerment, the actor
+/// update, the damage resolver, the avatar's body integration — and the one that
+/// decides whether a PARRY works at all, because a parry is not a block: a
+/// parried hit never registers, where a blocked one registers and arms a guard
+/// i-frame. That distinction is the whole of *"does the parry window read"*, and
+/// nothing asserted it.
+///
+/// ⭐ **each term is toggled ALONE against an otherwise-vulnerable body**, which
+/// is what makes this a test of the GATE rather than of one scenario: a gate
+/// that had lost any single term would still pass a test that raised two.
+///
+/// ⚠ `parrying()` is `active && parry_window_timer > 0.0`, so the last case is
+/// the one that separates a parry from a held shield — a shield that is up but
+/// past its window leaves the body vulnerable HERE and is caught downstream by
+/// `shield_blocks_hit` instead. Two defences, two gates, different outcomes.
+#[cfg(test)]
+mod vulnerability_gate_tests {
+    use super::body_vulnerable;
+    use ambition_characters::actor::{BodyCombat, Invulnerability};
+    use ambition_platformer2d_core::BodyShieldState;
+
+    fn open() -> (Invulnerability, bool, BodyShieldState, BodyCombat) {
+        (
+            Invulnerability::none(),
+            false,
+            BodyShieldState::default(),
+            BodyCombat::default(),
+        )
+    }
+
+    #[test]
+    fn a_body_with_nothing_holding_it_is_vulnerable() {
+        let (inv, evading, shield, combat) = open();
+        assert!(
+            body_vulnerable(inv, evading, &shield, &combat),
+            "an unguarded, un-invulnerable, non-evading body outside its i-frames \
+             cannot be hit — every clause below is measured against this one, so \
+             a false here makes them all vacuous"
+        );
+    }
+
+    #[test]
+    fn parrying_alone_makes_a_body_untouchable() {
+        let (inv, evading, mut shield, combat) = open();
+        shield.active = true;
+        shield.parry_window_timer = 0.05;
+        assert!(
+            !body_vulnerable(inv, evading, &shield, &combat),
+            "a body inside its parry window took the hit — the parry is a \
+             DIFFERENT defence from the block, and this gate is the only thing \
+             that makes it one"
+        );
+    }
+
+    /// ⛔ THE POISON that separates the two defences: a shield held past its
+    /// parry window is NOT invulnerable here. It may still block, which is
+    /// `shield_blocks_hit`'s business downstream and a different outcome
+    /// (`Blocked`, with a guard i-frame) from never being hit at all.
+    #[test]
+    fn a_shield_past_its_parry_window_leaves_the_body_vulnerable_to_this_gate() {
+        let (inv, evading, mut shield, combat) = open();
+        shield.active = true;
+        shield.parry_window_timer = 0.0;
+        assert!(
+            body_vulnerable(inv, evading, &shield, &combat),
+            "merely holding a shield made the body untouchable, so a parry is \
+             indistinguishable from a guard and the timing means nothing"
+        );
+    }
+
+    #[test]
+    fn evading_alone_makes_a_body_untouchable() {
+        let (inv, _, shield, combat) = open();
+        assert!(!body_vulnerable(inv, true, &shield, &combat));
+    }
+
+    #[test]
+    fn any_single_invulnerability_reason_makes_a_body_untouchable() {
+        for reason in [
+            Invulnerability::TRANSFORMING,
+            Invulnerability::EMPOWERED,
+            Invulnerability::SCRIPTED,
+        ] {
+            let (mut inv, evading, shield, combat) = open();
+            inv.set(reason, true);
+            assert!(
+                !body_vulnerable(inv, evading, &shield, &combat),
+                "one reason held ({reason}) left the body hittable, so the gate \
+                 is reading something narrower than `any()`"
+            );
+        }
+    }
+}

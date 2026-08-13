@@ -234,10 +234,34 @@ autonomous_reconcile                1045
 7. ▢ **The real common body constructor** — `PreparedCharacterDefinition` +
    `CharacterSpawnPlan` → one actor. Then encounter, programmatic and summon
    paths, none of which may keep passing an empty prepared registry.
-8. ▢ **`PreparedMatch` drops `CharacterRoster` / `ArchetypeSpec`** — appendix
+8. ✔ **`PreparedMatch` drops `CharacterRoster` / `ArchetypeSpec`** — appendix
    D's proving ground, and the point where `smash_fighter_kit()` and
    `roster.fighter_abilities` should stop being necessary. ⭐ take this EARLY
    once (7) lands; it is the strongest evidence the architecture composes.
+
+   ⇥ ✔ **DONE 2026-08-13 (campaign P2.18).** `prepare_match` and
+   `prepare_the_match` no longer take a roster at all — it was a REQUIRED `Res`,
+   so every host that prepared a match had to install an enemy archetype table to
+   seat a fighter. `prepared_match.rs` now names `CharacterRoster` and
+   `ArchetypeSpec` only inside ⛔ history blocks; no code reaches either.
+   `seat_brain_profile` lost its archetype arm, and with it `CharacterRoster`
+   stopped being a controller-policy authority — one of the three fused
+   authorities, out of the type.
+
+   ⇥ ✔ **`smash_fighter_kit()` is gone too** — grepped for the definition, not
+   the name: every surviving mention is a comment about what it used to do.
+
+   ⇥ ⛔⛔ **BUT `roster.fighter_abilities` IS NOT SCAFFOLDING, and this line's
+   premise is wrong.** It was measured end to end on 2026-08-13
+   (`a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines`,
+   campaign P4.29/30/32): dropping `shield` from a character turns the test red,
+   and adding `fly` to a character ALONE does not — the mask intersects it away.
+   Both are needed for a verb to reach a live body. ⇒ that is `AbilitySet`
+   INTERSECTION, and the mask is the SESSION RULESET's half of it: a stage states
+   what its mode permits, and authoring a capability onto a character must not
+   smuggle it in. Removing it would delete an authority Jon's own three-way split
+   names, not a crutch. It stays, and item 25's "ruleset restricts, never grants"
+   is the rule it implements.
 9. ▢ **Delete `adopt_character_intrinsics`** once (7) replaces the precedence
    it performs. It is migration scaffolding, not a destination.
 

@@ -102,3 +102,68 @@ fn idle_zeros_locomotion_but_keeps_facing() {
     assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
     assert!(frame.facing < 0.0, "facing should point at target");
 }
+
+/// **A CHOSEN SHIELD REACHES THE BODY'S GUARD BIT.**
+///
+/// ⛔⛔ **this arm used to drop to Idle with the note "no engine-side input bit
+/// yet"** — and `shield_held` is a field on the very frame it was writing to,
+/// the same one a player's guard travels (`shield_held` → `resolve_shield`).
+/// The comment described the world when the variant was added; nothing re-read
+/// it, and P5.38 recorded `Shield` as having "zero producers" with the reason
+/// assumed to be further downstream.
+///
+/// ⚠ **nothing chooses `Shield` yet, and that is the point of pinning it here.**
+/// The remaining gap is upstream: `ObservationFrame` carries no channel for what
+/// the TARGET is doing, so the brain cannot see an incoming swing and has no
+/// condition on which to guard. This test is what makes that a one-layer job
+/// instead of two, and it fails the moment somebody restores the drop-to-Idle.
+#[test]
+fn a_chosen_shield_presses_the_guard_and_stops_moving() {
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    assert!(
+        !frame.shield_held,
+        "a neutral frame already guards, so this test cannot tell whether \
+         `emit_inputs` did anything"
+    );
+    emit_inputs(SpecificAction::Shield, &obs_at(120.0), &mut frame);
+    assert!(
+        frame.shield_held,
+        "a brain that chose to shield emitted no guard — the action is a no-op \
+         again and any brain-side work above it is invisible"
+    );
+    assert_eq!(
+        frame.locomotion,
+        ae::LocalAxes::ZERO,
+        "shielding while walking: a guard is a commitment, not a modifier"
+    );
+}
+
+/// **AND A DODGE STILL DOES NOT**, which is a different fact and worth its own
+/// assertion so the two are not assumed to have been fixed together.
+///
+/// ⚠ `ActorControlFrame` has no dodge bit. A dodge reaches a body through the
+/// DASH buffer, and P5.38 records that `apply_dodge` claims that buffer before
+/// `apply_dash` can see it — so a body owning `dodge` never dashes. Emitting a
+/// dash here would ride that defect rather than route around it.
+#[test]
+fn a_chosen_dodge_is_still_reserved_and_says_so() {
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    emit_inputs(
+        SpecificAction::Dodge {
+            dir: ae::Vec2::new(1.0, 0.0),
+        },
+        &obs_at(120.0),
+        &mut frame,
+    );
+    assert!(
+        !frame.shield_held,
+        "a dodge raised a GUARD — the two arms were merged again, and they are \
+         different verbs with different bodies of rules"
+    );
+    assert!(
+        !frame.dash_pressed,
+        "a dodge emitted a dash. That is not a shortcut, it is the P5.38 defect: \
+         `apply_dodge` claims the dash buffer first, so this would produce a \
+         burst the brain believes is a dodge and the body resolves as a dash"
+    );
+}

@@ -118,10 +118,28 @@ pub fn emit_inputs(
         SpecificAction::Special => {
             out.special_pressed = true;
         }
-        SpecificAction::Shield | SpecificAction::Dodge { .. } => {
-            // Reserved — no engine-side input bit yet. Drop to Idle
-            // so the actor doesn't visibly freeze in a "trying to
-            // shield" pose.
+        SpecificAction::Shield => {
+            // ⛔⛔ **"no engine-side input bit yet" WAS WRONG, and it had been
+            // wrong for a while** (corrected 2026-08-13). `shield_held` is a
+            // field on the very struct this function writes to, and it is the
+            // live path a player's guard takes — `shield_held` → `resolve_shield`
+            // (`avatar/starting_character.rs`). The comment described the world
+            // when the variant was added and nobody re-read it, so P5.38 recorded
+            // `Shield` as having "zero producers" while the reason it had none
+            // was assumed to be downstream.
+            //
+            // ⚠ a body that cannot shield is not harmed by this: the ability mask
+            // gates the verb (`AbilitySet::shield`), so holding the bit on a body
+            // without a guard raises nothing.
+            out.shield_held = true;
+            out.locomotion = ae::LocalAxes::ZERO;
+        }
+        SpecificAction::Dodge { .. } => {
+            // ⚠ **still genuinely reserved, and for the stated reason**: there is
+            // no dodge bit on `ActorControlFrame`. A dodge reaches a body through
+            // the dash buffer, which is the coupling P5.38 already records — a
+            // body owning `dodge` never dashes because `apply_dodge` claims that
+            // buffer first. Emitting a dash here would ride the same defect.
             out.locomotion = ae::LocalAxes::ZERO;
         }
     }

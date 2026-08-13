@@ -23,8 +23,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 
-use crate::features::FeatureEcsWorldOverlay;
 use crate::features::ecs::attack::engine_input_from_actor_control;
+use crate::features::FeatureEcsWorldOverlay;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
@@ -166,8 +166,9 @@ pub fn integrate_home_body(
         actor_control,
         feel,
         combat.hitstun_timer,
-        // The HARD lock this frame, whichever fact produced it.
-        combat.recoil_lock_timer.max(combat.landing_lag_timer),
+        // The HARD lock this frame, whichever fact produced it. ⭐ one spelling,
+        // shared — the actor road spells half of it, which is ledger D108.
+        combat.hard_lock_timer(),
         frame_dt,
     );
     let sim_dt = if combat.hitstop_timer > 0.0 {

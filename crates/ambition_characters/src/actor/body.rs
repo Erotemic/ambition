@@ -296,6 +296,30 @@ pub struct BodyCombat {
 }
 
 impl BodyCombat {
+    /// **THE HARD CONTROL LOCK THIS FRAME, whichever fact produced it** — no
+    /// steering authority at all while it is positive.
+    ///
+    /// ⭐ **named because two roads have to agree on it and one of them does
+    /// not** (ledger D108). The player road already computes
+    /// `recoil_lock.max(landing_lag)` inline; the ACTOR road passes only
+    /// `(hitstun, recoil_lock)`, so a CPU lands clean out of an aerial that
+    /// costs a human up to 0.28s. Two spellings of one rule is how they
+    /// diverged, and one spelling is how they stop.
+    ///
+    /// ⚠ **this does NOT fix D108 by existing.** The actor road still does not
+    /// call it — that is a difficulty decision, because applying it makes every
+    /// CPU fighter commit to its aerials. What it does is make the fix a
+    /// one-line change at the call site instead of a re-derivation, and make the
+    /// divergence visible: one road calls this, the other spells half of it.
+    ///
+    /// ⛔ `hitstun_timer` is deliberately NOT part of it. Hitstun REDUCES
+    /// movement authority; this is the set of facts that remove it entirely, and
+    /// merging the two is the distinction `apply_post_hit_input_gates` exists to
+    /// keep.
+    pub fn hard_lock_timer(&self) -> f32 {
+        self.recoil_lock_timer.max(self.landing_lag_timer)
+    }
+
     pub fn vulnerable(&self) -> bool {
         self.damage_invuln_timer <= 0.0
     }
@@ -445,5 +469,54 @@ mod tests {
         assert!((combat.damage_invuln_timer - 0.40).abs() < 1e-6);
         assert_eq!(combat.hitstun_timer, 0.0);
         assert_eq!(combat.recoil_lock_timer, 0.0);
+    }
+}
+
+#[cfg(test)]
+mod hard_lock_tests {
+    use super::*;
+
+    /// **LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL** — ledger D108,
+    /// and the assertion the player road's inline expression never had.
+    ///
+    /// ⛔ the expression was `recoil_lock.max(landing_lag)` written at the call
+    /// site, so reducing it to `recoil_lock` alone would have stopped landing lag
+    /// locking anything and no test would have said so. That is not
+    /// hypothetical — the ACTOR road passes exactly that reduced form today.
+    #[test]
+    fn landing_lag_alone_still_locks_control() {
+        let mut combat = BodyCombat::default();
+        assert_eq!(
+            combat.hard_lock_timer(),
+            0.0,
+            "a body with no stagger reports a lock, so the assertions below \
+             cannot tell a lock from a default"
+        );
+
+        combat.landing_lag_timer = 0.28;
+        assert_eq!(
+            combat.hard_lock_timer(),
+            0.28,
+            "landing lag alone does not lock control — an aerial's authored cost \
+             is being dropped, which is precisely what the actor road does"
+        );
+
+        // The larger of the two wins, both ways round.
+        combat.recoil_lock_timer = 0.40;
+        assert_eq!(combat.hard_lock_timer(), 0.40);
+        combat.landing_lag_timer = 0.55;
+        assert_eq!(combat.hard_lock_timer(), 0.55);
+
+        // ⛔ hitstun is a DIFFERENT gate — it reduces authority rather than
+        // removing it, and folding it in here would silently harden it.
+        combat.recoil_lock_timer = 0.0;
+        combat.landing_lag_timer = 0.0;
+        combat.hitstun_timer = 1.0;
+        assert_eq!(
+            combat.hard_lock_timer(),
+            0.0,
+            "hitstun became a HARD lock; it is supposed to leave reduced movement \
+             authority, which is the distinction the input gate keeps"
+        );
     }
 }

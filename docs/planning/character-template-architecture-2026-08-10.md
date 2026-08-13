@@ -392,6 +392,14 @@ autonomous_reconcile                1045
    for a character that cannot build — **but the NPC road's fallback will carry
    most of its traffic, not the tail**, which is the opposite of the enemy road
    and worth knowing before starting.
+
+   ⇥ ⛔⛔ **AND THE CAMPAIGN HAS ALREADY PAID FOR THIS EXACT SHAPE ONCE.** P2.20
+   records why it was not attempted blind: *"it changes what provocation produces
+   for ~144 Hall characters, and the ~100-NPC regression this campaign already
+   paid for came from exactly that shape of blanket change."* A blanket change to
+   how those same ~144 bodies are CONSTRUCTED is the same bet. ⇒ **do it as its
+   own slice, with the vitals decisions (D96 7 and 8) in hand** so the fallback
+   is the tail rather than the trunk — not as the tail end of a session.
 7. ◐ **THE CONSTRUCTOR EXISTS AND FOUR OF THE SIX ROADS USE IT** (census
    2026-08-13, by call site rather than by claim). `ActorClusterSeed::
    new_character_in` is called by the MATCH seat (`prepared_match.rs`), the

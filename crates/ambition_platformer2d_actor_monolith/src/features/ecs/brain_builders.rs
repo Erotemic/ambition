@@ -886,9 +886,18 @@ mod default_fighting_kit_tests {
     /// which is exactly what this asserts is still true in the meantime.
     #[test]
     fn the_default_kit_equals_what_the_provocation_fallback_builds() {
-        let fallback = crate::features::ecs::actors::hostile_spec_for_actor(
-            &crate::features::enemies::test_roster(),
-        );
+        // ⚠ **it names the ROW directly now** (2026-08-13). This went through
+        // `actors::hostile_spec_for_actor`, whose only purpose was to be the
+        // roster's side of this comparison; it was deleted with
+        // `hostile_brain_id_for_actor` when provocation stopped naming a roster
+        // key at all (P2.20). The comparison's subject was never that function —
+        // it is the `combatant` row — so naming the row is what the test always
+        // meant.
+        let roster = crate::features::enemies::test_roster();
+        let fallback = roster
+            .archetype_for(crate::features::enemies::GENERIC_BODY_ROW)
+            .expect("the engine's fixture roster carries its generic row")
+            .clone();
         let from_row = enemy_combat_kit_for_spec(&fallback);
         let named = default_fighting_kit();
         assert_eq!(named.innate_melee, from_row.innate_melee, "the swipe");

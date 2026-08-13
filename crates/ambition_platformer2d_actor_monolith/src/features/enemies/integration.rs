@@ -88,10 +88,23 @@ fn evaluate_enemy_ai_output(
     // (`actor_clusters`), the boss config (`spawn_actors`) and the reconcile
     // projection all do. So the arm was restating what the profile already said.
     //
-    // ⇒ and it is what made provocation write an ARCHETYPE NAME. A provoked body
-    // took `CharacterBrain::Custom("combatant")` so it would miss this arm and
-    // reach its policy's radius — the read-model standing in for "hostile",
-    // which is the last reason the provoke road spells a roster key at all.
+    // ⚠⚠ **AND THIS WHOLE FUNCTION IS A READ-MODEL, which is worth stating
+    // because the first version of this note got the consequence wrong.** Its
+    // output goes to `ActorStatus::ai_mode` and nowhere else, and `ai_mode`'s only
+    // readers are `ActorIntent` — whose own doc says it exists "so rendering and
+    // HUD systems can branch on actor state" — and the rollback snapshot.
+    // `is_dangerous()` has no gameplay caller. What a body actually chases is
+    // decided by its BRAIN from the same `BrainProfile`, not here.
+    //
+    // ⇒ so the arm did not make a provoked body fail to notice anybody; it made
+    // the HUD say `Idle` about a body its brain was chasing with. That is still a
+    // defect and still the same defect — two authorities over one number, and the
+    // presentation copy free to disagree with the policy — but it is a
+    // presentation bug, not a combat one.
+    //
+    // ⭐ **and that is the good news for P2.20**: the read-model provocation
+    // writes (`CharacterBrain::Custom("combatant")`) is not load-bearing for
+    // gameplay either, so replacing it costs no creature its behaviour.
     //
     // ⚠ `Guard` stays, and is not the same shape: `leash_radius` is a PLACEMENT
     // fact — this guard, at this post — not a property of the policy driving it.
@@ -112,11 +125,24 @@ fn evaluate_enemy_ai_output(
             attack_recover_remaining: recover_remaining,
             stun_remaining: 0.0,
             alive,
-            patrol_enabled: !tuning.is_sandbag
-                && !matches!(
-                    brain,
-                    ambition_entity_catalog::placements::CharacterBrain::Passive
-                ),
+            // **Does this driver wander when it has nothing to chase?** The
+            // field's own doc names the fact — "has a path or a NON-ZERO PATROL
+            // SPEED" — and `BrainProfile::patrol_effort` is that speed, as a
+            // fraction of the body's top speed (§4.7).
+            //
+            // ⛔ it read `!matches!(brain, Passive)` until 2026-08-13: the same
+            // silhouette co-authority the aggro radius above just lost, one flag
+            // over. A body whose policy authors a real patrol effort read as
+            // `Idle` because its integrator read-model said `Passive`, which is
+            // every peaceful NPC in the Hall — they wander, and the HUD said they
+            // were standing still.
+            //
+            // ⚠ **safe to change because the mode is a READ-MODEL** (see the
+            // block above): no gameplay branches on it, so this corrects what the
+            // presentation layer reports rather than what any creature does.
+            // `is_sandbag` stays and is not the same shape — a practice target
+            // holds still because of what its BODY is, not what its policy wants.
+            patrol_enabled: !tuning.is_sandbag && profile.patrol_effort > 0.0,
         },
     )
 }
@@ -656,9 +682,9 @@ mod aggro_authority_tests {
         assert_eq!(
             look(CharacterBrain::Passive, 200.0),
             CharacterAiMode::Chase,
-            "a body carrying a hostile policy did not notice a target 100px away \
-             because its integrator read-model still said `Passive`. That is the \
-             coupling that forces provocation to write an archetype name"
+            "a body carrying a hostile policy reads as not-chasing because its \
+             integrator read-model still says `Passive`, so the HUD disagrees \
+             with the brain about what this creature is doing"
         );
     }
 

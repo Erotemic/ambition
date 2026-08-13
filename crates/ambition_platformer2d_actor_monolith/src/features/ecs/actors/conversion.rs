@@ -10,71 +10,26 @@
 use super::super::*;
 use super::*;
 
-/// **What a peaceful actor with NO authored provoked policy becomes.** One
-/// answer, for everybody.
-///
-/// ⭐⭐ **it used to be a string matcher over identity and dialogue, and every
-/// arm is now deleted** (ledger D84 and D89, 2026-08-11). It read a body's id,
-/// display name and encounter dialogue node looking for `"pirate"`,
-/// `"iron mary"`, `"cellular automaton"` — guessing at how content spells itself
-/// — and handed back a whole ARCHETYPE. Eleven characters answered those arms and
-/// every one of them publishes its own `provoked_profile_ref` now, so a provoked
-/// creature rebuilds the mind IT authored rather than one recognised by its name.
-///
-/// ⚠ **the parameters are gone with the arms.** A function that takes an identity
-/// and cannot use it invites the next matcher; taking nothing says what is true —
-/// this is the fallback for a body whose character said nothing.
-pub(crate) fn hostile_brain_id_for_actor() -> &'static str {
-    // ⛔⛔ **THE CELLULAR-AUTOMATON ARM IS DELETED TOO (2026-08-11, ledger D89),
-    // and it was the LAST one.** It asked whether an id, a display name or a
-    // dialogue node contained "cellular automaton" — three spellings, because a
-    // matcher on prose has to guess how content spells itself — and handed the
-    // body a whole archetype.
-    //
-    // ⭐ both automatons publish `cellular_duelist` as their PROVOKED profile
-    // now, so a creature that is attacked rebuilds the mind it authored instead
-    // of being recognised by its name. That is the whole of what this function
-    // was for.
-    // ⛔ **THE TWO PIRATE ARMS ARE DELETED (2026-08-11, ledger D84), with the
-    // rows they pointed at.** They asked whether an id, a display name or a
-    // dialogue node contained `"pirate"` — or one of `"broadside bess"` /
-    // `"iron mary"` / `"salt annet"` — and handed the body a whole archetype.
-    //
-    // All nine characters that answered them now state their own
-    // `provoked_profile_ref`, and the branch above takes it. Measured before
-    // deleting, twice: every pirate-named placement in every world carries a
-    // `character_id` (so none can fall through to here), and a body built from a
-    // named character keeps that id through construction (so the branch above can
-    // find it).
-    // Generic provoked NPC = a melee brawler (`combatant`: Smash + melee Swipe,
-    // NO ranged), matching how the pirates fight. Deliberately NOT
-    // `medium_striker` — that archetype carries a ranged Rock, which turned every
-    // provoked NPC (kernel guide, merchant, ...) into a rock-thrower instead of a
-    // melee attacker like the pirates.
-    "combatant"
-}
-
-/// Resolve the hostile archetype spec a peaceful actor would become when
-/// provoked. Spawn-time use: feeds the actor's stored `CombatKit` so a provoked
-/// NPC fights with the right weapon. Generalized from `hostile_enemy_spec_for_npc`.
-/// ⚠ its identity parameters went with the matcher's (see
-/// [`hostile_brain_id_for_actor`]): there is one fallback spec, and a signature
-/// that still asked who the body was would imply otherwise.
-/// ⚠ **TEST-ONLY since 2026-08-12**, and the reason is a deletion. Its last
-/// production caller was the peaceful-NPC spawn, which asked the roster for
-/// `combatant`'s spec to build a provoked body's kit; that now reads
-/// `brain_builders::default_fighting_kit()` directly. What remains is the
-/// EQUIVALENCE test proving those two are the same swipe — so this function
-/// exists to be compared against, and goes when `combatant` does.
-#[cfg(test)]
-pub(crate) fn hostile_spec_for_actor(
-    roster: &super::super::super::enemies::CharacterRoster,
-) -> super::super::super::enemies::ArchetypeSpec {
-    let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(
-        hostile_brain_id_for_actor().into(),
-    );
-    roster.spec_for_brain(&brain)
-}
+// ⛔⛔ **`hostile_brain_id_for_actor()` WAS HERE AND IS DELETED (2026-08-13,
+// campaign P2.20) — the last roster key on the provoke road.**
+//
+// It began as a matcher over an id, a display name and a dialogue node — *does
+// any of them contain "pirate"* — and handed the struck body a whole archetype.
+// Those arms went one by one as the creatures took their own
+// `provoked_profile_ref` (D84, D89), leaving a function that took nothing and
+// returned the literal `"combatant"`, used for exactly one thing: setting
+// `config.brain = CharacterBrain::Custom("combatant")` on a provoked body.
+//
+// ⚠ **that write was not decoration, which is why it outlived the matcher.**
+// `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
+// `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
+// read-model to be reported correctly, and an archetype name was the only value
+// to hand. Both branches read their `BrainProfile` now — the policy that always
+// owned both numbers — so `provoked_projection` derives the read-model with
+// `config_brain_for` like every other road, and provocation names no roster key.
+//
+// ⚠ its test-only twin `hostile_spec_for_actor` went with it: its whole purpose
+// was to be the roster's side of an equivalence test against this function.
 
 /// Build the read-model mirror components for an actor cluster seed at the given
 /// disposition. Peaceful actors get a peaceful `BodyCombat`; hostile actors
@@ -273,11 +228,11 @@ pub(crate) fn provoke_actor_in_place(
         // eventually override it, exactly as `unarmed_melee` was named here
         // before moving to `DeclaredCombatRules`.
         //
-        // ⚠ the id is still recorded in the binding, because a rewind resolves
-        // the provoked mode from it — see the `binding.provoke` call below, and
-        // `an_engine_default_provoked_policy_matches_the_combatant_row`, which
-        // pins the two roads equal while the row survives.
-        let hostile_id = hostile_brain_id_for_actor();
+        // ⚠ nothing is recorded but the MODE: `binding.provoke()` sets the
+        // payloadless `AutonomousSource::ProvokedDefault`, so a rewind resolves
+        // the policy the engine states rather than a roster key it must look up
+        // (P2.21). `an_engine_default_provoked_policy_matches_the_combatant_row`
+        // pins the two equal while the row survives.
         // The ONE definition of "what provocation produces" — shared verbatim with
         // the post-GGRS-load reconstruction (`autonomous_reconcile`), so a provoked
         // actor is identical whether it was just challenged or rebuilt from a
@@ -287,7 +242,6 @@ pub(crate) fn provoke_actor_in_place(
         // that needs a different brain flows through the flip's archetype swap).
         let proj = super::super::autonomous_reconcile::provoked_projection(
             super::super::brain_builders::default_provoked_policy(),
-            hostile_id,
             em.config,
             combat_kit,
             held_item,

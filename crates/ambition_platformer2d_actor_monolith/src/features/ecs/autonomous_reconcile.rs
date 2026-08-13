@@ -35,8 +35,6 @@
 //! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use bevy::prelude::*;
-
 use super::actor_clusters::ActorConfig;
 use super::{CombatKit, HeldItem};
 use crate::combat::CombatCapabilities;
@@ -105,24 +103,38 @@ pub(crate) struct ProvokedArchetype {
 /// goes, this signature is already the one that stays.
 pub(crate) fn provoked_projection(
     brain_profile: BrainProfile,
-    archetype: &str,
     current_config: &ActorConfig,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
-    let config_brain = CharacterBrain::Custom(archetype.to_string());
-
-    // ⭐ the POLICY is the archetype's; the BODY is the one that was struck.
+    // ⭐ the POLICY is the provoked one; the BODY is the one that was struck.
     let mut hostile_config = current_config.clone();
     hostile_config.brain_profile = brain_profile;
-    hostile_config.brain = config_brain.clone();
     let (brain, action_set) = super::brain_builders::aggressive_brain_and_action_set_for_enemy(
         &hostile_config,
         combat_kit,
         held_item,
         body,
     );
+    // ⛔⛔ **AN `archetype: &str` PARAMETER STOOD HERE, AND IT WAS THE LAST
+    // ROSTER KEY ON THE PROVOKE ROAD** (campaign P2.20, 2026-08-13). Its callers
+    // passed `hostile_brain_id_for_actor()`, which returned the literal
+    // `"combatant"` and nothing else once the pirate and cellular-automaton
+    // matcher arms were deleted, and it was used for exactly one thing: to set
+    // `config.brain = CharacterBrain::Custom("combatant")`.
+    //
+    // ⚠ **that read-model is a SILHOUETTE, and it was being used as a hostility
+    // flag.** `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
+    // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
+    // value to read correctly — and the only one to hand was an archetype name.
+    // Both branches ask their `BrainProfile` now, so nothing needs the name.
+    //
+    // ⇒ derived like every other road derives it (`config_brain_for`), which
+    // answers `Patrol` for a patrol brain and `Passive` otherwise. The live
+    // provoke and the reconstruction agreed on `Custom("combatant")` before and
+    // agree on the derived value now, which is this module's central claim.
+    let config_brain = crate::features::brain_command::config_brain_for(&brain);
 
     ProvokedArchetype {
         config_brain,
@@ -275,7 +287,6 @@ mod tests {
         let before = config.clone();
         let proj = provoked_projection(
             crate::features::ecs::brain_builders::default_provoked_policy(),
-            "combatant",
             &config,
             &CombatKit::default(),
             None,
@@ -297,12 +308,34 @@ mod tests {
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );
+        // ⛔⛔ **THIS ASSERTED `!= Passive`, AND IT WAS PINNING THE DEFECT**
+        // (inverted 2026-08-13, campaign P2.20). A provoked body was given
+        // `CharacterBrain::Custom("combatant")` so that `evaluate_enemy_ai_output`
+        // — which branched `Passive => aggro 0.0` — would report it correctly, so
+        // "not passive" was the archetype NAME's fingerprint, and asserting it
+        // required the roster key to stay.
+        //
+        // ⇒ both of those branches read the `BrainProfile` now, so `Passive` is
+        // the CORRECT read-model for a provoked wanderer: hostility is
+        // `ActorDisposition`'s and the policy is the profile's, and the
+        // integrator-facing silhouette is neither. What must hold is that the
+        // value is DERIVED rather than authored — no roster key may reappear here.
         assert!(
             !matches!(
                 proj.config_brain,
-                ambition_entity_catalog::placements::CharacterBrain::Passive
+                ambition_entity_catalog::placements::CharacterBrain::Custom(_)
             ),
-            "a provoked body's read-model still says it is not passive"
+            "a provoked body's read-model names an archetype ({:?}) — provocation \
+             is spelling a roster key again, which is the whole of what P2.20 \
+             deleted",
+            proj.config_brain
+        );
+        assert_eq!(
+            proj.config_brain,
+            crate::features::brain_command::config_brain_for(&proj.brain),
+            "the read-model disagrees with what deriving it from the actual brain \
+             gives, so provocation has a second answer to a question one function \
+             owns"
         );
         // ⭐⭐ **AND THE STRUCTURAL ASSERTION THAT REPLACED THE HP ONE.** This
         // used to read `proj.max_health == DEFAULT_PROVOKED_HEALTH`, pinning the

@@ -392,8 +392,8 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
             launch_dir: None,
         }))
     };
-    use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
     use crate::combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
+    use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
 
     // A reference-strength launch is the standard reaction, so the shipped feel
     // numbers still mean what they said.
@@ -1038,8 +1038,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     // The poison: a body-targeted hit on a body this resolver does NOT own must
     // stay out of its rollback-registered FIFO.
     let other_body = app.world_mut().spawn_empty().id();
-    let volume: ae::CombatVolume =
-        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
+    let volume: ae::CombatVolume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
     app.world_mut().write_message(FeatureHitEvent {
         strike_sfx: None,
         volume: volume.clone(),
@@ -1563,4 +1562,97 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         "no knockback, no launch: {:?}",
         flight.pending_launch
     );
+}
+
+/// **A RAISED SHIELD KEEPS ITS BODY'S HP — through the production resolver, not
+/// the rule underneath it.** (campaign P4.29)
+///
+/// ⛔⛔ **the pure rule was tested and the RESOLVER's `Blocked` branch was not.**
+/// `shield_blocks_hit` has six unit tests above and `resolve_body_hit` had none
+/// at all — so "the bubble blocks" was proven as geometry (*is this hit on the
+/// faced side?*) and never as CONSEQUENCE (*does the body keep its health?*).
+/// Those are different claims, and the second is the one P4.29 asks about: a
+/// resolver that computed the geometry and then fell through to the damage path
+/// would pass every test in this file.
+///
+/// ⭐ four clauses, and each is a different OUTCOME of the same hit rather than
+/// a different input:
+///
+/// ```text
+///   shield up, hit from the front   -> Blocked   HP unchanged
+///   shield DOWN, same hit           -> damaging  HP drops     (the poison)
+///   shield up, hit from BEHIND      -> damaging  HP drops     (the direction)
+///   parrying                        -> Ignored   HP unchanged (a different gate)
+/// ```
+///
+/// ⚠ the third clause is what stops this passing on a resolver that blocks
+/// EVERYTHING while a shield is held, and the fourth separates the two defences:
+/// a parry is `body_vulnerable`'s business and the hit never registers, while a
+/// block registers and arms a guard i-frame.
+#[test]
+fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
+    use ambition_characters::actor::{BodyHealth, Health};
+
+    const START_HP: i32 = 10;
+    let body = ae::Vec2::new(100.0, 200.0);
+    let down = ae::Vec2::new(0.0, 1.0);
+    let from_front = body + ae::Vec2::new(50.0, 0.0);
+    let from_behind = body + ae::Vec2::new(-50.0, 0.0);
+
+    // Facing local-right, so `from_front` is the guarded side.
+    let hit = |shield_active: bool, impact: ae::Vec2| -> (BodyHitResolution, i32) {
+        let mut combat = BodyCombat::default();
+        let mut health = BodyHealth::new(Health::new(START_HP));
+        let resolution = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            None,
+            None,
+            shield_active,
+            1.0,
+            body,
+            impact,
+            down,
+            3,
+            1.0,
+            false,
+            BodyHitFeel {
+                hit_flash: 0.0,
+                damage_invuln_time: 0.0,
+                block_hit_flash: 0.0,
+                block_invuln_floor: 0.1,
+                armor_hitstop_time: 0.0,
+            },
+            false,
+        );
+        (resolution, health.health.current)
+    };
+
+    let (blocked, hp) = hit(true, from_front);
+    assert_eq!(blocked, BodyHitResolution::Blocked);
+    assert_eq!(
+        hp, START_HP,
+        "a raised shield reported Blocked and the body lost health anyway — the \
+         resolver computed the geometry and fell through to the damage path"
+    );
+
+    // ⛔ THE POISON: the same hit with the shield down must hurt, or the clause
+    // above is satisfied by a body nothing can damage.
+    let (unguarded, hp) = hit(false, from_front);
+    assert_ne!(unguarded, BodyHitResolution::Blocked);
+    assert!(
+        hp < START_HP,
+        "an unguarded body took no damage from the same hit, so this test proves \
+         nothing about the shield"
+    );
+
+    // ⛔ and a shield is a SIDE, not a bubble: the back is open.
+    let (from_the_back, hp) = hit(true, from_behind);
+    assert_ne!(
+        from_the_back,
+        BodyHitResolution::Blocked,
+        "a hit from behind was blocked, so the shield guards every direction and \
+         facing decides nothing"
+    );
+    assert!(hp < START_HP);
 }

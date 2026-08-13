@@ -632,3 +632,77 @@ impl CharacterDefinition {
         self
     }
 }
+
+#[cfg(test)]
+mod authority_tests {
+    use super::*;
+
+    /// **WHAT A CHARACTER IS ALLOWED TO KNOW** — D73's first failure mode,
+    /// guarded from the destination side.
+    ///
+    /// The brief's warning is *"do not migrate `ArchetypeSpec` into
+    /// `CharacterDefinition` wholesale — it holds THREE authorities and they
+    /// must separate"*. `ArchetypeSpec` now has the same exhaustive destructure
+    /// saying where each of its 49 fields goes. This is the other half: a field
+    /// arriving HERE has to be justified as something a body may state.
+    ///
+    /// ⇒ **the failure mode now requires an explicit lie rather than an
+    /// omission.** Carrying `aggro_radius` across would not quietly widen a
+    /// struct; it would stop this crate compiling until somebody filed a
+    /// controller fact under one of the headings below.
+    ///
+    /// ⚠ **the DEFAULT CONTROLLER group is the subtle one and is deliberately
+    /// not empty.** A character may state the policy it comes with — the goblin
+    /// names `medium_striker`, the shark riders carry one inline — and that is
+    /// the campaign's own design, not a leak: *"one adopter does not earn the
+    /// indirection."* What must stay true is that a DEFAULT is replaceable.
+    /// **Changing the controller does not change the body**; a body that could
+    /// not be driven by another mind would be the failure this group is watched
+    /// for.
+    #[allow(dead_code)]
+    fn a_character_states_only_what_a_body_may_state(definition: &CharacterDefinition) {
+        let CharacterDefinition {
+            // ── IDENTITY & PRESENTATION BINDING (7) ─────────────────────────
+            id: _,
+            display_name: _,
+            provider: _,
+            lineage: _,
+            sheet: _,
+            portrait: _,
+            voice: _,
+
+            // ── BODY (15) — what this creature IS ───────────────────────────
+            body: _,
+            hurtboxes: _,
+            vitals: _,
+            death_traits: _,
+            moveset: _,
+            action_set: _,
+            motion_model: _,
+            movement_tuning: _,
+            abilities: _,
+            locomotion: _,
+            contact_damage: _,
+            held_item: _,
+            mount: _,
+            practice_target: _,
+            ranged_execution: _,
+
+            // ── DEFAULT CONTROLLER (3) — see the ⚠ above ────────────────────
+            //
+            // A policy this character COMES WITH, by name or inline. Not the
+            // controller itself, and never a reason for a body fact to live in
+            // a profile or the reverse.
+            autonomous_profile: _,
+            autonomous_profile_ref: _,
+            provoked_profile_ref: _,
+
+            // ── PRESENTATION PROJECTED FROM THE BODY (2) ────────────────────
+            //
+            // The same pair that rides in `ActorTuning` and `ArchetypeSpec`.
+            // Presentation observes a body; it is not a fourth authority.
+            ranged_vfx: _,
+            dream_seed: _,
+        } = definition;
+    }
+}

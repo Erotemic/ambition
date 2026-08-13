@@ -377,8 +377,20 @@ autonomous_reconcile                1045
                          still not their own BODY
    ```
 
-   ⇒ **two thirds of this item is already filed as content decisions**, which
-   makes it a downstream consequence of D96 rather than independent work.
+   ⇒ **two thirds of that population is already filed as content decisions.**
+
+   ⛔⛔ **BUT THE POPULATION IS NOT THE CALLER COUNT, and my first sizing of this
+   item confused them** (corrected 2026-08-13, same day). The enemy road reaches
+   `adopt_character_intrinsics` only on the FALL-THROUGH — when a placement names
+   a character whose `body_blueprint()` is `Err`. **Zero shipped placements do**:
+   `what_still_needs_an_archetype_row` reports one placement resolving to no
+   character at all and none resolving to an incomplete one, and the seam has no
+   other production caller.
+
+   ⇒ **the seam is already dead in shipped content.** What remains is deleting it
+   and the two `actor_clusters` tests that exercise it — which is item 9, and it
+   is NOT waiting on D96. ⚠ the 14 are what would reach it if one of them were
+   placed as an enemy, which is why the ratchet is still worth keeping.
 
    ⚠ **body-incomplete is NOT unseatable.** The admiral and the oni leader are on
    the Smash grid and fight. It means *"cannot build a body from the character

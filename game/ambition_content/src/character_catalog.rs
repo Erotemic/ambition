@@ -566,6 +566,17 @@ mod tests {
     /// Smash grid and fight. It means "cannot build a body from the character
     /// ALONE" — the assist is what item 9 deletes, not the character.
     ///
+    /// ⛔⛔ **AND THIS COUNT IS THE POPULATION, NOT THE CALLER COUNT — a
+    /// distinction I got wrong when I first wrote this doc.** The enemy road
+    /// reaches `adopt_character_intrinsics` only on the FALL-THROUGH, when a
+    /// placement names a character whose `body_blueprint()` is `Err`. Zero
+    /// shipped placements do: `worlds::tests::what_still_needs_an_archetype_row`
+    /// reports one placement that resolves to no character at all and none that
+    /// resolves to an incomplete one. ⇒ **the seam has no shipped caller today.**
+    /// These 14 are what would reach it if one of them were placed as an enemy,
+    /// which is why the number is still worth ratcheting — but item 9's deletion
+    /// is not waiting on them.
+    ///
     /// ⚠ a CEILING rather than a floor, because this one is supposed to shrink.
     #[test]
     fn the_cast_that_still_needs_a_body_assist_only_shrinks() {

@@ -21,7 +21,7 @@
 | AC4 complete prepared character bodies | ✔ | 2026-08-13 | 2026-08-13 | **`REGISTERED_WITHOUT_A_BODY` is EMPTY** and `character_archetypes.ron` is down to ONE row. Seven bodies authored (6 pirates, Carl Stargan, + Patent Clerk vitals); `SmallSkitter`→`npc_puppy_slug`, `under_town_skitter`→`npc_puppy_slug` (via the LDtk tooling), `large_brute`→a real `npc_goblin_brute` whose separate sprite generator already existed. `medium_striker` DELETED. ⚠ a guard caught me inventing a moveset — see AC4 notes |
 | AC5 construction convergence, delete build-then-patch | ✔ | 2026-08-13 | 2026-08-13 | ✔ `adopt_character_intrinsics` DELETED (population 14 → 7 → 0) · ✔ AC5.4 (the character names its own `divides_into`) · ✔ AC5.5 (cross-context equivalence, which found the geometry gap) · ✔ AC5.2 — the NPC road DOES reach `new_character_in` (`actor_clusters.rs:773`); ⚠ I briefly recorded otherwise and the correction is below. What remains is REGISTRATION, not routing: 109 of 163 NPC placements name one of 94 unregistered characters and take the fallback |
 | AC6 delete archetype/roster/tuning authority | ✔ **AC6.1 ontology DELETED · AC6.1b preparation refusal · AC6.2 collapse done · AC6.3 audited** | 2026-08-13 | 2026-08-13 `74bd5e9ae` | ⭐ the gate dissolved on inspection: **all three answers to `small_lurker` delete the ontology identically** — the word only picks a body. Cast provisionally as `npc_ai_slop` (`5de883e79`; reversal = that one constant). ✔ **CONTENT HALF** (`1cae63776`): Mary-O owns the plane swarms whole (catalog rows + definitions), the fork's two hidden divergences (patrol pace, respawn) surfaced and settled, 4 placements author `respawn` via LDtk tooling (map-assets `0464bd2`). ✔ **AC6.1 THE ONTOLOGY IS DELETED** (`74bd5e9ae`, 68 files, ≈2,600 lines): `character_archetypes.ron` + `ArchetypeSpec` + `content_schema` + `CharacterRoster`/fragments/registry/waiver + `GENERIC_BODY_ROW` + `ArchetypeSpecExt` + `ActorClusterSeed::new_in` and its `spec` field + `spec_for_brain`/`try_spec_for_brain`/`has_brain_key`/`generic_body_for_*` + `spec_is_limbed_host` + `attach_mount_role` + the three spec kit builders + the roster parameter from ~30 signatures in six crates. ⭐ **SAFE BY MEASUREMENT, not argument**: the file was one row; its fields reached production at exactly two sites, each with a stated default already pinned equal to it (`UNDESCRIBED_BODY_RESPAWN`, `default_fighting_kit()`); all ten shipped `combatant` placements carry a resolving `character_id`. ⭐⭐ **TWO REAL DEFECTS THE DELETION EXPOSED, both fixed here**: (1) `RoomConstructionPlan::prepare(world,..)` — the exclusive-world form the CONFIRMED deferred room transition uses under a rollback host — never passed the prepared cast or the published policies, so the same room was character-first through the eager transition and archetype-first through the confirmed one; (2) `staged_actor_requests` built a staged giant's HOST row from the brain alone, dropping the request's `character`. ✔ **AC6.1 IS VERIFIED** (2026-08-14, after the reboot): `cargo check --workspace --all-targets` green, app_it **342/342**, smash 18, mary_o 142+10+33, sanic 77+2+25, monolith 1213, content 194+29, shared_tangle 223 — the door fix in `stage.rs` holds. The ONLY red anywhere is `mary_o_it::…a_small_mary_o_dies_to_one_hit…`, which is ledger D112 and is recorded there as verified-by-stash to predate this work. ⇒ **no AC6.1 regression.** ✔ **AC6.1b — THE REFUSAL WAS LATE, AND IS NOW A PREPARATION REFUSAL** (review finding): deleting the ontology made an unresolvable character honest, but the refusal it became lived inside `spawn_enemy_with_faction_into`, which runs as a construction RECIPE — so it arrived as a panic mid-commit, after the outgoing room was retired, against a contract (`ConstructionDomain::dispatch`) whose own doc says *"every lookup that could miss resolved in the request builder"*. `preflight_planned_bodies` resolves it during preparation, against the same registry the recipes read, for all five body-bearing families (authored enemy, giant host, giant hand, staged enemy, summoned minion) and on both plan roads (room + summon batch); three typed variants name the three distinct fixes. ⛔ no fallback restored. ◐ **AC6.2 IN PROGRESS** (`a44aa5c61`, `76115f444`): `max_health` + `death_policy` DELETED — `BodyHealth` already carried both for every body including the player, the pool was written independently at three sites (the boss road handed itself `boss.health.max()`), and the policy copy was never set to anything but the default while the MATCH road set the real one on `BodyHealth` — so the actor damage gate could read `HpDepleted` for a fighter playing under `Unbounded`. The classification test now uses the plan's six columns instead of its own three, and ⛔ **its "runtime history is empty" claim was FALSE**: Mary-O's `step_snake_shell` toggles `body_contact_damage` per tick (legal only because `ActorConfig` rewinds). ⚠ **`is_hostile` and `respawn` STAY and that is the answer, not a deferral**: both are placement facts (ADR 0022; Jon's redirect §6 put hostility on the placement), neither has an existing owner, and inventing one is what AC6.2 forbids. ✔ **`is_sandbag` DELETED** (`482e285fe`): one authored `practice_target` had TWO runtime carriers and the sim view published a field from each; `BodyCombat::training_dummy` wins (body-generic, rewinds, the player carries it) and the seed now owns its `BodyCombat` like it owns its `BodyHealth`. ⭐ it was filed as blocked on `ActorMut` not carrying `BodyCombat` — `ActorMut::update` already TAKES one, so checking the signature beat trusting the note; the payoff was dropping `tuning: &ActorTuning` from `evaluate_enemy_ai_output` entirely. ⚠ **`patrol_speed`/`chase_speed` are NOT projections** — hypothesis falsified: only `new_character_in` computes effort × run speed, while the NPC road writes `NPC_PATROL_SPEED` and the boss writes `BOSS_FLIGHT_SPEED`, so they are resolved absolute pace and stay. `dream_seed`/`ranged_visual` stay too: moving them would make `ambition_sim_view` and `brain_effects` resolve characters, which is a worse dependency than a presentation value riding on a resolved-scalars projection. ⇒ **AC6.2's movable set is EMPTY**; what survives is the resolved-body-scalars projection plus three stated passengers (two placement facts with no owner, one runtime toggle). ✔ **AC6.3 AUDITED AND CLOSED** (`177efb587`): ⭐ **MEASURED — of the 32 characters Ambition registers, ZERO reach `PreparedKit::Unauthored`**; it is kept, because it names the one case a per-character value structurally cannot hold (the host kit is built from the body's runtime `AbilitySet`) and an SDK host that ships no catalog is its consumer. The residue was elsewhere: `PlayableKitSource` had ONE variant and its own doc kept it for a hypothetical future answer — DELETED, with `CharacterCatalogEntry::playable_kit`, the RON row and seven literals; every caller was asking `catalog.knows(id)` |
-| AC7 final naming/docs + D73 closure + amplification probes | ▢ | | | |
+| AC7 final naming/docs + D73 closure + amplification probes | ◐ **the three PROBES are RUN and green; naming/docs remain** | 2026-08-14 | | ✔ **PROBE A** (`4b280a0be`): a new reaction timer costs one owner (`BodyCombat` declares/decays/resets), one rollback declaration, the arming event, its consumers — plus two exhaustive destructures that stop compiling until somebody answers *does the shared decay tick it* and *does reset clear it*, and a third on the boss sync asserting it writes nothing there. Before AC3 there were FIVE lists and four had forgotten `landing_lag_timer`. ⚠ recomputing it found two stale ownership claims (`reset`'s doc and the reset destructure both named a per-frame sync that AC3.2 deleted) and they are corrected. ✔ **PROBE B** (`4b280a0be`): `apply_feature_hit_events` reached for `PrimaryPlayer` to LOCATE an attacker in two places with two different rules — one narrowly guarded to unresolved broadcasts from victim-seeking sources with its reasoning written out, one an unguarded `or_else` onto the primary query that credited the home avatar with any unattributed melee's combo-confirm. `attacker: None` is reachable in production (`Hazard`, `EnemyProjectile`). Resolved ONCE per event now; both readers share the considered rule. ✔ **PROBE C** (measured 2026-08-14): FIVE production roads — NPC, authored enemy (incl. giant host/hand and staged), summoned minion, encounter wave, match seat — all reach `ActorClusterSeed::new_character_in`, and there is no second body constructor. ✔ criterion 5: `scheduler_perturbation` 2/2 green, including its falsifier. ▢ REMAINING: AC7.1 `sprite_character_id` / `art_identity`-as-gameplay, and AC7.2's reduction of the `⇥ AS WRITTEN:` archaeology in D73 (31 prose marks) |
 
 ## ⭐⭐ Maintainer decisions given 2026-08-13, during this campaign
 
@@ -1348,6 +1348,27 @@ The list must not contain parallel player/actor/boss mirror carry lists or a sav
 
 Record the before/after edit-site count from AC0/AC3.
 
+### ✔ PROBE A RESULT, recomputed against HEAD 2026-08-14
+
+```text
+ambition_characters/src/actor/body.rs       declare it · decay it · reset it   ONE owner
+ambition_characters/src/snapshot_impls.rs   say whether its history rewinds
+<the event that arms it>                    e.g. ambition_combat/src/moveset
+<its consumers>                             whoever reads it
+```
+
+**Before AC3: FIVE maintenance lists** — two `sync` carry lists, two decay
+lists, and `reset()` — and **four of the five had forgotten
+`landing_lag_timer`**. After: one decay, one reset, and three exhaustive
+destructures that stop compiling until a new field is classified (`body.rs`
+twice, and `bosses/sync.rs` asserting the boss road writes nothing there).
+
+⚠ **the recomputation is what found the stale part.** `BodyCombat::reset`'s doc
+and the reset destructure both said the remaining fields are "owned by the
+per-frame sync from the cluster" — untrue since AC3.2 deleted that rebuild, and
+impossible since AC6.2 gave the seed the component. A comment naming a writer
+that no longer writes is worse than none.
+
 ## AC7.4 Probe B — move control authority to another body
 
 Trace what must change when a different body receives control.
@@ -1362,6 +1383,34 @@ body-generic damage, movement, abilities, portals, pickups, combat do not
 If body-generic systems require `PrimaryPlayer` merely to locate the relevant body, record/fix the inappropriate dependency before closure.
 
 Do not launch a broad identity migration during AC7.
+
+### ✔ PROBE B RESULT — one found, one fixed, 2026-08-14
+
+`apply_feature_hit_events` resolved "who struck" twice, 150 lines apart, with
+two different rules for the same question:
+
+```text
+the fold-back    event.attacker, else the home avatar — ONLY IF the event is an
+                 unresolved BROADCAST from a victim-seeking source
+the breakables   event.attacker, else the home avatar
+```
+
+The first states its own reasoning: *"We do not know who did this" is true of a
+broadcast and of nothing else. A `Body`-targeted event with no attacker is a
+producer bug, and blaming the nearest human hides it.* The second had none, so
+any melee with no attacker credited whichever body happened to be the home
+avatar with the combo-confirm and the per-target dedup — and on a stage with no
+primary at all, `single()` simply fails and the confirm is lost. `attacker:
+None` is reachable in production (`Hazard`, `EnemyProjectile`).
+
+⇒ resolved ONCE per event; both readers share the considered rule. ⭐ this is
+the *unifying a fork exposes what it hid* shape: invisible while both sides were
+one-line `or_else` chains in different scopes of one function.
+
+⚠ **the remaining `With`/`Without<PlayerEntity>` pairs in the damage path are
+BORROW disjointness, not semantics** — three queries for one body-generic rule
+because two of them take `&mut BodyCombat`. Recorded, not migrated: AC7 forbids
+launching a broad identity migration, and the successor campaigns own it.
 
 ## AC7.5 Probe C — use one character in several contexts
 
@@ -1382,6 +1431,26 @@ different contextual/controller composition only
 ```
 
 No central archetype row or second body registry should be required.
+
+### ✔ PROBE C RESULT, measured against HEAD 2026-08-14
+
+**Five production roads, one constructor.** Every one reaches
+`ActorClusterSeed::new_character_in`, and there is no second body constructor —
+`new_in`, the archetype road, was deleted in AC6.1:
+
+```text
+NPC                 actor_clusters.rs   (new_peaceful_npc_in, when the blueprint resolves)
+authored enemy      spawn_actors.rs     (incl. giant host + hands, and staged enemies)
+summoned minion     spawn_actors.rs
+encounter wave mob  spawn_actors.rs
+match seat          prepared_match.rs
+```
+
+What differs between them is context only: disposition, controller/brain,
+respawn policy, seat identity, patrol paths. ⛔ and an identifier that resolves
+to no body is refused at PREPARATION on the planned roads
+(`preflight_planned_bodies`) rather than becoming a generic body — the property
+D73 was written to establish.
 
 ## AC7 hard exit criteria
 

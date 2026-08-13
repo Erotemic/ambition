@@ -387,10 +387,21 @@ autonomous_reconcile                1045
    character at all and none resolving to an incomplete one, and the seam has no
    other production caller.
 
-   ⇒ **the seam is already dead in shipped content.** What remains is deleting it
-   and the two `actor_clusters` tests that exercise it — which is item 9, and it
-   is NOT waiting on D96. ⚠ the 14 are what would reach it if one of them were
-   placed as an enemy, which is why the ratchet is still worth keeping.
+   ⇒ **the seam is already dead in shipped content** — deleting it today changes
+   nothing observable.
+
+   ⛔⛔ **AND "not blocked" DOES NOT FOLLOW FROM THAT — I wrote it and it is
+   wrong** (re-corrected within the hour). The seam's job is to let a character
+   that cannot build a body still CORRECT one, and **14 such characters exist**.
+   Deleting it is a no-op the day it happens and a silent regression the day
+   somebody places one of the 14 as an enemy: that body would take the archetype
+   whole, with none of the facts its half-migrated character authored.
+
+   ⇒ so item 9 IS gated on those 14 becoming complete, which is D96 — the
+   original framing was right and my correction over-reached. ⚠ **the measurement
+   was sound both times; what was wrong was the sentence after it.** The same
+   thing happened to `ActorTuning`'s field count today, and both times the error
+   was one inference beyond the evidence.
 
    ⚠ **body-incomplete is NOT unseatable.** The admiral and the oni leader are on
    the Smash grid and fight. It means *"cannot build a body from the character

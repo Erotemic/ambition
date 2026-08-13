@@ -573,9 +573,14 @@ mod tests {
     /// shipped placements do: `worlds::tests::what_still_needs_an_archetype_row`
     /// reports one placement that resolves to no character at all and none that
     /// resolves to an incomplete one. ⇒ **the seam has no shipped caller today.**
-    /// These 14 are what would reach it if one of them were placed as an enemy,
-    /// which is why the number is still worth ratcheting — but item 9's deletion
-    /// is not waiting on them.
+    /// These 14 are what would reach it if one of them were placed as an enemy.
+    ///
+    /// ⚠ **that does NOT make item 9 unblocked, and I briefly recorded that it
+    /// did.** Deleting the seam is a no-op today and a silent regression the day
+    /// one of the 14 is placed as an enemy — that body would take the archetype
+    /// whole, with none of the facts its half-migrated character authored. So
+    /// the deletion still waits on this count reaching zero, which is what the
+    /// ratchet is for.
     ///
     /// ⚠ a CEILING rather than a floor, because this one is supposed to shrink.
     #[test]

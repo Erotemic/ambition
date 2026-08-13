@@ -433,9 +433,38 @@ autonomous_reconcile                1045
     ⚠ one comment in `starting_character.rs` still said an authored charger would
     *"keep charging once `HostCode` is gone"* — it is gone; corrected the same
     day.
-20. ▢ **Remove the scaffolding**: `BUILDABLE_ONLY_CAST` (a registered complete
+20. ◐ **Remove the scaffolding**: `BUILDABLE_ONLY_CAST` (a registered complete
     definition should simply BE buildable), the definition→catalog→archetype
     precedence bridges, `PLAYABLE_ROSTER` as a buildability gate.
+
+    ⇥ ✔ **`BUILDABLE_ONLY_CAST` IS GONE, and gone the way this item asks rather
+    than by renaming** (verified 2026-08-13: the only surviving mention is one
+    comment recording it as history). `buildable_only_cast()` is DERIVED —
+    `authored_ids()` off `AUTHORED_CAST`, minus anything already on
+    `PLAYABLE_ROSTER`. So a character that authors a body IS buildable, with no
+    second list to remember, which is exactly *"a registered complete definition
+    should simply BE buildable"*.
+
+    ⭐ **the exclusion became structural too.** The old hand list carried a note
+    — *"the parrot is NOT here and must not be… listing it twice would register
+    it twice"* — a rule enforced by a reader noticing a comment. Deriving the cast
+    surfaced FIVE characters that author a body and appear on the select grid at
+    once, and the `.filter(|id| !PLAYABLE_ROSTER.contains(id))` is that note
+    turned into code.
+
+    ⇥ ▢ **what is left is `REGISTERED_WITHOUT_A_BODY`, and it is D96 item 8.**
+    Six pirates plus Stargan: characters registered so their POLICY reaches a
+    body (D98) while their vitals stay unauthored, because *how tough a pirate
+    quartermaster is* is a content decision and authoring a number to empty the
+    list would be inventing one. Its own doc already says it should shrink.
+    ⚠ it cannot be derived from the pirate RULE that gives them their policy —
+    `starts_with("npc_pirate_")` covers a pirate added tomorrow, which is the
+    property that rule exists for, while this list answers the different question
+    of which ids to REGISTER, and that needs names.
+
+    ⇥ ▢ **the archetype precedence bridge** is `adopt_character_intrinsics`,
+    which item (9) deletes behind item (7) — and it already has zero shipped
+    placements to serve (see item 18).
 21. ▢ **Split or delete `ActorTuning` and `CharacterBrainSpec`** by their actual
     remaining responsibilities. ⚠ the capability-authored-twice set is exactly
     `can_blink`/`can_fly`/`can_shield` vs `smash_can_*`.

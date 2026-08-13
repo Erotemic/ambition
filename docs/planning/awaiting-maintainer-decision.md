@@ -180,6 +180,25 @@ GNU-ton seam, undone.
 that scaffolding in place indefinitely**, which is a legitimate answer; it just
 should be a chosen one rather than a default.
 
+### ⇥ ✔ PREMISES RE-VERIFIED 2026-08-13 — this question is still exactly true
+
+Four rows elsewhere in this run turned out to describe a tree that had moved
+underneath them, so this one was checked line by line before being left to sit
+another day. All three of its premises hold verbatim:
+
+```text
+  projectile/systems.rs:640   if !kin.aabb().strict_intersects(victim_body)   ← coarse
+  hitbox/mod.rs:243-244       reached_by → strike_reaches_victim(volume,
+                                            self.volumes, self.aabb)          ← silhouette
+  projectile/systems.rs:452   (Without<LiveProjectile>, Without<BossConfig>)  ← the exclusion
+```
+
+⭐ **and the option-A line is already written down at the call site**:
+`systems.rs:635` says *"half of the gap is `victim.reached_by(&kin.aabb().into())`"*
+and then explains why it is not taken. ⇒ answering **A** is a one-line change to
+a line that already names itself; answering **B** costs nothing and closes the
+question. Either way nothing needs re-deriving first.
+
 ⛔ **not answerable by an agent.** This is not a documented-genre mechanic — it is
 how *this* game's shots should feel, and Jon's 2026-08-09 ruling explicitly
 covers standard mechanics, not authored feel.

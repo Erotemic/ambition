@@ -542,6 +542,66 @@ mod tests {
         );
     }
 
+    /// **WHO STILL NEEDS THE PROBE SEAM** — the population that keeps
+    /// `adopt_character_intrinsics` alive, and therefore the size of checklist
+    /// item 9 (*"delete it once the constructor replaces the precedence it
+    /// performs"*).
+    ///
+    /// The enemy spawn road builds a placement's body one of two ways: a
+    /// character whose prepared definition yields a `body_blueprint` is built
+    /// FROM it, and a character that is registered but cannot yet build a body
+    /// still gets to CORRECT one — that second road is
+    /// `adopt_character_intrinsics`, described at its call site as serving *"the
+    /// shrinking population of half-migrated characters"*. Nothing said how
+    /// large that population was.
+    ///
+    /// ⭐ **14 of 36, and two thirds of them are already filed as content
+    /// decisions**: six pirates (D96 item 8, *"a pirate quartermaster's
+    /// vitals"* — the entry says six and it is exactly these six),
+    /// `npc_carl_stargan` (D96 item 5), four Hall NPCs, and three characters
+    /// that author their own MOVE timelines while still not authoring a body.
+    ///
+    /// ⚠ **body-incomplete is not unseatable**, and reading it that way would be
+    /// wrong: `npc_pirate_admiral` and `npc_ninja_shadow_oni_leader` are on the
+    /// Smash grid and fight. It means "cannot build a body from the character
+    /// ALONE" — the assist is what item 9 deletes, not the character.
+    ///
+    /// ⚠ a CEILING rather than a floor, because this one is supposed to shrink.
+    #[test]
+    fn the_cast_that_still_needs_a_body_assist_only_shrinks() {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+
+        let mut incomplete: Vec<&str> = prepared
+            .iter()
+            .filter(|(_, definition)| definition.body_blueprint().is_err())
+            .map(|(id, _)| id)
+            .collect();
+        incomplete.sort();
+
+        assert!(
+            incomplete.len() <= 14,
+            "{} characters cannot build a body from their own definition, and it \
+             was FOURTEEN on 2026-08-13. This number is supposed to fall: every \
+             one of them is a body `adopt_character_intrinsics` has to correct, \
+             and that seam is checklist item 9's deletion. Incomplete: \
+             {incomplete:?}",
+            incomplete.len()
+        );
+        assert!(
+            !incomplete.is_empty(),
+            "every registered character can now build its own body — \
+             `adopt_character_intrinsics` has no population left to serve, so \
+             delete it (checklist item 9) and this ratchet with it"
+        );
+    }
+
     /// **AND HOW MANY STATE THEIR OWN MOVES** — P3.24's number, which had no
     /// ratchet while its twin above did.
     ///

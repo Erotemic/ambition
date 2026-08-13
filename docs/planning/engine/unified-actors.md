@@ -637,10 +637,15 @@ Every later step must move toward convergence, never away:
 
 ## Gotchas (hard-won)
 
-- **Bevy 16-system-param ceiling.** `update_ecs_actors` and the player-hit path are at
-  it — bundle params into a tuple `(a, b): (Res<A>, Res<B>)` rather than adding a slot.
-  The `.chain()` length ceiling (~17) is real too — register the extra system with an
-  explicit `.before/.after`.
+- **Bevy system-parameter pressure is an authority signal.** When a system approaches
+  the parameter ceiling, first name the coherent data contract and phase boundary.
+  Use a typed `SystemParam` or `QueryData` when the grouped values genuinely belong
+  to one responsibility; otherwise split decision, observation, and mutation into
+  explicit systems with named ordering/data flow. Do not tuple-pack unrelated
+  resources merely to fit beneath Bevy's slot limit. The active decomposition notes
+  are in [`../triage/bevy-system-parameter-architecture.md`](../triage/bevy-system-parameter-architecture.md).
+  For long schedules, prefer explicit phase/set relationships over relying on chain
+  length or incidental scheduler topology.
 - **`Block::solid(name, min, size)` takes the MIN corner, not the center; `World::new`
   adds NO boundary walls.** Test worlds author their own floor/walls.
 - **Sim-time, not wall-time** (ADR 0010/0011): timers read `WorldTime::scaled_dt` / the

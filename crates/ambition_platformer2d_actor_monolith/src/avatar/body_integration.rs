@@ -166,7 +166,7 @@ pub fn integrate_home_body(
     // spell half of it (ledger D108); the signature no longer has a half to
     // spell.
     let input = engine_input_from_actor_control(actor_control, feel, combat, frame_dt);
-    // ⭐ one named rule — the actor road has no hitlag branch at all (D110).
+    // ⭐ one named rule — the actor road has no hitlag branch at all (D114).
     let sim_dt = if combat.is_in_hitlag() {
         0.0
     } else {

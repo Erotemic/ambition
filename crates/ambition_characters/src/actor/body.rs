@@ -319,7 +319,7 @@ impl BodyCombat {
     /// parties, which the damage path states as *"a landed hit is one event"*.
     ///
     /// ⭐ **named for the same reason as [`Self::hard_lock_timer`] and with the
-    /// same standing gap** (ledger D110). The timer is armed on the victim AND
+    /// same standing gap** (ledger D114). The timer is armed on the victim AND
     /// the attacker, whoever they are — and it is read by the PLAYER road
     /// (`sim_dt = 0`) and by a `With<PrimaryPlayer>` clock request, so a hit
     /// between two bodies that are neither produces no freeze at all. On a
@@ -558,7 +558,7 @@ mod hard_lock_tests {
         } = combat;
     }
 
-    /// **AND HITLAG IS THE SAME SHAPE ONE LAYER OVER** — D110.
+    /// **AND HITLAG IS THE SAME SHAPE ONE LAYER OVER** — D114.
     ///
     /// ⛔ the freeze is armed on the victim AND the attacker, from a law the
     /// damage path states as *"a landed hit is one event"*, and it is read by the

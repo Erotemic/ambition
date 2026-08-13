@@ -1,22 +1,23 @@
-# Tracks — current executable queue
+# Tracks — standing backlog and work reservoir
 
-This file is the live queue, not a completion ledger. The completed July 15–16
-architecture campaign is summarized in [`status.md`](status.md); the 2026-07-19
-deep-review evidence behind the newer tracks is
+**Role:** this file preserves executable work across runs; it is not a second
+live execution order. The active continuation engine is
+[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md). When that queue needs more
+work, `tracks.md` is one of the main places to select from. Once selected, the
+queue owns ordering and the focused plan owns technical design.
+
+The completed July 15–16 architecture campaign is summarized in
+[`status.md`](status.md); the 2026-07-19 deep-review evidence behind newer tracks
+is archived at
 [`../archive/reviews/deep-review-2026-07-19.md`](../archive/reviews/deep-review-2026-07-19.md).
-Cross-track engine strategy — the capability destination and the dependency order
-between campaigns — is
-[`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md);
-this queue may reorder bounded slices ahead of it when a concrete game or platform
-blocker has higher immediate value, but should record why.
+Cross-track engine strategy — capability destination and dependency order — is
+[`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
 
-⛔ **`▢` MEANS OPEN, AND IT IS THE ONLY INDEX.** Six sections here were open
-assignments carrying no mark at all (2026-08-07) — §4, §6, §7, §8, §9 and
-Parallel maintenance — so an agent grepping `▢` to find work missed every one of
-them while reading 700 lines of finished narrative. If a section has work left,
-its heading carries `▢`. ⚠ and the converse bit too: `▢` was being used for "a
-point I am making" as well as "a thing to do", which is what made a count of
-marks useless in the retired queues. One meaning only.
+`▢` means unresolved executable backlog in this file. It is an index for
+replenishing the live queue, not a claim that every marked item outranks the
+queue's current work. Keep the marker attached only to real unresolved work so
+a future run can survey this reservoir mechanically without confusing prose for
+a task.
 
 **Executor grades** (vision §7, restored): **[fable]** genuinely hard
 design/kernel work; **[opus, fable-specced]** the spec in the named doc IS the

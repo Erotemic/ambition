@@ -1220,7 +1220,7 @@ the campaign's own proposition is what they violate:
   D108  landing_lag_timer         armed for any body; carried, decayed and gated
                                   only for the player. A CPU lands clean out of
                                   the aerial that costs a human 0.10–0.28s
-  D110  hitstop_timer             armed for victim AND attacker "from the one
+  D114  hitstop_timer             armed for victim AND attacker "from the one
                                   hitlag law"; read only by the player road and a
                                   `With<PrimaryPlayer>` clock request, so a hit
                                   between two non-primary fighters has no freeze
@@ -1241,7 +1241,7 @@ In exploration the player is the only body anyone watches, so all three hid.
 ⭐ **AND THE SWEEP FOUND NO FOURTH, which bounds the problem.** The monolith has
 **45** systems filtered `With<PlayerEntity>` / `With<PrimaryPlayer>`; of those,
 the ones reading body-generic combat state are `emit_player_time_intent_system`
-(D110), `write_player_ecs_components` (D107) and the reaction-timer decrement in
+(D114), `write_player_ecs_components` (D107) and the reaction-timer decrement in
 `input_systems` (D107/D108). The rest read `BodyHealth` for heals or mana —
 player-specific by design, because a heal message targets a player.
 
@@ -1274,7 +1274,7 @@ half-implemented. Movement cannot be, because there is one kernel.
 
 ⚠ **the fix shape is the same for all three and TWO of them have it already**:
 name the rule once and have both roads call it. `BodyCombat::hard_lock_timer()`
-(D108's landing-lag half) and `BodyCombat::is_in_hitlag()` (D110) are both that
+(D108's landing-lag half) and `BodyCombat::is_in_hitlag()` (D114) are both that
 — **each is called by exactly one road, which is what makes the gap greppable
 instead of inferable.** The older text:
 `BodyCombat::hard_lock_timer()`

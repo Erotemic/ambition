@@ -19,7 +19,7 @@
 | AC2 scheduler-perturbation determinism guard | ✔ | 2026-08-13 | 2026-08-13 | `app_it::scheduler_perturbation` — A/B over two GRAPHS (the desync canary compares one graph against itself and structurally cannot see this class). Three benign readers placed by PHASE only, execution COUNTED so a filtered-out probe cannot pass as a perturbation. Falsification kept as a second test: a real conflicting writer must make the digests differ. ⚠ green means *no implicit ordering was disturbed by this perturbation*, which is weaker than *the graph has none* — stated in the module docs rather than overclaimed |
 | AC3 converge body/reaction authority | ✔ | 2026-08-13 | 2026-08-13 | **`BodyCombat` 12 fields → 7.** A(`alive`) B(`attacking`) C(3 dead fields) D(`training_dummy`→construction) all gone; save→rebuild→restore deleted from BOTH roads; ONE decay and ONE reset for every body, closing D108 and D107. `sync_actor_components_from_cluster` is now a single string comparison and writes NO `BodyCombat` field. Falsifier below |
 | AC4 complete prepared character bodies | ✔ | 2026-08-13 | 2026-08-13 | **`REGISTERED_WITHOUT_A_BODY` is EMPTY** and `character_archetypes.ron` is down to ONE row. Seven bodies authored (6 pirates, Carl Stargan, + Patent Clerk vitals); `SmallSkitter`→`npc_puppy_slug`, `under_town_skitter`→`npc_puppy_slug` (via the LDtk tooling), `large_brute`→a real `npc_goblin_brute` whose separate sprite generator already existed. `medium_striker` DELETED. ⚠ a guard caught me inventing a moveset — see AC4 notes |
-| AC5 construction convergence, delete build-then-patch | ◐ **CORRECTED from ✔ 2026-08-13** | 2026-08-13 | | ✔ `adopt_character_intrinsics` DELETED (population 14 → 7 → 0) · ✔ AC5.4 (the character names its own `divides_into`) · ✔ AC5.5 (cross-context equivalence, which found the geometry gap) · ▢ **AC5.2 is NOT done and I marked the phase ✔ without checking it**: the NPC road builds through `ActorClusterSeed::new_peaceful_npc_in`, a THIRD constructor that reaches into the prepared character for `locomotion` alone rather than taking the body blueprint. AC5.2 requires it to reach the canonical `new_character_in`. See below |
+| AC5 construction convergence, delete build-then-patch | ✔ | 2026-08-13 | 2026-08-13 | ✔ `adopt_character_intrinsics` DELETED (population 14 → 7 → 0) · ✔ AC5.4 (the character names its own `divides_into`) · ✔ AC5.5 (cross-context equivalence, which found the geometry gap) · ✔ AC5.2 — the NPC road DOES reach `new_character_in` (`actor_clusters.rs:773`); ⚠ I briefly recorded otherwise and the correction is below. What remains is REGISTRATION, not routing: 109 of 163 NPC placements name one of 94 unregistered characters and take the fallback |
 | AC6 delete archetype/roster/tuning authority | ▢ **GATED, and the gate is one word from Jon** | | | `character_archetypes.ron` is ONE row (`combatant`) with ONE borrower: `small_lurker`. The archetype's last live job in construction is the MIDDLE arm of the respawn precedence (placement → row → engine default), reachable only by that borrower. Deleting the root before the casting call changes behaviour on content nobody has ruled on. ⇒ surfaced as the sole blocker on the maintainer-decision surface with a recommendation (`npc_ai_slop`) and the alternative (delete it) |
 | AC7 final naming/docs + D73 closure + amplification probes | ▢ | | | |
 
@@ -1081,35 +1081,42 @@ AC5 is DONE only when:
 
 ---
 
-### ⛔ AC5.2 REMAINS: the NPC road does not use the canonical intrinsic constructor
+### ⚠ AC5.2, measured properly — the ROUTING is right; the REGISTRATION is the gap
 
-⚠ **I marked AC5 ✔ on the strength of the deletion and the equivalence test, and
-did not check this criterion.** Recorded as a correction rather than quietly
-fixed, because the campaign's exit criteria are the point of having them.
+⛔⛔ **I published a wrong correction here and this replaces it.** I read
+`new_peaceful_npc_in`'s prologue, saw it pull `locomotion` out of the prepared
+registry, and concluded the NPC road never reaches the canonical constructor.
+It does: `actor_clusters.rs:773` calls `Self::new_character_in(.., body, ..)`
+whenever the placement's character yields a `body_blueprint`, and applies NPC
+context (peaceful disposition, patrol path, interactable, sprite id) after. The
+hand-assembled `Self { .. }` I found is the FALLBACK below it, for a character
+with no blueprint.
 
-Three constructors reach a body today:
+⇒ **AC5.2's requirement is satisfied for every NPC whose character is
+registered.** The number that matters is how many that is:
 
 ```text
-  ActorClusterSeed::new_character_in     takes CharacterBodyBlueprint      canonical
-    authored enemy      spawn_enemy_with_faction_into:1656
-    runtime summon      spawn_runtime_minion_into:1377
-    encounter mob       spawn_encounter_mob:2485
-
-  ActorClusterSeed::new_peaceful_npc_in  takes an Interactable + aabb      ⛔ NPC road
-    reaches into the prepared registry for ONE fact — `locomotion` — and
-    assembles the rest itself
-
-  ActorClusterSeed::new_in              takes an ArchetypeSpec            legacy
-    reachable only through the archetype fall-through AC6 deletes
+  NPC placements in the shipped worlds                     163
+    naming no character at all                               0     ⭐
+    naming a character NOT in the prepared registry        109     ← the fallback
+    naming a registered character (all body-complete)       54     ← new_character_in
+  distinct characters behind those 109 placements           94
 ```
 
-⇒ AC5.2 says the NPC road *"should obtain intrinsic facts from
-`PreparedCharacterDefinition` / body blueprint and reach
-`ActorClusterSeed::new_character_in`"*. It obtains one and reaches neither.
+⭐ **nothing is anonymous** — every NPC placement names a character, which is the
+half this campaign made true. ⛔ **but 94 catalog characters are not registered**,
+so their placements build through the fallback with
+`DEFAULT_UNAUTHORED_BODY_HEALTH` and the engine's default run speed instead of
+their own facts. Registration requires an `authored/*.rs` file; 33 characters
+have one and 94 do not.
 
-⚠ **and this does NOT explain the geometry divergence** — see below. Routing the
-NPC road through the blueprint would not change a body's size, because the
-blueprint has no size in it.
+⚠ **this is a SIZE, not a work order.** AC4 says explicitly: *"do not author new
+capabilities/health/moves solely to drive the incomplete count to zero."* Most of
+the 94 are Hall exhibition characters standing on pedestals, and inventing a
+body for each to make a number move is the failure mode the phase names. What
+the measurement is FOR is honesty about what "every character is a reusable
+template" costs when it is finished: 94 bodies, one file each, of the kind the
+four Hall humanoids took.
 
 ### ⛔⛔ THE BLUEPRINT CARRIES NO GEOMETRY, so doctrine 3's "the body owns geometry" is UNIMPLEMENTED
 

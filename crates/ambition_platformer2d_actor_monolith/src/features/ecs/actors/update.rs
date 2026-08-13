@@ -2058,3 +2058,62 @@ pub fn tick_npc_idle_barks(
         );
     }
 }
+
+#[cfg(test)]
+mod body_combat_rebuild_contract {
+    use super::*;
+
+    /// **EVERY `BodyCombat` FIELD SAYS WHETHER IT SURVIVES THE REBUILD** —
+    /// ledger D108, and the reason that defect existed.
+    ///
+    /// [`sync_actor_components_from_cluster`] REPLACES `*combat` wholesale every
+    /// frame and then restores a hand-written list of timers. That list is
+    /// enumerated in a comment as *"the SAME fields the player carries"*, and
+    /// nothing enforced it: `landing_lag_timer` was added to `BodyCombat` later,
+    /// never joined the list, and a CPU's landing lag has been erased one frame
+    /// after it is set ever since.
+    ///
+    /// ⇒ **this destructure makes the next such field a COMPILE ERROR** until
+    /// somebody decides which column it belongs in. It is the same remedy the
+    /// three authority splits use (`ActorTuning`, `ArchetypeSpec`,
+    /// `CharacterDefinition`) applied to a carry list instead of a field census.
+    ///
+    /// ⛔⛔ **the DROPPED column below is not a design, it is the open defect.**
+    /// It is written down rather than fixed because the fix has three parts that
+    /// must land together — carry, decrement, and gate — and applying them makes
+    /// every CPU fighter commit to its aerials the way a human must, which is a
+    /// difficulty statement for Jon. See D108.
+    #[allow(dead_code)]
+    fn every_body_combat_field_declares_whether_it_survives_the_rebuild(
+        combat: &ambition_characters::actor::BodyCombat,
+    ) {
+        let ambition_characters::actor::BodyCombat {
+            // ── CARRIED ACROSS (5) — the body's authoritative reaction state,
+            // set on a landed hit and decremented in the actor tick. Wiping
+            // these on the refresh would cancel a stagger mid-flight.
+            damage_invuln_timer: _,
+            hit_flash: _,
+            hitstun_timer: _,
+            recoil_lock_timer: _,
+            hitstop_timer: _,
+
+            // ── REBUILT FROM THE CLUSTER (5) — derived presentation/read-model
+            // facts with an authority elsewhere, so the refresh is the point.
+            alive: _,
+            attacking: _,
+            strike_count: _,
+            attack_windup_timer: _,
+            attack_timer: _,
+            training_dummy: _,
+
+            // ── ⛔ DROPPED (1) — NOT a decision. See D108.
+            //
+            // Set by the moveset runtime for ANY body that lands mid-move, then
+            // erased here on the very next frame because it is in neither list
+            // above. The actor road never gates on it either, so a CPU pays no
+            // landing lag while a human pays 0.10–0.28s out of the same authored
+            // aerial.
+            landing_lag_timer: _,
+        } = combat;
+    }
+}

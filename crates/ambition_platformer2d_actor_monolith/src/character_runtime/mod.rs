@@ -43,12 +43,18 @@ pub mod presentation;
 pub mod seating;
 pub mod staging;
 
+#[cfg(test)]
+// The barrier-bypassing fixture seams, from the crate that owns preparation
+// now. Behind `ambition_characters`'s `test-support` feature, which this crate
+// enables as a DEV-dependency only — see its Cargo.toml note.
+#[cfg(test)]
+pub(crate) use ambition_characters::prepared::{
+    prepare_and_finalize_against_for_test, prepare_and_finalize_for_test,
+};
 pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
-#[cfg(test)]
-pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
     CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
     CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError,

@@ -28,5 +28,6 @@ pub mod brain;
 pub mod equipment;
 pub mod moveset_prefabs;
 pub mod perception;
+pub mod prepared;
 mod snapshot_impls;
 pub mod technique;

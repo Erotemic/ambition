@@ -1041,7 +1041,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the art materializer seam itself; holds no per-frame simulation state",
     ),
     (
-        "::character_runtime::definition::PreparedCharacterRegistry",
+        // ⚠ **the path moved crates, and the guard CAUGHT it** — which is what a
+        // waiver keyed on a full type path is for. `PreparedCharacterRegistry`
+        // was `ambition_platformer2d_actor_monolith::character_runtime::definition`
+        // until the P1.7 move put the model and preparation into
+        // `ambition_characters::prepared`. The resource and its reason are
+        // unchanged; only its address is.
+        "::prepared::PreparedCharacterRegistry",
         "prepared authored definitions; immutable within a session and bound by PreparedContentIdentity",
     ),
     (

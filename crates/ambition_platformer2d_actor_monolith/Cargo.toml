@@ -486,6 +486,13 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+# ⛔ **the barrier-bypassing test seams, and DEV-ONLY is the whole point.**
+# `prepare_and_finalize_for_test` and `insert_prepared` were `#[cfg(test)]
+# pub(crate)` while they lived in this crate; the P1.7 move put the model and
+# preparation into `ambition_characters` and left eighteen fixtures here, and
+# `#[cfg(test)]` does not cross a crate boundary. Enabling the feature from
+# `[dependencies]` would put an early fold on the production surface.
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 # The observation-boundary crate: the headless camera example resolves its
 # snapshot through it (dev-only; cyclic dev-deps are fine).
 ambition_sim_view = { path = "../ambition_sim_view" }

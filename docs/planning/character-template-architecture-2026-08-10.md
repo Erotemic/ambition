@@ -104,9 +104,31 @@ campaign's own design (*"one adopter does not earn the indirection"*) and are
 watched for one thing only: **a default must stay replaceable.**
 
 ⚠ **the SECOND failure mode is not enforceable this way** — *"do not stop when
-the new path works beside the old one"* is a claim about deletions, and the
-things that hold it are the acceptance-signal countdown
-(`what_still_needs_an_archetype_row`) and the ratchets beside it.
+the new path works beside the old one"* is a claim about deletions, and what
+holds it is a set of counting tests rather than a struct shape. **All of them
+landed 2026-08-13; each replaces a number that had to be remembered with one
+that checks itself:**
+
+```text
+  what_still_needs_an_archetype_row              4     the acceptance signal, exact set
+  only_the_uncast_placements_..._fallback        2     item 15's deletion, exact set
+  the_cast_that_still_needs_a_body_assist_...   14     item 9's deletion, CEILING
+  the_cast_that_states_its_own_moves_...         8/36  P3.24's floor
+  the_grid_fighters_that_state_..._moves         7/14  P3.26's floor
+  the_cast_that_states_its_own_verbs_...         2     P3.25's floor (pre-existing)
+```
+
+⭐ **the exact-set ones ratchet in BOTH directions**, which a count cannot: they
+fail when something new takes a dependency on the old model AND when the last
+adopter leaves, and the second failure is the one that says a deletion is now
+possible. ⇒ **the campaign no longer needs anybody to re-run a census to know
+where it is.**
+
+⚠ **two of them carry a control that says NOT to delete**, added after a
+measurement changed the conclusion: the moveset ratchets no longer instruct
+removing `DeclaredCombatRules::unarmed_melee`, because the fighters that state
+no moves are peaceful on purpose — see *"Is `unarmed_melee` scaffolding, or is
+it permanent?"* in `awaiting-maintainer-decision.md`.
 
 ## Phase status — UPDATE THIS AS PHASES LAND
 

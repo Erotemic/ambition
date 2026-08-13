@@ -713,6 +713,16 @@ pub fn register_engine_rollback_state(app: &mut App) {
         "message.quest_advance_requested",
     )
     .clear_message_on_rollback::<ambition_sfx::OwnedSfxMessage>(ENGINE, "message.owned_sfx")
+    // P0.1: the camera-shake intent joins the five effect families it now sits
+    // beside in `quarantine_presentation_effects`, and for the same reason they
+    // are all here — an un-rewound cursor could hand presentation an intent from
+    // a branch the session abandoned. The quarantine journal holds pending
+    // intents in its own resource, so clearing the channel on load complements
+    // `discard_abandoned_predictions` rather than competing with it.
+    .clear_message_on_rollback::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>(
+        ENGINE,
+        "message.camera_shake_request",
+    )
     .clear_message_on_rollback::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>(
         ENGINE,
         "message.respawn_room_visuals",

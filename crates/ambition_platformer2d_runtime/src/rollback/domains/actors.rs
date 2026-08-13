@@ -810,6 +810,17 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.mount_died",
     );
+    // P0.2: the boss phase-transition edge, same shape as `MountDied` directly
+    // above — announced by `update_boss_encounters` in `BossAdvance` and
+    // consumed by `boss_phase_transition_feedback` in `BossHazards`, a same-frame
+    // handshake inside one sim schedule. A cursor GGRS did not rewind could let
+    // the feedback fire for a transition the resimulation never committed to,
+    // which here means a `DamageBox` shockwave on a timeline the boss never
+    // phased on.
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::boss_encounter::BossPhaseChanged>(
+        OWNER,
+        "message.boss_phase_changed",
+    );
     app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>(
         OWNER,
         "message.room_replay_requested",

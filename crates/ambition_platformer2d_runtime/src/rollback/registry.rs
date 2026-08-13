@@ -180,7 +180,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 24;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 25;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

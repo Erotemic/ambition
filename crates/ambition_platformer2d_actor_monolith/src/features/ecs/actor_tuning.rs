@@ -35,8 +35,6 @@ pub struct ActorTuning {
     /// Damage dealt by an attack / body contact.
     pub damage_amount: i32,
     /// Multiplier on the shared attack cooldown (fast skirmishers
-    /// < 1.0, lumbering heavies > 1.0).
-    pub attack_cooldown_mult: f32,
     /// Hostile by default: actively tracks the player and publishes
     /// contact damage. Peaceful patrollers are false.
     pub is_hostile: bool,
@@ -100,7 +98,6 @@ impl Default for ActorTuning {
             damage_amount: 0,
             // Multiplicative identity — a defaulted tuning must not
             // zero out the shared attack cooldown.
-            attack_cooldown_mult: 1.0,
             is_hostile: false,
             surface_walker: false,
             cling_breaks_on_hit: false,
@@ -244,7 +241,7 @@ mod authority_split_tests {
             // and presentation observing a body is not a fourth one.
             dream_seed: _,
             ranged_visual: _,
-            // ── CONTROLLER (3) — how a mind paces the body ──────────────────
+            // ── CONTROLLER (0) — how a mind paces the body ──────────────────
             //
             // ⭐ **two of these three have ALREADY MOVED and are now DERIVED,**
             // which is worth saying because the campaign row calls this "the
@@ -257,11 +254,11 @@ mod authority_split_tests {
             // looks like once something reads it.
             patrol_speed: _,
             chase_speed: _,
-            // ⚠ **this one is the real remainder.** It arrives straight from
-            // `ArchetypeSpec::attack_cooldown_mult` and has no `BrainProfile`
-            // home, so it is a controller fact still living in the legacy bag —
-            // the whole of this column's outstanding work, and one field.
-            attack_cooldown_mult: _,
+            // ⛔ **`attack_cooldown_mult` USED TO BE HERE and is gone**
+            // (2026-08-13): it moved to `BrainProfile`, which is what this
+            // column's remaining work turned out to be. The column is now empty
+            // — every controller fact `ActorTuning` held is either on the
+            // profile or is the profile's own effort resolved against a body.
             // ── PLACEMENT / SESSION (4) — true of THIS instance, here ──
             //
             // ⚠ `is_hostile` reads as a body fact and is not one: the same

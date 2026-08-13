@@ -173,6 +173,10 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             aggro_radius: self.aggro_radius,
             attack_range: self.attack_range,
             turns_at_walls: self.turns_at_walls,
+            // ⭐ **and the FOURTH knob** (2026-08-13): how often the driver
+            // commits again. Same argument as the three above — it was the last
+            // controller fact left in `ActorTuning`.
+            attack_cooldown_mult: self.attack_cooldown_mult,
             // The pacing the row has always authored as fractions of its own
             // `run_speed`, now carried by the authority that decides pace.
             patrol_effort: self.patrol_effort,
@@ -266,7 +270,6 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             max_run_speed: self.run_speed,
             contact_strength: self.contact_strength,
             damage_amount: self.damage_amount,
-            attack_cooldown_mult: self.attack_cooldown_mult,
             is_hostile: self.hostile_by_default,
             surface_walker: self.surface_walker,
             cling_breaks_on_hit: self.cling_breaks_on_hit,

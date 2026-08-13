@@ -1260,7 +1260,7 @@ impl ActorClusterSeed {
         // sim-heart `ActorConfig`.
         let combat_tuning = crate::combat::CombatTuning {
             weight: self.config.tuning.weight,
-            attack_cooldown_mult: self.config.tuning.attack_cooldown_mult,
+            attack_cooldown_mult: self.config.brain_profile.attack_cooldown_mult,
             sprite_character_id: self.config.sprite_character_id.clone(),
             // CM8: an ordinary actor reacts to being hit with the plain hurt
             // profile — no red player-hurt spray. This is the per-body seam for

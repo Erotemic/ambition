@@ -153,6 +153,27 @@ pub struct BrainProfile {
     /// aggressive brain.
     #[serde(default)]
     pub provoke_forced_brute_min_aggro: Option<f32>,
+    /// **How often this driver commits to a swing** — `ENEMY_ATTACK_COOLDOWN *
+    /// attack_cooldown_mult` paces the brain's next attack.
+    ///
+    /// ⭐ **the FOURTH of the knobs the doc above calls "the three CharacterAI
+    /// knobs that used to live in `ActorTuning`"** (moved 2026-08-13, campaign
+    /// P2.19). It reads as a body number and is not one, by exactly the argument
+    /// already made for `aggro_radius` and `attack_range`: a radius at which a
+    /// driver notices, a range at which it commits, and a rate at which it
+    /// commits again are all decisions about how to PLAY a body, and a human or
+    /// scripted controller in the same body must not inherit them.
+    ///
+    /// ⚠ it was the last controller fact in `ActorTuning`. The other two the
+    /// campaign counted — `patrol_speed` and `chase_speed` — turned out to be
+    /// this profile's normalized efforts already, resolved against a body.
+    #[serde(default = "default_attack_cooldown_mult")]
+    pub attack_cooldown_mult: f32,
+}
+
+/// Serde/`Default` value for [`BrainProfile::attack_cooldown_mult`]: unscaled.
+pub fn default_attack_cooldown_mult() -> f32 {
+    1.0
 }
 
 impl Default for BrainProfile {
@@ -170,6 +191,7 @@ impl Default for BrainProfile {
             smash_dash_to_close: false,
             smash_duelist: false,
             provoke_forced_brute_min_aggro: None,
+            attack_cooldown_mult: default_attack_cooldown_mult(),
         }
     }
 }

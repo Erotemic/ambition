@@ -82,7 +82,7 @@ Three exhaustive destructures now hold it, one per struct:
 
 ```text
   ArchetypeSpec        49 fields   machinery 2 · body 29 · controller 13 · placement 5
-  ActorTuning          20 fields   body 13 · controller 3 · placement 4
+  ActorTuning          19 fields   body 13 · controller 0 · placement 4 · (see ⭐ below)
   CharacterDefinition  27 fields   identity 7 · body 15 · default-controller 3 · presentation 2
 ```
 
@@ -95,6 +95,21 @@ file's own phase table.
 ⭐ **the first failure mode now requires an explicit lie rather than an
 omission.** Carrying `aggro_radius` onto the body would not quietly widen a
 struct; it would refuse to build until a controller fact was filed as a body one.
+
+⭐⭐ **AND THE FIRST DELETION CAME OUT OF THE GUARD ITSELF.** Filing
+`ActorTuning`'s fields under headings is what made its CONTROLLER column visible
+as three entries — and then measurable: two (`patrol_speed`, `chase_speed`) were
+already `BrainProfile`'s normalized efforts resolved against a body, a projection
+rather than a second authority, and the third (`attack_cooldown_mult`) moved to
+`BrainProfile` on 2026-08-13. **That column is now empty.**
+
+⚠ **the migration was four edits** — add the field with a serde default, write it
+at the archetype→profile seam, stop writing it at the archetype→tuning seam, read
+it from `config.brain_profile`. 42 `BrainProfile` literals exist and none needed
+touching, because they spread `..Default::default()`. Neither shipped archetype
+row authors the value, so it is behaviour-neutral on today's content. ⇒ **that is
+what a fact having one home buys, and it is the argument for doing the rest of
+the split the same way.**
 
 ⚠ **the guards do not judge, they demand a decision** — and two are marked as
 arguable rather than settled: `ArchetypeSpec::smash_heavy` (a weight class is a

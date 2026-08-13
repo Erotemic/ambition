@@ -103,22 +103,6 @@ pub fn world_manifest() -> WorldManifest {
 mod tests {
     use super::*;
 
-    /// **The authored `mounted_on` refs have to survive all the way to a
-    /// `RoomSpec`, and for a month they did not.** Jon, 2026-08-08: *"The
-    /// pirates in the pirate sky no longer ride their sharks."* An LDtk editor
-    /// session (`6e48e5988`) rewrote `sandbox.ldtk` while a different level was
-    /// open and brought every `EntityRef` in the file back as `null`; the four
-    /// refs were restored from the `5e4d6448e` blob on 2026-08-09.
-    ///
-    /// ⭐ **the boss side of this chain was already pinned and the ENEMY side
-    /// was not.** `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
-    /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
-    /// of the same four lines (`entity_converters.rs`) and nothing exercised it
-    /// against a real world file. This does, off the shipped `sandbox.ldtk`.
-    ///
-    /// ⚠ scoped to the one level, exactly as the GNU-ton test is: composing the
-    /// whole sandbox pulls in portal entities whose feature is off in this test
-    /// build. `pirate_sky_lookout` authors none.
     /// **EVERY SHIPPED `EnemySpawn` CAN BE BUILT** — the invariant that stands
     /// between the D102 refusal and a panic in a room nobody tests.
     ///
@@ -215,6 +199,89 @@ mod tests {
         );
     }
 
+    /// **WHO IS STILL RIDING THE DISPLAY-NAME ROAD** — the measurement that
+    /// sizes checklist item 15, kept as an exact set rather than a count.
+    ///
+    /// `EnemySpawnSpec::presentation_identity` falls back to the placement's
+    /// display NAME when no `character_id` is authored. That road is
+    /// presentation compatibility: tolerable for pixels, because a wrong sheet
+    /// is visible, and intolerable for gameplay, which is why
+    /// `gameplay_character_id` deliberately has no fallback. Item 15 deletes it
+    /// once every placement names its character.
+    ///
+    /// ⭐ **an EXACT set, so this ratchets in both directions.** A new
+    /// unnamed placement fails it, and so does casting the last one — at which
+    /// point the fallback has no shipped user left and item 15 is a deletion
+    /// rather than a survey. A count would only catch the first.
+    ///
+    /// ⚠ what is left is a CONTENT decision, not migration work: a thing called
+    /// "Target" in a dive-drill room is plausibly the sandbag, but that changes
+    /// the drill (ledger D96). ⚠ `BossSpawn` is a different population that
+    /// carries no `character_id` field at all and resolves through boss
+    /// profiles — it never rode this road.
+    #[test]
+    fn only_the_uncast_placements_still_ride_the_display_name_fallback() {
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+
+        let manifest = world_manifest();
+        let project =
+            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+
+        let mut unnamed: Vec<String> = Vec::new();
+        let mut total = 0usize;
+        for room in &room_set.rooms {
+            for enemy in &room.enemy_spawns {
+                total += 1;
+                if enemy.payload.gameplay_character_id().is_none() {
+                    unnamed.push(format!("{}/{}", room.id, enemy.id));
+                }
+            }
+        }
+        assert!(
+            total > 20,
+            "only {total} enemy placements were walked, so this census is not \
+             seeing the shipped worlds and an empty result would read as success"
+        );
+        unnamed.sort();
+
+        // ⚠ the ids are LDtk iids, not display names — the two placements are
+        // dive_drill's "Target" and under_town_pipes' skitter, D96 items 3 and 4,
+        // and they are exactly the pair checklist item 14 counted.
+        let expected = [
+            "dive_drill/EnemySpawn-6126",
+            "under_town_pipes/EnemySpawn-104875",
+        ];
+        assert_eq!(
+            unnamed.as_slice(),
+            expected.as_slice(),
+            "the set of placements with no authored character has changed. If it \
+             GREW, a new placement was authored without naming its character and \
+             is resolving art by display name. If it SHRANK TO EMPTY, the last \
+             casting decision has landed — delete the `presentation_identity` \
+             name fallback and make `EnemySpawnSpec::character_id` required \
+             (checklist item 15), then delete this test with it"
+        );
+    }
+
+    /// **The authored `mounted_on` refs have to survive all the way to a
+    /// `RoomSpec`, and for a month they did not.** Jon, 2026-08-08: *"The
+    /// pirates in the pirate sky no longer ride their sharks."* An LDtk editor
+    /// session (`6e48e5988`) rewrote `sandbox.ldtk` while a different level was
+    /// open and brought every `EntityRef` in the file back as `null`; the four
+    /// refs were restored from the `5e4d6448e` blob on 2026-08-09.
+    ///
+    /// ⭐ **the boss side of this chain was already pinned and the ENEMY side
+    /// was not.** `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
+    /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
+    /// of the same four lines (`entity_converters.rs`) and nothing exercised it
+    /// against a real world file. This does, off the shipped `sandbox.ldtk`.
+    ///
+    /// ⚠ scoped to the one level, exactly as the GNU-ton test is: composing the
+    /// whole sandbox pulls in portal entities whose feature is off in this test
+    /// build. `pirate_sky_lookout` authors none.
     #[test]
     fn the_pirate_sky_riders_lower_into_authored_mount_links() {
         use ambition_entity_catalog::placements::CharacterBrain;

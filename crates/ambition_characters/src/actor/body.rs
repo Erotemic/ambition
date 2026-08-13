@@ -520,6 +520,40 @@ mod hard_lock_tests {
     /// **LANDING LAG IS PART OF THE HARD LOCK, NOT ONLY RECOIL** — ledger D108,
     /// and the assertion the player road's inline expression never had.
     ///
+    /// **AND `reset()` IS THE FOURTH LIST WITH THE SAME OMISSION** — D108.
+    ///
+    /// It clears six fields and not `landing_lag_timer`, so a body reset while
+    /// mid-landing-lag keeps the lock. Three production callers reach it —
+    /// `sandbox_reset`, `features::ecs::reset` and `session::reset` — and for the
+    /// PLAYER, whose road actually reads the timer, that is up to 0.28s of input
+    /// lock carried through a reset.
+    ///
+    /// ⚠ the room-transition and lifecycle-commit paths DO clear it explicitly,
+    /// which is why this has never been the visible symptom.
+    #[allow(dead_code)]
+    fn every_field_declares_whether_reset_clears_it(combat: &BodyCombat) {
+        let BodyCombat {
+            // ── CLEARED by `reset()` (6) ───────────────────────────────────
+            hit_flash: _,
+            hitstop_timer: _,
+            damage_invuln_timer: _,
+            hitstun_timer: _,
+            recoil_lock_timer: _,
+            attacking: _,
+
+            // ── OWNED ELSEWHERE — the actor status fields are rebuilt by the
+            // per-frame sync from the cluster, as this method's doc says.
+            alive: _,
+            strike_count: _,
+            training_dummy: _,
+            attack_windup_timer: _,
+            attack_timer: _,
+
+            // ── ⛔ NOT CLEARED AND SHOULD BE (1) — see D108, fourth site.
+            landing_lag_timer: _,
+        } = combat;
+    }
+
     /// ⛔ the expression was `recoil_lock.max(landing_lag)` written at the call
     /// site, so reducing it to `recoil_lock` alone would have stopped landing lag
     /// locking anything and no test would have said so. That is not

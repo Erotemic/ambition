@@ -179,6 +179,33 @@ definition that is genuinely its own character. Still your casting call.
 
 ---
 
+### ⇥ ⭐⭐ AND THIS IS WHY JON SEES MAGENTA BOXES IN THAT ENCOUNTER
+
+Traced 2026-08-13, from his observation *"the goblins in the goblin encounter
+don't have sprites anymore. They have magenta boxes."*
+
+**The goblins are fine — it is the HEAVIES.** `goblin_encounter.ron`'s first two
+waves name `character: Some("goblin")` and draw correctly. The three
+`large_brute` mobs in waves 3 and 4 name **no character at all**, and the chain
+from there is mechanical:
+
+```text
+  no character   → spawn_encounter_mob sets  label = mob id
+  label = id     → the renderer resolves a sheet NAME-first
+                   (sprite override → art identity → display name)
+  nothing hits   → "resolved no sprite and is drawing the placeholder"
+```
+
+⇒ **the placeholder rectangle is the uncast heavy, not a broken goblin.** The
+`combatant` row it borrows carries stats and no art — archetype rows never named
+a sheet, because art was always resolved from the character.
+
+⭐ **so this decision is not only a deletion blocker; it is a visible bug in a
+shipped encounter.** Answering it removes three placeholders from the goblin
+lab. ⚠ and it means re-checking the observation will now show goblins WITH
+sprites beside brutes without them, which reads like a different bug than the
+one Jon filed.
+
 ## Does a bolt test the AUTHORED hurtbox, or the coarse box? (queue D23, 2026-08-10)
 
 **One word, and a piece of combat scaffolding comes out with it.**

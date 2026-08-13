@@ -370,6 +370,7 @@
             fields: (
                 name: "Giant GNU",
                 brain: "giant_gnu",
+                character_id: "npc_giant_gnu",
             ),
         ),
         (

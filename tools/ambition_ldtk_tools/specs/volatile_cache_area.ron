@@ -50,9 +50,9 @@
             ),
         ),
         // The volatile guard: two kamikaze mites + a splitter on the floor.
-        ( type: "EnemySpawn", px: [360, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite" ) ),
-        ( type: "EnemySpawn", px: [740, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite" ) ),
-        ( type: "EnemySpawn", px: [560, 428], size: [40, 52], fields: ( name: "Dividing Mite", brain: "dividing_mite" ) ),
+        ( type: "EnemySpawn", px: [360, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite", character_id: "npc_exploding_mite" ) ),
+        ( type: "EnemySpawn", px: [740, 414], size: [38, 66], fields: ( name: "Exploding Mite", brain: "exploding_mite", character_id: "npc_exploding_mite" ) ),
+        ( type: "EnemySpawn", px: [560, 428], size: [40, 52], fields: ( name: "Dividing Mite", brain: "dividing_mite", character_id: "npc_dividing_mite" ) ),
         // The cache: a fat coin on the high platform — the reward for clearing
         // the floor safely and climbing.
         ( type: "PickupSpawn", px: [920, 200], size: [24, 24], fields: ( name: "volatile_cache_reward", kind: "currency:120" ) ),

@@ -51,8 +51,8 @@
             ),
         ),
         // Two grounded kiters holding the floor — they snipe up at the climber.
-        ( type: "EnemySpawn", px: [520, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "ranged_skirmisher" ) ),
-        ( type: "EnemySpawn", px: [900, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "ranged_skirmisher" ) ),
+        ( type: "EnemySpawn", px: [520, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "combatant", character_id: "npc_pirate_raider" ) ),
+        ( type: "EnemySpawn", px: [900, 428], size: [34, 52], fields: ( name: "Skirmisher", brain: "combatant", character_id: "npc_pirate_raider" ) ),
         // The cache on the apex platform — the climb's payoff.
         ( type: "PickupSpawn", px: [1060, 140], size: [24, 24], fields: ( name: "skirmish_heights_reward", kind: "currency:150" ) ),
         (

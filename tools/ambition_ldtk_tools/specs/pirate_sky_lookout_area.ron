@@ -138,7 +138,8 @@
             ],
             fields: (
                 name: "Burning Flying Shark",
-                brain: "pirate_on_shark",
+                brain: "burning_flying_shark",
+                character_id: "npc_burning_flying_shark",
             ),
         ),
         (
@@ -153,7 +154,8 @@
             ],
             fields: (
                 name: "Burning Flying Shark",
-                brain: "pirate_on_shark",
+                brain: "burning_flying_shark",
+                character_id: "npc_burning_flying_shark",
             ),
         ),
         (
@@ -168,7 +170,8 @@
             ],
             fields: (
                 name: "Burning Flying Shark",
-                brain: "pirate_on_shark",
+                brain: "burning_flying_shark",
+                character_id: "npc_burning_flying_shark",
             ),
         ),
         (

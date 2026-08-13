@@ -24,8 +24,8 @@
         ( type: "EnemySpawn", px: [520, 432], size: [32, 48], fields: ( name: "pg_goblin_a", brain: "medium_striker" ) ),
         ( type: "EnemySpawn", px: [680, 432], size: [32, 48], fields: ( name: "pg_goblin_b", brain: "medium_striker" ) ),
         ( type: "EnemySpawn", px: [840, 432], size: [32, 48], fields: ( name: "pg_goblin_c", brain: "medium_striker" ) ),
-        ( type: "EnemySpawn", px: [1000, 436], size: [28, 44], fields: ( name: "pg_skitter", brain: "small_skitter" ) ),
-        ( type: "EnemySpawn", px: [1120, 424], size: [40, 56], fields: ( name: "pg_brute", brain: "large_brute" ) ),
+        ( type: "EnemySpawn", px: [1000, 436], size: [28, 44], fields: ( name: "pg_skitter", brain: "combatant", character_id: "npc_puppy_slug" ) ),
+        ( type: "EnemySpawn", px: [1120, 424], size: [40, 56], fields: ( name: "pg_brute", brain: "combatant", character_id: "npc_pirate_heavy_iron_mary" ) ),
         ( type: "PickupSpawn", px: [620, 320], size: [24, 24], fields: ( name: "pg_reward", kind: "currency:75" ) ),
         (
             type: "LoadingZone",

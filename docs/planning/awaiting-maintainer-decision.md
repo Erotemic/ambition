@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **7 open** (recounted 2026-08-13; D68 reopened; +`unarmed_melee` and the three acceptance-signal castings)
+## ⇥ INDEX — **8 open** (recounted 2026-08-13; D68 reopened; +`unarmed_melee`, the three acceptance-signal castings, and D96's four non-casting decisions)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -2551,3 +2551,73 @@ it.
 
 ⭐ **what does NOT need the answer**: nothing else in the campaign is waiting on
 the archetype file — it is one file with two rows and no other user.
+
+---
+
+## The four content decisions that are not castings (D96 5, 6, 7, 8)
+
+⚠ **these were argued in full in the ledger and never surfaced here**, at line
+~11,930 of `queue-72h-2026-08-08.md`. That is the wrong place for a question
+waiting on Jon, so they are indexed below with their forks; D96 holds the
+longer reasoning for 7 and 8.
+
+### 7. ⭐⭐ What is a provoked villager's health pool? — the largest single unblock
+
+Unblocks **two** campaign rows (P2.20, P2.21) and **D81 entirely**: 107
+characters name a brain preset and not one authors its own `BrainProfile`, so no
+preset can be retired as duplication — each is its author's only policy
+statement. They cannot state one until they are registered with real bodies.
+
+Provoking a peaceful NPC today rebuilds its whole BODY from the `combatant`
+archetype (4 HP, 155 px/s, the swipe). The character-first road that replaces it
+changes only the MIND — Jon's own model, *"the body does not change, only the
+mind"* — and an unmigrated Hall NPC's body has `max_health: 1`, the value a
+placement gets when nothing knows who it is. **So a provoked villager would die
+to one hit.**
+
+* **(a) The pool is a SESSION fact.** A room declares what an unauthored body
+  fights with, exactly as `DeclaredCombatRules::unarmed_melee` now declares what
+  it swings for. ⇒ smallest, and the same move made twice. ⭐ recommended on
+  size alone; it is a difficulty statement either way.
+* **(b) The Hall cast authors vitals.** 129 placements' characters state their
+  own health. ⇒ correct eventually, large now.
+* **(c) The drop is intended.** A villager who picks a fight with the
+  protagonist loses it. ⇒ free, and a real design position.
+
+⛔ **what makes it yours**: it is a difficulty statement, not a migration step.
+Every route through it is a different game.
+
+### 8. How tough is a pirate quartermaster? (D98)
+
+Seven characters — `npc_pirate_{cutlass_viper, heavy_broadside_bess,
+heavy_salt_annet, lookout, navigator, quartermaster}` and
+`special_patent_clerk` — author facts that reach no body, because registering
+them needs VITALS they do not have. They stand in the Hall at `max_health: 1`.
+
+⚠ **authoring that number makes the placeholder permanent; authoring any other
+number is deciding how tough they are.** And two of them are `Wide` bodies
+(`broadside_bess`, `salt_annet`) that read as heavies, so *"all seven get the
+same pool"* is itself a decision rather than a default.
+
+⭐ **six of these seven are also six of the fourteen** characters that keep
+`adopt_character_intrinsics` alive (checklist item 9,
+`the_cast_that_still_needs_a_body_assist_only_shrinks`). One answer moves a
+seventh of that ratchet.
+
+### 5. Does Carl Stargan fight?
+
+One `REGISTERED_WITHOUT_A_BODY` entry. ⭐ **and he is on the Smash grid today**,
+in the silent column of `the_grid_fighters_that_state_their_own_moves_only_grow`
+— selectable, and fighting with the stage's floor. That is a sharper statement
+of the question than the ledger's phrasing: he is already in a fight.
+
+### 6. Is a Sanic badnik the 1-HP wanderer its own file describes?
+
+That body has never existed; `badnik.rs` described a roster row nothing ever
+authored. ⇒ the smallest of the nine, and the only one confined to one demo.
+
+### What makes these yours
+
+None is blocked on engineering. Each is a number or a yes/no that decides how
+something FEELS, and (7) in particular gates a 107-adopter retirement that
+cannot begin without it.

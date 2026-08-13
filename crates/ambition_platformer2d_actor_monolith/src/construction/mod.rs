@@ -479,6 +479,30 @@ pub enum ActorConstructionError {
         end: &'static str,
         id: String,
     },
+    /// A row whose body is built FROM a character names no character at all.
+    ///
+    /// ⭐ **AC6 made this a real state rather than a migration one.** While an
+    /// archetype row could answer for a brain key, a placement that named no
+    /// character still got a body — the generic `combatant`, wearing whatever
+    /// the level called it. The ontology is deleted, so there is nothing left to
+    /// build this body from and the row is a content error.
+    BodyNamesNoCharacter { sim_id: SimId, brain: String },
+    /// A row names a character this composition has not registered.
+    ///
+    /// The original Iron Mary defect: content says `IronMary`, her registration
+    /// is missing, and the body used to spawn anyway as a stranger with her
+    /// name. Refused here, so the world is still whole when it is reported.
+    BodyCharacterNotRegistered { sim_id: SimId, character: String },
+    /// A row names a REGISTERED character whose definition cannot build a body.
+    ///
+    /// Distinct from the variant above because the fix is different: the
+    /// character exists and is missing facts (see `MissingCharacterFacts`),
+    /// rather than being absent from this composition's cast.
+    BodyCharacterIsIncomplete {
+        sim_id: SimId,
+        character: String,
+        missing: String,
+    },
 }
 
 impl std::fmt::Display for ActorConstructionError {
@@ -538,6 +562,27 @@ impl std::fmt::Display for ActorConstructionError {
                 f,
                 "room `{room}` authors a mount link whose {end} `{id}` matches no enemy or boss \
                  spawn in the room"
+            ),
+            Self::BodyNamesNoCharacter { sim_id, brain } => write!(
+                f,
+                "`{sim_id}` names brain `{brain}` and no character. Every body is built from a \
+                 character: give the placement a `character_id` naming a registered one"
+            ),
+            Self::BodyCharacterNotRegistered { sim_id, character } => write!(
+                f,
+                "`{sim_id}` names character `{character}`, which this composition has not \
+                 registered, and nothing else can build this body — it would spawn as a stranger \
+                 wearing that character's name. Register the character, or name one this \
+                 composition publishes"
+            ),
+            Self::BodyCharacterIsIncomplete {
+                sim_id,
+                character,
+                missing,
+            } => write!(
+                f,
+                "`{sim_id}` names character `{character}`, which is registered but cannot build a \
+                 body: {missing}"
             ),
         }
     }
@@ -1327,6 +1372,118 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         #[cfg(feature = "portal")]
         ActorConstructionParams::PortalGunSpawn { .. } => "portal-gun",
     }
+}
+
+/// **Which planned rows build their body FROM a character**, and what each one
+/// names.
+///
+/// Exhaustive over the parameter enum on purpose: a new construction family
+/// stops compiling here until somebody answers *does this build a body from a
+/// character*, which is precisely the question [`preflight_planned_bodies`]
+/// exists to ask before the world is touched.
+///
+/// `None` means the family builds no character body — a shrine, a ground item,
+/// a gravity zone — or builds it from another authority entirely (a boss reads
+/// the [`BossCatalog`]; a placement lowers through the NPC road, which still has
+/// a catalog-bodied fallback of its own).
+fn planned_body_character(parameters: &ActorConstructionParams) -> Option<PlannedBody<'_>> {
+    match parameters {
+        ActorConstructionParams::AuthoredEnemy { authored, .. }
+        | ActorConstructionParams::GiantHost { authored, .. }
+        | ActorConstructionParams::GiantHand { authored } => Some(PlannedBody {
+            character: authored.payload.character_id.as_ref().map(|id| id.as_str()),
+            named_by: format!("{:?}", authored.payload.brain),
+        }),
+        ActorConstructionParams::StagedActor(request) => match &request.kind {
+            crate::features::SpawnActorKind::Enemy { brain, character } => Some(PlannedBody {
+                character: character.as_ref().map(ambition_entity_catalog::CharacterId::as_str),
+                named_by: format!("{brain:?}"),
+            }),
+            // A staged boss builds from the boss catalog, like an authored one.
+            crate::features::SpawnActorKind::Boss { .. } => None,
+        },
+        // ⚠ **`archetype_id` IS a character id** and has been since the summon
+        // road stopped resolving roster rows; the field name is the last of the
+        // old vocabulary on this path.
+        ActorConstructionParams::SummonedMinion(minion) => Some(PlannedBody {
+            character: Some(minion.archetype_id.as_str()),
+            named_by: minion.archetype_id.clone(),
+        }),
+        ActorConstructionParams::AuthoredBoss { .. }
+        | ActorConstructionParams::Placement { .. }
+        | ActorConstructionParams::GroundItem { .. }
+        | ActorConstructionParams::Shrine { .. }
+        | ActorConstructionParams::GravityZone { .. } => None,
+        #[cfg(feature = "portal")]
+        ActorConstructionParams::PortalGunSpawn { .. } => None,
+    }
+}
+
+/// One planned row's claim on a character, as the preflight needs to read it.
+struct PlannedBody<'a> {
+    /// The character this row's body is built from, if it names one.
+    character: Option<&'a str>,
+    /// How the row describes itself when it names no character — the brain key,
+    /// which is what an author sees in the level editor.
+    named_by: String,
+}
+
+/// **Prove every planned body can actually be built, before anything is
+/// mutated.**
+///
+/// ⛔⛔ **THIS IS THE HALF AC6 LEFT LATE.** Deleting the enemy-archetype ontology
+/// made an unresolvable character honest — there is no generic `combatant` left
+/// to settle for — but the refusal it became lives inside
+/// `spawn_enemy_with_faction_into`, which runs as a construction RECIPE. By then
+/// the transaction has begun: the outgoing room is retired and earlier rows are
+/// already spawned, so the honest refusal arrives as a panic mid-commit.
+///
+/// The construction contract says the opposite in [`ConstructionDomain::dispatch`]'s
+/// own words — *"nothing here can fail: every lookup that could miss resolved in
+/// the request builder"*. This is that resolution, performed against the SAME
+/// registry the recipes will read (`construction.prepared` is what becomes
+/// `ActorConstructionServices::context.prepared`), so passing here means the
+/// execution-time lookup cannot miss.
+///
+/// ⛔ **it does not restore a fallback and must not grow into one.** The three
+/// refusals below are the three ways a body cannot be built; each names the
+/// placement and the character so the diagnostic is actionable, and the world is
+/// whole when it is reported.
+///
+/// ⚠ **an absent registry is an EMPTY cast, not an exemption.** `prepared: None`
+/// becomes a default (empty) `PreparedCharacterRegistry` in the frozen services,
+/// so a composition that publishes no cast cannot build a character body either.
+/// Saying so here is what makes the failure legible; the alternative is the
+/// panic three stack frames into a commit.
+pub fn preflight_planned_bodies(
+    requests: &[ActorConstructionRequest],
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+) -> Result<(), ActorConstructionError> {
+    for request in requests {
+        let Some(body) = planned_body_character(&request.parameters) else {
+            continue;
+        };
+        let Some(character) = body.character else {
+            return Err(ActorConstructionError::BodyNamesNoCharacter {
+                sim_id: request.sim_id.clone(),
+                brain: body.named_by,
+            });
+        };
+        let Some(definition) = prepared.and_then(|cast| cast.get(character)) else {
+            return Err(ActorConstructionError::BodyCharacterNotRegistered {
+                sim_id: request.sim_id.clone(),
+                character: character.to_string(),
+            });
+        };
+        if let Err(missing) = definition.body_blueprint() {
+            return Err(ActorConstructionError::BodyCharacterIsIncomplete {
+                sim_id: request.sim_id.clone(),
+                character: character.to_string(),
+                missing: missing.to_string(),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Reject illegal actor relation configurations **before any entity is

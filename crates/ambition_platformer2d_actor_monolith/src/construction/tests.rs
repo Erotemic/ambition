@@ -3388,11 +3388,19 @@ fn a_plan_matching_the_live_binding_publishes() {
 /// The room sweep is not merely available — the REAL prepare path runs it, on
 /// both channels, and hands the result to the plan.
 ///
-/// The two references here are the ones with NO failure mode of their own. An
-/// authored patrol path that matches nothing leaves the enemy passive;
-/// `spec_for_brain` cannot fail, so an unknown staged brain key becomes the
-/// generic `combatant`. Both used to construct without complaint and simply come
-/// out wrong.
+/// **The patrol path is the one reference with no failure mode of its own**: an
+/// authored path that matches nothing leaves the enemy passive, silently, and
+/// nothing else objects. That is what the sweep is for.
+///
+/// ⛔ **the staged BRAIN KEY used to be the second such reference and is not one
+/// any more.** `spec_for_brain` could not fail, so a typo'd key quietly became
+/// the generic `combatant`; AC6 deleted the ontology, and a body whose character
+/// resolves to nothing is now REFUSED by `preflight_planned_bodies` before the
+/// room is touched. A refusal is stronger than a report, so the staged half of
+/// this fixture spawns a buildable body and the sweep has one channel to report
+/// on. ⚠ this is also why both enemies here name a registered character: an
+/// unbuildable one would refuse the whole room, and this test would be measuring
+/// that refusal rather than the sweep.
 ///
 /// Held items are deliberately not part of this: `authored_static_requests`
 /// already REFUSES an unknown `held_item` (`UnknownHeldItem`), which is stronger
@@ -3408,26 +3416,22 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
             ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
         ));
-    room.enemy_spawns.push(crate::rooms::Authored::new(
-        "walker_authored",
-        "Walker",
-        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Patrol {
-            path_id: Some("ledge_patrl".into()),
-        },
-    ));
+    let mut walker: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
+        crate::rooms::Authored::new(
+            "walker_authored",
+            "Walker",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+            ambition_entity_catalog::placements::CharacterBrain::Patrol {
+                path_id: Some("ledge_patrl".into()),
+            },
+        );
+    walker.payload.character_id = Some(ambition_entity_catalog::CharacterId::new("fixture_walker"));
+    room.enemy_spawns.push(walker);
 
     let mut staging = crate::features::RoomContentStagingRegistry::default();
     staging
         .register("hall", "test_provider", "typo", "typo.v1", |_room| {
-            let mut enemy = staged_enemy("walker_a", None);
-            enemy.kind = SpawnActorKind::Enemy {
-                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "medium_strikr".into(),
-                ),
-                character: None,
-            };
-            vec![enemy]
+            vec![staged_enemy("walker_a", None)]
         })
         .expect("stager registers");
 
@@ -3435,12 +3439,11 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
         .expect("an unbound reference is a content defect, not a reason to refuse the room");
 
     // ⛔ **ONE channel now** (AC6). The staged half of this sweep resolved a
-    // BRAIN KEY against the archetype roster, and its typo (`medium_strikr`) was
-    // reported here because the lookup behind it could not fail. Construction
-    // refuses an identifier that names no character, which is a stronger
-    // statement than a report — so the patrol path is the namespace this sweep
-    // still owns, and it is the one whose failure mode is still silent (a bad
-    // path goes passive).
+    // BRAIN KEY against the archetype roster, and a typo there was reported here
+    // because the lookup behind it could not fail. Construction now REFUSES an
+    // identifier that names no character, which is a stronger statement than a
+    // report — so the patrol path is the namespace this sweep still owns, and it
+    // is the one whose failure mode is still silent (a bad path goes passive).
     let report = plan.binding_report();
     assert_eq!(report.len(), 1, "the patrol channel is swept:\n{report}");
 
@@ -3465,6 +3468,102 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
         "a room whose references all resolve says nothing:\n{}",
         clean.binding_report(),
     );
+}
+
+/// **A body nothing can build REFUSES THE PLAN — it does not panic mid-commit.**
+///
+/// ⛔⛔ **the half AC6 left late.** Deleting the archetype ontology made an
+/// unresolvable character honest: there is no generic body left to settle for.
+/// But the refusal it became lived inside `spawn_enemy_with_faction_into`, which
+/// runs as a construction RECIPE — so the honest answer arrived as a panic after
+/// the transaction had begun, with the outgoing room already retired and earlier
+/// rows already spawned. `ConstructionDomain::dispatch`'s own doc says the
+/// opposite: *"every lookup that could miss resolved in the request builder"*.
+///
+/// The three shapes, each a distinct fix for whoever authored it: names no
+/// character at all, names one nobody registered, names one that is registered
+/// and cannot build a body.
+///
+/// ⛔ poison, and it is the half that matters: an enemy naming a REGISTERED
+/// character must still prepare. A preflight that refused everything would pass
+/// the three assertions above and refuse every shipping room.
+#[test]
+fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
+    let room_naming = |character: Option<&str>| {
+        let mut room = empty_room("hall");
+        let mut enemy: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
+            crate::rooms::Authored::new(
+                "walker_authored",
+                "Walker",
+                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+                ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
+            );
+        enemy.payload.character_id = character.map(ambition_entity_catalog::CharacterId::new);
+        room.enemy_spawns.push(enemy);
+        room
+    };
+    let prepare_room = |room: &crate::rooms::RoomSpec| {
+        prepare(
+            room,
+            &crate::features::RoomContentStagingRegistry::default(),
+            &engine_construction_registry(),
+        )
+    };
+
+    assert!(
+        matches!(
+            prepare_room(&room_naming(None)),
+            Err(RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::BodyNamesNoCharacter { .. }
+            ))
+        ),
+        "a placement that names no character has nothing to build a body from",
+    );
+    assert!(
+        matches!(
+            prepare_room(&room_naming(Some("iron_mary"))),
+            Err(RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::BodyCharacterNotRegistered { .. }
+            ))
+        ),
+        "a character this composition never registered would spawn a stranger \
+         wearing her name — the defect D73 exists to end",
+    );
+
+    // Registered, and deliberately incomplete: no locomotion, so it cannot say
+    // how it moves and `body_blueprint` refuses it.
+    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    cast.insert_prepared(
+        crate::character_runtime::prepare_and_finalize_for_test(
+            crate::character_runtime::CharacterDefinition::new("npc_mute", "Mute", "test"),
+            &crate::character_runtime::CharacterBindings::default(),
+        )
+        .prepared,
+    );
+    let incomplete = RoomFeatureConstructionPlan::prepare(
+        &room_naming(Some("npc_mute")),
+        &Default::default(),
+        &crate::features::RoomContentStagingRegistry::default(),
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        &Default::default(),
+        &crate::boss_encounter::test_boss_catalog(),
+        ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
+            .with_prepared(&cast),
+    );
+    assert!(
+        matches!(
+            incomplete,
+            Err(RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::BodyCharacterIsIncomplete { .. }
+            ))
+        ),
+        "a registered character missing the facts a body needs is a DIFFERENT \
+         fix from an unregistered one, and the diagnostic has to say which",
+    );
+
+    prepare_room(&room_naming(Some("fixture_walker")))
+        .expect("and a registered, body-complete character prepares — or the three above are \
+                 a preflight that refuses everything");
 }
 
 /// **A STAGED actor takes its mount facts from its CHARACTER**, exactly as an

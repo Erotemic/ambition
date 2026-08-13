@@ -1674,11 +1674,19 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // second set of numbers to keep in agreement, and a placement naming a
     // creature nobody registered can no longer spawn a stranger wearing its name
     // — the defect D73 was written to end.
+    //
+    // ⚠ **and reaching HERE is now a planner defect, not a content one.**
+    // `construction::preflight_planned_bodies` resolves this exact question
+    // during preparation, against the same registry these services carry, so a
+    // content error is refused while the outgoing room is still whole. What
+    // survives here is the assertion that the two agree: a row that reaches this
+    // line was planned without being preflighted.
     panic!(
         "authored placement `{}` names brain `{:?}` and no character that can \
-         build a body. Every body is built from a character now: give the \
-         placement a `character_id` naming a registered one, or register the \
-         character it already names.",
+         build a body — and it reached construction, so the row was never \
+         preflighted. Content fix: give the placement a `character_id` naming a \
+         registered character. Engine fix: route this origin through \
+         `preflight_planned_bodies` so it refuses before the world is touched.",
         plan.context().feature_id,
         authored.payload.brain,
     );
@@ -2432,6 +2440,21 @@ pub fn apply_summon_effects(
         boss_catalog: boss_catalog.clone(),
     };
 
+    // **Every minion's body is proved buildable before the batch is planned.**
+    // A summon that resolves nothing REFUSES — and after AC6 that refusal is the
+    // only outcome, because there is no generic body left to settle for. It
+    // belongs here rather than inside the recipe: a rejected batch has spent
+    // nothing, where a recipe-time refusal is a panic with rows already built.
+    if let Err(error) = crate::construction::preflight_planned_bodies(
+        &planned,
+        prepared_characters.as_deref(),
+    ) {
+        bevy::log::error!(
+            target: "ambition_platformer2d::construction",
+            "summon batch rejected before mutation: {error}"
+        );
+        return;
+    }
     // Planning stays out here, against the App's own registry, and stays pure:
     // a rejected batch has spent nothing and built nothing.
     let live: std::collections::BTreeSet<_> = identities.iter().cloned().collect();

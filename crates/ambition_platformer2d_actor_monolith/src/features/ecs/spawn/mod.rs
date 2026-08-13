@@ -324,6 +324,12 @@ impl RoomFeatureConstructionPlan {
             construction.prepared,
         )
         .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+        // **And every planned BODY can be built**, checked here for the same
+        // reason: after AC6 a character that resolves to nothing has nothing
+        // else to become, and that refusal used to happen inside a recipe — mid
+        // commit, with the outgoing room already retired.
+        crate::construction::preflight_planned_bodies(&requests, construction.prepared)
+            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             ambition_platformer2d_shared_tangle::construction::ConstructionScope {
                 binding: construction.binding,

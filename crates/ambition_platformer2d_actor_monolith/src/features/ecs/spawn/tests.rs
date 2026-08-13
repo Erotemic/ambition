@@ -1227,18 +1227,12 @@ mod authored_enemy_reads_its_character {
         spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
     }
 
-    /// The same, with the archetype key the placement names — the axis the
-    /// refusal above turns on.
-    fn spawn_with_brain(
-        character_id: Option<&'static str>,
-        brain_key: &'static str,
-    ) -> (i32, f32, i32) {
-        spawn_with_prepared_and_brain(
-            crate::character_runtime::PreparedCharacterRegistry::default(),
-            character_id,
-            brain_key,
-        )
-    }
+    // ⛔ **`spawn_with_brain` WAS HERE and went with the ontology** (AC6). It
+    // varied the ARCHETYPE KEY a placement names while holding the character
+    // fixed — the axis a refusal used to turn on, because a key that matched no
+    // row still built a body from the reserved `combatant` one. There are no
+    // rows, so the key decides nothing about a body and the axis has no second
+    // value to take. Its one caller went with the parity test that read it.
 
     fn spawn_with_prepared_and_brain(
         prepared: crate::character_runtime::PreparedCharacterRegistry,

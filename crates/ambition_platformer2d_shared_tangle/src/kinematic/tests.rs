@@ -808,7 +808,7 @@ fn rising_through_one_way_does_not_get_stuck() {
 /// decided by which movement engine drove the body (GPT 5.6, `d46a0f7`).
 #[test]
 fn a_generic_body_falls_straight_through_a_bonk_only_block() {
-    use ambition_platformer2d_core::{Aabb, Block, BlockKind, Vec2, World};
+    use ambition_platformer2d_core::{Block, BlockKind, Vec2, World};
 
     let hidden = Block {
         kind: BlockKind::BonkOnly,

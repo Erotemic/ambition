@@ -171,7 +171,8 @@ pub fn integrate_home_body(
         combat.hard_lock_timer(),
         frame_dt,
     );
-    let sim_dt = if combat.hitstop_timer > 0.0 {
+    // ⭐ one named rule — the actor road has no hitlag branch at all (D110).
+    let sim_dt = if combat.is_in_hitlag() {
         0.0
     } else {
         scaled_dt

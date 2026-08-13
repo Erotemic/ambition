@@ -320,6 +320,24 @@ impl BodyCombat {
         self.recoil_lock_timer.max(self.landing_lag_timer)
     }
 
+    /// **IS THIS BODY IN HITLAG** — the shared freeze a landed hit puts on BOTH
+    /// parties, which the damage path states as *"a landed hit is one event"*.
+    ///
+    /// ⭐ **named for the same reason as [`Self::hard_lock_timer`] and with the
+    /// same standing gap** (ledger D110). The timer is armed on the victim AND
+    /// the attacker, whoever they are — and it is read by the PLAYER road
+    /// (`sim_dt = 0`) and by a `With<PrimaryPlayer>` clock request, so a hit
+    /// between two bodies that are neither produces no freeze at all. On a
+    /// platform-fighter stage that is CPU versus CPU, and any seat past slot 0.
+    ///
+    /// ⚠ **this does not fix it.** The actor road still has no hitlag branch;
+    /// what this buys is that adding one is a call rather than a re-derivation,
+    /// and that the asymmetry is greppable — one road asks the body, the other
+    /// never asks.
+    pub fn is_in_hitlag(&self) -> bool {
+        self.hitstop_timer > 0.0
+    }
+
     pub fn vulnerable(&self) -> bool {
         self.damage_invuln_timer <= 0.0
     }
@@ -552,6 +570,29 @@ mod hard_lock_tests {
             // ── ⛔ NOT CLEARED AND SHOULD BE (1) — see D108, fourth site.
             landing_lag_timer: _,
         } = combat;
+    }
+
+    /// **AND HITLAG IS THE SAME SHAPE ONE LAYER OVER** — D110.
+    ///
+    /// ⛔ the freeze is armed on the victim AND the attacker, from a law the
+    /// damage path states as *"a landed hit is one event"*, and it is read by the
+    /// player road and a `With<PrimaryPlayer>` clock request. A hit between two
+    /// bodies that are neither produces no freeze — CPU versus CPU on a
+    /// platform-fighter stage, which is what Smash is made of.
+    #[test]
+    fn hitlag_is_a_body_question_even_though_only_one_road_asks_it() {
+        let mut combat = BodyCombat::default();
+        assert!(
+            !combat.is_in_hitlag(),
+            "a body with no hitstop reports hitlag, so the assertion below cannot \
+             tell a freeze from a default"
+        );
+        combat.hitstop_timer = 0.07;
+        assert!(
+            combat.is_in_hitlag(),
+            "a body carrying hitstop does not report hitlag — the predicate stopped \
+             reading the timer the damage path arms"
+        );
     }
 
     /// ⛔ the expression was `recoil_lock.max(landing_lag)` written at the call

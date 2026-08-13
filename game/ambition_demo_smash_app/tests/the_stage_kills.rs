@@ -520,23 +520,16 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
 /// protection that reads as protection and cannot fire.
 #[test]
 fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
-    use ambition_platformer2d::actors::features::CharacterRoster;
-
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
     }
-    let archetypes = app
-        .world()
-        .get_resource::<CharacterRoster>()
-        .expect("the composition installs an archetype table")
-        .clone();
-    // ⭐ **the OTHER authority a seat's policy can live in** (2026-08-11). This
-    // asked the archetype table alone, so the day this demo published its CPU
-    // ladder as real `BrainProfile`s and deleted its archetype fragment, four
-    // perfectly seatable fighters were reported unseatable. The question — *can
-    // this demo fill the seats it declares?* — is unchanged; it now asks both
-    // places an answer can live, exactly as seating does.
+    // ⭐ **THE authority a seat's policy lives in.** This asked an archetype
+    // table alone (2026-08-11), so the day this demo published its CPU ladder as
+    // real `BrainProfile`s and deleted its archetype fragment, four perfectly
+    // seatable fighters were reported unseatable; it then asked both, and asks
+    // the only one since P2.18 deleted the archetype arm. The question — *can
+    // this demo fill the seats it declares?* — has never changed.
     let profiles = app
         .world()
         .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
@@ -551,7 +544,7 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
             ],
             level,
         );
-        let problems = roster.unsatisfiable_seats(&archetypes, Some(&profiles));
+        let problems = roster.unsatisfiable_seats(Some(&profiles));
         assert!(
             problems.is_empty(),
             "level {level}: this demo declares a CPU seat its own composition \
@@ -623,19 +616,14 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
 #[test]
 fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     use ambition_platformer2d::actor::ControllerBinding;
-    use ambition_platformer2d::actors::features::CharacterRoster;
 
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
     }
-    let archetypes = app
-        .world()
-        .get_resource::<CharacterRoster>()
-        .expect("the composition installs an archetype table")
-        .clone();
     // ⭐ the demo's PUBLISHED policies — its CPU ladder lives here now, not in an
-    // archetype fragment (that fragment is deleted).
+    // archetype fragment (that fragment is deleted), and since P2.18 there is
+    // nowhere else a seat's policy could come from.
     let published = app
         .world()
         .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
@@ -685,15 +673,21 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
         "the two seats must sit on DIFFERENT rungs, or every measurement built \
          on this reads 50% and looks like a flat ladder rather than a broken rig"
     );
-    // ⭐ the two authorities a seat's policy can live in — the same pair
-    // `seat_brain_profile` consults, resolved in this demo's own provider.
+    // ⭐ **the ONE authority a seat's policy can live in**, resolved in this
+    // demo's own provider exactly as `seat_brain_profile` resolves it.
+    //
+    // ⛔ this was `archetypes.has_brain_key(profile) || published.get(..)`, and
+    // the first term made the guard unfalsifiable in the direction that matters:
+    // an archetype table could answer for a rung whose policy was never
+    // published, which is the state D87's deletion was supposed to have ended.
+    // `seat_brain_profile` has one arm since 2026-08-13 (P2.18), so a term that
+    // seating cannot use has no business in a guard about what seating can do.
     let resolves = |profile: &str| {
-        archetypes.has_brain_key(profile)
-            || published
-                .get(&ambition_platformer2d::entity_catalog::BrainProfileId::new(
-                    format!("{}::{profile}", ambition_demo_smash::SMASH_EXPERIENCE),
-                ))
-                .is_some()
+        published
+            .get(&ambition_platformer2d::entity_catalog::BrainProfileId::new(
+                format!("{}::{profile}", ambition_demo_smash::SMASH_EXPERIENCE),
+            ))
+            .is_some()
     };
     // ⭐ **and each rung RESOLVES**, which is the property that keeps a ladder a
     // ladder. ⛔ this asked the ARCHETYPE table — the authority this demo stopped

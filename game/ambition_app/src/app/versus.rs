@@ -359,14 +359,17 @@ fn reconcile_roster_with_frozen_topology(
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
     seated: Query<&ambition_platformer2d::actors::character_runtime::MatchSeat>,
-    // The archetype table a seated CPU consults — the authority activation
-    // validates against. OPTIONAL because a composition legitimately has none
-    // (an engine App with no content), and `engine.character-authority-is-app-local`
-    // means "not part of this composition" is a real answer rather than a fault.
-    archetypes: Option<Res<ambition_platformer2d::actors::features::CharacterRoster>>,
-    // **The published controller policies**, so a seat naming one is not reported
-    // as unseatable merely because no archetype key shares its name. See
-    // `MatchParticipantRoster::unsatisfiable_seats`.
+    // **The published controller policies** — the authority activation validates
+    // against, and since 2026-08-13 the only one. OPTIONAL because a composition
+    // legitimately publishes none (an engine App with no content), and
+    // `engine.character-authority-is-app-local` means "not part of this
+    // composition" is a real answer rather than a fault.
+    //
+    // ⛔ a `Res<CharacterRoster>` stood beside this and was passed FIRST. An
+    // enemy archetype table cannot answer a controller question — it stopped
+    // being able to when `seat_brain_profile`'s archetype arm went (P2.18) — and
+    // a validator that consults an authority the runtime does not is a validator
+    // that approves what seating then refuses.
     profiles: Option<
         Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
     >,
@@ -419,18 +422,15 @@ fn reconcile_roster_with_frozen_topology(
             // AFTER the roster is live. So a route could activate a match its
             // own composition cannot fill, seating would refuse it, and the
             // stage would sit on a roster that never seats.
-            let validated = match archetypes.as_deref() {
-                Some(archetypes) => {
-                    roster.activate_if_seatable(archetypes, profiles.as_deref(), None)
-                }
-                // No archetype table to validate against. Activating unvalidated
-                // is what happened before this check existed, and refusing here
-                // would strand every content-free composition instead.
-                None => {
-                    roster.activate(None);
-                    Ok(())
-                }
-            };
+            // ⭐ **ONE ARM NOW, and an absent registry is a real answer rather
+            // than a reason to skip the check.** This branched on whether an
+            // archetype table existed and activated UNVALIDATED when it did not
+            // — defensible while a seat's policy had two possible homes, because
+            // "no archetype table" did not mean "no answer". It does now: a CPU
+            // seat naming a policy nobody published is refused by seating
+            // whatever this does, so validating an empty registry reports the
+            // truth one tick earlier instead of stranding anybody.
+            let validated = roster.activate_if_seatable(profiles.as_deref(), None);
             if let Err(problems) = validated {
                 bevy::log::warn_once!(
                     "the versus roster is not activated because this composition \

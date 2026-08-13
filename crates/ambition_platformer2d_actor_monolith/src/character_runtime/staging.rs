@@ -460,13 +460,12 @@ impl MatchParticipantRoster {
     /// instead of retrying forever.
     pub fn activate_if_seatable(
         &mut self,
-        archetypes: &crate::features::CharacterRoster,
-        // See [`Self::unsatisfiable_seats`]: a seat's policy may be published
-        // rather than filed under an archetype key.
+        // See [`Self::unsatisfiable_seats`]: a seat's policy is PUBLISHED, and
+        // since 2026-08-13 that is the only place it can be.
         profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
         seat_topology: Option<u64>,
     ) -> Result<(), Vec<RosterProblem>> {
-        let problems = self.unsatisfiable_seats(archetypes, profiles);
+        let problems = self.unsatisfiable_seats(profiles);
         if !problems.is_empty() {
             return Err(problems);
         }
@@ -605,7 +604,6 @@ impl MatchParticipantRoster {
     /// the archetype arm still answers for it.
     pub fn unsatisfiable_seats(
         &self,
-        archetypes: &crate::features::CharacterRoster,
         // The published controller policies, resolved exactly as
         // `prepared_match::seat_brain_profile` resolves them: this roster's own
         // provider first, then the bare name.
@@ -616,9 +614,6 @@ impl MatchParticipantRoster {
             .enumerate()
             .filter_map(|(seat, participant)| {
                 let profile = participant.controller.brain_profile()?;
-                if archetypes.has_brain_key(profile) {
-                    return None;
-                }
                 let reference = ambition_entity_catalog::BrainProfileRef::new(profile);
                 let published = profiles.is_some_and(|profiles| {
                     self.published_by
@@ -628,17 +623,19 @@ impl MatchParticipantRoster {
                 if published {
                     return None;
                 }
-                let mut known = archetypes.brain_keys();
-                known.sort();
                 let owner = self.published_by.as_deref().unwrap_or("<unpublished>");
+                let mut known: Vec<&str> = profiles
+                    .map(|profiles| profiles.ids().collect())
+                    .unwrap_or_default();
+                known.sort_unstable();
                 Some(RosterProblem {
                     seat,
                     detail: format!(
-                        "asks for brain profile `{profile}`, which neither this \
-                         composition's published policies (as `{owner}::{profile}`) nor its \
-                         CharacterRoster has. Known archetype keys: {known:?}. \
-                         ⚠ an UNPUBLISHED roster can only reach the archetype table — a \
-                         provider-relative policy name has nothing to resolve against."
+                        "asks for brain profile `{profile}`, which this composition \
+                         does not publish (it would resolve as `{owner}::{profile}`). \
+                         Published policies: {known:?}. \
+                         ⚠ an UNPUBLISHED roster resolves nothing — a provider-relative \
+                         policy name has no provider to resolve against."
                     ),
                 })
             })
@@ -803,14 +800,41 @@ mod roster_validation_tests {
     use super::*;
     use crate::character_runtime::ControllerBinding;
 
-    fn archetypes(keys: &[&str]) -> crate::features::CharacterRoster {
-        let mut map = std::collections::BTreeMap::new();
-        for key in keys {
-            map.insert((*key).to_string(), crate::features::enemies::test_spec(key));
-        }
-        map.entry("combatant".to_string())
-            .or_insert_with(|| crate::features::enemies::test_spec("combatant"));
-        crate::features::CharacterRoster::new(map)
+    /// **The policies a composition PUBLISHES**, keyed the way assembly keys
+    /// them.
+    ///
+    /// ⛔ this built a `CharacterRoster` until 2026-08-13 — an enemy archetype
+    /// table — because a seat's controller question had two authorities and this
+    /// checker knew the legacy one. It knows the only one now (P2.18).
+    fn published(
+        keys: &[&str],
+    ) -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
+        use ambition_characters::actor::character_catalog::{
+            parse_catalog, BrainProfileRegistry, CharacterCatalog,
+        };
+        let rows: String = keys
+            .iter()
+            .map(|key| format!("\"{PROVIDER}::{key}\": (template: StandStill),"))
+            .collect();
+        let ron = format!(
+            "( autonomous_profiles: {{ {rows} }}, brain_presets: {{}}, \
+              action_set_presets: {{}}, characters: {{}} )"
+        );
+        BrainProfileRegistry::from_catalog_for_test(
+            "unused: every name above is already qualified",
+            &CharacterCatalog::from_data(parse_catalog(&ron)),
+        )
+    }
+
+    /// The provider a roster in these fixtures publishes under — a seat's policy
+    /// reference resolves in it, so the fixture has to name one to be modelling
+    /// production at all.
+    const PROVIDER: &str = "fixture_game";
+
+    fn roster_of(characters: [&str; 2]) -> MatchParticipantRoster {
+        let mut roster = MatchParticipantRoster::of(characters);
+        roster.published_by = Some(PROVIDER.to_string());
+        roster
     }
 
     /// **The bug this seam exists for, twice on 2026-07-31.**
@@ -821,14 +845,14 @@ mod roster_validation_tests {
     /// never moves.
     #[test]
     fn a_cpu_seat_naming_an_unregistered_profile_is_unsatisfiable() {
-        let mut roster = MatchParticipantRoster::of(["fighter_a", "fighter_b"]);
+        let mut roster = roster_of(["fighter_a", "fighter_b"]);
         roster.participants[1] = roster.participants[1]
             .clone()
             .driven_by(ControllerBinding::Cpu {
                 brain_profile: Some("medium_striker".into()),
             });
 
-        let problems = roster.unsatisfiable_seats(&archetypes(&["combatant"]), None);
+        let problems = roster.unsatisfiable_seats(Some(&published(&["duelist"])));
         assert_eq!(problems.len(), 1, "{problems:?}");
         assert_eq!(problems[0].seat, 1);
         assert!(
@@ -840,31 +864,31 @@ mod roster_validation_tests {
 
     #[test]
     fn a_roster_its_composition_can_seat_reports_nothing() {
-        let mut roster = MatchParticipantRoster::of(["fighter_a", "fighter_b"]);
+        let mut roster = roster_of(["fighter_a", "fighter_b"]);
         roster.participants[1] = roster.participants[1]
             .clone()
             .driven_by(ControllerBinding::Cpu {
                 brain_profile: Some("duelist".into()),
             });
         assert!(roster
-            .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]), None)
+            .unsatisfiable_seats(Some(&published(&["duelist"])))
             .is_empty());
     }
 
-    /// A HUMAN seat asks the archetype table for nothing, so it cannot be
-    /// unsatisfiable this way — and a check that flagged it would make every
-    /// couch game unpublishable.
+    /// A HUMAN seat names no controller policy, so it cannot be unsatisfiable
+    /// this way — and a check that flagged it would make every couch game
+    /// unpublishable. The composition here publishes NOTHING, which is what
+    /// makes the claim about the seat rather than about the registry.
     #[test]
-    fn a_human_seat_needs_no_archetype() {
-        let mut roster = MatchParticipantRoster::of(["fighter_a"]);
+    fn a_human_seat_needs_no_published_policy() {
+        let mut roster = roster_of(["fighter_a", "fighter_b"]);
         roster.participants[0] =
             roster.participants[0]
                 .clone()
                 .driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
                 });
-        assert!(roster
-            .unsatisfiable_seats(&archetypes(&[]), None)
-            .is_empty());
+        roster.participants.truncate(1);
+        assert!(roster.unsatisfiable_seats(Some(&published(&[]))).is_empty());
     }
 }

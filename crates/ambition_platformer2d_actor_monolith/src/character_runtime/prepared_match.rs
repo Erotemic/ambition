@@ -576,16 +576,14 @@ pub fn prepare_match(
     registry: &PreparedCharacterRegistry,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    archetypes: &crate::features::CharacterRoster,
-    // **THE PUBLISHED CONTROLLER POLICIES**, asked before the archetype table
-    // (Jon's second redirect, P4).
+    // **THE CONTROLLER POLICIES THIS COMPOSITION PUBLISHED** — the only place a
+    // seat's policy can come from (Jon's second redirect, P4; finished P2.18).
     //
-    // ⭐ a match's public API is *character + controller + team*, and the
-    // implementation resolved the controller half through `CharacterRoster` —
-    // an ENEMY ARCHETYPE table — so Smash was not yet proving the controller
-    // architecture it advertises. A CPU seat naming a published profile resolves
-    // here; one naming an archetype brain key still falls through, which is what
-    // shrinks as profiles get published.
+    // ⛔ a `&CharacterRoster` stood beside this and was asked FIRST. A match's
+    // public API is *character + controller + team*, and the implementation
+    // resolved the controller half through an ENEMY ARCHETYPE table, so Smash
+    // was not yet proving the controller architecture it advertises. That arm is
+    // deleted; preparation no longer takes the roster at all.
     profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
     centre: Vec2,
     // The first `SimTick` the resulting plan may build on — see
@@ -719,12 +717,12 @@ pub fn prepare_match(
             continue;
         }
 
-        // A CPU's profile must name a rig this composition registered.
+        // A CPU's profile must name a policy this composition PUBLISHED.
         //
-        // `spec_for_brain` falls back to a generic `combatant` row for an
-        // unknown key — defensible for a placement, and for a match seat it
-        // means the fighter that arrives is not the fighter the roster asked
-        // for. It cost an hour in this demo on 2026-07-31, with a diagram.
+        // ⚠ the failure it prevents is not a crash: an unresolved key used to
+        // fall back to a generic `combatant` row, so the fighter that arrived
+        // was not the fighter the roster asked for. It cost an hour in this demo
+        // on 2026-07-31, with a diagram.
         if let ControlAuthority::Brain { profile } = &authority {
             if seat_brain_profile(
                 profile,
@@ -734,15 +732,21 @@ pub fn prepare_match(
             )
             .is_none()
             {
-                let mut known = archetypes.brain_keys();
-                known.sort();
-                let published: Vec<&str> = profiles.map(|p| p.ids().collect()).unwrap_or_default();
+                // ⛔ this listed the roster's archetype keys beside the published
+                // ones and called the archetype table "the LEGACY half — a seat
+                // should name a published policy" (deleted 2026-08-13, P2.18).
+                // A seat CANNOT name one now: `seat_brain_profile` has one arm.
+                // Printing an authority that cannot answer sends the reader to
+                // add a row that would change nothing.
+                let mut published: Vec<&str> =
+                    profiles.map(|p| p.ids().collect()).unwrap_or_default();
+                published.sort_unstable();
                 seat_problem(format!(
-                    "asks for brain profile `{profile}`, which is neither a \
-                     published controller policy nor a key in this composition's \
-                     CharacterRoster. Published policies: {published:?}. Archetype \
-                     keys: {known:?}. ⚠ the archetype table is the LEGACY half — a \
-                     seat should name a published policy."
+                    "asks for brain profile `{profile}`, which this composition \
+                     does not publish. Published policies: {published:?}. \
+                     ⚠ a bare name resolves in the MATCH's provider first and the \
+                     CHARACTER's second, so `{profile}` alone never means another \
+                     game's policy of the same name."
                 ));
                 continue;
             }
@@ -1341,9 +1345,12 @@ pub fn prepare_the_match(
     // resolve their sprite identity against nothing.
     catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    archetypes: Res<crate::features::CharacterRoster>,
     // The published controller policies a CPU seat may name (P4). `Option` like
     // every other reader: a composition that publishes none is ordinary.
+    //
+    // ⛔ a `Res<CharacterRoster>` stood beside this — REQUIRED, so every host
+    // that prepared a match had to install an enemy archetype table to seat a
+    // fighter. Preparation reads no roster at all now (P2.18).
     profiles: Option<Res<ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
     geometry: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -1416,7 +1423,6 @@ pub fn prepare_the_match(
         &registry,
         &catalog,
         &authored_sheets,
-        &archetypes,
         profiles.as_deref(),
         centre,
         effective_from,

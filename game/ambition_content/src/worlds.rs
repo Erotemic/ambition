@@ -524,26 +524,28 @@ mod tests {
         );
         unnamed.sort();
 
-        // ⚠ the ids are LDtk iids, not display names — the two placements are
-        // dive_drill's "Target" and under_town_pipes' skitter, D96 items 3 and 4,
-        // and they are exactly the pair checklist item 14 counted.
-                // ⇒ **ONE placement left, and Jon has already ruled on it.** The
-        // dive-drill's anonymous `Target` is AI-invented placeholder content he
-        // does not care about preserving: *"remove the dive-drill and its
-        // anonymous Target if doing so simplifies the character/construction
-        // migration … do not let dive-drill block making ordinary authored
-        // EnemySpawn character-first or required-character-id work."* Deleting it
-        // is what empties this list and unblocks checklist item 15.
-        let expected = ["dive_drill/EnemySpawn-6126"];
-        assert_eq!(
-            unnamed.as_slice(),
-            expected.as_slice(),
-            "the set of placements with no authored character has changed. If it \
-             GREW, a new placement was authored without naming its character and \
-             is resolving art by display name. If it SHRANK TO EMPTY, the last \
-             casting decision has landed — delete the `presentation_identity` \
-             name fallback and make `EnemySpawnSpec::character_id` required \
-             (checklist item 15), then delete this test with it"
+        // ⭐⭐ **EMPTY, as of 2026-08-13.** Every `EnemySpawn` in every world this
+        // provider ships names the character it is. The last two were content
+        // decisions Jon made that day: `under_town_skitter` is a Puppy Slug, and
+        // the dive-drill's anonymous "Target" — AI-invented placeholder content
+        // he does not care about preserving — was deleted rather than cast.
+        //
+        // ⇒ **so this asserts the INVARIANT now, not a countdown.** A placement
+        // authored without a character resolves its art by display name, which is
+        // a string matching a sprite by luck; the list being empty is what makes
+        // "an enemy placement names its character" a rule rather than a target.
+        //
+        // ⚠ **it unblocks checklist item 15** — deleting the `presentation_identity`
+        // name fallback and making `EnemySpawnSpec::character_id` required — and
+        // that is the thing to do next, not another entry here. When the type
+        // makes the absence unrepresentable, delete this test with the fallback.
+        assert!(
+            unnamed.is_empty(),
+            "these placements name no character and are resolving art by display \
+             name: {unnamed:?}\n\nEvery shipped enemy placement named its \
+             character as of 2026-08-13. A new one that does not is either a \
+             casting decision nobody made or an authoring slip — and the fix is \
+             the `character_id` field, never a wider fallback"
         );
     }
 

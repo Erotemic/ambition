@@ -1,8 +1,24 @@
-//! Room-level verification that `dive_drill` lets the Dive ability clear a line of
-//! targets. The dive is a clean ~140px position lunge (confirmed: x 404->544
-//! instantly), and its damage is the whole dash corridor — so lunging through a
-//! row of three targets should clear them. Movement is checked via the public
-//! observation; the kills via a world query on the enemies' `BodyHealth`.
+//! **The dive is a gap-closer that HURTS what it passes through.**
+//!
+//! Two claims, and they need different things. That the dive carries a body
+//! across a hazard gap is about the ROOM — `dive_drill` has the pickup, the gap
+//! and the far ledge, and that is what the room is for. That the dive damages a
+//! body it lunges through is about the ENGINE, and it needs a body, not a
+//! particular authored one.
+//!
+//! ⭐⭐ **so the target is spawned by this test now** (2026-08-13). The room used
+//! to hold an anonymous `EnemySpawn` called "Target" — AI-invented placeholder
+//! content Jon does not care about preserving, and the LAST placement in any
+//! shipped world naming no character, which made it the one thing standing
+//! between the campaign and a required `character_id`. His ruling was to remove
+//! it and *"adjust broader tests if necessary to test the underlying engine
+//! behavior somewhere more appropriate"*.
+//!
+//! ⇒ **more appropriate is right here.** A test that spawns the body it measures
+//! states its own preconditions; the old one asserted an engine property and
+//! depended on a room's furniture to hold it up. `spawn_enemy_character_at`
+//! names a real character, so the target is a body the game can actually build
+//! rather than a display name resolving art by string.
 
 use crate::common::{base, fixed_60hz_room_sim};
 
@@ -46,6 +62,22 @@ fn enemy_hps(sim: &mut Platformer2dSimHarness) -> Vec<i32> {
 #[test]
 fn dive_drill_lunges_through_the_targets() {
     let mut sim = fixed_60hz_room_sim("dive_drill");
+
+    // ⭐ the body this test measures, staged where the room's placeholder used to
+    // stand (x=540, on the far ledge across the gap). A Puppy Slug because it is
+    // a real buildable character with a small body and no ranged answer — the
+    // test is about the dive, not about surviving a fight.
+    sim.spawn_enemy_character_at(
+        "dive_drill_target",
+        "Dive Target",
+        (540.0, 210.0),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        Some("npc_puppy_slug"),
+    );
+    for _ in 0..2 {
+        sim.step(base());
+    }
 
     // Grab the Dive ability off the floor (pickup x[110,150]).
     for _ in 0..60 {

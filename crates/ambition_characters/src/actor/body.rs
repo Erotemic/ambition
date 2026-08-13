@@ -367,8 +367,15 @@ impl BodyCombat {
         self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
     }
 
-    /// Reset every reaction timer a body reset clears. (The remaining status
-    /// fields are owned by the per-frame sync from the cluster.)
+    /// Reset every reaction timer a body reset clears.
+    ///
+    /// ⛔ **it said the remaining fields "are owned by the per-frame sync from
+    /// the cluster"**, which stopped being true in AC3.2 —
+    /// `sync_actor_components_from_cluster` writes no `BodyCombat` field now —
+    /// and stopped being possible in AC6.2, where the seed carries this
+    /// component. The one non-timer field, `training_dummy`, is the character's
+    /// `practice_target` written once at construction: a reset restores a body's
+    /// reaction history, it does not re-decide what the body IS.
     ///
     /// ⛔ **`landing_lag_timer` is in it now** — D108's fourth site. It cleared
     /// six fields and not that one, so a body reset mid-landing-lag kept up to
@@ -538,8 +545,15 @@ mod hard_lock_tests {
             recoil_lock_timer: _,
             landing_lag_timer: _,
 
-            // ── OWNED ELSEWHERE — rebuilt by the per-frame sync from the
-            // cluster, as this method's doc says.
+            // ── NOT A TIMER, and CONSTRUCTION owns it ──────────────────────
+            //
+            // ⛔ **this said "rebuilt by the per-frame sync from the cluster"
+            // and that has been false twice over.** AC3.2 deleted the sync's
+            // rebuild — `sync_actor_components_from_cluster` is one string
+            // comparison and writes no `BodyCombat` field at all — and AC6.2
+            // made the seed carry this component, so the flag is the character's
+            // `practice_target` written ONCE at construction. A reset restores a
+            // body's reaction history; it does not re-decide what the body IS.
             training_dummy: _,
         } = combat;
     }

@@ -707,6 +707,30 @@ pub fn apply_feature_hit_events(
             }
         }
 
+        // ⭐⭐ **WHO STRUCK, asked ONCE per event** (AC7, probe B). The rule
+        // below stood here and again 150 lines down, and the two copies did not
+        // agree: this one refuses to guess unless the event is an unresolved
+        // BROADCAST from a victim-seeking source, and the breakable fold simply
+        // wrote `event.attacker.or_else(|| primary_q.single().ok())` — any melee
+        // with no attacker credited whichever body happens to be the home avatar.
+        //
+        // ⛔ **the reasoning is this copy's own and it is the correct one**:
+        // *"We do not know who did this" is true of a broadcast and of nothing
+        // else. A `Body`-targeted event with no attacker is a producer bug, and
+        // blaming the nearest human hides it.* Probe B asks which body-generic
+        // systems reach for `PrimaryPlayer` merely to LOCATE a body; this was one,
+        // twice, and now it is one rule that both readers share.
+        let unresolved_broadcast = matches!(
+            event.target,
+            crate::combat::events::HitTarget::Volume
+                | crate::combat::events::HitTarget::UnresolvedFeatures
+                | crate::combat::events::HitTarget::OrbMatch
+        );
+        let target_attacker = event.attacker.or_else(|| {
+            (unresolved_broadcast && event.source.seeks_victims())
+                .then(|| primary_q.single().ok())
+                .flatten()
+        });
         if actor_hit_this_event || boss_hit_this_event {
             // ⛔ **an UNRESOLVED broadcast may fall back to the primary; a hit
             // that named its victim may not.** This used to ask
@@ -720,17 +744,6 @@ pub fn apply_feature_hit_events(
             // "We do not know who did this" is true of a broadcast and of
             // nothing else. A `Body`-targeted event with no attacker is a
             // producer bug, and blaming the nearest human hides it.
-            let unresolved_broadcast = matches!(
-                event.target,
-                crate::combat::events::HitTarget::Volume
-                    | crate::combat::events::HitTarget::UnresolvedFeatures
-                    | crate::combat::events::HitTarget::OrbMatch
-            );
-            let target_attacker = event.attacker.or_else(|| {
-                (unresolved_broadcast && event.source.seeks_victims())
-                    .then(|| primary_q.single().ok())
-                    .flatten()
-            });
             if let Some(attacker) = target_attacker {
                 let record_dedup = matches!(event.source, HitSource::Melee);
                 // CM4: the strike connected — the attacker's playing move
@@ -876,7 +889,7 @@ pub fn apply_feature_hit_events(
         // Persist on the move (survives the moveset swing projection) AND the flat
         // swing (non-moveset bodies).
         if matches!(event.source, HitSource::Melee) && !breakable_keys.is_empty() {
-            if let Some(attacker) = event.attacker.or_else(|| primary_q.single().ok()) {
+            if let Some(attacker) = target_attacker {
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     pb.hit_targets.extend(breakable_keys.iter().cloned());
                 }

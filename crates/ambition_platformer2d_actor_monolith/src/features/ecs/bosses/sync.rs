@@ -302,3 +302,52 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     }
     Some((snapshot, derived.map(|b| b.half_size() * 2.0)))
 }
+
+#[cfg(test)]
+mod boss_combat_rebuild_contract {
+    use super::*;
+
+    /// **THE BOSS ROAD'S CARRY LIST, DECLARED FIELD BY FIELD** — ledger D108,
+    /// second site.
+    ///
+    /// [`boss_component_snapshot`] rebuilds `BodyCombat` and restores the
+    /// reaction timers by hand, and its own comment says it follows *"the same
+    /// rule as `sync_actor_components_from_cluster`"*. **It does — including
+    /// that function's omission.** Both carry five timers and neither carries
+    /// `landing_lag_timer`, because this list was written by reading that one.
+    ///
+    /// ⛔ **a citation is only as correct as the thing it cites.** The comment
+    /// was accurate and the rule it named was wrong, so the error propagated
+    /// intact to a second road.
+    ///
+    /// ⇒ same remedy, same reason: adding a field to `BodyCombat` is now a
+    /// compile error here until somebody says whether a boss keeps it.
+    #[allow(dead_code)]
+    fn every_body_combat_field_declares_whether_a_boss_keeps_it(combat: &BodyCombat) {
+        let BodyCombat {
+            // ── CARRIED ACROSS (5) — authoritative reaction state written by
+            // the damage path; the presentation rebuild must not cancel it.
+            hit_flash: _,
+            damage_invuln_timer: _,
+            hitstun_timer: _,
+            recoil_lock_timer: _,
+            hitstop_timer: _,
+
+            // ── REBUILT (6) — derived from the boss's own attack state and HP
+            // authority, which is the point of the refresh.
+            alive: _,
+            attacking: _,
+            strike_count: _,
+            attack_windup_timer: _,
+            attack_timer: _,
+            training_dummy: _,
+
+            // ── ⛔ DROPPED (1) — NOT a decision. See D108.
+            //
+            // Bosses run the shared moveset runtime, so a boss that lands out of
+            // an authored aerial has the same lag written and erased here that a
+            // CPU fighter does.
+            landing_lag_timer: _,
+        } = combat;
+    }
+}

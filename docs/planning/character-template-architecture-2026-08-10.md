@@ -265,6 +265,29 @@ autonomous_reconcile                1045
 9. ▢ **Delete `adopt_character_intrinsics`** once (7) replaces the precedence
    it performs. It is migration scaffolding, not a destination.
 
+   ⇥ ⭐ **SIZED 2026-08-13, and it had no size before.** One production caller
+   (`spawn_actors.rs`), whose comment says it serves *"the shrinking population
+   of half-migrated characters"* without saying how many that is. It is
+   **14 of 36**, pinned as a CEILING by
+   `the_cast_that_still_needs_a_body_assist_only_shrinks`:
+
+   ```text
+     6  pirates          D96 item 8 — "a pirate quartermaster's vitals: six
+                         REGISTERED_WITHOUT_A_BODY entries". It is exactly these six.
+     1  npc_carl_stargan D96 item 5
+     4  Hall NPCs        npc_alice, npc_bob, npc_noether, npc_oiler
+     3  moveset authors  npc_pirate_admiral, npc_ninja_shadow_oni_leader,
+                         special_patent_clerk — they state their own MOVES and
+                         still not their own BODY
+   ```
+
+   ⇒ **two thirds of this item is already filed as content decisions**, which
+   makes it a downstream consequence of D96 rather than independent work.
+
+   ⚠ **body-incomplete is NOT unseatable.** The admiral and the oni leader are on
+   the Smash grid and fight. It means *"cannot build a body from the character
+   alone"* — item 9 deletes the ASSIST, not the character.
+
 ### C. Content migration (phase 2 + 4)
 
 10. ✔ **DONE — all seven, and their rows are deleted.** Verified 2026-08-12:

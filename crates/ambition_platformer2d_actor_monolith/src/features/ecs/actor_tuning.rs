@@ -244,10 +244,23 @@ mod authority_split_tests {
             // and presentation observing a body is not a fourth one.
             dream_seed: _,
             ranged_visual: _,
-            // ── CONTROLLER (3) — how a mind paces the body, belongs on the
-            // `BrainProfile`. ⚠ the column that has not moved at all.
+            // ── CONTROLLER (3) — how a mind paces the body ──────────────────
+            //
+            // ⭐ **two of these three have ALREADY MOVED and are now DERIVED,**
+            // which is worth saying because the campaign row calls this "the
+            // column that has not moved at all" and I repeated it here before
+            // checking. `ActorClusterSeed` computes
+            // `patrol_speed = run_speed * brain_profile.patrol_effort` and the
+            // same for chase — so the AUTHORITY is `BrainProfile`'s normalized
+            // effort and these two are its resolved projection against a body.
+            // A projection is not a second authority; it is what "one authority"
+            // looks like once something reads it.
             patrol_speed: _,
             chase_speed: _,
+            // ⚠ **this one is the real remainder.** It arrives straight from
+            // `ArchetypeSpec::attack_cooldown_mult` and has no `BrainProfile`
+            // home, so it is a controller fact still living in the legacy bag —
+            // the whole of this column's outstanding work, and one field.
             attack_cooldown_mult: _,
             // ── PLACEMENT / SESSION (4) — true of THIS instance, here ──
             //

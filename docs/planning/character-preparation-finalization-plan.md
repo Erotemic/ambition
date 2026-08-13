@@ -156,12 +156,26 @@ Resolution and construction must not change in the same commit.
 
 1. ✔ the partial type is `PreparedCharacterOverrides`;
 2. ✔ **it is declared with NO visibility modifier at all** — not `pub`, not
-   `pub(crate)` — inside `character_runtime::definition`. `presentation`,
-   `seating` and `avatar::starting_character` are SIBLINGS of that module, so
-   they cannot name it. The acceptance test passes by construction rather than by
-   review. `definition_tests` was re-parented as a CHILD of `definition` for the
-   same reason: widening the visibility so the tests could reach it would have
-   been widening the thing that IS the design;
+   `pub(crate)`. `presentation`, `seating` and `avatar::starting_character` are
+   SIBLINGS of the module that holds it, so they cannot name it. The acceptance
+   test passes by construction rather than by review. `definition_tests` was
+   re-parented as a CHILD of it for the same reason: widening the visibility so
+   the tests could reach it would have been widening the thing that IS the
+   design;
+
+   ⚠ **the module MOVED CRATE on 2026-08-12 and the guarantee changed shape with
+   it** (campaign P1.7). The authored model and the preparation pipeline are
+   `ambition_characters::prepared` now; what stayed in
+   `character_runtime::definition` is the Bevy `App` layer —
+   `try_register_character`, `StagedCharacterOverrides`,
+   `CharacterPreparationPlugin` and its barrier. Those two live in DIFFERENT
+   CRATES, so the App layer has to hold a partial it cannot fold, and module
+   privacy cannot express that.
+   ⇒ the partial is still unnameable, but the barrier is now a TYPE:
+   `prepared::StagedCharacter` wraps `PreparedCharacterOverrides`, is minted only
+   by `prepare_for_registration`, and is consumed only by `finalize_cast`. The
+   `Bound<N>` pattern from the binding boundary. Folding early is no longer
+   *prevented* — it is UNSPELLABLE, which is what survives a crate boundary.
 3. ✔ `None` vs `Some(empty)` survives — the fold matches on the `Option`, never
    on whether the set looks empty;
 4. ✔ `CharacterPreparationPlugin::finish`, installed automatically by

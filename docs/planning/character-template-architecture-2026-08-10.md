@@ -127,8 +127,26 @@ autonomous_reconcile                1045
    authored type, and the authored type's only other mentions of that crate are
    two doc links. Resolving a kit is runtime work, exactly as written here.
    ⇥ as written:
-   ▢ **Decide `build_actor_moveset`'s home.** `definition.rs` reaches into
+   ✔ **Decide `build_actor_moveset`'s home.** `definition.rs` reaches into
    `ambition_combat` in exactly ONE place. …
+   ⇥ ✔✔ **DECIDED AND MOVED (2026-08-12).** The answer written above was right
+   and the code now agrees: `moveset/prefabs.rs` is
+   `ambition_characters::moveset_prefabs`, and preparation calls it directly.
+   ⇥ **it cost three separations, each measured rather than assumed**: the pogo
+   technique's SCHEMA went down while its executor stayed
+   (`ambition_characters::technique`); `MovePrefabRegistry` — the half that
+   validates presentation ids through `ambition_vfx` — became its own module,
+   because building a move from a spec and expanding an authored prefab key are
+   different jobs and only the second needs to know what a renderer can draw; and
+   a `use super::*` glob had to go first, because a bulk move cannot be planned
+   against a glob.
+   ⛔ **one thing travelled that should not have, and it is back**: the canonical
+   robot's slash SFX overlay and its three cue constants moved because they were
+   ADJACENT in the file, not because preparation calls them (it does not — the
+   overlay's only production caller is the protagonist road). Returned to
+   `ambition_combat::moveset::player_robot_slash`, with a 26th absence contract
+   holding the line. The test is *does preparation call it*, not *was it next to
+   something preparation calls*.
 2. ◐ **The compiler was asked, and it named exactly one blocker — which is now
    gone** (2026-08-12). Every field on `CharacterDefinition` is an
    `ambition_characters`, `ambition_platformer2d_core` or
@@ -148,9 +166,27 @@ autonomous_reconcile                1045
    second one — but the re-export is what a later slice removes, and until then
    the crate boundary is stated in only one place.
    ⇥ as written:
-   ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
+   ✔ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
    appendix C ruling 4, and the compiler is the instrument: let it expose every
    remaining wrongly-owned field rather than predicting them.
+   ⇥ ✔✔ **AND THE PREPARATION HALF FOLLOWED IT (2026-08-12).**
+   `character_runtime/definition.rs` was 2,061 lines and is **356**: the authored
+   model, the whole preparation pipeline, `PreparedCharacterRegistry` and
+   `CharacterRegistrationError` are `ambition_characters::prepared`. What stayed
+   is what is genuinely an App's — `try_register_character`,
+   `StagedCharacterOverrides`, `CharacterPreparationPlugin` and its barrier.
+   ⚠ **the hard part was not the imports, it was the PRIVACY.**
+   `prepare_character` and `finalize_character` were private module functions,
+   and that privacy IS the finalization barrier. Publishing them to span the
+   crate boundary would have put the ordering hazard the barrier exists to remove
+   back on the production surface. ⇒ the barrier is a TYPE now:
+   `prepared::StagedCharacter` is minted only by `prepare_for_registration` and
+   consumed only by `finalize_cast` — the `Bound<N>` pattern from the binding
+   boundary, where folding early is not prevented but UNSPELLABLE.
+   ⚠ eighteen monolith fixtures needed the barrier-bypassing test seams from one
+   crate up; they got `ambition_characters`'s `test-support` feature, enabled as
+   a DEV-dependency only, so neither seam exists in a production build. No
+   fixture was rewritten and no test was lost.
 3. ◐ **A `BrainProfile` type — THE TYPE LANDED 2026-08-11**
    (`ambition_characters::brain::profile`). It replaced `CharacterBrainSpec`
    outright rather than joining it, and took `aggro_radius`, `attack_range` and

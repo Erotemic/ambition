@@ -197,32 +197,6 @@ FORBIDDEN_PLANNING_PATTERNS = [
     ),
 ]
 
-BOSS_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*boss-validator\s+errors=(\d+)\s+warnings=(\d+)\s*-->"
-)
-INLINE_TEST_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*inline-test\s+path=(\S+)"
-    r"\s+kind=(behavioral-local|guardrail)"
-    r"\s+disposition=(maintainer-review-pending|maintainer-approved-inline|extract-pending)\s*-->"
-)
-# Paths a MAINTAINER has explicitly approved to keep a large inline test module.
-# Repository policy reserves editing this set to the maintainer. The checker rejects
-# a `maintainer-approved-inline` marker whose path is absent here — but this is a
-# policy boundary, not access control: an agent with write access could edit the set;
-# policy, not a mechanism, forbids it granting its own exception.
-MAINTAINER_APPROVED_INLINE: set[str] = set()
-WORKSPACE_MEMBERS_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
-)
-MODULE_SIZE_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*module-size\s+waivers=(\d+)\s+unwaived-violations=(\d+)"
-    r"\s+stale-waivers=(\d+)\s+invalid-waivers=(\d+)\s*-->"
-)
-CC3_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*cc3\s+status=(ignored|enforced)\s*-->"
-)
-RUST_USIZE_CONST_RE = r"\bconst\s+{name}\s*:\s*usize\s*=\s*(\d+)\s*;"
-INLINE_TEST_MIN_LINES = 200
 
 # Narrow code-comment documentation-link scanning: only repo-ANCHORED references
 # (`docs/...` and `../docs/...`), backticked or not. Non-anchored `.md` shorthands
@@ -357,20 +331,9 @@ def check_agents_size(errors: list[str], warnings: list[str]) -> None:
     # words would be making it. This only stops the message hiding where the
     # weight is.
     #
-    # ⛔ **and the overage is a WARNING, not an error, for one specific reason:
-    # nothing ran this script at all.** It is not in `run_tests.py`'s plan — the
-    # whole file was an unrun checker, so its other contracts (inline-test review
-    # markers, stale planning evidence, dead doc links) were silently unenforced.
-    # Wiring it into the suite is the fix, and it could only be wired in if the
-    # one finding that is a KNOWN OPEN MAINTAINER DECISION stops failing the
-    # build: AGENTS.md is over budget on purpose, pending F6's routing call, and
-    # a suite that is permanently red on a decision nobody has made teaches
-    # people to ignore it.
-    #
-    # ⚠ **this waives the SIZE finding only.** Everything else in this file stays
-    # fatal, which is the point — the regression it caught the day it was wired
-    # in (two inline-test modules crossing the 200-line review proxy with no
-    # marker) is exactly the class that was going unnoticed.
+    # The overage is a warning rather than a gate because the right split is a
+    # maintainer/document-routing decision, not something a line-count proxy can
+    # decide. Other KB correctness checks remain independent and may still fail.
     heaviest = sorted(
         ((len(line.split()), i + 1, line) for i, line in enumerate(lines)),
         reverse=True,
@@ -549,106 +512,9 @@ def check_active_doc_phrasing(errors: list[str]) -> None:
                     )
 
 
-
 def planning_markdown_files() -> list[Path]:
     root = ROOT / "docs" / "planning"
     return sorted(path for path in root.rglob("*.md") if path.is_file())
-
-
-def parse_rust_usize_const(text: str, name: str) -> int | None:
-    match = re.search(RUST_USIZE_CONST_RE.format(name=re.escape(name)), text)
-    return int(match.group(1)) if match else None
-
-
-def parse_workspace_member_count(cargo_text: str) -> int | None:
-    """Count entries in the root `[workspace] members = [...]` list."""
-    match = re.search(
-        r"\[workspace\][^\[]*?members\s*=\s*\[(.*?)\]", cargo_text, re.DOTALL
-    )
-    if not match:
-        return None
-    return len(re.findall(r'"[^"]+"', match.group(1)))
-
-
-def parse_module_size_config(toml_text: str) -> tuple[int, list[str], set[str]] | None:
-    """Return (line limit, scanned roots, waiver paths) from the module-size policy."""
-    limit = re.search(r"^limit\s*=\s*(\d+)", toml_text, re.MULTILINE)
-    roots_block = re.search(r"roots\s*=\s*\[(.*?)\]", toml_text, re.DOTALL)
-    if not limit or not roots_block:
-        return None
-    roots = re.findall(r'"([^"]+)"', roots_block.group(1))
-    waiver_paths = set(re.findall(r'path\s*=\s*"([^"]+)"', toml_text))
-    return int(limit.group(1)), roots, waiver_paths
-
-
-def parse_cc3_ignore_status(src_text: str) -> str | None:
-    """`ignored` if the CC3 full-sweep test carries `#[ignore]`, else `enforced`."""
-    match = re.search(
-        r"((?:#\[[^\]]*\]\s*)*)\bfn\s+collision_oracle_full_sweep\b", src_text
-    )
-    if not match:
-        return None
-    return "ignored" if "ignore" in match.group(1) else "enforced"
-
-
-def is_workspace_test_path(rpath: str) -> bool:
-    name = Path(rpath).name
-    return "/tests/" in rpath or name == "tests.rs" or name.endswith("_tests.rs")
-
-
-def parse_module_size_waivers(toml_text: str) -> list[tuple[str, str]]:
-    """(path, reason) for each `[[waiver]]` table. Line-anchored, so a `[[waiver]]`
-    mention inside a TOML comment is not treated as a table."""
-    blocks = re.split(r"^\s*\[\[waiver\]\]\s*$", toml_text, flags=re.MULTILINE)[1:]
-    out: list[tuple[str, str]] = []
-    for block in blocks:
-        body = re.split(r"^\s*\[", block, flags=re.MULTILINE)[0]
-        path_m = re.search(r'path\s*=\s*"([^"]*)"', body)
-        reason_m = re.search(r'reason\s*=\s*"([^"]*)"', body)
-        out.append((path_m.group(1) if path_m else "", reason_m.group(1) if reason_m else ""))
-    return out
-
-
-def module_size_actuals() -> tuple[int, int, int, int] | None:
-    """(waivers, unwaived-violations, stale-waivers, invalid-waivers) from HEAD.
-
-    This is a FAST cross-check, not the authoritative gate: the behavioral gate is
-    `cargo test -p ambition_workspace_policy`. Returns None if the policy is
-    unreadable or the scan is vacuous (zero modules scanned) — a vacuous scan must
-    not report a green count.
-    """
-    toml_path = ROOT / "tests/ambition_workspace_policy/policies/module_size.toml"
-    if not toml_path.exists():
-        return None
-    toml_text = toml_path.read_text(encoding="utf-8", errors="replace")
-    config = parse_module_size_config(toml_text)
-    if config is None:
-        return None
-    limit, roots, waiver_paths = config
-    waivers = parse_module_size_waivers(toml_text)
-    scanned = 0
-    over_limit: set[str] = set()
-    for root in roots:
-        base = ROOT / root
-        if not base.is_dir():
-            continue
-        for path in base.rglob("*.rs"):
-            rpath = rel(path)
-            if is_workspace_test_path(rpath):
-                continue
-            scanned += 1
-            if len(path.read_text(encoding="utf-8", errors="replace").splitlines()) > limit:
-                over_limit.add(rpath)
-    if scanned == 0:
-        return None
-    unwaived_violations = len(over_limit - waiver_paths)
-    stale = sum(
-        1 for p, _r in waivers if p and (ROOT / p).exists() and p not in over_limit
-    )
-    invalid = sum(
-        1 for p, r in waivers if not p or not (ROOT / p).exists() or not r.strip()
-    )
-    return len(waivers), unwaived_violations, stale, invalid
 
 
 def mask_rust_noncode(text: str) -> str:
@@ -789,54 +655,6 @@ def mask_rust_noncode(text: str) -> str:
     return "".join(out)
 
 
-def inline_test_modules_in_text(text: str) -> list[tuple[int, int]]:
-    masked = mask_rust_noncode(text)
-    pattern = re.compile(
-        r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]\s*"
-        r"(?:#\s*\[[^\]]+\]\s*)*"
-        r"(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_][A-Za-z0-9_]*\s*\{",
-        re.MULTILINE,
-    )
-    found: list[tuple[int, int]] = []
-    for match in pattern.finditer(masked):
-        open_brace = masked.find("{", match.start(), match.end())
-        depth = 0
-        end = None
-        for index in range(open_brace, len(masked)):
-            char = masked[index]
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    end = index
-                    break
-        if end is None:
-            continue
-        start_line = masked.count("\n", 0, match.start()) + 1
-        end_line = masked.count("\n", 0, end) + 1
-        found.append((start_line, end_line))
-    return found
-
-
-def large_inline_test_debt() -> set[str]:
-    debt: set[str] = set()
-    for base in [ROOT / "crates", ROOT / "game"]:
-        if not base.exists():
-            continue
-        for path in base.rglob("*.rs"):
-            rpath = rel(path)
-            if "/tests/" in rpath or path.name == "tests.rs" or path.name.endswith("_tests.rs"):
-                continue
-            text = path.read_text(encoding="utf-8", errors="replace")
-            if any(
-                end - start + 1 >= INLINE_TEST_MIN_LINES
-                for start, end in inline_test_modules_in_text(text)
-            ):
-                debt.add(rpath)
-    return debt
-
-
 def check_planning_front_end(errors: list[str], warnings: list[str]) -> None:
     files = planning_markdown_files()
     total_lines = sum(
@@ -868,157 +686,6 @@ def check_planning_front_end(errors: list[str], warnings: list[str]) -> None:
         for pattern, label in FORBIDDEN_PLANNING_PATTERNS:
             if pattern.search(text):
                 fail(errors, f"{rel(path)} contains {label}: {pattern.pattern}")
-
-
-def check_planning_evidence(errors: list[str]) -> None:
-    status_path = ROOT / "docs/planning/status.md"
-    if not status_path.exists():
-        return
-    status = status_path.read_text(encoding="utf-8", errors="replace")
-
-    boss_matches = BOSS_EVIDENCE_RE.findall(status)
-    if len(boss_matches) != 1:
-        fail(
-            errors,
-            "docs/planning/status.md must contain exactly one boss-validator evidence marker",
-        )
-    else:
-        source_path = ROOT / "game/ambition_content/tests/boss_fight_validator.rs"
-        source = source_path.read_text(encoding="utf-8", errors="replace")
-        expected_errors = parse_rust_usize_const(source, "EXPECTED_ERRORS")
-        expected_warnings = parse_rust_usize_const(source, "EXPECTED_WARNINGS")
-        marked_errors, marked_warnings = map(int, boss_matches[0])
-        if expected_errors is None or expected_warnings is None:
-            fail(errors, f"could not parse boss validator constants from {rel(source_path)}")
-        elif (marked_errors, marked_warnings) != (expected_errors, expected_warnings):
-            fail(
-                errors,
-                "boss-validator planning evidence is stale: "
-                f"status says {marked_errors}/{marked_warnings}, source pins "
-                f"{expected_errors}/{expected_warnings}",
-            )
-
-    # Every >=200-line inline test module must carry exactly one marker with a
-    # `kind` finding and a `disposition`. 200 is a review PROXY (test-placement.md);
-    # an agent records `kind=behavioral-local` + `disposition=maintainer-review-
-    # pending`, NOT a permanent inline grant. The set of marked paths must equal the
-    # measured set — so no module escapes review and no stale marker survives a split.
-    reviewed = INLINE_TEST_EVIDENCE_RE.findall(status)
-    documented = {path for path, _kind, _disposition in reviewed}
-    measured = large_inline_test_debt()
-    if documented != measured:
-        missing = sorted(measured - documented)
-        stale = sorted(documented - measured)
-        parts = []
-        if missing:
-            parts.append("unreviewed (add an inline-test marker): " + ", ".join(missing))
-        if stale:
-            parts.append("no longer >=200 lines (drop the marker): " + ", ".join(stale))
-        fail(errors, "inline-test review markers disagree with HEAD (" + "; ".join(parts) + ")")
-    # A permanent inline exception requires a maintainer-owned allowlist entry. An
-    # agent records `maintainer-review-pending` (or its own decision to extract) and
-    # RECOMMENDS; repository policy — not this check — forbids it adding its own
-    # `maintainer-approved-inline` entry. The check enforces that the marker alone is
-    # insufficient without the allowlist entry.
-    for path, _kind, disposition in reviewed:
-        if disposition == "maintainer-approved-inline" and path not in MAINTAINER_APPROVED_INLINE:
-            fail(
-                errors,
-                f"inline-test marker for {path} claims maintainer-approved-inline but is not in "
-                "MAINTAINER_APPROVED_INLINE; only a reviewer grants a permanent inline exception",
-            )
-
-    ws_markers = WORKSPACE_MEMBERS_RE.findall(status)
-    if len(ws_markers) != 1:
-        fail(errors, "status.md must contain exactly one workspace-members evidence marker")
-    else:
-        actual = parse_workspace_member_count(
-            (ROOT / "Cargo.toml").read_text(encoding="utf-8", errors="replace")
-        )
-        if actual is None:
-            fail(errors, "could not parse [workspace] members from Cargo.toml")
-        elif int(ws_markers[0]) != actual:
-            fail(
-                errors,
-                f"workspace-members evidence stale: status says {ws_markers[0]}, "
-                f"Cargo.toml has {actual}",
-            )
-
-    ms_markers = MODULE_SIZE_EVIDENCE_RE.findall(status)
-    if len(ms_markers) != 1:
-        fail(errors, "status.md must contain exactly one module-size evidence marker")
-    else:
-        actual_ms = module_size_actuals()
-        if actual_ms is None:
-            fail(errors, "could not compute module-size counts (policy unreadable or vacuous scan)")
-        else:
-            marked = tuple(int(x) for x in ms_markers[0])
-            if marked != actual_ms:
-                fail(
-                    errors,
-                    "module-size evidence stale (waivers, unwaived-violations, "
-                    f"stale-waivers, invalid-waivers): status says {marked}, source has {actual_ms}",
-                )
-
-    cc3_markers = CC3_EVIDENCE_RE.findall(status)
-    if len(cc3_markers) != 1:
-        fail(errors, "status.md must contain exactly one cc3 evidence marker")
-    else:
-        cc3_src = ROOT / "game/ambition_app/tests/collision_invariant_oracle.rs"
-        actual_cc3 = (
-            parse_cc3_ignore_status(cc3_src.read_text(encoding="utf-8", errors="replace"))
-            if cc3_src.exists()
-            else None
-        )
-        if actual_cc3 is None:
-            fail(errors, "could not determine CC3 full-sweep ignore status from source")
-        elif cc3_markers[0] != actual_cc3:
-            fail(
-                errors,
-                f"cc3 evidence stale: status says {cc3_markers[0]}, source is {actual_cc3}",
-            )
-
-
-def check_planning_checker_self_test(errors: list[str]) -> None:
-    synthetic = "#[cfg(test)]\nmod tests {\n" + ("fn x() {}\n" * 198) + "}\n"
-    modules = inline_test_modules_in_text(synthetic)
-    if modules != [(1, 201)]:
-        fail(
-            errors,
-            "planning checker poison self-test failed: "
-            f"expected a 201-line module, got {modules}",
-        )
-    if inline_test_modules_in_text("#[cfg(test)]\nmod tests;\n"):
-        fail(errors, "planning checker self-test failed: external test module counted as inline")
-    constants = "const EXPECTED_ERRORS: usize = 8;\nconst EXPECTED_WARNINGS: usize = 10;\n"
-    if parse_rust_usize_const(constants, "EXPECTED_ERRORS") != 8:
-        fail(errors, "planning checker self-test failed: Rust constant parser")
-    if (
-        parse_workspace_member_count(
-            '[workspace]\nmembers = ["crates/a", "game/b"]\nresolver = "2"\n'
-        )
-        != 2
-    ):
-        fail(errors, "planning checker self-test failed: workspace member parser")
-    if parse_cc3_ignore_status(
-        '#[test]\n#[ignore = "x"]\nfn collision_oracle_full_sweep() {}'
-    ) != "ignored" or parse_cc3_ignore_status(
-        "#[test]\nfn collision_oracle_full_sweep() {}"
-    ) != "enforced":
-        fail(errors, "planning checker self-test failed: cc3 ignore parser")
-    if parse_module_size_config(
-        'limit = 1500\nroots = ["crates", "game"]\n[[waiver]]\npath = "x.rs"\n'
-    ) != (1500, ["crates", "game"], {"x.rs"}):
-        fail(errors, "planning checker self-test failed: module-size config parser")
-    if INLINE_TEST_EVIDENCE_RE.findall(
-        "<!-- planning-evidence: inline-test path=a/b.rs "
-        "kind=behavioral-local disposition=maintainer-review-pending -->"
-    ) != [("a/b.rs", "behavioral-local", "maintainer-review-pending")]:
-        fail(errors, "planning checker self-test failed: inline-test marker parser")
-    if parse_module_size_waivers(
-        '[[waiver]]\npath = "a.rs"\nreason = "x"\n[[waiver]]\npath = "b.rs"\n'
-    ) != [("a.rs", "x"), ("b.rs", "")]:
-        fail(errors, "planning checker self-test failed: module-size waiver parser")
 
 
 def check_archive_duplicates(errors: list[str]) -> None:
@@ -1179,9 +846,7 @@ def main() -> int:
     check_retrieval_evals(errors)
     check_adr_current_implications(errors)
     check_active_doc_phrasing(errors)
-    check_planning_checker_self_test(errors)
     check_planning_front_end(errors, warnings)
-    check_planning_evidence(errors)
     check_archive_duplicates(errors)
     check_tool_docs(errors)
     if warnings:

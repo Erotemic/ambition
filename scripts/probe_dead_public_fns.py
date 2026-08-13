@@ -24,6 +24,18 @@ probe, and each is designed out below:
   has callers in three crates. ⇒ the skip is brace-depth scoped, and…
 * **…a probe that marked NOTHING reported everything as dead.** ⇒ marking zero
   items is a hard failure. A count of zero is never a clean bill.
+* **`--workspace` CANNOT SEE A CONSUMER THE WORKSPACE EXCLUDES**, and this tool
+  walked into that on 2026-08-12 — its own eighth trap. Run over
+  `features/enemies/mod.rs` it reported exactly one dead function,
+  `CharacterRosterFragment::from_ron_at`, whose only caller is
+  `fixtures/external_consumer`: `exclude`d in the root manifest, and the only
+  in-repo consumer that links the engine from OUTSIDE a shared workspace, which
+  is the entire population a public-API census is about. That function had
+  already been deleted once for this reason and restored the same morning;
+  trusting the output would have deleted it again. ⇒ every excluded consumer is
+  built too, with the same markings, and the warnings are UNIONED. It now reports
+  25 of 25 on that file, and the case that produced the false positive is the
+  case that validates the fix.
 
 ⚠ **"no call site" is not "delete it".** Test-only API that pins an
 architectural invariant is not dead code, it is the invariant's only witness —
@@ -50,6 +62,13 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC_FN = re.compile(r"^(\s*)(pub(?:\([a-z:\s]+\))?\s+)fn (\w+)")
+
+
+# **Consumers the root `Cargo.toml` EXCLUDES**, which a `--workspace` build
+# therefore cannot see. They are the point of a public-API census, not an
+# afterthought: each one links the engine the way a stranger does, with its own
+# workspace, lockfile and feature resolution.
+EXCLUDED_CONSUMERS = ("fixtures/external_consumer",)
 
 
 def mark(path: str) -> tuple[str, list[str]]:
@@ -103,18 +122,40 @@ def main() -> int:
             return 1
 
         # ⛔ --workspace, never -p: `-p` cannot see a crate's dependents.
-        result = subprocess.run(
-            ["cargo", "check", "--workspace", "--all-targets"],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
-        )
-        output = result.stdout + result.stderr
-        if "error" in output and "PROBE_" not in output:
-            print("\n⛔ the workspace build FAILED, so no probe result is meaningful:")
-            print("\n".join(output.splitlines()[-25:]))
-            return 1
-        seen = set(re.findall(r"PROBE_(\w+)", output))
+        #
+        # ⛔⛔ **AND `--workspace` CANNOT SEE A CONSUMER THE WORKSPACE EXCLUDES**
+        # — the eighth trap, and this tool walked straight into it on
+        # 2026-08-12. Run over `features/enemies/mod.rs` it reported exactly one
+        # dead function, `CharacterRosterFragment::from_ron_at`. That function
+        # had been deleted for the same reason six days earlier, restored the
+        # same morning, and its only caller is `fixtures/external_consumer` —
+        # `exclude`d in the root `Cargo.toml`, and the ONLY in-repo consumer that
+        # links the engine from outside a shared workspace, which is precisely
+        # the population a public-API census is about. Trusting the output would
+        # have deleted it a second time.
+        #
+        # ⇒ every sub-workspace consumer is built too, with the same markings,
+        # and the warnings are UNIONED. A crate that has to be asked separately
+        # is exactly the crate a census forgets.
+        builds = [(REPO, ["cargo", "check", "--workspace", "--all-targets"])]
+        for consumer in EXCLUDED_CONSUMERS:
+            directory = os.path.join(REPO, consumer)
+            if os.path.exists(os.path.join(directory, "Cargo.toml")):
+                builds.append((directory, ["cargo", "check", "--all-targets"]))
+            else:
+                print(f"⚠ excluded consumer {consumer} is not present; not probed")
+
+        seen: set[str] = set()
+        for directory, command in builds:
+            result = subprocess.run(
+                command, cwd=directory, capture_output=True, text=True
+            )
+            output = result.stdout + result.stderr
+            if "error" in output and "PROBE_" not in output:
+                print(f"\n⛔ the build in {directory} FAILED, so no probe result is meaningful:")
+                print("\n".join(output.splitlines()[-25:]))
+                return 1
+            seen |= set(re.findall(r"PROBE_(\w+)", output))
     finally:
         for path, original in originals.items():
             open(path, "w", encoding="utf-8").write(original)
@@ -124,7 +165,7 @@ def main() -> int:
     if not dead:
         print("No public fn in these files is unreferenced.")
         return 0
-    print("\nNO CALL SITE IN THE WORKSPACE:")
+    print("\nNO CALL SITE IN THE WORKSPACE OR ANY EXCLUDED CONSUMER:")
     for file_name, name in dead:
         print(f"  {file_name:34s} {name}")
     print(

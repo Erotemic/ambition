@@ -30,6 +30,18 @@ impl Plugin for ProgressionSchedulePlugin {
         // frame) by `enforce_mount_rider_link`, consumed by
         // `notify_bosses_on_mount_death` at the head of the boss chain below.
         app.add_message::<ambition_platformer2d_actor_monolith::features::MountDied>();
+        // P0.2: the phase machine's own transition edge. Written by
+        // `update_boss_encounters` in `BossAdvance` where the swap is committed,
+        // consumed by `boss_phase_transition_feedback` in `BossHazards` — the
+        // next set in the same chain, so delivery is same-frame by construction.
+        // ⛔ **deliberately NOT `clear_message_on_rollback`, and not rollback
+        // state**, for the same reason `MountDied` above is neither: it never
+        // crosses a frame boundary. A re-simulation re-runs the phase machine,
+        // which re-announces the change if and only if the corrected timeline
+        // really makes it. The thing this replaced — a `Local` map diffed against
+        // the current phase — was the opposite: memory that outlived the rewind
+        // and told the corrected pass nothing had changed.
+        app.add_message::<ambition_platformer2d_actor_monolith::boss_encounter::BossPhaseChanged>();
         // The ENGINE-generic Progression chain. Every content system that used
         // to be wedged into this chain (cut-rope setup/victory, quest-completion
         // rewards, the gnu-ton gate, the quest-registry populate) now hangs on a

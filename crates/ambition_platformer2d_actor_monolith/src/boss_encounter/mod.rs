@@ -32,6 +32,7 @@ mod catalog;
 mod encounter_entity;
 mod encounter_script;
 mod events;
+pub use events::BossPhaseChanged;
 mod ids;
 mod profile;
 mod registry;

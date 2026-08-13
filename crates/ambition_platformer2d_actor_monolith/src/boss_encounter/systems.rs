@@ -5,9 +5,10 @@
 //! active room, ticks each phase machine, publishes events, mirrors phase
 //! HP/phase onto the boss ECS clusters, manages the adaptive-music request
 //! lifetime, and syncs reward chests.
-//! `boss_phase_transition_feedback` diffs each boss's phase against a `Local`
-//! snapshot to fire camera shake + a `DamageBox` shockwave + scream VFX on
-//! dramatic transitions — decoupled from the event pipeline on purpose.
+//! `boss_phase_transition_feedback` CONSUMES the `BossPhaseChanged` edge that
+//! driver announces, firing camera shake + a `DamageBox` shockwave + scream VFX
+//! on dramatic transitions. It used to re-derive the edge from a `Local`
+//! snapshot, which rollback does not restore — see `BossPhaseChanged`.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -86,8 +87,11 @@ pub fn update_boss_encounters(
         ),
         With<crate::features::ChestFeature>,
     >,
+    // P0.2: the phase machine's own edge, announced where it is committed.
+    mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
     mut bosses: Query<
         (
+            Entity,
             &crate::features::FeatureId,
             crate::features::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
@@ -118,7 +122,7 @@ pub fn update_boss_encounters(
     let mut active_music_track: Option<String> = None;
     let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
 
-    for (_feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
+    for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
@@ -198,6 +202,17 @@ pub fn update_boss_encounters(
         }
         for ev in &phase_events {
             publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
+            // ⭐ **the transition edge, from the authority that commits it**
+            // (P0.2). Every consumer of "this boss just changed phase" reads
+            // this rather than diffing state against a memory of its own; see
+            // `BossPhaseChanged` for what the `Local` diff cost on a rollback.
+            if let crate::boss_encounter::BossPhaseEvent::PhaseChanged { from, to } = ev {
+                phase_changes.write(super::events::BossPhaseChanged {
+                    boss: boss_entity,
+                    from: *from,
+                    to: *to,
+                });
+            }
         }
 
         // Read post-tick state for death resolution + music + invuln.
@@ -298,8 +313,8 @@ pub fn update_boss_encounters(
 /// No event publishing here: the swap lands on `BossEncounter.encounter`
 /// directly and the downstream reactions already track it —
 /// [`update_boss_encounters`] re-derives the active music from the CURRENT phase
-/// (level-triggered) and [`boss_phase_transition_feedback`] diffs the phase
-/// against its `Local` snapshot (edge-triggered). Registered just before
+/// (level-triggered) and announces the edge as a `BossPhaseChanged` that
+/// [`boss_phase_transition_feedback`] consumes (edge-triggered). Registered just before
 /// `update_boss_encounters` in the Progression chain so the swap — from a
 /// `MountDied` written in the earlier `Combat` set — is visible the same frame.
 pub fn notify_bosses_on_mount_death(
@@ -346,29 +361,36 @@ const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 /// SFX are follow-ups; this reuses the existing shake + a soft impact sound as
 /// placeholders.
 ///
-/// Decoupled from the phase-advance / event pipeline on purpose: it diffs each
-/// boss's entity-local phase (`BossEncounter.encounter`) against a `Local`
-/// snapshot, so it needs no changes to `publish_events`.
+/// ⛔⛔ **it CONSUMES the transition edge; it does not re-derive one** (P0.2).
+/// This used to diff each boss's phase against a
+/// `Local<HashMap<String, BossEncounterPhase>>`, which is not rollback state and
+/// is therefore not restored when the host rewinds. Because a transition here
+/// emits a `DamageBox` — real, dodge-able gameplay, not just feel — that made a
+/// gameplay consequence depend on non-rollback memory: after a rollback the map
+/// already held the new phase, the re-simulated frame saw no change, and the
+/// shockwave vanished from the timeline the session settled on.
+/// [`BossPhaseChanged`](super::events::BossPhaseChanged) is written by
+/// `update_boss_encounters` at the moment the phase machine commits the swap, in
+/// the same frame and the same schedule, so a re-simulation re-produces it from
+/// restored authoritative state exactly when the corrected timeline really
+/// crosses the threshold.
+///
+/// ⚠ **the first-observation special case is gone with the diff**, and that is a
+/// simplification rather than a behaviour change: a freshly-seeded boss produced
+/// no `PhaseChanged` to skip. `wake()`'s Dormant → start transition DOES announce
+/// itself, and lands on `Intro`/`Phase1`, neither of which is dramatic.
 pub fn boss_phase_transition_feedback(
-    mut last_phase: Local<
-        std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
-    >,
+    mut phase_changes: MessageReader<super::events::BossPhaseChanged>,
     mut sfx: ambition_sfx::SfxWriter,
-    // Optional: a headless / camera-less build may not insert the shake resource.
-    mut shake: Option<ResMut<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>>,
-    // The active route's shake ceiling (D14). Optional for the same reason, and
-    // absent it falls back to the historical cap rather than to no cap — an
-    // unclamped kick is a screen nobody can read.
-    shake_tuning: Option<Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>>,
-    // Boss entities — phase read from the entity-local state + the actor that
-    // emits the phase-transition shockwave.
+    // P0.1: an intent, not a write. The kick is applied on the far side of the
+    // confirmed-frame boundary, so a phase change on a predicted frame that the
+    // correction erases cannot leave a shake behind it.
+    mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
+    // Boss geometry — the actor that emits the phase-transition shockwave.
     bosses: Query<
         (
-            Entity,
-            &crate::features::FeatureId,
             &crate::features::BodyKinematics,
             &crate::features::CenteredAabb,
-            &crate::features::ecs::boss_clusters::BossEncounter,
         ),
         With<crate::features::BossConfig>,
     >,
@@ -376,24 +398,18 @@ pub fn boss_phase_transition_feedback(
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     use crate::boss_encounter::BossEncounterPhase as P;
-    for (entity, feature_id, kin, aabb, status) in &bosses {
-        let Some(phase) = status.encounter.as_ref().map(|p| p.phase) else {
+    for change in phase_changes.read() {
+        let entity = change.boss;
+        let Ok((kin, aabb)) = bosses.get(entity) else {
             continue;
         };
-        let id = feature_id.as_str();
-        let prev = last_phase.insert(id.to_string(), phase);
-        // React only to an actual change, and skip the first observation
-        // (`prev == None`) so a freshly-seeded boss doesn't shake on spawn.
-        if prev.is_none() || prev == Some(phase) {
-            continue;
-        }
+        let phase = change.to;
         if matches!(phase, P::Transition | P::Phase2 | P::Enrage | P::Stagger) {
-            if let Some(shake) = shake.as_deref_mut() {
-                shake.kick(
-                    BOSS_PHASE_SHAKE_PX,
-                    shake_tuning.as_deref().copied().unwrap_or_default(),
-                );
-            }
+            shake.write(
+                ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
+                    amplitude_px: BOSS_PHASE_SHAKE_PX,
+                },
+            );
             sfx.write(ambition_sfx::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: ae::Vec2::ZERO,
@@ -432,12 +448,13 @@ pub fn boss_phase_transition_feedback(
 
 #[cfg(test)]
 mod phase_feedback_tests {
+    //! P0.2: the feedback fires from the ANNOUNCED edge, not from a memory of
+    //! its own.
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
     use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
-    use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
         let config = test_boss_config("gradient_sentinel", "Gradient Sentinel", "clockwork_warden");
@@ -458,52 +475,158 @@ mod phase_feedback_tests {
             .id()
     }
 
-    fn set_phase(app: &mut App, entity: Entity, phase: BossEncounterPhase) {
-        let mut entity_mut = app.world_mut().entity_mut(entity);
-        let mut status = entity_mut.get_mut::<BossEncounter>().unwrap();
-        if let Some(p) = status.encounter.as_mut() {
-            p.phase = phase;
-        }
-    }
-
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
-        app.init_resource::<CameraShakeState>();
+        app.add_message::<CameraShakeRequest>();
+        app.add_message::<super::super::events::BossPhaseChanged>();
         app.add_systems(Update, boss_phase_transition_feedback);
         app
     }
 
-    fn shake_px(app: &App) -> f32 {
-        app.world().resource::<CameraShakeState>().amplitude_px
+    /// Announce a phase change the way `update_boss_encounters` does when the
+    /// phase machine commits one.
+    fn announce(app: &mut App, boss: Entity, from: BossEncounterPhase, to: BossEncounterPhase) {
+        app.world_mut()
+            .resource_mut::<Messages<super::super::events::BossPhaseChanged>>()
+            .write(super::super::events::BossPhaseChanged { boss, from, to });
+    }
+
+    /// What the transition asked the world for this frame. The shockwave is the
+    /// GAMEPLAY half — the reason this system's correctness is a rollback
+    /// question and not a feel question.
+    fn requested(app: &App) -> (usize, usize) {
+        (
+            app.world().resource::<Messages<CameraShakeRequest>>().len(),
+            app.world()
+                .resource::<Messages<ambition_vfx::EffectRequest>>()
+                .len(),
+        )
     }
 
     #[test]
-    fn dramatic_phase_change_kicks_the_camera_shake() {
+    fn a_dramatic_transition_asks_for_a_shake_and_a_shockwave() {
+        let mut app = test_app();
+        let boss = spawn_boss(&mut app, BossEncounterPhase::Enrage);
+        announce(
+            &mut app,
+            boss,
+            BossEncounterPhase::Phase1,
+            BossEncounterPhase::Enrage,
+        );
+        app.update();
+        assert_eq!(
+            requested(&app),
+            (1, 1),
+            "a dramatic phase change produced no shake and no shockwave"
+        );
+    }
+
+    #[test]
+    fn a_non_dramatic_transition_asks_for_nothing() {
         let mut app = test_app();
         let boss = spawn_boss(&mut app, BossEncounterPhase::Phase1);
-
-        // First observation (Phase1) — no shake.
+        announce(
+            &mut app,
+            boss,
+            BossEncounterPhase::Intro,
+            BossEncounterPhase::Phase1,
+        );
         app.update();
-        assert_eq!(shake_px(&app), 0.0, "no shake on first observation");
-
-        // Phase1 → Enrage (dramatic) → shake kicks.
-        set_phase(&mut app, boss, BossEncounterPhase::Enrage);
-        app.update();
-        assert!(shake_px(&app) > 0.0, "dramatic transition kicks the shake");
+        assert_eq!(
+            requested(&app),
+            (0, 0),
+            "Phase1 is not a dramatic transition and must be silent"
+        );
     }
 
+    /// **A boss standing in a dramatic phase, with nothing announced, does
+    /// nothing.**
+    ///
+    /// ⛔ the level-versus-edge poison. The old system read the boss's CURRENT
+    /// phase and compared it to a remembered one; anything that perturbed that
+    /// memory — a rollback, a re-seed, a second registration — turned a standing
+    /// phase into a fresh transition. There is no phase-reading left to perturb:
+    /// the system cannot see `Enrage` at all, only the announcement of entering
+    /// it.
     #[test]
-    fn non_dramatic_change_does_not_shake() {
+    fn a_boss_already_standing_in_a_dramatic_phase_fires_nothing() {
         let mut app = test_app();
-        let boss = spawn_boss(&mut app, BossEncounterPhase::Intro);
-        app.update(); // observe Intro
-                      // Intro → Phase1 (not dramatic) → no shake.
-        set_phase(&mut app, boss, BossEncounterPhase::Phase1);
+        let _boss = spawn_boss(&mut app, BossEncounterPhase::Enrage);
         app.update();
-        assert_eq!(shake_px(&app), 0.0, "Phase1 is not a dramatic transition");
+        app.update();
+        assert_eq!(
+            requested(&app),
+            (0, 0),
+            "a boss that has been enraged for two frames re-fired its entry"
+        );
+    }
+
+    /// **THE ROLLBACK FALSIFIER.** (P0.2)
+    ///
+    /// ⛔⛔ this is the case the `Local<HashMap<..>>` got wrong, and it is a
+    /// GAMEPLAY loss rather than a cosmetic one: the shockwave is a `DamageBox`
+    /// the player is meant to dodge.
+    ///
+    /// The old shape, step by step: a predicted frame enters `Enrage`, the map
+    /// records `Enrage`, the shockwave spawns. The host rewinds — `BossEncounter`
+    /// is rollback-registered and goes back to `Phase1`, the spawned `DamageBox`
+    /// is rewound out of existence, and **the map is not restored, because a
+    /// `Local` is not rollback state.** The corrected pass enters `Enrage` again,
+    /// the diff compares `Enrage` to a remembered `Enrage`, finds no change, and
+    /// the transition produces NOTHING on the timeline the session settled on.
+    ///
+    /// ⚠ **the fixture reproduces the rewind, not a mock of it**: the same system
+    /// instance — so it keeps whatever memory it has — sees the same transition
+    /// announced twice, which is exactly what a re-simulated frame does. A system
+    /// carrying non-rollback memory answers the second one with silence.
+    #[test]
+    fn a_resimulated_transition_still_fires_on_the_corrected_timeline() {
+        let mut app = test_app();
+        let boss = spawn_boss(&mut app, BossEncounterPhase::Enrage);
+
+        // The predicted pass.
+        announce(
+            &mut app,
+            boss,
+            BossEncounterPhase::Phase1,
+            BossEncounterPhase::Enrage,
+        );
+        app.update();
+        assert_eq!(requested(&app), (1, 1), "the predicted pass fired");
+
+        // The rewind: everything the abandoned pass produced is gone. (Rollback
+        // restores simulation state; these channels are what presentation and
+        // the effect consumer would have seen, so clearing them models the pass
+        // being taken back.)
+        app.world_mut()
+            .resource_mut::<Messages<CameraShakeRequest>>()
+            .clear();
+        app.world_mut()
+            .resource_mut::<Messages<ambition_vfx::EffectRequest>>()
+            .clear();
+
+        // The corrected pass re-runs the phase machine, which re-announces the
+        // same change because the corrected timeline really does cross it.
+        announce(
+            &mut app,
+            boss,
+            BossEncounterPhase::Phase1,
+            BossEncounterPhase::Enrage,
+        );
+        app.update();
+
+        assert_eq!(
+            requested(&app),
+            (1, 1),
+            "the re-simulated transition produced nothing. Under the old `Local` \
+             diff this is exactly what happened: the map still held `Enrage` from \
+             the pass that was thrown away, so the corrected timeline lost its \
+             shockwave — a `DamageBox` the player was meant to dodge, deleted by \
+             a network hiccup"
+        );
     }
 }
 

@@ -327,10 +327,35 @@ autonomous_reconcile                1045
 
 ### D. Collapse the old authorities (phases 5–8)
 
-17. ▢ **Provocation becomes disposition + controller** — same identity, same
+17. ✔ **Provocation becomes disposition + controller** — same identity, same
     body, same capabilities. Delete the name/dialogue heuristic and
     `HostileArchetypeId`; rollback preserves character id + controller binding +
     disposition, never a second body-definition id.
+
+    ⇥ ✔ **ALL THREE NAMED DELETIONS ARE DONE, the last of them 2026-08-13.**
+    The name/dialogue heuristic went arm by arm as its creatures took their own
+    `provoked_profile_ref` (D84 pirates, D89 automatons), leaving
+    `hostile_brain_id_for_actor()` returning the literal `"combatant"` — deleted
+    in campaign P2.20, along with `provoked_projection`'s `archetype: &str`
+    parameter and the test-only `hostile_spec_for_actor` twin. `HostileArchetypeId`
+    is gone with `AutonomousSource::Provoked { archetype }`, which is the
+    payloadless `ProvokedDefault` now and encodes as a bare tag on the wire.
+
+    ⇥ ✔ **and the rollback clause holds, checked variant by variant.**
+    `AutonomousSource` has five: `CatalogDefault`, `CatalogPreset(BrainPresetId)`,
+    `ProvokedDefault`, `ProvokedProfile { profile }` and `CharacterProfile` —
+    none of which names a body definition. ⚠ the sixth, `Boss { archetype:
+    BossAutonomyId }`, is a different population and not a counterexample: it
+    names an autonomous MODE rebuilt from the boss catalog as a `BossPattern`,
+    which exists so a boss has a reconstructible mind when possession masks its
+    live brain. A boss's BODY does not come from it.
+
+    ⇥ ⚠ **what provocation still writes is a read-model, and it is derived**:
+    `config.brain` comes from `config_brain_for(&brain)` exactly as every other
+    road derives it, and `provocation_changes_the_mind…` pins that it may never
+    be `Custom(_)`. That assertion used to say `!= Passive`, which was the
+    archetype name's fingerprint — it could not have passed without the roster
+    key it was supposed to be guarding against.
 18. ▢ **Prepared completeness** (ruling 8): `None` must stop meaning "ask the
     archetype". ⚠ gated on (10)–(11): flipping death traits to
     `CharacterDeathTraits::default()` today makes an unmigrated mite stop

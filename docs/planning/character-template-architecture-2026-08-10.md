@@ -175,7 +175,7 @@ path works beside the old one.
 | # | Phase | State |
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the TYPES ARE NAMED AND THE EXPRESSIVENESS HALF IS DONE.** ✔ `CharacterId` (entity_catalog, serde-transparent) · ✔ `BrainProfileRef` vs `BrainPresetId` (authored reference vs resolved key) · ✔ `CharacterDeathTraits` extracted below the runtime component · ✔ knockback weight and a default autonomous profile authorable and adopted. ✔ **THE TYPE MOVE IS DONE** (landed 2026-08-12, still marked ▢ here on 08-13): the authored `CharacterDefinition` lives in `ambition_characters` and `PreparedCharacterDefinition` stayed above, which is the design call this row was waiting on. ⭐ the coupling INVERTED rather than moved — `ambition_characters` does not depend on `ambition_combat` at all, and `ambition_combat` re-exports the derivation · ▢ `WornCharacter` → universal `CharacterIdentity`, blocked on the persona derive still resolving through the CATALOG |
-| 2 | Migrate authored character data out of `character_archetypes.ron` | ◐ **NEARLY DONE, AND THE DISTANCE IS FOUR CASTING DECISIONS** (re-measured 2026-08-13). `character_archetypes.ron` is **263 lines and TWO rows** — `combatant`, which exists only as the row three `OPEN_CASTING` waivers borrow, and `medium_striker`, which exists only because one placement names it. ⭐ `worlds::tests::what_still_needs_an_archetype_row` rebuilds every placement's resolution against an EMPTY roster and reports exactly four things that stop resolving; **every other enemy placement in all four worlds builds as a character with no archetype table at all.** ⇒ all four are content decisions with options, evidence and a recommendation written up in `awaiting-maintainer-decision.md`, so what is left of this phase is agreement rather than migration. ⇥ AS WRITTEN: ◐ ◐ **STARTED — the first two characters are off the roster.** `npc_exploding_mite` and `npc_dividing_mite` author their death traits and health pools as CHARACTERS, their 8 sandbox placements name them, and the two `*_on_death` lines are DELETED from `character_archetypes.ron`. The diff is negative in the legacy file for the first time. ▢ their controller facts (patrol/chase/aggro/attack_range/brain_template) still need a `BrainProfile` type before those rows can go entirely. Formerly: mapped, and deliberately not started — appendix C reorders it after the constructor. `BUILDABLE_ONLY_CAST` is short-lived scaffolding, not architecture. Otherwise as mapped; the DOOR is open — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
+| 2 | Migrate authored character data out of `character_archetypes.ron` | ◐ **ONE ROW AND ONE DECISION LEFT** (re-measured 2026-08-13, after Jon settled three of the four). `character_archetypes.ron` holds `combatant` alone, borrowed by `small_lurker` alone; `medium_striker` was DELETED once the skitter was cast. ⭐ `worlds::tests::what_still_needs_an_archetype_row` rebuilds every placement's resolution against an EMPTY roster and now reports ONE thing that stops resolving. Every other enemy placement in all four worlds builds as a character with no archetype table at all, and every shipped `EnemySpawn` names the character it is. ⇒ what is left of this phase is one word from Jon, not migration. ⇥ AS WRITTEN: ◐ **NEARLY DONE, AND THE DISTANCE IS FOUR CASTING DECISIONS** (re-measured 2026-08-13). `character_archetypes.ron` is **263 lines and TWO rows** — `combatant`, which exists only as the row three `OPEN_CASTING` waivers borrow, and `medium_striker`, which exists only because one placement names it. ⭐ `worlds::tests::what_still_needs_an_archetype_row` rebuilds every placement's resolution against an EMPTY roster and reports exactly four things that stop resolving; **every other enemy placement in all four worlds builds as a character with no archetype table at all.** ⇒ all four are content decisions with options, evidence and a recommendation written up in `awaiting-maintainer-decision.md`, so what is left of this phase is agreement rather than migration. ⇥ AS WRITTEN: ◐ ◐ **STARTED — the first two characters are off the roster.** `npc_exploding_mite` and `npc_dividing_mite` author their death traits and health pools as CHARACTERS, their 8 sandbox placements name them, and the two `*_on_death` lines are DELETED from `character_archetypes.ron`. The diff is negative in the legacy file for the first time. ▢ their controller facts (patrol/chase/aggro/attack_range/brain_template) still need a `BrainProfile` type before those rows can go entirely. Formerly: mapped, and deliberately not started — appendix C reorders it after the constructor. `BUILDABLE_ONLY_CAST` is short-lived scaffolding, not architecture. Otherwise as mapped; the DOOR is open — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
 | 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **RE-MEASURED 2026-08-13 — two of the three ▢s below were STALE.** ✔ `PreparedMatch` no longer builds through `CharacterRoster`: all three mentions left in `prepared_match.rs` are historical comments recording its removal (*"that arm is deleted; preparation no longer takes the roster at all"*), and this row carried the claim TWICE, from two eras. ✔ the ENCOUNTER path takes `Res<PreparedCharacterRegistry>` **required**, documented as *"a wave that names a migrated character builds that character rather than an archetype wearing its face"*. ▢ what actually remains is the PROGRAMMATIC pair — `damage_drops` (the mite's split) and `puppy_slug_gun` (the summoned ally) — which take `Option<Res<..>>` and fall back to an `empty_cast`. ⚠ **and that pair is NOT a defect — I filed it as one and was wrong.** `prepared.rs` states the contract deliberately: *"`PreparedCharacterRegistry` is absent rather than empty, and absent already means 'no registered characters' to every consumer"*. When the resource is missing there are no characters to resolve, so the archetype road is the only available answer — and it is instrumented, not silent: the open-casting arm warns with the identifier, the declaring provider, the borrowed row and the reason. ⇒ P0.1's conflation is about an EXPLICIT `CharacterId` missing from a PUBLISHED registry, which is a different fact from no registry at all. ▢ `controller` and the profile override are still not on the plan, and that one is deliberate and documented — no current caller has either. ⇥ AS WRITTEN, and preserved because its first half is still right: **`CharacterSpawnPlan` EXISTS and DISTINGUISHES a missing registration from an unmigrated placement** (`Result<Option<..>, &CharacterId>`) — an authored character that is not prepared is a fault, warned today and a hard error once phase 4 makes the field required. Earlier: **it EXISTS and the authored enemy lowers through it** (`spawn/character_spawn_plan.rs`) — it owns the character question and the placement context; `plan.definition(registry)` is the ONE place construction asks which character a body is. ▢ `controller` and the profile override are NOT on it yet: no current caller has either, and they arrive with the NPC and match paths. ▢ the encounter/programmatic paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground. Earlier: **the authored enemy reads its character from the PLACEMENT** — `adopt_character_intrinsics`, guarded end-to-end by `mod authored_enemy_reads_its_character`. ⛔ appendix C: that method is a PROBE SEAM; the next step is `CharacterSpawnPlan` (appendix E), not more fields through it. ▢ the programmatic and encounter-mob paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground | |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
@@ -194,15 +194,18 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 ### ⇥ WHERE THE 23 STAND — tallied 2026-08-13, so a fresh session need not count
 
 ```text
-  ✔ DONE     10   1, 4, 5, 8, 10, 11, 12, 13, 17, 19
+  ✔ DONE     11   1, 4, 5, 8, 9, 10, 11, 12, 13, 17, 19
   ◐ PARTIAL   8   2, 3, 14, 15, 16, 18, 20, 21
-  ▢ OPEN      5   6, 7, 9, 22, 23
+  ▢ OPEN      4   6, 7, 22, 23
 ```
 
-⭐ **and the shape matters more than the tally: almost every remaining ▢ and ◐
-is gated on the SAME four casting decisions.** 14, 15, 16, 20, 21, 22 all wait
-on `character_archetypes.ron` losing its last two rows; 9 waits on the fourteen
-body-incomplete characters; 23 is a rename that comes last by design. **6 and 7
+⭐⭐ **and the shape matters more than the tally: what was FOUR casting decisions
+is now ONE.** Jon settled three on 2026-08-13 — skitters are Puppy Slug,
+`large_brute` becomes an authored Goblin Brute, the dive-drill's Target may be
+deleted — and `character_archetypes.ron` is down to a single row (`combatant`)
+with a single borrower (`small_lurker`). 14, 15, 16, 20, 21 and 22 all wait on
+that one word. 9 is DONE: the body-incomplete population it waited on reached
+zero the same day. 23 is a rename that comes last by design. **6 and 7
 are the only ones that are engineering and not waiting on Jon** — though see
 item 6: its road's population is disproportionately the fourteen characters that
 cannot build a body, so its fallback will carry most of the traffic rather than
@@ -459,8 +462,25 @@ autonomous_reconcile                1045
    smuggle it in. Removing it would delete an authority Jon's own three-way split
    names, not a crutch. It stays, and item 25's "ruleset restricts, never grants"
    is the rule it implements.
-9. ▢ **Delete `adopt_character_intrinsics`** once (7) replaces the precedence
-   it performs. It is migration scaffolding, not a destination.
+9. ✔ **DELETED 2026-08-13** (`4c6ad6823`). It was migration scaffolding and it
+   is gone, along with its two precedence tests and the ratchet that counted its
+   population down.
+
+   ⇥ ⭐ **the population went 14 → 7 → 0 in a single day, and neither step was
+   engineering.** Seven were the six pirates and Carl Stargan, whose vitals Jon
+   settled that morning. The last seven — Alice, Bob, Emmy No-Ether, Oiler, the
+   Pirate Admiral, the Shadow Oni Leader and the Patent Clerk — were each missing
+   exactly ONE fact: locomotion. Three of them author whole move timelines and
+   could not state how fast they walk, which is precisely the half-migrated shape
+   the assist existed for.
+
+   ⇥ ⚠ **authoring it changed nothing a player sees**, and that is checkable
+   rather than hoped: `PatrolCfg::speed` and `MeleeBrute::chase_speed` are
+   absolute px/s, not fractions of the body's run speed, so the Hall amble and
+   the striker chase are POLICY and `run_speed` is what the body could do if
+   something drove it.
+
+   ⇥ AS WRITTEN: ▢ Delete it once (7) replaces the precedence it performs.
 
    ⇥ ⭐ **SIZED 2026-08-13, and it had no size before.** One production caller
    (`spawn_actors.rs`), whose comment says it serves *"the shrinking population

@@ -194,3 +194,88 @@ impl ActorTuning {
         }
     }
 }
+
+#[cfg(test)]
+mod authority_split_tests {
+    use super::*;
+
+    /// **EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY** — campaign
+    /// P2.19, enforced by the compiler rather than by a number in a document.
+    ///
+    /// The campaign's central rule is that every migrated fact lands in exactly
+    /// ONE of three authorities: the character definition (what a body IS), the
+    /// controller profile (how a mind drives it), or the placement/session
+    /// ruleset (what is true of this instance here). `ActorTuning` is the legacy
+    /// bag those facts are being split OUT of, so the useful invariant is not
+    /// its size — it is that nothing sits in it unclassified.
+    ///
+    /// ⛔⛔ **a COUNT in prose cannot hold this and has now failed three times.**
+    /// The acceptance list sized this type at 275 lines; a hand grep on
+    /// 2026-08-13 reported 14 fields and this destructure immediately refuted it
+    /// — there are 20, and `is_sandbag`, which that grep called deleted, is one
+    /// of them. Worse, the campaign row's
+    /// placement/session column named `attacks_player`, which was renamed to
+    /// `is_hostile` — a field nobody could grep for, in a document nobody could
+    /// tell was wrong.
+    ///
+    /// ⭐ **an exhaustive destructure does not rot.** Add a field and this stops
+    /// COMPILING until somebody puts it in a column; remove one and the same.
+    /// There is no number to edit and no census to redo.
+    #[test]
+    fn every_tuning_field_belongs_to_one_of_the_three_authorities() {
+        let ActorTuning {
+            // ── BODY (13) — intrinsic, belongs on the `CharacterDefinition` ──
+            movement: _,
+            max_health: _,
+            max_run_speed: _,
+            contact_strength: _,
+            damage_amount: _,
+            surface_walker: _,
+            cling_breaks_on_hit: _,
+            weight: _,
+            is_aerial: _,
+            flight_direct_velocity: _,
+            body_contact_damage: _,
+            // ⚠ **PRESENTATION, riding in a gameplay bag.** Neither is a fact
+            // about how the body behaves — `dream_seed` is a visual jitter pass
+            // and `ranged_visual` names the art its shot wears. They are filed
+            // under BODY because a body is what they are a projection OF, and
+            // they leave with it; the campaign's rule is one authority per fact,
+            // and presentation observing a body is not a fourth one.
+            dream_seed: _,
+            ranged_visual: _,
+            // ── CONTROLLER (3) — how a mind paces the body, belongs on the
+            // `BrainProfile`. ⚠ the column that has not moved at all.
+            patrol_speed: _,
+            chase_speed: _,
+            attack_cooldown_mult: _,
+            // ── PLACEMENT / SESSION (4) — true of THIS instance, here ──
+            //
+            // ⚠ `is_hostile` reads as a body fact and is not one: the same
+            // creature is ambient wildlife in one room and a threat in another,
+            // which is why it left the archetype row.
+            is_hostile: _,
+            respawn: _,
+            death_policy: _,
+            // ⚠ `is_sandbag` is the one genuinely ARGUABLE entry. It reads as a
+            // body fact ("this creature is a training dummy") and behaves as a
+            // session one: excluded from slot pressure and from save
+            // persistence. It is filed here because both consequences are about
+            // how the SESSION treats the instance, and because the character
+            // road already carries the body half under a different name —
+            // `practice_target`, asserted by
+            // `enemy_roster::tests::practice_target_characters_do_not_strike_back`.
+            is_sandbag: _,
+        } = ActorTuning::default();
+
+        // The destructure above is the assertion. This one only states the
+        // consequence, so a reader who lands here from a compile error knows
+        // what is being asked of them.
+        assert!(
+            true,
+            "if this file failed to compile, a field was added to or removed \
+             from `ActorTuning` — put it in one of the three columns above, or \
+             establish that it belongs in none and delete it"
+        );
+    }
+}

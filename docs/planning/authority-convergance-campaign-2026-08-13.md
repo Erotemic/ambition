@@ -19,7 +19,7 @@
 | AC2 scheduler-perturbation determinism guard | ✔ | 2026-08-13 | 2026-08-13 | `app_it::scheduler_perturbation` — A/B over two GRAPHS (the desync canary compares one graph against itself and structurally cannot see this class). Three benign readers placed by PHASE only, execution COUNTED so a filtered-out probe cannot pass as a perturbation. Falsification kept as a second test: a real conflicting writer must make the digests differ. ⚠ green means *no implicit ordering was disturbed by this perturbation*, which is weaker than *the graph has none* — stated in the module docs rather than overclaimed |
 | AC3 converge body/reaction authority | ✔ | 2026-08-13 | 2026-08-13 | **`BodyCombat` 12 fields → 7.** A(`alive`) B(`attacking`) C(3 dead fields) D(`training_dummy`→construction) all gone; save→rebuild→restore deleted from BOTH roads; ONE decay and ONE reset for every body, closing D108 and D107. `sync_actor_components_from_cluster` is now a single string comparison and writes NO `BodyCombat` field. Falsifier below |
 | AC4 complete prepared character bodies | ✔ | 2026-08-13 | 2026-08-13 | **`REGISTERED_WITHOUT_A_BODY` is EMPTY** and `character_archetypes.ron` is down to ONE row. Seven bodies authored (6 pirates, Carl Stargan, + Patent Clerk vitals); `SmallSkitter`→`npc_puppy_slug`, `under_town_skitter`→`npc_puppy_slug` (via the LDtk tooling), `large_brute`→a real `npc_goblin_brute` whose separate sprite generator already existed. `medium_striker` DELETED. ⚠ a guard caught me inventing a moveset — see AC4 notes |
-| AC5 construction convergence, delete build-then-patch | ⏳ | 2026-08-13 | | **`adopt_character_intrinsics` DELETED.** Its population went 14 → 7 → **0** in one day: seven were Jon's 08-13 rulings, the last seven were each missing exactly ONE fact (locomotion) with no decision pending. A body is now built from a character or from an archetype, never one patched over the other. ▢ remaining: AC5.4 (D102 — the engine still names `npc_puppy_slug` in `damage_drops`), AC5.5 (cross-context equivalence test) |
+| AC5 construction convergence, delete build-then-patch | ✔ | 2026-08-13 | 2026-08-13 | **`adopt_character_intrinsics` DELETED** (population 14 → 7 → 0 in one day). AC5.4: a character names its own `divides_into`, so the engine's split path names no creature. AC5.5: `app_it::one_character_two_contexts` proves the NPC road and the summon road build the same body and differ in disposition. ⚠ it found a real geometry divergence — see below |
 | AC6 delete archetype/roster/tuning authority | ▢ | | | ⭐ **the file is down to ONE row (`combatant`)** and one borrower (`small_lurker`, the last open casting question in the game). AC4 did the content half |
 | AC7 final naming/docs + D73 closure + amplification probes | ▢ | | | |
 
@@ -1080,6 +1080,35 @@ AC5 is DONE only when:
 - `cargo check -p ambition_app` is green.
 
 ---
+
+### ⚠ OPEN, found by AC5.5: the two roads disagree about GEOMETRY by exactly 1.5×
+
+`app_it::one_character_two_contexts` builds `npc_puppy_slug` through the authored
+NPC road (the Hall) and the runtime-summon road (`spawn_enemy_character_at`) and
+compares the body.
+
+```text
+max_health      2      ==  2
+max_run_speed   agree
+weight          agree
+size            84.18 × 21.93   vs   56.12 × 14.62      ← 1.5× on BOTH axes
+```
+
+⛔ **the 1.5 is unexplained, and it is NOT the character's `collision_scale`,
+which is 1.4.** `NpcActorSpawnPlan::spawn_into` already carries a comment about
+`collision_scale` being re-applied and *"ballooning the sprite"*, so a
+double-application hazard is known to live on this seam.
+
+⚠ **it is recorded rather than asserted**, in either direction. Doctrine 3 lists
+geometry as a body-owned intrinsic, which argues defect; the same doctrine gives
+placement *"explicit placement overrides"*, which argues an authored NPC rect
+legitimately sizes its occupant. The test asserts the facts that are
+unambiguously the body's and names this one in its own doc, so re-opening it is
+adding `size` back to the compared struct.
+
+⇒ **for AC6/AC7.** If it is a defect it is a real one — a character is a
+different size depending on how it was summoned — and it is exactly the class
+this campaign exists to remove.
 
 # AC6 — Delete the legacy enemy-archetype authority
 

@@ -63,6 +63,7 @@ mod input_stream_replay;
 mod isolated_persistence;
 mod mary_o_hud_surround;
 mod movement_axis;
+mod one_character_two_contexts;
 mod participant_input;
 mod player_bubble_shield;
 mod player_clone_live;

@@ -958,6 +958,184 @@ fn a_decided_match_freezes_the_local_seating() {
 
 /// **Every fighter `SMASH_ROSTER` names actually exists in the shipped host.**
 ///
+/// **THE PUPPY SLUG ON THE ACTUAL STAGE** — P3.27's end-to-end half.
+///
+/// `a_crawler_seated_as_a_fighter_keeps_its_own_locomotion` pins the SEAM, and
+/// it does it with a synthetic `"crawler"` registered inside a fixture app. This
+/// is the other test: Ambition's real `npc_puppy_slug`, the shipped host, the
+/// real select screen, the real seating road.
+///
+/// ⭐ **the two are not redundant, and the difference is the row's whole point.**
+/// A fixture proves the seating code copies locomotion off whatever definition
+/// it is handed. It cannot prove the puppy slug's SHIPPED definition survives
+/// catalog assembly, preparation, the grid's seatability filter and the match's
+/// ability mask — the trip P3.27 asks about, and the one a deleted archetype row
+/// used to break.
+///
+/// ⚠ **it forces the grid, and that is what "forced seat" means here.**
+/// `npc_puppy_slug` is not on `SMASH_ROSTER`: being buildable and being offered
+/// on a select grid are different questions (D73). Replacing `SmashRoster` is
+/// how a crawler gets seated at all, and is not a suggestion that it should ship
+/// as a selectable fighter.
+///
+/// ⛔ **the opponent is the control.** Asserting only that the slug crawls at
+/// 80 px/s would pass if the stage seated EVERYBODY at 80 — the claim has to be
+/// that the two seats DIFFER, in the direction their characters authored.
+#[test]
+fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    const SLUG: &str = "npc_puppy_slug";
+    const OPPONENT: &str = "goblin";
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    // ⚠ both must be BUILDABLE in this composition before the grid is forced —
+    // `SmashRoster::assemble` drops what the prepared registry cannot seat, so
+    // forcing an unbuildable id would produce an empty stage and a confusing
+    // failure two hundred lines later.
+    {
+        let registry = app
+            .world()
+            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
+        for id in [SLUG, OPPONENT] {
+            assert!(
+                registry.get(id).is_some(),
+                "`{id}` is not registered in the shipped host, so this test \
+                 cannot force it onto the grid"
+            );
+        }
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            SLUG.to_string(),
+            OPPONENT.to_string(),
+        ]));
+
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let seats: Vec<(usize, f32, bool)> = {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &ambition_platformer2d::actor::ActorConfig)>();
+        let mut rows: Vec<(usize, f32, bool)> = query
+            .iter(world)
+            .map(|(seat, config)| {
+                (
+                    seat.0,
+                    config.tuning.max_run_speed,
+                    config.tuning.surface_walker,
+                )
+            })
+            .collect();
+        rows.sort_by_key(|(seat, ..)| *seat);
+        rows
+    };
+    assert_eq!(
+        seats.len(),
+        2,
+        "the stage seated {} bodies, so nothing below measures a forced seat: \
+         {seats:?}",
+        seats.len()
+    );
+
+    let (_, slug_speed, slug_clings) = seats[0];
+    let (_, other_speed, other_clings) = seats[1];
+    assert_eq!(
+        slug_speed, 80.0,
+        "the puppy slug is seated at {slug_speed} px/s and it authors 80.0 — \
+         somewhere between its definition and this stage a fighter default \
+         replaced the body it states, which is exactly what P3.27 asks: \
+         {seats:?}"
+    );
+    assert!(
+        slug_clings,
+        "the puppy slug lost `surface_walker` by being seated, so the stage \
+         decided what kind of body a crawler is: {seats:?}"
+    );
+    // ⛔ THE CONTROL — without it a stage that seated everybody as a slug would
+    // pass every assertion above.
+    assert!(
+        other_speed != slug_speed && !other_clings,
+        "both seats came out identical ({seats:?}), so the numbers above are \
+         the stage's and not the characters'"
+    );
+
+    // ⭐⭐ **AND NOW DRIVE IT** — the row asks for the stage to be PLAYED, not
+    // only seated, and the two are different claims. Everything above reads
+    // `ActorConfig`, which is what the seating code wrote down; this presses a
+    // key and measures where the body actually went. A number that arrives in a
+    // component and never reaches motion would pass every assertion above.
+    let slug_body = {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, Entity)>();
+        let mut rows: Vec<(usize, Entity)> = query.iter(world).map(|(s, e)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows[0].1
+    };
+    let x = |app: &App, body: Entity| -> f32 {
+        app.world()
+            .get::<ambition_platformer2d::actors::actor::BodyKinematics>(body)
+            .expect("a seated body has kinematics")
+            .pos
+            .x
+    };
+
+    // ⚠ **wait out the opening countdown first.** A smash match opens SUSPENDED
+    // (`opens_suspended` / `opening_countdown_ticks` — the 3-2-1-GO), so input
+    // pressed before GO moves nothing. A first version of this pressed 40 frames
+    // after seating and measured 0.00px, which reads exactly like "the crawler
+    // cannot be driven" and was the countdown.
+    for _ in 0..240 {
+        app.update();
+    }
+    let before = x(&app, slug_body);
+    const FRAMES: usize = 40;
+    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+    for _ in 0..FRAMES {
+        app.update();
+    }
+    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+    let travelled = (x(&app, slug_body) - before).abs();
+
+    assert!(
+        travelled > 1.0,
+        "the puppy slug was seated and then did not move when driven \
+         ({travelled:.2}px over {FRAMES} frames) — a crawler that cannot be \
+         played is not a fighter, however correct its `ActorConfig` reads"
+    );
+    // ⛔ THE POISON, and the reason this is not just "it moved": a body driven at
+    // somebody else's top speed still passes "it moved".
+    //
+    // ⚠ **the bound is MEASURED, not derived.** 40 frames × 80 px/s "should" be
+    // ~53px; the slug actually covers 34.85px, because it accelerates from a
+    // standstill and never reaches its top speed in that window. Modelling it
+    // would have put the line in the wrong place — so this ran the same test
+    // with the GOBLIN in the slug's seat (170 px/s, the other fighter already on
+    // this stage) and measured 92.50px. 60px sits between the two with room on
+    // both sides.
+    assert!(
+        travelled < 60.0,
+        "the puppy slug covered {travelled:.2}px in {FRAMES} frames. Measured \
+         under exactly these conditions, its authored 80 px/s produces ~34.8px \
+         and the goblin's 170 px/s produces ~92.5px — so this body is being \
+         driven at a top speed that is not the one its character states, even \
+         though `ActorConfig` above reads correctly"
+    );
+}
+
 /// ⚠ **`SmashRoster::assemble` FILTERS to what the catalog carries, and that is
 /// correct behaviour** — a host that composes only some providers shows only the
 /// fighters it has, which is what lets the bare smash app run at all. It also

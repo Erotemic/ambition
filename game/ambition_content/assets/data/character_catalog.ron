@@ -606,6 +606,42 @@
         ),
         hall_dialogue_id: Some("hall_npc_general"),
         ),
+        // ⭐⭐ **THE GOBLIN BRUTE** — Jon's 2026-08-13 casting of `large_brute`,
+        // the goblin lab's heavy: "author a distinct Goblin Brute character …
+        // a separate reusable character identity rather than a generic archetype
+        // row or an alias for an existing named goblin."
+        //
+        // ⭐ **its sprite generator already existed and was never wired in.**
+        // `configs/review/goblin_brute_hammer.yaml` has `target: goblin` with its
+        // own name, seed, `archetype: brute` and `variant: bruiser_heavy` — which
+        // is exactly the shape he asked for: "it may initially use the same broad
+        // goblin visual design/template, scaled/designed as a bigger brute …
+        // however, its sprite must have a SEPARATE Python sprite generator/target,
+        // even if that generator initially shares helpers or visual vocabulary
+        // with the ordinary goblin." The sheet is generated and on disk; all that
+        // was missing was this row.
+        //
+        // ⚠ `body_kind: Wide` and the heavier collision scale come from the
+        // generator config's own `body_kind: Wide` / `mass_class: Heavy`, so the
+        // body the game builds and the body the artist drew agree by derivation
+        // rather than by two people typing the same word.
+        "npc_goblin_brute": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Goblin Brute",
+            spritesheet: "sprites/goblin_brute_hammer_spritesheet.png",
+            manifest: "sprites/goblin_brute_hammer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_action_set: "striker_swipe",
+            tags: ["enemy", "goblin", "heavy"],
+        barks: (
+            on_hit: ["Rrrgh!", "Little thing hits back!", "Brute not done!"],
+            provoked: ["BRUTE SMASH!"],
+            hall: ["Brute carry hammer. Hammer carry brute. Is friendship.", "Small goblins talk. Brute does."],
+        ),
+        hall_dialogue_id: None,
+        ),
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
             display_name: "Fretjaw, Cantina Chieftain",

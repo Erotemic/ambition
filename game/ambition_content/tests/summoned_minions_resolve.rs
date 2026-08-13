@@ -153,13 +153,6 @@ fn every_summoned_minion_id_resolves_a_body() {
              content decision (ledger D93). The cascade spawns generic combatants \
              until then, and the summon road warns every time it does.",
         ),
-        (
-            "large_brute",
-            "same week, same census, same shape: three waves of the goblin \
-             encounter name a role whose row is gone, so they spawn combatants. \
-             Which creature a goblin fight's heavy IS is Jon's call (ledger D93); \
-             the encounter is not broken, it is under-cast.",
-        ),
     ];
 
     let buildable: std::collections::BTreeSet<&str> =

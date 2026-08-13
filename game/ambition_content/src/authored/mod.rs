@@ -29,6 +29,7 @@ mod npc_carl_stargan;
 mod npc_dividing_mite;
 mod npc_exploding_mite;
 mod npc_giant_gnu;
+mod npc_goblin_brute;
 mod npc_giant_gnu_hands;
 mod npc_lab_raider;
 mod npc_ninja_shadow_oni_leader;
@@ -106,6 +107,8 @@ pub(crate) const AUTHORED_CAST: &[(
     ),
     (&["npc_carl_stargan"], npc_carl_stargan::author),
     (&["goblin"], goblin::author),
+    // AC6/D102: Jon's 2026-08-13 casting of `large_brute` as a real character.
+    (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];
 
 /// The authoring for `id`, or `None` for a character this provider does not

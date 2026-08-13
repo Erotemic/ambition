@@ -172,13 +172,29 @@ pub(super) fn spawn_death_explosion(
 
 /// Lateral offset (px) each split offspring spawns from the parent's corpse.
 const SPLIT_OFFSET_X: f32 = 30.0;
-/// Half-size of a split offspring (a small-skitter body).
+/// Half-size of a split offspring.
 const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 
-/// A `DividingMite` splits into two fast `SmallSkitter` offspring on death — one
-/// to each side — through the runtime-minion spawner. The children are plain
-/// skitters (NOT dividers), so the split is exactly one level deep: no runaway
-/// recursion, just "kill the slow parent, then handle two quick children."
+/// A `DividingMite` splits into two offspring on death — one to each side —
+/// through the runtime-minion spawner. The children do not divide, so the split
+/// is exactly one level deep: no runaway recursion, just "kill the slow parent,
+/// then handle two quick children."
+///
+/// ⭐⭐ **THE CHILDREN ARE PUPPY SLUGS** (Jon, 2026-08-13). They used to be
+/// `SmallSkitter` — an identifier naming no character and no roster row, which
+/// borrowed the `combatant` fallback and was one of the three entries keeping
+/// `character_archetypes.ron` alive. His ruling: *"all of the generic 'skitter'
+/// concepts were AI-invented and Jon does not care about preserving them as
+/// distinct identities. Skitters are Puppy Slug."*
+///
+/// ⚠ **the repo had already answered this once**: the proving grounds' placement
+/// literally named `pg_skitter` is cast as `npc_puppy_slug` today. The split was
+/// the site that had not caught up.
+///
+/// ⛔ **an engine module still names an Ambition creature, and that is AC5.4's
+/// remainder rather than this line's.** What a character splits into is a CONTENT
+/// fact and belongs on the parent's definition; casting it correctly first is
+/// what makes moving it a move rather than a decision.
 pub(super) fn spawn_split_offspring(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -204,7 +220,7 @@ pub(super) fn spawn_split_offspring(
             "Divided cell",
             pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
             SPLIT_OFFSPRING_HALF,
-            "SmallSkitter",
+            "npc_puppy_slug",
             format!("{parent_id}:split"),
             crate::features::ActorFaction::Enemy,
             crate::features::ActorAggression::hostile(),

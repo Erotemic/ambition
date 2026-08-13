@@ -38,14 +38,14 @@
                 // decision, so the brute keeps drawing the placeholder until
                 // somebody makes it — which is the point of having no fallback
                 // sheet: visible debt beats a body borrowing someone else's art.
-                (kind: "large_brute", spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
+                (kind: "npc_goblin_brute", spawn: (1340.0, 562.0), size: (32.0, 56.0), delay: 2.60),
             ],
         ),
         (
             label: "wave 3 — heavy duo",
             mobs: [
-                (kind: "large_brute", spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
-                (kind: "large_brute", spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "npc_goblin_brute", spawn: (1180.0, 562.0), size: (32.0, 56.0), delay: 0.0),
+                (kind: "npc_goblin_brute", spawn: (1500.0, 562.0), size: (32.0, 56.0), delay: 0.0),
             ],
         ),
     ],

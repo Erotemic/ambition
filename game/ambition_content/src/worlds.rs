@@ -267,9 +267,18 @@ mod tests {
         }
         needs_a_row.sort();
 
+        // ⭐⭐ **FOUR → TWO on 2026-08-13, both by DECISION.** Jon cast
+        // `SmallSkitter` ("skitters are Puppy Slug") and `large_brute` (a real
+        // authored Goblin Brute, with the separate sprite generator that already
+        // existed). Neither needed new architecture; both needed an answer.
+        //
+        // ⚠ what is left is two, and they are not the same kind of open:
+        // `small_lurker` is a genuine casting question his skitter ruling does
+        // not reach (a lurker is not a skitter), and the `under_town_pipes`
+        // placement is `under_town_skitter`, which HE DID cast as
+        // `npc_puppy_slug` — it survives here only because the placement lives in
+        // LDtk and is edited with the LDtk tooling, not by hand.
         let expected = [
-            "OPEN_CASTING `SmallSkitter` borrows row `combatant`",
-            "OPEN_CASTING `large_brute` borrows row `combatant`",
             "OPEN_CASTING `small_lurker` borrows row `combatant`",
             "under_town_pipes/EnemySpawn-104875 wants row `medium_striker`",
         ];

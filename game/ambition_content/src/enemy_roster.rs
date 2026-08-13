@@ -44,19 +44,6 @@ pub(crate) const OPEN_CASTING: &[(&str, &str, &str)] = &[
         "the Gradient Sentinel's gradient-cascade summon (ledger D93/D96). A \
          minion of the wrong body beats a boss that casts nothing mid-fight.",
     ),
-    (
-        "large_brute",
-        "combatant",
-        "the goblin encounter's heavy, three waves of it (ledger D93). Which \
-         creature the heavy IS is content.",
-    ),
-    (
-        "SmallSkitter",
-        "combatant",
-        "what a `DividingMite` splits into (`damage_drops`, ledger D96), and the \
-         last CamelCase archetype name left in shipped content. No skitter \
-         character exists yet.",
-    ),
 ];
 
 /// Register Ambition's hostile archetypes into this Bevy App.

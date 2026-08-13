@@ -3075,6 +3075,26 @@ why `melee` reads 105 refs in 40 files. Use the count to rank the work, never to
 claim a field is nearly unused — ⭐ but the SMALL numbers are trustworthy in the
 direction that matters: `mount_death_splash` at 1 really is one site.
 
+⭐⭐ **THIS CLASSIFICATION IS NOW ENFORCED BY THE COMPILER** (2026-08-13):
+`archetype_spec::authority_split_tests::every_archetype_field_has_a_destination`
+exhaustively destructures the type with every field filed under one of four
+headings. **Add a field to the archetype schema and `ambition_combat` stops
+compiling until somebody says where it goes**; remove one and the same. ⇒ where
+the appendix below and that function disagree, THE FUNCTION IS THE ANSWER — it
+cannot be true of a tree it does not compile against.
+
+⚠ **the count held.** Re-asked by the destructure rather than by counting, it is
+still 49 — on the same day a hand grep undercounted the much smaller
+`ActorTuning` by six and a correction had to be retracted. ⇒ a `grep -A N` window
+truncates silently; a destructure cannot.
+
+⚠ **two judgement calls are marked in the code rather than hidden**: the four
+`smash_*` fields are filed as CONTROLLER policy wearing a mode's name, with
+`smash_heavy` flagged as the weakest of them (a weight class is a body fact and
+`weight` already is one — check for a duplicate before migrating it), and
+`dream_seed` / `ranged_visual` are presentation projected FROM the body rather
+than a fourth authority.
+
 `ArchetypeSpec` has **49 fields**. Their owners under the new model:
 
 ## Pure assembly machinery — deleted, migrates nowhere (2)

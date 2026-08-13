@@ -199,6 +199,94 @@ mod tests {
         );
     }
 
+    /// **HOW FAR IS `character_archetypes.ron` FROM BEING DELETED** — P2.22's
+    /// acceptance signal, as a countdown rather than a survey.
+    ///
+    /// The campaign's acceptance signal is a DELETION, and the roster file is
+    /// the last of it. This asks the question directly instead of reasoning
+    /// about it: rebuild the resolution every placement goes through, but with
+    /// an EMPTY roster, and list what stops resolving.
+    ///
+    /// ⭐ **that list IS the remaining work, and it is content rather than
+    /// engineering.** Each entry is a creature nobody has decided on yet — the
+    /// three identifiers this provider declares as open casting, which borrow
+    /// `combatant` while the decision stands, and the placements that name a
+    /// brain key and no character.
+    ///
+    /// ⚠ **this does NOT say the file can be deleted the moment the list is
+    /// empty.** `spawn_actors` still ASKS the roster (`try_spec_for_brain`,
+    /// `has_brain_key`); with no row left those arms answer `None` forever and
+    /// become dead code to delete, which is checklist item 22. This measures the
+    /// CONTENT half, which is the half that is blocked on Jon.
+    #[test]
+    fn what_still_needs_an_archetype_row() {
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
+            .clone();
+
+        let manifest = world_manifest();
+        let project =
+            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+
+        let mut needs_a_row: Vec<String> = Vec::new();
+        for room in &room_set.rooms {
+            for enemy in &room.enemy_spawns {
+                let builds_as_a_character = enemy
+                    .payload
+                    .gameplay_character_id()
+                    .and_then(|id| prepared.get(id.as_str()))
+                    .is_some_and(|character| character.body_blueprint().is_ok());
+                if builds_as_a_character {
+                    continue;
+                }
+                // A brain naming no identifier states a POLICY and gets a plain
+                // body — it never needed a row.
+                if let ambition_entity_catalog::placements::CharacterBrain::Custom(key) =
+                    &enemy.payload.brain
+                {
+                    needs_a_row.push(format!("{}/{} wants row `{key}`", room.id, enemy.id));
+                }
+            }
+        }
+        // The identifiers this provider has declared open: they name no
+        // character on purpose and borrow a row until Jon casts them.
+        for (identifier, temporary_row, _) in crate::enemy_roster::OPEN_CASTING {
+            needs_a_row.push(format!(
+                "OPEN_CASTING `{identifier}` borrows row `{temporary_row}`"
+            ));
+        }
+        needs_a_row.sort();
+
+        let expected = [
+            "OPEN_CASTING `SmallSkitter` borrows row `combatant`",
+            "OPEN_CASTING `large_brute` borrows row `combatant`",
+            "OPEN_CASTING `small_lurker` borrows row `combatant`",
+            "under_town_pipes/EnemySpawn-104875 wants row `medium_striker`",
+        ];
+        assert_eq!(
+            needs_a_row.as_slice(),
+            expected.as_slice(),
+            "the distance to deleting `character_archetypes.ron` has changed. \
+             SHORTER means a casting decision landed — delete the row it \
+             borrowed if nothing else wants it, and update this list. LONGER \
+             means something new took a dependency on the archetype table, \
+             which is the direction the campaign exists to prevent. EMPTY means \
+             the content half is DONE: the two surviving rows have no user left, \
+             and what remains is deleting the code that still asks \
+             (`try_spec_for_brain` / `has_brain_key` in `spawn_actors`)"
+        );
+    }
+
     /// **"CHANGING THE CONTROLLER DOES NOT CHANGE THE BODY" — ASSERTED OF
     /// SHIPPED CONTENT**, not of a fixture.
     ///

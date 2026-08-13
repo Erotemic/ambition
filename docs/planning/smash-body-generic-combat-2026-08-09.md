@@ -1167,8 +1167,27 @@ rather than trusted. **Both hold**, and one is now falsifier-verified:
   maintains the clock. ⚠ the section's own two ⚠ marks (only a CONTROLLED body
   can crouch; F1 cannot show which timeline won) are still true.
 
+* ✔✔ **DI — the law that "had ZERO tests" now has FIVE, and they are the right
+  five.** `di_is_the_perpendicular_part_of_the_stick`,
+  `di_rotates_the_launch_without_changing_its_speed`,
+  `a_zero_budget_or_an_idle_stick_returns_the_launch_untouched`,
+  `a_half_held_stick_spends_less_than_the_whole_budget`, and
+  `di_conjugates_under_a_flipped_frame` — the last being the reference-frame
+  property this engine needs and most implementations never state.
+  ⚠ **poisoned at the RETURN**: scaling the rotated launch by 1.15 reddens
+  `di_rotates_the_launch_without_changing_its_speed` alone, which is the claim
+  that matters — a DI that changed speed would be a knockback change wearing a
+  direction change.
+
+  ⛔ **and my first poison was aimed wrong, which is worth keeping.** I scaled
+  `let speed = launch.length()`, expecting the speed test to fall; it did not,
+  because that local is the NORMALISER, not the output magnitude — so the
+  injection moved the ANGLE and reddened the perpendicular-fraction test instead.
+  Second time in one run that a falsifier hit a neighbouring quantity: **poison
+  the value the claim is about, at the point it leaves the function.**
+
 ⇒ **recorded because the run's base rate made it a fair question.** An item that
-states what it does NOT cover is the one that stays true; both of these do.
+states what it does NOT cover is the one that stays true; all three of these do.
 
 ## Execution order (mine, revise as measurements land)
 

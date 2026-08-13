@@ -1186,8 +1186,42 @@ rather than trusted. **Both hold**, and one is now falsifier-verified:
   Second time in one run that a falsifier hit a neighbouring quantity: **poison
   the value the claim is about, at the point it leaves the function.**
 
+### ⇥ AND THE THREE FOUNDATIONAL ITEMS TOO — 6 of 6 held
+
+Items 1–3 underpin everything above, and all three are ABSENCE claims, which are
+the cheap kind to re-check:
+
+```text
+  item 1  the knockback side channel   `knock_x`     0 production uses (comments only)
+  item 2  the cause vocabulary         `HitSource`   6 payload-free causes; the helper
+                                                     is `seeks_victims`, renamed FROM
+                                                     `is_attacker_side` with the reason
+                                                     recorded on the function itself
+  item 3  one body victim              `HitTarget`   `Player`/`Actor` gone; `Body` has 17
+                                                     production uses
+```
+
+⚠ this file's citations of `is_attacker_side` are correct HISTORY, not staleness —
+one is the rename table, one is the finding that it did not exist.
+
+### ⇥ ⭐⭐ AND WHY THIS FILE HELD WHERE NINE ROWS ELSEWHERE DID NOT
+
+Across this run, four ledger rows, five campaign rows, a decision-file index and a
+BLOCKS column all described a tree that had moved. **Every ✔ in this file
+survived.** The difference is not care; it is what the claims are ABOUT:
+
+* the rows that rotted asserted **counts and states of a moving tree** — *"0 of
+  65 carry a character_id"*, *"one death route has no test"*, *"seven key rows
+  left"*. Each was true when written and silently false a week later.
+* the ones that held assert **an absence with a named subject** (*`knock_x` is
+  gone*), or **a claim bounded by what it does not cover** (*the vocabulary is a
+  contract — not that timelines are consumed*).
+
+⇒ **an absence with a name re-checks in one grep; a count re-checks only by
+redoing the census.** Prefer the first when a row has to survive a week.
+
 ⇒ **recorded because the run's base rate made it a fair question.** An item that
-states what it does NOT cover is the one that stays true; all three of these do.
+states what it does NOT cover is the one that stays true; all six of these do.
 
 ## Execution order (mine, revise as measurements land)
 

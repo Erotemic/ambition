@@ -96,6 +96,7 @@ mod rollback_seat_devices;
 mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
+mod scheduler_perturbation;
 mod scripted_gameplay;
 mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;

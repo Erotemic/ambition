@@ -18,6 +18,47 @@ pub const PROVIDER_ID: &str = "ambition";
 /// `Brain::Custom("…")`; `"combatant"` is Ambition's fallback row.
 pub const CHARACTER_ROSTER_RON: &str = include_str!("../assets/data/character_archetypes.ron");
 
+/// **AMBITION'S OWN UNRESOLVED CASTING, DECLARED WHERE IT IS OWNED** —
+/// `(identifier, row it borrows meanwhile, why)`.
+///
+/// ⛔⛔ these three identifiers are authored in shipped content — a boss summon,
+/// an encounter wave, a mite's split — and name no character and no row, so
+/// construction would refuse them. Until 2026-08-12 the ENGINE carried them as
+/// `IDENTIFIERS_AWAITING_A_CASTING_DECISION`, a const list of three Ambition
+/// creature names compiled into a reusable platformer: any other game linking it
+/// inherited the waiver, and a typo matching one of the three entered the
+/// temporary road silently (GPT 5.6 review, priority 3).
+///
+/// ⚠ **each line is a content decision Jon has not made yet, not an engineering
+/// gap.** Deleting one is what closes it; deleting all three is D102's
+/// acceptance signal. What they ultimately ARE is not decided here — `combatant`
+/// is what they BORROW meanwhile, and the warning says so on every spawn.
+///
+/// ⚠ **a const rather than three inline calls** so the buildability guard
+/// (`worlds::tests::every_shipped_enemy_placement_can_be_built`) asks the same
+/// list construction was given, instead of a second copy that could disagree.
+pub(crate) const OPEN_CASTING: &[(&str, &str, &str)] = &[
+    (
+        "small_lurker",
+        "combatant",
+        "the Gradient Sentinel's gradient-cascade summon (ledger D93/D96). A \
+         minion of the wrong body beats a boss that casts nothing mid-fight.",
+    ),
+    (
+        "large_brute",
+        "combatant",
+        "the goblin encounter's heavy, three waves of it (ledger D93). Which \
+         creature the heavy IS is content.",
+    ),
+    (
+        "SmallSkitter",
+        "combatant",
+        "what a `DividingMite` splits into (`damage_drops`, ledger D96), and the \
+         last CamelCase archetype name left in shipped content. No skitter \
+         character exists yet.",
+    ),
+];
+
 /// Register Ambition's hostile archetypes into this Bevy App.
 ///
 /// ⛔ **THROUGH THE COMPILER, not beside it.** This used to call
@@ -36,46 +77,13 @@ pub fn register(app: &mut App) {
         ambition_combat::content_schema::lowered_character_archetypes(crate::pack::prepared())
             .expect("the archetype schema lowers its roster for every pack that compiles")
             .clone();
-    app.register_character_roster_fragment(
+    let mut fragment =
         CharacterRosterFragment::from_prepared_specs(PROVIDER_ID, by_brain, CHARACTER_ROSTER_RON)
-            .expect("Ambition character_archetypes.ron should be a valid roster fragment")
-            // ⛔⛔ **AMBITION'S OWN UNRESOLVED CASTING, DECLARED WHERE IT IS
-            // OWNED.** These three identifiers are authored in shipped content —
-            // a boss summon, an encounter wave, a mite's split — and name no
-            // character and no row, so construction would refuse them. Until
-            // 2026-08-12 the ENGINE carried them as
-            // `IDENTIFIERS_AWAITING_A_CASTING_DECISION`, a const list of three
-            // Ambition creature names compiled into a reusable platformer: any
-            // other game linking it inherited the waiver, and a typo matching one
-            // of the three entered the temporary road silently (GPT 5.6 review,
-            // priority 3).
-            //
-            // ⚠ **each line is a content decision Jon has not made yet, not an
-            // engineering gap.** Deleting one is what closes it; deleting all
-            // three is D102's acceptance signal. What they ultimately ARE is not
-            // decided here — `combatant` is what they BORROW meanwhile, and the
-            // warning says so on every spawn.
-            .with_open_casting_decision(
-                "small_lurker",
-                "combatant",
-                "the Gradient Sentinel's gradient-cascade summon (ledger D93/D96). \
-                 A minion of the wrong body beats a boss that casts nothing \
-                 mid-fight.",
-            )
-            .with_open_casting_decision(
-                "large_brute",
-                "combatant",
-                "the goblin encounter's heavy, three waves of it (ledger D93). \
-                 Which creature the heavy IS is content.",
-            )
-            .with_open_casting_decision(
-                "SmallSkitter",
-                "combatant",
-                "what a `DividingMite` splits into (`damage_drops`, ledger D96), \
-                 and the last CamelCase archetype name left in shipped content. \
-                 No skitter character exists yet.",
-            ),
-    );
+            .expect("Ambition character_archetypes.ron should be a valid roster fragment");
+    for (identifier, temporary_row, reason) in OPEN_CASTING {
+        fragment = fragment.with_open_casting_decision(*identifier, *temporary_row, *reason);
+    }
+    app.register_character_roster_fragment(fragment);
 }
 
 #[cfg(test)]

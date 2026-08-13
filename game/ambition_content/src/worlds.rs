@@ -119,6 +119,102 @@ mod tests {
     /// ⚠ scoped to the one level, exactly as the GNU-ton test is: composing the
     /// whole sandbox pulls in portal entities whose feature is off in this test
     /// build. `pirate_sky_lookout` authors none.
+    /// **EVERY SHIPPED `EnemySpawn` CAN BE BUILT** — the invariant that stands
+    /// between the D102 refusal and a panic in a room nobody tests.
+    ///
+    /// ⛔⛔ **construction refuses an identifier nothing can resolve** (D102, and
+    /// deliberately: an unresolvable spawn used to become a silent generic). Three
+    /// things can resolve one — a COMPLETE character (one whose prepared
+    /// definition yields a body blueprint), an archetype ROW under the placement's
+    /// brain key, or the provider's own `with_open_casting_decision` waiver. A
+    /// placement with none of the three panics at spawn.
+    ///
+    /// ⚠ **and that is not covered by the lowering tests beside this one.**
+    /// `the_pirate_sky_riders_lower_into_authored_mount_links` proves
+    /// `pirate_sky_lookout` LOWERS; nothing built its bodies. The two are
+    /// different failures — lowering reads the LDtk file, construction asks the
+    /// cast — and a room can pass the first and panic on the second.
+    ///
+    /// ⭐ asked of every world this provider ships, so a new room is covered the
+    /// day it is authored rather than the day somebody remembers to list it.
+    #[test]
+    fn every_shipped_enemy_placement_can_be_built() {
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        crate::enemy_roster::register(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
+            .clone();
+        let roster = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::features::CharacterRoster>()
+            .clone();
+
+        // ⚠ ONE manifest, every world: `world_manifest()` declares the sandbox
+        // plus the story side-worlds, so this covers a new room the day it is
+        // authored rather than the day somebody remembers to list it here.
+        let manifest = world_manifest();
+        let project =
+            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("the shipped worlds compose");
+        let mut unbuildable: Vec<String> = Vec::new();
+        {
+            for room in &room_set.rooms {
+                for enemy in &room.enemy_spawns {
+                    let complete = enemy
+                        .payload
+                        .character_id
+                        .as_ref()
+                        .and_then(|id| prepared.get(id.as_str()))
+                        .is_some_and(|character| character.body_blueprint().is_ok());
+                    if complete {
+                        continue;
+                    }
+                    // The archetype road, asked as construction asks it: a ROW
+                    // under this brain key, or this provider's own declared
+                    // waiver. ⚠ the waiver comes from `OPEN_CASTING`, the same
+                    // list `enemy_roster::register` hands the fragment, so this
+                    // guard cannot drift from what construction was given.
+                    let key = match &enemy.payload.brain {
+                        ambition_entity_catalog::placements::CharacterBrain::Custom(name) => {
+                            Some(name.as_str())
+                        }
+                        // A brain that names no identifier states a POLICY, and
+                        // construction builds it a plain body — there is nothing
+                        // to have gotten wrong.
+                        _ => None,
+                    };
+                    let Some(key) = key else { continue };
+                    if roster.has_brain_key(key)
+                        || crate::enemy_roster::OPEN_CASTING
+                            .iter()
+                            .any(|(identifier, ..)| *identifier == key)
+                    {
+                        continue;
+                    }
+                    unbuildable.push(format!(
+                        "{}/{} names character {:?} and brain {:?}",
+                        room.id, enemy.id, enemy.payload.character_id, enemy.payload.brain
+                    ));
+                }
+            }
+        }
+        assert!(
+            unbuildable.is_empty(),
+            "shipped `EnemySpawn` placements that construction would REFUSE — \
+             each names no complete character, no archetype row, and no declared \
+             open casting:\n  {}",
+            unbuildable.join("\n  ")
+        );
+    }
+
     #[test]
     fn the_pirate_sky_riders_lower_into_authored_mount_links() {
         use ambition_entity_catalog::placements::CharacterBrain;

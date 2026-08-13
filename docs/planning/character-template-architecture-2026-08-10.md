@@ -139,6 +139,27 @@ adopter leaves, and the second failure is the one that says a deletion is now
 possible. ⇒ **the campaign no longer needs anybody to re-run a census to know
 where it is.**
 
+⛔⛔ **AND MOST OF THEM ARE NOT IN THE RUN'S GATE — worth saying about my own
+work.** The goal file executes four things: `cargo check -p ambition_app
+--all-targets`, the absence contracts, `cargo test -p ambition_app --test
+app_it`, and a clean tree. So:
+
+* ✔ **the four DESTRUCTURE guards are enforced continuously** — they are
+  compile-time, and `--all-targets` compiles test targets.
+* ✔ the app-level regressions are enforced (`app_it`): the forced puppy-slug
+  seat, the grid-fighter split, the per-fighter frame data.
+* ⛔ **the counting ratchets are NOT.** They live in `ambition_content`,
+  `ambition_characters`, `ambition_platformer2d_actor_monolith` and
+  `ambition_demo_mary_o` LIB suites, and nothing in the gate runs those. That
+  includes `what_still_needs_an_archetype_row`, the acceptance signal's own
+  countdown.
+
+⇒ **they are correct where they are** — a ratchet belongs beside its subject —
+but *"a test exists"* and *"a test runs on every turn"* are different claims and
+this file should not blur them. ⚠ deliberately NOT fixed by editing the goal
+file: changing the checks I am measured against, mid-run and unasked, is not
+mine to do.
+
 ⚠ **two of them carry a control that says NOT to delete**, added after a
 measurement changed the conclusion: the moveset ratchets no longer instruct
 removing `DeclaredCombatRules::unarmed_melee`, because the fighters that state

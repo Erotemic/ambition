@@ -542,6 +542,60 @@ mod tests {
         );
     }
 
+    /// **AND HOW MANY STATE THEIR OWN MOVES** — P3.24's number, which had no
+    /// ratchet while its twin above did.
+    ///
+    /// ⭐ **the named subject of P3.24 is already deleted**: `smash_fighter_kit()`
+    /// is gone, and its numbers moved verbatim into
+    /// `DeclaredCombatRules::unarmed_melee`, where a ruleset fact belongs — a
+    /// STAGE states what an unarmed fighter swings. But the concept survives the
+    /// rename, and so does the thing that ends it: a character that authors its
+    /// own timelines never reaches that floor.
+    ///
+    /// ⚠ **a floor and a control, exactly like the verbs ratchet.** It must not be
+    /// empty (or the unarmed declaration is what every fight is made of, and no
+    /// content exercises the authored road) and it must not yet be everybody (the
+    /// day it is, `unarmed_melee` has no adopter left and should be deleted rather
+    /// than kept warm).
+    ///
+    /// ⛔ **this asks the PREPARED registry, not the authoring functions.** A
+    /// moveset reaches a fighter as `PreparedCharacterDefinition::authored_moveset`
+    /// — which is the field `ambition_demo_smash` actually filters on when it
+    /// decides which seats need the floor — so asking anything else would measure
+    /// a different set than the one the game uses.
+    #[test]
+    fn the_cast_that_states_its_own_moves_only_grows() {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        // ⛔ BOTH, and the pair is not interchangeable: `register_declared_cast`
+        // deliberately SKIPS the lineage ("the lineage registers itself above"),
+        // so a fixture with only that call measures the NPC cast and silently
+        // leaves out the player robots — the characters most likely to author a
+        // table. Measured before this line existed: 33 characters, no robot
+        // among them.
+        crate::player_robot_lineage::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+
+        let authored: Vec<&str> = prepared
+            .iter()
+            .filter(|(_, definition)| definition.authored_moveset.is_some())
+            .map(|(id, _)| id)
+            .collect();
+        assert!(
+            !authored.is_empty(),
+            "no character in the prepared cast states its own move timelines, so              every seated fighter is made of `DeclaredCombatRules::unarmed_melee`              and the authored road is exercised by no content at all"
+        );
+        let total = prepared.ids().count();
+        assert!(
+            authored.len() < total,
+            "every one of the {total} prepared characters states its own moves —              `DeclaredCombatRules::unarmed_melee` has no adopter left, so delete              the floor and this ratchet with it. Authored: {authored:?}"
+        );
+    }
+
     /// **A CHARACTER THAT AUTHORS ITS POLICY MUST NOT ALSO NAME A PRESET.**
     ///
     /// ⭐ the campaign's own rule — every migrated fact in exactly ONE authority —

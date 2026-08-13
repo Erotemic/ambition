@@ -670,39 +670,30 @@ impl CharacterBindings {
         self
     }
 
-    /// Fill in the engine's baked PORTRAIT vocabulary unless the caller supplied
-    /// one — the twin of [`Self::with_engine_sheet_vocabulary`], and for the
-    /// same argument.
+    /// Whether a caller already supplied a SHEET vocabulary.
     ///
-    /// ⛔⛔ **portrait targets were checked NOWHERE until this existed** (ledger
-    /// D106). `with_available_portraits` was the only way to populate the
-    /// resolver and nothing called it, so `self.portraits` was `None` in every
-    /// composition, `PortraitTarget::NAME` never joined a prepared character's
-    /// `checked` list, and preparation reported *"we did not look"* about
-    /// portraits — permanently, correctly, and therefore invisibly. A character
-    /// naming a portrait nobody authored was a fault nothing could raise.
-    pub fn with_engine_portrait_vocabulary(mut self) -> Self {
-        if self.portraits.is_none() {
-            self.portraits = Some(Resolver::new(
-                ambition_sprite_sheet::available_portrait_targets(),
-            ));
-        }
-        self
+    /// ⛔⛔ **this exists because the two `with_engine_*_vocabulary` methods had
+    /// to stop being INHERENT** (P1.7 sub-case (a)). They filled these resolvers
+    /// from `ambition_sprite_sheet`, and that crate DEPENDS ON
+    /// `ambition_characters` — so an inherent method on a type living there
+    /// would be a cycle the moment the model moves down. The orphan rule
+    /// adjudicating placement, as it has twice before in this campaign.
+    ///
+    /// ⇒ they are free functions at the REGISTRATION SEAM now
+    /// (`with_engine_vocabularies`), which is also where the doc always said
+    /// they belonged: *"this is the registration seam's job, because
+    /// registration is where the engine is"*. What they need from the type is
+    /// only this question — "did the caller already say?" — which is a QUERY and
+    /// not a policy, so it is the part that stays.
+    pub fn has_sheet_vocabulary(&self) -> bool {
+        self.sheets.is_some()
     }
 
-    /// Fill in the engine's baked sheet vocabulary unless the caller supplied one.
-    ///
-    /// Kept OUT of `prepare_character`, which stays a pure function of its
-    /// arguments: reaching into a baked global from inside preparation would make
-    /// the same definition prepare differently depending on the build. This is the
-    /// registration seam's job, because registration is where the engine is.
-    pub fn with_engine_sheet_vocabulary(mut self) -> Self {
-        if self.sheets.is_none() {
-            self.sheets = Some(Resolver::new(
-                ambition_sprite_sheet::character::sheets::available_targets(),
-            ));
-        }
-        self
+    /// Whether a caller already supplied a PORTRAIT vocabulary. See
+    /// [`Self::has_sheet_vocabulary`] for why this is a predicate rather than a
+    /// filler.
+    pub fn has_portrait_vocabulary(&self) -> bool {
+        self.portraits.is_some()
     }
 
     /// Check the DERIVED vfx inventory against the tags renderers know.
@@ -1778,6 +1769,44 @@ impl std::error::Error for CharacterRegistrationError {}
 /// The binding report is logged rather than returned as an error: see
 /// [`prepare_character`] for why an unresolved reference degrades loudly instead
 /// of refusing.
+/// **Fill in the engine's baked sheet + portrait vocabularies unless the caller
+/// supplied them** — the registration seam's job, and it is a FREE FUNCTION for
+/// a reason.
+///
+/// ⛔ these were inherent methods on `CharacterBindings`
+/// (`with_engine_{sheet,portrait}_vocabulary`). The type is moving down into
+/// `ambition_characters`, and the vocabularies come from
+/// `ambition_sprite_sheet`, which DEPENDS ON `ambition_characters` — so keeping
+/// them inherent would be a cycle the compiler finds at the worst moment. The
+/// orphan rule adjudicating placement (P1.7 sub-case (a)).
+///
+/// ⭐ **and it belongs here anyway**, which is what makes this a repair rather
+/// than a workaround. The original doc said so: *"kept OUT of
+/// `prepare_character`, which stays a pure function of its arguments — reaching
+/// into a baked global from inside preparation would make the same definition
+/// prepare differently depending on the build. This is the registration seam's
+/// job, because registration is where the engine is."*
+///
+/// ⛔⛔ **portrait targets were checked NOWHERE until the portrait half existed**
+/// (ledger D106): `with_available_portraits` was the only road to the resolver
+/// and nothing called it, so `portraits` was `None` in every composition,
+/// `PortraitTarget::NAME` never joined a prepared character's `checked` list,
+/// and preparation reported *"we did not look"* — permanently, correctly, and
+/// therefore invisibly. Both halves apply at the ONE seam every registration
+/// passes through, rather than at the three call sites, so the next provider
+/// cannot forget one.
+pub fn with_engine_vocabularies(mut bindings: CharacterBindings) -> CharacterBindings {
+    if !bindings.has_sheet_vocabulary() {
+        bindings = bindings
+            .with_available_sheets(ambition_sprite_sheet::character::sheets::available_targets());
+    }
+    if !bindings.has_portrait_vocabulary() {
+        bindings =
+            bindings.with_available_portraits(ambition_sprite_sheet::available_portrait_targets());
+    }
+    bindings
+}
+
 pub trait CharacterDefinitionAppExt {
     fn try_register_character(
         &mut self,
@@ -1820,9 +1849,7 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         // portraits were not checked anywhere at all (D106), and adding it here
         // rather than at the three call sites is what stops the next provider
         // forgetting one of them.
-        let bindings = bindings
-            .with_engine_sheet_vocabulary()
-            .with_engine_portrait_vocabulary();
+        let bindings = with_engine_vocabularies(bindings);
         let PreparedCharacter {
             prepared, report, ..
         } = prepare_character(definition, &bindings);

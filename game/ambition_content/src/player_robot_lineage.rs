@@ -448,10 +448,15 @@ pub fn register(app: &mut bevy::prelude::App) {
     for incarnation in LINEAGE {
         app.try_register_character(
             definition_from(&catalog, incarnation),
-            // The engine's sheet vocabulary, so a target that names nothing is
-            // reported at load with a did-you-mean instead of silently drawing
-            // the marked rectangle.
-            CharacterBindings::default().with_engine_sheet_vocabulary(),
+            // ⚠ **the seam fills the engine's sheet AND portrait vocabularies
+            // itself** (`with_engine_vocabularies`), so a target that names
+            // nothing is reported at load with a did-you-mean rather than
+            // silently drawing the marked rectangle — whether or not a provider
+            // remembered to ask. This said `.with_engine_sheet_vocabulary()`,
+            // which was an inherent method that had to leave `CharacterBindings`
+            // before the type could move down (P1.7 sub-case (a)); passing
+            // nothing gets the same two resolvers, and now the portrait one too.
+            CharacterBindings::default(),
         )
         .unwrap_or_else(|error| panic!("player-robot incarnation rejected: {error}"));
     }
@@ -804,7 +809,9 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
         // for one is not this provider's error to raise.
         let _ = app.try_register_character(
             definition,
-            CharacterBindings::default().with_engine_sheet_vocabulary(),
+            // See the sibling registration above: the seam fills both engine
+            // vocabularies, so a provider passing nothing is checked identically.
+            CharacterBindings::default(),
         );
     }
 }

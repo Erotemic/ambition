@@ -489,7 +489,7 @@ fn sheets_portraits_and_derived_vfx_are_resolved_at_preparation() {
 /// permanent answer.
 ///
 /// ⚠ **this asserts the SEAM, not the resolver.** It goes through
-/// `try_register_character`, which is where `with_engine_portrait_vocabulary` is
+/// `try_register_character`, which is where `with_engine_vocabularies` is
 /// applied — a test that passed the resolver by hand would prove the check works
 /// while leaving it disconnected, which is exactly the state this replaces.
 #[test]

@@ -5,7 +5,7 @@ here is a class with instances, a root cause, and a remedy that has already been
 applied at least once in this repository — so the campaign can start from
 "generalise these" rather than from a survey.
 
-⚠ **the instances are ledger rows D107, D108, D109, D110.** This file is about
+⚠ **the instances are ledger rows D107, D108, D113, D114.** This file is about
 what they have in common.
 
 ---
@@ -73,7 +73,7 @@ one side can implement a body-generic rule and the other can forget to.**
 | | armed for | consumed by |
 |---|---|---|
 | D108 `landing_lag_timer` | any body landing mid-move | carried / decayed / gated for the player only |
-| D110 `hitstop_timer` | victim AND attacker, "one hitlag law" | player road + a `With<PrimaryPlayer>` clock request |
+| D114 `hitstop_timer` | victim AND attacker, "one hitlag law" | player road + a `With<PrimaryPlayer>` clock request |
 | D107 `attacking` | — | `With<PlayerEntity>`, so false for every non-player body |
 
 ⇒ **in exploration nobody notices**: the player is the only body anyone watches.
@@ -83,7 +83,7 @@ about Smash, arriving as bugs.
 
 ⭐ **THE REMEDY, applied twice today**: name the rule as a method on the shared
 type and have roads CALL it rather than spell it — `BodyCombat::hard_lock_timer()`
-(D108) and `BodyCombat::is_in_hitlag()` (D110). Neither fixes its defect. What
+(D108) and `BodyCombat::is_in_hitlag()` (D114). Neither fixes its defect. What
 they do is make the gap **greppable instead of inferable**: one road asks the
 body, the other never asks.
 
@@ -108,7 +108,7 @@ by per-road systems.
 
 **Shape.** The behaviour is correct today and one edit restores the reported bug.
 
-**Instance (D109).** Mary-O's two-on-screen fireball rule: `MAX_LIVE_SPARKS = 2`
+**Instance (D113).** Mary-O's two-on-screen fireball rule: `MAX_LIVE_SPARKS = 2`
 appeared in exactly two places — its declaration and the gate — with no test, no
 ledger row and no campaign row. Three more of Jon's observations were the same:
 implemented, unrecorded, and in two cases unguarded.

@@ -1,14 +1,17 @@
-# HEAD status
+# HEAD orientation
 
-Audited 2026-07-18 against the current source tree; amended 2026-07-19 by the
-deep review ([`../archive/reviews/deep-review-2026-07-19.md`](../archive/reviews/deep-review-2026-07-19.md))
-and re-audited 2026-07-27 against source (three stale clauses corrected below).
-Its completed rows are now checked by `scripts/check_roadmap_evidence.py`, which
-verifies that a row claiming DONE cites something a machine can still find — it
-cannot check a claim phrased as a SITUATION, which is exactly what the three
-stale clauses were.
-This page records the live state and current work; completed execution
-narratives belong in git history or `docs/archive/`.
+**Role:** this page is an orientation map, not an execution queue. The live
+execution authority is
+[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md); focused campaign documents
+own the technical details of the work they describe; [`tracks.md`](tracks.md) is
+the standing backlog that feeds the queue.
+
+The body below began as a source-backed July status audit and has accumulated
+later corrections. Treat its dated claims as orientation until their cited
+evidence is rechecked against HEAD. As sections are revisited, prefer replacing
+stale summaries with the current model rather than appending another layer of
+correction history. Completed execution narratives belong in git history or
+`docs/archive/`.
 
 ## Closed architecture campaign
 

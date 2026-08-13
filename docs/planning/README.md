@@ -1,170 +1,189 @@
-# `docs/planning` — current direction and current work
+# `docs/planning` — forward-work control plane
 
-This directory is the authoritative planning surface for HEAD and forward work.
-It is deliberately not a changelog. Completed execution ledgers, superseded
-plans, and review evidence belong under [`docs/archive/`](../archive/).
+This directory coordinates work that is still moving. It is not the canonical
+home for every durable fact about the engine, and it is not a changelog.
 
-## ⭐ Where the open work is
+The planning surface has four jobs:
 
-**Two files, and `▢` is the index into both.**
+1. keep a capable agent doing the next highest-value work instead of stopping;
+2. preserve open product and architecture intent until it is implemented or
+   explicitly rejected;
+3. point active work at the focused design that owns its technical decisions;
+4. move settled architecture and completed execution history to more durable
+   homes when they stop being planning.
 
-* [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) — **the live run ledger**,
-  lanes A–D. This is the current work.
-  ⛔ **this pointer is dated and it goes stale the moment a run is replaced —
-  update it in the same commit that opens the new ledger.** It named the
-  2026-08-06 run until 2026-08-08, two days after that run ended, so the file
-  whose own heading is *"Where the open work is"* sent every new reader to a
-  retired ledger carrying **24 `▢` marks that are not things to do** — while
-  three paragraphs below declaring that `▢` means a thing to do and nothing else.
-  * [`../archive/queue-72h-2026-08-06.md`](../archive/queue-72h-2026-08-06.md) —
-    the previous run, **archived 2026-08-08 once fully discharged**. Its two
-    genuinely-open rows were carried into the live ledger as D13 first, and
-    closed there. ⭐ **a ledger is archived when nothing in it is open, not when
-    the run ends** — this one sat in `planning/` for two days after its run,
-    carrying 24 `▢` marks that were not work.
-* [`tracks.md`](tracks.md) — the standing executable queue, longer-lived than any
-  one run.
+## Where the open work is
 
-Then, for things that are open but are not *yours* to close:
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) (needs Jon)
-and [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
-(his direct reports, which outrank anything inferred).
+[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the **live execution
+queue and continuation engine**. Its dated filename records where this run
+started; the mechanism is intentionally self-replenishing.
 
-⛔ **`▢` MEANS "A THING TO DO", AND NOTHING ELSE.** Both halves of that were
-violated and both cost real time (2026-08-07):
+A queue with no actionable rows is not a signal to stop. It is a signal to
+inspect the standing backlog, focused plans, direct maintainer observations,
+and current code; write down the next highest-value work; and continue.
 
-* **used for prose.** Three retired queues carried 309 of the directory's 361
-  marks; a sample of fifteen rows found fourteen already closed, two of them
-  self-refuting on their own line (*"#7 AGREED, and already true"*). The mark had
-  come to mean "a point I am making" as well as "a thing to do", so counting
-  marks measured nothing. Those files are deleted; read them at `9a66996ce~1`.
-* **missing from real work.** Six sections of `tracks.md` were open assignments
-  with no mark at all, so the grep that finds work returned none of them.
+The queue owns **execution order**. A focused plan owns the **technical design**
+of the work it names. The queue should link to that design rather than becoming
+a second full specification when a focused authority already exists.
 
-⚠ **so before working any `▢`, grep for the thing it says is missing.** The
-commonest staleness in this directory has always been an open row on work that
-already landed — and it is cheaper to check than to do.
+[`tracks.md`](tracks.md) is the **standing backlog and work reservoir**. It keeps
+valuable work available across runs, but an item becomes immediate execution
+work when the live queue selects it.
+
+Two other files contain work an agent must not silently resolve by inference:
+
+- [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) — explicit
+  questions that need Jon's decision;
+- [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+  — Jon's direct observations, which outrank inferred status.
+
+### Queue contract
+
+- `▢` means an actionable open queue row and nothing else.
+- `✔` or another explicit closed verdict means the row is no longer work.
+- Re-measure an old row against HEAD before implementing it; queue entries are
+  claims about a changing repository.
+- When the currently enumerated rows are exhausted, replenish the queue from
+  the highest-value unresolved work and keep going.
+- Preserve the queue's ability to continue work. Do not optimize it for a small
+  file, a short run, or a natural stopping point.
+- Keep deep architectural reasoning in the focused plan when one exists. The
+  queue should carry enough context to choose and resume the work reliably.
+
+The repository has a small mechanical guard around the live-ledger pointer and
+row-state consistency because a broken pointer or contradictory row directly
+breaks this continuation mechanism. That is an exceptional use of document
+checking, not a general invitation to turn planning prose into source-scanned
+policy.
 
 ## Read in this order
 
 1. [`vision.md`](vision.md) — product and engine north star.
-2. [`maintainer-decisions.md`](maintainer-decisions.md) — decisions Jon made explicitly, with confidence.
-3. [`decision-principles.md`](decision-principles.md) — how to choose when Jon has not decided.
-4. [`status.md`](status.md) — current source-backed state.
-5. [`tracks.md`](tracks.md) — executable queue only.
-6. [`roadmap.md`](roadmap.md) — phases and durable architecture decisions.
-7. For cross-track engine strategy,
-   [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
-8. Only the focused engine, demo, or game plan needed for the task.
+2. [`maintainer-decisions.md`](maintainer-decisions.md) — explicit maintainer
+   decisions.
+3. [`decision-principles.md`](decision-principles.md) — decision doctrine when
+   Jon has not ruled on the question.
+4. [`status.md`](status.md) — orientation to the current repository state; it is
+   not an execution queue.
+5. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) — current execution
+   order and the place an autonomous run continues from.
+6. The focused engine, demo, game, or campaign document linked by the selected
+   queue row.
+7. [`tracks.md`](tracks.md) when replenishing the queue or surveying standing
+   work.
+8. [`roadmap.md`](roadmap.md) and
+   [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md)
+   for longer-horizon strategy and capability ordering.
 
-## What belongs here
+## Document roles
 
-- `engine/` — normative architecture and active engine designs.
-  The engine-competitiveness master plan is
-  [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
-  It defines the complete capability destination and dependency order; `tracks.md`
-  remains the live executable queue and focused plans own active campaign detail.
-  The longer-term character-authoring direction is
-  [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md):
-  editable SVG component scenes, freeform Python animation, and a gradual
-  legacy-to-shadow-to-SVG migration with raster-equivalence checks.
-  The **public API 1.0 campaign** is
-  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) plus
-  [`engine/api-growth-method.md`](engine/api-growth-method.md). Its
-  movement-only consumer measurement exposed the actor monolith as a real
-  capability-footprint boundary, so the previously conditional carve is now the
-  active incremental
-  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-  campaign. The public facade remains the compatibility boundary while internal
-  ownership moves. Durable API decisions are
-  [ADR 0031](../adr/0031-public-facade-is-the-compatibility-boundary.md) and
-  [ADR 0032](../adr/0032-authoring-is-declarative.md).
-  The active construction campaign and its remaining closure are recorded in
-  [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md).
-  Its room-lifecycle customer is
-  [`engine/room-transition-loading.md`](engine/room-transition-loading.md), which
-  completes adaptive readiness-gated room transitions without flashing loading
-  UI for fast loads or exposing partial rooms for slow loads. The participant
-  input/action/context migration lives in
-  [`engine/participant-action-system.md`](engine/participant-action-system.md);
-  [`engine/participant-input.md`](engine/participant-input.md) records the landed
-  startup/launcher slice. Cross-cutting ownership, shipping/bootstrap, measured
-  scale, and deferred provider-boundary follow-ups from the July 19–20 review live
-  in [`engine/closeout-review-followups-2026-07-20.md`](engine/closeout-review-followups-2026-07-20.md).
+### Live execution
+
+- `queue-72h-2026-08-08.md` — one live execution order, intentionally
+  self-replenishing.
+- `tracks.md` — standing backlog and reservoir feeding the live queue.
+- active campaign documents — focused implementation authority for a bounded
+  architectural or product push.
+
+### Product intent
+
 - `demos/` — acceptance-game specifications.
 - `game/` — Ambition-the-game direction.
-- `maintainer-decisions.md` — direct maintainer rulings; agent consensus is not a substitute.
-- `status.md` — current state; do not duplicate it elsewhere.
-- `tracks.md` — current execution order; do not append a historical diary.
-- `roadmap.md` — phase map and durable decision register.
+- focused engine plans — open engine capabilities and design work.
+- `awaiting-maintainer-decision.md` — unresolved maintainer questions.
+- `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` — direct maintainer reports.
 
-A dated audit or implementation plan stays live only while it directs current
-work. Archive recent material when its evidence is still useful; otherwise rely
-on git history rather than leaving a retrieval trap at the top level.
+### Durable truth
 
-## Evidence discipline
+Planning may originate a durable rule, but settled material should increasingly
+live where a cold reader expects current truth:
 
-A completion claim needs at least one of:
+- `docs/concepts/` for cross-cutting doctrine;
+- `docs/systems/` for current subsystem behavior and contracts;
+- `docs/architecture/` and `docs/adr/` for architectural boundaries and
+  decisions;
+- `docs/archive/` for completed campaigns, reviews, handoffs, migration
+  narratives, and other evidence that remains useful historically.
 
-- an executable behavioral or architectural test;
-- a source owner whose type or constant directly establishes the fact;
-- a mechanically recomputed inventory;
-- an acceptance checklist demonstrated against HEAD.
+A planning file can remain detailed while it owns open work. Completion is the
+point where its surviving design is distilled into durable documentation and
+its execution history leaves the live planning surface.
 
-A prior agent report is evidence about what was attempted, not proof that HEAD
-still has the claimed property. Avoid fragile exact counts unless the count is
-decision-relevant.
+## Semantic closure before removal
 
-### Write a status as a CITATION, not a SITUATION
+Age, a dated filename, a `shelved` label, or the absence of incoming links does
+not make a plan obsolete. Some intentionally deferred features exist only in a
+single focused document.
 
-⛔ **the failure this prevents was measured, not imagined**: on 2026-08-07 a
-single run found ten stale planning claims — a whole plan file open on a shipped
-game mode, 8 of 9 engine docs whose "open" sections described a tree that no
-longer exists, a decision file reading `▢ still open` three lines under the
-maintainer's recorded answer, and 4 of 4 sampled rows in a carried queue already
-closed. Each cost a read to disprove, and two nearly sent an agent to undo a
-decision or redo finished work.
+Before removing or archiving a planning document, account for every substantive:
 
-⭐ **every one of them was phrased as a SITUATION**, and that is the whole
-difference. Compare:
+- feature request;
+- architectural requirement;
+- unresolved defect;
+- product decision;
+- unanswered question;
+- implementation task; and
+- important observation.
 
-* *"the ordinary room-transition path does not compose those pieces"* — a
-  situation. Nothing can check it, and it was false for weeks.
-* *"`ROOM_READY_BARRIER` does not exist"* — a citation. It names something, and a
-  reader confirms or refutes it in one grep.
+Each item needs one clear disposition:
 
-**The rule**: when you write a status — DONE, OPEN or BLOCKED — name something a
-machine can look for. A test, a symbol, a file. `scripts/check_roadmap_evidence.py`
-enforces exactly this for the rows it can parse, and its docstring states the
-authoring half: *"A BACKTICKED name is a CLAIM THAT IT EXISTS … it is what lets a
-correction paragraph name a retired file without the guard calling it rot: write
-the dead name as plain prose."*
+- **completed** — HEAD implements the intended behavior or architecture;
+- **superseded** — a surviving live document carries the still-relevant intent;
+- **obsolete** — the premise no longer exists and no desired intent remains;
+- **history** — no unresolved requirement remains, but the execution evidence is
+  worth retaining outside the live planning surface.
 
-⚠ **and do not answer this with a scanner** — rule 5 below already says so, and a
-prototype confirmed why: a check over backticked names across the 35 engine docs
-reports ~118 absences, dominated by design docs correctly naming things they
-record as retired, and catches **zero** of the ten failures above, because a
-situation names nothing to look for. The convention is cheap and the checker is
-noise.
+When closure is uncertain, keep the material live until it is reconciled. The
+cleanup goal is trustworthy authority, not a target file count.
 
-## Living-plan rules
+## Evidence and testing doctrine
 
-1. Keep only material current status and next work.
-2. Remove completed task-card narration; durable design remains, execution history does not.
-3. Archive a recent superseded document only when it remains useful context for present work.
-4. Do not preserve a stale document merely because it took effort to write.
-5. Do not create scanners, poison fixtures, or policy ceremony for a rule better expressed by architecture or behavior.
-6. A migration-only checklist or matrix is deleted when the migration closes.
-7. Use **DONE**, **OPEN**, and **BLOCKED** for executable slices. A parent may be **PARTIAL** only while a named child remains OPEN or BLOCKED.
+Planning should drive engine and product outcomes rather than process ceremony.
+Use the strongest representation available for the invariant:
+
+- runtime behavior -> behavioral or integration test against the real system;
+- architecture/dependency boundary -> types, visibility, API shape, crate edges;
+- authored-content validity -> preparation/compiler/schema validation with
+  useful diagnostics;
+- migration census -> a one-off measurement when useful, normally retired with
+  the migration.
+
+A completion claim should cite concrete evidence a later reader can inspect,
+but durable prose does not need to be reshaped around a scanner. Source-text
+checks, poison/falsification fixtures, and permanent ratchets are exceptional:
+use them when they protect a concrete failure mode that cannot reasonably be
+made structural or behavioral.
+
+A straightforward assertion does not need to be deliberately broken merely to
+prove that assertions can fail. Add a non-vacuity control when vacuity is a
+realistic failure mode.
+
+## Living-plan writing
+
+Write the current model first. Preserve durable rationale, acceptance criteria,
+and genuinely open questions. When an old assumption is disproved, replace the
+stale guidance instead of making every future reader replay the entire sequence
+of mistakes before reaching the answer.
+
+Execution diaries, reviewer archaeology, temporary measurements, and the story
+of how a migration was discovered are useful evidence while the work is active.
+Once the campaign closes, archive them or rely on git history while keeping the
+surviving design concise.
+
+One fact should have one current planning authority. `status.md`, `tracks.md`, a
+focused plan, and the live queue should link to one another rather than each
+maintaining independent copies of the same completion narrative.
 
 ## Binding spine
 
 North star: *every upgrade a theorem, every boss a failed objective function,
 every biome a mathematical world model.* The game is the first engine customer.
-The oracle is: *could another platformer be built by adding a provider/content
-crate without editing core?* — an end-state test: named game policy and
-content enter through Bevy plugins and supported Ambition seams,
-while reusable platformer capabilities belong in the engine. Elegance is the
-objective function; behavior
-is not sacred pre-release; verify against the real headless simulation; delete
-duplicate paths rather than bridging them.
+The end-state oracle is whether another platformer can be built by adding
+provider/content crates and using supported Ambition seams rather than editing
+Ambition-specific engine internals.
+
+Prefer reusable composition, explicit ownership, deterministic/headless
+simulation, strong public APIs, modular capability selection, useful authoring
+diagnostics, low change amplification, and reasonable compile/iteration cost.
+Delete duplicate authority rather than preserving it indefinitely behind
+compatibility paths.

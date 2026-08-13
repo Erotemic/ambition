@@ -185,6 +185,10 @@ pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
+    // AC3.1.B: the melee AUTHORITY. The trace used to read a
+    // `BodyCombat.attacking` mirror maintained beside it; a mirror in an
+    // instrument is worse than elsewhere, because a trace exists to be believed.
+    melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
     world: &ae::World,
@@ -236,7 +240,7 @@ pub fn build_frame(
             resets: clusters.lifetime.resets,
             wall_normal_x: clusters.wall.wall_normal_x,
             ledge_grabbing: facts.ledge.is_some(),
-            attacking: combat.attacking,
+            attacking: melee.is_swinging(),
             hitstun_timer: combat.hitstun_timer,
             damage_invuln_timer: combat.damage_invuln_timer,
             attack_ability_enabled: clusters.abilities.abilities.attack,

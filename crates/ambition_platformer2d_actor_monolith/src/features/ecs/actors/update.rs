@@ -1915,11 +1915,6 @@ pub fn sync_actor_components_from_cluster(
         crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage();
     combat.alive = if takes_damage { em.health.alive() } else { true };
     combat.training_dummy = takes_damage && em.config.tuning.is_sandbag;
-    // ⚠ still clobbered every frame, deliberately unchanged by this slice: it is
-    // the melee mirror AC3.1.B deletes, and re-deriving it here is what the old
-    // rebuild did. Preserving the behaviour keeps this slice honest about being
-    // a shape change rather than a behaviour change.
-    combat.attacking = false;
 }
 
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
@@ -2063,13 +2058,10 @@ mod body_combat_rebuild_contract {
         combat: &ambition_characters::actor::BodyCombat,
     ) {
         let ambition_characters::actor::BodyCombat {
-            // ── WRITTEN by the sync (3) — derived facts with an authority
+            // ── WRITTEN by the sync (2) — derived facts with an authority
             // elsewhere, which is the whole job of a read-model refresh.
             alive: _,
             training_dummy: _,
-            // The melee mirror. AC3.1.B deletes it; until then the sync
-            // re-derives it exactly as the old rebuild did.
-            attacking: _,
 
             // ── UNTOUCHED (6) — the body's own reaction history. Not "carried":
             // never disturbed. A seventh timer belongs here and costs no edit.

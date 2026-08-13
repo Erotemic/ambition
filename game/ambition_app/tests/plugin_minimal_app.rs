@@ -152,8 +152,8 @@ fn player_entity_carries_canonical_sim_components() {
         health.current()
     );
     assert!(
-        !combat.attacking,
-        "player should not be mid-attack on the first tick"
+        combat.hitstun_timer == 0.0 && combat.damage_invuln_timer == 0.0,
+        "player should start with no reaction timers running"
     );
     assert!(
         kinematics.size.x > 0.0 && kinematics.size.y > 0.0,

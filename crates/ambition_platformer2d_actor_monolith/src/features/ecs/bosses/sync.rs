@@ -298,15 +298,14 @@ mod boss_combat_rebuild_contract {
             // ── WRITTEN by the boss sync (1) — derived from the HP authority.
             alive: _,
 
-            // ── UNTOUCHED (8) — reaction history the damage path owns, plus the
-            // authored sandbag flag and the melee mirror AC3.1.B deletes.
+            // ── UNTOUCHED (7) — reaction history the damage path owns, plus
+            // the authored sandbag flag.
             hit_flash: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
             landing_lag_timer: _,
-            attacking: _,
             training_dummy: _,
         } = combat;
     }

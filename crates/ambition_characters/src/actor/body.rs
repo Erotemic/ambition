@@ -279,8 +279,6 @@ pub struct BodyCombat {
     pub hitstun_timer: f32,
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
-    /// Mirrored each frame from `BodyMelee::is_active()`.
-    pub attacking: bool,
     // ── Actor status / attack-timeline presentation ──
     /// Liveness MIRROR of the body's `BodyHealth` authority, written every frame:
     /// for an actor from its cluster `status.alive` (`sync_actor_components_from_cluster`),
@@ -368,9 +366,8 @@ impl BodyCombat {
         self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
     }
 
-    /// Reset every reaction timer a body reset clears, plus the attacking
-    /// mirror. (The remaining status fields are owned by the per-frame sync from
-    /// the cluster.)
+    /// Reset every reaction timer a body reset clears. (The remaining status
+    /// fields are owned by the per-frame sync from the cluster.)
     ///
     /// ⛔ **`landing_lag_timer` is in it now** — D108's fourth site. It cleared
     /// six fields and not that one, so a body reset mid-landing-lag kept up to
@@ -385,7 +382,6 @@ impl BodyCombat {
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
         self.landing_lag_timer = 0.0;
-        self.attacking = false;
     }
 
     /// Presentation state for a peaceful actor (the former `ActorCombatState::peaceful`).
@@ -537,7 +533,6 @@ mod hard_lock_tests {
 
             // ── NOT TIMERS — nothing to decay ──────────────────────────────
             alive: _,
-            attacking: _,
             training_dummy: _,
         } = combat;
     }
@@ -553,14 +548,13 @@ mod hard_lock_tests {
     #[allow(dead_code)]
     fn every_field_declares_whether_reset_clears_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── CLEARED by `reset()` (7) ───────────────────────────────────
+            // ── CLEARED by `reset()` (6) ───────────────────────────────────
             hit_flash: _,
             hitstop_timer: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             landing_lag_timer: _,
-            attacking: _,
 
             // ── OWNED ELSEWHERE — the actor status fields are rebuilt by the
             // per-frame sync from the cluster, as this method's doc says.

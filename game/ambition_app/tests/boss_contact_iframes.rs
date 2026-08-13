@@ -67,9 +67,13 @@ struct BossSnapshot {
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
-    let mut q =
-        world.query_filtered::<(&BodyKinematics, &BodyCombat, &BodyHealth), PrimaryPlayerOnly>();
-    let (kin, combat, health) = q.single(world).expect("primary player exists");
+    // ⭐ AC3.1.B: `attacking` reads the melee AUTHORITY. It used to read a
+    // `BodyCombat` mirror that only the player road maintained.
+    let mut q = world.query_filtered::<
+        (&BodyKinematics, &BodyCombat, &BodyHealth, &ambition_platformer2d::actors::actor::BodyMelee),
+        PrimaryPlayerOnly,
+    >();
+    let (kin, combat, health, melee) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
         pos: kin.pos,
         vel: kin.vel,
@@ -77,7 +81,7 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
         invuln: combat.damage_invuln_timer,
         hitstun: combat.hitstun_timer,
         recoil: combat.recoil_lock_timer,
-        attacking: combat.attacking,
+        attacking: melee.is_swinging(),
         hp: health.current(),
     }
 }

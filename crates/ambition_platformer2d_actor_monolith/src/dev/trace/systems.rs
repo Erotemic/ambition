@@ -18,6 +18,10 @@ pub fn record_simulation_frame(
     clusters: &ae::BodyClustersMut<'_>,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
+    // AC3.1.B: the melee AUTHORITY. The trace used to read a
+    // `BodyCombat.attacking` mirror maintained beside it; a mirror in an
+    // instrument is worse than elsewhere, because a trace exists to be believed.
+    melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &crate::avatar::PlayerSafetyState,
     world: &ae::World,
@@ -43,6 +47,7 @@ pub fn record_simulation_frame(
         clusters,
         facts,
         combat,
+        melee,
         clock,
         safety,
         world,
@@ -174,6 +179,9 @@ pub fn record_frame_system(
             &crate::avatar::PlayerSafetyState,
             &crate::control::PlayerInputFrame,
             &ambition_characters::actor::BodyCombat,
+            // AC3.1.B: the melee authority, read directly rather than through the
+            // deleted `BodyCombat.attacking` mirror.
+            &crate::actor::BodyMelee,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
         // trajectory, and the replay harness drives slot 0's input stream. A
@@ -192,7 +200,7 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, model, facts, player_health, safety, input, combat)) =
+    let Ok((mut cluster_item, model, facts, player_health, safety, input, combat, melee)) =
         player_q.single_mut()
     else {
         return;
@@ -239,6 +247,7 @@ pub fn record_frame_system(
         &clusters,
         facts,
         combat,
+        melee,
         &clock,
         safety,
         &augmented_world,

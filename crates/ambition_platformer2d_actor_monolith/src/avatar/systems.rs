@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use super::components::{PlayerEntity, PrimaryPlayer};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
-use crate::actor::BodyMelee;
 use crate::features::ActorPose;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
@@ -183,22 +182,25 @@ pub fn tick_player_brains(
     }
 }
 
-/// Write the player's read-model fields on [`BodyCombat`] each frame — the
+/// Write the player's read-model liveness on [`BodyCombat`] each frame — the
 /// symmetric counterpart to the actor's `sync_actor_components_from_cluster`.
 ///
-/// - `attacking` mirrors `BodyMelee::is_swinging()` — a swing in flight, any
-///   phase — and that IS the canonical melee read-model for both attack roads.
-///   ⛔⛔ **I briefly widened this to `|| playback.is_some()` and it was wrong**
-///   (2026-08-13, ledger D107). `MovePlayback` is not melee: it also carries
-///   ranged moves and content specials, so that predicate reported a fighter as
-///   attacking while it fired a bolt. The moveset runtime already projects
-///   melee playback onto `BodyMelee` in `CombatSet::Playback` — using
-///   `is_melee_swing_move`, which is the classifier that knows the difference —
-///   and this system runs later, in `PresentationSync`. There is nothing to
-///   widen.
-///   ⚠ what IS true of D107: this query is `With<PlayerEntity>`, so no enemy or
-///   CPU body has the field written at all, and `causal.rs` / `dev/trace` report
-///   it. Widening THAT is the design call the row records.
+/// ⭐⭐ **`attacking` is GONE, and that is how D107 closes** (AC3.1.B). The field
+/// mirrored `BodyMelee::is_swinging()` here, and only here — this query is
+/// `With<PlayerEntity>`, so no enemy or CPU body ever had it written, while
+/// `causal.rs` and `dev/trace` reported it for every body. D107 recorded the
+/// choice as *"widen the mirror to CPU bodies"*; the answer was to delete it.
+/// Both instruments now read `BodyMelee` directly, which every body carries, so
+/// there is no population to widen to.
+///
+/// ⛔⛔ **and the rejected repair stays rejected.** I briefly widened this to
+/// `|| playback.is_some()` and it was wrong (2026-08-13): `MovePlayback` is not
+/// melee — it also carries ranged moves and content specials, so that predicate
+/// reported a fighter as attacking while it fired a bolt. The moveset runtime
+/// already projects melee playback onto `BodyMelee` in `CombatSet::Playback`,
+/// using `is_melee_swing_move`, which is the classifier that knows the
+/// difference. Ask the classifier; never re-derive it.
+///
 /// - `alive` mirrors the body's liveness AUTHORITY, `BodyHealth`. For actors this
 ///   field is owned by the per-frame sync from their cluster `status.alive`; the
 ///   player has no such cluster, so without this it kept its spawn default
@@ -207,12 +209,12 @@ pub fn tick_player_brains(
 ///   field correct for every `BodyCombat` reader (HUD / nameplate / health bar /
 ///   perception / damage gates), so none of them are a footgun for the player.
 ///   (Liveness-CRITICAL gameplay should still read `BodyHealth` directly — the
-///   authority — rather than this once-per-frame mirror, to avoid a tick of lag.)
+///   authority — rather than this once-per-frame mirror, to avoid a tick of lag.
+///   AC3.1.A deletes this one too.)
 pub fn write_player_ecs_components(
-    mut players: Query<(&BodyMelee, &BodyHealth, &mut BodyCombat), With<PlayerEntity>>,
+    mut players: Query<(&BodyHealth, &mut BodyCombat), With<PlayerEntity>>,
 ) {
-    for (attack, health, mut combat) in &mut players {
-        combat.attacking = attack.is_swinging();
+    for (health, mut combat) in &mut players {
         combat.alive = health.current() > 0;
     }
 }

@@ -391,10 +391,12 @@ pub fn rebuild_feature_view_index(
                 fighting: hostile,
                 switch_on: false,
                 rotation_rad,
-                // Liveness for presentation (nameplates, debug bars): dead if
-                // EITHER cluster says so; an actor with neither cluster reads
-                // alive (it has no pool to die from).
-                alive: !(combat.is_some_and(|c| !c.alive) || health.is_some_and(|h| !h.alive())),
+                // Liveness for presentation (nameplates, debug bars), from the
+                // AUTHORITY. This used to ask `BodyCombat.alive` as well — a
+                // belt-and-braces read of a mirror written from this very field,
+                // which could only ever disagree by being a frame stale. An actor
+                // with no pool reads alive (it has nothing to die from).
+                alive: !health.is_some_and(|h| !h.alive()),
                 hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
@@ -428,10 +430,11 @@ pub fn rebuild_feature_view_index(
     }
     for (id, feature, attack_state, combat, health, death_anim, phase, roll) in &bosses {
         let boss = feature.as_boss_ref();
-        // `alive` reads the shared `BodyCombat` mirror; pos / size
-        // still come from `BossRuntime` until the boss body migrates to
-        // `CenteredAabb` (ecs-cleanup-plan #9).
-        let visible = combat.alive
+        // pos / size still come from `BossRuntime` until the boss body migrates
+        // to `CenteredAabb` (ecs-cleanup-plan #9).
+        // §A1: a boss's liveness is its `BodyHealth`, never a mirror.
+        let boss_alive = health.is_some_and(|h| h.alive());
+        let visible = boss_alive
             || death_anim.is_some_and(|d| d.remaining_s > 0.0)
             || phase.is_some_and(|p| p.is_active());
         index.insert_if_absent(
@@ -453,10 +456,10 @@ pub fn rebuild_feature_view_index(
                 fighting: true,
                 switch_on: false,
                 rotation_rad: roll.map_or(0.0, |r| r.angle),
-                alive: combat.alive && !phase.is_some_and(|p| p.is_defeated()),
+                alive: boss_alive && !phase.is_some_and(|p| p.is_defeated()),
                 // A boss corpse must not read as a lit silhouette — death
                 // rows are authored sprites (the old render-side rule).
-                hit_flash_secs: if combat.alive { combat.hit_flash } else { 0.0 },
+                hit_flash_secs: if boss_alive { combat.hit_flash } else { 0.0 },
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
@@ -866,10 +869,9 @@ pub fn rebuild_nameplate_index(
         .and_then(|subject| subject.0)
         .or_else(|| primary_player.single().ok());
     index.begin_rebuild();
-    for (entity, feature_id, identity, aabb, combat, health, boss_phase) in &actors {
+    for (entity, feature_id, identity, aabb, _combat, health, boss_phase) in &actors {
         // Dead actors carry no plate (defeated boss / drained pool).
         if boss_phase.is_some_and(|phase| phase.is_defeated())
-            || combat.is_some_and(|combat| !combat.alive)
             || health.is_some_and(|health| !health.alive())
         {
             continue;

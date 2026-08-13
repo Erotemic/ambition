@@ -44,10 +44,12 @@ pub fn actor_component_snapshot(
 ) {
     // A freshly-seeded body has no damage-blink; the reaction timers (hit_flash /
     // i-frame) live on the spawned `BodyCombat` and start at 0.
-    let combat = if disposition.is_hostile() {
-        BodyCombat::hostile(seed.health.alive(), 0.0, seed.config.tuning.is_sandbag)
-    } else {
-        BodyCombat::peaceful(0.0)
+    // AC3.1.A: a fresh body's `BodyCombat` is its reaction history at rest plus
+    // one authored flag. Liveness is `BodyHealth`'s, so a seed no longer has to
+    // state it here and cannot state it wrongly.
+    let combat = BodyCombat {
+        training_dummy: disposition.is_hostile() && seed.config.tuning.is_sandbag,
+        ..Default::default()
     };
     (
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())

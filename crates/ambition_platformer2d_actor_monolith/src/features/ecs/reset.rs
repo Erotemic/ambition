@@ -244,8 +244,9 @@ pub fn reset_ecs_room_features(
             em.kin.facing = 1.0;
             em.health.reset();
         }
+        // AC3.1.A: liveness is `BodyHealth`'s, and `em.health.reset()` above is
+        // what restores it. There is no second answer to set.
         combat.reset();
-        combat.alive = true;
         status.encounter = None;
         status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
         // Reset the durable brain cursor/clocks and clear both transient

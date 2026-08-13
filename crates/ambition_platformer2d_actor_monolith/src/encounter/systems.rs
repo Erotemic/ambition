@@ -159,7 +159,9 @@ pub fn drive_wave_encounters(
         Entity,
         &crate::features::EncounterMob,
         &crate::features::FeatureId,
-        &ambition_characters::actor::BodyCombat,
+        // AC3.1.A: the HP authority. Participant liveness decides wave
+        // completion, so it must not lag a frame behind a mirror.
+        &ambition_characters::actor::BodyHealth,
     )>,
     reward_chests: Query<
         (
@@ -274,8 +276,10 @@ pub fn drive_wave_encounters(
                 let lookup: std::collections::HashMap<String, (Entity, bool)> = encounter_mobs
                     .iter()
                     .filter(|(_, mob, _, _)| mob.encounter_id == enc.id)
-                    .map(|(entity, _, id, combat)| {
-                        (id.as_str().to_string(), (entity, combat.alive))
+                    // AC3.1.A: participant liveness decides wave completion, so it
+                    // reads the HP authority rather than the once-per-frame mirror.
+                    .map(|(entity, _, id, health)| {
+                        (id.as_str().to_string(), (entity, health.alive()))
                     })
                     .collect();
                 for member in &mut participants.members {

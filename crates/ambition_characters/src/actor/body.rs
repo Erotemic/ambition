@@ -280,15 +280,16 @@ pub struct BodyCombat {
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
     // ── Actor status / attack-timeline presentation ──
-    /// Liveness MIRROR of the body's `BodyHealth` authority, written every frame:
-    /// for an actor from its cluster `status.alive` (`sync_actor_components_from_cluster`),
-    /// for the player from `health.current() > 0` (`write_player_ecs_components`).
-    /// Read-model for presentation/AI; liveness-critical gameplay reads `BodyHealth`
-    /// directly to avoid a tick of mirror lag.
-    pub alive: bool,
     pub training_dummy: bool,
 }
 
+// ⭐⭐ **THE `peaceful` / `hostile` CONSTRUCTORS ARE GONE** (AC3.1.A). They were
+// the last thing making a body's DISPOSITION look like a fact about its combat
+// STATE. Once AC3 removed the dead attack timeline, the liveness mirror and the
+// melee mirror, the two differed by a single authored boolean — so a caller that
+// wants a fresh body writes the struct and a caller that wants to update one
+// writes the field. Neither needs to know which side the body is on, because
+// `BodyCombat` no longer records it.
 impl BodyCombat {
     /// **THE HARD CONTROL LOCK THIS FRAME, whichever fact produced it** — no
     /// steering authority at all while it is positive.
@@ -384,24 +385,6 @@ impl BodyCombat {
         self.landing_lag_timer = 0.0;
     }
 
-    /// Presentation state for a peaceful actor (the former `ActorCombatState::peaceful`).
-    pub fn peaceful(hit_flash: f32) -> Self {
-        Self {
-            alive: true,
-            hit_flash,
-            ..Default::default()
-        }
-    }
-
-    /// Presentation state for a hostile actor (the former `ActorCombatState::hostile`).
-    pub fn hostile(alive: bool, hit_flash: f32, training_dummy: bool) -> Self {
-        Self {
-            alive,
-            hit_flash,
-            training_dummy,
-            ..Default::default()
-        }
-    }
 }
 
 /// A body's ECS-owned animation signal timers.
@@ -531,8 +514,7 @@ mod hard_lock_tests {
             // authored aerial owed.
             landing_lag_timer: _,
 
-            // ── NOT TIMERS — nothing to decay ──────────────────────────────
-            alive: _,
+            // ── NOT A TIMER — nothing to decay ─────────────────────────────
             training_dummy: _,
         } = combat;
     }
@@ -556,9 +538,8 @@ mod hard_lock_tests {
             recoil_lock_timer: _,
             landing_lag_timer: _,
 
-            // ── OWNED ELSEWHERE — the actor status fields are rebuilt by the
-            // per-frame sync from the cluster, as this method's doc says.
-            alive: _,
+            // ── OWNED ELSEWHERE — rebuilt by the per-frame sync from the
+            // cluster, as this method's doc says.
             training_dummy: _,
         } = combat;
     }

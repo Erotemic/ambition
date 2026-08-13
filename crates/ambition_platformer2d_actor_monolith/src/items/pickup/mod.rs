@@ -882,7 +882,8 @@ pub fn held_projectile_step(
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
             &crate::features::ActorDisposition,
-            &ambition_characters::actor::BodyCombat,
+            // AC3.1.A: the liveness authority, not the once-per-frame mirror.
+            &ambition_characters::actor::BodyHealth,
             Option<&crate::features::DamageableVolumes>,
         ),
         (

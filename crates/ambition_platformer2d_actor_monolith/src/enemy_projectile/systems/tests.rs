@@ -82,7 +82,6 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             // hard target — it is a body the victim query cannot even see.
             crate::features::ActorFaction::Enemy,
             ambition_characters::actor::BodyCombat {
-                alive: true,
                 hit_flash: 0.0,
                 training_dummy: false,
                 ..Default::default()

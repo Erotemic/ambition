@@ -401,17 +401,18 @@ impl Plugin for PlayerSchedulePlugin {
         // the call sites that bring one back.
         app.add_observer(ambition_platformer2d_actor_monolith::session::death::clear_out_of_play_on_restart);
 
-        // ── PresentationSync: player ECS write-back + timer decay ──────────
+        // ── PresentationSync: presentation timer decay ─────────────────────
         //
         // Runs unconditionally so paused / dialogue modes still wind down
         // flash and landing-pose timers.
+        //
+        // ⭐ **`write_player_ecs_components` is gone** (AC3.1.A/B). It existed to
+        // maintain two `BodyCombat` mirrors — `attacking` from `BodyMelee` and
+        // `alive` from `BodyHealth` — and when both were deleted it had no work
+        // left to do at all.
         app.add_systems(
             sim,
-            (
-                ambition_platformer2d_actor_monolith::avatar::write_player_ecs_components,
-                ambition_platformer2d_actor_monolith::control::cleanup_timers_system,
-            )
-                .chain()
+            ambition_platformer2d_actor_monolith::control::cleanup_timers_system
                 .in_set(Platformer2dSimulationPhaseMonolith::PresentationSync),
         );
     }

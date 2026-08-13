@@ -307,8 +307,10 @@ fn boss_spawn_attaches_brain_components() {
         .expect("boss shared components");
     assert_eq!(identity.id(), "test_boss");
     assert_eq!(*disposition, ActorDisposition::Hostile);
+    // AC3.1.A: ONE liveness answer. The line below used to assert a `BodyCombat`
+    // mirror agreed with it, which is the duplication rather than a check of it.
     assert!(health.alive());
-    assert!(combat.alive);
+    assert_eq!(combat.hit_flash, 0.0, "a freshly spawned boss is not blinking");
     assert!(kit.can_ranged(None));
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }

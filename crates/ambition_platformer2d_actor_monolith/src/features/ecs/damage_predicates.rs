@@ -35,7 +35,7 @@
 use bevy::prelude::{Query, With, Without};
 
 use super::{
-    ActorDisposition, BodyCombat, BossConfig, BreakableFeature, CenteredAabb, DamageableVolumes,
+    ActorDisposition, BossConfig, BreakableFeature, CenteredAabb, DamageableVolumes,
     FeatureId, FeatureSimEntity, HitEvent,
 };
 
@@ -82,7 +82,12 @@ pub fn ecs_hit_event_hits_actor(
             &FeatureId,
             &CenteredAabb,
             &ActorDisposition,
-            &BodyCombat,
+            // ⭐ AC3.1.A: the liveness AUTHORITY. This used to read
+            // `BodyCombat.alive`, a mirror written once per frame — so a body
+            // killed THIS frame could still be hit for a tick, which is the
+            // mirror-lag the field's own doc warned liveness-critical gameplay
+            // about. A damage gate is liveness-critical gameplay.
+            &ambition_characters::actor::BodyHealth,
             Option<&DamageableVolumes>,
         ),
         (With<FeatureSimEntity>, Without<BossConfig>),
@@ -90,13 +95,13 @@ pub fn ecs_hit_event_hits_actor(
 ) -> bool {
     actors
         .iter()
-        .any(|(id, aabb, disposition, combat, volumes)| {
+        .any(|(id, aabb, disposition, health, volumes)| {
             let prefix = match *disposition {
                 ActorDisposition::Peaceful => "npc",
                 ActorDisposition::Hostile => "enemy",
             };
             !target_is_ignored(&event.ignored_targets, prefix, id.as_str())
-            && combat.alive
+            && health.alive()
             // Published, and published NOTHING: an authored invulnerable window
             // offers no target at all, so `apply_feature_hit_events` applies
             // nothing — it asks the SAME question as this predicate's first arm
@@ -206,10 +211,8 @@ mod tests {
             FeatureId::new("mite"),
             CenteredAabb::new(BODY_CENTER, BODY_HALF),
             ActorDisposition::Hostile,
-            BodyCombat {
-                alive: true,
-                ..Default::default()
-            },
+            // AC3.1.A: a LIVE body is one with health, not one with a mirror bit.
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(3)),
         ));
         if let Some(volumes) = volumes {
             body.insert(volumes);
@@ -222,7 +225,7 @@ mod tests {
                         &FeatureId,
                         &CenteredAabb,
                         &ActorDisposition,
-                        &BodyCombat,
+                        &ambition_characters::actor::BodyHealth,
                         Option<&DamageableVolumes>,
                     ),
                     (With<FeatureSimEntity>, Without<BossConfig>),

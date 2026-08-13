@@ -113,11 +113,12 @@ pub(super) fn update_hud(
         .ecs_actors
         .iter()
         .filter(|(_, disposition, _, _)| disposition.is_hostile())
-        .map(|(name, _, health, combat)| {
+        .map(|(name, _, health, _combat)| {
             let name = &name.0;
             let cur = health.health.current.max(0);
             let max = health.health.max;
-            let alive = combat.alive;
+            // AC3.1.A: from the authority the two numbers beside it come from.
+            let alive = health.alive();
             format!("{name} hp {cur}/{max} alive {alive}")
         })
         .collect::<Vec<_>>()

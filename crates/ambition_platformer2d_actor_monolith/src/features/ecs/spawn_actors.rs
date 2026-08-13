@@ -1143,9 +1143,8 @@ pub(crate) fn spawn_boss_with_overrides_into(
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     // §A1: the boss's `BodyHealth` HP authority spawns from the scratch
     // (`into_components` below); the snapshot builds only the read-models.
-    let mut boss_combat = ambition_characters::actor::BodyCombat::default();
-    let (boss_identity, boss_disposition) =
-        boss_component_snapshot(boss.as_ref(), &boss.health, &mut boss_combat);
+    let boss_combat = ambition_characters::actor::BodyCombat::default();
+    let (boss_identity, boss_disposition) = boss_component_snapshot(boss.as_ref());
     let boss_facing = boss.kin.facing;
     // Archetype swap AS2: the boss carries the same aerial actor movement cluster
     // every other actor does (built here BEFORE the scratch is consumed), so the

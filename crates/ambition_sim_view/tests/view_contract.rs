@@ -58,13 +58,9 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         boss_body,
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
-    let mut combat = ambition_characters::actor::BodyCombat::default();
+    let combat = ambition_characters::actor::BodyCombat::default();
     let (identity, disposition) =
-        ambition_platformer2d_actor_monolith::features::boss_component_snapshot(
-            boss.as_ref(),
-            &boss.health,
-            &mut combat,
-        );
+        ambition_platformer2d_actor_monolith::features::boss_component_snapshot(boss.as_ref());
 
     let mut app = App::new();
     app.init_resource::<FeatureViewIndex>();

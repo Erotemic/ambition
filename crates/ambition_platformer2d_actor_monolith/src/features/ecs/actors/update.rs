@@ -1913,7 +1913,6 @@ pub fn sync_actor_components_from_cluster(
     // change-amplification test stated as code.
     let takes_damage =
         crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage();
-    combat.alive = if takes_damage { em.health.alive() } else { true };
     combat.training_dummy = takes_damage && em.config.tuning.is_sandbag;
 }
 
@@ -2058,9 +2057,8 @@ mod body_combat_rebuild_contract {
         combat: &ambition_characters::actor::BodyCombat,
     ) {
         let ambition_characters::actor::BodyCombat {
-            // ── WRITTEN by the sync (2) — derived facts with an authority
-            // elsewhere, which is the whole job of a read-model refresh.
-            alive: _,
+            // ── WRITTEN by the sync (1) — the authored sandbag flag, which is
+            // all that is left of what this refresh used to rebuild.
             training_dummy: _,
 
             // ── UNTOUCHED (6) — the body's own reaction history. Not "carried":

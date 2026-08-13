@@ -40,14 +40,7 @@ pub struct BossSpriteMetricsApplied;
 /// produced, and AC3.1.A deletes even that.
 pub fn boss_component_snapshot(
     boss: super::super::boss_clusters::BossRef<'_>,
-    // The boss's HP authority (§A1) — liveness is `health.alive()`, never a
-    // boss-state shadow flag.
-    health: &BodyHealth,
-    // Derived liveness written into the caller's `BodyCombat` in place; nothing
-    // else about that component is this function's business.
-    combat: &mut BodyCombat,
 ) -> (ActorIdentity, ActorDisposition) {
-    combat.alive = health.alive();
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
@@ -67,26 +60,17 @@ pub fn sync_boss_actor_components(
             &mut CombatKit,
             &mut ActorIdentity,
             &mut ActorDisposition,
-            &BodyHealth,
-            &mut BodyCombat,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    for (
-        feature,
-        _attack_state,
-        action_set,
-        mut combat_kit,
-        mut identity,
-        mut disposition,
-        health,
-        mut combat,
-    ) in &mut bosses
+    for (feature, _attack_state, action_set, mut combat_kit, mut identity, mut disposition) in
+        &mut bosses
     {
-        // `health` is the boss's HP AUTHORITY now (§A1) — read, never rebuilt.
-        let (next_identity, next_disposition) =
-            boss_component_snapshot(feature.as_boss_ref(), &health, &mut combat);
+        // ⭐ AC3.1.A: this loop no longer touches `BodyCombat` or `BodyHealth` at
+        // all. Everything it used to derive from them was a mirror; liveness is
+        // read from the authority by whoever needs it.
+        let (next_identity, next_disposition) = boss_component_snapshot(feature.as_boss_ref());
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
@@ -295,11 +279,8 @@ mod boss_combat_rebuild_contract {
     #[allow(dead_code)]
     fn every_body_combat_field_declares_whether_the_boss_sync_writes_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── WRITTEN by the boss sync (1) — derived from the HP authority.
-            alive: _,
-
             // ── UNTOUCHED (7) — reaction history the damage path owns, plus
-            // the authored sandbag flag.
+            // the authored sandbag flag. The boss sync writes NOTHING here now.
             hit_flash: _,
             damage_invuln_timer: _,
             hitstun_timer: _,

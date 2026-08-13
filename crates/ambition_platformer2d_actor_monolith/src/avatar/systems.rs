@@ -6,7 +6,7 @@ use super::components::{PlayerEntity, PrimaryPlayer};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ActorPose;
-use ambition_characters::actor::{BodyCombat, BodyHealth};
+use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{
     ActorControl, Brain, BrainSnapshot, ScriptedControl, SlotControls,
 };
@@ -179,43 +179,6 @@ pub fn tick_player_brains(
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
         control.0 = frame;
-    }
-}
-
-/// Write the player's read-model liveness on [`BodyCombat`] each frame — the
-/// symmetric counterpart to the actor's `sync_actor_components_from_cluster`.
-///
-/// ⭐⭐ **`attacking` is GONE, and that is how D107 closes** (AC3.1.B). The field
-/// mirrored `BodyMelee::is_swinging()` here, and only here — this query is
-/// `With<PlayerEntity>`, so no enemy or CPU body ever had it written, while
-/// `causal.rs` and `dev/trace` reported it for every body. D107 recorded the
-/// choice as *"widen the mirror to CPU bodies"*; the answer was to delete it.
-/// Both instruments now read `BodyMelee` directly, which every body carries, so
-/// there is no population to widen to.
-///
-/// ⛔⛔ **and the rejected repair stays rejected.** I briefly widened this to
-/// `|| playback.is_some()` and it was wrong (2026-08-13): `MovePlayback` is not
-/// melee — it also carries ranged moves and content specials, so that predicate
-/// reported a fighter as attacking while it fired a bolt. The moveset runtime
-/// already projects melee playback onto `BodyMelee` in `CombatSet::Playback`,
-/// using `is_melee_swing_move`, which is the classifier that knows the
-/// difference. Ask the classifier; never re-derive it.
-///
-/// - `alive` mirrors the body's liveness AUTHORITY, `BodyHealth`. For actors this
-///   field is owned by the per-frame sync from their cluster `status.alive`; the
-///   player has no such cluster, so without this it kept its spawn default
-///   (`false`) forever — a silent "the player is dead" that made every enemy's
-///   `target_alive` read false and idle their brain. Owning it here keeps the
-///   field correct for every `BodyCombat` reader (HUD / nameplate / health bar /
-///   perception / damage gates), so none of them are a footgun for the player.
-///   (Liveness-CRITICAL gameplay should still read `BodyHealth` directly — the
-///   authority — rather than this once-per-frame mirror, to avoid a tick of lag.
-///   AC3.1.A deletes this one too.)
-pub fn write_player_ecs_components(
-    mut players: Query<(&BodyHealth, &mut BodyCombat), With<PlayerEntity>>,
-) {
-    for (health, mut combat) in &mut players {
-        combat.alive = health.current() > 0;
     }
 }
 

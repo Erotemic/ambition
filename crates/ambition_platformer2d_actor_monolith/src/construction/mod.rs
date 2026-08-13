@@ -1825,24 +1825,20 @@ fn resolve_planned_character<'a>(
         .and_then(|(cast, id)| cast.get(id.as_str()))
 }
 
-pub fn planned_giant_host_ids(
-    room: &crate::rooms::RoomSpec,
-    roster: &crate::features::CharacterRoster,
-    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
-) -> std::collections::BTreeSet<String> {
-    room.enemy_spawns
-        .iter()
-        .filter(|enemy| {
-            crate::features::is_limbed_host(
-                resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
-                // The honest lookup: a brain key with no row says nothing about
-                // limbs, rather than inheriting the reserved fallback's answer.
-                roster.try_spec_for_brain(&enemy.payload.brain).as_ref(),
-            )
-        })
-        .map(|enemy| enemy.id.clone())
-        .collect()
-}
+// ⛔⛔ **`planned_giant_host_ids()` WAS HERE AND IS DELETED (2026-08-13, D73
+// item 16) — the GIANT-LIMBS road that item names, and the last
+// `try_spec_for_brain` reader in this module.**
+//
+// It filtered a room's enemy spawns down to the limbed hosts, asking the
+// prepared character first and the archetype row second. The compiler-backed
+// census (`probe_dead_public_fns.py`, D105) reports ZERO call sites in the
+// workspace or any excluded consumer — it is a projection nobody projects, and
+// it kept a `&CharacterRoster` parameter alive for nothing.
+//
+// ⚠ **read before deleting, as that tool insists**: it pins no invariant. The
+// limbed-host QUESTION still has an owner (`features::is_limbed_host`, called
+// from the spawn road), so what goes is the unused room-wide roll-up, not the
+// rule.
 
 /// Turn a room's FROZEN placement-lowering decisions into construction rows —
 /// the Phase-4 migration for the placement family (hazard, interactable/NPC,
@@ -1983,28 +1979,14 @@ pub fn attach_authored_mount_links(
     Ok(())
 }
 
-/// Every authored enemy id is a plan row now (Phase 4a); the helper survives
-/// so roster/diagnostic call sites keep one authority for "which enemy ids are
-/// planned" while other families migrate.
-pub fn planned_authored_enemy_ids(
-    room: &crate::rooms::RoomSpec,
-    _roster: &crate::features::CharacterRoster,
-) -> std::collections::BTreeSet<String> {
-    room.enemy_spawns
-        .iter()
-        .map(|enemy| enemy.id.clone())
-        .collect()
-}
-
-/// Every authored boss id is a plan row now (Phase 4b).
-pub fn planned_authored_boss_ids(
-    room: &crate::rooms::RoomSpec,
-) -> std::collections::BTreeSet<String> {
-    room.boss_spawns
-        .iter()
-        .map(|boss| boss.id.clone())
-        .collect()
-}
+// ⛔ **`planned_authored_enemy_ids()` and `planned_authored_boss_ids()` WERE
+// HERE AND ARE DELETED (2026-08-13).** Both mapped a room's spawns to their own
+// ids and neither had a caller; the enemy one had gone further and stopped using
+// the `CharacterRoster` it still demanded, carrying it as `_roster` "so
+// roster/diagnostic call sites keep one authority" — for call sites that no
+// longer exist. A parameter kept for symmetry makes every caller thread an
+// authority it does not need, which is how a roster reaches code that has no
+// question for it.
 
 /// Build the request for one summoned minion.
 ///

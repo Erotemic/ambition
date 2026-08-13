@@ -319,11 +319,41 @@ autonomous_reconcile                1045
     and an authoring there must land together or bodies silently lose facts.
 15. ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
     display-name fallback from `presentation_identity`, once (14) is complete.
-16. ▢ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,
+16. ◐ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,
     `ArchetypeSpec`, `CharacterRoster` in construction, matches, summons,
     provocation, rollback, giant limbs, demos, fixtures. Each ends as a real
     character, a real brain profile, spawn policy, a fixture-only API, or
     deleted. ⛔ no fifth bucket.
+
+    ⇥ **THE BUCKETS, ASSIGNED 2026-08-13 — and five of the nine roads are
+    settled.** Each verdict below is the compiler's, not a grep's
+    (`probe_dead_public_fns.py`, D105), after four hand-rolled censuses were
+    wrong in this run alone.
+
+    ```text
+      spec_for_brain     ✔ FIXTURE-ONLY API — `#[cfg(test)]`, renamed
+                           `generic_body_for_a_test_fixture`; production has no
+                           equivalent because an unresolved id is an error
+      matches            ✔ DELETED — `prepare_match` takes no roster; the seat
+                           policy arm went with it (P2.18)
+      provocation        ✔ DELETED — `hostile_brain_id_for_actor` and its twin
+      rollback           ✔ DELETED — `Provoked { archetype }` is payloadless
+      giant limbs        ✔ DELETED — `planned_giant_host_ids` had zero callers;
+                           the limbed QUESTION stays with `is_limbed_host`
+      summons            ▢ `damage_drops` → `SmallSkitter`, a casting decision
+      construction       ▢ body facts, and the last road in
+      demos              ▢ mary_o's one row-pair; the outlander fixture's own
+      CharacterBrain::Custom  ▢ the placement vocabulary itself — outlives the
+                           roster, and is not archetype-shaped
+    ```
+
+    ⇥ ⚠ **and the three dead helpers found on the way say something about the
+    shape of this item**: `planned_authored_enemy_ids` still DEMANDED a
+    `&CharacterRoster` it had stopped using, carrying it as `_roster` *"so
+    roster/diagnostic call sites keep one authority"* — for call sites that no
+    longer existed. A parameter kept for symmetry is how a roster reaches code
+    with no question for it, and a census that counts TYPE MENTIONS rather than
+    live reads will keep over-reporting this item's remainder.
 
 ### D. Collapse the old authorities (phases 5–8)
 

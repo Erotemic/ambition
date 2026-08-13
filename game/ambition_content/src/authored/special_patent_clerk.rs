@@ -15,8 +15,17 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    let mut definition =
-        definition.with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset());
+    let mut definition = definition
+        // AC5: the last fact standing between him and his own body. "A
+        // high-mastery HEAVYWEIGHT controller" is his own description, so he
+        // walks heavy. His `patrol_peaceful` policy ambles at its own absolute
+        // 28 px/s either way; this is what the body could do when driven.
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 195.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::WalkHeavy,
+            ..Default::default()
+        })
+        .with_moveset(crate::patent_clerk_moveset::patent_clerk_moveset());
     // ⭐ Jon 2026-08-13: **6**, and the reasoning that makes it safe to write is
     // his — *"these are ordinary tuning values that can be changed later if they
     // feel wrong in play … do not retain fallback health or incomplete body

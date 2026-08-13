@@ -526,81 +526,23 @@ mod tests {
         );
     }
 
-    /// **WHO STILL NEEDS THE PROBE SEAM** — the population that keeps
-    /// `adopt_character_intrinsics` alive, and therefore the size of checklist
-    /// item 9 (*"delete it once the constructor replaces the precedence it
-    /// performs"*).
-    ///
-    /// The enemy spawn road builds a placement's body one of two ways: a
-    /// character whose prepared definition yields a `body_blueprint` is built
-    /// FROM it, and a character that is registered but cannot yet build a body
-    /// still gets to CORRECT one — that second road is
-    /// `adopt_character_intrinsics`, described at its call site as serving *"the
-    /// shrinking population of half-migrated characters"*. Nothing said how
-    /// large that population was.
-    ///
-    /// ⭐ **14 of 36, and two thirds of them are already filed as content
-    /// decisions**: six pirates (D96 item 8, *"a pirate quartermaster's
-    /// vitals"* — the entry says six and it is exactly these six),
-    /// `npc_carl_stargan` (D96 item 5), four Hall NPCs, and three characters
-    /// that author their own MOVE timelines while still not authoring a body.
-    ///
-    /// ⚠ **body-incomplete is not unseatable**, and reading it that way would be
-    /// wrong: `npc_pirate_admiral` and `npc_ninja_shadow_oni_leader` are on the
-    /// Smash grid and fight. It means "cannot build a body from the character
-    /// ALONE" — the assist is what item 9 deletes, not the character.
-    ///
-    /// ⛔⛔ **AND THIS COUNT IS THE POPULATION, NOT THE CALLER COUNT — a
-    /// distinction I got wrong when I first wrote this doc.** The enemy road
-    /// reaches `adopt_character_intrinsics` only on the FALL-THROUGH, when a
-    /// placement names a character whose `body_blueprint()` is `Err`. Zero
-    /// shipped placements do: `worlds::tests::what_still_needs_an_archetype_row`
-    /// reports one placement that resolves to no character at all and none that
-    /// resolves to an incomplete one. ⇒ **the seam has no shipped caller today.**
-    /// These 14 are what would reach it if one of them were placed as an enemy.
-    ///
-    /// ⚠ **that does NOT make item 9 unblocked, and I briefly recorded that it
-    /// did.** Deleting the seam is a no-op today and a silent regression the day
-    /// one of the 14 is placed as an enemy — that body would take the archetype
-    /// whole, with none of the facts its half-migrated character authored. So
-    /// the deletion still waits on this count reaching zero, which is what the
-    /// ratchet is for.
-    ///
-    /// ⚠ a CEILING rather than a floor, because this one is supposed to shrink.
-    #[test]
-    fn the_cast_that_still_needs_a_body_assist_only_shrinks() {
-        let mut app = bevy::prelude::App::new();
-        crate::character_catalog::register(&mut app);
-        crate::player_robot_lineage::register(&mut app);
-        crate::player_robot_lineage::register_declared_cast(&mut app);
-        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
-        let prepared = app
-            .world()
-            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
-
-        let mut incomplete: Vec<&str> = prepared
-            .iter()
-            .filter(|(_, definition)| definition.body_blueprint().is_err())
-            .map(|(id, _)| id)
-            .collect();
-        incomplete.sort();
-
-        assert!(
-            incomplete.len() <= 14,
-            "{} characters cannot build a body from their own definition, and it \
-             was FOURTEEN on 2026-08-13. This number is supposed to fall: every \
-             one of them is a body `adopt_character_intrinsics` has to correct, \
-             and that seam is checklist item 9's deletion. Incomplete: \
-             {incomplete:?}",
-            incomplete.len()
-        );
-        assert!(
-            !incomplete.is_empty(),
-            "every registered character can now build its own body — \
-             `adopt_character_intrinsics` has no population left to serve, so \
-             delete it (checklist item 9) and this ratchet with it"
-        );
-    }
+    // ⛔ **`the_cast_that_still_needs_a_body_assist_only_shrinks` DELETED
+    // 2026-08-13, on its own instruction.** It counted the characters that could
+    // not build a body from their own definition — the population
+    // `adopt_character_intrinsics` existed to correct — and its second assertion
+    // said what to do when the count hit zero: *"every registered character can
+    // now build its own body … delete it (checklist item 9) and this ratchet
+    // with it."*
+    //
+    // ⭐ **it went 14 → 7 → 0 in one day**, and neither step was engineering.
+    // Seven were the pirates and Carl Stargan, whose vitals Jon settled; the
+    // last seven were each missing exactly ONE fact — locomotion — and no
+    // decision was pending on any of them. The seam is deleted, and a ratchet
+    // whose subject reached zero is machinery, not a guard.
+    //
+    // ⚠ what replaced it is stronger and lives in construction: a body is built
+    // from a character or from an archetype, never from one patched over the
+    // other, because there is no longer a function that can patch one.
 
     /// **AND HOW MANY STATE THEIR OWN MOVES** — P3.24's number, which had no
     /// ratchet while its twin above did.

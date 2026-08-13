@@ -12,8 +12,26 @@
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
+/// **AC5: it authors its LOCOMOTION too**, which is the one fact that stood
+/// between this character and building its own body. It ships as
+/// `melee_brute_striker` (chase 110), and that preset's speed is absolute, so
+/// stating the body's run speed here changes nothing a player sees today — it
+/// makes the body complete, which is what lets `adopt_character_intrinsics` go.
+///
+/// ⚠ a moveset without a body was the exact shape the assist seam existed for: a
+/// character rich enough to state its swings and not yet able to state its walk.
+///
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
-    definition.with_moveset(crate::pirate_admiral_moveset::pirate_admiral_moveset())
+    let mut definition = definition
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 110.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_moveset(crate::pirate_admiral_moveset::pirate_admiral_moveset());
+    // Jon 2026-08-13: heavy/large pirate variants 6. An admiral is one.
+    definition.vitals.max_health = Some(6);
+    definition
 }

@@ -23,6 +23,7 @@
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
 mod goblin;
+mod hall_humanoids;
 mod npc_ai_slop;
 mod npc_burning_flying_shark;
 mod npc_carl_stargan;
@@ -106,6 +107,12 @@ pub(crate) const AUTHORED_CAST: &[(
         npc_pirate_crew::author,
     ),
     (&["npc_carl_stargan"], npc_carl_stargan::author),
+    // AC5: the last four characters that could not build their own body. Each
+    // was missing only locomotion — see the module doc.
+    (
+        &["npc_alice", "npc_bob", "npc_noether", "npc_oiler"],
+        hall_humanoids::author,
+    ),
     (&["goblin"], goblin::author),
     // AC6/D102: Jon's 2026-08-13 casting of `large_brute` as a real character.
     (&["npc_goblin_brute"], npc_goblin_brute::author),

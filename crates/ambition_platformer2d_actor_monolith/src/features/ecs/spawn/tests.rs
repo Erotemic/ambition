@@ -1131,19 +1131,14 @@ mod authored_enemy_reads_its_character {
             "the character's contact damage did not reach the body"
         );
 
-        // ⚠ the control: the SAME character, minus the locomotion that makes it
-        // buildable, still takes the legacy road — and must, or every
-        // half-migrated character in the tree becomes a body that cannot move.
-        let (max, speed, contact) = spawn_with(prepared(), Some("npc_busy_beaver"));
-        assert_eq!(
-            max, 9,
-            "the character's pool still outranks the archetype's"
-        );
-        assert_eq!(
-            speed, 0.0,
-            "the archetype's run speed, which is what it authors"
-        );
-        assert_eq!(contact, 0);
+        // ⛔ **the CONTROL half is deleted with the road it exercised** (AC5,
+        // 2026-08-13). It spawned the same character minus its locomotion and
+        // asserted that a half-migrated body still took the legacy road with its
+        // health patched over the archetype's. That road is
+        // `adopt_character_intrinsics`, which is gone: every registered character
+        // can build its own body, so the state that control modelled cannot
+        // occur. Asserting it would pin a behaviour production can no longer
+        // produce.
     }
 
     /// **A SPAWN NOTHING CAN BUILD IS REFUSED, LOUDLY.**
@@ -1391,7 +1386,7 @@ mod authored_enemy_reads_its_character {
         let mut app = App::new();
         app.insert_resource(crate::character_roster::catalog());
         app.insert_resource(roster());
-        app.insert_resource(prepared());
+        app.insert_resource(prepared_complete());
         app.add_systems(
             Update,
             move |mut commands: Commands,
@@ -1432,6 +1427,13 @@ mod authored_enemy_reads_its_character {
     fn a_spawn_that_names_a_registered_character_takes_its_health() {
         // The display name is deliberately NOT the character's, so the only
         // route to 9 HP is the authored id.
+        //
+        // ⚠ **the fixture registers a body-COMPLETE character now** (AC5): the
+        // health arrives because the body is BUILT from the definition, not
+        // because a patch corrected an archetype's. That is what production does
+        // — every registered character can build its own body — and a fixture
+        // modelling the vanished middle state would pin a road that no longer
+        // exists.
         let (max, sprite) = spawn("Some Room Enemy", Some("npc_busy_beaver"));
         assert_eq!(
             max, 9,

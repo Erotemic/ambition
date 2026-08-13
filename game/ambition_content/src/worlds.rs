@@ -468,11 +468,25 @@ mod tests {
              {total}) — the fallback road has no traffic left, so checklist item \
              6 is a deletion rather than a migration, and this ratchet goes with it"
         );
-        assert!(
-            registered > complete,
-            "every REGISTERED NPC character is body-complete, so \
-             `body_blueprint` has stopped distinguishing — {registered} \
-             registered, {complete} complete"
+        // ⭐⭐ **EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE** (2026-08-13),
+        // so this flipped from a poison into the invariant it was counting
+        // toward. It used to assert `registered > complete` — proof that
+        // `body_blueprint` still distinguished, i.e. that some registered
+        // character could not state its own body. None can fail it now, and
+        // `adopt_character_intrinsics`, the seam that corrected those bodies, is
+        // deleted.
+        //
+        // ⚠ **`complete < total` above is the honest remainder and it is a
+        // different gap**: placements that name no character at all, or name one
+        // this provider does not register. That is checklist item 6's road, and
+        // it is not the same as a character being half-migrated.
+        assert_eq!(
+            registered, complete,
+            "a REGISTERED NPC character cannot build its own body ({registered} \
+             registered, {complete} complete). Every one of them could as of \
+             2026-08-13, and the seam that used to patch the difference is gone — \
+             so this is a character authored without a body fact, and the fix is \
+             to author it, not to bring back an assist"
         );
     }
 

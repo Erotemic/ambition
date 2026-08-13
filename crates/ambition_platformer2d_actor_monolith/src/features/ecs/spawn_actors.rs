@@ -1836,23 +1836,22 @@ pub(crate) fn spawn_enemy_with_faction_into(
         authored.payload.brain.clone(),
         paths,
     );
-    // **When the placement names a registered character, that character's
-    // authored facts outrank the archetype's.** A character that authors
-    // nothing changes nothing, which is what lets the migration move one fact
-    // at a time.
+    // ⭐⭐ **THE BODY-ASSIST SEAM IS GONE** (AC5, D73 checklist item 9). A
+    // `adopt_character_intrinsics(definition)` stood here: a character that was
+    // registered but could not build its own body still got to CORRECT one that
+    // the archetype had built, field by field, with the character winning
+    // wherever it had authored something.
     //
-    // ⛔ **the identity comes from the PLACEMENT, never from
-    // `config.sprite_character_id`.** That id is produced by
-    // `presentation_identity` → `id_for_authored_identity`, which falls back to
-    // matching a display name — so reading health, mass or death traits off it
-    // would infer gameplay identity from presentation identity. A spawn that
-    // has not named a character keeps its archetype, visibly.
-    // A character that is not complete enough to BUILD a body still gets to
-    // correct one. This is the probe seam, and it now serves only the shrinking
-    // population of half-migrated characters.
-    if let Some(definition) = named {
-        enemy.adopt_character_intrinsics(definition);
-    }
+    // It was the right seam for a migration that had to move one fact at a time,
+    // and its deletion condition was always the same — the population it served
+    // reaching zero. On 2026-08-13 it did: every registered character can build
+    // its own body, so this fall-through can only be reached by a placement that
+    // names no character at all, and there are none of those left either.
+    //
+    // ⇒ so a body is built from a character's own facts or from an archetype,
+    // and never from one patched over the other. Two writers racing over one
+    // body is the shape this campaign exists to remove, and the last instance of
+    // it in construction was this line.
     // **The placement's respawn policy on BOTH roads.** `ActorTuning`'s own
     // `adopting_archetype` already calls respawn placement-scoped and protects
     // it from an archetype projection; this is the authoring half of the same

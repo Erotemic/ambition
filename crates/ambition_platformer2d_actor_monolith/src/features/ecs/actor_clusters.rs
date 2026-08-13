@@ -1193,51 +1193,6 @@ impl ActorClusterSeed {
             .0
     }
 
-    /// **Let the CHARACTER outrank the archetype for the facts it authors.**
-    ///
-    /// D73 phase 3's first seam, and the smallest one that can exist: an enemy
-    /// body is built from an `ArchetypeSpec` and never reads its character at
-    /// all, so a fact moved onto a definition today would be stated where
-    /// nothing on this path looks. This is where it starts being looked at.
-    ///
-    /// ⚠ **precedence, not replacement.** Only fields the definition ACTUALLY
-    /// AUTHORS move; everything it is silent about keeps the archetype's answer.
-    /// That is what makes adopting a character behaviour-neutral until somebody
-    /// authors something, which is the property the migration needs in order to
-    /// proceed one fact at a time instead of in one unreviewable jump.
-    ///
-    /// ⛔ **and it is applied to the SEED, before the entity exists** — not by a
-    /// later system correcting a body that was already built wrong. A second
-    /// writer racing the first is the shape this campaign is removing.
-    pub fn adopt_character_intrinsics(
-        &mut self,
-        definition: &crate::character_runtime::PreparedCharacterDefinition,
-    ) {
-        // Death traits. The first fact with a home on a definition (2026-08-10),
-        // and the reason the mites are the migration's first candidates.
-        if let Some(traits) = definition.death_traits.as_ref() {
-            self.caps = crate::combat::CombatCapabilities::from(traits);
-        }
-        // The physical baseline the worn and seated paths already share, so an
-        // enemy body cannot disagree with a fighter about the same character.
-        let baseline = crate::character_runtime::PhysicalBaseline::of(definition);
-        // `max_health_over` IS the precedence rule spelled as a function: the
-        // character's pool when it authored one, the seed's own otherwise. The
-        // seated path calls it the same way, which is the point — one applier,
-        // one answer, whichever construction reaches the character.
-        let standing = self.health.health.max;
-        let max = baseline.max_health_over(standing);
-        if max != standing {
-            self.health = ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(max),
-            )
-            .with_policy(self.health.policy());
-        }
-        if let Some(weight) = baseline.knockback_weight() {
-            self.config.tuning.weight = weight;
-        }
-    }
-
     /// The authoritative components as a spawnable Bundle. Includes the body's
     /// shared [`ambition_characters::actor::BodyHealth`] (the one health authority — spawned with
     /// the cluster, not the combat bundle).
@@ -1672,82 +1627,18 @@ mod tests {
 
         assert_eq!(center, authored.center());
     }
-    /// **D73 phase 3, the first seam: an enemy seed can be told what its
-    /// CHARACTER says**, and a character that says nothing changes nothing.
-    ///
-    /// ⚠ the parity half is the load-bearing one. Every enemy in the game is
-    /// built from an archetype and no definition today authors any of these, so
-    /// a seam that quietly wrote defaults over the archetype would move every
-    /// mob's health and death behaviour at once — the ~100-NPC regression, on
-    /// the other spawn path.
-    mod character_intrinsics {
-        use super::*;
-
-        fn seed_with(health: i32, weight: f32) -> ActorClusterSeed {
-            let mut seed = ActorClusterSeed::new(
-                "mite".to_string(),
-                "Exploding Mite".to_string(),
-                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
-                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-                &[],
-            );
-            seed.health = ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(health),
-            );
-            seed.config.tuning.weight = weight;
-            seed.caps = crate::combat::CombatCapabilities::default();
-            seed
-        }
-
-        fn definition(
-            f: impl FnOnce(&mut crate::character_runtime::CharacterDefinition),
-        ) -> crate::character_runtime::PreparedCharacterDefinition {
-            let mut def = crate::character_runtime::CharacterDefinition::new(
-                "exploding_mite",
-                "Exploding Mite",
-                "test",
-            );
-            f(&mut def);
-            crate::character_runtime::prepare_and_finalize_for_test(
-                def,
-                &crate::character_runtime::CharacterBindings::default(),
-            )
-            .prepared
-        }
-
-        #[test]
-        fn a_character_that_authors_nothing_leaves_the_archetype_alone() {
-            let mut seed = seed_with(2, 1.4);
-            seed.adopt_character_intrinsics(&definition(|_| {}));
-            assert_eq!(seed.health.health.max, 2, "the archetype's pool stands");
-            assert_eq!(seed.config.tuning.weight, 1.4, "and its weight");
-            assert!(
-                !seed.caps.explodes_on_death,
-                "and it did not acquire a death trait nobody authored"
-            );
-        }
-
-        #[test]
-        fn an_authored_character_outranks_the_archetype_for_what_it_states() {
-            let mut seed = seed_with(2, 1.4);
-            seed.adopt_character_intrinsics(&definition(|def| {
-                def.vitals.max_health = Some(9);
-                def.death_traits = Some(ambition_characters::actor::CharacterDeathTraits {
-                    explodes_on_death: true,
-                    ..Default::default()
-                });
-            }));
-            assert_eq!(seed.health.health.max, 9);
-            assert!(seed.caps.explodes_on_death, "the mite's whole point");
-            // ⭐ and the field it stayed SILENT about is untouched, which is what
-            // makes this precedence rather than replacement.
-            assert_eq!(
-                seed.config.tuning.weight, 1.4,
-                "an unauthored weight must keep the archetype's, or adopting a \
-                 character silently retunes knockback across the cast"
-            );
-        }
-    }
+    // ⛔ **`mod character_intrinsics` DELETED 2026-08-13 with the method it
+    // tested** (AC5, D73 checklist item 9). Its two tests pinned the PRECEDENCE
+    // rule `adopt_character_intrinsics` performed — a character's authored facts
+    // outrank the archetype's, and a character that authors nothing changes
+    // nothing — which is exactly the property that let the migration move one
+    // fact at a time without moving every mob's health at once.
+    //
+    // ⭐ that rule has no code left to govern. Every registered character can
+    // build its own body and every shipped placement names one, so a body is
+    // built from a character or from an archetype and never from one patched
+    // over the other. AGENTS.md: migration-only matrices are removed when the
+    // migration completes.
 }
 
 #[cfg(test)]

@@ -1081,34 +1081,58 @@ AC5 is DONE only when:
 
 ---
 
-### ⚠ OPEN, found by AC5.5: the two roads disagree about GEOMETRY by exactly 1.5×
+### ⛔⛔ DIAGNOSED: 31 characters have NO authored size, so their body geometry is a function of the PLACEMENT RECTANGLE
 
-`app_it::one_character_two_contexts` builds `npc_puppy_slug` through the authored
-NPC road (the Hall) and the runtime-summon road (`spawn_enemy_character_at`) and
-compares the body.
+AC5.5 found the symptom — the same character built two ways came out at exactly
+1.5× on both axes — and the mechanism is now named.
+
+`sprite_body_collision_for_character_id_from_data` has two branches, and its own
+comment says which one is right:
 
 ```text
-max_health      2      ==  2
-max_run_speed   agree
-weight          agree
-size            84.18 × 21.93   vs   56.12 × 14.62      ← 1.5× on BOTH axes
+authored standing_height  →  size = frame × (height / body_h)      the body decides
+no standing height        →  size = LDtk box × collision_scale × (body/frame)
+                                     ^^^^^^^^ the PLACEMENT decides
 ```
 
-⛔ **the 1.5 is unexplained, and it is NOT the character's `collision_scale`,
-which is 1.4.** `NpcActorSpawnPlan::spawn_into` already carries a comment about
-`collision_scale` being re-applied and *"ballooning the sprite"*, so a
-double-application hazard is known to live on this seam.
+`npc_puppy_slug` is `body_kind: Crawler`, and
+`CharacterBodyKind::default_standing_height` answers `Some(48.0)` for `Standard`
+and **`None` for `Wide | Floating | Crawler`**. So the slug takes the legacy
+branch and its size scales with whatever rectangle it was placed in — the Hall's
+pedestal in one road, the summon's half-size in the other. That is the 1.5×.
 
-⚠ **it is recorded rather than asserted**, in either direction. Doctrine 3 lists
-geometry as a body-owned intrinsic, which argues defect; the same doctrine gives
-placement *"explicit placement overrides"*, which argues an authored NPC rect
-legitimately sizes its occupant. The test asserts the facts that are
-unambiguously the body's and names this one in its own doc, so re-opening it is
-adding `size` back to the compared struct.
+**The population, measured against the shipped catalog (2026-08-13):**
 
-⇒ **for AC6/AC7.** If it is a defect it is a real one — a character is a
-different size depending on how it was summoned — and it is exactly the class
-this campaign exists to remove.
+```text
+  body_kind    characters    with no authored size
+  Standard         96                 0     (default_standing_height = 48.0)
+  Wide             22                22
+  Floating          6                 6
+  Crawler           3                 3
+                                     --
+                                     31 of 127
+```
+
+Among them: the Perfect Cellular Automaton and both snake swarms (Smash
+fighters), all three heavy pirates, and most of the bosses.
+
+⛔ **this is doctrine 3 violated in the measurable direction** — *"the body owns
+geometry"* — and it is not a bug in one function. `standing_height` is the ONLY
+size fact the character vocabulary has, and it is the wrong axis for three of the
+four body kinds: a crawler is long rather than tall, and a wide body's defining
+measurement is its width. `Crawler => None` is not an oversight; it is the
+vocabulary declining to answer a question that does not fit.
+
+⇒ **the fork is Jon's, and it is small to state**: either those kinds get their
+own authored measurement (a length for a crawler, a width for a wide body), or
+`standing_height` is generalised to "the body's defining extent" and every one of
+the 31 authors one. ⚠ **do not close it by giving 31 characters a
+`standing_height` in the meantime** — that is inventing content to make a metric
+move, and for a crawler it would author the wrong axis.
+
+⚠ **until then the campaign's own equivalence test cannot assert geometry**, and
+`one_character_two_contexts` says so in its doc rather than quietly comparing the
+facts that happen to agree.
 
 # AC6 — Delete the legacy enemy-archetype authority
 

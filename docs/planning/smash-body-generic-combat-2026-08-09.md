@@ -1210,9 +1210,13 @@ Three defects found on 2026-08-13 are the same defect wearing three names, and
 the campaign's own proposition is what they violate:
 
 ```text
-  D107  BodyCombat::attacking     written only With<PlayerEntity>, and only from
-                                  the FLAT swing road — so the causal trace says
-                                  "not attacking" about a moveset fighter
+  D107  BodyCombat::attacking     written only With<PlayerEntity> — so the causal
+                                  trace says "not attacking" about EVERY
+                                  non-player body, always
+                                  ⛔ this row also claimed "and only from the flat
+                                  swing road". WRONG, reverted 2026-08-13: the
+                                  moveset projects onto BodyMelee, so
+                                  is_swinging() already covers both roads
   D108  landing_lag_timer         armed for any body; carried, decayed and gated
                                   only for the player. A CPU lands clean out of
                                   the aerial that costs a human 0.10–0.28s

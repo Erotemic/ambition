@@ -368,3 +368,82 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     assert!(control.0.shield_held);
     assert_eq!(control.0.facing, 1.0);
 }
+
+/// **A MOVESET SWING COUNTS AS ATTACKING** — ledger D107.
+///
+/// ⛔⛔ `attacking` mirrored `BodyMelee::is_swinging()` alone, which is the FLAT
+/// swing road. A body attacking through the MOVESET runtime carries
+/// `MovePlayback` and never touches `BodyMelee`, so a player fighter mid-swing
+/// published `attacking: false`.
+///
+/// ⚠ **that is not a cosmetic field.** `causal.rs` publishes it as a trace field
+/// and `dev/trace/detect.rs` records it, so the instrument said *"not
+/// attacking"* about a fighter that was — [[reference_causal_instrument_gotchas]]'s
+/// shape, where an instrument's silence reads as evidence.
+///
+/// ⚠ the OTHER half of D107 is untouched on purpose: this system's query is
+/// `With<PlayerEntity>`, so no enemy or CPU body has the field written at all.
+#[test]
+fn a_moveset_swing_reports_attacking_even_though_the_flat_swing_is_idle() {
+    let mut app = App::new();
+    app.add_systems(bevy::prelude::Update, write_player_ecs_components);
+
+    let flat_only = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            BodyMelee::default(),
+            BodyHealth::new(ambition_characters::actor::Health::new(3)),
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id();
+    let moveset_swinger = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            BodyMelee::default(),
+            BodyHealth::new(ambition_characters::actor::Health::new(3)),
+            ambition_characters::actor::BodyCombat::default(),
+            crate::combat::moveset::MovePlayback::new(
+                // A minimal, never-executed move: this test is about the
+                // PRESENCE of a playback, not about what it plays.
+                ambition_entity_catalog::MoveSpec {
+                    id: "probe".into(),
+                    clip: ambition_entity_catalog::ClipBinding {
+                        clip: "idle".into(),
+                        fallbacks: Vec::new(),
+                    },
+                    duration_s: 0.2,
+                    windows: Vec::new(),
+                    events: Vec::new(),
+                    gates: Default::default(),
+                    start_impulse: None,
+                    smash_charge_mult: 1.0,
+                    landing_lag_s: None,
+                    autocancel_after_s: None,
+                },
+                1.0,
+            ),
+        ))
+        .id();
+    app.update();
+
+    let attacking = |app: &App, entity: bevy::prelude::Entity| {
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(entity)
+            .expect("the body keeps its combat read-model")
+            .attacking
+    };
+    assert!(
+        attacking(&app, moveset_swinger),
+        "a body carrying `MovePlayback` reports `attacking: false` — the mirror \
+         is back to reading only the flat swing road, and every instrument that \
+         publishes this field is under-reporting a fighter mid-swing"
+    );
+    // ⛔ THE CONTROL — without it, `attacking = true` unconditionally would pass.
+    assert!(
+        !attacking(&app, flat_only),
+        "a body with neither a flat swing nor a move in flight reports \
+         `attacking: true`, so the field says yes to everything"
+    );
+}

@@ -73,6 +73,41 @@ not re-derive them:
   character ids no longer un-arts the spawns it is meant to fix — the deadlock
   that made D48 unlandable is gone in both directions.
 
+## ⇥ THE TWO FAILURE MODES ARE NOW COMPILER-ENFORCED (2026-08-13)
+
+Jon named two. The first — *"do not migrate `ArchetypeSpec` into
+`CharacterDefinition` wholesale; it holds THREE authorities and they must
+separate"* — was guarded only by this document, and a document cannot fail.
+Three exhaustive destructures now hold it, one per struct:
+
+```text
+  ArchetypeSpec        49 fields   machinery 2 · body 29 · controller 13 · placement 5
+  ActorTuning          20 fields   body 13 · controller 3 · placement 4
+  CharacterDefinition  27 fields   identity 7 · body 15 · default-controller 3 · presentation 2
+```
+
+⇒ **adding a field to any of the three stops the crate COMPILING until somebody
+files it under an authority.** Removing one does the same. There is no count to
+edit and no census to redo — which matters, because this run has now corrected
+stale counts in four ledger rows, six campaign rows, a decision index and this
+file's own phase table.
+
+⭐ **the first failure mode now requires an explicit lie rather than an
+omission.** Carrying `aggro_radius` onto the body would not quietly widen a
+struct; it would refuse to build until a controller fact was filed as a body one.
+
+⚠ **the guards do not judge, they demand a decision** — and two are marked as
+arguable rather than settled: `ArchetypeSpec::smash_heavy` (a weight class is a
+body fact and `weight` already is one — check for a duplicate before migrating
+it), and `CharacterDefinition`'s three default-controller fields, which are the
+campaign's own design (*"one adopter does not earn the indirection"*) and are
+watched for one thing only: **a default must stay replaceable.**
+
+⚠ **the SECOND failure mode is not enforceable this way** — *"do not stop when
+the new path works beside the old one"* is a claim about deletions, and the
+things that hold it are the acceptance-signal countdown
+(`what_still_needs_an_archetype_row`) and the ratchets beside it.
+
 ## Phase status — UPDATE THIS AS PHASES LAND
 
 The brief's own sequence, tracked. ⛔ this list is the resumption point after a

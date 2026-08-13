@@ -10,6 +10,80 @@ fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> BodyClusterScr
     BodyClusterScratch::new_with_abilities(spawn, abilities)
 }
 
+/// **A BODY THAT CANNOT JUMP DOES NOT JUMP WHEN THE BUTTON IS PRESSED.**
+///
+/// ⛔⛔ **the base `jump` flag was the one ability gate NOTHING pinned** — the
+/// sibling below covers `double_jump`, and `double_dash` and `wall_climb` have
+/// theirs, but the plainest capability in the set had no test at all. Its gate
+/// is one `&&` in `apply_intent`, and one `&&` is exactly the kind of thing a
+/// refactor drops without a compiler error.
+///
+/// ⭐ **it is Jon's own compositional acceptance criterion, at the engine end.**
+/// *"Force a Puppy Slug into Smash … Jump → no jump if its body cannot jump …
+/// no generic humanoid jump"* (campaign P3.27). The content half is pinned in
+/// `puppy_slug_forced_seat.rs`: the shipped `npc_puppy_slug` authors
+/// `move_horizontal` and nothing else, so its seated mask says `jump: false`.
+/// That assertion is only worth having if the engine HONOURS the mask, and this
+/// is the half that says so. Neither test is the claim on its own.
+///
+/// ⚠ **both directions, and the grounded control is not decoration**: a gate
+/// that refused every jump would satisfy the first half perfectly, and a body
+/// that cannot jump is indistinguishable from a body nobody asked to jump
+/// unless the same fixture jumps when it is allowed to.
+#[test]
+fn jump_ability_controls_the_ground_jump() {
+    let world = test_world();
+    let mut abilities = AbilitySet::sandbox_all();
+    abilities.jump = false;
+
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = true;
+    let events = step_scratch(&world, &mut scratch, jump_press());
+    assert!(
+        !events.operations.contains(&MovementOp::Jump),
+        "a body whose ability set denies `jump` jumped anyway: {:?}",
+        events.operations
+    );
+    // ⚠ the OP is the intent and the VELOCITY is the consequence; asserting only
+    // the op would pass on an engine that emitted nothing and launched the body
+    // anyway. Authored geometry is y-down, so rising is negative y.
+    assert!(
+        scratch.kinematics.vel.y >= 0.0,
+        "no jump op fired and the body rose anyway ({} px/s), so something          other than the gate is launching it",
+        scratch.kinematics.vel.y
+    );
+
+    abilities.jump = true;
+    let mut scratch = scratch_with(abilities, world.spawn);
+    scratch.ground.on_ground = true;
+    let events = step_scratch(&world, &mut scratch, jump_press());
+    assert!(
+        events.operations.contains(&MovementOp::Jump),
+        "the same fixture with `jump: true` did not jump either, so the half          above is measuring a broken fixture rather than the gate: {:?}",
+        events.operations
+    );
+    assert!(
+        scratch.kinematics.vel.y < 0.0,
+        "the jump op fired and the body did not rise ({} px/s)",
+        scratch.kinematics.vel.y
+    );
+}
+
+/// One frame of the jump button going down — the edge every gate above reads.
+fn jump_press() -> InputState {
+    InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    }
+}
+
 #[test]
 fn double_jump_ability_controls_air_jump() {
     let world = test_world();

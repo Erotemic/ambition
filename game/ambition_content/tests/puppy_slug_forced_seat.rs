@@ -192,6 +192,16 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
 /// unmigrated fighter must still be given something or every one of them is a
 /// statue. The claim is not "no fighter gets defaults", it is "a character that
 /// SAYS what it can do is believed".
+/// ⭐ **THE OTHER HALF OF THIS CLAIM IS IN THE ENGINE, and it was missing until
+/// 2026-08-12.** A mask saying `jump: false` is only worth asserting if the
+/// engine HONOURS it, and the base `jump` flag was the one ability gate nothing
+/// pinned — `double_jump`, `double_dash` and `wall_climb` all had tests; the
+/// plainest capability in the set did not, and its gate is a single `&&` in
+/// `apply_intent`. `movement::tests::ability_gates::jump_ability_controls_the_ground_jump`
+/// is that half: press Jump on a grounded body with the flag off and neither the
+/// op nor the rise happens, with the same fixture jumping when the flag is on.
+/// ⚠ neither test is the claim alone. This one says the shipped slug asks for no
+/// jump; that one says asking is what decides.
 #[test]
 fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
     let seats = seat_the_cast(vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")]);

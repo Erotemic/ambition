@@ -1146,6 +1146,30 @@ unfixed rows still open.
 timeline, hitstop/hitstun, landing lag / auto-cancel, aerial locomotion, air
 speed, jump-squat, hitbox tracks, pose-aware hurtboxes, DI.
 
+## ⇥ ✔ TWO OF THE ✔ MARKS RE-CHECKED INDEPENDENTLY (2026-08-13)
+
+Four ledger rows and five campaign rows elsewhere in this run turned out to
+describe a tree that had moved, so two of this file's own ✔ items were verified
+rather than trusted. **Both hold**, and one is now falsifier-verified:
+
+* ✔✔ **hitbox tracks — POISONED, and the defect reproduces exactly.** Replacing
+  the contiguity handoff with `Default::default()` turns
+  `a_contiguous_hitbox_track_lands_one_hit_per_victim` red with *"a swept track
+  re-hit once per keyframe: 3 hits"* — the quadruple-damage failure this section
+  is about, in the numbers. The rule itself reads well under scrutiny: contiguity
+  is *"the literal continuity of the volume in time"*, and a GAP is what makes a
+  drill or a rapid jab genuinely multi-hit.
+* ✔ **pose-aware hurtboxes — the claim is accurately SCOPED, which is why it
+  survives.** It asserts the vocabulary is a contract (a pose cannot be named
+  without a branch producing it), not that timelines are consumed, and
+  `BODY_POSES` is pinned to `body_pose`'s reachable set by an exhaustive test.
+  `body_pose` is live in production — `advance_body_pose_clocks` calls it and
+  maintains the clock. ⚠ the section's own two ⚠ marks (only a CONTROLLED body
+  can crouch; F1 cannot show which timeline won) are still true.
+
+⇒ **recorded because the run's base rate made it a fair question.** An item that
+states what it does NOT cover is the one that stays true; both of these do.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

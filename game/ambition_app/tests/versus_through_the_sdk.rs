@@ -277,13 +277,31 @@ fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
     let archetypes = app
         .world()
         .get_resource::<CharacterRoster>()
-        .expect("the composition installs an archetype table")
-        .clone();
+        .cloned()
+        .unwrap_or_default();
+    // ⛔⛔ **THIS PASSED `None` FOR THE POLICIES AND THAT WAS THE INSTRUMENT'S
+    // BLIND SPOT** (repaired 2026-08-13, campaign P2.18). A CPU seat's profile
+    // can live in either of two authorities, and `unsatisfiable_seats`'s own doc
+    // says so; asking with only the archetype table meant this guard could only
+    // ever see one of them. It went red the day versus published
+    // `versus_duelist` as an `autonomous_profiles` entry and deleted the
+    // archetype row it replaced — reporting a seat unsatisfiable that the
+    // shipped composition satisfies perfectly.
+    //
+    // ⚠ the CLAIM is unchanged and still the one that shipped a statue: this
+    // composition, with no content crate under it, must be able to seat its own
+    // CPU. What changed is that the question is now asked of both places an
+    // answer can live.
+    let profiles = app
+        .world()
+        .get_resource::<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>()
+        .cloned()
+        .unwrap_or_default();
 
     // One local player: seat 1 is the CPU, which is the default versus
     // experience and the one anybody with a single controller plays.
     let roster = ambition_app::app::versus::versus_roster(1);
-    let problems = roster.unsatisfiable_seats(&archetypes, None);
+    let problems = roster.unsatisfiable_seats(&archetypes, Some(&profiles));
     assert!(
         problems.is_empty(),
         "the versus stage declares a CPU seat the SDK composition cannot seat, \

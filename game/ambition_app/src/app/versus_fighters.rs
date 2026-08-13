@@ -295,6 +295,39 @@ impl WithHealth for CharacterDefinition {
 /// have not earned — they have no art of their own.
 pub const VERSUS_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
+    autonomous_profiles: {
+        // ⭐⭐ **THIS STAGE'S CPU POLICY, PUBLISHED** (campaign P2.18, 2026-08-13
+        // — the same migration ledger D87 made for the Smash stage's six).
+        //
+        // ⛔ it was `VERSUS_ROSTER_RON`, one `ArchetypeSpec` row registered as a
+        // `CharacterRosterFragment` and existing for exactly one lookup: a CPU
+        // seat naming `versus_duelist`, resolved through an ENEMY ARCHETYPE
+        // TABLE, so the controller half of `character + controller + team`
+        // arrived by way of a body definition. This is what a controller policy
+        // IS, and publishing it is what lets `seat_brain_profile` stop having a
+        // second authority to fall through to.
+        //
+        // ⚠ **the numbers are the row's controller half verbatim** — template,
+        // both radii and both efforts. Its BODY half went nowhere because it was
+        // already dead: `max_health`, `run_speed`, `melee`, `move_style` and
+        // `respawn` stopped being read the day a seat was built from its
+        // CHARACTER (P1.11), and the note at `versus.rs`'s `fighter_abilities`
+        // records exactly that — the authored `melee` "reached the body
+        // regardless of what the match said the body could do", and taking it
+        // away is what exposed the missing `attack` verb.
+        //
+        // ⚠ deliberately NOT the `Fighter` template: seated here, `Fighter`
+        // moved 0.4 px in five seconds with an opponent in front of it while the
+        // same brain fights on the smash stage. That is an open finding, not a
+        // preference — see `the_cpu_opponent_is_not_a_statue` and the queue row.
+        "versus_duelist": (
+            template: Smash,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            patrol_effort: 0.6176,
+            chase_effort: 1.0,
+        ),
+    },
     action_set_presets: {
         // A required FIELD on every row, and no longer this character's kit.
         //

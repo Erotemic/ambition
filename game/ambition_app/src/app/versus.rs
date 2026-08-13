@@ -195,45 +195,22 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
 /// one namespace over.
 pub const VERSUS_CPU_BRAIN: &str = "versus_duelist";
 
-/// The archetype behind [`VERSUS_CPU_BRAIN`].
-///
-/// `Smash`, and the numbers mirror `ambition_content`'s `medium_striker` — the
-/// row this stage was ACTUALLY running before, through the fallback. Owning a
-/// copy rather than naming that row is the point of the fix; changing what the
-/// opponent does at the same time would have been a second, unmeasured change
-/// riding on a composition fix.
-///
-/// ⚠ **it is deliberately NOT the `Fighter` template**, and that is a finding
-/// rather than a preference: seated here, `Fighter` moved 0.4 px in five seconds
-/// with an opponent in front of it (`the_cpu_opponent_is_not_a_statue`), while
-/// the same brain fights on the smash stage. Whatever the difference is, it is
-/// not known yet — see the queue row — and shipping a statue to prove a point
-/// about which brain is newer would make the default versus experience worse.
-const VERSUS_ROSTER_RON: &str = r#"{
-    "versus_duelist": (
-        respawn: OnRoomReenter,
-        max_health: 5,
-        run_speed: 170.0,
-        patrol_effort: 0.6176,
-        chase_effort: 1.0,
-        aggro_radius: 460.0,
-        attack_range: 150.0,
-        contact_strength: 0.70,
-        damage_amount: 1,
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.28,
-            active_s: 0.08,
-            recover_s: 0.32,
-            damage: 1,
-            reach_px: 28.0,
-        ))),
-        // No `ranged`: this stage is a duel on one screen, and a rock arcing
-        // across it is the content row's answer to a dungeon corridor, not to
-        // an opponent standing four body-widths away.
-        move_style: Walk,
-    ),
-}"#;
+// ⛔⛔ **`VERSUS_ROSTER_RON` WAS HERE AND IS DELETED (2026-08-13, campaign
+// P2.18)** — one `ArchetypeSpec` row, registered as a `CharacterRosterFragment`,
+// existing for exactly one lookup: a CPU seat naming `versus_duelist`, answered
+// through an ENEMY ARCHETYPE TABLE. Its controller half is published as an
+// `autonomous_profiles` entry in `versus_fighters::VERSUS_CATALOG_RON` now,
+// which is what a controller policy IS.
+//
+// ⚠ **its body half went nowhere because nothing read it.** `max_health`,
+// `run_speed`, `melee`, `move_style` and `respawn` stopped being read the day a
+// seat was built from its CHARACTER (P1.11) — see the `fighter_abilities` note
+// below, which is the record of that: the row's authored `melee` "reached the
+// body regardless of what the match said the body could do", and removing it is
+// what exposed this stage's missing `attack` verb.
+//
+// ⇒ the same migration ledger D87 made for the Smash stage's six rows, and it
+// leaves `seat_brain_profile`'s archetype arm with no production caller.
 
 /// **The roster the route PROPOSES on entry**, built from live device discovery
 /// before any session has decided its seating.
@@ -811,18 +788,10 @@ pub fn compose_versus_experience(app: &mut App) {
     for fighter in super::versus_fighters::duelists() {
         app.register_character(fighter);
     }
-    // The ARCHETYPE a CPU seat resolves against — a different table from the
-    // catalog above, and the one `ControllerBinding::Cpu { brain_profile }`
-    // actually consults.
-    {
-        use ambition_platformer2d::actors::features::{
-            CharacterRosterAppExt, CharacterRosterFragment,
-        };
-        app.register_character_roster_fragment(
-            CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, VERSUS_ROSTER_RON)
-                .expect("the versus archetype roster is valid"),
-        );
-    }
+    // ⚠ **no archetype fragment.** A CPU seat's `brain_profile` resolves against
+    // this experience's published `autonomous_profiles` (see the note where
+    // `VERSUS_ROSTER_RON` used to be), which is the authority a controller
+    // question belongs to.
 
     PlatformerExperienceAuthoring::new(
         VERSUS_EXPERIENCE,
@@ -1443,22 +1412,32 @@ mod roster_topology_tests {
 
         // ⭐ and the SAME roster activates once the composition can answer for it,
         // or the refusal above would pass against a route that never activates.
-        // ⚠ assembled from the stage's OWN roster RON, not a hand-built table:
+        // ⚠ assembled from the stage's OWN catalog RON, not a hand-built table:
         // that file is what a shipped composition registers, so this half also
         // asserts `VERSUS_CPU_BRAIN` is actually in it — the exact thing that was
         // false on 2026-07-31 when the stage named `medium_striker`.
-        let mut fragments =
-            ambition_platformer2d::actors::features::CharacterRosterRegistry::default();
-        fragments
-            .register(
-                ambition_platformer2d::actors::features::CharacterRosterFragment::from_ron(
+        //
+        // ⛔ it registered an archetype FRAGMENT until 2026-08-13, because the
+        // policy lived in `VERSUS_ROSTER_RON`. Same claim, one authority over:
+        // a CPU seat's controller question is answered by published
+        // `autonomous_profiles`, so that is what the composition must carry.
+        {
+            use ambition_platformer2d::characters::actor::character_catalog::{
+                CharacterCatalogAppExt, CharacterCatalogFragment,
+            };
+            // ⭐ through the App seam the composition itself uses, so what is
+            // published here is what a shipped versus route publishes — the
+            // registration is what turns an authored profile into a resolvable
+            // `versus::versus_duelist`.
+            app.register_character_catalog_fragment(
+                CharacterCatalogFragment::from_ron(
                     VERSUS_EXPERIENCE,
-                    VERSUS_ROSTER_RON,
+                    Some(FIGHTERS[0]),
+                    crate::app::versus_fighters::VERSUS_CATALOG_RON,
                 )
-                .expect("the versus archetype roster is valid"),
-            )
-            .expect("one fragment registers");
-        app.insert_resource(fragments.assemble().expect("the versus roster assembles"));
+                .expect("the versus fighter catalog is valid"),
+            );
+        }
         app.update();
         assert!(
             app.world()

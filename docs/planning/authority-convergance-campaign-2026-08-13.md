@@ -14,8 +14,8 @@
 |---|---|---|---|---|
 | P0.1 confirm presentation effects before rollback escape | ⏳ | 2026-08-13 | | the mechanism already existed: `external_effects` carries five families to the confirmed boundary. The shake became the sixth — `CameraShakeRequest` published by the sim, applied by `apply_camera_shake_requests`. Deleted: the `replaying_history` parameter guard, which saw the duplicate and not the phantom |
 | P0.2 rollback-consistent boss phase edges | ▢ | | | the authoritative edge ALREADY EXISTS: `ActorPhaseState::tick` returns `BossPhaseEvent::PhaseChanged`, and `update_boss_encounters` fans it to `publish_events` inline. `boss_phase_transition_feedback` re-derives that same edge from a non-rollback `Local<HashMap<String, Phase>>` — so on a resimulation the Local already holds the new phase, the diff is empty, and the shockwave `DamageBox` is LOST on the authoritative timeline. Fix: consume the authority, delete the Local |
-| AC0 census + surface maintainer decisions | ▢ | | | anchors confirmed live 2026-08-13: `ActorIntent` 29, `ActorCooldowns` 25, `adopt_character_intrinsics` 10, `CharacterRoster` 223, `ArchetypeSpec` 93, `ActorTuning` 57 |
-| AC1 delete dead actor mirrors | ▢ | | | |
+| AC0 census + surface maintainer decisions | ⏳ | 2026-08-13 | | AC0.1 ✔ (below) · AC0.5 ✔ — Jon settled the whole casting/completeness backlog unprompted, see the decisions section. anchors confirmed live 2026-08-13: `ActorIntent` 29, `ActorCooldowns` 25, `adopt_character_intrinsics` 10, `CharacterRoster` 223, `ArchetypeSpec` 93, `ActorTuning` 57 |
+| AC1 delete dead actor mirrors | ▢ | | | entry gate PASSED — AC0.1 found **zero** production readers of either |
 | AC2 scheduler-perturbation determinism guard | ▢ | | | |
 | AC3 converge body/reaction authority | ▢ | | | `sync_actor_components_from_cluster` 14 refs |
 | AC4 complete prepared character bodies | ▢ | | | |
@@ -412,6 +412,39 @@ debug/test-only
 Record the real production readers in this plan or the active run ledger.
 
 If there are zero real consumers, AC1 deletes the component.
+
+### ✔ AC0.1 RESULT, recomputed against HEAD 2026-08-13 (54 references, **0 real readers**)
+
+⛔ **both components are write-only.** Every reference is one of: the definition,
+a snapshot impl, a rollback registration, a bundle field, a construction site, a
+per-frame write-sync, a reset, a re-export, or a test. Nothing in production ever
+reads the value back.
+
+| Category | `ActorIntent` | `ActorCooldowns` | Sites |
+|---|---:|---:|---|
+| definition + accessors | 4 | 2 | `ambition_combat::components::actors` |
+| snapshot impl + rollback registration | 3 | 2 | `snapshot_impls.rs`, `rollback/domains/combat.rs` (`actor.intent`, `actor.cooldowns`) |
+| bundle field + construction | 6 | 6 | `actor_bundles.rs`, `actors/conversion.rs`, `bosses/sync.rs` |
+| per-frame write-sync | 6 | 6 | `actors/update.rs` (incl. `sync_actor_components_from_cluster`), `bosses/sync.rs` |
+| reset / damage / aggression / save maintenance | 4 | 4 | `reset.rs`, `damage/mod.rs`, `aggression.rs`, `save_sync.rs` |
+| re-export / import plumbing | 3 | 3 | `features/mod.rs` |
+| test-only | 2 | 3 | `spawn/tests.rs` |
+| **real production read** | **0** | **0** | — |
+
+⭐ **the doc comments claim consumers that do not exist.** `ActorIntent`'s says it
+exists *"so rendering and HUD systems can branch on actor state"*; no rendering or
+HUD system mentions it. Its `is_dangerous()` accessor is called from exactly one
+place — its own body — and a comment in `features/enemies/integration.rs:96`
+already recorded the finding: *"`is_dangerous()` has no gameplay caller."*
+`ActorCooldowns`' two fields are read only by `spawn/tests.rs`; every other
+`attack_cooldown`/`respawn_timer` in the tree belongs to a different type
+(`enemy.status`, the boss behaviour config).
+
+⚠ **neither is exported by the public facade**, so ADR 0031 raises no external
+consumer. Deleting them removes two rows from
+`game/ambition_app/tests/rollback_schema_baseline.txt` (`actor.intent`,
+`actor.cooldowns`) and bumps the schema version — which Jon's 2026-08-08 ruling
+makes a non-event: the wire format is unstable by policy.
 
 If a real consumer exists, identify the actual authority it needs. Migrate that consumer first; preserving the mirror is not the default answer.
 

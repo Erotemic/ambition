@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **5 open** (recounted 2026-08-13; D68 reopened)
+## ⇥ INDEX — **7 open** (recounted 2026-08-13; D68 reopened; +`unarmed_melee` and the three acceptance-signal castings)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -2479,3 +2479,75 @@ choosing it.
 
 ⭐ **what does NOT need the answer**: the ratchets keep counting either way, and
 every character that authors moves for its own sake still removes an adopter.
+
+---
+
+## The three castings that delete `character_archetypes.ron` (D96 1, 3, 3b)
+
+**These three are the campaign's acceptance signal.** `worlds::tests::what_still_needs_an_archetype_row`
+rebuilds every placement's resolution against an EMPTY roster and reports exactly
+four things that stop resolving: these three, plus `large_brute`, which already
+has its own write-up above ("Who is the goblin lab's HEAVY?").
+
+⭐ **with no archetype table at all, every other enemy placement in all four
+worlds builds as a character.** The two surviving rows exist only for these:
+`combatant` is what the three `OPEN_CASTING` waivers borrow, and `medium_striker`
+survives only because one placement names it.
+
+⚠ **each is a yes/no, not an essay.** The evidence below is what the code already
+says; the recommendation is what it points at. Saying "no, it's something else"
+is a complete answer.
+
+### 1. What IS a `small_lurker`? — the Gradient Sentinel's cascade
+
+* **Who casts it**: `GRADIENT_CASCADE_MINION_ARCHETYPE`, 2 per cast, spawned at
+  the top of the arena (y=80) with half-size **(15, 20)**.
+* **What the code already calls them**: the technique's own design note reads
+  *"`gradient_cascade` → spawn N **\"slop\" minions** (small_lurker) at the top of
+  the arena on strike edge."*
+* ⇒ **recommendation: `npc_ai_slop`.** It is a registered, body-complete
+  character, and the boss's own notes have been calling its minions "slop" the
+  whole time. ⚠ **this is exactly the "convenient neighbour" the constant's doc
+  warns against re-pointing at silently** — which is why it is a question here
+  rather than a commit.
+* ⚠ **its sibling is already cast**: `MINIMA_TRAP_MINION_ARCHETYPE` is
+  `npc_puppy_slug`. One Sentinel summon resolves and one does not.
+
+### 2. What does a `DividingMite` split into? (`SmallSkitter`)
+
+* **Who casts it**: `damage_drops`, two offspring on the parent's death, one to
+  each side, half-size **(15, 20)** — the same body dimensions as the lurker.
+* **What the code says they ARE**: *"The children are plain skitters (NOT
+  dividers), so the split is exactly one level deep."* Fast, small, one level.
+* ⇒ **recommendation: `npc_puppy_slug`.** ⭐ **there is already a precedent and
+  it is Jon-facing**: the proving grounds' placement literally named `pg_skitter`
+  is cast as `npc_puppy_slug` today. A skitter in this game has an answer.
+* ⚠ it is also **the last CamelCase archetype name in shipped content**, so
+  casting it removes the last survivor of the old naming convention.
+
+### 3. What is `under_town_skitter`? — the last placement on the old road
+
+* **Who casts it**: one `EnemySpawn` in `intro.ldtk`'s `under_town_pipes`, and it
+  is **the only namer of the `medium_striker` ROW left in the game**. Casting it
+  deletes that row.
+* ⇒ **two defensible answers, and they differ in what the room is about**:
+  * **`npc_puppy_slug`** — consistent with (2) and with `pg_skitter`; "a skitter
+    is a puppy slug" becomes a rule rather than a coincidence. ⭐ recommended.
+  * **`goblin`** — what `medium_striker` actually paces today, so the room plays
+    identically the day after. ⚠ but then the placement's NAME says skitter and
+    its body says goblin, which is the archetype-era mismatch the campaign is
+    removing.
+* ⚠ note the controller half is unaffected either way: `medium_striker` survives
+  as a shared `autonomous_profiles` POLICY with two adopters. It is only the
+  archetype ROW that dies.
+
+### What makes this yours
+
+Every one is *"which creature is this?"* — content, not migration. The engineering
+is finished and refuses honestly: the waivers are declared by the provider that
+owns them, every summon warns by name with the reason, and the countdown test
+turns red the moment one of these lands so the row it borrowed can be deleted with
+it.
+
+⭐ **what does NOT need the answer**: nothing else in the campaign is waiting on
+the archetype file — it is one file with two rows and no other user.

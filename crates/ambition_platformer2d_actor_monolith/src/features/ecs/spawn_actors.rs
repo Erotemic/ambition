@@ -1364,13 +1364,20 @@ pub(crate) fn spawn_runtime_minion_into(
     // ⭐⭐ **A SUMMON MAY NAME A CHARACTER, AND ONE OF THEM ALWAYS MEANT TO.**
     //
     // ⛔⛔ **THIS CAMPAIGN BROKE A SHIPPED BOSS AND NOTHING SAID SO.** The
-    // Gradient Sentinel summons `"puppy_slug"` (minima trap) and `"small_lurker"`
-    // (gradient cascade). Both archetype rows have been DELETED — the slug
-    // because it became `npc_puppy_slug`, the lurker because a census found it
-    // "PLACED IN ZERO LEVELS". That census counted LDtk placements and could not
-    // see a Rust constant, so `spec_for_brain` has been quietly answering
-    // `combatant` for every minion the boss casts: wrong health, wrong speed,
+    // Gradient Sentinel summons two minions — one from `minima_trap`, one from
+    // `gradient_cascade` — and both named archetype rows that had been DELETED:
+    // the slug because it became `npc_puppy_slug`, the lurker because a census
+    // found it "PLACED IN ZERO LEVELS". That census counted LDtk placements and
+    // could not see a Rust constant, so `spec_for_brain` was quietly answering
+    // `combatant` for every minion the boss cast: wrong health, wrong speed,
     // wrong body, no crawl, no cling.
+    //
+    // ⚠ **ONE OF THE TWO IS FIXED and this comment said otherwise** (corrected
+    // 2026-08-13). `MINIMA_TRAP_MINION_ARCHETYPE` is `"npc_puppy_slug"` — the
+    // trap's minion is cast. `GRADIENT_CASCADE_MINION_ARCHETYPE` is still
+    // `"small_lurker"`, left pointing at the dead name on purpose because *what
+    // a small lurker IS* is Jon's decision, not a re-point at a convenient
+    // neighbour.
     //
     // ⇒ the id is resolved against the PREPARED CAST first. A summon naming a
     // body-complete character is built from it, by the same constructor the

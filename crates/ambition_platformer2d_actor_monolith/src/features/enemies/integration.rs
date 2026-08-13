@@ -553,9 +553,17 @@ impl<'a> ActorMut<'a> {
         // Skipped entirely for a corpse whose policy forbids a room-scoped
         // return, so it is never briefly alive (see the doc comment).
         if !stays_dead {
+            // ⭐ **ITS OWN POOL, UNDER ITS OWN POLICY** (AC6.2). This read
+            // `tuning.max_health` and dropped the result into a plain
+            // `BodyHealth::new`, which also resets the DEATH POLICY to the
+            // default — so a body playing under `Unbounded` came back under
+            // `HpDepleted`, the exact substitution `BodyHealth::restored`'s doc
+            // was written about. The pool and the policy are both this
+            // component's, and a respawn changes neither.
             *self.health = ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(self.config.tuning.max_health),
-            );
+                ambition_characters::actor::Health::new(self.health.max()),
+            )
+            .with_policy(self.health.policy());
         }
         *self.attack = BodyMelee::default();
         self.status.respawn_timer = 0.0;

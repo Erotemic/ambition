@@ -322,7 +322,7 @@ pub(crate) fn apply_actor_hit(
             || (matches!(
                 resolution,
                 crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
-            ) && em.config.tuning.death_policy.kills_at_max());
+            ) && em.health.policy().kills_at_max());
         if should_bark && !killed {
             // Catalog-first: the actor seed carries the stable authored
             // character id through spawn. Display names remain presentation and

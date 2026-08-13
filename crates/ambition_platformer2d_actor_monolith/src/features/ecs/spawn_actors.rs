@@ -878,7 +878,6 @@ const BOSS_FLIGHT_SPEED: f32 = 1200.0;
 fn boss_actor_cluster(
     config: &BossConfig,
     kin: &BodyKinematics,
-    hp_max: i32,
 ) -> (
     super::actor_clusters::ActorStatus,
     super::actor_clusters::ActorConfig,
@@ -908,7 +907,6 @@ fn boss_actor_cluster(
     // (`sync_boss_strike_hitboxes`), so `is_hostile` (actor melee) stays off.
     let body_damage = config.behavior.body_damage;
     let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-        max_health: hp_max,
         chase_speed: BOSS_FLIGHT_SPEED,
         max_run_speed: BOSS_FLIGHT_SPEED,
         is_aerial: true,
@@ -1095,7 +1093,11 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // every other actor does (built here BEFORE the scratch is consumed), so the
     // shared body pipeline can integrate it (AS4). Kin/HP are NOT in this bundle —
     // the boss owns those directly (§A1).
-    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin, boss.health.max());
+    // ⭐ **the pool is NOT passed in** (AC6.2). It was — as `boss.health.max()`,
+    // to fill an `ActorTuning::max_health` that the boss's own `BodyHealth`
+    // already held. The boss owns its health directly (§A1); handing it a copy
+    // of its own number was the duplicate this slice removes.
+    let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin);
     // The boss's coarse render/composite footprint (R1.1 envelope split): the
     // body-generic `BodyEnvelope` the ONE shared integrator publishes the
     // `CenteredAabb` from, so the boss no longer needs a bespoke render-sized

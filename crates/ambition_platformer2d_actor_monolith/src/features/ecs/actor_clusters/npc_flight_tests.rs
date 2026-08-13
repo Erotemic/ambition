@@ -104,11 +104,12 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
         Some(&cast_saying_with(None, 225.0, Some(9))),
         Some("npc_test_flyer"),
     );
-    let tuning = &seed.config.tuning;
     assert_eq!(
-        tuning.max_health, 9,
+        seed.health.max(),
+        9,
         "the character's vitals, not the road's 1"
     );
+    let tuning = &seed.config.tuning;
     assert_eq!(
         seed.health.health.max, 9,
         "and the POOL is the same number — it was a second literal `1` written \
@@ -181,15 +182,17 @@ fn an_unmigrated_character_still_gets_the_roads_defaults() {
     // all. What this test still pins is that an unmigrated character reaches the
     // ROAD's answer rather than one of its own.
     use ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH;
-    let tuning = seed_for(Some(&bare), Some("npc_test_flyer")).config.tuning;
-    assert_eq!(tuning.max_health, DEFAULT_UNAUTHORED_BODY_HEALTH);
+    let bare_seed = seed_for(Some(&bare), Some("npc_test_flyer"));
+    assert_eq!(bare_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);
+    let tuning = bare_seed.config.tuning;
     assert_eq!(
         tuning.max_run_speed,
         ambition_platformer2d_core::MAX_RUN_SPEED
     );
 
-    let none = seed_for(None, None).config.tuning;
-    assert_eq!(none.max_health, DEFAULT_UNAUTHORED_BODY_HEALTH);
+    let none_seed = seed_for(None, None);
+    assert_eq!(none_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);
+    let none = none_seed.config.tuning;
     assert_eq!(
         none.max_run_speed,
         ambition_platformer2d_core::MAX_RUN_SPEED

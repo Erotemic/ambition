@@ -413,10 +413,11 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         id: "villager".into(),
         name: "Villager".into(),
         tuning: crate::features::ecs::actor_tuning::ActorTuning {
-            // ⭐ deliberately NOT the generic peaceful seed (`max_health: 1`,
-            // `max_run_speed: MAX_RUN_SPEED`): these are the body its character
-            // built, and a controller change must leave them alone.
-            max_health: 7,
+            // ⭐ deliberately NOT the generic peaceful seed
+            // (`max_run_speed: MAX_RUN_SPEED`): this is the body its character
+            // built, and a controller change must leave it alone. ⚠ the pool
+            // that stood beside it left with `ActorTuning::max_health` (AC6.2)
+            // — it is `BodyHealth`'s, and the entity below carries one.
             max_run_speed: 91.0,
             ..Default::default()
         },
@@ -521,9 +522,9 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
 
 /// **A CONTROLLER CHANGE IS NOT A BODY CHANGE.**
 ///
-/// ⛔ `apply_catalog_mode` reconstructs the generic peaceful-NPC seed — health
-/// 1, `MAX_RUN_SPEED`, default capabilities. That is right for a catalog NPC
-/// whose body IS that seed, and over a character-authored body it is a silent
+/// ⛔ `apply_catalog_mode` reconstructs the generic peaceful-NPC seed —
+/// `MAX_RUN_SPEED`, default capabilities. That is right for a catalog NPC whose
+/// body IS that seed, and over a character-authored body it is a silent
 /// downgrade wearing a release.
 #[test]
 fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
@@ -537,8 +538,14 @@ fn releasing_a_character_first_body_leaves_the_body_its_character_built() {
     );
     app.update();
 
+    // ⛔ **THE POOL HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It asserted
+    // that `tuning.max_health` survived the release, because `apply_catalog_mode`
+    // copies a whole projected `ActorTuning` over the live one — and that copy
+    // never touched `BodyHealth`, so the number it preserved was a mirror rather
+    // than the body's pool. `ActorTuning` states no pool now, so a controller
+    // change has nothing to downgrade: the run speed below is the surviving
+    // number this road can still get wrong.
     let tuning = &app.world().get::<ActorConfig>(e).unwrap().tuning;
-    assert_eq!(tuning.max_health, 7, "its character's health pool survives");
     assert_eq!(
         tuning.max_run_speed, 91.0,
         "and its character's top speed — a released villager does not come \

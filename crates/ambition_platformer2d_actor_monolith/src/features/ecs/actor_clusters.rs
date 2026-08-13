@@ -595,11 +595,15 @@ impl ActorClusterSeed {
         let authored_body = character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.body_blueprint().ok());
+        // **The pool this body spawns with**, held as a local because
+        // `BodyHealth` is the only thing that keeps it (AC6.2): `ActorTuning`
+        // carried a `max_health` beside it, and the two were written
+        // independently.
+        let max_health = authored_body.as_ref().map_or(
+            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+            |body| body.max_health,
+        );
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            max_health: authored_body.as_ref().map_or(
-                ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
-                |body| body.max_health,
-            ),
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             max_run_speed: authored_body
@@ -690,14 +694,15 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            // ⛔ **`tuning.max_health`, not a second literal `1`.** These two
-            // were written independently and both said one, so they agreed by
-            // coincidence — and the moment the tuning learned to ask the
-            // character, the POOL would still have been one. A body claiming a
-            // maximum it does not have is the same fact stated twice, which is
-            // the defect this campaign exists to remove.
+            // ⭐ **THE POOL HAS ONE OWNER** (AC6.2). This read `tuning.max_health`
+            // — itself introduced (P1.10) to stop a second literal `1` written
+            // beside this one from agreeing by coincidence. The fix was right and
+            // one level short: the tuning copy was still a second place the pool
+            // was written down. `BodyHealth` is where a body's health lives, for
+            // the player and for every actor, so it is the only thing that holds
+            // it now.
             health: ambition_characters::actor::BodyHealth::new(
-                ambition_characters::actor::Health::new(tuning.max_health),
+                ambition_characters::actor::Health::new(max_health),
             ),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
@@ -832,7 +837,6 @@ impl ActorClusterSeed {
         // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion.run_speed;
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
-            max_health,
             // ⭐ **the PROFILE's pacing against the BODY's top speed** — §4.7's
             // brain→body seam, both halves finally stated by their own
             // authority. These were `run_speed * 0.5` and `run_speed`, hard

@@ -28,7 +28,8 @@ fn revived_by_room_reset(respawn: RespawnPolicy) -> bool {
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     // Kill it the way combat does: drain the damage meter to zero HP.
-    em.health.damage(em.config.tuning.max_health);
+    let pool = em.health.max();
+    em.health.damage(pool);
     assert!(!em.health.alive(), "fixture must start dead");
     em.reset_to_spawn(&mut model);
     em.health.alive()
@@ -75,7 +76,7 @@ fn a_room_reset_restores_a_live_actor_to_full_health_regardless_of_policy() {
         &[],
     );
     seed.config.tuning.respawn = RespawnPolicy::DeadStaysDead;
-    let max = seed.config.tuning.max_health;
+    let max = seed.health.max();
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     em.health.damage(1);

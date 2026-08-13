@@ -221,10 +221,6 @@ pub(crate) fn peaceful_config(
         .and_then(|cid| prepared.and_then(|registry| registry.get(cid)))
         .and_then(|prepared| prepared.body_blueprint().ok());
     let tuning = ActorTuning {
-        max_health: authored_body.as_ref().map_or(
-            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
-            |body| body.max_health,
-        ),
         // ⚠ **STILL FLAT, and that is not an oversight.** How fast a body
         // AMBLES is the controller's fact, not the body's — `new_peaceful_npc_in`
         // hard-codes these two for the same reason. A character authoring
@@ -538,10 +534,14 @@ mod peaceful_body_authority_tests {
              the one its character authored — a silent downgrade wearing a \
              controller change, which is what the provoke side was split to stop"
         );
-        assert_eq!(
-            calmed.tuning.max_health, AUTHORED_HEALTH,
-            "the same, for its health pool"
-        );
+        // ⛔ **THE HEALTH HALF OF THIS TEST IS NOW STRUCTURAL** (AC6.2). It
+        // asserted `calmed.tuning.max_health == AUTHORED_HEALTH`: the projection
+        // restored a pool onto `ActorConfig`, and `apply_catalog_mode` copied the
+        // whole tuning back over the live one. That copy never touched
+        // `BodyHealth`, so the number it restored was a mirror the respawn path
+        // read instead of the body's own pool. The projection has no pool to
+        // state now — a controller change cannot reach a body's health because
+        // there is nothing on this road that carries it.
 
         // ⛔ THE OTHER TERM: a body nobody authored still gets the shared
         // defaults, so this is "ask the character" and not "ask anything".
@@ -559,9 +559,6 @@ mod peaceful_body_authority_tests {
              default, so this projection is now answering for creatures nobody \
              authored"
         );
-        assert_eq!(
-            stranger.tuning.max_health,
-            ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH
-        );
+
     }
 }

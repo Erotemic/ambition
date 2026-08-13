@@ -1,11 +1,18 @@
-//! The actor ARCHETYPE tuning vocabulary (moved out of the combat kit at
-//! E2): per-actor numeric/flag tuning + the generic brain-construction
-//! inputs, authored per archetype (`character_archetypes.ron`) and projected
-//! onto the enemy config component at spawn. Combat reads none of this —
-//! spawn projects the combat-relevant facts onto `CombatTuning` (the legal
-//! actors → combat arrow).
+//! The per-actor tuning vocabulary: numeric/flag facts the runtime loops read
+//! each frame, resolved at spawn and carried on the actor's config component.
+//!
+//! ⛔ **it was the ARCHETYPE tuning vocabulary** — "authored per archetype
+//! (`character_archetypes.ron`) and projected onto the enemy config component at
+//! spawn". There are no archetypes; every value here is resolved from the
+//! body's `CharacterBodyBlueprint`, its `BrainProfile`, or its placement. What
+//! survives of the old sentence is the SHAPE: this is a projection, written once
+//! at construction, and nothing whose previous value affects future simulation
+//! belongs in it.
+//!
+//! Combat reads none of this — spawn projects the combat-relevant facts onto
+//! `CombatTuning` (the legal actors → combat arrow).
 
-use crate::combat::{BodyMovementTuning, DeathPolicy};
+use crate::combat::BodyMovementTuning;
 use ambition_entity_catalog::placements::RespawnPolicy;
 
 /// Per-actor numeric/flag tuning the RUNTIME combat loops read each
@@ -20,8 +27,6 @@ pub struct ActorTuning {
     /// Resolved movement physics for this body (composed from the archetype
     /// hierarchy). The spine reads gravity/run/jump/fall from here, not constants.
     pub movement: BodyMovementTuning,
-    /// Full health pool at spawn / respawn-reset.
-    pub max_health: i32,
     /// Patrol walking speed (px/s).
     pub patrol_speed: f32,
     /// Chase/steering speed (px/s).
@@ -56,10 +61,6 @@ pub struct ActorTuning {
     /// term (`knockback_growth * damage_taken / weight`). `1.0` is the reference body;
     /// the default keeps every un-authored archetype at the reference.
     pub weight: f32,
-    /// How this body's damage meter relates to death (CM1). `HpDepleted`
-    /// (default) dies at pool max; `Unbounded` is smash percent — death comes
-    /// from the blast-zone/OOB gate, not the meter.
-    pub death_policy: DeathPolicy,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
     /// Direct-velocity free-mover: the brain commands an EXACT velocity each tick
@@ -88,7 +89,6 @@ impl Default for ActorTuning {
     fn default() -> Self {
         Self {
             movement: BodyMovementTuning::default(),
-            max_health: 0,
             // `ActorTuning` keeps the DERIVED absolute speeds: this is the
             // body-space projection brains consume, not the authored row.
             patrol_speed: 0.0,
@@ -105,7 +105,6 @@ impl Default for ActorTuning {
             // Reference body: the default tuning must not zero out the growth
             // divisor, and every un-authored archetype dies at pool max.
             weight: 1.0,
-            death_policy: DeathPolicy::default(),
             is_aerial: false,
             flight_direct_velocity: false,
             is_sandbag: false,
@@ -196,86 +195,90 @@ impl ActorTuning {
 mod authority_split_tests {
     use super::*;
 
-    /// **EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY** — campaign
-    /// P2.19, enforced by the compiler rather than by a number in a document.
+    /// **EVERY FIELD OF `ActorTuning` HAS A DECLARED AUTHORITY**, and the
+    /// compiler is what holds it rather than a number in a document.
     ///
-    /// The campaign's central rule is that every migrated fact lands in exactly
-    /// ONE of three authorities: the character definition (what a body IS), the
-    /// controller profile (how a mind drives it), or the placement/session
-    /// ruleset (what is true of this instance here). `ActorTuning` is the legacy
-    /// bag those facts are being split OUT of, so the useful invariant is not
-    /// its size — it is that nothing sits in it unclassified.
+    /// ⭐ **the columns are the CAMPAIGN's six, not the three this test was born
+    /// with** (AC6.2). Its original split — character / controller / placement —
+    /// was the right question for the migration that created it and the wrong
+    /// one for the destination: it had to file `dream_seed` and `ranged_visual`
+    /// under BODY with a note explaining that they are presentation, which is a
+    /// classification admitting it does not fit. The plan's taxonomy has a
+    /// column for them, so they sit in it.
     ///
     /// ⛔⛔ **a COUNT in prose cannot hold this and has now failed three times.**
     /// The acceptance list sized this type at 275 lines; a hand grep on
-    /// 2026-08-13 reported 14 fields and this destructure immediately refuted it
-    /// — there are 20, and `is_sandbag`, which that grep called deleted, is one
-    /// of them. Worse, the campaign row's
-    /// placement/session column named `attacks_player`, which was renamed to
-    /// `is_hostile` — a field nobody could grep for, in a document nobody could
-    /// tell was wrong.
+    /// 2026-08-13 reported 14 fields and this destructure immediately refuted it.
+    /// Worse, the campaign row's placement/session column named `attacks_player`,
+    /// which had been renamed to `is_hostile` — a field nobody could grep for, in
+    /// a document nobody could tell was wrong.
     ///
     /// ⭐ **an exhaustive destructure does not rot.** Add a field and this stops
     /// COMPILING until somebody puts it in a column; remove one and the same.
     /// There is no number to edit and no census to redo.
     #[test]
-    fn every_tuning_field_belongs_to_one_of_the_three_authorities() {
+    fn every_tuning_field_belongs_to_one_of_the_campaigns_authorities() {
         let ActorTuning {
-            // ── BODY (13) — intrinsic, belongs on the `CharacterDefinition` ──
+            // ── REUSABLE CHARACTER FACT — what this body IS ─────────────────
             movement: _,
-            max_health: _,
             max_run_speed: _,
             contact_strength: _,
             damage_amount: _,
+            body_contact_damage: _,
             surface_walker: _,
             cling_breaks_on_hit: _,
             weight: _,
             is_aerial: _,
             flight_direct_velocity: _,
-            body_contact_damage: _,
-            // ⚠ **PRESENTATION, riding in a gameplay bag.** Neither is a fact
-            // about how the body behaves — `dream_seed` is a visual jitter pass
-            // and `ranged_visual` names the art its shot wears. They are filed
-            // under BODY because a body is what they are a projection OF, and
-            // they leave with it; the campaign's rule is one authority per fact,
-            // and presentation observing a body is not a fourth one.
-            dream_seed: _,
-            ranged_visual: _,
-            // ── CONTROLLER (0) — how a mind paces the body ──────────────────
+            // ── CONTROLLER POLICY, RESOLVED AGAINST THE BODY ────────────────
             //
-            // ⭐ **two of these three have ALREADY MOVED and are now DERIVED,**
-            // which is worth saying because the campaign row calls this "the
-            // column that has not moved at all" and I repeated it here before
-            // checking. `ActorClusterSeed` computes
-            // `patrol_speed = run_speed * brain_profile.patrol_effort` and the
-            // same for chase — so the AUTHORITY is `BrainProfile`'s normalized
-            // effort and these two are its resolved projection against a body.
-            // A projection is not a second authority; it is what "one authority"
-            // looks like once something reads it.
+            // ⭐ **both are PROJECTIONS, not a second authority.**
+            // `ActorClusterSeed` computes `patrol_speed = run_speed *
+            // brain_profile.patrol_effort` and the same for chase, so the
+            // authority is `BrainProfile`'s normalized effort and these are what
+            // it looks like once a body has been named. ⛔ `attack_cooldown_mult`
+            // stood here and MOVED to the profile (2026-08-13), which is what
+            // this column's remaining work turned out to be.
             patrol_speed: _,
             chase_speed: _,
-            // ⛔ **`attack_cooldown_mult` USED TO BE HERE and is gone**
-            // (2026-08-13): it moved to `BrainProfile`, which is what this
-            // column's remaining work turned out to be. The column is now empty
-            // — every controller fact `ActorTuning` held is either on the
-            // profile or is the profile's own effort resolved against a body.
-            // ── PLACEMENT / SESSION (4) — true of THIS instance, here ──
+            // ── PLACEMENT / SESSION — true of THIS instance, here ───────────
             //
             // ⚠ `is_hostile` reads as a body fact and is not one: the same
             // creature is ambient wildlife in one room and a threat in another,
             // which is why it left the archetype row.
             is_hostile: _,
             respawn: _,
-            death_policy: _,
             // ⚠ `is_sandbag` is the one genuinely ARGUABLE entry. It reads as a
             // body fact ("this creature is a training dummy") and behaves as a
             // session one: excluded from slot pressure and from save
             // persistence. It is filed here because both consequences are about
-            // how the SESSION treats the instance, and because the character
-            // road already carries the body half under a different name —
-            // `practice_target`, asserted by
-            // `enemy_roster::tests::practice_target_characters_do_not_strike_back`.
+            // how the SESSION treats the instance, and because the body half is
+            // already carried elsewhere under a truer name —
+            // `CharacterDefinition::practice_target`, projected onto
+            // `BodyCombat::training_dummy` at construction.
             is_sandbag: _,
+            // ── PRESENTATION ────────────────────────────────────────────────
+            //
+            // Neither is a fact about how the body behaves: `dream_seed` is a
+            // visual jitter pass and `ranged_visual` names the art its shot
+            // wears. They rode in a gameplay bag because they were authored on
+            // the same archetype row as the gameplay numbers.
+            dream_seed: _,
+            ranged_visual: _,
+            // ── RUNTIME HISTORY — DELIBERATELY EMPTY ────────────────────────
+            //
+            // ⛔ nothing whose PREVIOUS value can affect future simulation may
+            // live here. Reaction history is `BodyCombat`'s and rewinds with it;
+            // a timer added to this type would be state that does not.
+            // ── OBSOLETE / DEAD — empty, and it is checked ──────────────────
+            //
+            // ⛔⛔ `max_health` and `death_policy` WERE HERE and left for
+            // `BodyHealth` (AC6.2), which already carried both for every body
+            // including the player. The pool copy was written independently at
+            // three construction sites; the policy copy was never set to anything
+            // but the default, while the match road set the real one on
+            // `BodyHealth` — so the actor damage gate asked the copy and could
+            // read `HpDepleted` for a fighter playing under `Unbounded`.
         } = ActorTuning::default();
 
         // The destructure above is the assertion. This one only states the

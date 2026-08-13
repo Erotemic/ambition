@@ -393,6 +393,16 @@ autonomous_reconcile                1045
    most of its traffic, not the tail**, which is the opposite of the enemy road
    and worth knowing before starting.
 
+   ⇥ ⭐⭐ **AND THE POPULATION IS 26 OF 163, NOT 163** (measured 2026-08-13,
+   `the_npc_placements_a_character_first_road_would_build_only_grow`). The item
+   sizes itself by construction SITES (29 — the plumbing); this is the traffic.
+   Of the shipped `NpcSpawn` placements, **54 name a registered character and 26
+   name a body-complete one**, across 21 ids — `goblin`, both mites, the gnu and
+   its hands, the slug, the parrot, the raiders, both robots, `sandbag`, the
+   PCAs, the snakes. ⇒ **a migration that touches 26 enumerable placements is a
+   different bet from one that touches 163**, and it is testable placement by
+   placement.
+
    ⇥ ⛔⛔ **AND THE CAMPAIGN HAS ALREADY PAID FOR THIS EXACT SHAPE ONCE.** P2.20
    records why it was not attempted blind: *"it changes what provocation produces
    for ~144 Hall characters, and the ~100-NPC regression this campaign already

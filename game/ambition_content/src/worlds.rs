@@ -374,6 +374,99 @@ mod tests {
         );
     }
 
+    /// **HOW MANY NPC PLACEMENTS A CHARACTER-FIRST ROAD WOULD ACTUALLY CHANGE** —
+    /// checklist items 6 and 7, which had no number.
+    ///
+    /// The item calls the NPC road *"wide, mechanical, wants its own slice"* and
+    /// sizes it by construction SITES (29). That is the plumbing. This is the
+    /// population: of the shipped `NpcSpawn` placements, how many name a
+    /// character the road could build a body FROM?
+    ///
+    /// ⭐ **26 of 163 — 16%, not a blanket change**, and that matters because
+    /// P2.20 records the campaign already paying for a ~100-NPC regression from
+    /// "exactly that shape of blanket change". A migration that touches 26
+    /// enumerable placements is a different bet from one that touches 163.
+    ///
+    /// ⚠ **the fallback still carries the trunk** — 137 placements keep today's
+    /// construction, because their character is unregistered (109) or registered
+    /// without a body (28). That is the opposite of the enemy road, where the
+    /// fallback carries the tail, and it is why this wants its own slice.
+    ///
+    /// ⇒ **a FLOOR, so the number only grows**: every character that becomes
+    /// body-complete moves placements from the fallback onto the character-first
+    /// road, and this says so instead of somebody re-running the census.
+    #[test]
+    fn the_npc_placements_a_character_first_road_would_build_only_grow() {
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>()
+            .clone();
+
+        let manifest = world_manifest();
+        let project = LdtkProject::load_default_for_dev(&manifest).expect("worlds load");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("worlds compose");
+
+        use ambition_entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+        let (mut total, mut registered, mut complete) = (0usize, 0usize, 0usize);
+        let mut complete_ids: std::collections::BTreeSet<String> = Default::default();
+        for room in &room_set.rooms {
+            for placement in &room.placements {
+                let PlacementSchema::Interactable(spec) = &placement.schema else {
+                    continue;
+                };
+                let InteractionKindSpec::Npc { character_id, .. } = &spec.kind else {
+                    continue;
+                };
+                total += 1;
+                let Some(cid) = character_id.as_deref() else {
+                    continue;
+                };
+                let Some(def) = prepared.get(cid) else {
+                    continue;
+                };
+                registered += 1;
+                if def.body_blueprint().is_ok() {
+                    complete += 1;
+                    complete_ids.insert(cid.to_string());
+                }
+            }
+        }
+        assert!(
+            total > 100,
+            "only {total} NPC placements were walked, so this census is not \
+             seeing the shipped worlds and any number below is meaningless"
+        );
+        assert!(
+            complete >= 26,
+            "only {complete} of {total} NPC placements name a body-complete \
+             character, and it was 26 on 2026-08-13. This number is a FLOOR: a \
+             character becoming body-complete moves its placements onto the \
+             character-first road, so it does not fall. Complete: \
+             {complete_ids:?}"
+        );
+        assert!(
+            complete < total,
+            "every NPC placement now names a body-complete character ({total} of \
+             {total}) — the fallback road has no traffic left, so checklist item \
+             6 is a deletion rather than a migration, and this ratchet goes with it"
+        );
+        assert!(
+            registered > complete,
+            "every REGISTERED NPC character is body-complete, so \
+             `body_blueprint` has stopped distinguishing — {registered} \
+             registered, {complete} complete"
+        );
+    }
+
     /// **WHO IS STILL RIDING THE DISPLAY-NAME ROAD** — the measurement that
     /// sizes checklist item 15, kept as an exact set rather than a count.
     ///

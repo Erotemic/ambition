@@ -58,7 +58,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         boss_body,
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         ambition_platformer2d_actor_monolith::features::boss_component_snapshot(
             boss.as_ref(),
             &ambition_characters::brain::BossAttackState::default(),
@@ -75,7 +75,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         CenteredAabb::from_aabb(boss_body),
         boss.into_components(),
         ambition_characters::brain::BossAttackState::default(),
-        (identity, disposition, combat, intent, cooldowns),
+        (identity, disposition, combat),
     ));
     app.add_systems(Update, rebuild_feature_view_index);
     app.update();

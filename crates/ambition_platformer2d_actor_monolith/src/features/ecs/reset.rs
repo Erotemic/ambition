@@ -54,8 +54,6 @@ pub fn reset_ecs_room_features(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             &mut ActorAggression,
             Option<&ActorInteraction>,
             &mut crate::features::MotionModel,
@@ -166,8 +164,6 @@ pub fn reset_ecs_room_features(
         mut identity,
         mut disposition,
         mut combat,
-        mut intent,
-        mut cooldowns,
         mut aggression,
         interaction,
         mut motion_model,
@@ -206,8 +202,6 @@ pub fn reset_ecs_room_features(
             in_a_fight,
             &mut identity,
             &mut combat,
-            &mut intent,
-            &mut cooldowns,
         );
     }
     for (

@@ -41,8 +41,6 @@ pub fn actor_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyCombat,
-    ActorIntent,
-    ActorCooldowns,
 ) {
     // A freshly-seeded body has no damage-blink; the reaction timers (hit_flash /
     // i-frame) live on the spawned `BodyCombat` and start at 0.
@@ -62,11 +60,6 @@ pub fn actor_component_snapshot(
             .with_sprite_override(seed.config.sprite_override_npc_name.clone()),
         disposition,
         combat,
-        ActorIntent::new(seed.status.ai_mode),
-        ActorCooldowns {
-            attack_cooldown: seed.attack.cooldown,
-            respawn_timer: seed.status.respawn_timer,
-        },
     )
 }
 
@@ -77,8 +70,6 @@ pub fn enemy_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyCombat,
-    ActorIntent,
-    ActorCooldowns,
 ) {
     actor_component_snapshot(enemy, ActorDisposition::Hostile)
 }

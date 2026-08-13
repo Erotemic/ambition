@@ -119,7 +119,7 @@ fn spawn_victory_npc_entity(
         interactable: interactable.clone(),
         talk_radius: ambition_platformer2d_actor_monolith::features::NPC_TALK_RADIUS,
     };
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         ambition_platformer2d_actor_monolith::features::actor_component_snapshot(
             &seed,
             ambition_platformer2d_actor_monolith::features::ActorDisposition::Peaceful,
@@ -147,8 +147,6 @@ fn spawn_victory_npc_entity(
                 aggression:
                     ambition_platformer2d_actor_monolith::features::ActorAggression::passive(),
                 combat,
-                intent,
-                cooldowns,
                 damageable_volumes: DamageableVolumes::default(),
                 pogo_policy: PogoPolicy::FromDamageable,
                 pogo_target_volumes: PogoTargetVolumes::default(),

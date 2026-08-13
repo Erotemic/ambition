@@ -45,7 +45,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
     );
     enemy.health =
         ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
-    let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
+    let (identity, disposition, combat) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -60,8 +60,6 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             identity,
             disposition,
             combat,
-            intent,
-            cooldowns,
         ))
         .id()
 }
@@ -519,7 +517,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
         &interactable,
         &[],
     );
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         crate::features::ecs::actors::actor_component_snapshot(
             &seed,
             crate::features::ActorDisposition::Peaceful,
@@ -549,8 +547,6 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
             identity,
             disposition,
             combat,
-            intent,
-            cooldowns,
         ))
         .id();
     app.world_mut()
@@ -1234,7 +1230,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
     // movement capability gates whether the pipeline RAISES the guard; the
     // resolver itself only reads the resulting `shield.active`.)
     enemy.body.0.shield.active = shield_raised;
-    let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
+    let (identity, disposition, combat) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
             FeatureSimEntity,
@@ -1245,8 +1241,6 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             identity,
             disposition,
             combat,
-            intent,
-            cooldowns,
         ))
         .id()
 }

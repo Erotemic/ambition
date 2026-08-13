@@ -131,8 +131,6 @@ pub struct EnemyActorBundle {
     // Health (`BodyHealth`) spawns with the actor CLUSTER (`into_components`), the
     // one health authority — not on this combat bundle.
     pub combat: BodyCombat,
-    pub intent: ActorIntent,
-    pub cooldowns: ActorCooldowns,
     pub damageable_volumes: DamageableVolumes,
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
@@ -163,8 +161,6 @@ impl EnemyActorBundle {
         combat_kit: CombatKit,
         aggression: ActorAggression,
         combat: BodyCombat,
-        intent: ActorIntent,
-        cooldowns: ActorCooldowns,
     ) -> Self {
         Self {
             base,
@@ -177,8 +173,6 @@ impl EnemyActorBundle {
             combat_kit,
             aggression,
             combat,
-            intent,
-            cooldowns,
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,
             pogo_target_volumes: PogoTargetVolumes::default(),

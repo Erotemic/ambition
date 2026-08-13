@@ -44,7 +44,7 @@ fn spawn_actor_from_seed(
     interactable: ambition_interaction::Interactable,
     strikes: i32,
 ) -> bevy::prelude::Entity {
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         super::super::actors::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     // Provoke accumulator lives on `ActorAggression` now.
     let aggression = ActorAggression {
@@ -70,8 +70,6 @@ fn spawn_actor_from_seed(
             identity,
             disposition,
             combat,
-            intent,
-            cooldowns,
         ))
         .id()
 }

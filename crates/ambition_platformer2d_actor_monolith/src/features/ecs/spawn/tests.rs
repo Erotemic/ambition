@@ -6,7 +6,7 @@ use super::super::spawn_actors::spawn_boss_with_overrides_into;
 use super::*;
 use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::{
-    ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
+    ActorAggression, ActorConfig, ActorDisposition, ActorIdentity,
     AggressionMode, CombatKit,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth};
@@ -298,12 +298,10 @@ fn boss_spawn_attaches_brain_components() {
         &ActorDisposition,
         &BodyHealth,
         &BodyCombat,
-        &ActorIntent,
-        &ActorCooldowns,
         &CombatKit,
         &ActorAggression,
     )>();
-    let (identity, disposition, health, combat, intent, cooldowns, kit, aggression) = shared_q
+    let (identity, disposition, health, combat, kit, aggression) = shared_q
         .iter(app.world())
         .next()
         .expect("boss shared components");
@@ -311,11 +309,6 @@ fn boss_spawn_attaches_brain_components() {
     assert_eq!(*disposition, ActorDisposition::Hostile);
     assert!(health.alive());
     assert!(combat.alive);
-    assert_eq!(
-        intent.mode(),
-        ambition_characters::actor::ai::CharacterAiMode::Chase
-    );
-    assert_eq!(cooldowns.attack_cooldown, 0.0);
     assert!(kit.can_ranged(None));
     assert_eq!(aggression.mode, AggressionMode::Hostile);
 }

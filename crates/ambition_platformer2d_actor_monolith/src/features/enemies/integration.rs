@@ -90,11 +90,19 @@ fn evaluate_enemy_ai_output(
     //
     // ⚠⚠ **AND THIS WHOLE FUNCTION IS A READ-MODEL, which is worth stating
     // because the first version of this note got the consequence wrong.** Its
-    // output goes to `ActorStatus::ai_mode` and nowhere else, and `ai_mode`'s only
-    // readers are `ActorIntent` — whose own doc says it exists "so rendering and
-    // HUD systems can branch on actor state" — and the rollback snapshot.
-    // `is_dangerous()` has no gameplay caller. What a body actually chases is
-    // decided by its BRAIN from the same `BrainProfile`, not here.
+    // output goes to `ActorStatus::ai_mode` and nowhere else, and `ai_mode` now
+    // has exactly ONE reader left: the rollback snapshot. ⭐ **AC1 deleted the
+    // other one.** `ActorIntent` was the component this fed — the one whose doc
+    // claimed it existed "so rendering and HUD systems can branch on actor
+    // state", which no rendering or HUD system ever did — and it is gone, along
+    // with `is_dangerous()`, which never had a gameplay caller. What a body
+    // actually chases is decided by its BRAIN from the same `BrainProfile`, not
+    // here.
+    //
+    // ⇒ **so `ai_mode` itself is now a candidate for the same treatment**: a
+    // field computed every frame and snapshotted for rollback, with no consumer
+    // that reads it back. Left standing because it is `ActorStatus`'s to remove
+    // and this campaign takes that up at AC3/AC6, not because it is justified.
     //
     // ⇒ so the arm did not make a provoked body fail to notice anybody; it made
     // the HUD say `Idle` about a body its brain was chasing with. That is still a

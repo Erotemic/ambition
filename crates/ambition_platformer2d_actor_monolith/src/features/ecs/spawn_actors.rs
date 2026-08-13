@@ -522,8 +522,7 @@ impl EnemyActorSpawnPlan {
     ) {
         let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
-        let (identity, disposition, combat, intent, cooldowns) =
-            enemy_component_snapshot(&self.enemy);
+        let (identity, disposition, combat) = enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         let entity = commands
             .insert_session_scoped(
@@ -548,8 +547,6 @@ impl EnemyActorSpawnPlan {
                         self.combat_kit,
                         self.aggression,
                         combat,
-                        intent,
-                        cooldowns,
                     )
                     .with_motion_model(motion_model),
                     cluster_bundle,
@@ -816,7 +813,7 @@ impl NpcActorSpawnPlan {
             interactable: self.interactable,
             talk_radius: super::super::npcs::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, combat, intent, cooldowns) =
+        let (identity, disposition, combat) =
             super::actors::actor_component_snapshot(&self.seed, super::ActorDisposition::Peaceful);
         // Uniform melee subsumption (§A1/§3a): a peaceful NPC carries its combat
         // kit's melee as body CAPABILITY (for possession / provocation), so fold it
@@ -850,8 +847,6 @@ impl NpcActorSpawnPlan {
                     self.combat_kit,
                     self.aggression,
                     combat,
-                    intent,
-                    cooldowns,
                 )
                 .with_motion_model(motion_model),
                 cluster_bundle,
@@ -1148,7 +1143,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     let boss_combat_kit = CombatKit::from_action_set(&boss_action_set);
     // §A1: the boss's `BodyHealth` HP authority spawns from the scratch
     // (`into_components` below); the snapshot builds only the read-models.
-    let (boss_identity, boss_disposition, boss_combat, boss_intent, boss_cooldowns) =
+    let (boss_identity, boss_disposition, boss_combat) =
         boss_component_snapshot(
             boss.as_ref(),
             &ambition_characters::brain::BossAttackState::default(),
@@ -1205,8 +1200,6 @@ pub(crate) fn spawn_boss_with_overrides_into(
         boss_identity,
         boss_disposition,
         boss_combat,
-        boss_intent,
-        boss_cooldowns,
         boss_combat_kit,
         ActorAggression::hostile(),
     ));

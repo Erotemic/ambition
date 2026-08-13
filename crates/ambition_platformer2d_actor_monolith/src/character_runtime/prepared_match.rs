@@ -1129,7 +1129,7 @@ fn realize_seat(
     // cross-model change preserves every shared body fact and initializes only
     // the destination solver's private state.
     let motion_model = seed.config.tuning.motion_model();
-    let (identity, _seed_disposition, combat, intent, cooldowns) =
+    let (identity, _seed_disposition, combat) =
         crate::features::ecs::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition
     // the seed derives follows the authored brain, and a local-input seat
@@ -1222,8 +1222,6 @@ fn realize_seat(
                     combat_kit,
                     crate::features::ActorAggression::hostile(),
                     combat,
-                    intent,
-                    cooldowns,
                 )
                 .with_motion_model(motion_model),
                 cluster,

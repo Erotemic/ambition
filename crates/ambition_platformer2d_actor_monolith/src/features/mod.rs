@@ -109,7 +109,7 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use npcs::speak_conversation_cut_barks;
 
 pub use components::{
-    ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
+    ActorAggression, ActorDisposition, ActorFaction, ActorIdentity,
     ActorInteraction, ActorPose, ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode,
     AggressionTarget, BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest,
     BreakableFeature, CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes,

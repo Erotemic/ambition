@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v25
+ggrs-rollback-schema-v26
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -20,7 +20,6 @@ actor.charges_projectiles	component-clone	ChargesProjectiles	bevy_ggrs clone sna
 actor.combo_trace	component-canonical	BodyComboTrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.config	component-clone	ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.control	component-canonical	ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.cooldowns	component-canonical	ActorCooldowns	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.death_interlude	component-canonical	DeathInterlude	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -29,7 +28,6 @@ actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; state check
 actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.intent	component-canonical	ActorIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.ledge	component-canonical	BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

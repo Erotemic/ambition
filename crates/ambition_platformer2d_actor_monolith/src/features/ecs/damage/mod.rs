@@ -18,8 +18,8 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_cluster, ActorCooldowns, ActorDisposition, ActorIdentity,
-    ActorIntent, BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
+    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity,
+    BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
     FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
@@ -279,8 +279,6 @@ pub fn apply_feature_hit_events(
             &mut ActorIdentity,
             &ActorDisposition,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             // Provoke accumulator (shared aggression component). `Option` so
             // minimal test fixtures that spawn a bare actor without it still
             // match; production actors always carry it.
@@ -544,8 +542,6 @@ pub fn apply_feature_hit_events(
             mut identity,
             disposition,
             mut combat,
-            mut intent,
-            mut cooldowns,
             mut aggression,
             interaction,
             control,
@@ -639,8 +635,6 @@ pub fn apply_feature_hit_events(
                     active_combatant,
                     &mut identity,
                     &mut combat,
-                    &mut intent,
-                    &mut cooldowns,
                 );
             }
         }

@@ -716,33 +716,6 @@ impl BodyMelee {
     }
 }
 
-/// ECS-visible actor AI intent. Mirrors `ambition_characters::actor::ai::CharacterAiMode` so rendering and
-/// HUD systems can branch on actor state without a per-family runtime.
-/// Synced from the runtime each frame by `update_ecs_actors`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ActorIntent(pub ambition_characters::actor::ai::CharacterAiMode);
-
-impl ActorIntent {
-    pub fn new(mode: ambition_characters::actor::ai::CharacterAiMode) -> Self {
-        Self(mode)
-    }
-    pub fn mode(self) -> ambition_characters::actor::ai::CharacterAiMode {
-        self.0
-    }
-    pub fn is_dangerous(self) -> bool {
-        self.0.is_dangerous()
-    }
-}
-
-/// ECS-visible actor cooldown timers. Exposes timing state that rendering and
-/// encounter systems need without reaching into family-specific runtimes.
-/// Synced from actor/boss runtime state each frame by feature systems.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct ActorCooldowns {
-    pub attack_cooldown: f32,
-    pub respawn_timer: f32,
-}
-
 /// ECS-visible boss pattern timer. Mirrors `BossRuntime::pattern_timer`
 /// so sprite animation systems can read it without accessing `BossFeature`.
 /// Synced from the runtime each frame by `update_ecs_bosses`.

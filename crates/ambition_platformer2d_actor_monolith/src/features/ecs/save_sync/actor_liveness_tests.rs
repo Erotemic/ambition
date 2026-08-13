@@ -34,7 +34,7 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
         &interactable,
         &[],
     );
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         crate::features::actor_component_snapshot(&seed, ActorDisposition::Peaceful);
     app.world_mut()
         .spawn((
@@ -43,8 +43,6 @@ fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
             identity,
             disposition,
             combat,
-            intent,
-            cooldowns,
             ActorAggression::default(),
             CombatKit::default(),
             ActorInteraction {

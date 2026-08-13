@@ -9,8 +9,8 @@
 use bevy::prelude::*;
 
 use super::{
-    sync_actor_components_from_cluster, ActorAggression, ActorCooldowns, ActorDisposition,
-    ActorIdentity, ActorIntent, ActorInteraction, AggressionMode, BodyCombat, CombatKit,
+    sync_actor_components_from_cluster, ActorAggression, ActorDisposition,
+    ActorIdentity, ActorInteraction, AggressionMode, BodyCombat, CombatKit,
     FeatureSimEntity, HeldItem,
 };
 use crate::features::ActorStimulus;
@@ -34,8 +34,6 @@ pub fn apply_actor_stimuli(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             super::actor_clusters::ActorClusterQueryData,
             // Is this body in a fight? A provoked body's read model is rebuilt
             // here, and a combatant keeps its attack state through the rebuild.
@@ -69,8 +67,6 @@ pub fn apply_actor_stimuli(
             mut identity,
             mut disposition,
             mut combat,
-            mut intent,
-            mut cooldowns,
             mut cq,
             in_a_fight,
             worn,
@@ -132,8 +128,6 @@ pub fn apply_actor_stimuli(
             in_a_fight,
             &mut identity,
             &mut combat,
-            &mut intent,
-            &mut cooldowns,
         );
     }
 }

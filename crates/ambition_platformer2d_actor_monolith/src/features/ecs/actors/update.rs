@@ -177,8 +177,6 @@ pub fn tick_actor_brains(
             // to) instead of menacing a corpse.
             &mut ActorDisposition,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             &super::super::super::components::ActorTarget,
             // Brain + ActorControl. The hostile tick runs the brain
             // and writes its `ActorControlFrame` output into
@@ -400,8 +398,6 @@ pub fn tick_actor_brains(
         _,
         disposition,
         _,
-        _,
-        _,
         target,
         _,
         _,
@@ -479,15 +475,13 @@ pub fn tick_actor_brains(
     // snapshot (crowding); movement integration is a separate phase.
     for (
         this_actor_entity,
-        // aabb / identity / intent / cooldowns / mounted belong to the movement +
-        // read-model phases; the query still fetches them (one actor query shape)
-        // but the brain phase reads only its intent inputs.
+        // aabb / identity / mounted belong to the movement + read-model phases;
+        // the query still fetches them (one actor query shape) but the brain
+        // phase reads only its intent inputs.
         _aabb,
         _identity,
         mut disposition,
         mut combat,
-        _intent,
-        _cooldowns,
         target,
         mut brain,
         mut control,
@@ -1346,7 +1340,7 @@ pub fn integrate_sim_bodies(
 
 /// PHASE — sync actor read-model. Mirrors each actor's integrated body state onto
 /// the ECS read-model components consumers read (`ActorIdentity` / `BodyCombat`
-/// presentation fields / `ActorIntent` / `ActorCooldowns`). It changes no control
+/// presentation fields). It changes no control
 /// and moves no body — it only reflects already-integrated state. Runs after
 /// `integrate_actor_bodies`. Disposition is owned by spawn/provoke, so it is read
 /// (to pick peaceful vs hostile combat state) but not written.
@@ -1356,8 +1350,6 @@ pub fn sync_actor_read_model(
             &ActorDisposition,
             &mut ActorIdentity,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
             // Is this body in a fight? A combatant keeps its attack windup and
             // swing timers through the rebuild; `BodyCombat::peaceful` drops
@@ -1377,8 +1369,7 @@ pub fn sync_actor_read_model(
         ),
     >,
 ) {
-    for (disposition, mut identity, mut combat, mut intent, mut cooldowns, clusters, in_a_fight) in
-        &mut actors
+    for (disposition, mut identity, mut combat, clusters, in_a_fight) in &mut actors
     {
         let Some(mut cq) = clusters else {
             continue;
@@ -1390,8 +1381,6 @@ pub fn sync_actor_read_model(
             in_a_fight,
             &mut identity,
             &mut combat,
-            &mut intent,
-            &mut cooldowns,
         );
     }
 }
@@ -1887,8 +1876,6 @@ pub fn sync_actor_components_from_cluster(
     in_a_fight: bool,
     identity: &mut ActorIdentity,
     combat: &mut BodyCombat,
-    intent: &mut ActorIntent,
-    cooldowns: &mut ActorCooldowns,
 ) {
     // Identity is stable after spawn — only rebuild it (which clones the id/name
     // strings AND wakes Bevy change-detection on `ActorIdentity`) when it actually
@@ -1933,11 +1920,6 @@ pub fn sync_actor_components_from_cluster(
     combat.hitstun_timer = hitstun_timer;
     combat.recoil_lock_timer = recoil_lock_timer;
     combat.hitstop_timer = hitstop_timer;
-    *intent = ActorIntent::new(em.status.ai_mode);
-    *cooldowns = ActorCooldowns {
-        attack_cooldown: em.attack.cooldown,
-        respawn_timer: em.status.respawn_timer,
-    };
 }
 
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).

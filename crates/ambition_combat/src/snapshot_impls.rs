@@ -16,7 +16,7 @@ use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u8, put_vec2, Reader,
     SnapshotCursor, SnapshotResolve, SnapshotState,
 };
-use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
+use ambition_platformer2d_core::snapshot_unit_enum;
 
 impl SnapshotState for crate::targeting::MatchTeam {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -112,16 +112,6 @@ impl SnapshotState for crate::stocks::FighterEliminated {
     }
 }
 
-impl SnapshotState for crate::components::ActorIntent {
-    fn encode(&self, out: &mut Vec<u8>) {
-        self.0.encode(out);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::components::ActorIntent(
-            ambition_characters::actor::ai::CharacterAiMode::decode(r)?,
-        ))
-    }
-}
 
 impl SnapshotState for crate::components::BodyEnvelope {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -132,10 +122,6 @@ impl SnapshotState for crate::components::BodyEnvelope {
     }
 }
 
-snapshot_pod!(crate::components::ActorCooldowns {
-    attack_cooldown: f32,
-    respawn_timer: f32,
-});
 
 /// `ActorTarget` is half derived, half state — see its definition-site snapshot story.
 /// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame

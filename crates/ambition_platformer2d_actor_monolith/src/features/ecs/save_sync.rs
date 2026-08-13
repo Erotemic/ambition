@@ -28,8 +28,6 @@ pub fn sync_ecs_actors_with_save(
             &mut ActorIdentity,
             &mut ActorDisposition,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
             &mut ActorAggression,
             &CombatKit,
             Option<&HeldItem>,
@@ -60,8 +58,6 @@ pub fn sync_ecs_actors_with_save(
         mut identity,
         mut disposition,
         mut combat,
-        mut intent,
-        mut cooldowns,
         mut aggression,
         combat_kit,
         held_item,
@@ -121,8 +117,6 @@ pub fn sync_ecs_actors_with_save(
             in_a_fight,
             &mut identity,
             &mut combat,
-            &mut intent,
-            &mut cooldowns,
         );
     }
 }

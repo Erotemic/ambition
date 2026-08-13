@@ -431,7 +431,7 @@ fn spawn_fighter(
     // default is -1, which had both fighters swinging left and produced exactly
     // one hit in a two-attacker exchange.
     seed.kin.facing = facing;
-    let (identity, disposition, combat, intent, cooldowns) =
+    let (identity, disposition, combat) =
         crate::features::ecs::enemy_component_snapshot(&seed);
     app.world_mut()
         .spawn((
@@ -442,7 +442,7 @@ fn spawn_fighter(
                 seed.into_components(),
                 crate::features::MotionModel::default(),
             ),
-            (identity, disposition, combat, intent, cooldowns, faction),
+            (identity, disposition, combat, faction),
             // §7.6 → gameplay: the character's own authored moveset and silhouette
             // are NOT inserted here. `project_prepared_character_definitions` puts
             // them on the body from the registry, which is C3 — the join the plan is

@@ -78,10 +78,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "map.actor_aggression",
     );
-    app.rollback_component_canonical::<ambition_combat::components::ActorCooldowns>(
-        OWNER,
-        "actor.cooldowns",
-    );
     app.rollback_component_canonical::<ambition_combat::targeting::MatchTeam>(
         OWNER,
         "actor.match_team",
@@ -123,10 +119,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.rollback_component_canonical::<ambition_combat::components::ActiveCombatant>(
         OWNER,
         "actor.active_combatant",
-    );
-    app.rollback_component_canonical::<ambition_combat::components::ActorIntent>(
-        OWNER,
-        "actor.intent",
     );
     app.rollback_component_cursor::<ambition_combat::components::ActorTarget>(
         OWNER,

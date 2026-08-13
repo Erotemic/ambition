@@ -21,8 +21,8 @@ pub struct BossSpriteMetricsApplied;
 ///
 /// Bosses still own encounter-specific state through [`BossFeature`] and the
 /// boss encounter registry, but their generic combat shape is now exposed
-/// through the same `ActorIdentity` / `BodyHealth` / `BodyCombat` /
-/// `ActorIntent` components used by NPCs and enemies. This keeps future
+/// through the same `ActorIdentity` / `BodyHealth` / `BodyCombat`
+/// components used by NPCs and enemies. This keeps future
 /// faction, targeting, HUD, and held-item work from needing to pattern-match
 /// directly on `BossFeature` for ordinary combat facts.
 pub fn boss_component_snapshot(
@@ -40,19 +40,8 @@ pub fn boss_component_snapshot(
     ActorIdentity,
     ActorDisposition,
     BodyCombat,
-    ActorIntent,
-    ActorCooldowns,
 ) {
     let alive = health.alive();
-    let mode = if !alive {
-        ambition_characters::actor::ai::CharacterAiMode::Dead
-    } else if attack_state.active_profile.is_some() {
-        ambition_characters::actor::ai::CharacterAiMode::Attack
-    } else if attack_state.telegraph_profile.is_some() {
-        ambition_characters::actor::ai::CharacterAiMode::Telegraph
-    } else {
-        ambition_characters::actor::ai::CharacterAiMode::Chase
-    };
     let mut combat = BodyCombat::hostile(
         alive,
         prev_combat.hit_flash,
@@ -68,8 +57,6 @@ pub fn boss_component_snapshot(
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
         ActorDisposition::Hostile,
         combat,
-        ActorIntent::new(mode),
-        ActorCooldowns::default(),
     )
 }
 
@@ -88,8 +75,6 @@ pub fn sync_boss_actor_components(
             &mut ActorDisposition,
             &BodyHealth,
             &mut BodyCombat,
-            &mut ActorIntent,
-            &mut ActorCooldowns,
         ),
         With<FeatureSimEntity>,
     >,
@@ -103,19 +88,15 @@ pub fn sync_boss_actor_components(
         mut disposition,
         health,
         mut combat,
-        mut intent,
-        mut cooldowns,
     ) in &mut bosses
     {
         // `health` is the boss's HP AUTHORITY now (§A1) — read, never rebuilt.
-        let (next_identity, next_disposition, next_combat, next_intent, next_cooldowns) =
+        let (next_identity, next_disposition, next_combat) =
             boss_component_snapshot(feature.as_boss_ref(), attack_state, &health, &combat);
         *combat_kit = CombatKit::from_action_set(action_set);
         *identity = next_identity;
         *disposition = next_disposition;
         *combat = next_combat;
-        *intent = next_intent;
-        *cooldowns = next_cooldowns;
     }
 }
 

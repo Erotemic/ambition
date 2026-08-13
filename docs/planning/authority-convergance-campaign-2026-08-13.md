@@ -478,6 +478,45 @@ pattern and any player/actor/boss parallel timer maintenance.
 
 This matrix is working evidence and may be deleted/archive-reduced when AC3 closes.
 
+### ✔ AC0.2 RESULT — the `BodyCombat` field-authority matrix, HEAD 2026-08-13
+
+12 fields. Counts are non-test references outside the definition.
+
+| Field | Refs | History affects future sim? | Current authority | Intended authority | AC3 class |
+|---|---:|---|---|---|---|
+| `alive` | 135 | no | mirror, written every frame | `BodyHealth` | **A — delete the mirror** |
+| `attacking` | 9 | no | mirror of `BodyMelee::is_active()` | the semantic melee classifier | **B — delete the mirror** (⛔ NOT by broadening it to `MovePlayback::is_some()`; that is D107's rejected half-fix) |
+| `strike_count` | **0** | no | — | — | **C — DEAD** |
+| `attack_windup_timer` | **0** | no | — | — | **C — DEAD** |
+| `attack_timer` | **0** | no | — | — | **C — DEAD** |
+| `training_dummy` | 2 | no | authored config, carried through the rebuild | authored capability/config | **D — authored fact** |
+| `hit_flash` | 40 | yes (temporal) | body, carried across the rebuild | body | **F — presentation, but rollback-relevant** |
+| `hitstop_timer` | 24 | **yes** | body | body | **E — reaction history** |
+| `landing_lag_timer` | 9 | **yes** | body | body | **E** — ⛔ D108 lives here |
+| `damage_invuln_timer` | 25 | **yes** | body | body | **E** |
+| `hitstun_timer` | 32 | **yes** | body | body | **E** |
+| `recoil_lock_timer` | 25 | **yes** | body | body | **E** |
+
+⛔⛔ **THREE FIELDS ARE ALREADY DEAD AND STILL REWIND.** `strike_count`,
+`attack_windup_timer` and `attack_timer` occur in exactly four places each: the
+struct definition, the rollback snapshot impl (`ambition_characters::snapshot_impls`),
+two exhaustive destructures that bind them to `_`, and one test literal. Nothing
+computes from them. They are the same shape AC1 just deleted, one level down —
+and the destructures are why they were findable at all.
+
+**The save → rebuild → restore site** is `sync_actor_components_from_cluster`
+(`features/ecs/actors/update.rs`), and it is explicit in the source: five reaction
+timers are copied to locals, `*combat` is replaced wholesale by
+`BodyCombat::hostile(..)` / `::peaceful(..)`, and the five are written back.
+`boss_component_snapshot` (`features/ecs/bosses/sync.rs`) does the same thing with
+its own copy of the list. ⇒ **two hand-kept carry lists for one rule**, which is
+exactly the change-amplification AC3's falsifier asks about — and `landing_lag_timer`
+is in NEITHER of them, which is D108.
+
+⚠ **`alive`'s 135 references are not 135 mirror reads.** `.alive` is also
+`BodyHealth::alive()` and several unrelated types' fields; the number sizes the
+grep, not the migration. Classify at the call site.
+
 ## AC0.3 Recompute character completeness
 
 Record:

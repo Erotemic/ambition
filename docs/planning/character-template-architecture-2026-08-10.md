@@ -728,6 +728,20 @@ traps that became RULES. The narrative of how each was found is in the commits.
 * ▢ **`WornCharacter` → universal `CharacterIdentity`.** Blocked, and not by the
   rename: attaching it ENROLS a body in `apply_worn_character_gameplay`, which
   re-derives its kit THROUGH THE CATALOG — phase 2's endpoint arriving early.
+
+  ⇥ ⚠ **THE BLOCKER SHRANK AND DID NOT DISAPPEAR** (re-measured 2026-08-13, and
+  worth stating precisely because the difference decides the size of the job).
+  `apply_worn_character_overlay` now says *"the REGISTRY first, then the catalog,
+  then the id"* and does it — the catalog is a FALLBACK, not the resolver. So a
+  body whose character is registered and body-complete would be enrolled and get
+  the RIGHT answer.
+
+  ⇒ **what is still exposed is the 14 characters that cannot build a body from
+  their own definition** (`the_cast_that_still_needs_a_body_assist_only_shrinks`)
+  — for those the fallback is still what answers, so enrolling everybody hands
+  the catalog's kit to exactly the population D96 items 5 and 8 are about.
+  ⚠ `catalog: Res<CharacterCatalog>` is also still a REQUIRED resource on the
+  system, which is a second, smaller thread.
   ⚠ the render layer is NOT the obstacle; both render systems also gate on
   `PlayerVisual`, which an enemy lacks.
 * ✔ **Preparation no longer consults the catalog** for the profile's namespace

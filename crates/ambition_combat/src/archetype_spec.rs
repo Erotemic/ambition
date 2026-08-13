@@ -330,3 +330,113 @@ pub struct ArchetypeSpec {
     /// Locomotion style for the actor's `ActionSet.move_style`.
     pub move_style: ambition_characters::brain::MoveStyleSpec,
 }
+
+#[cfg(test)]
+mod authority_split_tests {
+    use super::*;
+
+    /// **EVERY FIELD OF `ArchetypeSpec` HAS A DECLARED DESTINATION** — D73's
+    /// central rule, held by the compiler instead of by a document.
+    ///
+    /// The brief's first named failure mode is migrating this type wholesale:
+    /// it holds THREE authorities — intrinsic body, controller policy and
+    /// placement policy — and they must separate. Appendix A classified all 49
+    /// fields on 2026-08-10 and banked it so phase 2 would not re-derive it.
+    /// **A document cannot enforce that, and this can**: add a field to the
+    /// archetype schema and this crate stops compiling until somebody says
+    /// which authority it goes to; remove one and the same.
+    ///
+    /// ⚠ **never called, and that is not a defect.** Exhaustiveness is checked
+    /// when this compiles, so the function needs no instance — which matters,
+    /// because `ArchetypeSpec` has no `Default` and building a real one here
+    /// would make this a fixture that could drift from the schema.
+    ///
+    /// ⭐ **49 fields, and Appendix A's count still holds** (re-asked 2026-08-13,
+    /// by this destructure rather than by counting). The same day, a hand grep
+    /// undercounted the much smaller `ActorTuning` by six.
+    #[allow(dead_code)]
+    fn every_archetype_field_has_a_destination(spec: &ArchetypeSpec) {
+        let ArchetypeSpec {
+            // ── ASSEMBLY MACHINERY (2) — deleted, migrates nowhere ──────────
+            //
+            // Both exist only because the ROSTER exists: `inherits` is
+            // archetype-to-archetype inheritance, which character definitions
+            // replace by referencing reusable profiles, and `movement_resolved`
+            // is `#[serde(skip)]`, filled by the roster's own inheritance pass.
+            inherits: _,
+            movement_resolved: _,
+
+            // ── BODY (29) — intrinsic, belongs on the `CharacterDefinition` ──
+            movement: _,
+            max_health: _,
+            run_speed: _,
+            mass: _,
+            weight: _,
+            default_size: _,
+            surface_walker: _,
+            cling_breaks_on_hit: _,
+            is_aerial: _,
+            can_blink: _,
+            can_fly: _,
+            can_shield: _,
+            can_dash: _,
+            melee: _,
+            ranged: _,
+            held_item: _,
+            signature_move: _,
+            move_style: _,
+            contact_strength: _,
+            damage_amount: _,
+            body_contact_damage: _,
+            explodes_on_death: _,
+            divides_on_death: _,
+            charge_crash_explodes: _,
+            mount_class: _,
+            pilotable_mount_classes: _,
+            mount_death_splash: _,
+            // ⚠ presentation, projected FROM the body — see the same pair on
+            // `ActorTuning`. Not a fourth authority: presentation observes.
+            dream_seed: _,
+            ranged_visual: _,
+
+            // ── CONTROLLER (13) — belongs on the `BrainProfile` ─────────────
+            //
+            // ⭐ this is the column the brief's failure mode is ABOUT. Migrating
+            // the type wholesale would carry every one of these onto the body,
+            // and "changing the controller does not change the body" would stop
+            // being true the moment it landed.
+            brain_template: _,
+            patrol_effort: _,
+            chase_effort: _,
+            aggro_radius: _,
+            attack_range: _,
+            attack_cooldown_mult: _,
+            turns_at_walls: _,
+            fighter_level: _,
+            provoke_forced_brute_min_aggro: _,
+            // ⚠ **the four `smash_*` fields are the ARGUABLE ones.** They read
+            // as mode facts, and a mode is not one of the three authorities —
+            // but each describes how this body is DRIVEN in a platform fight
+            // (which band it strikes in, whether it closes with a dash, whether
+            // it duels), which is controller policy wearing a mode's name.
+            // ⛔ `smash_heavy` is the weakest of the four: a weight class is a
+            // body fact, and `weight` above already is one. Whoever splits this
+            // should check whether it is a duplicate rather than a policy.
+            smash_hit_band: _,
+            smash_heavy: _,
+            smash_dash_to_close: _,
+            smash_duelist: _,
+
+            // ── PLACEMENT / SESSION (5) — true of THIS instance, here ───────
+            //
+            // Every one of these is a fact the same creature answers differently
+            // in two rooms, which is exactly why an archetype row could only
+            // ever state one of the answers.
+            respawn: _,
+            hostile_by_default: _,
+            never_dies: _,
+            death_policy: _,
+            is_sandbag: _,
+        } = spec;
+    }
+}

@@ -87,14 +87,23 @@ pub struct ActorConfig {
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
     /// uses the default enemy sprite.
     pub sprite_override_npc_name: Option<String>,
-    /// Uniform gameplay-side sprite identity: the catalog `character_id` this
-    /// actor's sprite resolves to (via its display name, mirroring the
-    /// presentation `npc_asset_for_name` join). `Some` for catalog characters
-    /// (player, named NPCs/enemies, content actors); `None` for a generic
-    /// enemy that renders from a kind-default sheet. Lets gameplay resolve any
-    /// actor's `SheetRecord` / per-animation hit/hurt metrics — the same
-    /// sprite-metadata path the player and bosses use — without reaching into
-    /// the presentation registry. See [`CombatGeometry`].
+    /// Sprite-catalog identity: the catalog `character_id` this actor's sprite
+    /// resolves to. `Some` for catalog characters (player, named NPCs/enemies,
+    /// content actors); `None` for a body that renders from a kind-default
+    /// sheet. Lets gameplay resolve any actor's `SheetRecord` / per-animation
+    /// hit/hurt metrics — the same sprite-metadata path the player and bosses
+    /// use — without reaching into the presentation registry. See
+    /// [`CombatGeometry`].
+    ///
+    /// ⛔ **NOT the body's gameplay character authority, and `WornCharacter`
+    /// OUTRANKS it** (AC7.1). Its doc used to open "uniform gameplay-side
+    /// sprite identity", which reads like the one answer to *which character is
+    /// this body*. It is not: every seam that resolves a character asks
+    /// `WornCharacter` first and falls back to a sprite id only for a body that
+    /// wears nothing — see `presentation.rs`'s `worn … .or_else(tuning
+    /// .sprite_character_id)`. That precedence is what lets a body SWAP its
+    /// character at runtime (Sanic's transformation) and take its new
+    /// repertoire and volumes with it while this field stays put.
     pub sprite_character_id: Option<String>,
 }
 

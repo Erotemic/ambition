@@ -75,61 +75,38 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// cast is not a variant mechanism, it is three characters that happen to
 /// share a face.
 pub const PLAYABLE_ROSTER: &[&str] = &[
-    "player_robot_v3",    // the player robot, v3 (current)
-    "player_robot_v2",    // v2: the build before the SVG rig
-    "robot",              // v0: the original
-    "goblin",             // melee striker
-    "npc_pirate_admiral", // pistol + cutlass
-    // ⛔ **`perfect_cellular_automaton` IS DELIBERATELY ABSENT — and the reason
-    // is NOT what an earlier version of this comment claimed.**
+    "player_robot_v3",            // the player robot, v3 (current)
+    "player_robot_v2",            // v2: the build before the SVG rig
+    "robot",                      // v0: the original
+    "goblin",                     // melee striker
+    "npc_pirate_admiral",         // pistol + cutlass
+    "perfect_cellular_automaton", // the PCA — see the note below (D74)
+    // ⭐⭐ **`perfect_cellular_automaton` IS ON THE ROSTER (2026-08-13, ledger
+    // D74), and what unblocked it was a coupling this campaign DELETED rather
+    // than a bug anybody fixed.**
     //
-    // This list stopped being only a character-SELECT list on 2026-08-07: it is
-    // now also what `register_declared_cast` REGISTERS, because a fighter must
-    // be seatable and only a registered character is.
+    // It was held out for six days as an explicit WORKAROUND — "the grid is one
+    // portrait shorter" — behind a chain of hypotheses that D74 records in full:
+    // a lost kit, a missed sample, a fragile instrument, the provocation rebuild,
+    // `is_aerial`. All five were refuted, leaving ONE standing, the vaguest and
+    // the oldest: *"one more registered character is one more sheet demanded at
+    // load"*, with a step-4 `vel.x` divergence as its symptom.
     //
-    // ⚠ **the first explanation here was that registering a hostile world actor
-    // replaces its archetype kit with the row's peaceful one. MEASURED AND
-    // FALSE.** The duel arena's two fighters carry byte-identical components
-    // either way — `size`, `hp`, `melee=true`, `attack_range`, `aggro_radius`,
-    // `sprite_character_id`, no `WornCharacter`, no `BrainBinding`. Registering
-    // the PCA changes nothing about the PCA.
+    // ⇒ **the probe D74 asked for was about the WORLD, not the actor** — count
+    // in-flight loads per step in both builds — and it answers the row twice
+    // over. `CharacterLoadStates` reports `staged=3, ready=0` at every one of the
+    // first twelve steps in BOTH builds, and the possession trail is identical to
+    // the last decimal. There is no extra sheet, so there is no timing to differ.
     //
-    // What it changes is TIMING: one more registered character is one more sheet
-    // demanded at load, and `duel_arena_room_is_a_real_neutral_attack_defense_fight`
-    // starts measuring three frames after room load. With the extra sheet in
-    // flight both fighters throw ZERO melee for a sixty-second bout; settling
-    // 180 frames first turns that into a real fight (melee 4). ⭐ **that a fight
-    // which starts before its sheets land never recovers is the real finding
-    // here, and it is unexamined** — a combat geometry resolved from a missing
-    // sheet appears to stick for the life of the body.
+    // ⭐ **because registration stopped demanding art.** D73 made it declarative
+    // (`try_register_character` ends without calling `CharacterLoadDemand::
+    // request`; loading is driven by what a session STAGES). The last hypothesis
+    // standing described a coupling that no longer exists, which is why the
+    // symptom went with it and no fix was needed.
     //
-    // So this line is a WORKAROUND holding a fragile instrument green, not a
-    // statement about the PCA, and the cost is real: the PCA is on
-    // `SMASH_ROSTER`, so the grid is one portrait shorter.
-    //
-    // ⇥ **MEASURED 2026-08-10 (queue D74). Registering it reds
-    // `possession_end_to_end::attack_while_possessing_…`, and the difference is
-    // not any of the four things guessed.** Same probe, both builds, at the end
-    // of the attack window:
-    //
-    //     registered      gravity 1.0   on_ground FALSE   size 38.1x96.3   x=663
-    //     not registered  gravity 1.0   on_ground true    size 38.1x96.3   x=1246
-    //
-    // ⇒ gravity is normal in BOTH, the collision size is IDENTICAL, and the body
-    // is **580 px away** and airborne. So this is not aerial-ness, not a resize
-    // under its own feet, and not a lost kit (it carries all seven attack
-    // verbs): the possession sequence simply plays out somewhere else, and the
-    // grounded swing never happens because the body is not grounded.
-    //
-    // ⛔ what moves it is still UNKNOWN, and four wrong mechanisms have been
-    // written down for this already — do not add a fifth without output.
-    //
-    // ⇥ **LOCATED**: the per-step trail is identical through step 3 and parts at
-    // step 4 on `vel.x` — baseline zeroes it on a 4-step cadence, the registered
-    // body accumulates at −10.83/step, both falling. Same `hp = (60, 60)`, same
-    // `brain = Player(PlayerSlot(0))`, same size, same gravity. ⇒ the fault is
-    // UPSTREAM of combat: a movement or contact decision on a falling body.
-    // Deterministic at step 4, so bisect the movement kernel — see queue D74.
+    // ⚠ verified before landing, not inferred: `ambition_app` 337 + 179 + 1,
+    // `ambition_content` 192 + 32, `ambition_demo_smash` 67, and the workspace
+    // gate — all green with this line in.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

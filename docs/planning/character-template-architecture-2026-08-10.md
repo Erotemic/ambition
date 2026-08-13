@@ -203,7 +203,10 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 is gated on the SAME four casting decisions.** 14, 15, 16, 20, 21, 22 all wait
 on `character_archetypes.ron` losing its last two rows; 9 waits on the fourteen
 body-incomplete characters; 23 is a rename that comes last by design. **6 and 7
-are the only ones that are engineering and not waiting on Jon.**
+are the only ones that are engineering and not waiting on Jon** — though see
+item 6: its road's population is disproportionately the fourteen characters that
+cannot build a body, so its fallback will carry most of the traffic rather than
+the tail.
 
 ⚠ **the four decisions are written up with options and a recommendation each** —
 `awaiting-maintainer-decision.md`, which now indexes ELEVEN open questions
@@ -372,8 +375,23 @@ autonomous_reconcile                1045
    mechanical, and the field is still `Option<String>` on the variant
    (`lib.rs:56`). ⭐ **and item 7's census makes these ONE piece of work**: the
    common constructor already serves match, enemy, summon and encounter, so the
-   NPC road is the last authoring surface outside it. This is the biggest
-   unblocked item in the checklist.
+   NPC road is the last authoring surface outside it.
+
+   ⇥ ⚠ **WHAT THE NPC ROAD ACTUALLY DOES TODAY, since "route it" understates it.**
+   `new_peaceful_npc_in` already takes the prepared registry and reads the
+   placement's `character_id` — but it uses it to look up authored FLIGHT, the
+   CATALOG's `body_kind`, and sprite collision geometry, then builds its own
+   body. It never asks for a `body_blueprint`. So this is a construction change,
+   not a plumbing one.
+
+   ⇥ ⛔ **and the population is the awkward part**: the Hall cast is
+   disproportionately the FOURTEEN characters that cannot build a body from their
+   own definition (`the_cast_that_still_needs_a_body_assist_only_shrinks`) — the
+   four Hall NPCs, Carl Stargan and the six pirates are all in it. ⇒ this does
+   NOT block the migration — the enemy road landed the same way, with a fallback
+   for a character that cannot build — **but the NPC road's fallback will carry
+   most of its traffic, not the tail**, which is the opposite of the enemy road
+   and worth knowing before starting.
 7. ◐ **THE CONSTRUCTOR EXISTS AND FOUR OF THE SIX ROADS USE IT** (census
    2026-08-13, by call site rather than by claim). `ActorClusterSeed::
    new_character_in` is called by the MATCH seat (`prepared_match.rs`), the

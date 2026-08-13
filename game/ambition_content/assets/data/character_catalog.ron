@@ -341,83 +341,11 @@
         ),
         hall_dialogue_id: Some("hall_npc_niels_boar"),
         ),
-        // ⭐ **the art was drawn before the enemy was wired**, and Jon's own
-        // observations ask for it: *"I would like to add the flying snakes on a
-        // plane as enemies in this world"* (Mary-O 1-2). Its id, name, traits and
-        // barks are all authored in the renderer's `_snakes_on_planes_common`
-        // spec, so this row DERIVES them rather than inventing a character.
-        // ⚠ identity only — no behaviour. A flying swarm needs a roster
-        // archetype and a placement the way `solid_snake` has `mary_o_snake`.
-        "npc_snakes_on_a_cartesian_plane": (
-            display_name: "Snakes on a Cartesian Plane",
-            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
-            manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
-            tier: MainHall,
-            // ⭐ **Floating, not Standard — and that is what makes it FLY.** The chain is
-            // data all the way: `body_kind: Floating` -> `is_aerial` ->
-            // `gravity_scale: 0.0` plus the fly ability and `fly_enabled` from
-            // spawn. ⛔ both rows said `Standard` when they landed an hour
-            // earlier, which would have had a snake riding a paper plane fall
-            // out of the sky — and the ledger row above them claimed the engine
-            // had no shape for a flyer at all. It has had one the whole time.
-            body_kind: Floating,
-            composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
-            // autonomous `BrainProfile`, which outranks this field everywhere it
-            // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
-            // and no `aggressiveness`, so nothing came across with it. A preset
-            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
-            // `parrot_lively`, which cost four attempts to understand) has to
-            // move that to the placements first.
-            default_action_set: "peaceful",
-            tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
-            fallback_dialogue: [
-                "We have coordinates for your location.",
-                "Stay on the positive side.",
-                "Our domain is all real snakes.",
-            ],
-        barks: (
-            hall: ["We have coordinates for your location.", "Stay on the positive side.", "Our domain is all real snakes."],
-        ),
-        hall_dialogue_id: Some("hall_npc_snakes_on_a_cartesian_plane"),
-        ),
-        // The other half of the same drawn-but-unwired pair; see the Cartesian
-        // row above for why this exists as identity only.
-        "npc_snakes_on_a_paper_plane": (
-            display_name: "Snakes on a Paper Plane",
-            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
-            manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
-            tier: MainHall,
-            // ⭐ **Floating, not Standard — and that is what makes it FLY.** The chain is
-            // data all the way: `body_kind: Floating` -> `is_aerial` ->
-            // `gravity_scale: 0.0` plus the fly ability and `fly_enabled` from
-            // spawn. ⛔ both rows said `Standard` when they landed an hour
-            // earlier, which would have had a snake riding a paper plane fall
-            // out of the sky — and the ledger row above them claimed the engine
-            // had no shape for a flyer at all. It has had one the whole time.
-            body_kind: Floating,
-            composition: None,
-            // ⭐ **NAMES NO PRESET** (2026-08-12, D81). Its DEFINITION authors an
-            // autonomous `BrainProfile`, which outranks this field everywhere it
-            // is read — so naming `stand_still` was the same policy stated twice.
-            // ⚠ safe for THIS preset specifically: `stand_still` holds no speeds
-            // and no `aggressiveness`, so nothing came across with it. A preset
-            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
-            // `parrot_lively`, which cost four attempts to understand) has to
-            // move that to the placements first.
-            default_action_set: "peaceful",
-            tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
-            fallback_dialogue: [
-                "This flight is hiss-class only.",
-                "Please keep your scales inside the aircraft.",
-                "We folded under pressure.",
-            ],
-        barks: (
-            hall: ["This flight is hiss-class only.", "Please keep your scales inside the aircraft.", "We folded under pressure."],
-        ),
-        hall_dialogue_id: Some("hall_npc_snakes_on_a_paper_plane"),
-        ),
+        // ⭐ the two SNAKE-PLANE swarms left this catalog on 2026-08-13: Mary-O
+        // is their one provider now (definition AND catalog rows, in
+        // `ambition_demo_mary_o`), which is what retired the standalone demo's
+        // archetype-row fallback. The Hall still stages them by id from the
+        // merged catalog; characters are shared by ID, not owned per provider.
         "npc_vera_ruin": (
             display_name: "Vera Ruin",
             spritesheet: "sprites/vera_ruin_spritesheet.png",

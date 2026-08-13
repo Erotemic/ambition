@@ -463,7 +463,9 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
 /// so the thing to prove is that the walker itself gets tagged.)
 #[test]
 fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
-    use ambition_demo_mary_o::snake::{SnakeShell, SNAKE_BRAIN_KEY, SNAKE_DISPLAY_NAME};
+    use ambition_demo_mary_o::snake::{
+        SnakeShell, SNAKE_BRAIN_KEY, SNAKE_DISPLAY_NAME, SNAKE_SHEET_TARGET,
+    };
 
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
@@ -494,10 +496,14 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
                 brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     SNAKE_BRAIN_KEY.to_string(),
                 ),
-                // No authored character: this request predates the
-                // character-first spawn road and names only a brain, which is
-                // exactly the case the road still has to serve.
-                character: None,
+                // ⭐ the character, exactly as 1-1's placements author it. This
+                // said "names only a brain, which is exactly the case the road
+                // still has to serve" — and that stopped being true when the
+                // snake's roster row died (2026-08-11): a spawn resolving
+                // neither a character nor a row is a construction ERROR now,
+                // by D102's design. The subject under test is the demo's TAG
+                // pass, and it reads `ActorConfig.brain` either way.
+                character: Some(SNAKE_SHEET_TARGET.into()),
             },
         });
     settle(&mut app);

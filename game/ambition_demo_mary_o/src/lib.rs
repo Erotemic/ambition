@@ -475,31 +475,10 @@ pub fn vault_exit() -> ae::Aabb {
 /// who reaches for a post-conversion patch pass again should read that first.
 const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 
-/// **Every hostile archetype this demo registers, in ONE place.**
-///
-/// ⛔ **the concatenation was written twice**, and the copies had already
-/// diverged: `binding_tests::mary_o_roster` hand-assembled the same braces from
-/// the same constants, under a doc comment saying *"reading the shipped rows is
-/// the point — a roster assembled specially for this test would prove nothing
-/// about the game"*. It was assembling one anyway, and a new archetype landed in
-/// the shipped fragment without reaching the test that checks fragments.
-///
-/// ⚠ one fragment per provider is not a style choice: assembly REJECTS a second
-/// from the same provider, which is why every enemy's rows fold here rather than
-/// registering themselves.
-pub fn mary_o_roster_ron() -> String {
-    // ⭐ **the snake's and the slop's rows are GONE** (2026-08-11): both are
-    // complete registered characters, all twenty of their placements name them,
-    // and their `respawn: OnRoomReenter` moved to those placements — so the
-    // fragment carries only what standalone Mary-O still cannot get any other
-    // way.
-    //
-    // ⚠ the PLANE SWARMS stay, and the reason is ownership rather than
-    // laziness: they are AMBITION's characters, registered by that provider, so
-    // a standalone Mary-O build has no cast entry for them and falls back to
-    // these rows.
-    format!("{{{}}}", plane::SNAKES_ON_A_PLANE_ROSTER_ROWS)
-}
+// ⭐ `mary_o_roster_ron` is GONE (2026-08-13): the plane swarms — the fragment's
+// last rows, kept as a standalone-build fallback for characters Ambition
+// registered — are Mary-O's own registered characters now, and the demo ships
+// no archetype rows at all. Every enemy states its body as a character.
 
 pub fn level_1_1() -> RoomSpec {
     let mut room = authored_room(LEVEL_1_1_ROOM_ID);
@@ -1231,6 +1210,58 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
                 "I was trained on a thousand walkers and became the average one.",
             ],
         ),
+        // ⭐ **the SNAKE-PLANE swarms, moved here from Ambition's catalog
+        // 2026-08-13** — Mary-O is their one provider now (rows AND
+        // definitions, see `plane.rs`), which is what retired the standalone
+        // build's archetype-row fallback. Their Hall pedestals and dialogue
+        // stay in Ambition's world files and resolve by ID from the merged
+        // catalog in hosted builds.
+        //
+        // ⭐ **Floating, not Standard — and that is what makes it FLY.** The
+        // chain is data all the way: `body_kind: Floating` -> `is_aerial` ->
+        // `gravity_scale: 0.0`. ⛔ both rows said `Standard` when they first
+        // landed, which had a snake riding a paper airplane falling out of the
+        // sky. The definitions also author `baseline_free_flight` so the fact
+        // travels with the character (a body that reads its gravity-freedom
+        // only from a row it cannot see falls out of the sky).
+        "npc_snakes_on_a_cartesian_plane": (
+            display_name: "Snakes on a Cartesian Plane",
+            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
+            fallback_dialogue: [
+                "We have coordinates for your location.",
+                "Stay on the positive side.",
+                "Our domain is all real snakes.",
+            ],
+            barks: (
+                hall: ["We have coordinates for your location.", "Stay on the positive side.", "Our domain is all real snakes."],
+            ),
+            hall_dialogue_id: Some("hall_npc_snakes_on_a_cartesian_plane"),
+        ),
+        "npc_snakes_on_a_paper_plane": (
+            display_name: "Snakes on a Paper Plane",
+            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
+            fallback_dialogue: [
+                "This flight is hiss-class only.",
+                "Please keep your scales inside the aircraft.",
+                "We folded under pressure.",
+            ],
+            barks: (
+                hall: ["This flight is hiss-class only.", "Please keep your scales inside the aircraft.", "We folded under pressure."],
+            ),
+            hall_dialogue_id: Some("hall_npc_snakes_on_a_paper_plane"),
+        ),
     },
 )"#;
 
@@ -1326,50 +1357,30 @@ pub fn install_mary_o_content(app: &mut App) {
             );
         }
     }
-    // **Mary-O's two enemies are CHARACTERS.** (D73 group A, 2026-08-11)
+    // **Mary-O's enemies are CHARACTERS.** (D73 group A, 2026-08-11; the plane
+    // swarms joined 2026-08-13, retiring the demo's LAST roster fragment.)
     //
-    // ⭐ Solid Snake and AI Slop each state their own body — health, top speed,
-    // gait, contact damage and a wandering policy — and their twenty placements
-    // already name them by `character_id`. Their `mary_o_snake` and
-    // `mary_o_ai_slop` ROSTER ROWS are deleted in the same change, so the two
-    // authorities never describe one creature at once.
+    // ⭐ Solid Snake, AI Slop and both plane swarms each state their own body —
+    // health, top speed, gait, contact damage and a policy — and every
+    // placement names them by `character_id`. Their roster rows are gone, so
+    // two authorities never describe one creature at once.
     //
     // ⚠ registered here rather than in the catalog fragment because a catalog
     // ROW is not a registration: the row says what a character is, and this is
     // what makes it buildable — which is exactly what an enemy placement needs
     // now that it is built character-first.
+    //
+    // ⭐ the plane swarms used to be "registered by AMBITION, not here" with
+    // this demo carrying fallback ROWS for the standalone build — the exact
+    // two-authorities fork the line above forbids, kept alive by the archetype
+    // table. Ownership moved with the table's deletion: Mary-O is their one
+    // provider (definition AND catalog rows), and the Hall still stages them in
+    // hosted builds because characters are shared by ID across the merged
+    // catalog.
     {
         snake::register_solid_snake_character(app);
         snake::register_ai_slop_character(app);
-        // ⛔ **the two PLANE SWARMS are registered by AMBITION, not here**, and
-        // the reason is ownership rather than capability. They are Ambition's
-        // characters — `npc_snakes_on_a_paper_plane` and its Cartesian sibling
-        // are rows in that provider's catalog — so registering them from this
-        // demo makes the prepared registry say `mary_o` while the catalog's
-        // owners map says `ambition`, and `provider_of_character` prefers the
-        // registry: the body would be constructed as one provider's and sound
-        // like the other's. `the_shipped_cast_has_one_authority_per_character`
-        // says so by name.
-        //
-        // ⇒ in a HOSTED build they are registered characters and this demo's
-        // placements build them character-first. In the STANDALONE demo they are
-        // unregistered and fall back to the roster rows in `plane.rs`, which is
-        // why those rows survive. Mary-O declaring her own catalog rows for them
-        // is what would retire the fallback.
-    }
-    // The REMAINING archetypes — the two plane snakes, which are Ambition
-    // characters this demo borrows — still install as roster rows, so their
-    // fragment stays. One fragment per provider: assembly rejects a second from
-    // the same provider, so the per-enemy `register_*_roster` helpers (used by
-    // single-enemy tests) are folded here.
-    {
-        use ambition_platformer2d::actors::features::{
-            CharacterRosterAppExt, CharacterRosterFragment,
-        };
-        app.register_character_roster_fragment(
-            CharacterRosterFragment::from_ron(provider::MARY_O_EXPERIENCE, &mary_o_roster_ron())
-                .expect("Mary-O enemy roster should be valid"),
-        );
+        plane::register_snakes_on_a_plane_characters(app);
     }
     // ⛔ **Mary-O stages NO enemies of her own, and must not.** She used to
     // register two `RoomContentStagingRegistry` closures that walked

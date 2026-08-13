@@ -22,9 +22,16 @@
 //! the provider's own job in this demo (`snake.rs` and `ai_slop.rs` each carry
 //! their own). A new enemy SHAPE is an archetype row plus its art.
 
-/// The two flying-swarm archetype ROWS (no outer braces), folded into Mary-O's
-/// single roster fragment the same way `SNAKE_ROSTER_ROWS` is — assembly rejects
-/// a second fragment from one provider.
+/// **Register both swarms as CHARACTERS** — the same shape `snake.rs` uses,
+/// one creature over, twice.
+///
+/// ⭐⭐ **this retires the demo's last roster fragment.** The pair used to be
+/// `mary_o_snakes_on_a_*` archetype ROWS, kept because a STANDALONE Mary-O had
+/// no cast entry for Ambition-registered characters and fell back to them. The
+/// fork is closed the other way now: Mary-O is the one provider that registers
+/// `npc_snakes_on_a_*`, in every composition — characters are shared by ID
+/// across providers, so the Hall's pedestals still stage them in the hosted
+/// app, from the merged catalog.
 ///
 /// ⚠ **`aggro_radius: 0.0` and `attack_range: 0.0` are deliberate, and the
 /// reason first written here was WRONG.** It said *"the `Aerial` template
@@ -44,50 +51,74 @@
 /// ⭐ **the two differ in SPEED and HEALTH, not in kind.** A paper plane is
 /// light and quick and dies to anything; a Cartesian plane is a grid and moves
 /// like one — slower, steadier, and it takes two hits. That is the whole
-/// difference a player feels, and putting it here rather than in code is what
-/// makes the pair cheap to tune.
-pub(crate) const SNAKES_ON_A_PLANE_ROSTER_ROWS: &str = r#"
-    "mary_o_snakes_on_a_paper_plane": (
-        max_health: 1,
-        run_speed: 58.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Aerial,
-        move_style: Float,
-        is_aerial: Some(true),
-        respawn: OnRoomReenter,
-    ),
-    "mary_o_snakes_on_a_cartesian_plane": (
-        max_health: 2,
-        run_speed: 38.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Aerial,
-        move_style: Float,
-        is_aerial: Some(true),
-        respawn: OnRoomReenter,
-    ),
-"#;
-
-/// ⛔ **`is_aerial: true` is on the ARCHETYPE and it is not redundant.** The
-/// catalog rows say `body_kind: Floating`, which is what makes the CHARACTER
-/// fly — but a placed enemy resolves its archetype too, `ArchetypeSpec::is_aerial`
-/// defaults to `false`, and the two are separate authorities on the same
-/// question. A row that stated it in one place would fly or not depending on
-/// which road the spawn took, which is precisely the class of bug that had both
-/// catalog rows landing as `Standard` an hour after they were written.
+/// difference a player feels.
 ///
-/// The brain key an LDtk `EnemySpawn` names to place a paper-plane swarm.
+/// ⚠ **`patrol_effort: 1.0` is the deleted rows' own pace** (the same catch
+/// `snake.rs` documents): a swarm PACES its patch of air at full speed, and
+/// `BrainProfile`'s default is the half-speed amble. ⛔ the row-vs-character
+/// fork had hidden exactly this — the hosted build's character authored no
+/// efforts and ambled at half pace while the standalone row flew at full; the
+/// row's numbers are the authored intent, so unification keeps them.
+pub(crate) fn register_snakes_on_a_plane_characters(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::actors::character_runtime::{
+        CharacterDefinition, CharacterDefinitionAppExt,
+    };
+    use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
+    use ambition_platformer2d::characters::brain::{
+        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
+    };
+
+    for (id, display, sheet, run_speed, max_health) in [
+        (
+            PAPER_PLANE_CHARACTER_ID,
+            PAPER_PLANE_DISPLAY_NAME,
+            PAPER_PLANE_SHEET_TARGET,
+            58.0,
+            1,
+        ),
+        (
+            CARTESIAN_PLANE_CHARACTER_ID,
+            CARTESIAN_PLANE_DISPLAY_NAME,
+            CARTESIAN_PLANE_SHEET_TARGET,
+            38.0,
+            2,
+        ),
+    ] {
+        let mut definition =
+            CharacterDefinition::new(id, display, crate::provider::MARY_O_EXPERIENCE)
+                .with_sheet(sheet)
+                .with_locomotion(CharacterLocomotion {
+                    run_speed,
+                    move_style: MoveStyleSpec::Float,
+                    // Stated on the CHARACTER so the fact travels: the catalog
+                    // row's `body_kind: Floating` says the same thing, but a
+                    // body that reads its gravity-freedom only from a row it
+                    // cannot see falls out of the sky.
+                    baseline_free_flight: Some(true),
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.5,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Aerial,
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    patrol_effort: 1.0,
+                    chase_effort: 1.0,
+                    ..Default::default()
+                });
+        definition.vitals.max_health = Some(max_health);
+        app.register_character(definition);
+    }
+}
+
+/// The brain key 1-2's `EnemySpawn` placements still carry BESIDE their
+/// `character_id`. Construction is character-first, so this no longer resolves
+/// a row — it is placement metadata the binding test uses to find the swarms.
 pub const PAPER_PLANE_BRAIN_KEY: &str = "mary_o_snakes_on_a_paper_plane";
-/// The brain key an LDtk `EnemySpawn` names to place a Cartesian-plane swarm.
+/// See [`PAPER_PLANE_BRAIN_KEY`].
 pub const CARTESIAN_PLANE_BRAIN_KEY: &str = "mary_o_snakes_on_a_cartesian_plane";
 
 /// The catalog character each brain wears, for the `EnemySpawn.character_id` a

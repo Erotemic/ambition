@@ -11,41 +11,28 @@
 
 use bevy::prelude::App;
 
-use ambition_platformer2d::actors::features::CharacterRoster;
-use ambition_platformer2d::actors::world::rooms::RoomBindings;
 use ambition_platformer2d::platformer::binding::BindingLedger;
 use ambition_platformer2d::platformer::world_item_art::{WorldItemArtManifest, WorldItemSpriteRef};
 
-use crate::ai_slop::{AI_SLOP_BRAIN_KEY, AI_SLOP_DISPLAY_NAME};
+use crate::ai_slop::AI_SLOP_DISPLAY_NAME;
 use crate::powerups::{CINDER_BEACON_SPRITE, STAR_WAND_SPRITE};
-use crate::snake::{SNAKE_BRAIN_KEY, SNAKE_DISPLAY_NAME};
+use crate::snake::SNAKE_DISPLAY_NAME;
 
-/// The roster Mary-O actually registers, from the SAME rows the app installs.
-///
-/// One fragment, not the two per-enemy helpers: assembly rejects a second
-/// fragment from the same provider, and reading the shipped rows is the point —
-/// a roster assembled specially for this test would prove nothing about the game.
-fn mary_o_roster() -> CharacterRoster {
-    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
-
+/// The prepared cast Mary-O actually registers — the SAME registrations the
+/// app installs, which is the point: a cast assembled specially for this test
+/// would prove nothing about the game. Hand the assertions to `check`, because
+/// the registry is read in place rather than cloned out.
+fn with_mary_o_prepared_cast(
+    check: impl FnOnce(&ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry),
+) {
     let mut app = App::new();
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(
-            crate::provider::MARY_O_EXPERIENCE,
-            // ⭐ **the SHIPPED string, not a copy of it.** This rebuilt the
-            // same braces from the same constants — under a doc comment saying a
-            // specially-assembled roster would prove nothing — and had already
-            // fallen behind by one archetype.
-            &crate::mary_o_roster_ron(),
-        )
-        .expect("Mary-O enemy roster should be valid"),
+    crate::install_mary_o_content(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
+    check(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .expect("installing this demo's content registers its characters"),
     );
-    app.finish();
-    app.update();
-    app.world()
-        .get_resource::<CharacterRoster>()
-        .expect("Mary-O's roster fragments assemble into a roster")
-        .clone()
 }
 
 /// The art manifest Mary-O's experience plugin registers.
@@ -130,36 +117,15 @@ fn the_two_enemies_author_the_bodies_their_roster_rows_used_to() {
 
 #[test]
 fn mary_o_binds_every_ref_it_declares() {
-    let roster = mary_o_roster();
-    let bindings = RoomBindings::default().with_characters(roster.brain_keys());
-
-    // ⭐ **THE TWO ENEMY KEYS LEFT THIS SWEEP ON 2026-08-11, and the reason is
-    // that the question changed.** `mary_o_snake` and `mary_o_ai_slop` had to
-    // resolve against the roster because the roster was where a snake's body
-    // came from — health, speed, contact damage — and `spec_for_brain` answers
-    // an unknown key with the generic `combatant` fallback, so a misspelling
-    // shipped a correctly-named enemy with the wrong body.
-    //
-    // Both are CHARACTERS now: they author their own bodies, their twenty
-    // placements name them by `character_id`, and their roster rows are deleted.
-    // The keys still travel on the placements, but as TAGS — `is_snake_brain`
-    // selects the shell behaviour — and a tag that matches nothing simply does
-    // not tag, which is visible rather than silently wrong.
-    //
-    // ⇒ the body question is asked by
-    // [`the_two_enemies_author_the_bodies_their_roster_rows_used_to`] instead,
-    // beside the definitions that answer it.
-    let staged = bindings.sweep_characters(roster.brain_keys().iter().map(|key| {
-        (
-            key.as_str(),
-            "mary_o roster row staged by this demo".to_string(),
-        )
-    }));
-    assert!(
-        staged.is_empty(),
-        "every staged brain key resolves against the registered roster:\n{staged}"
-    );
-
+    // ⭐ **THE ROSTER SWEEP LEFT THIS TEST WITH THE ROSTER ITSELF** (2026-08-13).
+    // Every enemy is a CHARACTER now — snake and slop since 08-11, the plane
+    // swarms with the archetype table's deletion — so there are no brain-key
+    // rows left to resolve. The body questions are asked by
+    // [`the_two_enemies_author_the_bodies_their_roster_rows_used_to`] and
+    // [`both_snake_plane_swarms_assemble_as_flyers`], beside the definitions
+    // that answer them. The brain keys still travel on placements as TAGS —
+    // `is_snake_brain` selects the shell behaviour — and a tag that matches
+    // nothing simply does not tag, which is visible rather than silently wrong.
     let art = mary_o_world_item_art();
     let sprites = art.sprite_ids();
     let mut ledger = BindingLedger::new();
@@ -223,48 +189,70 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
     );
 }
 
-/// **The snake-plane swarms assemble, and they FLY.**
+/// **The snake-plane swarms are registered characters, and they FLY.**
 ///
-/// ⚠ **this is the STANDALONE road, and it is the reason these two rows
-/// survived the migration** (2026-08-11). The swarms are Ambition's characters,
-/// registered by that provider — so in a hosted build the placements build them
-/// character-first and this roster is never consulted. In the standalone demo
-/// there is no content provider, nothing registers them, and these rows are what
-/// makes them exist at all.
+/// ⚠ **the STANDALONE road is what this defends** — the reason the pair's
+/// roster rows survived two migrations. Mary-O is their ONE provider now
+/// (2026-08-13, with the archetype table's deletion): she registers
+/// `npc_snakes_on_a_*` in every composition, so a standalone 1-2 builds the
+/// same bodies the hosted app does and there is no fallback left to diverge.
 ///
-/// ⛔ **`is_aerial` is asserted separately from `move_style`, and that is the
-/// point of the test.** `Float` says how it MOVES; `is_aerial` says gravity does
-/// not apply. Both catalog rows landed as `body_kind: Standard` an hour after
-/// they were written — a snake riding a paper airplane falling out of the sky —
-/// and migrating these two prematurely reproduced it exactly.
+/// ⛔ **`baseline_free_flight` is asserted separately from `move_style`, and
+/// that is the point of the test.** `Float` says how it MOVES; free flight says
+/// gravity does not apply. Both catalog rows landed as `body_kind: Standard` an
+/// hour after they were written — a snake riding a paper airplane falling out
+/// of the sky — and an earlier premature migration reproduced it exactly.
+///
+/// ⚠ **`patrol_effort: 1.0` is pinned too**: the deleted rows' own pace. The
+/// row-vs-character fork had the hosted build ambling at the default half
+/// speed while the standalone row flew at full — the fork hid a real
+/// divergence, and this is the number the unification chose.
 #[test]
 fn both_snake_plane_swarms_assemble_as_flyers() {
-    let roster = mary_o_roster();
-    for key in [
-        crate::plane::PAPER_PLANE_BRAIN_KEY,
-        crate::plane::CARTESIAN_PLANE_BRAIN_KEY,
-    ] {
-        assert!(
-            roster.has_brain_key(key),
-            "`{key}` is not in Mary-O's assembled roster, so a STANDALONE spawn \
-             naming it falls back to a generic stand-still body — which is the \
-             silent failure `spec_for_brain` is documented to produce"
-        );
-        let spec = roster
-            .archetype_for(key)
-            .unwrap_or_else(|| panic!("`{key}` is in the roster but has no spec"));
-        assert_eq!(
-            spec.is_aerial,
-            Some(true),
-            "`{key}` did not assemble as a DECIDED flyer, so gravity applies and \
-             the swarm falls out of the sky. ⚠ `None` and `Some(false)` are \
-             different failures: `Some(false)` is a row that chose to be \
-             grounded, `None` is a row that never said"
-        );
-        assert_eq!(
-            spec.move_style,
-            ambition_platformer2d::characters::brain::MoveStyleSpec::Float,
-            "`{key}` assembled with a grounded move style"
-        );
-    }
+    use ambition_platformer2d::characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+    with_mary_o_prepared_cast(|registry| {
+        for (id, run_speed, max_health) in [
+            (crate::plane::PAPER_PLANE_CHARACTER_ID, 58.0, 1),
+            (crate::plane::CARTESIAN_PLANE_CHARACTER_ID, 38.0, 2),
+        ] {
+            let definition = registry
+                .get(id)
+                .unwrap_or_else(|| panic!("`{id}` is not registered, so nothing can build one"));
+            assert_eq!(definition.vitals.max_health, Some(max_health), "{id}");
+            let locomotion = definition
+                .locomotion
+                .as_ref()
+                .unwrap_or_else(|| panic!("`{id}` states no locomotion"));
+            assert_eq!(locomotion.run_speed, run_speed, "{id}");
+            assert_eq!(
+                locomotion.baseline_free_flight,
+                Some(true),
+                "`{id}` did not register as a DECIDED flyer, so gravity applies \
+                 and the swarm falls out of the sky. ⚠ `None` and `Some(false)` \
+                 are different failures: `Some(false)` is a body that chose to \
+                 be grounded, `None` is a body that never said"
+            );
+            assert!(
+                matches!(locomotion.move_style, MoveStyleSpec::Float),
+                "`{id}` registered with a grounded move style"
+            );
+            let profile = definition
+                .autonomous_profile
+                .as_ref()
+                .unwrap_or_else(|| panic!("`{id}` states no policy"));
+            assert_eq!(profile.template, CharacterBrainTemplate::Aerial, "{id}");
+            assert_eq!(
+                profile.patrol_effort, 1.0,
+                "`{id}` lost the full-pace patrol its deleted row authored — \
+                 the swarm now ambles at half speed"
+            );
+            assert_eq!(
+                (profile.aggro_radius, profile.attack_range),
+                (0.0, 0.0),
+                "`{id}`'s zeros are what make it ROAM and never DIVE; a nonzero \
+                 aggro radius turns it into a homing dive-bomber"
+            );
+        }
+    });
 }

@@ -161,6 +161,13 @@ pub fn test_course() -> RoomSpec {
     // authored placement can break by being named honestly is a rule about the
     // wrong thing. Identity is the BRAIN below now, so the id is free and this
     // course cannot make that mistake again.
+    // ⭐ **`character_id`, exactly as 1-1 authors its snakes.** The fixture
+    // carried only the brain key from before the snake became a CHARACTER
+    // (2026-08-11); once the roster row died, a placement naming a key that
+    // resolves neither a character nor a row is a construction ERROR — which
+    // this course dutifully demonstrated on every playthrough test while the
+    // real level worked. A fixture stages production's shape or it measures a
+    // road the game no longer has.
     room.enemy_spawns
         .push(ambition_platformer2d::world::rooms::Authored::new(
             "course_snake",
@@ -169,9 +176,12 @@ pub fn test_course() -> RoomSpec {
                 ae::Vec2::new(COURSE_SNAKE_COLUMN * T, ground_top - T),
                 ae::Vec2::new(14.0, 16.0),
             ),
-            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
-                crate::snake::SNAKE_BRAIN_KEY.to_string(),
-            ),
+            ambition_platformer2d::world::rooms::EnemySpawnSpec::new(
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
+                    crate::snake::SNAKE_BRAIN_KEY.to_string(),
+                ),
+            )
+            .with_character_id(crate::snake::SNAKE_SHEET_TARGET),
         ));
     room
 }

@@ -39,7 +39,6 @@ mod npc_pirate_crew;
 mod npc_pirate_raider;
 mod npc_puppy_slug;
 mod npc_salvage_guard;
-mod npc_snakes_on_a_paper_plane;
 mod perfect_cellular_automaton;
 mod sandbag;
 mod sandbag_infinite;
@@ -64,13 +63,9 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_dividing_mite"], npc_dividing_mite::author),
     (&["npc_puppy_slug"], npc_puppy_slug::author),
     (&["stochastic_parrot"], stochastic_parrot::author),
-    (
-        &[
-            "npc_snakes_on_a_paper_plane",
-            "npc_snakes_on_a_cartesian_plane",
-        ],
-        npc_snakes_on_a_paper_plane::author,
-    ),
+    // ⭐ the two SNAKE-PLANE swarms left this cast 2026-08-13: Mary-O is their
+    // one provider now (catalog rows + definitions in `ambition_demo_mary_o`),
+    // which retired her standalone build's archetype-row fallback.
     (&["npc_ai_slop"], npc_ai_slop::author),
     (
         &["npc_burning_flying_shark"],

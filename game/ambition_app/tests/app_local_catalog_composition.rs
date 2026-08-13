@@ -110,23 +110,26 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
 
-    // Each experience contributes its own hostile-roster archetypes (Ambition's
-    // enemies, Mary-O's snake + AI Slop) as an App-local provider fragment. They
-    // compose into ONE roster, BTreeMap-sorted, independent of registration
-    // order — a character in any fragment is spawnable by any experience once
-    // loaded.
-    //
-    // ⭐ **Sanic left this list on 2026-08-11, and leaving is the achievement.**
-    // Its badnik is a CHARACTER now (`register_badnik_character`) — a complete
-    // body its four placements name — so the demo publishes no hostile roster
-    // at all. The composition property this test exists for is asserted below
-    // against the authority the badnik actually lives in.
-    assert_eq!(hostile_providers(&forward), vec!["ambition", "mary_o"]);
+    // ⭐ **Sanic left the hostile-roster list on 2026-08-11, Mary-O on
+    // 2026-08-13 — and leaving is the achievement.** Sanic's badnik and every
+    // Mary-O enemy (snake, slop, both plane swarms) are CHARACTERS now, so
+    // neither demo publishes archetype rows. Ambition's fragment is the last
+    // one standing, and it is one borrowerless row awaiting the ontology
+    // deletion. The composition property this test exists for is asserted
+    // against the authority the creatures actually live in: the owners map.
+    assert_eq!(hostile_providers(&forward), vec!["ambition"]);
     assert_eq!(
         owners.provider_for("sanic"),
         Some("sanic"),
         "Sanic's content still composes App-locally — the badnik moved from its \
          roster fragment to a character, not out of the provider"
+    );
+    assert_eq!(
+        owners.provider_for("npc_snakes_on_a_paper_plane"),
+        Some("mary_o"),
+        "the plane swarms moved provider WITH their bodies (2026-08-13): Mary-O \
+         authors their catalog rows and definitions, and the Hall stages them \
+         from the merged catalog"
     );
     assert_eq!(boss_providers(&forward), vec!["ambition"]);
     let bosses = forward.world().resource::<BossCatalog>();
@@ -177,15 +180,24 @@ fn separate_apps_select_independent_provider_sets() {
         .expect("Sanic content publishes its own catalog");
     assert_eq!(sanic_owners.provider_for("sanic"), Some("sanic"));
 
-    // Mary-O authors one (its crony), and it is App-local: the registry holds
-    // only Mary-O's own provider, with zero contamination from Ambition's roster.
-    let mary_o_roster = mary_o
+    // **Mary-O authors NO hostile roster either** (2026-08-13): the plane
+    // swarms — her last rows, kept as a standalone-build fallback — are her
+    // own registered characters now, like the snake and the slop before them.
+    assert!(
+        mary_o
+            .world()
+            .get_resource::<CharacterRosterRegistry>()
+            .is_none_or(|roster| roster.providers().next().is_none()),
+        "Mary-O publishes no hostile archetypes; every enemy is a character"
+    );
+    let mary_o_owners = mary_o
         .world()
-        .get_resource::<CharacterRosterRegistry>()
-        .expect("Mary-O content publishes its own hostile roster (the crony)");
+        .get_resource::<CharacterCatalogOwners>()
+        .expect("Mary-O content publishes its own catalog");
     assert_eq!(
-        mary_o_roster.providers().collect::<Vec<_>>(),
-        vec!["mary_o"]
+        mary_o_owners.provider_for("npc_snakes_on_a_paper_plane"),
+        Some("mary_o"),
+        "the plane swarms' catalog rows travel with their one provider"
     );
 
     for app in [&sanic, &mary_o] {

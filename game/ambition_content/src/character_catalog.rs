@@ -206,43 +206,27 @@ pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
         .filter(|id| !PLAYABLE_ROSTER.contains(id))
 }
 
-/// See [`buildable_only_cast`]. Registered, buildable, and authoring nothing —
-/// which is safe ONLY where the character never had archetype-built facts to
-/// lose. Every entry says which.
+/// **EMPTY, and that is the point of it.** (AC4)
 ///
-/// ⚠ this list should SHRINK. An entry here is a character whose body is still
-/// somebody else's to state.
-const REGISTERED_WITHOUT_A_BODY: &[&str] = &[
-    // ⭐ **the six remaining pirates.** They author no body of their own yet,
-    // but they are not bare in the way that matters: every id starting with
-    // `npc_pirate_` takes its provoked policy from the RULE at the head of
-    // [`authored_intrinsics`], which is what replaced the substring matcher on
-    // display names and dialogue nodes (ledger D84). Their VITALS are D96
-    // item 8 — how tough a pirate quartermaster is is a content decision, and
-    // authoring a number to empty this list would be inventing one.
-    //
-    // ⚠ **not derived from the rule, because the rule cannot enumerate.**
-    // `starts_with("npc_pirate_")` covers a pirate added tomorrow automatically,
-    // which is the property it exists for; this list answers the different
-    // question of which ids to REGISTER, and that needs names.
-    "npc_pirate_cutlass_viper",
-    "npc_pirate_heavy_broadside_bess",
-    "npc_pirate_heavy_salt_annet",
-    "npc_pirate_lookout",
-    "npc_pirate_navigator",
-    "npc_pirate_quartermaster",
-    // ⭐⭐ **JON ASKED FOR HIM ON THE SMASH GRID, 2026-08-11 — and he was not on
-    // it.** The grid filters `SMASH_ROSTER` against the prepared REGISTRY
-    // (`SmashRoster::assemble`), precisely so an unbuildable portrait is dropped
-    // rather than offered — so Stargan was silently absent from the grid he had
-    // been added to, and dropping is the safe behaviour that hid it.
-    //
-    // ⚠ **provably safe here**: he has exactly one placement in the game, a Hall
-    // `NpcSpawn` with `brain_override: stand_still`, so he has never had
-    // archetype-built vitals to lose. Whether he FIGHTS is still Jon's (D96
-    // item 5).
-    "npc_carl_stargan",
-];
+/// This was the list of characters registered as buildable that authored NO
+/// body — safe only where the character never had archetype-built facts to lose,
+/// and dangerous everywhere else, because a bare registration silently drops
+/// whatever `character_archetypes.ron` used to give the creature.
+///
+/// ⭐ **what emptied it was a decision, not a migration trick.** The six pirates
+/// sat here because their vitals were a genuine content question (queue D96 item
+/// 8), and Jon answered on 2026-08-13 that it was never a product question at
+/// all: *"pick reasonable explicit health values and AUTHOR THEM. Do not retain
+/// fallback health or incomplete body definitions because we are waiting for
+/// balance decisions."* Carl Stargan sat here for the sibling reason, and the
+/// same handoff settled him. Both now author bodies in `authored/`.
+///
+/// ⛔ **keep it empty.** An entry here is a character whose body is somebody
+/// else's to state, and the empty list is what makes "authoring a character makes
+/// it buildable" true without an exception clause. If a future character genuinely
+/// cannot state its body yet, the honest move is to say so on the
+/// maintainer-decision surface rather than to register it bare.
+const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 
 /// **What a migrated character authors about its own body.**
 ///

@@ -130,6 +130,15 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
+        // AC3.1.B: the melee AUTHORITY the trace's `attacking` column reads. It
+        // used to read a `BodyCombat` mirror maintained beside it.
+        let melee = {
+            let mut melee_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::actors::actor::BodyMelee, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            melee_q.single(sim.world()).cloned().unwrap_or_default()
+        };
+
         // The movement policy + its published projection (ADR 0024): the
         // locomotion label reads the model; the trace flags read facts. Both
         // copied out before the mutable cluster borrow below.
@@ -167,6 +176,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             &clusters,
             &motion_facts,
             &combat,
+            &melee,
             &clock,
             &safety,
             &game_world,

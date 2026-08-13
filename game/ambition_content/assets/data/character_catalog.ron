@@ -740,7 +740,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            default_brain: "",
             default_action_set: "striker_swipe",
             tags: ["pirate", "enemy"],
         barks: (
@@ -758,7 +758,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "skirmisher_ranger",
+            default_brain: "",
             default_action_set: "ranger_arrow",
             tags: ["pirate", "enemy"],
         barks: (
@@ -776,7 +776,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "skirmisher_ranger",
+            default_brain: "",
             default_action_set: "ranger_arrow",
             tags: ["pirate", "enemy"],
         barks: (
@@ -899,7 +899,7 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
         barks: (
@@ -941,7 +941,7 @@
             tier: MainHall,
             body_kind: Wide,
             composition: None,
-            default_brain: "melee_brute_brute",
+            default_brain: "",
             default_action_set: "brute_lunge",
             tags: ["pirate", "heavy", "enemy"],
         barks: (
@@ -1861,7 +1861,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "melee_brute_striker",
+            default_brain: "",
             default_action_set: "striker_swipe",
             tags: ["enemy"],
         barks: (
@@ -2716,7 +2716,7 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_brain: "stand_still",
+            default_brain: "",
             default_action_set: "peaceful",
             tags: ["story", "science_communicator", "cosmic_storyteller", "skeptic", "peaceful"],
         barks: (

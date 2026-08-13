@@ -1,0 +1,137 @@
+//! **THE SIX REMAINING PIRATES**, whose bodies were the last thing keeping
+//! `REGISTERED_WITHOUT_A_BODY` alive.
+//!
+//! They were registered as buildable and authored NOTHING — the shape that
+//! list's own doc calls dangerous by default. What held them there was a real
+//! question rather than an oversight: their VITALS were a content decision
+//! (queue D96 item 8, *"how tough is a pirate quartermaster?"*), and authoring a
+//! number to empty a list would have been inventing one.
+//!
+//! ⭐⭐ **Jon answered it on 2026-08-13, and the answer was that it was never a
+//! product decision**: *"these are ordinary tuning values that can be changed
+//! later if they feel wrong in play. Pick reasonable explicit health values and
+//! AUTHOR THEM. Do not retain fallback health or incomplete body definitions
+//! because we are waiting for balance decisions."* His initial numbers —
+//! ordinary pirate **4**, heavy/large pirate variant **6** — are the two used
+//! here.
+//!
+//! ⚠ **so these numbers are TUNING and the authoring is ARCHITECTURE.** He drew
+//! that line himself. Retuning a health value later is not reopening a decision;
+//! putting the fallback back would be.
+//!
+//! ⛔ **one file for six, and that is the P2.16 rule rather than laziness.** They
+//! are one crew in three shapes — two strikers, two brutes, two rangers — and the
+//! shapes are the three brain presets their catalog rows already named. Six files
+//! differing by a literal would be the copy `AUTHORED_CAST` exists to refuse, and
+//! the raider file next door already carries two creatures for the same reason.
+//!
+//! ⚠ **their provoked policy is NOT here.** Every `npc_pirate_*` id takes it from
+//! the RULE at the head of `authored_intrinsics`, which is what replaced the
+//! substring matcher on display names (ledger D84). A rule covers the pirate
+//! added tomorrow; this file answers the different question of what each named
+//! pirate's BODY is.
+
+use ambition_characters::actor::CharacterLocomotion;
+use ambition_characters::brain::{
+    BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
+};
+use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+
+/// **What each pirate SHIPS as**, transcribed from the brain preset its catalog
+/// row named — which is the behaviour-preserving migration AC4.2 asks for, and
+/// the reason this file is not three lines shorter.
+///
+/// ⛔ **the first draft of this gave the lookout and the navigator a cutlass**,
+/// because "pirate boarding party" is a plausible story and the six ids look
+/// alike. They ship as `skirmisher_ranger` — they stand off at 140px and shoot.
+/// `a_character_states_its_policy_in_one_place` caught it, which is precisely
+/// the double-authority the guard exists to find: two statements about one
+/// creature, and the invented one winning quietly.
+#[derive(Clone, Copy)]
+enum Crew {
+    /// `melee_brute_striker`: aggro 220, reach 36, chase 110.
+    Striker,
+    /// `melee_brute_brute`: aggro 240, reach 44, chase 75. Jon's "heavy/large
+    /// pirate variant".
+    Brute,
+    /// `skirmisher_ranger`: aggro 320, standoff 140, strafe 85, refire 0.8.
+    Ranger,
+}
+
+fn crew_of(id: &str) -> Crew {
+    match id {
+        "npc_pirate_heavy_broadside_bess" | "npc_pirate_heavy_salt_annet" => Crew::Brute,
+        "npc_pirate_lookout" | "npc_pirate_navigator" => Crew::Ranger,
+        // cutlass_viper, quartermaster
+        _ => Crew::Striker,
+    }
+}
+
+/// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
+/// what makes these characters buildable — there is no second list to remember.
+pub(crate) fn author(id: &str, definition: CharacterDefinition) -> CharacterDefinition {
+    let crew = crew_of(id);
+    let heavy = matches!(crew, Crew::Brute);
+    let move_style = if heavy {
+        MoveStyleSpec::WalkHeavy
+    } else {
+        MoveStyleSpec::Walk
+    };
+    let mut definition = definition
+        .with_locomotion(CharacterLocomotion {
+            // The preset's own chase speed, so a migrated pirate closes at the
+            // pace it always did.
+            run_speed: match crew {
+                Crew::Striker => 110.0,
+                Crew::Brute => 75.0,
+                Crew::Ranger => 85.0,
+            },
+            move_style,
+            ..Default::default()
+        })
+        .with_action_set(ambition_characters::brain::ActionSet {
+            melee: match crew {
+                Crew::Ranger => None,
+                _ => Some(MeleeActionSpec::Swipe(SwipeSpec {
+                    windup_s: 0.26,
+                    active_s: 0.09,
+                    recover_s: 0.30,
+                    damage: if heavy { 2 } else { 1 },
+                    // The preset's `attack_range`, which is what a melee brute's
+                    // reach WAS.
+                    reach_px: if heavy { 44.0 } else { 36.0 },
+                })),
+            },
+            ranged: match crew {
+                // The standoff shooter the `Skirmisher` preset describes. Its
+                // fire cooldown lives on the autonomous profile below, where the
+                // preset kept it.
+                Crew::Ranger => Some(ambition_characters::brain::RangedActionSpec::bolt(500.0, 1)),
+                _ => None,
+            },
+            special: None,
+            move_style,
+        })
+        .with_autonomous_profile(BrainProfile {
+            template: match crew {
+                Crew::Ranger => CharacterBrainTemplate::Skirmisher,
+                _ => CharacterBrainTemplate::Smash,
+            },
+            aggro_radius: match crew {
+                Crew::Striker => 220.0,
+                Crew::Brute => 240.0,
+                Crew::Ranger => 320.0,
+            },
+            attack_range: match crew {
+                Crew::Striker => 36.0,
+                Crew::Brute => 44.0,
+                Crew::Ranger => 140.0,
+            },
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+            ..Default::default()
+        });
+    // Jon 2026-08-13: ordinary pirate 4, heavy/large pirate variants 6.
+    definition.vitals.max_health = Some(if heavy { 6 } else { 4 });
+    definition
+}

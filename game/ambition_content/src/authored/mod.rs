@@ -25,6 +25,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 mod goblin;
 mod npc_ai_slop;
 mod npc_burning_flying_shark;
+mod npc_carl_stargan;
 mod npc_dividing_mite;
 mod npc_exploding_mite;
 mod npc_giant_gnu;
@@ -32,6 +33,7 @@ mod npc_giant_gnu_hands;
 mod npc_lab_raider;
 mod npc_ninja_shadow_oni_leader;
 mod npc_pirate_admiral;
+mod npc_pirate_crew;
 mod npc_pirate_raider;
 mod npc_puppy_slug;
 mod npc_salvage_guard;
@@ -88,6 +90,21 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_pirate_admiral"], npc_pirate_admiral::author),
     (&["npc_lab_raider"], npc_lab_raider::author),
     (&["npc_salvage_guard"], npc_salvage_guard::author),
+    // AC4: the six pirates and Carl Stargan, whose bodies were the whole of
+    // `REGISTERED_WITHOUT_A_BODY`. Jon's 2026-08-13 rulings unblocked both — see
+    // each module's doc for which decision it consumes.
+    (
+        &[
+            "npc_pirate_cutlass_viper",
+            "npc_pirate_heavy_broadside_bess",
+            "npc_pirate_heavy_salt_annet",
+            "npc_pirate_lookout",
+            "npc_pirate_navigator",
+            "npc_pirate_quartermaster",
+        ],
+        npc_pirate_crew::author,
+    ),
+    (&["npc_carl_stargan"], npc_carl_stargan::author),
     (&["goblin"], goblin::author),
 ];
 

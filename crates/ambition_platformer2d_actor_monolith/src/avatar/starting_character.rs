@@ -563,7 +563,10 @@ fn apply_worn_character_kit(
                     // the charge belonged to the code-side compat kit — which made a
                     // property of the protagonist's ranged ATTACK a property of which
                     // arm of `PlayableKitSource` built it. An authored character that
-                    // charges can now say so and keep charging once `HostCode` is gone.
+                    // charges says so, and keeps charging: `HostCode` IS gone —
+                    // `PlayableKitSource` has one variant (`Authored`) and
+                    // `PreparedKit`'s other arm is `Unauthored`, which is an
+                    // ABSENCE rather than a selector anyone can name (D73 item 19).
                     prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
                         prepared.ranged_execution
                     }),

@@ -412,8 +412,27 @@ autonomous_reconcile                1045
     complete character except `under_town_pipes` and `dive_drill`, and neither
     names a character at all, so `adopt_character_intrinsics` has live code and no
     live data (see `every_shipped_enemy_placement_can_be_built`).
-19. ▢ **Remove `PreparedKit::HostCode`** — the protagonist is a definition plus
+19. ✔ **Remove `PreparedKit::HostCode`** — the protagonist is a definition plus
     runtime body state like everything else.
+
+    ⇥ ✔ **DONE, verified 2026-08-13 by reading both enums rather than the name.**
+    `PlayableKitSource` has exactly ONE variant, `Authored`; the row-level
+    selector that could choose a code-side kit is deleted and every shipped row
+    is authored. `PreparedKit`'s second arm is `Unauthored { authored_moveset }`
+    and its doc records the rename with the reason: *"this was called `HostCode`,
+    after a `PlayableKitSource` variant that NO LONGER EXISTS … what reaches this
+    arm now is only the absence"*.
+
+    ⭐ **the rename is the substance, not cosmetics.** `HostCode` named a
+    SELECTOR — a row choosing the host's kit — and `Unauthored` names an ABSENCE:
+    an id the catalog does not know, or no catalog at all. A body reaching that
+    arm is not asking for the protagonist's kit; nobody authored one for it.
+    ⚠ `authored_moveset` survives on that arm because a character may bring
+    timelines without an action set.
+
+    ⚠ one comment in `starting_character.rs` still said an authored charger would
+    *"keep charging once `HostCode` is gone"* — it is gone; corrected the same
+    day.
 20. ▢ **Remove the scaffolding**: `BUILDABLE_ONLY_CAST` (a registered complete
     definition should simply BE buildable), the definition→catalog→archetype
     precedence bridges, `PLAYABLE_ROSTER` as a buildability gate.

@@ -202,9 +202,17 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 ⭐ **re-tallied 2026-08-14, after AC6 closed.** The four that were OPEN are
 answered: (7) and (22) are the AC6.1 deletion, (6) is AC6.2's field collapse —
 whose answer is that `ActorTuning` does NOT disappear — and (23) is the AC7
-naming pass, which is in flight rather than unstarted. ⛔ **the ▢ marks in the
-prose below have not all been re-verified**; the phase table above is the
-tallied surface.
+naming pass, which is in flight rather than unstarted.
+
+⛔⛔ **READ THE `⇥` CONVENTION BEFORE COUNTING ▢ MARKS IN THE PROSE BELOW.** A
+`⇥ as written:` / `⇥ AS WRITTEN:` line opens a STRATUM — the superseded text of
+the row above it, kept as evidence of what was believed and when. Its ▢ marks
+describe work as it was scoped THEN and are not open items now; most of them
+name `character_archetypes.ron` rows, and that file is deleted. **The phase
+table above is the tallied surface.** Verified 2026-08-14, the genuinely open
+prose items are: `WornCharacter` → a universal `CharacterIdentity` (blocked on
+the persona derive still resolving through the catalog), the string-typed
+`PreparedSeat::character_id`, and prepared completeness for death traits.
 
 ⭐⭐ **and the shape matters more than the tally: what was FOUR casting decisions
 is now ONE.** Jon settled three on 2026-08-13 — skitters are Puppy Slug,
@@ -373,7 +381,15 @@ autonomous_reconcile                1045
 
 ### B. One construction path (phase 3's remainder)
 
-6. ▢ **Route the NPC path through `CharacterSpawnPlan`.** The second of six
+6. ✔ **SUPERSEDED BY AC5.1's RULING, and satisfied in the form that matters.**
+   The campaign settled that *"the hard invariant is one intrinsic body
+   construction path, not one universal planning record"* — `CharacterSpawnPlan`
+   is a resolution tool, and adding NPC-only display/dialogue/session fields to
+   it merely to force every road through one struct is explicitly refused. What
+   this row wanted is true by the stronger measure: the NPC road reaches
+   `ActorClusterSeed::new_character_in` (`actor_clusters.rs`), one of the five
+   production roads probe C measured onto the single constructor. ⇥ AS WRITTEN:
+   **Route the NPC path through `CharacterSpawnPlan`.** The second of six
    authoring surfaces, and the second is where a shared contract either proves
    general or turns out to be the enemy path renamed. It is also what returns
    `controller` and `autonomous_profile_override` to the plan WITH readers.
@@ -649,8 +665,17 @@ autonomous_reconcile                1045
     road, which is tolerable precisely because a wrong sheet is visible.
 
     ⇥ as written:
-    ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
-    display-name fallback from `presentation_identity`, once (14) is complete.
+    ◐ **ACHIEVED IN BEHAVIOUR, still `Option` in the type** (2026-08-14). A
+    placement that names no character can no longer produce a body: AC6.1
+    deleted the archetype road and `construction::preflight_planned_bodies`
+    refuses the room at PREPARATION, so every authored enemy in every shipped
+    world names a resolving character — proven by the suites booting, not by a
+    census. ▢ what remains is the TYPE, and it is not free: `EnemySpawnSpec` is
+    lowered from LDtk, where the field is genuinely absent on unmigrated
+    entities, so making it required is a content migration rather than a
+    signature change. ⇥ AS WRITTEN: **Make `EnemySpawnSpec::character_id`
+    required** and delete the display-name fallback from
+    `presentation_identity`, once (14) is complete.
 16. ◐ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,
     `ArchetypeSpec`, `CharacterRoster` in construction, matches, summons,
     provocation, rollback, giant limbs, demos, fixtures. Each ends as a real

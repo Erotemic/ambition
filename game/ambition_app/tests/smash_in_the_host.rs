@@ -1136,6 +1136,104 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     );
 }
 
+/// **TWO SEATED FIGHTERS SWING THEIR OWN JABS, NOT THE STAGE'S** — P3.26's
+/// central claim, on live bodies in the shipped host.
+///
+/// The row says Smash must consume *each character's actual moves*. The
+/// ratchets beside it count who AUTHORS a moveset; this asks the question one
+/// step later and where it actually matters: does the authored table reach a
+/// seated body, and does it stay that character's?
+///
+/// ⭐ **the verb IDS are identical for both fighters and that is by design** —
+/// `jab`, `tilt_up`, `smash_forward` are the genre's standard map, and every
+/// character authors the same names. So an id census proves nothing here; the
+/// FRAME DATA is where a character lives, and it is what this compares.
+///
+/// ⛔ **the admiral is BODY-INCOMPLETE**, which is why it is the fighter chosen:
+/// its prepared definition cannot build a body on its own
+/// (`the_cast_that_still_needs_a_body_assist_only_shrinks` counts it among the
+/// fourteen), so it is the case where an authored moveset is most likely to be
+/// lost on the way to a seat. It is not.
+///
+/// ⚠ this is the shape P3.26 already recorded going wrong once: a match's
+/// borrowed action-set grant regenerated the moveset FROM ITSELF, and eleven
+/// authored timelines became one derived swipe on the only path that seats a
+/// fighter.
+#[test]
+fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    // A long blade and a short fist: both author `jab`, and the two tables
+    // disagree about every number in it.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            "npc_pirate_admiral".to_string(),
+            "goblin".to_string(),
+        ]));
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d::combat::moveset::ActorMoveset,
+    )>();
+    let mut jabs: Vec<(usize, f32, f32, i32)> = query
+        .iter(world)
+        .filter_map(|(seat, moveset)| {
+            let jab = moveset.0.moves.iter().find(|m| m.id == "jab")?;
+            let frames = jab.frame_data();
+            Some((seat.0, frames.startup_s, frames.reach, frames.max_damage))
+        })
+        .collect();
+    jabs.sort_by_key(|(seat, ..)| *seat);
+
+    assert_eq!(
+        jabs.len(),
+        2,
+        "expected two seated fighters carrying a `jab`; got {jabs:?}. A seat with \
+         no jab at all means the authored table did not reach the body, which is \
+         the failure this test exists for"
+    );
+    let (_, admiral_startup, admiral_reach, admiral_damage) = jabs[0];
+    let (_, goblin_startup, goblin_reach, goblin_damage) = jabs[1];
+
+    // The admiral's authored jab: slower, longer, harder. `pirate_admiral_moveset`
+    // says it in words — "even the jab is a blade: it starts slower than the
+    // goblin's whole punish window and reaches half a body further".
+    assert!(
+        admiral_startup > goblin_startup,
+        "the admiral's jab starts in {admiral_startup}s and the goblin's in \
+         {goblin_startup}s — the blade is not slower than the fist, so at least \
+         one seat is not swinging its own table"
+    );
+    assert!(
+        admiral_reach > goblin_reach,
+        "the admiral reaches {admiral_reach}px and the goblin {goblin_reach}px"
+    );
+    assert!(
+        admiral_damage > goblin_damage,
+        "the admiral's jab does {admiral_damage} and the goblin's {goblin_damage}"
+    );
+
+    // ⛔ THE CONTROL — three comparisons between two seats would ALL hold if the
+    // stage handed both bodies one table and the ordering came from somewhere
+    // else. This says the two tables are actually different objects.
+    assert!(
+        (admiral_startup - goblin_startup).abs() > 1e-4
+            && (admiral_reach - goblin_reach).abs() > 1e-4,
+        "both seats report the same jab ({admiral_startup}s / {admiral_reach}px), \
+         so the numbers above are one table read twice"
+    );
+}
+
 /// **HOW MANY OF THE GRID'S FIGHTERS STATE THEIR OWN MOVES** — P3.26's number.
 ///
 /// P3.24's ratchet asks this of the whole prepared cast. This asks it of the

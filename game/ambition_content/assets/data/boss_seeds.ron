@@ -299,7 +299,7 @@
         telegraph: (min_s: 0.80, max_s: 1.30),
         active: (min_s: 0.40, max_s: 0.50),
         instances: [
-            "gradient_cascade", // 2 × small_lurker per cast
+            "gradient_cascade", // 2 × npc_ai_slop per cast
         ],
         recipes: [
             (

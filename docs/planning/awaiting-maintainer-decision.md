@@ -41,7 +41,7 @@ drift.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | ⚠ **nothing, and the stated cost is now FALSE** — this said it kept the parent tree dirty and the *"nothing uncommitted"* check failing; rechecked 2026-08-13, `git status` is empty, every submodule pointer matches its checkout, and that check PASSES | ▢ **needs Jon**, 30 seconds — and the only live question left is whether a commit titled `wip` should be the recorded pointer (see below) |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
-| ⭐⭐ **What IS a `small_lurker`? — NOW THE SOLE BLOCKER of D73's acceptance signal** (D96 1) | ⛔⛔ **`character_archetypes.ron` is down to ONE row (`combatant`) and ONE borrower — this.** Everything else in the campaign's content half closed on 2026-08-13. Answering it deletes the file | ▢ **needs Jon — one word.** ⭐ **recommendation: `npc_ai_slop`**, a registered body-complete character; the boss's own design note calls these *"slop" minions*, and its sibling `MINIMA_TRAP_MINION_ARCHETYPE` is already cast that way. ⚠ **or delete it** — it is AI-invented placeholder content of exactly the kind he ruled deletable for the dive-drill, and the cascade would simply summon nothing. Either answer closes it; *"it's something else"* is also a complete answer |
+| **What IS a `small_lurker`?** (D96 1) | ~~the sole blocker of D73's acceptance signal~~ **nothing any more — the recommendation was APPLIED, provisionally** | ⚠ **CAST as `npc_ai_slop` by agent 2026-08-13** when Jon said *"continue on the hard parts"* while this word was the only thing gating AC6 — under his own precedents (the boss's design note has always said *"slop" minions*; the sibling `MINIMA_TRAP_MINION_ARCHETYPE` was already cast; AI-invented placeholder identities are not preserved; casting is his *"easy to retune"* category). ⭐ **overruling it is ONE STRING CONSTANT**: `GRADIENT_CASCADE_MINION_ARCHETYPE` in `gradient_sentinel.rs` — say the word and it moves; nothing else in the game names a small lurker. All three possible answers deleted the archetype ontology identically, which is why the architecture did not wait |
 | ~~What is a provoked villager's HEALTH POOL?~~ (D96 7) | ~~P2.20, P2.21 and D81 ENTIRELY~~ | ✔✔ **ANSWERED by Jon 2026-08-13** — health is TUNING, not a blocked product decision: author explicit values now (ordinary humanoid/NPC baseline **4 HP**), and ⛔ *"provocation/control changes must preserve current body health"* — health is a BODY fact. Ruling in `maintainer-decisions.md` |
 | ~~How tough is a pirate quartermaster?~~ (D96 8, queue D98) | ~~seven characters that author facts reaching no body~~ | ✔✔ **ANSWERED by Jon 2026-08-13** — ordinary pirate **4 HP**, heavy/large pirate variants **6 HP**, Patent Clerk **6 HP**; author them. ⛔ *"do not retain fallback health or incomplete body definitions because we are waiting for balance decisions."* |
 | **Is `DeclaredCombatRules::unarmed_melee` scaffolding, or permanent architecture?** | P3.24 and P3.26's remaining ▢ | ▢ **needs Jon** on the RULESET half only — ⚠ **its second half is ANSWERED 2026-08-13**: *"seven peaceful characters re-authored as fighters"* was the wrong question, because a body fights exactly to the extent it has authored damaging abilities. ⭐ his ruling also constrains this one: *"a ruleset may restrict available verbs but does not create combat abilities that the body lacks"* |
@@ -49,8 +49,9 @@ drift.
 | **Is a Sanic badnik the 1-HP wanderer its own file describes?** (D96 6) | the sanic demo's own row; the smallest of these and the only one confined to one demo | ▢ **needs Jon** — one yes/no |
 | **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
-⇒ **7 open**, and **two of them block CODE** — D23 (added 2026-08-10) and D68
-(reopened 2026-08-13, see below).
+⇒ **6 open** (the `small_lurker` row is applied-awaiting-veto, not waiting), and
+**two of them block CODE** — D23 (added 2026-08-10) and D68 (reopened
+2026-08-13, see below).
 
 ⭐⭐ **FOUR ROWS CLOSED AT ONCE ON 2026-08-13**, in one unprompted handoff from
 Jon while the Authority Convergence campaign was running: the goblin-lab heavy
@@ -2545,7 +2546,11 @@ survives only because one placement names it.
 says; the recommendation is what it points at. Saying "no, it's something else"
 is a complete answer.
 
-### 1. What IS a `small_lurker`? — the Gradient Sentinel's cascade
+### 1. What IS a `small_lurker`? — ⚠ CAST PROVISIONALLY 2026-08-13, see the table row
+
+**The recommendation below was applied**: `GRADIENT_CASCADE_MINION_ARCHETYPE =
+"npc_ai_slop"`. Overruling it is that one constant. The analysis is kept because
+it is the reasoning the cast rests on.
 
 * **Who casts it**: `GRADIENT_CASCADE_MINION_ARCHETYPE`, 2 per cast, spawned at
   the top of the arena (y=80) with half-size **(15, 20)**.

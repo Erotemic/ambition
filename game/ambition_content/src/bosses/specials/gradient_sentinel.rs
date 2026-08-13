@@ -780,17 +780,20 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 }
 
-/// ⚠⚠ **`small_lurker` NO LONGER EXISTS AND THIS CASCADE IS SPAWNING GENERIC
-/// COMBATANTS** (found 2026-08-12, ledger D93). The row was deleted on 08-11 by a
-/// census that reported it "PLACED IN ZERO LEVELS" — true of LDtk, blind to this
-/// constant, which is the one thing that named it.
+/// ⭐⭐ **THE CASCADE'S MINIONS ARE THE AI SLOP** (cast 2026-08-13, provisional).
+/// This pointed at `small_lurker`, a name whose archetype row a census had
+/// deleted, left dangling on purpose while "what IS a small lurker?" waited for
+/// Jon. The cast applied is the recommendation that sat on the decision surface:
+/// this technique's own design note has always read *"spawn N **\"slop\"
+/// minions**"*, `npc_ai_slop` is the registered, body-complete character of that
+/// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_ARCHETYPE`)
+/// was already cast the same way.
 ///
-/// ⛔ **left pointing at the dead name ON PURPOSE, and the summon road now says
-/// so out loud** every time the boss casts. Inventing a creature to fill the gap
-/// is a content decision (what IS a small lurker?) and Jon's to make; quietly
-/// re-pointing it at a convenient neighbour would hide the question behind a body
-/// that happens to spawn.
-const GRADIENT_CASCADE_MINION_ARCHETYPE: &str = "small_lurker";
+/// ⚠ **provisional means the reversal is THIS ONE STRING** — a casting choice in
+/// Jon's "easy to retune" category, not an architectural fact. If a small lurker
+/// turns out to be its own creature, author the character and point this at it;
+/// nothing else in the game names one.
+const GRADIENT_CASCADE_MINION_ARCHETYPE: &str = "npc_ai_slop";
 const GRADIENT_CASCADE_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// Vertical y where slop minions spawn (top of the arena, just below
 /// the ceiling). The arena ceiling sits at y=32; minions spawn at
@@ -817,10 +820,10 @@ fn gradient_cascade_minion_x_offset(i: i32, count: i32) -> f32 {
 /// EFFECTS consumer: `gradient_cascade` — spawn N "slop" minions at the
 /// top of the arena.
 ///
-/// One-shot per strike. Spawns `minion_count` `small_lurker`
-/// minions in a horizontal spread at `GRADIENT_CASCADE_SPAWN_Y`,
-/// centered on the boss x. Gravity carries them down toward the
-/// player; their default `MeleeBrute` brain chases on contact.
+/// One-shot per strike. Spawns `minion_count` slop minions in a
+/// horizontal spread at `GRADIENT_CASCADE_SPAWN_Y`, centered on the
+/// boss x. Gravity carries them down toward the player; the
+/// character's own wanderer policy and contact damage do the rest.
 pub fn spawn_gradient_cascade_minions_from_special_messages(
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut messages: MessageReader<ActorActionMessage>,

@@ -106,10 +106,10 @@ fn the_honest_lookup_and_the_downgrading_one_answer_differently() {
 /// ```text
 ///   combatant       no longer reserved — nothing resolves to it by accident
 ///                   (D102 is answered: an undeclared identifier is a
-///                   construction ERROR). It survives as the row ONE open
-///                   casting decision borrows while it stands, declared by
-///                   `ambition_content` itself: small_lurker. Deleting it means
-///                   casting or deleting that one creature.
+///                   construction ERROR). As of 2026-08-13 NOTHING borrows it
+///                   either: the last open casting decision was applied and
+///                   `ambition_content`'s OPEN_CASTING list is empty. It stands
+///                   only until the ontology deletion removes the file.
 /// ```
 ///
 /// ⛔ **this test went red when the row came back, which is what it is for.**
@@ -126,12 +126,13 @@ fn the_shipped_archetype_file_holds_only_rows_that_state_why() {
     const SURVIVORS: &[(&str, &str)] = &[
         (
             "combatant",
-            "not reserved and not a fallback any more — the schema rule that \
-             required it is deleted with the downgrade it served. It is the row \
-             `ambition_content` names in its ONE remaining \
-             `with_open_casting_decision`, so deleting it means casting or \
-             deleting `small_lurker` — the Gradient Sentinel's cascade summon, \
-             and the last open casting question in the game.",
+            "SPENT as of 2026-08-13: the last open casting decision \
+             (`small_lurker`, the Gradient Sentinel's cascade summon) was cast \
+             as `npc_ai_slop` and `ambition_content`'s OPEN_CASTING list is \
+             empty, so NOTHING borrows this row any more. It stands only until \
+             the ontology deletion lands — the commit that removes the file, \
+             the schema and the roster machinery together, where the compiler \
+             proves nothing else leans on them.",
         ),
     ];
 

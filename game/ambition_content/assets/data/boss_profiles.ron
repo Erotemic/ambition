@@ -175,7 +175,7 @@
                 Telegraph(profile: Special("saddle_point"), duration: 1.4),
                 Strike(profile: Special("saddle_point"), duration: 4.8),
                 Rest(duration: 1.2),
-                // Beat 3: MinionCascade — 2 small_lurker minions.
+                // Beat 3: MinionCascade — 2 slop minions (npc_ai_slop).
                 Telegraph(profile: Special("gradient_cascade"), duration: 1.2),
                 Strike(profile: Special("gradient_cascade"), duration: 0.4),
                 Rest(duration: 2.4),

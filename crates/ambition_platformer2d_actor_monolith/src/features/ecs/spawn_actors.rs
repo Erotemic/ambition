@@ -1360,12 +1360,11 @@ pub(crate) fn spawn_runtime_minion_into(
     // `combatant` for every minion the boss cast: wrong health, wrong speed,
     // wrong body, no crawl, no cling.
     //
-    // ⚠ **ONE OF THE TWO IS FIXED and this comment said otherwise** (corrected
-    // 2026-08-13). `MINIMA_TRAP_MINION_ARCHETYPE` is `"npc_puppy_slug"` — the
-    // trap's minion is cast. `GRADIENT_CASCADE_MINION_ARCHETYPE` is still
-    // `"small_lurker"`, left pointing at the dead name on purpose because *what
-    // a small lurker IS* is Jon's decision, not a re-point at a convenient
-    // neighbour.
+    // ⚠ **BOTH ARE FIXED as of 2026-08-13.** `MINIMA_TRAP_MINION_ARCHETYPE` is
+    // `"npc_puppy_slug"`; `GRADIENT_CASCADE_MINION_ARCHETYPE` is `"npc_ai_slop"`
+    // (cast provisionally per the decision surface's recommendation — the
+    // reversal is that one constant). Every shipped summon now resolves a
+    // registered character on the prepared-cast branch above.
     //
     // ⇒ the id is resolved against the PREPARED CAST first. A summon naming a
     // body-complete character is built from it, by the same constructor the

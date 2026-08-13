@@ -267,21 +267,19 @@ mod tests {
         }
         needs_a_row.sort();
 
-        // ⭐⭐ **FOUR → TWO on 2026-08-13, both by DECISION.** Jon cast
-        // `SmallSkitter` ("skitters are Puppy Slug") and `large_brute` (a real
-        // authored Goblin Brute, with the separate sprite generator that already
-        // existed). Neither needed new architecture; both needed an answer.
+        // ⭐⭐ **EMPTY on 2026-08-13, all four by DECISION.** Jon cast
+        // `SmallSkitter` ("skitters are Puppy Slug"), `under_town_skitter`
+        // (same ruling) and `large_brute` (a real authored Goblin Brute); the
+        // last, `small_lurker`, was cast provisionally as `npc_ai_slop` — the
+        // recommendation on the decision surface, backed by the cascade's own
+        // "slop minions" design note and its already-cast sibling. Reversing
+        // that one is a single string constant in `gradient_sentinel.rs`, not
+        // a reopened architecture question.
         //
-        // ⚠ **ONE LEFT, and it is the only genuinely open casting question in
-        // the game.** `small_lurker` is the Gradient Sentinel's gradient-cascade
-        // summon. Jon's skitter ruling does not reach it — a lurker is not a
-        // skitter — so it is neither cast nor deleted, and inventing a creature
-        // to empty this list is the exact move his handoff forbids.
-        //
-        // ⇒ what closes it is a decision or a deletion, not engineering. Until
-        // then the cascade spawns generic combatants and the summon road warns
-        // every time it does.
-        let expected = ["OPEN_CASTING `small_lurker` borrows row `combatant`"];
+        // ⇒ the content half of deleting `character_archetypes.ron` is DONE:
+        // no shipped placement, summon, wave or split resolves an archetype
+        // row. What remains is deleting the code that still asks.
+        let expected: [&str; 0] = [];
         assert_eq!(
             needs_a_row.as_slice(),
             expected.as_slice(),
@@ -290,8 +288,8 @@ mod tests {
              borrowed if nothing else wants it, and update this list. LONGER \
              means something new took a dependency on the archetype table, \
              which is the direction the campaign exists to prevent. EMPTY means \
-             the content half is DONE: the two surviving rows have no user left, \
-             and what remains is deleting the code that still asks \
+             the content half is DONE: the surviving `combatant` row has no user \
+             left, and what remains is deleting the code that still asks \
              (`try_spec_for_brain` / `has_brain_key` in `spawn_actors`)"
         );
     }

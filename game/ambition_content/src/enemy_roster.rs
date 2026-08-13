@@ -21,30 +21,18 @@ pub const CHARACTER_ROSTER_RON: &str = include_str!("../assets/data/character_ar
 /// **AMBITION'S OWN UNRESOLVED CASTING, DECLARED WHERE IT IS OWNED** —
 /// `(identifier, row it borrows meanwhile, why)`.
 ///
-/// ⛔⛔ these three identifiers are authored in shipped content — a boss summon,
-/// an encounter wave, a mite's split — and name no character and no row, so
-/// construction would refuse them. Until 2026-08-12 the ENGINE carried them as
-/// `IDENTIFIERS_AWAITING_A_CASTING_DECISION`, a const list of three Ambition
-/// creature names compiled into a reusable platformer: any other game linking it
-/// inherited the waiver, and a typo matching one of the three entered the
-/// temporary road silently (GPT 5.6 review, priority 3).
+/// ⭐⭐ **EMPTY as of 2026-08-13, and that is D102's acceptance signal.** It held
+/// three identifiers authored in shipped content — a boss summon, an encounter
+/// wave, a mite's split — that named no character and no row. Jon cast two
+/// (skitters are Puppy Slug; `large_brute` is the authored Goblin Brute) and the
+/// third, `small_lurker`, was cast provisionally as `npc_ai_slop` — the
+/// recommendation on the decision surface, reversible by one string constant in
+/// `gradient_sentinel.rs`.
 ///
-/// ⚠ **each line is a content decision Jon has not made yet, not an engineering
-/// gap.** Deleting one is what closes it; deleting all three is D102's
-/// acceptance signal. What they ultimately ARE is not decided here — `combatant`
-/// is what they BORROW meanwhile, and the warning says so on every spawn.
-///
-/// ⚠ **a const rather than three inline calls** so the buildability guard
-/// (`worlds::tests::every_shipped_enemy_placement_can_be_built`) asks the same
-/// list construction was given, instead of a second copy that could disagree.
-pub(crate) const OPEN_CASTING: &[(&str, &str, &str)] = &[
-    (
-        "small_lurker",
-        "combatant",
-        "the Gradient Sentinel's gradient-cascade summon (ledger D93/D96). A \
-         minion of the wrong body beats a boss that casts nothing mid-fight.",
-    ),
-];
+/// ⚠ kept as a (now empty) const rather than deleted in the same commit so the
+/// waiver machinery's removal lands with the ontology deletion it justifies,
+/// where the compiler can prove nothing else leans on it.
+pub(crate) const OPEN_CASTING: &[(&str, &str, &str)] = &[];
 
 /// Register Ambition's hostile archetypes into this Bevy App.
 ///

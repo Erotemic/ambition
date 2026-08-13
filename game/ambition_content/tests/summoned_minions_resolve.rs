@@ -139,21 +139,13 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
 /// **Each summoned id names a registered character, or an archetype row that
 /// still exists.**
 ///
-/// ⚠ `small_lurker` is KNOWN BROKEN and is listed below with the reason, because
-/// a guard that goes red on a defect nobody has decided how to fix gets muted.
-/// What this test protects is the OTHER direction: it must not be possible to
-/// break a second one silently, and the exemption names exactly one id.
+/// ⭐ the exemption list is EMPTY as of 2026-08-13: `small_lurker`, its last
+/// entry, was cast as `npc_ai_slop` (provisionally — the reversal is one string
+/// constant in `gradient_sentinel.rs`). The list stays so the next broken
+/// summon has somewhere to state its reason instead of muting this guard.
 #[test]
 fn every_summoned_minion_id_resolves_a_body() {
-    const KNOWN_UNRESOLVED: &[(&str, &str)] = &[
-        (
-            "small_lurker",
-            "its archetype row was deleted 2026-08-11 by a placement census blind \
-             to this constant, and WHAT a small lurker is as a character is a \
-             content decision (ledger D93). The cascade spawns generic combatants \
-             until then, and the summon road warns every time it does.",
-        ),
-    ];
+    const KNOWN_UNRESOLVED: &[(&str, &str)] = &[];
 
     let buildable: std::collections::BTreeSet<&str> =
         ambition_content::character_catalog::buildable_cast().collect();

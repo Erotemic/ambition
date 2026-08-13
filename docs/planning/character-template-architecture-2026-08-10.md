@@ -3051,7 +3051,10 @@ split three ways and only one third has both a home and a reader:
 exploding_mite / dividing_mite
   intrinsic, EXPRESSIBLE   max_health · run_speed (MovementTuning::max_run_speed)
                            melee Swipe · move_style · explodes/divides_on_death
-  intrinsic, NO HOME YET   contact_strength · damage_amount (body contact damage)
+  intrinsic, HAS A HOME    contact_strength · damage_amount — since 2026-08-12 they are
+                           `CharacterDefinition::contact_damage` (`ContactDamage { strength,
+                           amount }`), authored by every contact-damaging character that has
+                           migrated. The line below read "NO HOME YET"; see checklist item 11.
   CONTROLLER               patrol_effort · chase_effort · aggro_radius
                            attack_range · brain_template · smash_hit_band
   PLACEMENT                respawn: OnRoomReenter

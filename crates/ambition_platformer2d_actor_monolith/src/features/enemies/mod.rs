@@ -855,26 +855,50 @@ impl CharacterRosterFragment {
     // assembly all read it — but nothing outside this file ever asked a fragment
     // for it.
 
-    // ⛔⛔ **THREE PUBLIC ACCESSORS DELETED HERE (2026-08-12), compiler-verified
-    // to have no call site in the WORKSPACE**: `from_ron_at`, `provider_id` and
-    // `source`. Found by marking every public fn in this file `#[deprecated]`
-    // and reading `cargo check` — the technique ledger D105 records, after a
-    // grep-based census had been wrong five times.
+    // ⛔⛔ **THREE PUBLIC ACCESSORS WERE DELETED HERE (2026-08-12) "compiler-verified
+    // to have no call site in the WORKSPACE" — and ONE OF THEM WAS NOT DEAD.**
+    // `provider_id` and `source` were. `from_ron_at` is RESTORED below, because
+    // the census's own words name its blind spot: *in the WORKSPACE*.
+    // `fixtures/external_consumer` is `exclude`d in the root `Cargo.toml`, so a
+    // `cargo check --workspace` cannot see it — and it is the only in-repo
+    // consumer that links this engine from OUTSIDE, which is exactly the
+    // population a public-API census is about. It called `from_ron_at` and had a
+    // test asserting the located diagnostic (ledger D110).
     //
-    // ⚠ **and the first run of that technique was ALSO wrong.**
-    // `cargo check -p ambition_platformer2d_actor_monolith` compiles this
-    // package and its DEPENDENCIES — not its dependents — so every cross-crate
-    // caller was invisible and it named five dead functions. `--workspace`
-    // named three. `sandbags_are_passive` and `from_prepared_specs` were the two
-    // it would have deleted.
+    // ⚠ **the technique was right and got refined twice, which is why this is
+    // worth reading rather than deleting.** Marking every public fn
+    // `#[deprecated]` and reading `cargo check` is ledger D105's answer to five
+    // wrong grep censuses. Its first run used `-p`, which compiles this package
+    // and its DEPENDENCIES and not its dependents, so every cross-crate caller
+    // was invisible and it named five dead functions; `--workspace` named three.
+    // This is the third refinement: `--workspace` still cannot see a consumer
+    // the workspace excludes.
     //
-    // ⚠ `source` was a PROVENANCE feature with neither producer nor consumer:
-    // `from_ron_at` was the only constructor that set it, nothing called that,
-    // so the field is always `None` and `MalformedFragment`'s error message has
-    // never printed a source. The field and its error arm are LEFT — they are
-    // threaded through the assembly error and cost nothing — but nothing can
-    // make them non-`None` today, and that is worth knowing before somebody
-    // debugs a missing filename.
+    // ⚠ the `source` FIELD really was a provenance feature with no consumer and
+    // stays deleted — the assembly ERROR carries its own `source`, read from the
+    // BUILD parameter, and that is what makes a located diagnostic work. The two
+    // looked like one feature, which is how a working one got taken with a dead
+    // one.
+
+    /// **The same assembly, told WHERE its text came from.**
+    ///
+    /// A fragment built this way reports `source` in every diagnostic it raises,
+    /// so an author who mistypes a roster reads which FILE to open instead of
+    /// only which provider. That is the whole feature, and it is served by the
+    /// build parameter rather than by any field on the fragment.
+    pub fn from_ron_at(
+        source: impl Into<String>,
+        provider_id: impl Into<String>,
+        fallback_brain_id: Option<impl Into<String>>,
+        roster_ron: &str,
+    ) -> Result<Self, CharacterRosterAssemblyError> {
+        Self::build(
+            Some(source.into()),
+            provider_id,
+            fallback_brain_id,
+            roster_ron,
+        )
+    }
 
     fn validate(&self) -> Result<(), CharacterRosterAssemblyError> {
         if self.provider_id.trim().is_empty() {

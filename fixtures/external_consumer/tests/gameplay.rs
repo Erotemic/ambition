@@ -243,12 +243,9 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
             ),
         },
     )"#;
-    let missing_default = CharacterCatalogFragment::from_ron(
-        "outlander",
-        Some("wandrer_typo"),
-        good_ron,
-    )
-    .expect_err("a default character that is not in the fragment must be refused");
+    let missing_default =
+        CharacterCatalogFragment::from_ron("outlander", Some("wandrer_typo"), good_ron)
+            .expect_err("a default character that is not in the fragment must be refused");
     let message = missing_default.to_string();
     for needle in ["outlander", "wandrer_typo"] {
         assert!(
@@ -355,8 +352,8 @@ fn authoring_mistakes_name_the_thing_the_author_must_fix() {
 /// frame size this crate authored.
 #[test]
 fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
-    use ambition_platformer2d::character::AuthoredSheets;
     use ambition_platformer2d::character::AuthoredSheetAppExt;
+    use ambition_platformer2d::character::AuthoredSheets;
     use bevy::prelude::App;
 
     let mut app = App::new();
@@ -380,9 +377,7 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
     // And the engine's own resolution path finds it — the assertion that
     // distinguishes "a registry accepted my RON" from "my character resolves".
     let catalog = ambition_platformer2d::character::CharacterCatalog::from_data(
-        ambition_platformer2d::character::parse_catalog(
-            outlander::outlander_catalog_ron(),
-        ),
+        ambition_platformer2d::character::parse_catalog(outlander::outlander_catalog_ron()),
     );
     let spec = ambition_platformer2d::character::sheet_for_declared_character(
         authored,
@@ -420,9 +415,8 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 #[test]
 fn the_consumers_own_art_is_a_real_png_matching_the_sheet_it_authored() {
     let png = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/sprites/outlander.png");
-    let bytes = std::fs::read(&png).unwrap_or_else(|error| {
-        panic!("build.rs did not generate {}: {error}", png.display())
-    });
+    let bytes = std::fs::read(&png)
+        .unwrap_or_else(|error| panic!("build.rs did not generate {}: {error}", png.display()));
 
     assert_eq!(
         &bytes[..8],
@@ -508,11 +502,14 @@ fn the_engine_reads_the_consumers_generated_art_through_its_own_source() {
 ///
 /// Outlander authors an EMPTY `ActionSet`, which is the harder half of the claim.
 /// `Some(empty)` means "this character reaches for nothing" and must outrank the
-/// catalog exactly as a filled set would. Its own row declares
-/// `playable_kit: HostCode`, which rebuilds the HOST PROTAGONIST'S kit from the
-/// body's abilities — so a resolver that collapsed "authored as empty" into
-/// "authored nothing" would fall through to that row and hand a third party's
-/// wanderer Ambition's sword and bolt.
+/// catalog exactly as a filled set would — so a resolver that collapsed
+/// "authored as empty" into "authored nothing" would fall through to its own row
+/// and hand a third party's wanderer the `drifter` kit it declined.
+///
+/// ⚠ **this used to cite `playable_kit: HostCode`, which rebuilt the HOST
+/// PROTAGONIST's kit; that variant is DELETED** (2026-08-11 — the robot authors
+/// its own kit, so no row may say another crate owns its playable repertoire).
+/// The fall-through is smaller now and the claim is the same one.
 ///
 /// That is the same distinction Sanic needs in-workspace (his kit is the
 /// momentum ride and the ball dash, and giving him a punch would be authoring
@@ -526,7 +523,8 @@ fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
         .unwrap_or_else(|error| panic!("the Outlander walkthrough failed: {error}"));
 
     let world = app.world_mut();
-    let mut bodies = world.query::<(&ambition_platformer2d::character::WornCharacter, &ActionSet)>();
+    let mut bodies =
+        world.query::<(&ambition_platformer2d::character::WornCharacter, &ActionSet)>();
     let outlanders: Vec<&ActionSet> = bodies
         .iter(world)
         .filter(|(worn, _)| worn.id() == outlander::OUTLANDER_CHARACTER_ID)
@@ -543,8 +541,7 @@ fn a_consumers_character_that_authors_no_kit_is_not_handed_the_hosts() {
             set.melee.is_none() && set.ranged.is_none() && set.special.is_none(),
             "the consumer's wanderer was handed a kit it never authored: {set:?}. \
              Its definition authors an EMPTY action set; falling through to the \
-             catalog row's `playable_kit: HostCode` rebuilds the host \
-             protagonist's own melee and bolt onto somebody else's character."
+             catalog row hands it the `drifter` set it deliberately declined."
         );
     }
 }

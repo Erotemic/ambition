@@ -276,7 +276,16 @@ ABSENCE_CONTRACTS: list[dict] = [
     },
     {
         "id": "registration-does-not-demand-art",
-        "paths": ["crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs"],
+        # ⚠ **BOTH halves of registration, since the P1.7 split** (2026-08-12).
+        # `try_register_character` stayed in `definition.rs`, but preparation —
+        # which is the half that actually knows a character's sheet — moved to
+        # `ambition_characters::prepared`. A guard scoped to the file that kept
+        # the seam would have watched the wrong half of its own subject, which is
+        # the "instrument that measures nothing" shape this file's header names.
+        "paths": [
+            "crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            "crates/ambition_characters/src/prepared.rs",
+        ],
         "patterns": [r"CharacterLoadDemand::request", r"\bdemand\.request\("],
         "reason": (
             "Registering a character DECLARES it; it does not ask for its art. "
@@ -466,7 +475,11 @@ ABSENCE_CONTRACTS: list[dict] = [
             "fixtures/",
             # The FOLD, the wear-time path for ids nothing registered, and the
             # catalog method being read.
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            # ⚠ **the fold moved CRATE on 2026-08-12, not just file** (P1.7):
+            # `finalize_character` is `ambition_characters::prepared` now. The
+            # exemption is the same ONE file it always was; only its address
+            # changed, and this guard catching the move is the guard working.
+            ":!crates/ambition_characters/src/prepared.rs",
             ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
@@ -523,7 +536,11 @@ ABSENCE_CONTRACTS: list[dict] = [
         # forbidding a provider to know what it authored.
         "paths": [
             "crates/",
-            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/definition.rs",
+            # ⚠ **the fold moved CRATE on 2026-08-12, not just file** (P1.7):
+            # `finalize_character` is `ambition_characters::prepared` now. The
+            # exemption is the same ONE file it always was; only its address
+            # changed, and this guard catching the move is the guard working.
+            ":!crates/ambition_characters/src/prepared.rs",
             ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],

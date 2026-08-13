@@ -625,6 +625,24 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `ambition_platformer2d` umbrella. Whole-suite, non-fast only — an umbrella API break
     # can land while every in-repo job stays green (workspace feature
     # unification hides it), and this job is the only gate that can see it.
+    # ⛔⛔ **THE CHECK RUNS ALWAYS, AND THAT IS A REPAIR (2026-08-12, ledger
+    # D110).** The whole-suite job below is real and has been here since Phase 6,
+    # and the comment above it is correct that it is "the only gate that can see
+    # it" — but a gate that only runs on an unfiltered whole-suite invocation is
+    # a gate a campaign of `cargo test -p <crate>` never fires. Outlander stopped
+    # COMPILING for some time and nothing said so: it named
+    # `CharacterRosterFragment::from_ron_at`, deleted as dead by a census whose
+    # own words were "no call site in the WORKSPACE" (this fixture is `exclude`d
+    # from it), and `PlayableKitSource::HostCode`, removed without its only
+    # external consumer being updated. TWO public-API regressions, invisible.
+    #
+    # ⇒ `cargo check` is seconds and catches exactly that class, so it is
+    # unconditional; the full suite stays whole-suite-only because its VALUE is
+    # the behaviour, not the surface, and that is worth the minutes only once.
+    jobs.append(Job("external consumer: outlander COMPILES against the umbrella",
+                    [CARGO, "check", "--all-targets"],
+                    cwd=str(REPO / "fixtures" / "external_consumer")))
+
     if not only and everything:
         jobs.append(Job("external consumer: outlander",
                         [CARGO, "test"],

@@ -93,7 +93,7 @@ const OUTLANDER_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "drifter",
-            playable_kit: HostCode,
+            playable_kit: Authored,
             tags: ["player", "external_consumer"],
         ),
     },
@@ -199,6 +199,14 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::Spawn
             brain: ambition_platformer2d::character::CharacterBrain::Custom(
                 OUTLANDER_ENEMY_BRAIN_KEY.to_string(),
             ),
+            // ⚠ **`None` is the right answer here and it is a statement, not a
+            // gap.** A programmatic spawn may name the CHARACTER it wants
+            // (campaign P1.12), which is what stops a fixture silently getting a
+            // generic body when its creature migrates. The sentry has not
+            // migrated: this crate authors it as a roster ROW in
+            // `OUTLANDER_ROSTER_RON`, that row exists, and the brain key
+            // resolves it. An id here would name a character nobody registered.
+            character: None,
         },
     }]
 }
@@ -206,14 +214,21 @@ fn sentry_spawn_requests(spawn: Vec2) -> Vec<ambition_platformer2d::actor::Spawn
 pub fn install_outlander_content(app: &mut App) {
     use ambition_platformer2d::actor::{CharacterRosterFragment, RoomContentStagingRegistry};
     use ambition_platformer2d::character::CharacterRosterAppExt;
-    use ambition_platformer2d::character::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
+    use ambition_platformer2d::character::{CharacterCatalogAppExt, CharacterCatalogFragment};
 
-    // `from_ron_at`, not `from_ron`: these two constants are this crate's
-    // authored content, and when one of them is wrong the message a stranger
-    // reads should say WHERE. The seam took an anonymous `&str` until
-    // 2026-07-28, so no diagnostic could name a file however hard it tried.
+    // `from_ron_at` for the CATALOG, and it is located for a reason: these
+    // constants are this crate's authored content, and when one of them is wrong
+    // the message a stranger reads should say WHERE. The seam took an anonymous
+    // `&str` until 2026-07-28, so no diagnostic could name a file however hard
+    // it tried.
+    //
+    // ⛔ **the ROSTER's located variant was DELETED as dead on 2026-08-12 and
+    // has been RESTORED, because this file is what the census could not see.**
+    // The technique was `#[deprecated]` + `cargo check --workspace`, and this
+    // crate is `exclude`d from the workspace — so the only in-repo consumer that
+    // links the engine from OUTSIDE, which is the entire population a public-API
+    // census is about, was invisible. Its own test three hundred lines away
+    // asserts the located roster diagnostic (ledger D110).
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_ron_at(
             "fixtures/external_consumer/src/lib.rs:OUTLANDER_CATALOG_RON",
@@ -244,18 +259,21 @@ pub fn install_outlander_content(app: &mut App) {
     // half of the claim rather than the lazy one. `Some(empty)` means "this
     // character reaches for nothing" and must outrank the catalog exactly as a
     // filled set would; a resolver that treated it as "unauthored" would fall
-    // through to the row — whose `playable_kit: HostCode` rebuilds the HOST
-    // protagonist's kit — and hand a third party's wanderer Ambition's sword.
+    // through to the row — whose `default_action_set: "drifter"` is a kit this
+    // character did not ask for — and hand a third party's wanderer a weapon.
+    //
+    // ⚠ **this said `playable_kit: HostCode` rebuilds the HOST protagonist's
+    // kit, and that variant is DELETED** (2026-08-11: the robot authors its own
+    // kit now, so no row may say another crate owns its playable repertoire).
+    // The enum has one variant and the row says `Authored`. The fall-through it
+    // guards is smaller and still real — the row's own `drifter` set — and the
+    // assertion is unchanged.
     {
         use ambition_platformer2d::character::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
-            CharacterDefinition::new(
-                OUTLANDER_CHARACTER_ID,
-                "Outlander",
-                OUTLANDER_EXPERIENCE,
-            )
-            .with_sheet("outlander")
-            .with_action_set(ambition_platformer2d::character::ActionSet::default()),
+            CharacterDefinition::new(OUTLANDER_CHARACTER_ID, "Outlander", OUTLANDER_EXPERIENCE)
+                .with_sheet("outlander")
+                .with_action_set(ambition_platformer2d::character::ActionSet::default()),
         );
     }
     app.register_character_roster_fragment(
@@ -598,8 +616,11 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
     // to get right — a consumer who has never seen this comment gets the same
     // startup, and the wrong orderings are unreachable rather than warned
     // about.
-    ambition_platformer2d::rollback::start(&mut app, ambition_platformer2d::rollback::RollbackPlan::new())
-        .map_err(|refused| format!("Outlander could not start rollback: {refused}"))?;
+    ambition_platformer2d::rollback::start(
+        &mut app,
+        ambition_platformer2d::rollback::RollbackPlan::new(),
+    )
+    .map_err(|refused| format!("Outlander could not start rollback: {refused}"))?;
     Ok(app)
 }
 
@@ -616,7 +637,11 @@ pub const OUTLANDER_WINDOW_TITLE: &str = "Outlander — external consumer proof"
 #[cfg(feature = "visible")]
 pub fn build_windowed_app(gpu: bool) -> App {
     let composed = ambition_platformer2d::app::PlatformerApp::windowed(OUTLANDER_WINDOW_TITLE);
-    let composed = if gpu { composed } else { composed.without_gpu() };
+    let composed = if gpu {
+        composed
+    } else {
+        composed.without_gpu()
+    };
     composed.mount(OutlanderModule).build()
 }
 
@@ -725,7 +750,9 @@ pub fn activate_outlander(app: &mut App) -> Result<usize, String> {
         let status = ambition_platformer2d::app::host_status(app);
         let router = format!("{status:?}");
         let session = match &status {
-            ambition_platformer2d::app::HostStatus::Running { prepared, .. } => prepared.to_string(),
+            ambition_platformer2d::app::HostStatus::Running { prepared, .. } => {
+                prepared.to_string()
+            }
             _ => "no active session".to_string(),
         };
         let world = app.world_mut();

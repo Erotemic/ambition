@@ -309,6 +309,19 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
+        // **A landed hit shakes the screen** (P4.37). In `Settle` because that
+        // is the phase that reads the frame's resolved damage, and in the
+        // ENGINE group because the standalone smash binary composes this and
+        // not `ambition_app` — the first version of this lived in the app's
+        // home-avatar presentation system and so could not fire in the proving
+        // ground at all. Body-generic by construction: see the module docs.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits
+                .run_if(gameplay_allowed)
+                .in_set(CombatSet::Settle),
+        );
+
         // Hand the frame's victim-side hits from the message channel to the
         // rollback-registered FIFO the player resolver (which runs in NEXT
         // frame's PlayerSimulation) drains. Ordered after the attacker-side
@@ -444,9 +457,7 @@ fn authored_volume_resolver_for(
 /// elsewhere: a provider added later would resolve volumes from the engine's
 /// baked table while resolving everything else from its own sheet.
 fn refresh_authored_volume_resolver(
-    sheets: bevy::prelude::Res<
-        ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    >,
+    sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     mut resolver: bevy::prelude::ResMut<
         ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,

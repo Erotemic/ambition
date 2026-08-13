@@ -63,6 +63,7 @@ pub mod effect_bus;
 mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
+pub mod hit_camera_shake;
 mod interact;
 mod mount;
 pub mod perception;
@@ -135,6 +136,7 @@ pub use encounter_rewards::{
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::{update_ecs_hazards, HazardTickSet};
 pub use held_items::HeldItem;
+pub use hit_camera_shake::shake_camera_on_landed_hits;
 pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,

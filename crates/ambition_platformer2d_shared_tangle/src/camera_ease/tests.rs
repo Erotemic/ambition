@@ -142,32 +142,50 @@ fn only_a_hit_harder_than_standard_moves_the_camera() {
     const REFERENCE: f32 = 0.070;
 
     assert_eq!(
-        super::hit_shake_amplitude(REFERENCE * 0.5, REFERENCE),
+        super::hit_shake_amplitude(REFERENCE * ae::hit_response::MIN_HITLAG_SCALE, REFERENCE),
         0.0,
-        "the weakest connect must not rattle the camera — it is already a \
-         readable beat through hitlag"
+        "the weakest connect the hitlag law admits must not rattle the camera — \
+         it is already a readable beat through hitlag, and a shake there would \
+         mean the screen moves on literally every hit in the game"
     );
-    assert_eq!(
-        super::hit_shake_amplitude(REFERENCE, REFERENCE),
-        0.0,
-        "and neither does a reference-strength hit: the dead zone IS the \
-         reference, the same shape as the hard-fall floor being a jump-height \
-         landing"
+
+    // ⛔⛔ **the dead zone is the WEAKEST connect, not the reference one.** It
+    // was the reference for a day, and `duel_arena` — a real authored fight —
+    // measured its hardest trade at 0.0595 s against this 0.070 s reference.
+    // Every hit in Ambition's own combat landed under the old dead zone, so the
+    // camera could not move in the shipped game at all. This assertion is that
+    // regression: an ordinary trade is a small, real jolt.
+    let ordinary = super::hit_shake_amplitude(REFERENCE * 0.85, REFERENCE);
+    assert!(
+        ordinary > 0.0,
+        "the hardest connect an authored Ambition fight actually produces \
+         (0.85x reference, measured in duel_arena) shook the camera by nothing, \
+         so the dead zone has climbed back above the game's real combat and \
+         this feature is dead outside a growth-knockback ruleset"
     );
 
     let hardest = super::hit_shake_amplitude(REFERENCE * 4.0, REFERENCE);
     assert!(
-        (9.0..=12.0).contains(&hardest),
+        (9.0..=13.0).contains(&hardest),
         "the hardest possible connect should be a heavy jolt that still leaves \
          headroom under the {DEFAULT_CAMERA_SHAKE_MAX_PX}px cap a hard fall can \
          reach — got {hardest}"
     );
+    assert!(
+        hardest > ordinary * 5.0,
+        "a smash ({hardest}px) must feel MATERIALLY different from an ordinary \
+         trade ({ordinary}px), which is the whole of what P4.37 asked for — a \
+         dead zone low enough to include everything flattens the difference just \
+         as surely as one high enough to exclude everything"
+    );
 
     // ⭐ MONOTONIC, which is the property that makes this a SCALE. Sampled
-    // across the band rather than at two points, so a step function cannot pass.
+    // across the whole band rather than at two points, so a step function cannot
+    // pass.
     let mut previous = 0.0;
     for step in 0..=8 {
-        let scale = 1.0 + (step as f32) * 0.375; // 1.0 → 4.0
+        let scale = ae::hit_response::MIN_HITLAG_SCALE
+            + (step as f32) * (4.0 - ae::hit_response::MIN_HITLAG_SCALE) / 8.0;
         let shake = super::hit_shake_amplitude(REFERENCE * scale, REFERENCE);
         assert!(
             shake >= previous,
@@ -196,12 +214,16 @@ fn a_routes_own_hitlag_decides_what_counts_as_a_hard_hit() {
     let snappy = super::hit_shake_amplitude(freeze, 0.040);
     let heavy = super::hit_shake_amplitude(freeze, 0.140);
     assert!(
-        snappy > 0.0,
-        "under a snappy route a 0.140s freeze is 3.5x reference and must shake"
+        snappy > heavy,
+        "a 0.140s freeze is 3.5x reference under a snappy route and merely \
+         standard under a heavy one, so it must shake the snappy route's camera \
+         HARDER — got {snappy}px vs {heavy}px, which means the route's reference \
+         is not reaching the law"
     );
     assert_eq!(
-        heavy, 0.0,
-        "under a route whose reference IS 0.140s the same freeze is a standard \
-         connect, and standard connects do not move the camera"
+        super::hit_shake_amplitude(0.140 * ae::hit_response::MIN_HITLAG_SCALE, 0.140),
+        0.0,
+        "and the dead zone travels with the route too: the weakest connect a \
+         HEAVY route admits must be as silent as the weakest a snappy one does"
     );
 }

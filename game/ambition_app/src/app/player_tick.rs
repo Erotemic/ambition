@@ -39,12 +39,6 @@ pub fn sync_player_presentation(
     // profile. Read once per system rather than per body: it is a fact about the
     // experience, not about a fighter.
     shake_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraShakeTuning>,
-    // **The reference hitlag a connect is measured against** (P4.37). `Option`
-    // for the same reason every other feel read here is tolerant: a headless
-    // fixture that never installed the monolith's tuning still runs the
-    // presentation phase, and a missing route means no hit shake rather than a
-    // panic. See `camera_ease::hit_shake_amplitude` for why it is a parameter.
-    feel: Option<Res<ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith>>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -74,7 +68,6 @@ pub fn sync_player_presentation(
             &mut event_writers.vfx,
             &mut shake,
             *shake_tuning,
-            feel.as_deref().map(|feel| feel.hitlag_time),
             is_primary,
             source.map(ambition_platformer2d::sfx::BodyPresentationSource::id),
         );

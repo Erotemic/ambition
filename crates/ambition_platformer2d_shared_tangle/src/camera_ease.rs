@@ -197,13 +197,14 @@ pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
     excess * HARD_FALL_SHAKE_GAIN
 }
 
-/// Pixels of shake per second of hitlag ABOVE the reference connect.
+/// Pixels of shake per second of hitlag ABOVE the WEAKEST connect.
 ///
-/// The engine's reference hitlag is 0.070 s and `hitlag_duration` rides a 4×
-/// ceiling, so the hardest possible connect buys 0.280 s — `(0.280 - 0.070) ×
-/// 48 ≈ 10 px`, a heavy jolt that still leaves headroom under the 14-px
-/// `kick()` cap a hard fall can reach. Chosen so the two things that shake this
-/// screen sit on one scale rather than each having its own idea of "hard".
+/// The engine's reference hitlag is 0.070 s, `hitlag_duration` floors at
+/// `MIN_HITLAG_SCALE` (0.035 s) and rides a 4× ceiling (0.280 s), so the
+/// hardest possible connect buys `(0.280 - 0.035) × 48 ≈ 11.8 px` — a heavy
+/// jolt that still sits under the 14-px `kick()` cap a hard fall can reach.
+/// Chosen so the two things that shake this screen sit on one scale rather than
+/// each having its own idea of "hard".
 pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
 
 /// **The shake a landed hit buys, scaled by how hard it landed.**
@@ -229,11 +230,24 @@ pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
 /// that retunes its hitlag would silently retune its camera in the wrong
 /// direction.
 ///
-/// ⇒ a reference-strength connect (scale 1.0) shakes NOTHING, by construction:
-/// the dead zone is the reference itself, exactly as the hard-fall floor is a
-/// jump-height landing. Only a hit harder than standard moves the camera.
+/// ⛔⛔ **the dead zone is the WEAKEST connect, not the reference one — and that
+/// correction is the difference between a shipped feature and a dead one.** It
+/// sat at the full reference for a day, which sounded principled (*"only a hit
+/// harder than standard moves the camera"*) and was measured wrong: the hardest
+/// connect in `duel_arena`, a real authored fight between two real fighters,
+/// freezes for **0.0595 s against a 0.070 s reference** — 0.85×. Every hit in
+/// Ambition's own combat lands UNDER the old dead zone, so the camera could
+/// never move in the shipped game, and only a Smash-style growth knockback (the
+/// smash demo authors real `knockback_growth`; every prefab swing authors
+/// `0.0`) could ever have cleared it. Anchoring on
+/// [`ae::hit_response::MIN_HITLAG_SCALE`] instead uses the mechanic's whole
+/// dynamic range: the softest possible connect still shakes NOTHING — which is
+/// the property the reference-anchored version was actually reaching for — while
+/// the duel's ordinary trade buys ~1.2 px and the hardest smash ~11.8 px, a
+/// tenfold spread rather than a cliff.
 pub fn hit_shake_amplitude(hitstop_seconds: f32, reference_hitlag_seconds: f32) -> f32 {
-    let excess = (hitstop_seconds - reference_hitlag_seconds.max(0.0)).max(0.0);
+    let weakest_connect = reference_hitlag_seconds.max(0.0) * ae::hit_response::MIN_HITLAG_SCALE;
+    let excess = (hitstop_seconds - weakest_connect).max(0.0);
     excess * HIT_SHAKE_GAIN_PX_PER_S
 }
 

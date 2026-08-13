@@ -182,17 +182,29 @@ pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTu
     tuning.hitstun_time * reaction_scale(knockback, tuning).max(0.35)
 }
 
+/// **The weakest connect the hitlag law admits**, as a fraction of
+/// [`HitResponseTuning::hitlag_time`].
+///
+/// It was an inline `0.5` inside [`hitlag_duration`], which was fine while that
+/// function was the only thing that had an opinion about "the softest possible
+/// hit". It is not any more: the camera's hit shake needs the same number for
+/// its dead zone (a shake that starts above the WEAKEST connect is the shape
+/// that makes a poke silent and everything above it proportional), and a second
+/// `0.5` written over there would be two literals agreeing by coincidence — the
+/// exact shape this campaign has already paid for twice.
+pub const MIN_HITLAG_SCALE: f32 = 0.5;
+
 /// **THE hitlag a landed hit buys — the same freeze for attacker and victim.**
 ///
 /// Scales with the hit exactly as hitstun does, so a jab taps and a smash
-/// *lands*; the perceived weight of a connect is mostly this. Floored at half
-/// the standard so even the weakest connect is a readable beat rather than
-/// nothing, and it rides the same [`reaction_scale`] ceiling.
+/// *lands*; the perceived weight of a connect is mostly this. Floored at
+/// [`MIN_HITLAG_SCALE`] so even the weakest connect is a readable beat rather
+/// than nothing, and it rides the same [`reaction_scale`] ceiling.
 ///
 /// ⚠ **both sides freeze for the SAME duration**, which is what makes a connect
 /// read as one event rather than two things happening near each other.
 pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
-    tuning.hitlag_time * reaction_scale(knockback, tuning).max(0.5)
+    tuning.hitlag_time * reaction_scale(knockback, tuning).max(MIN_HITLAG_SCALE)
 }
 
 /// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):

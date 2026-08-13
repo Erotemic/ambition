@@ -1,92 +1,157 @@
 #![cfg(feature = "rl_sim")]
-//! **A LANDED HIT SHAKES THE SCREEN, AND THE SEAM THAT MAKES IT SO IS WIRED.**
+//! **A LANDED HIT SHAKES THE SCREEN — WITH NO HOME AVATAR IN THE WORLD.** (P4.37)
 //!
-//! ⛔⛔ `CameraShakeState::kick` had exactly TWO production call sites in the
-//! whole workspace — a boss phase change and a hard-fall landing — so a smash
-//! that sent a fighter to the blast zone and a jab moved the camera identically
-//! (campaign P4.37, audited 2026-08-12). Hitlag alone carried the entire
-//! difference between a strong hit and a weak poke.
+//! ⛔⛔ **the first version of this test agreed with the bug.** It booted the
+//! Hall, found the home avatar, ASSIGNED `combat.hitstop_timer` by hand and
+//! stepped one frame. That proves manually arming the home avatar's hitstop can
+//! shake the exploration camera, which is not the claim P4.37 makes. The system
+//! it was testing queried `With<PlayerEntity>` and gated its kick on
+//! `PrimaryPlayer` — the HOME AVATAR marker, of which a match under
+//! `InitialBodyPolicy::NoInitialBody` has ZERO — and it was registered by
+//! `ambition_app` alone, so the standalone smash binary could not have shaken at
+//! all. Injecting the hitstop into the one body that still worked hid every bit
+//! of that.
 //!
-//! ⚠ **the law is unit-tested in `camera_ease`; this is the other half.** A pure
-//! function nobody calls shakes nothing, which is exactly the failure D106 was
-//! about one layer up — a mechanism present, correct, and disconnected, with a
-//! test saying yes. This drives the real sim and asks the camera.
+//! ⭐ **so this earns the hit and removes the home avatar.** `duel_arena` stages
+//! two NPCs who fight each other for real — a Perfect Cell-ular Automaton and a
+//! robot copy, holding a mutual grudge, already swinging the instant the room
+//! exists. Stripping `PrimaryPlayer` before the bout makes the world the exact
+//! shape Jon's 2026-08-07 freeze names — *"start a CPU-versus-CPU match. There
+//! is no `PrimaryPlayer` in it"* — while leaving the fight itself untouched.
+//! Under the old seam this world could not shake the camera however hard the two
+//! fighters hit each other.
+//!
+//! ⚠ **nothing here is injected.** The hits are the duel's own, at the strength
+//! the authored movesets produce; the only edit is the removal, and the test
+//! asserts the removal took before it believes anything else.
 
 use ambition_app::AmbitionSim;
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::platformer::camera_ease::CameraShakeState;
 
-fn sim() -> Platformer2dSimHarness {
-    Platformer2dSimHarness::new_with_options(
-        Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("hall_of_characters"),
-    )
-    .expect("the sim harness builds in the Hall")
+/// How long to watch the duel. The fighters trade from the first seconds; this
+/// is generous enough to see several exchanges without turning the suite slow.
+const BOUT_FRAMES: usize = 600;
+
+/// What the bout produced, gathered every frame because hitstop is a few frames
+/// wide and the camera decays out from under a once-at-the-end read.
+#[derive(Debug, Default)]
+struct Bout {
+    /// The hardest freeze any body served.
+    hardest_hitstop: f32,
+    /// Frames on which some body was frozen at all: the witness that real hits
+    /// landed rather than the fixture staging a silent standoff.
+    frames_with_a_connect: u32,
+    /// The loudest the camera got.
+    peak_shake_px: f32,
+    /// Home avatars still in the world during the bout. Must stay zero.
+    home_avatars_seen: usize,
 }
 
-/// Arm the primary player's hitstop as a landed hit of `scale` × the ROUTE's
-/// reference would, step one frame, and report the shake the camera ended with.
-///
-/// ⚠ the reference is read from the running app rather than restated: a route
-/// that retunes its hitlag retunes what counts as a hard hit, and a literal here
-/// would be a second number agreeing with the first by coincidence.
-fn shake_after_a_connect_of(scale: f32) -> f32 {
-    let mut sim = sim();
-    // The player body is staged by room construction, not by `build`.
+fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("duel_arena"),
+    )
+    .expect("the sim harness builds in the duel arena");
+
+    // Let the room stage its fighters and its observing player.
     for _ in 0..60 {
         sim.step(AgentAction::default());
     }
 
+    // ⭐ **make it a fight nobody is watching from a home body.** Removing the
+    // marker is the whole edit: the bodies, the brains, the grudge and the
+    // movesets are the room's own.
     let world = sim.world_mut();
-    let reference = world
+    let mut homes =
+        world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<PrimaryPlayer>>();
+    let home_bodies: Vec<_> = homes.iter(world).collect();
+    assert!(
+        !home_bodies.is_empty(),
+        "the duel arena staged no home avatar at all, so removing one proves \
+         nothing — the fixture stopped modelling the room it is named after"
+    );
+    for entity in home_bodies {
+        world.entity_mut(entity).remove::<PrimaryPlayer>();
+    }
+
+    let mut bout = Bout::default();
+    for _ in 0..BOUT_FRAMES {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let mut bodies = world.query::<&BodyCombat>();
+        let mut connected = false;
+        for combat in bodies.iter(world) {
+            bout.hardest_hitstop = bout.hardest_hitstop.max(combat.hitstop_timer);
+            connected |= combat.hitstop_timer > 0.0;
+        }
+        if connected {
+            bout.frames_with_a_connect += 1;
+        }
+        let mut still_home =
+            world.query_filtered::<bevy::prelude::Entity, bevy::prelude::With<PrimaryPlayer>>();
+        bout.home_avatars_seen = bout.home_avatars_seen.max(still_home.iter(world).count());
+        bout.peak_shake_px = bout
+            .peak_shake_px
+            .max(world.resource::<CameraShakeState>().amplitude_px);
+    }
+
+    // ⚠ read from the running app rather than restated: a route that retunes its
+    // hitlag retunes what counts as a hard hit, and a literal here would be a
+    // second number agreeing with the first by coincidence.
+    let reference = sim
+        .world_mut()
         .get_resource::<ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith>()
         .expect("the composed sim installs the monolith's feel tuning")
         .hitlag_time;
-
-    let mut players = world.query_filtered::<
-        &mut ambition_platformer2d::characters::actor::BodyCombat,
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
-    >();
-    let mut armed = 0usize;
-    for mut combat in players.iter_mut(world) {
-        combat.hitstop_timer = reference * scale;
-        armed += 1;
-    }
-    assert_eq!(
-        armed, 1,
-        "the fixture must find exactly one primary player to hit; {armed} is a \
-         harness that has stopped measuring the shipped body"
-    );
-
-    // Clear whatever the boot frames left, so what is read below is this hit's.
-    sim.world_mut()
-        .resource_mut::<CameraShakeState>()
-        .amplitude_px = 0.0;
-    sim.step(AgentAction::default());
-    sim.world_mut().resource::<CameraShakeState>().amplitude_px
+    (bout, reference)
 }
 
-/// **The strong hit moves the camera and the standard one does not** — both
-/// terms, because either alone is satisfiable by a broken seam.
+/// **Two fighters nobody is playing shake the screen when they connect.**
 ///
-/// ⭐ a camera that shakes on EVERYTHING passes the first assertion; one that is
-/// simply disconnected passes the second. The pair is the claim.
+/// ⭐ the four clauses are one claim, and dropping any of them lets the old bug
+/// back through:
+///
+/// - no home avatar existed for the duration (the shape of a CPU-versus-CPU
+///   match, and the shape the old seam could not serve),
+/// - hits LANDED (otherwise a silent room passes by having nothing to report),
+/// - they were harder than the weakest connect the hitlag law admits (below
+///   that the dead zone is supposed to swallow them), and
+/// - the camera moved (the seam is wired, in a schedule every host composes).
 #[test]
-fn a_hard_connect_shakes_the_camera_and_a_standard_one_does_not() {
-    let hard = shake_after_a_connect_of(4.0);
-    assert!(
-        hard > 0.0,
-        "the hardest connect the hitlag band allows left the camera perfectly \
-         still — the shake law is computed and nobody kicks with it"
-    );
+fn a_fight_between_two_bodies_nobody_is_playing_shakes_the_camera() {
+    let (bout, reference) = watch_a_duel_with_no_home_avatar();
 
-    let standard = shake_after_a_connect_of(1.0);
     assert_eq!(
-        standard, 0.0,
-        "a reference-strength connect shook the camera, so the dead zone is not \
-         being applied and every jab now rattles the screen"
+        bout.home_avatars_seen, 0,
+        "a home avatar came back during the bout, so this is no longer the \
+         no-`PrimaryPlayer` world the claim rests on: {bout:?}"
+    );
+    assert!(
+        bout.frames_with_a_connect > 0,
+        "no body in the duel arena was ever in hitlag across {BOUT_FRAMES} \
+         frames — the fixture staged a standoff, so it is measuring nothing: \
+         {bout:?}"
+    );
+    let weakest = reference * ambition_platformer2d::engine_core::hit_response::MIN_HITLAG_SCALE;
+    assert!(
+        bout.hardest_hitstop > weakest,
+        "the hardest connect in the whole duel was {} s, at or under the {weakest} s \
+         weakest connect the hitlag law admits, so the dead zone is entitled to \
+         swallow it and this test cannot speak to the shake at all: {bout:?}",
+        bout.hardest_hitstop
+    );
+    assert!(
+        bout.peak_shake_px > 0.0,
+        "two fighters traded real blows in a world with no home avatar and the \
+         camera never moved a pixel — the hit shake is gated on `PrimaryPlayer` \
+         again, or it has gone back to living in the app's player-presentation \
+         system where the standalone smash binary cannot reach it: {bout:?}"
     );
 }

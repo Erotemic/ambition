@@ -315,6 +315,13 @@ impl Plugin for CombatSchedulePlugin {
         // not `ambition_app` — the first version of this lived in the app's
         // home-avatar presentation system and so could not fire in the proving
         // ground at all. Body-generic by construction: see the module docs.
+        //
+        // ⛔ **it is the one system in this schedule that writes non-rollback
+        // PRESENTATION state**, so it carries its own authoritative-pass guard
+        // as a parameter rather than a `run_if` here — a replayed frame kicking
+        // the live camera is a ghost shake, and the guard must survive anyone
+        // else registering it. Do not "fix" that by adding a run condition
+        // here; read the module's second ⛔⛔ block first.
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits

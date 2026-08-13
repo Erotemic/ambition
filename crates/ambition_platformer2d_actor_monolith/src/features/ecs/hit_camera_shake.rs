@@ -32,12 +32,30 @@
 //! but folding with `max` here keeps the result independent of query iteration
 //! order, which is the determinism rule this repository has been bitten by more
 //! than once.
+//!
+//! ⛔⛔ **AND IT READS TWO CLOCKS, WHICH IS THE HAZARD BEING BODY-GENERIC PUT IT
+//! IN REACH OF.** This runs in the SIMULATION schedule, which a rollback host
+//! re-executes over historical frames; `CameraShakeState` is PRESENTATION state
+//! and is not rollback-registered, so it is not rewound between those passes.
+//! Without a guard, one landed hit is observed once when it happens and again on
+//! every resimulation of that frame, each time kicking the PRESENT camera —
+//! a ghost shake with no hit under it, arriving whenever the network hiccups.
+//!
+//! ⚠ **and the opposite policy is right one module over**, which is why this
+//! says which case it is rather than citing the doctrine flatly.
+//! `dev/trace`'s recorders were once gated this way and it was WRONG: rows keyed
+//! by `(generation, frame)` are REPLACED by a resimulation, so skipping the
+//! corrected pass preserved the guess forever. A camera kick is not keyed by
+//! anything and replaces nothing — it is a monotone `max` onto live presentation
+//! state, so a replayed pass can only ADD. Idempotent-by-key wants the last
+//! pass; accumulate-onto-present wants the authoritative one only.
 
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_ease::{
     hit_shake_amplitude, CameraShakeState, CameraShakeTuning,
 };
+use ambition_platformer2d_shared_tangle::schedule::SimulationReplayState;
 
 /// Kick the camera by the hardest hitlag any body in the world is currently
 /// serving, measured against the route's reference connect.
@@ -56,12 +74,28 @@ use ambition_platformer2d_shared_tangle::camera_ease::{
 /// Every resource is optional for the same reason the rest of this feel layer's
 /// are: a headless fixture that installed no camera still runs the combat
 /// schedule, and a missing route means no shake rather than a panic.
+///
+/// ⛔ **the replay guard is a PARAMETER, not a `run_if` at the registration.**
+/// This is the one system in the combat schedule that writes non-rollback
+/// presentation state, so "only on an authoritative pass" is a property of the
+/// system itself rather than of one call site — a second registration (a host, a
+/// demo, a fixture) that forgot the run condition would reintroduce the ghost
+/// shake silently, and the module docs above explain why the usual doctrine
+/// points the other way for its neighbours. Reading it here also lets the
+/// regression drive the real system with `replaying_history` raised.
 pub fn shake_camera_on_landed_hits(
     feel: Option<Res<crate::time::feel::Platformer2dFeelTuningMonolith>>,
     shake: Option<ResMut<CameraShakeState>>,
     shake_tuning: Option<Res<CameraShakeTuning>>,
+    // Absent on every non-rollback host, which is the ordinary case: a
+    // fixed-tick or render-frame host never replays, so no marker means the pass
+    // is authoritative.
+    replay: Option<Res<SimulationReplayState>>,
     bodies: Query<&ambition_characters::actor::BodyCombat>,
 ) {
+    if replay.is_some_and(|replay| replay.replaying_history) {
+        return;
+    }
     let (Some(feel), Some(mut shake)) = (feel, shake) else {
         return;
     };
@@ -192,5 +226,52 @@ mod tests {
              for the frame"
         );
         assert!(solo > 0.0, "the smash itself shook nothing");
+    }
+
+    /// **A REPLAYED frame must not shake the present camera — and an
+    /// authoritative one must.**
+    ///
+    /// ⛔ both terms observed in ONE fixture, on ONE unchanged hit: the same
+    /// world, the same `hitstop_timer`, the same system, differing only in
+    /// whether the host says it is resimulating history. A guard that returned
+    /// early unconditionally passes the first clause alone, and the second
+    /// clause is what makes the first mean "gated" rather than "broken".
+    ///
+    /// ⚠ the hit is left ARMED across the two passes deliberately. Rollback does
+    /// not clear `hitstop_timer` — it RESTORES it, which is precisely how a hit
+    /// that already shook the camera gets observed a second time.
+    #[test]
+    fn a_hit_resimulated_during_rollback_does_not_shake_the_present_camera() {
+        let mut app = app_with_bodies(&[]);
+        let hard = reference(&app) * 4.0;
+        app.world_mut().spawn(BodyCombat {
+            hitstop_timer: hard,
+            ..Default::default()
+        });
+        app.insert_resource(SimulationReplayState {
+            replaying_history: true,
+        });
+
+        app.update();
+        assert_eq!(
+            app.world().resource::<CameraShakeState>().amplitude_px,
+            0.0,
+            "a rollback host resimulating a historical frame kicked the LIVE \
+             camera. `CameraShakeState` is presentation and is not rewound \
+             between passes, so this is a shake with no hit under it — one \
+             landed blow rattling the screen once per resimulation"
+        );
+
+        // The same frame, now claimed as authoritative: the hit is still there
+        // and the camera must answer it.
+        app.world_mut()
+            .resource_mut::<SimulationReplayState>()
+            .replaying_history = false;
+        app.update();
+        assert!(
+            app.world().resource::<CameraShakeState>().amplitude_px > 0.0,
+            "the authoritative pass over the same armed hit shook nothing, so \
+             the replay guard is not a gate — it is an off switch"
+        );
     }
 }

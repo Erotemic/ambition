@@ -42,21 +42,20 @@ pub fn actor_component_snapshot(
     ActorDisposition,
     BodyCombat,
 ) {
-    // A freshly-seeded body has no damage-blink; the reaction timers (hit_flash /
-    // i-frame) live on the spawned `BodyCombat` and start at 0.
+    // ⭐ **THE SEED'S OWN, not a rebuild** (AC6.2). This constructed a fresh
+    // `BodyCombat` and filled its one authored flag from
+    // `ActorTuning::is_sandbag` — a copy of the character's `practice_target`
+    // made at spawn so it could be copied AGAIN here. The seed decides a body's
+    // components; this reads the one it decided.
+    //
     // AC3.1.A: a fresh body's `BodyCombat` is its reaction history at rest plus
-    // one authored flag. Liveness is `BodyHealth`'s, so a seed no longer has to
-    // state it here and cannot state it wrongly.
-    let combat = BodyCombat {
-        // AC3.1.D: authored, so it is written ONCE here rather than re-derived
-        // every frame by the read-model sync. ⚠ the disposition gate the sync
-        // applied is deliberately dropped: a body authored as a training dummy is
-        // one whether or not it currently reads as hostile, and re-deriving it
-        // from a mutable disposition is how an authored fact became a per-frame
-        // write in the first place.
-        training_dummy: seed.config.tuning.is_sandbag,
-        ..Default::default()
-    };
+    // one authored flag. Liveness is `BodyHealth`'s, so a seed does not state it
+    // here and cannot state it wrongly. AC3.1.D: the flag is authored, so it is
+    // written once at construction rather than re-derived every frame by the
+    // read-model sync — and the disposition gate that sync applied is
+    // deliberately gone: a body authored as a training dummy is one whether or
+    // not it currently reads as hostile.
+    let combat = seed.combat.clone();
     (
         ActorIdentity::new(seed.config.id.clone(), seed.config.name.clone())
             .with_sprite_override(seed.config.sprite_override_npc_name.clone()),

@@ -83,9 +83,6 @@ pub struct ActorTuning {
     /// (archetype swap AS4). Ordinary flyers (parrot) leave this false for smoothed
     /// flight.
     pub flight_direct_velocity: bool,
-    /// Training-dummy family: excluded from slot pressure and save
-    /// persistence.
-    pub is_sandbag: bool,
     /// Touching this actor's body hurts the player.
     pub body_contact_damage: bool,
     /// Deep-dream visual jitter seed; `None` = no dream pass.
@@ -117,7 +114,6 @@ impl Default for ActorTuning {
             weight: 1.0,
             is_aerial: false,
             flight_direct_velocity: false,
-            is_sandbag: false,
             body_contact_damage: false,
             dream_seed: None,
             ranged_visual: String::new(),
@@ -257,15 +253,6 @@ mod authority_split_tests {
             // which is why it left the archetype row.
             is_hostile: _,
             respawn: _,
-            // ⚠ `is_sandbag` is the one genuinely ARGUABLE entry. It reads as a
-            // body fact ("this creature is a training dummy") and behaves as a
-            // session one: excluded from slot pressure and from save
-            // persistence. It is filed here because both consequences are about
-            // how the SESSION treats the instance, and because the body half is
-            // already carried elsewhere under a truer name —
-            // `CharacterDefinition::practice_target`, projected onto
-            // `BodyCombat::training_dummy` at construction.
-            is_sandbag: _,
             // ── PRESENTATION ────────────────────────────────────────────────
             //
             // Neither is a fact about how the body behaves: `dream_seed` is a

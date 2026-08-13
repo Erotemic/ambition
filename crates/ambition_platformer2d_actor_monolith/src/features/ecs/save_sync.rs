@@ -39,6 +39,10 @@ pub fn sync_ecs_actors_with_save(
             // ⭐ **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
             // sprite's. See `provoke_actor_in_place`.
             Option<&ambition_characters::actor::WornCharacter>,
+            // **Is this body a practice target** — the authored flag lives on
+            // `BodyCombat` and only there (AC6.2); it used to be read off a
+            // second copy in `ActorTuning`.
+            &ambition_characters::actor::BodyCombat,
         ),
         With<FeatureSimEntity>,
     >,
@@ -61,8 +65,10 @@ pub fn sync_ecs_actors_with_save(
         interaction,
         mut cq,
         worn,
+        body_combat,
     ) in &mut actors
     {
+        let practice_target = body_combat.training_dummy;
         let id = cq.as_actor_mut().config.id.clone();
         let dead_on_load = data.flag(&format!("enemy_{id}_dead"))
             || data.flag(&format!(
@@ -99,7 +105,7 @@ pub fn sync_ecs_actors_with_save(
         {
             let em = cq.as_actor_mut();
             if !em.config.id.starts_with("encounter:")
-                && !em.config.tuning.is_sandbag
+                && !practice_target
                 && dead_on_load
             {
                 em.health.health.current = 0;

@@ -61,10 +61,18 @@ fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
     brain: &ambition_entity_catalog::placements::CharacterBrain,
-    tuning: &crate::features::ecs::actor_tuning::ActorTuning,
+    // ⛔ **`tuning: &ActorTuning` STOOD HERE AND IS GONE** (AC6.2). By the end it
+    // was read for exactly one field, `is_sandbag` — a second copy of the
+    // character's `practice_target` — so a whole resolved-body-scalars bag was
+    // threaded into a function that wanted one bool. Every other number this
+    // decision needs is the PROFILE's, which is the split P2.19 was for.
     profile: &crate::features::ecs::actor_tuning::BrainProfile,
     attack: &crate::features::BodyMelee,
     alive: bool,
+    // **Is this body a practice target** — read from the body's own
+    // `BodyCombat`, which is the one thing that carries it (AC6.2). It was
+    // `tuning.is_sandbag`, a second copy of the same authored fact.
+    practice_target: bool,
 ) -> ambition_characters::actor::ai::CharacterAiOutput {
     let recover_remaining =
         if attack.on_cooldown() && !attack.is_winding_up() && !attack.is_active() {
@@ -147,9 +155,13 @@ fn evaluate_enemy_ai_output(
             // ⚠ **safe to change because the mode is a READ-MODEL** (see the
             // block above): no gameplay branches on it, so this corrects what the
             // presentation layer reports rather than what any creature does.
-            // `is_sandbag` stays and is not the same shape — a practice target
-            // holds still because of what its BODY is, not what its policy wants.
-            patrol_enabled: !tuning.is_sandbag && profile.patrol_effort > 0.0,
+            // The practice-target term stays and is not the same shape — a
+            // dummy holds still because of what its BODY is, not what its policy
+            // wants. ⚠ it is NOT redundant with the effort: the infinite sandbag
+            // authors `patrol_effort: 0.6774` and is held still by its
+            // `StandStill` template, so dropping this term would report every lab
+            // dummy as patrolling.
+            patrol_enabled: !practice_target && profile.patrol_effort > 0.0,
         },
     )
 }
@@ -233,10 +245,10 @@ impl<'a> ActorMut<'a> {
             self.kin.pos,
             target_pos,
             &self.config.brain,
-            &self.config.tuning,
             &self.config.brain_profile,
             self.attack,
             self.health.alive(),
+            combat.training_dummy,
         );
         self.status.ai_mode = ai.mode;
 
@@ -642,7 +654,6 @@ mod aggro_authority_tests {
     use ambition_entity_catalog::placements::CharacterBrain;
 
     fn look(brain: CharacterBrain, aggro_radius: f32) -> CharacterAiMode {
-        let tuning = crate::features::ecs::actor_tuning::ActorTuning::default();
         let profile = crate::features::ecs::actor_tuning::BrainProfile {
             aggro_radius,
             attack_range: 8.0,
@@ -654,10 +665,10 @@ mod aggro_authority_tests {
             // the answer is Chase or it is not noticing at all.
             ambition_platformer2d_core::Vec2::new(100.0, 0.0),
             &brain,
-            &tuning,
             &profile,
             &crate::features::BodyMelee::default(),
             true,
+            false,
         )
         .mode
     }

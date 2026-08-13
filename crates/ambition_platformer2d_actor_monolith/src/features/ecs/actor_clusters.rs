@@ -363,6 +363,18 @@ pub struct ActorClusterSeed {
     /// The body's shared health (drives the spawned `BodyHealth` + the seed-based
     /// test harness's `ActorMut::health`).
     pub health: ambition_characters::actor::BodyHealth,
+    /// **The body's shared combat component**, seeded here for the same reason
+    /// `health` is: it is a component every body carries, the player included,
+    /// and the seed is where a body's components are decided.
+    ///
+    /// ⛔ **its authored flag used to be seeded twice** (AC6.2). The character's
+    /// `practice_target` became `ActorTuning::is_sandbag`, and
+    /// `actor_component_snapshot` then copied THAT into
+    /// `BodyCombat::training_dummy` — so one authored fact had two runtime
+    /// carriers and two view fields published from them. The reaction timers
+    /// start at rest here; nothing else about a fresh body's combat state is
+    /// decided anywhere later.
+    pub combat: ambition_characters::actor::BodyCombat,
     pub surface: ActorSurfaceState,
     pub attack: BodyMelee,
     pub config: ActorConfig,
@@ -704,6 +716,9 @@ impl ActorClusterSeed {
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health),
             ),
+            // An NPC placement is nobody's practice target; a character that IS
+            // one reaches the character road below.
+            combat: ambition_characters::actor::BodyCombat::default(),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale,
@@ -869,7 +884,6 @@ impl ActorClusterSeed {
             // A body built here with no placement to speak for it is a
             // combatant, which is what every seat is.
             is_hostile: true,
-            is_sandbag: practice_target,
             // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
@@ -901,6 +915,13 @@ impl ActorClusterSeed {
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health.max(1)),
             ),
+            // ⭐ **THE CHARACTER'S OWN `practice_target`, written ONCE** (AC6.2).
+            // It used to go into `ActorTuning::is_sandbag` and be copied from
+            // there into this component by `actor_component_snapshot`.
+            combat: ambition_characters::actor::BodyCombat {
+                training_dummy: practice_target,
+                ..Default::default()
+            },
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale: if is_aerial { 0.0 } else { 1.0 },
@@ -1406,15 +1427,17 @@ mod tests {
             "a body that authored 0.0 was given the stage default instead"
         );
         assert!(
-            !still.config.tuning.is_sandbag,
+            !still.combat.training_dummy,
             "an ordinary body is not a practice target"
         );
 
-        // **A PRACTICE TARGET SAYS SO.** `is_sandbag` has four live consumers —
-        // the save sync excludes it, the path assignment skips it, and two
+        // **A PRACTICE TARGET SAYS SO.** The flag has four live consumers — the
+        // save sync excludes it, the AI read-model skips its patrol, and two
         // sprite reads select on it — and this constructor wrote `false` for it
         // via `..Default::default()`, which is why the sandbags could not leave
-        // `character_archetypes.ron` (ledger D77).
+        // `character_archetypes.ron` (ledger D77). ⚠ it is read off `BodyCombat`
+        // since AC6.2; the `ActorTuning::is_sandbag` copy it used to be asserted
+        // through was a second carrier of the character's `practice_target`.
         let dummy = ActorClusterSeed::new_character_in(
             &authored,
             &catalog,
@@ -1432,7 +1455,7 @@ mod tests {
             &[],
         );
         assert!(
-            dummy.config.tuning.is_sandbag,
+            dummy.combat.training_dummy,
             "a character that authors itself a training dummy did not reach the body"
         );
     }

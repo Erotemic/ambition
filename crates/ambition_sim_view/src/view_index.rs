@@ -617,7 +617,7 @@ pub fn rebuild_actor_render_index(
             &a.config.name,
             a.config.sprite_character_id.as_deref(),
             a.config.sprite_override_npc_name.as_deref(),
-            a.config.tuning.is_sandbag,
+            a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,
         );

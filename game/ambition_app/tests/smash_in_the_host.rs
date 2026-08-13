@@ -1147,9 +1147,22 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
 /// is filtered to what the composition can seat, so in a partial composition an
 /// unauthored fighter and an absent one look identical.
 ///
-/// ⚠ **a floor and a control**, like its siblings: it must not be empty, and the
-/// day it reaches the whole grid, `DeclaredCombatRules::unarmed_melee` has no
-/// selectable adopter left and P3.26 is done.
+/// ⛔⛔ **AND THE SILENT COLUMN IS NOT A BACKLOG.** Every one of the seven
+/// authors `default_action_set: "peaceful"` — `melee: None, ranged: None,
+/// special: None` — and Mary-O's row says why in as many words: *"Mary-O
+/// Classic is deliberately only the run/jump floor."* These are peaceful
+/// characters that Jon put on a FIGHTING grid, which is what
+/// `DeclaredCombatRules::unarmed_melee` exists to make possible.
+///
+/// ⇒ so this ratchet does NOT say "author seven movesets". Authoring one for
+/// Mary-O would contradict an explicit design decision. **Whether the floor is
+/// scaffolding or permanent architecture is a product question, and it is
+/// Jon's** — see `awaiting-maintainer-decision.md`.
+///
+/// ⚠ **a floor and a control**, like its siblings, and the control deliberately
+/// does NOT instruct a deletion: reaching the whole grid would mean the peaceful
+/// cast had been re-authored as fighters, which is a decision to notice rather
+/// than a milestone to celebrate.
 ///
 /// **The split as measured 2026-08-13 — seven and seven:**
 ///
@@ -1191,9 +1204,12 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     );
     assert!(
         !silent.is_empty(),
-        "every fighter on the grid now states its own moves ({authored:?}) — \
-         P3.26 is done and `DeclaredCombatRules::unarmed_melee` has no \
-         selectable adopter left. Delete the floor and this ratchet with it"
+        "every fighter on the grid now states its own moves ({authored:?}). \
+         ⛔ do NOT read that as P3.26 finishing: the fighters that were silent \
+         were peaceful ON PURPOSE, so this means somebody gave the peaceful \
+         cast attacks. Check that was intended before deleting \
+         `DeclaredCombatRules::unarmed_melee` — it is what lets a peaceful \
+         character be selectable at all"
     );
 }
 

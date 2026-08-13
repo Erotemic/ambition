@@ -2412,3 +2412,70 @@ defend, and it will rot silently as tests are added.
 at n≈50 it will also answer whether background subagents materially tax the
 gate (five points currently order perfectly by load, but `load_after` is not
 independent of the suite, so that is a hint rather than a finding).
+
+---
+
+## Is `unarmed_melee` scaffolding, or is it permanent?
+
+**Found 2026-08-13 while trying to close P3.26 by AUTHORING**, which is how it
+turned out to be a product question instead.
+
+Seven of the fourteen fighters on the shipped Smash grid state their own move
+timelines. The other seven do not:
+
+```text
+  states its own moves          silent
+  player_robot_v3               mary_o
+  smash_george_booul            sanic
+  npc_pirate_admiral            npc_alice
+  npc_ninja_shadow_oni_leader   npc_bob
+  perfect_cellular_automaton    npc_oiler
+  goblin                        npc_noether
+  special_patent_clerk          npc_carl_stargan
+```
+
+The campaign reads that second column as a backlog — P3.24 and P3.26 both point
+at an end state where every fighter authors its moves and
+`DeclaredCombatRules::unarmed_melee` is deleted as scaffolding.
+
+### ⛔ but all seven are peaceful ON PURPOSE
+
+Every one authors `default_action_set: "peaceful"` — `melee: None, ranged: None,
+special: None`. Mary-O's catalog row says it outright:
+
+> Mary-O Classic is deliberately only the run/jump floor. Wall jump and ground
+> pound are later, independent abilities.
+
+⇒ **the silent column is not seven missing movesets. It is seven characters
+Jon put on a fighting grid who do not fight**, and `unarmed_melee` is the entire
+reason they can be selected at all. Writing Mary-O a jab would contradict a
+design decision her own row states.
+
+### The fork
+
+* **(a) The floor is permanent architecture.** A stage declaring what an unarmed
+  body swings is a legitimate, forever part of the ruleset — it is what makes a
+  peaceful character selectable. ⇒ P3.24 and P3.26 are DONE as stated, and their
+  remaining ▢ is deleted rather than worked. ⭐ this is consistent with the
+  doctrine already in force: *a stage may restrict what a body does*, and here it
+  is supplying the minimum a fight needs rather than replacing a repertoire —
+  nobody's authored moves are overridden, because these characters authored none.
+* **(b) The floor is scaffolding, and a fighter must fight.** Then the seven need
+  movesets, which means deciding what a peaceful mathematician's forward-smash
+  is — seven character-design questions, not seven migrations. ⚠ and Mary-O's row
+  has to change, which makes it a decision about her, not about the grid.
+* **(c) Split the difference: the grid shrinks.** Peaceful characters come off
+  `SMASH_ROSTER` and the floor is deleted. ⚠ Jon set that roster by name
+  (*"we may go more than 8"*), so this is the option that most directly reverses
+  something already asked for.
+
+### What makes this yours
+
+Nothing here is blocked on engineering, and **the two ratchets have been changed
+so they no longer instruct the deletion** — until 2026-08-13 both of their
+control messages said *"delete the floor and this ratchet with it"* once the
+count reached the cast, which would have driven (b) by default without anybody
+choosing it.
+
+⭐ **what does NOT need the answer**: the ratchets keep counting either way, and
+every character that authors moves for its own sake still removes an adopter.

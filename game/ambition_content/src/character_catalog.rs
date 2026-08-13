@@ -554,9 +554,15 @@ mod tests {
     ///
     /// ⚠ **a floor and a control, exactly like the verbs ratchet.** It must not be
     /// empty (or the unarmed declaration is what every fight is made of, and no
-    /// content exercises the authored road) and it must not yet be everybody (the
-    /// day it is, `unarmed_melee` has no adopter left and should be deleted rather
-    /// than kept warm).
+    /// content exercises the authored road) and it must not yet be everybody.
+    ///
+    /// ⛔⛔ **but the control does NOT instruct a deletion, and that is a
+    /// correction.** Most of this cast authors `default_action_set: "peaceful"`
+    /// — `melee: None, ranged: None, special: None` — deliberately, and Mary-O's
+    /// row says so outright: *"Mary-O Classic is deliberately only the run/jump
+    /// floor."* `unarmed_melee` is what lets such a character be seated at all,
+    /// so whether it is scaffolding or permanent architecture is a PRODUCT
+    /// question rather than a migration step.
     ///
     /// ⛔ **this asks the PREPARED registry, not the authoring functions.** A
     /// moveset reaches a fighter as `PreparedCharacterDefinition::authored_moveset`
@@ -592,7 +598,12 @@ mod tests {
         let total = prepared.ids().count();
         assert!(
             authored.len() < total,
-            "every one of the {total} prepared characters states its own moves —              `DeclaredCombatRules::unarmed_melee` has no adopter left, so delete              the floor and this ratchet with it. Authored: {authored:?}"
+            "every one of the {total} prepared characters states its own moves. \
+             ⛔ that is not automatically the end of the floor: most of this cast \
+             authors `default_action_set: \"peaceful\"` on purpose, so reaching \
+             the whole cast means they were re-authored as fighters. \
+             `DeclaredCombatRules::unarmed_melee` is what lets a peaceful \
+             character be seated at all. Authored: {authored:?}"
         );
     }
 

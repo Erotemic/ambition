@@ -56,8 +56,17 @@ use ambition_sfx::SfxMessage;
 pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
     feel: Platformer2dFeelTuningMonolith,
-    hitstun_timer: f32,
-    hard_lock_timer: f32,
+    // ⛔⛔ **THE BODY, not two loose timers** (D108's third half, 2026-08-13).
+    // This took `(hitstun_timer, hard_lock_timer)`, and the player road passed
+    // `combat.hard_lock_timer()` while the ACTOR road passed
+    // `combat.recoil_lock_timer` — the reduced form. So a CPU's landing lag was
+    // set, decayed and rolled back correctly and locked NOTHING, because its
+    // gate never asked for it. Two spellings of one rule, and the type was what
+    // allowed the second one.
+    //
+    // ⇒ taking `&BodyCombat` makes the reduced form unrepresentable: there is no
+    // longer an `f32` parameter a caller can fill with the wrong field.
+    combat: &ambition_characters::actor::BodyCombat,
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
@@ -112,7 +121,7 @@ pub fn engine_input_from_actor_control(
         shield_held: actor.shield_held,
         control_dt,
     };
-    apply_post_hit_input_gates(&mut input, feel, hitstun_timer, hard_lock_timer);
+    apply_post_hit_input_gates(&mut input, feel, combat);
     input
 }
 
@@ -123,12 +132,12 @@ pub fn engine_input_from_actor_control(
 pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
     feel: Platformer2dFeelTuningMonolith,
-    hitstun_timer: f32,
-    // The HARD lock this frame — the longer of the recoil throw and any
-    // authored landing lag. See the caller's doc for why they stay separate
-    // facts and join only here.
-    hard_lock_timer: f32,
+    // ⛔ the BODY, so the two gates read the same authority and neither caller
+    // can spell one of them differently. See `engine_input_from_actor_control`.
+    combat: &ambition_characters::actor::BodyCombat,
 ) {
+    let hitstun_timer = combat.hitstun_timer;
+    let hard_lock_timer = combat.hard_lock_timer();
     // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
     // movement authority (the axes are still stripped, so a toggled flyer can't
     // steer until the stagger clears). Eating an edge-triggered toggle corrupts
@@ -356,8 +365,7 @@ mod tests {
         let input = engine_input_from_actor_control(
             frame,
             Platformer2dFeelTuningMonolith::default(),
-            0.0,
-            0.0,
+            &ambition_characters::actor::BodyCombat::default(),
             dt,
         );
         assert!(input.jump_pressed() && input.jump_held());
@@ -371,8 +379,10 @@ mod tests {
         let input = engine_input_from_actor_control(
             recoiled,
             Platformer2dFeelTuningMonolith::default(),
-            0.0,
-            1.0,
+            &ambition_characters::actor::BodyCombat {
+                recoil_lock_timer: 1.0,
+                ..Default::default()
+            },
             dt,
         );
         assert!(!input.jump_pressed() && !input.dash_pressed());
@@ -384,8 +394,10 @@ mod tests {
         let input = engine_input_from_actor_control(
             stunned,
             Platformer2dFeelTuningMonolith::default(),
-            1.0,
-            0.0,
+            &ambition_characters::actor::BodyCombat {
+                hitstun_timer: 1.0,
+                ..Default::default()
+            },
             dt,
         );
         assert!(!input.jump_pressed(), "hitstun eats the jump press");

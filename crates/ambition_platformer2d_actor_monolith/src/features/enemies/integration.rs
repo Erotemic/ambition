@@ -169,10 +169,15 @@ impl<'a> ActorMut<'a> {
         // environment (the driver) for this body tick. Input projection, the
         // active policy, and every frame-relative limb consume this same value.
         motion_frame: ae::MotionFrame,
-        // Post-hit stagger inputs (§A2 step 7): the body's live hitstun /
-        // recoil-lock timers (from its `BodyCombat`) + the feel tuning, applied
-        // to the FINAL InputState by the SAME gate the player's input bridge
-        // uses. (hitstun_timer, recoil_lock_timer).
+        // Post-hit stagger (§A2 step 7): the body's own `BodyCombat`, applied to
+        // the FINAL InputState by the SAME gate the player's input bridge uses.
+        //
+        // ⛔ **it was `(f32, f32)` and that pair was ledger D108's third half.**
+        // This road filled the hard-lock slot with `recoil_lock_timer` alone
+        // while the player road filled it with `recoil_lock.max(landing_lag)`,
+        // so a CPU's landing lag was set, decayed and rolled back correctly and
+        // locked nothing. Passing the body removes the slot a caller could fill
+        // wrongly.
         feel: crate::time::feel::Platformer2dFeelTuningMonolith,
         // **The body's OWN feel, when its character authored one.**
         //
@@ -181,7 +186,7 @@ impl<'a> ActorMut<'a> {
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
-        stagger: (f32, f32),
+        combat: &ambition_characters::actor::BodyCombat,
     ) -> (
         ambition_characters::actor::control::ActorControlFrame,
         ae::FrameEvents,
@@ -246,7 +251,7 @@ impl<'a> ActorMut<'a> {
             motion_frame,
             feel,
             authored_tuning,
-            stagger,
+            combat,
         );
 
         // Face the brain's committed direction whenever it commits one. Hostile
@@ -302,7 +307,7 @@ impl<'a> ActorMut<'a> {
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
-        stagger: (f32, f32),
+        combat: &ambition_characters::actor::BodyCombat,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let mut tuning = self
@@ -348,13 +353,7 @@ impl<'a> ActorMut<'a> {
         // knockback carries the body, it can't steer back in), hitstun reduces
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
-        let (hitstun_timer, recoil_lock_timer) = stagger;
-        crate::features::ecs::attack::apply_post_hit_input_gates(
-            &mut input,
-            feel,
-            hitstun_timer,
-            recoil_lock_timer,
-        );
+        crate::features::ecs::attack::apply_post_hit_input_gates(&mut input, feel, combat);
         // Live authored tuning refreshes only the active policy's parameters —
         // the frame is environmental and cannot ride along.
         if let crate::features::MotionModel::AxisSwept(axis) = motion_model {

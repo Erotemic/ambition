@@ -76,7 +76,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            (0.0, 0.0),
+            &ambition_characters::actor::BodyCombat::default(),
         );
     }
     em.kin.pos.x - start_x
@@ -136,7 +136,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            (0.0, 0.0),
+            &ambition_characters::actor::BodyCombat::default(),
         );
         let expected = -gravity;
         assert!(
@@ -149,9 +149,9 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
 }
 
 /// Drive a grounded walker (locomotion full-right) for `ticks` steps under
-/// the given post-hit stagger `(hitstun_timer, recoil_lock_timer)`; return
+/// the given post-hit stagger, as the body's own `BodyCombat`; return
 /// the ground covered along +x. The §A2 step 7 witness rig.
-fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
+fn walk_run_staggered(combat: ambition_characters::actor::BodyCombat, ticks: u32) -> f32 {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let mut seed = ActorClusterSeed::new(
@@ -186,7 +186,7 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            stagger,
+            &combat,
         );
     }
     em.kin.pos.x - start_x
@@ -197,9 +197,34 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
 /// steering at all), hitstun leaves only reduced movement authority.
 #[test]
 fn a_staggered_body_loses_input_authority_like_the_player() {
-    let free = walk_run_staggered((0.0, 0.0), 12);
-    let recoil_locked = walk_run_staggered((0.0, 1.0), 12);
-    let hitstunned = walk_run_staggered((1.0, 0.0), 12);
+    use ambition_characters::actor::BodyCombat;
+    let free = walk_run_staggered(BodyCombat::default(), 12);
+    let recoil_locked = walk_run_staggered(
+        BodyCombat {
+            recoil_lock_timer: 1.0,
+            ..Default::default()
+        },
+        12,
+    );
+    let hitstunned = walk_run_staggered(
+        BodyCombat {
+            hitstun_timer: 1.0,
+            ..Default::default()
+        },
+        12,
+    );
+    // ⭐⭐ **D108's third half, guarded here** (2026-08-13): LANDING LAG alone
+    // must lock an actor exactly as recoil does. This road used to fill the
+    // hard-lock slot with `recoil_lock_timer` only, so a CPU's landing lag was
+    // set, decayed and rolled back correctly and locked nothing — and no test
+    // said so, because none passed landing lag down this road at all.
+    let landing_lagged = walk_run_staggered(
+        BodyCombat {
+            landing_lag_timer: 1.0,
+            ..Default::default()
+        },
+        12,
+    );
     assert!(
         free > 10.0,
         "sanity: an unstaggered walker covers real ground (got {free:.1}px)"
@@ -211,6 +236,14 @@ fn a_staggered_body_loses_input_authority_like_the_player() {
     assert!(
         hitstunned < free * 0.8,
         "hitstun reduces movement authority (stunned {hitstunned:.1}px vs free {free:.1}px)"
+    );
+    assert!(
+        landing_lagged.abs() < 0.5,
+        "an actor in LANDING LAG steered {landing_lagged:.1}px — its authored \
+         aerial recovery locks nothing, so a CPU lands clean out of the move \
+         that costs a human 0.10–0.28s. That is ledger D108, and it is the \
+         difficulty half: the timer being set is not the same as the timer \
+         locking"
     );
 }
 
@@ -248,7 +281,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         crate::time::feel::Platformer2dFeelTuningMonolith::default(),
         None,
-        (0.0, 0.0),
+        &ambition_characters::actor::BodyCombat::default(),
     );
     let crate::features::MotionModel::AxisSwept(axis) = &model else {
         panic!("test body is not axis-swept");
@@ -299,7 +332,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            (0.0, 0.0),
+            &ambition_characters::actor::BodyCombat::default(),
         );
     }
     assert!(
@@ -391,7 +424,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            (0.0, 0.0),
+            &ambition_characters::actor::BodyCombat::default(),
         );
     }
     (em.flight.fly_enabled, start_y - em.kin.pos.y)

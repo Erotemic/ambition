@@ -961,7 +961,7 @@ pub(crate) fn integrate_actor_body(
         motion_frame,
         feel,
         authored_tuning,
-        (combat.hitstun_timer, combat.recoil_lock_timer),
+        combat,
     );
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;

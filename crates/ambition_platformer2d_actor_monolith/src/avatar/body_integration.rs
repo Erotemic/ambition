@@ -162,15 +162,10 @@ pub fn integrate_home_body(
     scaled_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
 ) -> Option<ae::Vec2> {
-    let input = engine_input_from_actor_control(
-        actor_control,
-        feel,
-        combat.hitstun_timer,
-        // The HARD lock this frame, whichever fact produced it. ⭐ one spelling,
-        // shared — the actor road spells half of it, which is ledger D108.
-        combat.hard_lock_timer(),
-        frame_dt,
-    );
+    // ⭐ the BODY, so both roads read the same authority. The actor road used to
+    // spell half of it (ledger D108); the signature no longer has a half to
+    // spell.
+    let input = engine_input_from_actor_control(actor_control, feel, combat, frame_dt);
     // ⭐ one named rule — the actor road has no hitlag branch at all (D110).
     let sim_dt = if combat.is_in_hitlag() {
         0.0

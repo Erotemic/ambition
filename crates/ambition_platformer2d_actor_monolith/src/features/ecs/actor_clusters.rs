@@ -1188,7 +1188,7 @@ impl ActorClusterSeed {
                 motion_frame,
                 crate::time::feel::Platformer2dFeelTuningMonolith::default(),
                 None,
-                (0.0, 0.0),
+                &ambition_characters::actor::BodyCombat::default(),
             )
             .0
     }

@@ -9,7 +9,7 @@
 //!
 //! ⭐ **it is checkable now because there is one construction path to check.**
 //! Until 2026-08-13 a body could be built from a character OR built from an
-//! archetype and then PATCHED by a character (`adopt_character_intrinsics`), so
+//! archetype and then PATCHED by a character through the body-assist seam, so
 //! "same body" depended on which road a placement happened to take and on which
 //! fields the character had got around to authoring. AC5 deleted the patch road:
 //! every registered character can build its own body, and every shipped

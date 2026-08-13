@@ -529,7 +529,7 @@ mod tests {
     // ⛔ **`the_cast_that_still_needs_a_body_assist_only_shrinks` DELETED
     // 2026-08-13, on its own instruction.** It counted the characters that could
     // not build a body from their own definition — the population
-    // `adopt_character_intrinsics` existed to correct — and its second assertion
+    // the deleted body-assist seam existed to correct — and its second assertion
     // said what to do when the count hit zero: *"every registered character can
     // now build its own body … delete it (checklist item 9) and this ratchet
     // with it."*

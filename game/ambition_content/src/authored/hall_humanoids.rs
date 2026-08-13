@@ -4,7 +4,7 @@
 //! definition, and every one of them was missing exactly one fact: **locomotion**.
 //! Not health, not a moveset, not capabilities — a walk.
 //!
-//! ⭐⭐ **that is why deleting `adopt_character_intrinsics` waited on content
+//! ⭐⭐ **that is why deleting the body-assist seam waited on content
 //! rather than on engineering.** The body-assist seam existed to correct bodies
 //! for characters that could not state their own, and the population it served
 //! was fourteen on 2026-08-13. Seven of those were the pirates and Carl Stargan,

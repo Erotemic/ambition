@@ -1608,7 +1608,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         }
     };
     // ⭐ **CHARACTER-FIRST, when the character can carry a body.** This is the
-    // road `adopt_character_intrinsics` was a probe for — appendix C calls that
+    // road the deleted body-assist seam was a probe for — appendix C calls that
     // method a probe seam and says the constructor comes next, and this is it.
     // A migrated character's body is built from its own facts and it WEARS
     // itself, so its kit arrives through the one writer every worn body uses
@@ -1837,7 +1837,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         paths,
     );
     // ⭐⭐ **THE BODY-ASSIST SEAM IS GONE** (AC5, D73 checklist item 9). A
-    // `adopt_character_intrinsics(definition)` stood here: a character that was
+    // a body-assist call stood here: a character that was
     // registered but could not build its own body still got to CORRECT one that
     // the archetype had built, field by field, with the character winning
     // wherever it had authored something.

@@ -1135,7 +1135,7 @@ mod authored_enemy_reads_its_character {
         // 2026-08-13). It spawned the same character minus its locomotion and
         // asserted that a half-migrated body still took the legacy road with its
         // health patched over the archetype's. That road is
-        // `adopt_character_intrinsics`, which is gone: every registered character
+        // the body-assist seam, which is gone: every registered character
         // can build its own body, so the state that control modelled cannot
         // occur. Asserting it would pin a behaviour production can no longer
         // produce.

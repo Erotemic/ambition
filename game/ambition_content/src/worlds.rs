@@ -473,7 +473,7 @@ mod tests {
         // toward. It used to assert `registered > complete` — proof that
         // `body_blueprint` still distinguished, i.e. that some registered
         // character could not state its own body. None can fail it now, and
-        // `adopt_character_intrinsics`, the seam that corrected those bodies, is
+        // the body-assist seam that corrected those bodies is
         // deleted.
         //
         // ⚠ **`complete < total` above is the honest remainder and it is a

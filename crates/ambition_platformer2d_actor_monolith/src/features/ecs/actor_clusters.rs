@@ -1629,7 +1629,7 @@ mod tests {
     }
     // ⛔ **`mod character_intrinsics` DELETED 2026-08-13 with the method it
     // tested** (AC5, D73 checklist item 9). Its two tests pinned the PRECEDENCE
-    // rule `adopt_character_intrinsics` performed — a character's authored facts
+    // rule the deleted body-assist seam performed — a character's authored facts
     // outrank the archetype's, and a character that authors nothing changes
     // nothing — which is exactly the property that let the migration move one
     // fact at a time without moving every mob's health at once.

@@ -14,7 +14,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// between this character and building its own body. It ships as
 /// `melee_brute_striker` (chase 110), and that preset's speed is absolute, so
 /// stating the body's run speed here changes nothing a player sees today — it
-/// makes the body complete, which is what lets `adopt_character_intrinsics` go.
+/// makes the body complete, which is what let the body-assist seam go.
 ///
 /// ⚠ a moveset without a body was the exact shape the assist seam existed for: a
 /// character rich enough to state its swings and not yet able to state its walk.

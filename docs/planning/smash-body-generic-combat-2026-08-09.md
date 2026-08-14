@@ -46,6 +46,29 @@ capability. Design it through ordinary bodies and control authority:
 
 Do not create a Smash-only grabbed-fighter ontology.
 
+⭐ **and the seam to extend already exists — measured 2026-08-14.** ADR 0020's
+mount is a body-to-body attachment with exactly the shape S1 describes: paired
+components (`MountSlot { rider }` on one side, `RidingOn { mount }` on the
+other), a `rider_offset`, a per-tick pose lock, and — the load-bearing part —
+`steer_mount_from_rider`, which writes one body's `ActorControl` from another's
+under a `ControlGrant`. Two linked actors, never fused, which is the same rule
+S1 restates as "without changing body identity".
+
+A grab is a SIBLING of that relationship, not the same one: a rider steers its
+mount where a holder SUPPRESSES its captive's control, mounting is consented and
+class-matched (`CanPilot`) where a grab is imposed, and the exit is a throw into
+the launch/damage path rather than a dismount. But the reusable machinery is one
+thing — **a relationship that redirects or suppresses `ActorControl` plus a
+per-tick pose lock** — and it exists once today, for mounts.
+
+⇒ build the grab as a second relationship on that pattern. If the two then share
+enough, generalise with the grab as the second customer that justifies it; ⛔ do
+not generalise first, and do not give a held fighter its own ontology when a
+`ControlGrant` of "none" is what being held means.
+
+⚠ the FEEL is Smash product work and is not settled here: grab range, break-out,
+throw angles and hold duration are game decisions, not engine ones.
+
 ### S2 — decide whether richer shield semantics earn implementation
 
 The shared shield/parry model exists. Shield HP, regeneration, shield stun,

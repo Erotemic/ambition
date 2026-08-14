@@ -41,6 +41,36 @@
   `Reset` (`reset_ecs_room_features`), plus `ContentRoomResetSet` anchored after
   `Reset`. All are registered in `app.sim_schedule()`, the rewound one.
 
+  ⛔⛔ **AND THE CONSEQUENCE IS PLAYER-VISIBLE, not architectural tidiness.**
+  `RoomConstructionPlan::prepare` requires only in-memory services — `RoomSet`,
+  the catalogs, the lowering registry — and asks NOTHING about assets. So on the
+  shipped host the target room is constructed the instant the frame confirms,
+  while the destination theme's parallax layers lazy-load afterwards
+  (`game_assets`: *"other themes lazy-load on room transition"*). The opaque
+  cover that exists to hide exactly that gap is driven by
+  `drive_room_transition_presentation` off `RoomTransitionLoadState`, which the
+  confirmed route never populates — so **every room change in the shipped game is
+  uncovered**, and the unpresented-failure state has nothing to report through.
+
+  ⇒ **the concrete shape, which avoids the message trap rather than working
+  around it.** The confirmed side already carries the intent in
+  `PendingLifecycleCommit` — rollback-registered, read at the boundary — so it
+  needs no message at all:
+
+  ```text
+  detection            (sim schedule)   records the intent, as it already does
+  readiness chain      (confirmed side) driven from PendingLifecycleCommit,
+                                        not from RoomTransitionRequested
+  commit_confirmed_    (confirmed side) commits only once the transaction says
+    lifecycle                           ready — the cover it already lacks
+  ```
+
+  The five Apply systems are not rollback-registered, which is what makes
+  scheduling them beside the confirmed commit sound. The fixed-tick host keeps
+  the message-driven path it already has; ⛔ do NOT make the confirmed commit emit
+  `RoomTransitionRequested` — that message is `clear_message_on_rollback` and a
+  rewind wipes it, which is the trap this direction exists to avoid.
+
   ⭐ **the two routes live in different schedules, and that is the actual
   obstacle.** The transaction chain (`begin` → `authorize` → `finalize` →
   `commit`) is registered in `app.sim_schedule()` — the REWOUND one under a

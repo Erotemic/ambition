@@ -44,24 +44,7 @@ pub fn sync_player_actor_poses(
     }
 }
 
-/// Translate each controlled home body's slot frame into its `ActorControl`
-/// frame.
-///
-/// This is the producer for the universal-brain seam on the home/player side —
-/// the direct analogue of the `Brain::Player` branch in `tick_actor_brains`.
-/// The INPUT AUTHORITY is [`SlotControls`] read by the body's own
-/// `Brain::Player(slot)`, NOT `PlayerInputFrame`: the home body is controlled
-/// because it carries the player brain for that slot, exactly like a possessed
-/// actor. `PlayerInputFrame` is now only a compatibility mirror for player-
-/// flavoured ability/UI systems (held item, heal shrine, portal gun) written by
-/// `sync_local_player_input_frame`; gameplay brain input no longer depends on it.
-///
-/// The query requires `&mut Brain`, so a vacated home avatar (its player brain
-/// transferred to a possessed actor by `possession`) carries no `Brain` and is
-/// skipped — it stays inert with a neutral `ActorControl`. Iterates every home
-/// body carrying a player brain; multi-player ready even though only one slot
-/// exists today.
-/// **The set [`tick_player_brains`] runs in — the universal-brain seam itself.**
+/// **The set [`tick_controlled_brains`] runs in — the controlled-decision phase.**
 ///
 /// FOUR consumers pinned this function by name: both Mary-O rows, one Sanic row,
 /// and the causal movement-intent observer. It was recorded for a while as the
@@ -76,49 +59,63 @@ pub fn sync_player_actor_poses(
 /// It also unblocks a pin that could never have used the parent. The causal
 /// observer `record_player_movement_intent` is itself a member of
 /// `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` would be a cycle;
-/// `.after(PlayerBrainTick)` is not, because it is not in this set.
+/// `.after(ControlledBrainTick)` is not, because it is not in this set.
 ///
 /// ⚠ ONE member, permanently. The parent phase is the place to add brain-adjacent
-/// work; this set means "the brains have written their frames" and nothing else,
-/// which is precisely what all four consumers were reaching for.
+/// work; this set means "participant control has become `ActorControl`" and
+/// nothing else, which is precisely what all four consumers were reaching for.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct PlayerBrainTick;
+pub struct ControlledBrainTick;
 
-pub fn tick_player_brains(
+/// **Translate participant control into `ActorControl`, for ANY controlled body.**
+///
+/// The INPUT AUTHORITY is [`SlotControls`], keyed by the `Brain::Player(slot)`
+/// the body itself carries — never `PlayerInputFrame` and never an entity
+/// marker. A body is controlled because it holds a participant's brain, which is
+/// equally true of the home avatar and of an actor somebody possessed.
+/// `PlayerInputFrame` is now only a compatibility mirror for player-flavoured
+/// ability/UI systems (held item, heal shrine, portal gun) written by
+/// `sync_local_player_input_frame`.
+///
+/// ⭐⭐ **THE `With<PlayerEntity>` FILTER IS GONE, AND THAT IS THE POINT.** It
+/// was here because a possessed actor otherwise had TWO producers writing its
+/// `ActorControl` in one tick — this one and `tick_actor_brains` — and the
+/// filter picked a winner by identity. Measured 2026-08-14, what the possessed
+/// body was paying `tick_actor_brains` for is: a crowd observation, an enemy
+/// brain snapshot, a perception policy, a world view built over the collision
+/// world, a believed-target derivation, and a MUTATION of its
+/// `PerceptionMemory` — none of which `tick_player_brain_from_control` reads.
+/// It reads six facts, and all six are here. So the arbitration is no longer by
+/// identity: `tick_actor_brains` now leaves a player-brained body alone, and a
+/// human piloting a body no longer constructs AI perception to move a stick.
+///
+/// ⇒ the one fact that WAS actor-specific is the movement scale, and it does not
+/// need actor configuration to state it. `velocity_target` is an absolute
+/// world-space command, so the translation needs the body's own top speed;
+/// [`MotionModel::commanded_top_speed`] is that number, on the one movement-policy
+/// component every movable body already carries. A body with no movement policy
+/// commands no speed, which is what the home avatar did explicitly before.
+///
+/// The query requires `&mut Brain`, so a vacated home avatar (its player brain
+/// transferred away by `possession`) carries no `Brain` and is skipped — it stays
+/// inert with a neutral `ActorControl`. A body whose brain is not a participant's
+/// is skipped too: its `ActorControl` belongs to an AI producer.
+///
+/// ⚠ **one filter is deliberately NOT inherited from the actor tick:
+/// `Without<Dormant>`.** Dormancy sleeps a BRAIN — *"only the brain sleeps: the
+/// body still integrates"* — and a participant is not an AI to be optimised away.
+/// A human pressing right on a body that has gone dormant must move it.
+pub fn tick_controlled_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
-    // ⛔⛔ **`With<PlayerEntity>` IS LOAD-BEARING, and it was missing.** Every
-    // component in this query is spawned by `AncillaryMovementBundle`, which the
-    // player bundle and `ActorClusterSeed::into_components` BOTH nest — that
-    // shared shape is the unification's whole point. So an unfiltered query
-    // matched every actor body too, and the `player_slot()` check below is not a
-    // filter for the home side: a POSSESSED actor carries `Brain::Player(slot)`
-    // precisely so that it is controlled.
-    //
-    // ⇒ a possessed body had TWO producers writing its `ActorControl` in one
-    // tick, from materially different snapshots: this path passes
-    // `max_run_speed: 0.0` (correct here — the home integration applies the
-    // capability), while `tick_actor_brains` passes the body's real top speed,
-    // and `tick_player_brain` multiplies the stick by exactly that field. The
-    // zeroed frame lost only because `PlayerInput` runs before `WorldPrep`, so
-    // the actor tick overwrote it. Anything reading `ActorControl` BETWEEN the
-    // two phases saw a possessed body intending to stand still — the causal
-    // movement-intent observer is registered `.after(PlayerBrainTick)` and does
-    // exactly that.
-    //
-    // The populations are disjoint now: this owns bodies in the player
-    // population, `tick_actor_brains` owns actor bodies, `tick_boss_brains_system`
-    // owns bosses, and a possessed body is owned by whichever it IS.
-    mut players: Query<
-        (
-            &BodyKinematics,
-            &BodyGroundState,
-            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-            &mut Brain,
-            &mut ActorControl,
-        ),
-        With<PlayerEntity>,
-    >,
+    mut controlled: Query<(
+        &BodyKinematics,
+        &BodyGroundState,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        Option<&ambition_platformer2d_core::MotionModel>,
+        &mut Brain,
+        &mut ActorControl,
+    )>,
 ) {
     let control_frame_modes = user_settings
         .as_deref()
@@ -126,7 +123,7 @@ pub fn tick_player_brains(
             s.gameplay.control_frame_modes()
         });
 
-    for (kin, ground, resolved_frame, mut brain, mut control) in &mut players {
+    for (kin, ground, resolved_frame, motion_model, mut brain, mut control) in &mut controlled {
         // The body's OWN per-tick resolved frame (ADR 0024): the same value
         // this tick's integration moves the body under, so controller
         // interpretation and physics can never disagree at a zone boundary.
@@ -175,9 +172,14 @@ pub fn tick_player_brains(
             health_fraction: 1.0,
             sim_time: 0.0,
             dt: 0.0,
-            // Player brain emits an already-normalized stick; capability is
-            // applied on the player integration side, so this is don't-care here.
-            max_run_speed: 0.0,
+            // **The body's own top speed, from its own movement policy.** The
+            // grounded integrators scale the normalized `locomotion` stick
+            // themselves and ignore this; a FREE-MOVER is steered by the absolute
+            // `velocity_target` the translator derives from it, which is how a
+            // possessed flyer moves at ITS speed with no possession-specific
+            // plumbing. Absent policy ⇒ 0.0, the value the home avatar stated
+            // explicitly when this system only ever saw home avatars.
+            max_run_speed: motion_model.map_or(0.0, |model| model.commanded_top_speed()),
             // The player brain does not predict; it translates a stick. Nothing
             // on this path reads a movement law, and claiming one would be a
             // fact the avatar path never resolved.

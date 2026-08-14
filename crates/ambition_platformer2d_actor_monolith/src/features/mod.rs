@@ -559,7 +559,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // whole correctness of the instrument.**
                 //
                 // ⛔ it was first registered in `PlayerInputSet::Brain`, after
-                // `tick_player_brains` — a WHOLE PHASE EARLIER than this one. So
+                // `tick_controlled_brains` — a WHOLE PHASE EARLIER than this one. So
                 // for every actor-brained body it read the PREVIOUS tick's
                 // `ActorControl` and printed it beside THIS tick's decision. On
                 // a level-9 ladder run that produced 378 apparent "the brain
@@ -584,7 +584,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `ScriptedControl` mean the same thing for every body.
                 //
                 // The first is in `PlayerInputSet::ControlGate`, immediately
-                // after `tick_player_brains` — "the only position where blanking
+                // after `tick_controlled_brains` — "the only position where blanking
                 // is observable", which was true of the writer it was placed
                 // against and false of this one. Actor brains write
                 // `ActorControl` HERE, in `WorldPrep`, a whole phase after that

@@ -575,7 +575,7 @@ pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeSta
 /// and routing a second player through it is what the old "two participants
 /// compete" guard was protecting against. Seat N reads its own `ActionState` and
 /// publishes straight into `SlotControls[N]`, which is where
-/// `tick_player_brains` already looks for it.
+/// `tick_controlled_brains` already looks for it.
 ///
 /// ✔ **Latched now (queue Y2).** This used to end with a known limit: the primary
 /// seat's frame passes through `ControlFrameLatch`, which ORs sub-tick press

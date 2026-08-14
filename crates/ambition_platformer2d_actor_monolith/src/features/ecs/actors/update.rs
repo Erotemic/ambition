@@ -107,9 +107,6 @@ pub fn tick_actor_brains(
     world_time: Res<WorldTime>,
     // Accumulating sim-time, for the brain's reaction-latency lookback.
     sim_clock: Res<crate::features::GameplayElapsed>,
-    // Controller frames, read by any body carrying `Brain::Player(slot)` — a
-    // possessed body drives through this same universal brain tick.
-    slot_controls: Res<ambition_characters::brain::SlotControls>,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
     // **The log, lent to whichever worker thread this tick lands on.**
@@ -131,7 +128,6 @@ pub fn tick_actor_brains(
     // systems each wrote out. `CollisionWorld` is the seam that already owned that
     // composition; the brain tick simply had never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     // Neighbor index handed to the movement phase (surface-walker steering).
     mut steering: ResMut<ActorSteering>,
     // **Liveness of the bodies the actor query cannot see.** A fighter's foe is
@@ -181,11 +177,13 @@ pub fn tick_actor_brains(
             // The unified actor cluster — every actor (was-NPC + was-enemy)
             // carries it. The tick integrates through it via `ActorMut`.
             //
-            // A possessed body needs no special query field: it simply carries
-            // `Brain::Player(slot)` (transferred by
-            // `crate::abilities::traversal::possession`) and is driven through
-            // the SAME brain tick every actor uses, reading its slot's frame
-            // from `SlotControls`.
+            // ⚠ **a possessed body is MATCHED here and deliberately not decided
+            // for.** It carries `Brain::Player(slot)` (transferred by
+            // `crate::abilities::traversal::possession`), and since 2026-08-14
+            // `tick_controlled_brains` owns its intent frame a phase earlier —
+            // this loop still runs the facts a body in a world has (reaction
+            // decay, target liveness, crowd, disposition) and stops before the
+            // decision. See the skip in the loop body for what that deletes.
             (
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
                 // The body's per-tick resolved frame (ADR 0024): published by
@@ -306,11 +304,6 @@ pub fn tick_actor_brains(
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
-    let control_frame_modes = user_settings
-        .as_deref()
-        .map_or(ae::ControlFrameModes::default(), |s| {
-            s.gameplay.control_frame_modes()
-        });
     // ⛔⛔ **A SLOT BOARD ANCHORED ON "THE PRIMARY PLAYER" USED TO STAND HERE,
     // AND IT DROVE NOTHING.**
     //
@@ -510,6 +503,28 @@ pub fn tick_actor_brains(
                     continue;
                 };
                 let enemy_gravity_dir = resolved_frame.down();
+                // ⭐⭐ **A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.**
+                // A possessed actor carries `Brain::Player(slot)`, and its
+                // `ActorControl` is produced a whole phase earlier by
+                // `tick_controlled_brains` — the one seam that turns participant
+                // control into an intent frame, for the home avatar and for this
+                // body by the same rule.
+                //
+                // What this skip DELETES is what a human was paying for to move a
+                // stick: an enemy brain snapshot, a perception policy, a world view
+                // built over the collision world, a believed-target derivation, and
+                // a MUTATION of this body's `PerceptionMemory` — none of which the
+                // player-brain translator reads. It is not free to build them
+                // either: possessing a body would restart its sight memory every
+                // tick from a view nobody consulted.
+                //
+                // ⚠ everything ABOVE this point still runs for a possessed body:
+                // reaction-timer decay, target liveness, disposition standdown and
+                // the crowd observation are facts about a body in a world, not
+                // decisions a driver makes.
+                if brain.as_deref().is_some_and(|b| b.player_slot().is_some()) {
+                    continue;
+                }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowd.crowding(&em.config.id);
                     let mut snapshot = build_enemy_brain_snapshot(
@@ -527,21 +542,6 @@ pub fn tick_actor_brains(
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
                     );
-                    // POSSESSION IS BRAIN TRANSFER: a body carrying
-                    // `Brain::Player(slot)` (transferred by possession) reads its
-                    // slot's controller frame from `SlotControls` through the SAME
-                    // brain tick every actor uses — no special-case branch, no
-                    // input-copy component. The player brain translates that frame
-                    // in the body's own gravity + control frames, then the body
-                    // moves/attacks/fires via its own ActionSet + update path
-                    // exactly like any brain-driven actor. AI brains leave
-                    // `player_input` `None` and ignore the control-frame modes.
-                    if let Some(slot) = brain_ref.player_slot() {
-                        snapshot.player_input = Some(slot_controls.get(slot));
-                        snapshot.control_down = enemy_gravity_dir;
-                        snapshot.movement_frame_mode = control_frame_modes.movement;
-                        snapshot.aim_frame_mode = control_frame_modes.aim;
-                    }
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
                     // BASIC mode) when the component is absent. There is NO "perception

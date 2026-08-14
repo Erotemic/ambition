@@ -346,7 +346,13 @@ pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 /// Grant SIGHTED perception to every non-boss brained actor that lacks it: a
 /// [`Perception::Sighted`] policy (bounded viewport + memory pursuit) AND the
 /// [`PerceptionMemory`] belief store it pursues from. Runs before the brain tick.
-/// Matches `tick_actor_brains`' own body set (brained, non-player, non-boss).
+///
+/// ⚠ this grants by POPULATION (brained, non-`PlayerEntity`, non-boss), and
+/// `tick_actor_brains` decides by BRAIN — since 2026-08-14 it skips any body
+/// carrying a participant's `Brain::Player`, so a possessed actor keeps the
+/// memory it was granted and stops having it rewritten by a world view nobody
+/// consulted. The belief is preserved across the possession rather than decayed
+/// by it, and re-enters use the moment an AI brain returns to the body.
 ///
 /// This is where ordinary actors OPT IN to sighted perception — they can be juked,
 /// lose sight of a foe, and give up. Everything WITHOUT a [`Perception`] component

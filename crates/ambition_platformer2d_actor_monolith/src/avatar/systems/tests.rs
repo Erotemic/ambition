@@ -156,7 +156,7 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
 }
 
 /// End-to-end: player releases the projectile charge →
-/// tick_player_brains fills frame.fire → resolver emits a
+/// tick_controlled_brains fills frame.fire → resolver emits a
 /// Ranged action message with the player's Bolt spec. Pins
 /// the ranged side of the seam alongside the melee test below.
 #[test]
@@ -191,7 +191,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
         (
             populate_slot_controls,
             sync_local_player_input_frame,
-            tick_player_brains,
+            tick_controlled_brains,
             emit_brain_action_messages,
         )
             .chain(),
@@ -234,7 +234,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
     }
 }
 
-/// End-to-end: player presses attack → tick_player_brains fills
+/// End-to-end: player presses attack → tick_controlled_brains fills
 /// ActorControl → emit_brain_action_messages produces an
 /// ActorActionMessage with a Swipe request. Pins the full
 /// player-side universal-brain seam from input to resolved
@@ -274,7 +274,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
         (
             populate_slot_controls,
             sync_local_player_input_frame,
-            tick_player_brains,
+            tick_controlled_brains,
             emit_brain_action_messages,
         )
             .chain(),
@@ -307,7 +307,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
 
 /// End-to-end: spawn a player entity with the brain components,
 /// populate ControlFrame, run sync_local_player_input_frame +
-/// tick_player_brains, assert ActorControl reflects the input.
+/// tick_controlled_brains, assert ActorControl reflects the input.
 /// Pins the universal-brain seam on the player side.
 #[test]
 fn player_brain_seam_translates_control_frame_to_actor_control() {
@@ -339,7 +339,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
         (
             populate_slot_controls,
             sync_local_player_input_frame,
-            tick_player_brains,
+            tick_controlled_brains,
         )
             .chain(),
     );
@@ -367,4 +367,163 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
     assert!(control.0.melee_pressed);
     assert!(control.0.shield_held);
     assert_eq!(control.0.facing, 1.0);
+}
+
+/// **A possessed actor is controlled by the SAME producer as the home avatar.**
+///
+/// ⛔⛔ this is the test that decides whether the cut is safe, and it can only
+/// fail one way: silently. `tick_controlled_brains` dropped its
+/// `With<PlayerEntity>` filter so a possessed body reaches it, and
+/// `tick_actor_brains` now leaves player-brained bodies alone — so if this
+/// query does not MATCH a body built the way production builds an actor, that
+/// body has no control producer at all and simply stops responding. A missing
+/// component is not a compile error; it is an empty iterator.
+///
+/// So the body here is constructed through `ActorClusterSeed::into_components`,
+/// the production path, and the only thing added is the participant's brain —
+/// which is exactly what possession does (ONE control seam: possession is brain
+/// transfer, never an input-copy component).
+///
+/// ⭐ **and the speed proves whose body it is.** `velocity_target` is an absolute
+/// world-space command, so the translator scales the stick by the body's own
+/// `MotionModel::commanded_top_speed` — 137 here, a number no other body in the
+/// test has. Before this cut that scale came from `ActorConfig.tuning`, which is
+/// one game's authoring type reaching into a generic controlled seam.
+#[test]
+fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    const POSSESSED_TOP_SPEED: f32 = 137.0;
+
+    let mut app = App::new();
+    app.init_resource::<ControlFrame>();
+    app.init_resource::<SlotControls>();
+    app.add_systems(
+        Update,
+        (populate_slot_controls, tick_controlled_brains).chain(),
+    );
+
+    let pos = ae::Vec2::new(64.0, 32.0);
+    let size = ae::Vec2::new(44.0, 78.0);
+    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+        "possessed",
+        "possessed",
+        ae::Aabb::new(pos, size * 0.5),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        &[],
+    );
+    seed.kin.size = size;
+    seed.kin.pos = pos;
+    seed.health.reset();
+    let mut params = ae::DEFAULT_TUNING.axis_swept_params();
+    params.locomotion.max_run_speed = POSSESSED_TOP_SPEED;
+    let body = app
+        .world_mut()
+        .spawn((
+            seed.into_components(),
+            // What the production spawn sites add beside the cluster: an intent
+            // frame and a brain. Possession replaces only the second.
+            ambition_characters::brain::ActorControl::default(),
+            Brain::Player(PlayerSlot::PRIMARY),
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(crate::features::MotionModel::axis_swept(params));
+
+    {
+        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+        cf.axis_x = 1.0;
+        cf.jump_pressed = true;
+    }
+    app.update();
+
+    let control = app
+        .world()
+        .entity(body)
+        .get::<ActorControl>()
+        .expect("an actor cluster carries ActorControl")
+        .0;
+    assert_eq!(
+        control.locomotion.x, 1.0,
+        "the possessed body did not receive the participant's stick — if this is \
+         zero, the controlled producer's query does not match a production actor \
+         body and possession moves nothing"
+    );
+    assert!(
+        control.jump_pressed,
+        "the possessed body did not receive the participant's jump edge"
+    );
+    assert_eq!(
+        control.velocity_target,
+        ae::WorldVec2::new(POSSESSED_TOP_SPEED, 0.0),
+        "the direct velocity command must be scaled by THIS body's own movement \
+         policy, not by another body's capability and not by actor configuration"
+    );
+}
+
+/// **A scripted sequence now silences a possessed body too.**
+///
+/// ⛔ it did not before, and nothing said so. `blank_scripted_control_frames`
+/// sits in `PlayerInput::ControlGate` — *"the only position where blanking is
+/// observable"* — but a possessed body's frame was written a phase LATER, in
+/// `WorldPrep`, so the blanking ran before the write it was meant to erase. A
+/// death beat or a flagpole slide driving a possessed body would blank nothing.
+///
+/// One producer in one phase is what fixes it, and the guard is the ORDER: the
+/// two systems run in their real schedule relation, so a future move of either
+/// one back across the other turns this red.
+#[test]
+fn a_scripted_sequence_silences_a_possessed_body() {
+    use ambition_characters::brain::{Brain, PlayerSlot, ScriptedControl};
+
+    let mut app = App::new();
+    app.init_resource::<ControlFrame>();
+    app.init_resource::<SlotControls>();
+    app.add_systems(
+        Update,
+        (
+            populate_slot_controls,
+            tick_controlled_brains,
+            blank_scripted_control_frames,
+        )
+            .chain(),
+    );
+
+    let pos = ae::Vec2::new(0.0, 0.0);
+    let size = ae::Vec2::new(44.0, 78.0);
+    let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+        "scripted",
+        "scripted",
+        ae::Aabb::new(pos, size * 0.5),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+        &[],
+    );
+    seed.kin.size = size;
+    seed.kin.pos = pos;
+    seed.health.reset();
+    let body = app
+        .world_mut()
+        .spawn((
+            seed.into_components(),
+            ambition_characters::brain::ActorControl::default(),
+            Brain::Player(PlayerSlot::PRIMARY),
+            ScriptedControl,
+        ))
+        .id();
+
+    {
+        let mut cf = app.world_mut().resource_mut::<ControlFrame>();
+        cf.axis_x = 1.0;
+        cf.jump_pressed = true;
+    }
+    app.update();
+
+    let control = app.world().entity(body).get::<ActorControl>().unwrap().0;
+    assert_eq!(
+        control.locomotion.x, 0.0,
+        "a scripted sequence must silence the body it is driving, whichever \
+         population that body belongs to"
+    );
+    assert!(!control.jump_pressed, "the jump edge survived the blanking");
 }

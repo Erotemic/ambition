@@ -408,7 +408,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
 /// **Couch versus: two human seats, two bodies, two slots.**
 ///
 /// The engine has been ready for this for a while and nobody had asked it:
-/// `SlotControls` holds four slots and `tick_player_brains` drives any body whose
+/// `SlotControls` holds four slots and `tick_controlled_brains` drives any body whose
 /// `Brain::Player(slot)` names one. What was missing was a seat that produces the
 /// second body — and, still, a device writer for the second slot, which is the
 /// part `populate_slot_controls` names in its own docs as co-op's job.

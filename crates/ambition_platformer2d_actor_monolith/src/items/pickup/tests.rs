@@ -46,7 +46,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
 /// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (read by
 /// pickup/throw) and the `ActorControl` brain frame (read by the now
 /// subject-generic `fire_held_ranged_system`). In production
-/// `sync_local_player_input_frame` + `tick_player_brains` keep these coherent
+/// `sync_local_player_input_frame` + `tick_controlled_brains` keep these coherent
 /// from the one `ControlFrame`; here we set both directly.
 fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
     {

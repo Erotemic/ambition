@@ -223,8 +223,8 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             // Universal-brain seam: translate this frame's slot input into
             // each controlled body's ActorControl frame.
-            ambition_platformer2d_actor_monolith::avatar::tick_player_brains
-                .in_set(ambition_platformer2d_actor_monolith::avatar::PlayerBrainTick)
+            ambition_platformer2d_actor_monolith::avatar::tick_controlled_brains
+                .in_set(ambition_platformer2d_actor_monolith::avatar::ControlledBrainTick)
                 .in_set(PlayerInputSet::Brain),
         );
         // Causal recording, in the SIM schedule because that is where its
@@ -251,7 +251,7 @@ impl Plugin for PlayerSchedulePlugin {
                     // instrument that nudged state would desync exactly when
                     // somebody was using it to find out why.
                     crate::causal::record_player_movement_intent
-                        .after(ambition_platformer2d_actor_monolith::avatar::PlayerBrainTick),
+                        .after(ambition_platformer2d_actor_monolith::avatar::ControlledBrainTick),
                 )
                     .in_set(crate::causal::RecordingSet::Publish),
             )

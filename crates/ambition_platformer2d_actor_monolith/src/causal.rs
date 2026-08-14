@@ -12,7 +12,7 @@
 //! an instrument that nudged state would desync exactly when it was being used.
 //!
 //! It runs AFTER the brain tick rather than inside it for the same reason: the
-//! alternative was threading a recorder through `tick_player_brains`, and a
+//! alternative was threading a recorder through `tick_controlled_brains`, and a
 //! system that only reads cannot be the thing that broke the tick.
 //!
 //! ## The subject is the SEAT

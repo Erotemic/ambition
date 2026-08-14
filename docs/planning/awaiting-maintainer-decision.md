@@ -90,15 +90,21 @@ the primary local controlled body:
 
 The third is the smallest Smash-oriented experiment; it has not been tried.
 
-⭐ **this decision now gates architecture, not just feel (2026-08-14).** The
-controlled and actor roads still have two body integrators, and unifying them —
-the last open property of the D117 actor-kernel milestone — means merging their
-limbs: hitlag-dt gating and ledge carry are the home road's, the flight limb is
-the actor road's. Whether the merged integrator freezes an actor body on its own
-hitstop IS this question. The same choice decides whether the three per-population
-calls to `decay_reaction_timers` can become one system, since the controlled site
-decays on `frame_dt` and the other two on sim `dt`. Answering it unblocks both;
-guessing it decides feel by refactor, which is why neither was done.
+⭐ **this decision gates TIME INTEGRATION, and nothing wider (narrowed
+2026-08-14).** The controlled and actor roads still have two body integrators, and
+unifying them means merging their limbs: hitlag-dt gating and ledge carry are the
+home road's, the flight limb is the actor road's. Whether the merged integrator
+freezes an actor body on its own hitstop IS this question. The same choice decides
+whether the three per-population calls to `decay_reaction_timers` can become one
+system, since the controlled site decays on `frame_dt` and the other two on sim
+`dt`. Answering it unblocks both; guessing it decides feel by refactor.
+
+⛔ **it does NOT block controlled/AI contract convergence, which was the reading
+for a day and was wrong.** The `ActorControl` producers converged on 2026-08-14
+without touching either integrator: one `tick_controlled_brains` translates
+participant control for any controlled body, and `tick_actor_brains` skips
+player-brained bodies. Control authority and time integration were separable, and
+the only thing that had joined them was the sentence that named them together.
 
 ### 6. How long should a dropped held weapon persist? (former D50)
 

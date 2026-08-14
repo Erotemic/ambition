@@ -34,7 +34,7 @@ fn app_with_policy() -> (App, Entity) {
     (app, body)
 }
 
-/// Set this tick's brain-produced intent, as `tick_player_brains` would.
+/// Set this tick's brain-produced intent, as `tick_controlled_brains` would.
 fn intend(app: &mut App, body: Entity, x: f32, run_held: bool) {
     let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
     control.0.locomotion.x = x;

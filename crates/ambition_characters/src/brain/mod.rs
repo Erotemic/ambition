@@ -430,7 +430,7 @@ pub struct ScriptedControl;
 /// module into its own crate) is a single `app.add_plugins(...)`
 /// change at the call site.
 ///
-/// Scheduling of the per-tick systems (tick_player_brains,
+/// Scheduling of the per-tick systems (tick_controlled_brains,
 /// emit_brain_action_messages, observe_brain_action_counter) is
 /// still done explicitly in `app/plugins.rs` because they need to
 /// chain after sandbox-side input systems — the plugin owns
@@ -510,7 +510,7 @@ impl ActorActionMessage {
 /// Bevy system: walk every actor entity that has a Brain +
 /// ActionSet + ActorControl + gameplay ActorPose and emit one
 /// `ActorActionMessage` per resolved action request. Runs after the
-/// brain-driver systems (tick_player_brains, update_ecs_actors's
+/// brain-driver systems (tick_controlled_brains, update_ecs_actors's
 /// runtime tick) so the frame is current.
 ///
 /// The resolver intentionally reads `ActorPose` instead of Bevy

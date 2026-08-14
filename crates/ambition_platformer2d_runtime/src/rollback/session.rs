@@ -842,7 +842,7 @@ fn publish_local_inputs(
 /// Publish the session's confirmed inputs into what the simulation reads.
 ///
 /// Handle 0 becomes [`ControlFrame`], the primary seat's. Handles 1.. become
-/// `SlotControls[handle]`, which is where `tick_player_brains` already looks for
+/// `SlotControls[handle]`, which is where `tick_controlled_brains` already looks for
 /// a secondary seat — so a rewind replays every seat's input, not just the
 /// first (queue Y1).
 ///
@@ -1558,7 +1558,7 @@ mod multi_seat_input_tests {
         build_sync_test_session(settings).expect("a two-seat sync test session builds");
     }
 
-    /// Seats 1.. land in `SlotControls`, which is where `tick_player_brains`
+    /// Seats 1.. land in `SlotControls`, which is where `tick_controlled_brains`
     /// already looks — so a rewind replays every seat's input rather than only
     /// the first.
     #[test]

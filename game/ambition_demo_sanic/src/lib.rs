@@ -1198,7 +1198,7 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-            .after(ambition_platformer2d::actors::avatar::PlayerBrainTick)
+            .after(ambition_platformer2d::actors::avatar::ControlledBrainTick)
             .before(ambition_platformer2d::actors::avatar::WornControlGateSet);
         // AFTER the gate: read Sanic's rev and transformation from the sanctioned
         // technique edges the gate resolved — the fragile before-gate raw-verb
@@ -2334,7 +2334,7 @@ pub fn act_time_text(seconds: f32) -> String {
 /// result the player is already looking at.
 /// After the goal, the course drives him — not the player.
 ///
-/// Registered in `PlayerInput` AFTER `tick_player_brains`, which is the whole
+/// Registered in `PlayerInput` AFTER `tick_controlled_brains`, which is the whole
 /// trick: the brain refills `ActorControl` from the stick every frame, so a
 /// system that zeroes it in `GameplayEffects` (where this started) is
 /// overwritten before the body ever reads it. Measured, not guessed — with the

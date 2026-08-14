@@ -31,13 +31,20 @@ The milestone is reached when:
 This directly unlocks cleaner multiplayer/multiview, open-world population,
 navigation, possession, item custody and actor-monolith decomposition.
 
-## Milestone status against HEAD (2026-08-13 local)
+## Milestone status against HEAD (2026-08-14 local)
 
-One property is **partial** and one remains **open**; the rest hold. Deleting the
-dead slot board was the right architectural result, but reducing a system's
-parameter count is not the same as completing its semantic decomposition, and two
-of the properties that do hold were reached by DELETING what the milestone
-described rather than by building it. Check HEAD before starting the next slice.
+Every property now holds except the **semantic decomposition** of
+`tick_actor_brains`, which is partial. Deleting the dead slot board was the right
+architectural result, but reducing a system's parameter count is not the same as
+completing its decomposition, and several of the properties that do hold were
+reached by DELETING what the milestone described rather than by building it.
+Check HEAD before starting the next slice.
+
+⚠ **the one thing this milestone still waits on is narrow**: merging
+`integrate_home_body` with `integrate_actor_body` needs the hit-emphasis/proper-time
+decision, because those two differ in hit-stop/time semantics. Control authority
+converged without it — do not let the feel decision be quoted as a blocker on
+anything but time integration.
 
 - ✔ **generic crowd/combat arbitration.** No longer anchored on a primary
   player, because the slot board it anchored is gone: `assign_slots` filled it
@@ -127,32 +134,71 @@ described rather than by building it. Check HEAD before starting the next slice.
   reasonable resting point; the remaining structural work in this milestone is
   the two-producer/two-integrator fork above, which needs a design decision
   rather than another extraction.**
-- ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
-  path: `integrate_home_body` and the actor integration both reach
-  `ae::step_motion`. **Decision is not.** `tick_player_brains` and
-  `tick_actor_brains` are two producers of `ActorControl`, and until the current
-  run the first was unfiltered, so a possessed body got both — from materially
-  different snapshots (`max_run_speed: 0.0` versus the body's real top speed,
-  which `tick_player_brain` multiplies the stick by). The populations are
-  disjoint now. **Collapsing the two producers is the remaining work.** Do not
-  solve it by giving the home body an actor cluster merely so one query matches;
-  that asymmetry is evidence that the common decision seam must be expressed in
-  terms of common body/brain/control facts, with actor-only facts supplied only
-  where a brain actually needs them.
+- ✔ **controlled and AI bodies on the same contracts — DECISION CONVERGED
+  2026-08-14.** Movement was already one path (`integrate_home_body` and the actor
+  integration both reach `ae::step_motion`). Decision now is too: **one producer,
+  `tick_controlled_brains`, translates participant control into `ActorControl` for
+  any controlled body**, and `tick_actor_brains` skips a body carrying
+  `Brain::Player`. The two-producer fork is gone, not arbitrated.
 
-  ⭐ **and the fork is one layer below the producers.** Traced `velocity_target`
-  to its only consumer: the actor integrator's flight limb. `integrate_home_body`
-  has no flight limb and never reads the field, which is why the home path passes
-  `max_run_speed: 0.0` — deliberate and inert, and the brain's own comment says
-  so. The actor integrator projects `velocity_target` onto its flight axis, so
-  its brain must be handed the body's real top speed. The two producers differ
-  because the two INTEGRATORS do; a common decision seam has to account for that
-  rather than pick one integrator's convention.
+  ⭐ **what made the cut possible was measuring what the possessed body was
+  paying for.** `tick_player_brain_from_control` reads SIX snapshot fields:
+  `player_input`, `control_down`, `movement_frame_mode`, `aim_frame_mode`,
+  `actor_facing`, `max_run_speed`. What the actor tick built before reaching it:
+  a crowd observation, an enemy brain snapshot, a perception policy, a world view
+  over the collision world, a believed-target derivation, and a MUTATION of the
+  body's `PerceptionMemory`. A human piloting a body was constructing AI
+  perception — and decaying that body's own sight memory — to move a stick.
 
-  ⚠ **no live defect today**: `BodyMode` has no flight variant, so the home
-  avatar cannot reach the case where the zeroed field would matter. A structural
-  fork with a latent edge, and the edge arrives the moment a controlled body can
-  fly — which the open-world and possession programs both point at.
+  ⭐ **the one actor-specific fact was a movement scale, and it did not need
+  actor configuration to state it.** `velocity_target` is an absolute world-space
+  command, so the translation needs the body's top speed; that number now comes
+  from `MotionModel::commanded_top_speed()`, a projection on the one
+  movement-policy component every movable body already carries (the sibling of
+  `jump_squat_remaining`). No new component, no mirror of `ActorConfig`, and no
+  actor cluster granted to the home body to make one query match. Absent policy ⇒
+  `0.0`, which is what the home avatar stated explicitly before.
+
+  ⭐ **and the phase move fixed two live seams.** Both were consequences of the
+  possessed body's frame being written in `WorldPrep`, a phase after the
+  controlled one: `blank_scripted_control_frames` sits in `PlayerInput::ControlGate`
+  — *"the only position where blanking is observable"* — so a scripted sequence
+  driving a possessed body **blanked nothing**, and the causal movement-intent
+  observer (`.after(ControlledBrainTick)`) recorded a possessed body intending to
+  stand still. One producer in one phase settles both. Guarded by
+  `a_scripted_sequence_silences_a_possessed_body` and
+  `a_possessed_actor_is_driven_by_the_controlled_brain_producer`, which is the
+  one that can only fail silently: a component the query requires and a
+  production body lacks is an empty iterator, not a compile error.
+
+  ⇒ **the remaining blocker is narrow and is not this.** Movement/time
+  integration convergence — merging `integrate_home_body` and
+  `integrate_actor_body` — awaits the hit-emphasis/proper-time decision (open
+  item #5), because those two differ in hit-stop/time semantics. Control
+  authority does not, and no longer waits on it.
+
+  **The schedule the cut had to satisfy, enumerated before moving anything:**
+
+  | fact | where it becomes true | relation to the controlled phase |
+  | --- | --- | --- |
+  | participant input | `populate_slot_controls`, `PlayerInput::Device` | before, chained |
+  | `ResolvedMotionFrame` | `FrameResolveSet`, `.before(CoreSimulation)` | before, for BOTH populations — one system, three archetype queries |
+  | **controlled decision** | `ControlledBrainTick` in `PlayerInput::Brain` | — |
+  | scripted blanking | `blank_scripted_control_frames`, `PlayerInput::ControlGate` | after |
+  | causal intent record | `.after(ControlledBrainTick)` | after |
+  | AI decision | `tick_actor_brains`, `WorldPrep` | after |
+  | mount relay | `steer_mount_from_rider`, after the actor tick | after |
+  | `ActorControl` consumers | action emitters (after `WorldPrep`), integration (`PlayerSimulation`) | after |
+
+  ⭐ **`PlayerInput → WorldPrep` was already the contract** ("CONTROL-SEAM
+  ORDERING" in `schedule.rs`) and the frame resolver already published for actor
+  bodies before both. The cut needed no new ordering edge — it moved a producer
+  INTO the phase whose whole reason for running first is that participant input
+  is final there.
+
+  ⚠ **one filter is deliberately not inherited:** `tick_actor_brains` carries
+  `Without<Dormant>`, and the controlled producer does not. Dormancy sleeps a
+  BRAIN as an AI optimisation; a participant is not an AI to be optimised away.
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.

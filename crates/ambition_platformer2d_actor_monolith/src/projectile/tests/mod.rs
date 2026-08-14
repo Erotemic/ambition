@@ -133,7 +133,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // brain-gated input mirror sees it (production order).
             crate::control::populate_slot_controls,
             crate::control::sync_local_player_input_frame,
-            crate::avatar::tick_player_brains,
+            crate::avatar::tick_controlled_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the pool consumer materializes (so a

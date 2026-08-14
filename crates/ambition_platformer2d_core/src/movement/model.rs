@@ -351,6 +351,23 @@ impl MotionModel {
         }
     }
 
+    /// **What a full-deflection direct command means for this body**, in px/s.
+    ///
+    /// The projection a CONTROLLER wants, and the sibling of
+    /// [`Self::jump_squat_remaining`]: `ActorControlFrame::velocity_target` is an
+    /// ABSOLUTE world-space velocity, so anything turning a normalized stick into
+    /// one needs the body's own top speed. Every movement policy can name that
+    /// number in its own words, which is exactly why the question belongs here —
+    /// asking the body's *actor configuration* instead makes a generic controlled
+    /// seam depend on one game's authoring types.
+    pub fn commanded_top_speed(&self) -> f32 {
+        match self {
+            Self::AxisSwept(axis) => axis.params.locomotion.max_run_speed,
+            Self::SurfaceMomentum(momentum) => momentum.params.top_speed,
+            Self::AdhesiveCrawler(crawler) => crawler.params.crawl_speed,
+        }
+    }
+
     pub const fn kind(&self) -> MotionModelKind {
         match self {
             Self::AxisSwept(_) => MotionModelKind::AxisSwept,

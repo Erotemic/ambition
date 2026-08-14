@@ -740,7 +740,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
             "burning_flying_shark".to_string(),
         ),
-        Some("npc_burning_flying_shark"),
+        "npc_burning_flying_shark",
     );
     sim.spawn_enemy_character_at(
         "sweep_rider",
@@ -750,7 +750,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
             "pirate_raider".to_string(),
         ),
-        Some("npc_pirate_raider"),
+        "npc_pirate_raider",
     );
     let by_id = |sim: &mut Platformer2dSimHarness, id: &str| {
         let world = sim.world_mut();

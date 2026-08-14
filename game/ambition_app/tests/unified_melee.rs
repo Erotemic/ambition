@@ -233,7 +233,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     assert!(
         hostile_body_present(sim.world_mut(), ENEMY_ID),

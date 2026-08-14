@@ -481,12 +481,6 @@ pub enum ActorConstructionError {
     },
     /// A row whose body is built FROM a character names no character at all.
     ///
-    /// ⭐ **AC6 made this a real state rather than a migration one.** While an
-    /// archetype row could answer for a brain key, a placement that named no
-    /// character still got a body — the generic `combatant`, wearing whatever
-    /// the level called it. The ontology is deleted, so there is nothing left to
-    /// build this body from and the row is a content error.
-    BodyNamesNoCharacter { sim_id: SimId, brain: String },
     /// A row names a character this composition has not registered.
     ///
     /// The original Iron Mary defect: content says `IronMary`, her registration
@@ -562,11 +556,6 @@ impl std::fmt::Display for ActorConstructionError {
                 f,
                 "room `{room}` authors a mount link whose {end} `{id}` matches no enemy or boss \
                  spawn in the room"
-            ),
-            Self::BodyNamesNoCharacter { sim_id, brain } => write!(
-                f,
-                "`{sim_id}` names brain `{brain}` and no character. Every body is built from a \
-                 character: give the placement a `character_id` naming a registered one"
             ),
             Self::BodyCharacterNotRegistered { sim_id, character } => write!(
                 f,
@@ -1276,7 +1265,7 @@ pub fn mount_capabilities_of(
             // disagree about whether a body is rideable — which is the whole
             // point of there being one construction path.
             SpawnActorKind::Enemy { character, .. } => {
-                authored_mount_capabilities(resolve_planned_character(prepared, character.as_ref()))
+                authored_mount_capabilities(resolve_planned_character(prepared, Some(character)))
             }
             // A boss takes `CanPilot` from its behaviour profile and is never
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
@@ -1386,29 +1375,31 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
 /// a gravity zone — or builds it from another authority entirely (a boss reads
 /// the [`BossCatalog`]; a placement lowers through the NPC road, which still has
 /// a catalog-bodied fallback of its own).
-fn planned_body_character(parameters: &ActorConstructionParams) -> Option<PlannedBody<'_>> {
+/// The character each planned row builds its body from, when the row builds one.
+///
+/// ⭐ **this returned a `PlannedBody { character: Option<&str>, named_by: String }`
+/// until 2026-08-14.** Both roads that reach here now name a character BY TYPE —
+/// an authored placement through `EnemySpawnSpec::character_id`, a staged request
+/// through `SpawnActorKind::Enemy::character` — so the `Option` had nothing left
+/// to express, the preflight arm that read it had nothing left to catch, and
+/// `named_by` existed only to describe a row in that arm's error message. The
+/// struct's last field is the return value.
+fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> {
     match parameters {
         ActorConstructionParams::AuthoredEnemy { authored, .. }
         | ActorConstructionParams::GiantHost { authored, .. }
-        | ActorConstructionParams::GiantHand { authored } => Some(PlannedBody {
-            character: Some(authored.payload.character_id.as_str()),
-            named_by: format!("{:?}", authored.payload.brain),
-        }),
+        | ActorConstructionParams::GiantHand { authored } => {
+            Some(authored.payload.character_id.as_str())
+        }
         ActorConstructionParams::StagedActor(request) => match &request.kind {
-            crate::features::SpawnActorKind::Enemy { brain, character } => Some(PlannedBody {
-                character: character.as_ref().map(ambition_entity_catalog::CharacterId::as_str),
-                named_by: format!("{brain:?}"),
-            }),
+            crate::features::SpawnActorKind::Enemy { character, .. } => Some(character.as_str()),
             // A staged boss builds from the boss catalog, like an authored one.
             crate::features::SpawnActorKind::Boss { .. } => None,
         },
         // ⚠ **this field was `archetype_id` until AC6** and held a character id
         // long before the name admitted it — the summon road stopped resolving
         // roster rows well before the rows were deleted.
-        ActorConstructionParams::SummonedMinion(minion) => Some(PlannedBody {
-            character: Some(minion.character_id.as_str()),
-            named_by: minion.character_id.clone(),
-        }),
+        ActorConstructionParams::SummonedMinion(minion) => Some(minion.character_id.as_str()),
         ActorConstructionParams::AuthoredBoss { .. }
         | ActorConstructionParams::Placement { .. }
         | ActorConstructionParams::GroundItem { .. }
@@ -1420,14 +1411,6 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<Planne
 }
 
 /// One planned row's claim on a character, as the preflight needs to read it.
-struct PlannedBody<'a> {
-    /// The character this row's body is built from, if it names one.
-    character: Option<&'a str>,
-    /// How the row describes itself when it names no character — the brain key,
-    /// which is what an author sees in the level editor.
-    named_by: String,
-}
-
 /// **Prove every planned body can actually be built, before anything is
 /// mutated.**
 ///
@@ -1460,14 +1443,8 @@ pub fn preflight_planned_bodies(
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> Result<(), ActorConstructionError> {
     for request in requests {
-        let Some(body) = planned_body_character(&request.parameters) else {
+        let Some(character) = planned_body_character(&request.parameters) else {
             continue;
-        };
-        let Some(character) = body.character else {
-            return Err(ActorConstructionError::BodyNamesNoCharacter {
-                sim_id: request.sim_id.clone(),
-                brain: body.named_by,
-            });
         };
         let Some(definition) = prepared.and_then(|cast| cast.get(character)) else {
             return Err(ActorConstructionError::BodyCharacterNotRegistered {
@@ -1717,10 +1694,8 @@ pub fn staged_actor_requests(
             // This also asked the roster, whose lookup could not fail — so an
             // unresolvable key answered the `combatant` row, which is not a
             // limbed host, so the two agreed by luck rather than by design.
-            if crate::features::is_limbed_host(resolve_planned_character(
-                prepared,
-                character.as_ref(),
-            )) {
+            if crate::features::is_limbed_host(resolve_planned_character(prepared, Some(character)))
+            {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 // ⛔⛔ **THE HOST ROW USED TO DROP THE CHARACTER.** It was built
                 // from the brain alone, so a staged giant's `character` — the
@@ -1728,17 +1703,8 @@ pub fn staged_actor_requests(
                 // build its body — never reached the row the executor spawns.
                 // Invisible while an archetype row could answer for the brain
                 // key; a refusal the moment they went (AC6).
-                // ⚠ the staged REQUEST still carries an `Option`; the spec no
-                // longer can. `preflight_planned_bodies` refuses a body that
-                // names no character before anything is built, so this names
-                // that twin rather than inventing a default id — the one thing
-                // the required field exists to make impossible.
-                let host_character = character.clone().expect(
-                    "a staged giant host reached construction naming no character, \
-                     so the row was never preflighted (see \
-                     `ActorConstructionError::BodyNamesNoCharacter`)",
-                );
-                let host_payload = crate::rooms::EnemySpawnSpec::new(brain.clone(), host_character);
+                let host_payload =
+                    crate::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
                 let host_authored = crate::rooms::Authored::new(
                     request.id.clone(),
                     request.name.clone(),

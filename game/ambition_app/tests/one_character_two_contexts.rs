@@ -140,7 +140,7 @@ fn one_character_built_as_an_npc_and_as_a_summon_is_the_same_body() {
         (600.0, 300.0),
         (12.0, 16.0),
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
-        Some(CHARACTER),
+        CHARACTER,
     );
     for _ in 0..4 {
         summoned.step(AgentAction::default());

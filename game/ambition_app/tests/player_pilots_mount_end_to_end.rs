@@ -78,7 +78,7 @@ fn a_player_pilots_a_mount_end_to_end() {
         mount_pos,
         (63.0, 26.0),
         CharacterBrain::Custom("burning_flying_shark".to_string()),
-        Some("npc_burning_flying_shark"),
+        "npc_burning_flying_shark",
     );
     // ⭐ **and so does the RIDER** (D102). The mount named its character three
     // lines up and the pilot beside it did not, so the pair under test was half
@@ -90,7 +90,7 @@ fn a_player_pilots_a_mount_end_to_end() {
         rider_pos,
         (22.0, 39.0),
         CharacterBrain::Custom("pirate_raider".to_string()),
-        Some("npc_pirate_raider"),
+        "npc_pirate_raider",
     );
     let mount = entity_by_feature_id(sim.world_mut(), MOUNT_ID);
     let rider = entity_by_feature_id(sim.world_mut(), RIDER_ID);

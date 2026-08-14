@@ -295,7 +295,9 @@ mod tests {
             grudge_against: None,
             kind: crate::features::SpawnActorKind::Enemy {
                 brain: CharacterBrain::Custom("fixture".to_string()),
-                character: None,
+                // ⚠ a fixture states a creature like every other producer; the
+                // `Option` that let this say nothing is gone.
+                character: ambition_entity_catalog::CharacterId::from("fixture"),
             },
         }
     }

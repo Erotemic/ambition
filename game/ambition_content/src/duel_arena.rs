@@ -89,9 +89,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 //
                 // ⛔ do not flip this to make the row deletable. A duel where the
                 // PCA never blocks is a worse game than one archetype row.
-                character: Some(ambition_entity_catalog::CharacterId::from(
-                    DUEL_PCA_CHARACTER,
-                )),
+                character: ambition_entity_catalog::CharacterId::from(DUEL_PCA_CHARACTER),
             },
         },
         SpawnActorRequest {
@@ -122,9 +120,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 // body half now lives on the lineage (2026-08-11). The brain key
                 // stays only as the fallback for a composition that has not
                 // registered the lineage.
-                character: Some(ambition_entity_catalog::CharacterId::from(
-                    "player_robot_v2",
-                )),
+                character: ambition_entity_catalog::CharacterId::from("player_robot_v2"),
             },
         },
     ]

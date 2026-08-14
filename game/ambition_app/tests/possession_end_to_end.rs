@@ -82,7 +82,7 @@ fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     let actor = actor_entity(sim.world_mut());
     for i in 0..900 {
@@ -242,7 +242,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     let actor = actor_entity(sim.world_mut());
     assert_eq!(

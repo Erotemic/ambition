@@ -78,7 +78,7 @@ fn brain_intent_seam_holds(fixed_tick: bool) {
         (p.x + 120.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     let enemy = enemy_entity(sim.world_mut());
     let x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;

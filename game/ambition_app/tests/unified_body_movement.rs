@@ -70,7 +70,7 @@ fn home_body_and_actor_body_move_through_the_same_integration_phase() {
         (p.x + 160.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     let enemy = enemy_entity(sim.world_mut());
     let enemy_x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;

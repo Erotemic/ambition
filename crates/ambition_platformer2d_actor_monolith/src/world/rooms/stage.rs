@@ -901,7 +901,7 @@ mod tests {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                             "combatant".into(),
                         ),
-                        character: Some(ambition_entity_catalog::CharacterId::from("combatant")),
+                        character: ambition_entity_catalog::CharacterId::from("combatant"),
                     },
                 }]
             })

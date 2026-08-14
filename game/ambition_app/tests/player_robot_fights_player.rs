@@ -98,7 +98,7 @@ fn the_player_robot_fights_the_player_with_its_own_full_kit() {
         (p.x + 200.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("player_robot".to_string()),
-        Some("player_robot_v2"),
+        "player_robot_v2",
     );
 
     let mut t = Tally::default();

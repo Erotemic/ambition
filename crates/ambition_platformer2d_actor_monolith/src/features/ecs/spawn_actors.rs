@@ -88,8 +88,15 @@ pub enum SpawnActorKind {
         /// stopped being rideable and started falling out of the sky, measured
         /// end-to-end by `player_pilots_mount_end_to_end`.
         ///
-        /// `None` keeps the archetype road, which is every existing caller.
-        character: Option<ambition_entity_catalog::CharacterId>,
+        /// ⭐ **REQUIRED since 2026-08-14.** Its doc said *"`None` keeps the
+        /// archetype road, which is every existing caller"* — and AC6 deleted
+        /// that road, so `None` stopped meaning anything the moment the
+        /// archetype did. Every production producer already passed `Some`; the
+        /// two that did not were a test fixture and a harness entry point with
+        /// zero callers. Requiring it deletes
+        /// `ActorConstructionError::BodyNamesNoCharacter` and the two
+        /// construction `expect`s that named it.
+        character: ambition_entity_catalog::CharacterId,
     },
 }
 
@@ -229,7 +236,7 @@ pub(crate) fn spawn_staged_actor(
             // inherited whatever archetype its brain key happened to name — and a
             // misspelled key inherited the reserved `combatant` row's limb answer.
             // A character is the only thing that states limbs now.
-            is_limbed_host(character.as_ref().and_then(|id| prepared.get(id.as_str()))),
+            is_limbed_host(prepared.get(character.as_str())),
             "programmatic staged actor",
             &req.id,
         ) {
@@ -292,24 +299,13 @@ pub(crate) fn spawn_staged_actor_into(
             if reject_runtime_giant(
                 // See the twin above: the character is the only authority on
                 // limbs, so the two refusals cannot drift apart.
-                is_limbed_host(character.as_ref().and_then(|id| prepared.get(id.as_str()))),
+                is_limbed_host(prepared.get(character.as_str())),
                 "programmatic staged actor",
                 &req.id,
             ) {
                 return;
             }
-            // ⚠ see the giant-host twin in `construction`: the staged REQUEST
-            // still carries an `Option` and the spec no longer can. The
-            // preflight refuses a body that names no character before anything
-            // is built, so this names that twin rather than defaulting an id.
-            let payload = crate::rooms::EnemySpawnSpec::new(
-                brain.clone(),
-                character.clone().expect(
-                    "a staged actor reached construction naming no character, so \
-                     the row was never preflighted (see \
-                     `ActorConstructionError::BodyNamesNoCharacter`)",
-                ),
-            );
+            let payload = crate::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
             let authored =
                 crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
             // Staged outside the authored RoomSpec lists: mark it so the
@@ -2592,7 +2588,7 @@ mod runtime_giant_refusal_tests {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "test_giant".to_string(),
                 ),
-                character: Some(ambition_entity_catalog::CharacterId::from("test_giant")),
+                character: ambition_entity_catalog::CharacterId::from("test_giant"),
             },
         });
         app.update();

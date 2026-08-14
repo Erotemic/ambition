@@ -99,7 +99,7 @@ fn a_hostile_enemy_next_to_the_player_attacks_it() {
         (p.x + 60.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
 
     let mut t = EnemyTally::default();

@@ -262,7 +262,7 @@ fn possession_survives_the_real_rollback_window() {
         (player.x + 60.0, player.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
-        Some("perfect_cellular_automaton"),
+        "perfect_cellular_automaton",
     );
     let target = {
         let world = sim.world_mut();

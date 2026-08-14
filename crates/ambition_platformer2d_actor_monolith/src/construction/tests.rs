@@ -127,7 +127,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".into(),
             ),
-            character: Some(ambition_entity_catalog::CharacterId::from("medium_striker")),
+            character: ambition_entity_catalog::CharacterId::from("medium_striker"),
         },
     }
 }
@@ -2269,7 +2269,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "fixture_giant".into(),
             ),
-            character: Some(ambition_entity_catalog::CharacterId::from("fixture_giant")),
+            character: ambition_entity_catalog::CharacterId::from("fixture_giant"),
         },
     }
 }
@@ -3515,13 +3515,16 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
 
     // ⛔⛔ **the first of the three shapes is GONE, and that is the point of the
     // 2026-08-14 change rather than a hole in this test.** It asserted that a
-    // placement naming NO character is refused with `BodyNamesNoCharacter`;
+    // placement naming NO character was refused with `BodyNamesNoCharacter`;
     // `EnemySpawnSpec::character_id` is required now, so that placement cannot
     // be constructed at all, and the LDtk lowering refuses the authored entity
     // by name (`convert_enemy_spawn`, pinned in `conversion::mod`'s tests). The
     // refusal moved from preparation to the type and to authoring — earlier on
-    // both counts. `ActorConstructionError::BodyNamesNoCharacter` survives for
-    // the STAGED request path, whose character is still an `Option`.
+    // both counts. ⭐ and `ActorConstructionError::BodyNamesNoCharacter` is
+    // DELETED with it: the staged request's character became required in the
+    // same pass, so no road reaching the preflight can name no character, and
+    // the variant, its `Display` arm, the `PlannedBody` struct and the
+    // `named_by` field that existed only for its message all went with it.
     assert!(
         matches!(
             prepare_room(&room_naming("iron_mary")),
@@ -3590,7 +3593,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     let SpawnActorKind::Enemy { character, .. } = &mut request.kind else {
         unreachable!("staged_enemy builds an Enemy request")
     };
-    *character = Some(ambition_entity_catalog::CharacterId::new("npc_test_shark"));
+    *character = ambition_entity_catalog::CharacterId::new("npc_test_shark");
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
         crate::character_runtime::CharacterDefinition::new("npc_test_shark", "Shark", "test")

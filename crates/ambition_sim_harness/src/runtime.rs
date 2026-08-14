@@ -787,32 +787,12 @@ impl Platformer2dSimHarness {
             .expect("boss setup frame establishes a fresh GGRS rollback baseline");
     }
 
-    /// Spawn a normal hostile ENEMY into the live sim at `pos` via the same
-    /// [`SpawnActorRequest`] seam room load uses — `ActorFaction::Enemy`,
-    /// `hostile_to_player` aggression, `Hostile` disposition. The enemy archetype
-    /// + its brain/ActionSet resolve from `brain` (e.g.
-    /// `CharacterBrain::Custom("cellular_automaton_fighter")`). Steps one frame so the
-    /// spawn command flushes and the entity exists. Counterpart to
-    /// [`Self::spawn_boss_at`] for the actor (non-boss) path. Rollback mode
-    /// rebases history after this external setup request is materialized.
-    pub fn spawn_enemy_at(
-        &mut self,
-        id: impl Into<String>,
-        name: impl Into<String>,
-        pos: (f32, f32),
-        half_size: (f32, f32),
-        brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
-    ) {
-        self.spawn_enemy_character_at(id, name, pos, half_size, brain, None);
-    }
+    // ⛔ **`spawn_enemy_at` DELETED 2026-08-14.** Its only difference from
+    // `spawn_enemy_character_at` was passing `None` for the character, and
+    // `SpawnActorKind::Enemy::character` is required now — a staged request
+    // that names no creature is not expressible, so an entry point whose whole
+    // purpose was to make one had nothing left to do. It had zero callers.
 
-    /// **Spawn a staged enemy that NAMES its character.**
-    ///
-    /// ⭐ the harness half of campaign P1.12: a programmatic spawn could only
-    /// name a brain KEY, so a fixture that wanted a specific creature named the
-    /// archetype describing it — and when that creature migrated to a character,
-    /// the fixture silently got the `combatant` fallback. A shark spawned that
-    /// way stopped being rideable and fell out of the sky.
     pub fn spawn_enemy_character_at(
         &mut self,
         id: impl Into<String>,
@@ -820,7 +800,7 @@ impl Platformer2dSimHarness {
         pos: (f32, f32),
         half_size: (f32, f32),
         brain: ambition_platformer2d::entity_catalog::placements::CharacterBrain,
-        character: Option<&str>,
+        character: &str,
     ) {
         self.app.world_mut().write_message(
             ambition_platformer2d::actors::features::SpawnActorRequest {
@@ -832,8 +812,7 @@ impl Platformer2dSimHarness {
                 grudge_against: None,
                 kind: ambition_platformer2d::actors::features::SpawnActorKind::Enemy {
                     brain,
-                    character: character
-                        .map(ambition_platformer2d::entity_catalog::CharacterId::from),
+                    character: ambition_platformer2d::entity_catalog::CharacterId::from(character),
                 },
             },
         );

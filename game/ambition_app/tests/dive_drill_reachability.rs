@@ -73,7 +73,7 @@ fn dive_drill_lunges_through_the_targets() {
         (540.0, 210.0),
         (12.0, 16.0),
         ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
-        Some("npc_puppy_slug"),
+        "npc_puppy_slug",
     );
     for _ in 0..2 {
         sim.step(base());

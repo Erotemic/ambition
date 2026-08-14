@@ -9,7 +9,24 @@ that desktop could resolve.
 The generated contract records every regular file from the two source roots,
 plus paths declared by runtime-facing catalogs/manifests. Android verifies the
 contract against the finished APK ZIP. Steam Deck deployment verifies the same
-contract with ``sha256sum`` after rsync.
+contract with ``sha256sum`` after rsync. The served-web page consumes the same
+composed tree over HTTP.
+
+Materialization
+---------------
+
+``compose --materialize copy`` (the default) writes real bytes: what a shipped
+package must contain, and what the APK/rsync audits then verify.
+
+``compose --materialize link`` writes the identical tree as symlinks into the
+source roots. It exists for the served-web development loop, where the composed
+tree is 1.1 GB and is re-published on every build of a wasm artifact that took
+minutes to compile. The *contract* is unchanged — the audit still reads bytes
+through the links and still checks every hash — so a linked tree proves exactly
+what a copied one proves about content, and differs only in whether the bytes
+were duplicated. A shipped package must never use it: an APK or a Steam Deck
+rsync cannot carry a working link out of this checkout, which is why the
+no-symlinks rule stays ON for every other consumer.
 """
 
 from __future__ import annotations
@@ -87,6 +104,12 @@ COMMON_EXCLUDES = (
 PROFILE_EXCLUDES = {
     "android": (),
     "steamdeck": ("fonts/local/**",),
+    # The served-web persona (`build_for_web.sh --served`). Bevy's wasm asset
+    # reader fetches `/assets/<path>` over HTTP from the page origin, so the
+    # browser wants the SAME composed tree the other packages get — no
+    # exclusions, because the page has no local font directory to prefer and
+    # nothing here is platform-specific.
+    "web": (),
 }
 
 
@@ -503,7 +526,17 @@ def write_hash_manifest(path: Path, contract: AssetContract) -> None:
     path.write_text("".join(lines), encoding="utf8")
 
 
-def copy_composed_tree(source_files: dict[str, SourceFile], output: Path) -> None:
+def materialize_composed_tree(
+    source_files: dict[str, SourceFile], output: Path, *, mode: str = "copy"
+) -> None:
+    if mode not in {"copy", "link"}:
+        raise AssetContractError(f"unknown materialization mode: {mode}")
+    # ⛔ resolve() BEFORE the existence check: `output` may itself be a symlink
+    # (the served-web tree was one for two months), and rmtree through a link
+    # would delete the TARGET's contents — a source asset root — rather than the
+    # link. Removing the link itself is the only correct move.
+    if output.is_symlink():
+        output.unlink()
     output = output.resolve()
     if output == Path("/"):
         raise AssetContractError("refusing to use filesystem root as asset output")
@@ -514,6 +547,13 @@ def copy_composed_tree(source_files: dict[str, SourceFile], output: Path) -> Non
         item = source_files[rel]
         destination = output / PurePosixPath(rel)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if mode == "link":
+            # An ABSOLUTE, fully resolved target: the composed tree may sit at
+            # any depth relative to the roots, and a source entry may itself be
+            # a tracked link into the map-assets submodule. Resolving once here
+            # means the served tree never depends on a second hop staying valid.
+            destination.symlink_to(item.source.resolve())
+            continue
         # ⭐ DEREFERENCE. This was `follow_symlinks=False`, which recreates a
         # symlink at the destination — and a packaged tree may not contain one
         # (`walk_package_tree` rejects it, and so does the archive check, because
@@ -529,7 +569,7 @@ def copy_composed_tree(source_files: dict[str, SourceFile], output: Path) -> Non
         shutil.copy2(item.source, destination, follow_symlinks=True)
 
 
-def walk_package_tree(root: Path) -> dict[str, Path]:
+def walk_package_tree(root: Path, *, allow_symlinks: bool = False) -> dict[str, Path]:
     if not root.is_dir():
         raise AssetContractError(f"packaged asset tree does not exist: {root}")
     files: dict[str, Path] = {}
@@ -537,12 +577,18 @@ def walk_package_tree(root: Path) -> dict[str, Path]:
         current_path = Path(current)
         for dirname in list(dirnames):
             path = current_path / dirname
+            # ⛔ a linked DIRECTORY is forbidden even in link mode. A directory
+            # link takes the whole subtree out of the contract's control: files
+            # appear there that this walk never enumerated, and the override rule
+            # `collect_source_files` enforces stops applying inside it. That is
+            # the shape the served-web tree had — one link to one crate's assets
+            # — and it is what let the composed view go unpublished for months.
             if path.is_symlink():
                 raise AssetContractError(f"symlink is forbidden in packaged assets: {path}")
         for filename in filenames:
             path = current_path / filename
             rel = path.relative_to(root).as_posix()
-            if path.is_symlink():
+            if path.is_symlink() and not allow_symlinks:
                 raise AssetContractError(f"symlink is forbidden in packaged assets: {path}")
             if not path.is_file():
                 raise AssetContractError(f"non-regular packaged asset: {path}")
@@ -551,8 +597,14 @@ def walk_package_tree(root: Path) -> dict[str, Path]:
     return files
 
 
-def audit_tree(contract: AssetContract, root: Path, *, reject_extras: bool = False) -> None:
-    actual = walk_package_tree(root)
+def audit_tree(
+    contract: AssetContract,
+    root: Path,
+    *,
+    reject_extras: bool = False,
+    allow_symlinks: bool = False,
+) -> None:
+    actual = walk_package_tree(root, allow_symlinks=allow_symlinks)
     expected = contract.entries
     missing = sorted(set(expected) - set(actual))
     extras = sorted(set(actual) - set(expected))
@@ -655,13 +707,18 @@ def artifact_links(paths: Sequence[Path]) -> None:
 def command_compose(args: argparse.Namespace) -> None:
     repo = args.repo.resolve()
     contract, source_files = build_contract(repo, args.profile)
-    copy_composed_tree(source_files, args.output)
-    audit_tree(contract, args.output, reject_extras=True)
+    materialize_composed_tree(source_files, args.output, mode=args.materialize)
+    audit_tree(
+        contract,
+        args.output,
+        reject_extras=True,
+        allow_symlinks=args.materialize == "link",
+    )
     write_json_atomic(args.contract, contract.as_json())
     write_hash_manifest(args.hash_manifest, contract)
     print(
         f"asset contract OK: {len(contract.entries)} files, profile={args.profile}, "
-        f"tree={args.output}"
+        f"materialize={args.materialize}, tree={args.output}"
     )
     artifact_links([args.output, args.contract, args.hash_manifest])
 
@@ -691,6 +748,16 @@ def make_parser() -> argparse.ArgumentParser:
     compose.add_argument("--output", type=Path, required=True)
     compose.add_argument("--contract", type=Path, required=True)
     compose.add_argument("--hash-manifest", type=Path, required=True)
+    compose.add_argument(
+        "--materialize",
+        choices=("copy", "link"),
+        default="copy",
+        help=(
+            "copy: real bytes, what a shipped package must contain (default). "
+            "link: symlinks into the source roots, for the served-web dev loop. "
+            "The contract and its hash audit are identical either way."
+        ),
+    )
     compose.set_defaults(func=command_compose)
 
     tree = subparsers.add_parser("audit-tree", help="verify a composed asset directory")

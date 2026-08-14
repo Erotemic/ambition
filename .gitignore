@@ -3,9 +3,12 @@
 
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
 game/ambition_app/web/pkg/
-# Symlink (or rsync copy) created by `./build_for_web.sh --served` so
-# the served browser persona can fetch `/assets/...` over HTTP.
+# The composed asset tree `./build_for_web.sh --served` publishes (via
+# scripts/package_asset_guard.py) so the served browser persona can fetch
+# `/assets/...` over HTTP, plus the byte contract that publication proves.
 game/ambition_app/web/assets
+game/ambition_app/web/.assets_contract.json
+game/ambition_app/web/.assets_sha256
 
 # proptest writes regression seeds when a property fails. Useful
 # locally to reproduce a flake but shouldn't go to git.

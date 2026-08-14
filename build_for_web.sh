@@ -34,11 +34,12 @@ Options:
   --skip-build          Skip the cargo build (re-run wasm-bindgen against an existing artifact).
   --served              Build the served-assets browser persona:
                         switches the default feature to `web_served_assets`,
-                        symlinks crates/ambition_platformer2d_actor_monolith/assets into
-                        game/ambition_app/web/assets/ so the page-served
-                        `/assets/...` URLs Bevy's wasm HTTP reader fetches
-                        actually resolve. Selects `AssetProfile::WebServedAssets`
-                        at runtime via the `web_served` feature.
+                        and publishes the composed asset tree into
+                        game/ambition_app/web/assets/ (scripts/package_asset_guard.py,
+                        profile=web) so the page-served `/assets/...` URLs Bevy's
+                        wasm HTTP reader fetches actually resolve. Selects
+                        `AssetProfile::WebServedAssets` at runtime via the
+                        `web_served` feature.
   --serve [PORT]        After building, serve `game/ambition_app/web/` on PORT (default 8000).
   --open                Open the served URL in the default browser. Implies --serve.
   --clean               Delete the wasm-bindgen output dir before building.
@@ -299,38 +300,42 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     fi
 fi
 
-# --served packages the browser persona that fetches assets over HTTP
-# from the served `/assets/` path. The build itself doesn't need the
-# asset tree; the running page does. Symlink (or copy on filesystems
-# without symlink support) the sandbox `assets/` directory into
-# `web/assets/` so `python3 -m http.server` exposes it at
-# `http://localhost:<port>/assets/...`.
-SANDBOX_ASSETS="$ROOT/crates/ambition_platformer2d_actor_monolith/assets"
-SERVED_ASSETS_LINK="$WEB_DIR/assets"
+# --served publishes the browser persona's asset tree: the page fetches
+# `/assets/<path>` over HTTP, so `python3 -m http.server` must expose the same
+# composed view the game resolves on a desktop.
+#
+# ⛔⛔ **THIS USED TO SYMLINK ONE IMPLEMENTATION CRATE'S `assets/` DIRECTORY**
+# (`crates/ambition_platformer2d_actor_monolith/assets`), and that was wrong in
+# two ways at once. It named a crate the ongoing Bevy decomposition is actively
+# dismantling — rename it and the web build breaks for a reason nothing here
+# explains — and it published only ONE of the two roots, so everything the
+# content crate owns (every world addressed `game://worlds/...`, the vanity
+# card) was simply absent from the served tree.
+#
+# ⭐ **The composed tree is not this script's to invent.** `package_asset_guard.py
+# compose` is the single seam that collapses the roots, forbids implicit
+# overrides between them, and emits a byte contract — the same one Android
+# verifies against its APK and the Steam Deck deploy verifies after rsync. Web
+# is now a fourth consumer of that one publication rather than a fourth opinion
+# about where assets live, and it names no crate at all.
+#
+# ⚠ `--materialize link` because this is a DEVELOPMENT loop: the composed tree
+# is ~1.1 GB and would otherwise be duplicated on every wasm build. The contract
+# and its full hash audit run identically either way; only the bytes are shared.
+# A shipped package keeps the default `copy` — an APK cannot carry a link.
+SERVED_ASSETS_DIR="$WEB_DIR/assets"
 if [[ "$SERVED_MODE" == true ]]; then
-    [[ -d "$SANDBOX_ASSETS" ]] || fatal "$SANDBOX_ASSETS not found; cannot wire --served"
-    # Re-create the link so a previous --served run with a moved
-    # workspace doesn't leave a dangling pointer.
-    if [[ -L "$SERVED_ASSETS_LINK" ]]; then
-        rm "$SERVED_ASSETS_LINK"
-    elif [[ -e "$SERVED_ASSETS_LINK" ]]; then
-        fatal "$SERVED_ASSETS_LINK exists and is not a symlink; refusing to clobber. Move it out of the way."
+    log "served assets: composing the published tree (package_asset_guard.py, profile=web)"
+    if ! python3 "$ROOT/scripts/package_asset_guard.py" compose \
+        --repo "$ROOT" \
+        --profile web \
+        --materialize link \
+        --output "$SERVED_ASSETS_DIR" \
+        --contract "$WEB_DIR/.assets_contract.json" \
+        --hash-manifest "$WEB_DIR/.assets_sha256"; then
+        fatal "asset composition failed; the served page would fetch an incomplete tree"
     fi
-    if ln -s "$SANDBOX_ASSETS" "$SERVED_ASSETS_LINK" 2>/dev/null; then
-        log "served assets: symlinked $SERVED_ASSETS_LINK → $SANDBOX_ASSETS"
-    else
-        warn "symlink failed; falling back to rsync copy. This will duplicate $(human_size "$SANDBOX_ASSETS") of assets."
-        if command -v rsync >/dev/null 2>&1; then
-            mkdir -p "$SERVED_ASSETS_LINK"
-            rsync -a --delete \
-                --exclude '.git/' \
-                --exclude '.DS_Store' \
-                "$SANDBOX_ASSETS"/ "$SERVED_ASSETS_LINK"/
-            log "served assets: copied $SANDBOX_ASSETS → $SERVED_ASSETS_LINK"
-        else
-            fatal "neither symlink nor rsync available; cannot package served assets"
-        fi
-    fi
+    log "served assets: published $SERVED_ASSETS_DIR (both roots, contract verified)"
 fi
 
 if [[ "$SERVE" != true ]]; then

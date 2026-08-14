@@ -61,6 +61,59 @@ pub struct CameraSnapshot2d {
     pub active_camera_zone: Option<String>,
 }
 
+/// **Which frame a view presents the world in.**
+///
+/// A presentation policy and nothing else: gravity, collision and body
+/// integration are the same simulation facts whichever frame observes them. It
+/// belongs to a VIEW, so when views become indexed this moves with them rather
+/// than becoming a process-global mode.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CameraReferenceFrame {
+    /// Screen orientation stays tied to the world frame even when the subject
+    /// enters sideways or inverted gravity. Ordinary platformer readability, and
+    /// the only behaviour that existed before this policy.
+    #[default]
+    WorldFixed,
+    /// Screen orientation follows the view subject's resolved body frame, so a
+    /// gravity change presents as the world rotating around an upright body.
+    ///
+    /// ⭐ **the subject is a view's subject, not a protagonist.** The resolver
+    /// takes a direction, never an entity, so a spectator, a replay or a second
+    /// local view can orient on whatever body it is watching.
+    SubjectFrame,
+}
+
+/// The camera roll a view wants, given its frame policy and — for
+/// [`CameraReferenceFrame::SubjectFrame`] — the subject's resolved down axis.
+///
+/// ⭐ **derived in RENDER space, which is world space with y flipped.** That is
+/// the convention `portal_transit_roll` already establishes for the only other
+/// producer of this value, and measuring the turn directly there is what keeps
+/// the sign unambiguous. Screen-down is render `(0, -1)`; a world down of
+/// `(dx, dy)` is render `(dx, -dy)`; the signed angle from screen-down to it is
+/// `atan2(dx, dy)`. Rotating the CAMERA by that angle presents the world rotated
+/// the other way, which puts the subject's feet at the bottom of the screen.
+///
+/// ⚠ **this is the BASE roll only.** The portal continuity adapter still
+/// overwrites `rotation_radians` during a transit; composing a base observer
+/// roll with a transit roll is a deliberate decision that has not been made, and
+/// defaulting to `WorldFixed` is what keeps that decision unmade rather than
+/// silently taken.
+pub fn observer_roll_radians(frame: CameraReferenceFrame, subject_down: Option<ae::Vec2>) -> f32 {
+    match frame {
+        CameraReferenceFrame::WorldFixed => 0.0,
+        // No subject to orient on is not an error — a view may be framing a cast
+        // or nothing at all. It reads as world-fixed, the readable default.
+        CameraReferenceFrame::SubjectFrame => match subject_down {
+            Some(down) if down.length_squared() > f32::EPSILON => {
+                let down = down.normalize();
+                down.x.atan2(down.y)
+            }
+            _ => 0.0,
+        },
+    }
+}
+
 /// Concrete scene-capture request: camera policy produces the snapshot, and
 /// render backends consume this data to fill a target.
 #[derive(Clone, Debug, PartialEq)]
@@ -215,6 +268,13 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// an inactive value) means ordinary centering — captures, headless runs,
     /// and games that declare no framing policy all pass nothing.
     pub screen_framing: Option<CameraScreenFraming>,
+    /// Which frame this view presents in. Defaults to the world-fixed behaviour
+    /// that existed before the policy, so a caller that does not care is
+    /// unaffected.
+    pub reference_frame: CameraReferenceFrame,
+    /// The view subject's resolved down axis, read by `SubjectFrame`. `None`
+    /// when the view has no subject to orient on.
+    pub subject_down: Option<ae::Vec2>,
 }
 
 /// Resolve a camera snapshot for an arbitrary focus.
@@ -450,7 +510,7 @@ pub fn resolve_follow_camera_snapshot(
         target_world,
         center_world,
         unpadded_center_world,
-        rotation_radians: 0.0,
+        rotation_radians: observer_roll_radians(input.reference_frame, input.subject_down),
         active_camera_zones,
         active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     }
@@ -932,6 +992,8 @@ pub fn resolve_camera_observation(
             extra_clamp_center_world: extra_clamp.0,
             ease_tuning: *ease_tuning,
             screen_framing: Some(*screen_framing),
+            reference_frame: Default::default(),
+            subject_down: None,
         },
         Some(&mut *camera_state),
     );
@@ -1073,6 +1135,8 @@ mod m2_forward_scroll_tests {
                 extra_clamp_center_world: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing: None,
+                reference_frame: Default::default(),
+                subject_down: None,
             },
             Some(ease),
         );
@@ -1197,6 +1261,8 @@ mod soft_framing_tests {
                 extra_clamp_center_world: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing,
+                reference_frame: Default::default(),
+                subject_down: None,
             },
             Some(ease),
         )
@@ -1420,5 +1486,86 @@ mod soft_framing_tests {
             assert_eq!(none, off, "inactive framing changed the snapshot");
             assert_eq!(none_ease.live_target_world, off_ease.live_target_world);
         }
+    }
+}
+
+#[cfg(test)]
+mod reference_frame_tests {
+    use super::*;
+
+    const HALF_PI: f32 = std::f32::consts::FRAC_PI_2;
+
+    /// **World-fixed is the default and rolls for nothing.**
+    ///
+    /// A view that never states a policy must present exactly as it did before
+    /// the policy existed, whatever its subject is doing.
+    #[test]
+    fn world_fixed_never_rolls() {
+        for down in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-0.7, 0.7),
+        ] {
+            assert_eq!(
+                observer_roll_radians(CameraReferenceFrame::default(), Some(down)),
+                0.0,
+                "the default policy rolled for a subject down of {down:?}"
+            );
+        }
+    }
+
+    /// **A subject-relative view puts the subject's feet at the bottom.**
+    ///
+    /// ⚠ the sign is the load-bearing part, and it is fixed by render space
+    /// (world with y flipped) — the same convention `portal_transit_roll` uses,
+    /// because they write the same field. Ordinary gravity must be the identity
+    /// or every existing room would tilt the moment the mode is selected.
+    #[test]
+    fn subject_frame_orients_on_the_subjects_down_axis() {
+        let roll = |x: f32, y: f32| {
+            observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(ae::Vec2::new(x, y)))
+        };
+        assert_eq!(roll(0.0, 1.0), 0.0, "ordinary gravity must not tilt a view");
+        assert!(
+            (roll(0.0, -1.0).abs() - std::f32::consts::PI).abs() < 1e-5,
+            "inverted gravity turns the view over, got {}",
+            roll(0.0, -1.0)
+        );
+        assert!(
+            (roll(1.0, 0.0) - HALF_PI).abs() < 1e-5,
+            "gravity toward +x rolls one quarter turn, got {}",
+            roll(1.0, 0.0)
+        );
+        assert!(
+            (roll(-1.0, 0.0) + HALF_PI).abs() < 1e-5,
+            "gravity toward -x rolls the OTHER quarter turn, got {}",
+            roll(-1.0, 0.0)
+        );
+        // Not only the cardinals: the frame model permits any orientation, and a
+        // policy that quantised to four would be a different feature.
+        assert!(
+            (roll(1.0, 1.0) - HALF_PI / 2.0).abs() < 1e-5,
+            "a diagonal frame rolls by its own angle, got {}",
+            roll(1.0, 1.0)
+        );
+        // Magnitude is irrelevant — this is a direction.
+        assert!((roll(0.0, 42.0)).abs() < 1e-6);
+        assert!((roll(9.0, 0.0) - HALF_PI).abs() < 1e-5);
+    }
+
+    /// **No subject is not an error.** A view framing a cast, or nothing, reads
+    /// as world-fixed rather than as a missing value to unwrap.
+    #[test]
+    fn a_subject_frame_view_without_a_subject_stays_upright() {
+        assert_eq!(
+            observer_roll_radians(CameraReferenceFrame::SubjectFrame, None),
+            0.0
+        );
+        assert_eq!(
+            observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(ae::Vec2::ZERO)),
+            0.0,
+            "a degenerate down axis must not produce a NaN roll"
+        );
     }
 }

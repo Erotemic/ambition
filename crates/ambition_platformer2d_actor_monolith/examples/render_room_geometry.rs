@@ -435,6 +435,8 @@ fn resolve_headless_snapshot(
             ease_tuning:
                 ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
             screen_framing: None,
+            reference_frame: Default::default(),
+            subject_down: None,
         },
         None,
     )

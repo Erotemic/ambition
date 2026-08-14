@@ -1082,6 +1082,8 @@ fn apply_capture_snapshot(
             extra_clamp_center_world: None,
             ease_tuning: *ease_tuning,
             screen_framing: None,
+            reference_frame: Default::default(),
+            subject_down: None,
         },
         None,
     );

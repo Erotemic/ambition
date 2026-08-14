@@ -170,14 +170,32 @@ In particular audit:
 
 ## Implementation phases
 
-### C1 — pure observer-frame policy
+### C1 — pure observer-frame policy — DONE (2026-08-14)
 
-Add a small renderer-independent policy/value in the camera observation domain
-and a pure helper that resolves desired camera orientation from an optional view
-subject frame. Preserve current behavior as the default.
+`CameraReferenceFrame` (`WorldFixed` default, `SubjectFrame`) and
+`observer_roll_radians` live in `ambition_sim_view::camera_snapshot`, next to the
+snapshot they orient. The helper takes a DIRECTION, never an entity, so nothing
+on this path can assume the subject is a protagonist, and it queries no gravity —
+the caller passes the already-resolved down axis.
 
-Do not put gravity queries in the camera. Consume the already-resolved body/view
-frame.
+⭐ **the sign convention is not a choice, it is inherited.** Render space is world
+space with y flipped, which is what `portal_transit_roll` already established for
+the only other producer of `rotation_radians`; screen-down is render `(0,-1)`, so
+the roll is `atan2(down.x, down.y)`. Ordinary gravity is the identity, which is
+what keeps every existing room from tilting the moment the mode is selectable.
+Pinned by tests over the four cardinals, a diagonal (the model permits any
+orientation, so quantising to four would be a different feature), and the
+degenerate cases.
+
+`CameraSnapshotResolveInput` carries `reference_frame` + `subject_down`, and the
+resolver sets `rotation_radians` from the helper — so the policy has a real
+consumer at the authoritative seam rather than sitting unused until C2. All five
+construction sites state the world-fixed default, and because the struct is built
+exhaustively, a new view cannot forget to say which frame it presents in.
+
+Remaining for C2: supply a real `subject_down` from the view subject's
+`ResolvedMotionFrame` (`sim_view` does not read it today) and expose the mode
+selection.
 
 ### C2 — one-view Ambition proof
 

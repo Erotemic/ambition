@@ -110,6 +110,17 @@ described rather than by building it. Check HEAD before starting the next slice.
   certainly a behaviour change, and nothing pins it. Do it with a test that names
   the tick, or not at all.
 
+  ⭐ **and one duplicate found while sizing the integrator fork, now deleted.**
+  `engine_input_from_actor_control` — the controlled road's control-frame →
+  `InputState` translation — spelled the mapping out again, sixty lines
+  field-for-field identical to `ActorControlFrame::to_input_state`, which the
+  ACTOR road already calls. Two spellings of one vocabulary, agreeing today and
+  kept agreeing by nothing: a field added to the frame and wired into
+  `to_input_state` reached every actor body and silently missed the controlled
+  one. It calls the shared translation now and keeps only what is genuinely its
+  own — stamping `control_dt` (a brain runs at sim time, a human's
+  responsive-aim window does not) and the body's post-hit gates. 71 lines → 23.
+
   ⇒ with those three cuts the loop reads as a sequence — observe, decay, pacify,
   assemble the snapshot, build the view, apply belief, decide, publish — and
   `build_enemy_brain_snapshot` was already extracted. **This system is at a

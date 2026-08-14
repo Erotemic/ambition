@@ -53,71 +53,23 @@ use ambition_sfx::SfxMessage;
 pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
     feel: Platformer2dFeelTuningMonolith,
-    // ⛔⛔ **THE BODY, not two loose timers** (D108's third half, 2026-08-13).
-    // This took `(hitstun_timer, hard_lock_timer)`, and the player road passed
-    // `combat.hard_lock_timer()` while the ACTOR road passed
-    // `combat.recoil_lock_timer` — the reduced form. So a CPU's landing lag was
-    // set, decayed and rolled back correctly and locked NOTHING, because its
-    // gate never asked for it. Two spellings of one rule, and the type was what
-    // allowed the second one.
-    //
-    // ⇒ taking `&BodyCombat` makes the reduced form unrepresentable: there is no
-    // longer an `f32` parameter a caller can fill with the wrong field.
     combat: &ambition_characters::actor::BodyCombat,
     control_dt: f32,
 ) -> ae::InputState {
-    let mut input = ae::InputState {
-        movement: ambition_platformer2d_core::ActionEdges::EMPTY
-            .with(
-                ambition_platformer2d_core::MovementAction::Jump,
-                ambition_platformer2d_core::Edge {
-                    pressed: actor.jump_pressed,
-                    held: actor.jump_held,
-                    released: actor.jump_released,
-                },
-            )
-            .with(
-                ambition_platformer2d_core::MovementAction::Dash,
-                ambition_platformer2d_core::Edge {
-                    pressed: actor.dash_pressed,
-                    held: false,
-                    released: false,
-                },
-            )
-            .with(
-                ambition_platformer2d_core::MovementAction::Blink,
-                ambition_platformer2d_core::Edge {
-                    pressed: actor.blink_pressed,
-                    held: actor.blink_held,
-                    released: actor.blink_released,
-                },
-            )
-            .with(
-                ambition_platformer2d_core::MovementAction::FlyToggle,
-                ambition_platformer2d_core::Edge {
-                    pressed: actor.fly_toggle_pressed,
-                    held: false,
-                    released: false,
-                },
-            )
-            .with(
-                ambition_platformer2d_core::MovementAction::FastFall,
-                ambition_platformer2d_core::Edge {
-                    pressed: actor.fast_fall_pressed,
-                    held: false,
-                    released: false,
-                },
-            ),
-        axes: actor.locomotion,
-        blink_quick_dir: actor.blink_quick_dir,
-        blink_aim_step: actor.blink_aim_step,
-        attack_pressed: actor.melee_pressed,
-        pogo_pressed: actor.pogo_pressed,
-        interact_pressed: actor.interact_pressed,
-        reset_pressed: false,
-        shield_held: actor.shield_held,
-        control_dt,
-    };
+    // ⛔⛔ **THIS USED TO SPELL THE MAPPING OUT AGAIN**, sixty lines of
+    // `ActionEdges` construction identical field-for-field to
+    // `ActorControlFrame::to_input_state`, which the ACTOR road already calls.
+    // Two spellings of the control vocabulary, agreeing today and kept agreeing
+    // by nothing: a field added to the frame and wired into `to_input_state`
+    // reached every actor body and silently missed the controlled one.
+    //
+    // ⭐ what is genuinely this function's own is the two lines below it. The
+    // frame carries no clock — `to_input_state` leaves `control_dt` at zero on
+    // purpose, because a brain runs at sim time — so a human's responsive-aim
+    // window is stamped here; and the post-hit gates are the body's, not the
+    // frame's.
+    let mut input = actor.to_input_state();
+    input.control_dt = control_dt;
     apply_post_hit_input_gates(&mut input, feel, combat);
     input
 }

@@ -853,9 +853,17 @@ pub fn resolve_camera_observation(
     followed_body: (
         bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
         bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
+        // **The frame the followed body resolved this tick** (ADR 0024), for a
+        // view that presents in its subject's frame rather than the world's. Read
+        // off the SAME entity the framing follows, so orientation and framing
+        // cannot disagree about whose view this is — and read as an
+        // already-resolved fact, never by asking gravity anything.
+        bevy::prelude::Query<
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        >,
     ),
 ) {
-    let (body_kinematics, presented) = followed_body;
+    let (body_kinematics, presented, subject_frames) = followed_body;
     let (controlled, framed) = subject;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
@@ -992,8 +1000,15 @@ pub fn resolve_camera_observation(
             extra_clamp_center_world: extra_clamp.0,
             ease_tuning: *ease_tuning,
             screen_framing: Some(*screen_framing),
+            // ⚠ **the policy is still the world-fixed default, and that is the
+            // whole behaviour of this line today.** What is wired is the DATA:
+            // the subject's resolved down axis now reaches the resolver, so
+            // selecting `SubjectFrame` is a policy change rather than a plumbing
+            // change. Where the selection lives is deliberately still open — the
+            // one thing it must not become is a process-global mode, because a
+            // view is what owns it once views are indexed.
             reference_frame: Default::default(),
-            subject_down: None,
+            subject_down: subject_frames.get(followed).ok().map(|frame| frame.down()),
         },
         Some(&mut *camera_state),
     );

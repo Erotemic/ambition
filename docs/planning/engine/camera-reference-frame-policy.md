@@ -193,9 +193,27 @@ consumer at the authoritative seam rather than sitting unused until C2. All five
 construction sites state the world-fixed default, and because the struct is built
 exhaustively, a new view cannot forget to say which frame it presents in.
 
-Remaining for C2: supply a real `subject_down` from the view subject's
-`ResolvedMotionFrame` (`sim_view` does not read it today) and expose the mode
-selection.
+### C2 — one-view Ambition proof — DATA WIRED, SELECTION OPEN
+
+The live camera system reads the followed body's `ResolvedMotionFrame` and passes
+its down axis as `subject_down`. ⭐ **read off the SAME entity the framing
+follows**, so orientation and framing cannot disagree about whose view this is,
+and read as an already-resolved fact rather than by asking gravity anything.
+
+⛔ **`GravityField` was the tempting shortcut and is the wrong source.** It is a
+per-tick mirror of the PRIMARY BODY's resolved frame, so a view following any
+other subject would orient on the protagonist — the exact assumption acceptance
+forbids — and it is a world-gravity resource, which is what "do not put gravity
+queries in the camera" rules out.
+
+**What remains is the selection, and it is deliberately unbuilt.** The policy
+still resolves to `WorldFixed` everywhere, so selecting `SubjectFrame` is now a
+policy change rather than a plumbing change. ⛔ whatever selects it must not be a
+process-global mode: a VIEW owns this, and the one-view case should be the
+one-entry case rather than an architecture to remove at D116. A component on the
+camera/view entity is the shape that survives that migration; a resource is not.
+Pairing the product preset with body-relative movement/aim stays a separate
+policy — camera code must not mutate input state.
 
 ### C2 — one-view Ambition proof
 

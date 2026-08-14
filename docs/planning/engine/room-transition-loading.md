@@ -71,6 +71,23 @@
   `RoomTransitionRequested` — that message is `clear_message_on_rollback` and a
   rewind wipes it, which is the trap this direction exists to avoid.
 
+  ⭐ **and AGENTS.md decides which side of the fork dies**, which the wording here
+  had left open: *"Never fold a richer path onto a simpler one to 'preserve' it;
+  make the richer/general path universal and delete the rest."* The RICHER path
+  is the readiness transaction — it has authorization, a cover, a failure state
+  and prefetch accounting. The SIMPLER one is `commit_transition`'s own
+  prepare/apply. So the convergence is not "teach both to cooperate": the
+  transaction becomes the one route, and `commit_transition`'s direct
+  `RoomConstructionPlan::prepare` + `apply_to_world` is DELETED, leaving it the
+  boundary gate it should have been. That is the deletion this slice owes.
+
+  **Acceptance target, red today and ⚠ deliberately `#[ignore]`d**:
+  `a_room_change_on_the_shipped_host_opens_a_readiness_transaction`
+  (`game/ambition_app/tests/d71_transaction_census.rs`). Measured at HEAD: 60 room
+  changes, 0 transactions, 60 deferred intents. It asserts what a player gets
+  rather than which systems ran; when it passes, delete the `#[ignore]` rather
+  than the test.
+
   ⭐ **the two routes live in different schedules, and that is the actual
   obstacle.** The transaction chain (`begin` → `authorize` → `finalize` →
   `commit`) is registered in `app.sim_schedule()` — the REWOUND one under a

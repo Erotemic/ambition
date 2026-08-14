@@ -233,3 +233,46 @@ fn d71_probe_counts_room_changes_against_transactions() {
         roll.deferred_intents,
     );
 }
+
+/// **⛔ THE ACCEPTANCE TARGET for D71's readiness convergence, and it is RED by
+/// construction until that lands.**
+///
+/// Unlike the two probes above this asserts rather than reports, and it asserts
+/// what a PLAYER gets: a room change on the host the shipped binary composes
+/// opens a readiness transaction, which is the thing the opaque cover is driven
+/// off. `drive_room_transition_presentation` returns immediately while
+/// `RoomTransitionLoadState::active` is `None`, so with zero transactions no
+/// cover is ever spawned — and `RoomConstructionPlan::prepare` asks nothing about
+/// assets, so the destination theme's parallax is still loading when the room
+/// appears.
+///
+/// ⚠ **`#[ignore]`d deliberately, and this is the one shape that earns it.** The
+/// convergence is a real slice in rollback-adjacent code; a target that fails the
+/// gate for the days that takes would be removed by whoever it inconveniences,
+/// which is how a known gap becomes an unknown one. Run it with `--ignored`; when
+/// it passes, DELETE the attribute rather than the test.
+#[test]
+#[ignore = "ACCEPTANCE TARGET for D71: red until the confirmed route opens a \
+           readiness transaction. Run with --ignored; delete this attribute when \
+           it passes."]
+fn a_room_change_on_the_shipped_host_opens_a_readiness_transaction() {
+    let rollback = census(true, 900);
+    assert!(
+        rollback.boundary,
+        "precondition: this census must run the host the shipped binary composes"
+    );
+    assert!(
+        rollback.room_changes > 0,
+        "precondition: the fixture must actually change rooms"
+    );
+    assert!(
+        rollback.transactions > 0,
+        "{} room changes opened {} readiness transactions and deferred {} intents. \
+         Every one of those room changes was uncovered: the cover is driven off \
+         `RoomTransitionLoadState::active`, which stays `None` on this route, and \
+         the target room is constructed before its assets exist.",
+        rollback.room_changes,
+        rollback.transactions,
+        rollback.deferred_intents,
+    );
+}

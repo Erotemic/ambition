@@ -9,15 +9,22 @@
 
 use bevy::prelude::*;
 
-/// Marker for **a player entity** — there may eventually be more than
-/// one. Use this when a query wants every player regardless of locality
-/// or which slot they occupy.
+/// Marker for **a body in the player population**. Use it when a query wants
+/// every such body regardless of locality or which slot drives it.
 ///
-/// The game currently spawns exactly one player, with `PlayerSlot(0)`,
-/// [`PrimaryPlayer`], and `LocalPlayer` all attached. Systems that
-/// want the camera/HUD/dev-tool target should filter on `PrimaryPlayer`
-/// (or use the helpers in the sandbox's `player::queries`) rather than
-/// assuming the only `PlayerEntity` is *the* player.
+/// ⛔ **it does not mean "one", and it does not mean "the protagonist".** An
+/// exploration session lowers a home avatar carrying `PlayerSlot(0)`,
+/// [`PrimaryPlayer`] and `LocalPlayer` together, which made "the only
+/// `PlayerEntity` is *the* player" look like an invariant for a long time. It is
+/// not one: a match under `InitialBodyPolicy::NoInitialBody` has zero, and local
+/// multiplayer has several. A query that wants the camera/HUD/dev-tool target
+/// wants [`PrimaryPlayer`] or `ControlledSubject`, and must still be correct when
+/// there is none.
+///
+/// ⚠ **generic simulation should not filter on this at all.** A body decides,
+/// moves, fights and rides because of its capabilities and control authority; the
+/// six overlapping "player" names and what each is really for are laid out in
+/// `docs/concepts/one-body-one-path.md`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerEntity;
 
@@ -54,7 +61,9 @@ pub struct ControlledSubject(pub Option<Entity>);
 pub struct FramedCast(pub Vec<Entity>);
 
 /// Marks the **home avatar** / respawn identity — the ORIGINAL body, its save
-/// identity, respawn anchor, and inventory owner. Exactly one entity carries it.
+/// identity, respawn anchor, and inventory owner. At most one entity carries it,
+/// and a session may lower none — see the steady-state note below, which the
+/// "exactly one" this line used to claim directly contradicts.
 ///
 /// IMPORTANT: `PrimaryPlayer` does NOT mean "the currently controlled body". The
 /// controlled body is whichever entity carries `Brain::Player(PlayerSlot::PRIMARY)`
@@ -88,6 +97,10 @@ pub struct FramedCast(pub Vec<Entity>);
 ///   so a match had no camera) and `rebuild_hostile_wielded_items_view` (a
 ///   whole-system `return`, and the aim target it published was the PLAYER's
 ///   position rather than each wielder's own target).
+/// * **fixed since (2026-08-14).** `advance_moving_platforms` — the world's
+///   moving geometry advanced only if a home avatar existed to be asked about
+///   its hitstop, so a match ran with every platform frozen. The hitstop read was
+///   a duplicate of the global clock that same body already drives.
 /// * ⚠ **known and deliberately out of scope:** the player-victim damage path
 ///   (`damage_apply`) is slot-0 by design and says so — hitstop, the death
 ///   banner and the safe-position rewind are "the feel/save consequences the
@@ -97,8 +110,9 @@ pub struct FramedCast(pub Vec<Entity>);
 ///
 /// ⛔ the shape to watch for is not `With<PrimaryPlayer>` itself but
 /// `single()` + `else { return }` around it: a run condition or a system-wide
-/// guard on this marker disables its whole subsystem for every entity, and
-/// three of those were removed in one week.
+/// guard on this marker disables its whole subsystem for every entity. Four have
+/// been removed so far, the most recent the world's moving platforms — frozen in
+/// every match, behind a question about one body's hitstop.
 ///
 /// Distinct from `LocalPlayer` because in a future split-screen
 /// build the local players would each be `LocalPlayer` but only one

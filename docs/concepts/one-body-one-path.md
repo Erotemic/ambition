@@ -177,13 +177,51 @@ structure.** Responsive aim during bullet-time is purely
 `InputState::control_dt`: a human sets `control_dt = real frame dt`; a brain
 leaves it `0` and runs everything at sim time. There is no second simulation.
 
+## Six names for "player", and none of them is a body kind
+
+These six exist, none is redundant, and confusing any two of them produces the
+bifurcation above. The authoritative prose for each lives on its own definition;
+this table is the map between them.
+
+| Name | What it actually is | Lifetime | ⛔ never use it for |
+| --- | --- | --- | --- |
+| `ParticipantId` | the person in front of a controller | outlives every session, body and possession | anything a body does |
+| `PlayerSlot` | which seat at the machine that participant occupies; `SlotControls[N]` is its control frame | the session's seating | "the protagonist" — slot 0 is a seat, not a role |
+| `Brain::Player(slot)` | **control authority**: this body is driven by that seat | moves between bodies, which is what possession IS | a body kind; a boss carrying it is an ordinary controlled body |
+| `PlayerEntity` | a body belonging to the player population | the body | assuming there is exactly one, or any |
+| `PrimaryPlayer` | the **home avatar** — save identity, respawn anchor, inventory owner | the home body, and a session may have none | "the currently controlled body" (possession moves that away) |
+| `ControlledSubject` | which body a local presentation/control context follows | the frame | a second global actor identity |
+
+⛔ **zero of `PrimaryPlayer` is a legitimate steady state.** A match under
+`InitialBodyPolicy::NoInitialBody` lowers no home avatar, so every reader must be
+correct at a count of zero. The failure shape is not `With<PrimaryPlayer>`
+itself — it is `single()` + `else { return }` around it, which disables a whole
+subsystem for every entity. That shape has produced the same class of freeze at
+least three times: the clock (2026-08-07, *"the characters are just stuck in
+air"*), the camera, and the world's moving platforms (2026-08-14, frozen geometry
+in every match). Read `markers.rs` before adding a seventh reader; it carries the
+site-by-site classification.
+
+⭐ **generic simulation may consult NONE of them.** A body decides, moves, fights
+and rides because of its capabilities and its control authority. If a
+body-generic system needs one of these six to function, that is the bug — the
+question it is really asking is almost always "which body" (an `Entity`) or
+"which seat" (a `PlayerSlot`), and both are available without a privileged
+protagonist.
+
 ## What is deliberately SEPARATE, and why
 
-⚠ **`player_body_tick` and `update_ecs_actors` stay separate Bevy systems on
-purpose.** What is shared is the body-tick engine entry, not the orchestration.
-Merging the two orchestrators into one god-system is NOT the goal, and a change
-that does it is not an improvement — it trades a legible seam for a large system
-that no longer says which population it is stepping.
+⚠ **brain decision and body integration stay separate Bevy systems on purpose.**
+`tick_actor_brains` decides and `integrate_sim_bodies` moves; what is shared is
+the body-tick engine entry, not the orchestration. Merging phases into one
+god-system is NOT the goal, and a change that does it is not an improvement — it
+trades a legible seam for a large system that no longer says which phase it is in.
+
+⚠ this paragraph used to name `player_body_tick` and `update_ecs_actors` as the
+two systems to keep apart. Neither exists: the home body's separate tick was
+deleted when one movement phase took every non-boss body, and the actor
+orchestrator has since split by phase. The rule survived its examples, which is
+why it is restated against the systems that are actually there.
 
 ## The next elevation
 

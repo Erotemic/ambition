@@ -136,7 +136,21 @@ def strip_test_modules(source: str) -> str:
 
 
 def _is_test_path(path: Path) -> bool:
-    return "tests" in path.parts or path.name in {"tests.rs", "test.rs"}
+    """Is this file test-only, so its `Update` registrations are fixtures?
+
+    ⚠ **`*_tests.rs` is the repo's other test-file convention and this used to
+    miss all 51 of them.** A file named `foo_tests.rs` is always declared as
+    `#[cfg(test)] mod foo_tests;` (sometimes through a `#[path]` attribute, which
+    is why a naive parent grep does not see it), so it cannot carry a production
+    registration — the same reason `strip_test_modules` drops inline
+    `#[cfg(test)] mod` blocks out of production files. The first such file to
+    register a rollback mutator into `Update` was flagged as a real breach.
+    """
+    return (
+        "tests" in path.parts
+        or path.name in {"tests.rs", "test.rs"}
+        or path.name.endswith("_tests.rs")
+    )
 
 
 def _production_sources(repo: Path):

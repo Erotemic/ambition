@@ -185,6 +185,22 @@ required in practice), or feature-gate `game_assets` so a no-LDtk consumer stops
 getting a world manifest it cannot use. Either makes the compat module deletable
 in the same slice.
 
+⚠ **and note what that decision does NOT buy: the facade's optionality is
+already fictional.** The monolith depends on `ambition_platformer2d_ldtk`
+unconditionally, so LDtk links whatever the facade's feature says — which is why
+it is one of the 15 crates a movement-only game never asked for.
+
+**Can the monolith's LDtk edge itself become optional? Measured: not by
+gating.** Roughly 20 production references across eight modules — encounter
+loading (6), the asset catalog (6), `features/mod`, session setup, the menu map's
+active project, the settings model's hot-reload state, encounter systems. Several
+appear in public signatures (`Platformer2dAssetCatalog::for_profile` takes
+`&WorldManifest`), so a feature gate would make the public API shape conditional
+and scatter `#[cfg]` through eight modules. ⇒ **the answer is relocation, not
+gating**: what the monolith uses LDtk for is content LOADING — world manifest,
+asset catalog, encounter loading — and that concern dissolving by owner takes the
+dependency with it. Do not sprinkle cfgs to move the counter.
+
 ## Slice procedure
 
 For every incremental extraction:

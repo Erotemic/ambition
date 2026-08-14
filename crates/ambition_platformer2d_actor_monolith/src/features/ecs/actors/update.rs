@@ -97,47 +97,34 @@ fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -
 }
 
 pub fn tick_actor_brains(
-    // Bundled into one SystemParam slot: this system is at Bevy's 16-param
-    // ceiling, so the accumulating sim clock + the slot-based controller input
-    // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
-    // `Brain::Player(slot)` (a possessed body) its controller frame.
-    (
-        world_time,
-        sim_clock,
-        slot_controls,
-        faction_relations,
-        perception_peers,
-        perception_projectiles,
-        mut causal,
-    ): (
-        Res<WorldTime>,
-        Res<crate::features::GameplayElapsed>,
-        Res<ambition_characters::brain::SlotControls>,
-        // The LIVE faction hostility table (init'd in `features::mod`), so a brain's
-        // world-out `WorldView` resolves real hostility — not the all-false
-        // `::default()` the perception build used to pass (§A7). `Option` matches
-        // `select_actor_targets` for test fixtures that skip the resource.
-        Option<Res<crate::combat::targeting::FactionRelations>>,
-        // Pre-collected peers snapshot (§A7): the other bodies this actor perceives,
-        // populated by `collect_perception_peers` before this tick. `Option` so test
-        // fixtures that skip the resource fall back to an empty (terrain-only) view.
-        Option<Res<crate::features::ecs::perception::PerceptionPeers>>,
-        // Pre-collected projectiles snapshot (§A7): the live shots this actor perceives.
-        Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
-        // **The log, lent to whichever worker thread this tick lands on.**
-        //
-        // A brain publishes through `ambition_causal::record`, which writes to a
-        // THREAD-LOCAL sink — and Bevy runs systems across worker threads, so
-        // those facts were being counted by `facts_lost_offthread()` and dropped.
-        // Threading a recorder down into `tick_with_actions` was the alternative
-        // and is worse: it would put the log on the simulation's own signatures,
-        // and this crate has already refused that once (the movement observer
-        // runs AFTER the brain tick so "a system that only reads cannot be the
-        // thing that broke the tick").
-        //
-        // So the HOST opens the sink around the brain call instead.
-        CausalLend<'_>,
-    ),
+    // ⛔ **THESE SEVEN USED TO RIDE IN ONE TUPLE**, because this system sat at
+    // Bevy's 16-parameter ceiling and packing was the only way under it. Packing
+    // is not a contract: a tuple says these things arrive together, and nothing
+    // about why. They are named again because the ceiling pressure is gone —
+    // deleting the combat slot board freed two parameters and adopting
+    // `CollisionWorld` freed two more — and because three of the seven turned out
+    // to be one concept (`PerceivedWorld`) rather than three neighbours.
+    world_time: Res<WorldTime>,
+    // Accumulating sim-time, for the brain's reaction-latency lookback.
+    sim_clock: Res<crate::features::GameplayElapsed>,
+    // Controller frames, read by any body carrying `Brain::Player(slot)` — a
+    // possessed body drives through this same universal brain tick.
+    slot_controls: Res<ambition_characters::brain::SlotControls>,
+    // Peers, projectiles and hostility: what a body can perceive this tick.
+    perceived: crate::features::ecs::perception::PerceivedWorld,
+    // **The log, lent to whichever worker thread this tick lands on.**
+    //
+    // A brain publishes through `ambition_causal::record`, which writes to a
+    // THREAD-LOCAL sink — and Bevy runs systems across worker threads, so
+    // those facts were being counted by `facts_lost_offthread()` and dropped.
+    // Threading a recorder down into `tick_with_actions` was the alternative
+    // and is worse: it would put the log on the simulation's own signatures,
+    // and this crate has already refused that once (the movement observer
+    // runs AFTER the brain tick so "a system that only reads cannot be the
+    // thing that broke the tick").
+    //
+    // So the HOST opens the sink around the brain call instead.
+    mut causal: CausalLend,
     // **The collision read-API, not its three ingredients.** This system used to
     // carry the room, the moving-platform set and the feature overlay as separate
     // parameters and compose them itself — the same three lines eight production
@@ -316,11 +303,9 @@ pub fn tick_actor_brains(
     let Some(feature_world) = collision.solids() else {
         return;
     };
-    // Resolve the live hostility table once (default = all-peaceful) for every
-    // brain's world-out view this frame (§A7).
-    let relations_fallback = crate::combat::targeting::FactionRelations::default();
-    let relations: &crate::combat::targeting::FactionRelations =
-        faction_relations.as_deref().unwrap_or(&relations_fallback);
+    // The live hostility table for every brain's world-out view this frame (§A7),
+    // all-peaceful when a fixture registers none.
+    let relations = perceived.relations();
     let control_frame_modes = user_settings
         .as_deref()
         .map_or(ae::ControlFrameModes::default(), |s| {
@@ -633,24 +618,12 @@ pub fn tick_actor_brains(
                         Some(&*brain_ref),
                     );
                     // The other bodies this actor perceives (§A7): the pre-collected
-                    // snapshot minus SELF. Empty when the resource is absent (a bare
-                    // fixture) → a terrain-only view, exactly as before.
-                    let view_peers: Vec<super::super::perception::PerceptionPeer> =
-                        perception_peers
-                            .as_ref()
-                            .map(|p| {
-                                p.0.iter()
-                                    .filter(|peer| peer.entity != this_actor_entity)
-                                    .cloned()
-                                    .collect()
-                            })
-                            .unwrap_or_default();
+                    // snapshot minus SELF.
+                    let view_peers = perceived.peers_seen_by(this_actor_entity);
                     // Self's own move phase / i-frames come from the SAME per-tick
                     // snapshot every peer's do — one derivation (`body_phase`), so a
                     // body cannot read itself more precisely than its opponent reads it.
-                    let self_peer = perception_peers
-                        .as_ref()
-                        .and_then(|p| p.0.iter().find(|peer| peer.entity == this_actor_entity));
+                    let self_peer = perceived.peer(this_actor_entity);
                     // **WHAT THIS BODY'S BURST BUTTON WOULD DO IF PRESSED NOW.**
                     // The kernel's own rule (`resolve_burst_maneuver`), asked one
                     // phase early — so the brain names the maneuver the body will
@@ -718,16 +691,11 @@ pub fn tick_actor_brains(
                             // Read off this body's OWN peer row rather than a
                             // fresh query, exactly like `phase` above — one
                             // derivation, so a body cannot disagree with the rest
-                            // of the world about which team it is on. (It also
-                            // keeps this system under Bevy's 16-parameter cap,
-                            // which it is already close to.)
+                            // of the world about which team it is on.
                             team: self_peer.and_then(|p| p.team.clone()),
                         },
                         &view_peers,
-                        perception_projectiles
-                            .as_ref()
-                            .map(|p| p.0.as_slice())
-                            .unwrap_or(&[]),
+                        perceived.projectiles(),
                         &[],
                         &feature_world,
                         relations,

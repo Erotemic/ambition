@@ -538,3 +538,66 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
 
 #[cfg(test)]
 mod tests;
+
+/// **What a body can perceive this tick, as one parameter.**
+///
+/// The three channels a brain's world-out view needs are collected by three
+/// systems that run before it: [`PerceptionPeers`] (the other bodies),
+/// [`PerceptionProjectiles`] (the live shots), and the hostility table that says
+/// which of those are enemies. A consumer needs all three or none of them —
+/// building a view from two of the three is not a smaller view, it is a wrong
+/// one — which is what makes this one concept rather than a bundle.
+///
+/// ⭐ **absence answers through the same accessors.** Each channel is optional so
+/// a bare fixture that registers none of them still satisfies the parameter, and
+/// each accessor degrades to empty: no peers, no shots, an all-peaceful table.
+/// That degradation used to be written out at every call site — a
+/// `relations_fallback` local kept alive purely to be borrowed, and an
+/// `.as_ref().map(…).unwrap_or_default()` around each channel.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PerceivedWorld<'w, 's> {
+    peers: Option<bevy::prelude::Res<'w, PerceptionPeers>>,
+    projectiles: Option<bevy::prelude::Res<'w, PerceptionProjectiles>>,
+    relations: Option<bevy::prelude::Res<'w, FactionRelations>>,
+    /// A borrowable all-peaceful table, so [`Self::relations`] can hand out a
+    /// reference whether or not the live resource exists. Never written.
+    empty_relations: bevy::prelude::Local<'s, FactionRelations>,
+}
+
+impl PerceivedWorld<'_, '_> {
+    /// The live hostility table, or an all-peaceful one when none is registered.
+    pub fn relations(&self) -> &FactionRelations {
+        self.relations.as_deref().unwrap_or(&self.empty_relations)
+    }
+
+    /// Every peer this viewer perceives — that is, all of them but itself.
+    pub fn peers_seen_by(&self, viewer: bevy::prelude::Entity) -> Vec<PerceptionPeer> {
+        self.peers
+            .as_ref()
+            .map(|peers| {
+                peers
+                    .0
+                    .iter()
+                    .filter(|peer| peer.entity != viewer)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// This body's OWN peer row.
+    ///
+    /// ⭐ a body reads its own move phase and i-frames from the same snapshot
+    /// every opponent reads them from, so it cannot know itself more precisely
+    /// than it is known.
+    pub fn peer(&self, body: bevy::prelude::Entity) -> Option<&PerceptionPeer> {
+        self.peers
+            .as_ref()
+            .and_then(|peers| peers.0.iter().find(|peer| peer.entity == body))
+    }
+
+    /// The live shots in flight.
+    pub fn projectiles(&self) -> &[PerceptionProjectile] {
+        self.projectiles.as_ref().map_or(&[], |p| p.0.as_slice())
+    }
+}

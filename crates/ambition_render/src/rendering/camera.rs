@@ -27,8 +27,12 @@ use bevy::prelude::*;
 
 use super::primitives::PlayerVisual;
 use ambition_sim_view::camera_snapshot::{
-    CameraChartTransit, CameraPresentationInputs, CameraSnapshot2d, ResolvedCameraSnapshot,
+    CameraPresentationInputs, CameraSnapshot2d, ResolvedCameraSnapshot,
 };
+// Only the portal publisher mints a chart transit; without that feature the
+// import is dead and `-D warnings` compositions say so.
+#[cfg(feature = "portal_render")]
+use ambition_sim_view::camera_snapshot::CameraChartTransit;
 use ambition_sim_view::LocalView;
 
 /// Live camera diagnostics and feel-lab data.

@@ -194,21 +194,27 @@
         /*
          * ⛔ **THE STATUS LINE REPORTS THE PAGE, NEVER THE GAME.**
          *
-         * It used to announce "loaded · click the canvas to capture keyboard"
-         * the instant `init()` resolved, and then never change again — so it
-         * survived a click, and it read as a live instruction while the app was
-         * in fact showing a blank canvas with no shell composed at all
-         * (see `visible_composition.rs`). A permanent message is not a status.
+         * ⛔⛔ **AND IT MUST NOT WAIT ON `init()`, WHICH NEVER RESOLVES.**
+         * `run_web` ends in `App::run()`, and winit-on-web hands the browser its
+         * event loop and never returns — so the promise from the
+         * `#[wasm_bindgen(start)]` shim stays pending for the whole life of the
+         * page. Every line after `await init()` is DEAD CODE.
+         *
+         * That is the real story of the original bug report. The page appeared
+         * to say "loaded · click the canvas to capture keyboard" forever; in
+         * fact that string was the INITIAL HTML and the success path that would
+         * have replaced it never ran. The status was not stale — it had never
+         * been written at all. (Reported 2026-08-14; the second report, of
+         * "Ambition loading… and then nothing", was this same hang under the new
+         * initial text.)
+         *
+         * So the page OBSERVES instead of awaiting: winit sizes the canvas
+         * backing store when it configures its surface, which is a fact the DOM
+         * can see and which no promise is needed to learn.
          *
          * There is also no capture here: Ambition takes ordinary DOM keyboard
          * focus. Nothing requests Pointer Lock, so describing it as "capture"
          * promised a mode the app does not have and never exits.
-         *
-         * What the page can honestly observe is exactly this:
-         *   - the wasm module instantiated (or threw);
-         *   - whether the canvas currently holds keyboard focus.
-         * Whether a room is loaded, a route resolved, or a frame drawn is the
-         * app's business and the DOM has no view of it.
          */
         const setStatus = (state, text) => {
             status.dataset.state = state;
@@ -217,12 +223,15 @@
 
         const canvasHasFocus = () => document.activeElement === canvas;
 
+        /* winit sets the backing store size once it owns the surface. Before
+         * that the canvas is 300x150 (the HTML default) or 0. */
+        const canvasIsLive = () => canvas.width > 1 && canvas.height > 1;
+
         const reportFocus = () => {
-            if (status.dataset.state === "error") {
+            if (status.dataset.state === "error" || !canvasIsLive()) {
                 return;
             }
             if (canvasHasFocus()) {
-                // Keyboard already goes to the game: say nothing, quietly.
                 setStatus("quiet", "Ambition");
             } else {
                 setStatus("hint", "Ambition · click the canvas to give it keyboard focus");
@@ -232,23 +241,97 @@
         canvas.addEventListener("focus", reportFocus);
         canvas.addEventListener("blur", reportFocus);
 
-        try {
-            await init();
-            // The browser grants focus to a `tabindex` canvas on request, but
-            // not always (a background tab, a browser that requires a real
-            // gesture first) — so ASK, then report what actually happened
-            // rather than announcing the outcome we wanted.
-            canvas.focus();
-            reportFocus();
-        } catch (err) {
-            console.error(err);
+        /* ⭐ **BOOT PROGRESS, on the page and in the console.** A browser that
+         * shows nothing gives a maintainer nothing to report, and the console
+         * `info!` lines Bevy emits are easy to miss among asset warnings. These
+         * name the two milestones the page can actually witness. */
+        const t0 = performance.now();
+        const log = (message) => {
+            const at = Math.round(performance.now() - t0);
+            console.info(`[ambition-boot] +${at}ms ${message}`);
+        };
+
+        log("page ready; instantiating the wasm module");
+        setStatus("loading", "Ambition · loading the module…");
+
+        let live = false;
+        const watch = setInterval(() => {
+            if (canvasIsLive()) {
+                live = true;
+                clearInterval(watch);
+                clearTimeout(stall);
+                clearTicks();
+                log(`canvas is live (${canvas.width}x${canvas.height}) — winit owns the surface`);
+                canvas.focus();
+                reportFocus();
+            }
+        }, 100);
+
+        /* Say something at intervals, so a long wait is distinguishable from a
+         * dead one. Silence is what made the first two reports so hard to act
+         * on: "nothing happens" covers both "still compiling" and "panicked",
+         * and those need opposite responses. */
+        const ticks = [5000, 15000, 30000].map((at) =>
+            setTimeout(() => {
+                if (live) {
+                    return;
+                }
+                const seconds = at / 1000;
+                log(`still waiting for the canvas at ${seconds}s`);
+                setStatus(
+                    "loading",
+                    `Ambition \u00b7 starting\u2026 (${seconds}s \u2014 a large wasm module ` +
+                    "can take a while to compile on first load)"
+                );
+            }, at)
+        );
+
+        /* If the surface never comes up at all, SAY SO with the next thing to
+         * look at, and name both causes rather than guessing between them. */
+        const stall = setTimeout(() => {
+            if (live) {
+                return;
+            }
+            clearInterval(watch);
+            log("the canvas never came up");
             setStatus(
                 "error",
-                "Ambition failed to start: the WebAssembly module did not load. " +
-                "Open the browser console for the underlying error. A stale " +
-                "`pkg/` from an older build, or a wasm-bindgen CLI whose version " +
-                "differs from the one Cargo.lock pins, are the two common causes."
+                "Ambition never took the canvas after 60s. Open the browser console " +
+                "\u2014 the last message there decides which of these it is: a Rust " +
+                "panic (a line with RUST_BACKTRACE or 'panicked at'), a wgpu adapter " +
+                "failure (no WebGL2/WebGPU context), or no Rust output at all, which " +
+                "means the module never finished compiling. The wasm artifact is " +
+                "unoptimized and very large; ./build_for_web.sh prints its size."
             );
+        }, 60000);
+        function clearTicks() {
+            ticks.forEach(clearTimeout);
+        }
+
+        /* ⚠ this `await` is expected NEVER to resolve — see above. It is here
+         * only to catch a module that fails to INSTANTIATE, which does reject. */
+        try {
+            await init();
+            log("init() returned; the app loop exited");
+        } catch (err) {
+            /* winit unwinds the stack by throwing to escape its event loop; that
+             * is a normal control flow signal on web, not a failure. */
+            const text = String(err && err.message ? err.message : err);
+            if (text.includes("Using exceptions for control flow")) {
+                log("winit took the event loop (control-flow unwind, expected)");
+            } else {
+                console.error(err);
+                clearInterval(watch);
+                clearTimeout(stall);
+                clearTicks();
+                setStatus(
+                    "error",
+                    "Ambition failed to start: the WebAssembly module did not load. " +
+                    "Open the browser console for the underlying error. A stale " +
+                    "`pkg/` from an older build, or a wasm-bindgen CLI whose version " +
+                    "differs from the one Cargo.lock pins, are the two common causes."
+                );
+            }
         }
     </script>
 </body>

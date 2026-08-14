@@ -37,6 +37,34 @@ struct CompositionContract {
     /// Per-session room presentation. Missing it, the session activates, the
     /// simulation runs, and the world is never made visible.
     room_visuals: bool,
+    /// ⛔⛔ **SOMETHING THAT DRAWS A ROUTE.** A shell host routes; it does not
+    /// paint. `MinimalShellPlugins` adds `BasicShellPresentationPlugin` only
+    /// under the `basic_presentation` FEATURE, so a persona whose Cargo features
+    /// omit it composes a perfectly correct host that boots to the launcher and
+    /// renders nothing at all.
+    ///
+    /// ⚠ **this is a FEATURE fact, which is why the first version of this file
+    /// could not see it.** Every assertion here ran under the default desktop
+    /// features, where the answer is trivially yes. The browser's feature set is
+    /// a different build, and it was the one that was blank.
+    route_presentation: bool,
+}
+
+/// Whether anything in this build can draw a shell route.
+///
+/// Answered by `cfg`, deliberately: without the feature the plugin TYPE does not
+/// exist, so "is it installed" is not a question a compiled probe can ask — the
+/// honest answer is that nothing draws a route, which is exactly the failure.
+fn route_presentation_installed(app: &App) -> bool {
+    #[cfg(feature = "basic_shell_presentation")]
+    {
+        app.is_plugin_added::<ambition_platformer2d::game_shell::BasicShellPresentationPlugin>()
+    }
+    #[cfg(not(feature = "basic_shell_presentation"))]
+    {
+        let _ = app;
+        false
+    }
 }
 
 fn measure(app: &App) -> CompositionContract {
@@ -53,6 +81,7 @@ fn measure(app: &App) -> CompositionContract {
         room_visuals: app.is_plugin_added::<
             ambition_platformer2d::render::platformer_presentation::SessionRoomVisualsPlugin,
         >(),
+        route_presentation: route_presentation_installed(app),
     }
 }
 
@@ -68,6 +97,14 @@ fn assert_contract_holds(persona: &str, app: &App) {
         "{persona}: the shell host has NO initial route. This is the blank browser \
          canvas: the app runs, the simulation ticks, and the shell never routes \
          anywhere because nothing told it where to start."
+    );
+    assert!(
+        measured.route_presentation,
+        "{persona}: nothing in this build draws a shell route. The host composes, \
+         routes to '{route}', and paints an empty surface — which is what the \
+         browser did after it GAINED a shell host, because `visible_web_base` did \
+         not enable `basic_shell_presentation`. A correct composition under a \
+         feature set that cannot render it is still a blank screen."
     );
     assert!(
         measured.room_visuals,
@@ -104,7 +141,10 @@ fn the_probes_can_see_an_uncomposed_app() {
     let app = App::new();
     let measured = measure(&app);
     assert!(
-        !measured.shell_hosted && measured.initial_route.is_none() && !measured.room_visuals,
+        !measured.shell_hosted
+            && measured.initial_route.is_none()
+            && !measured.room_visuals
+            && !measured.route_presentation,
         "a bare App reported part of the composition contract as satisfied, so the \
          assertions above cannot fail and pin nothing"
     );

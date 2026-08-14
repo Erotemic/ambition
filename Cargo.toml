@@ -94,6 +94,23 @@ license = "Apache-2.0"
 authors = ["Jon Crall + ChatGPT + Claude"]
 description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
 
+# The browser must DOWNLOAD and COMPILE the whole module before one line of Rust
+# runs, so wasm size is a boot-latency budget rather than a disk concern. A plain
+# `--release` build of this app is ~220 MB, which can take a browser a minute to
+# compile and presents as "the page loads and nothing happens" — the same symptom
+# as a panic, which is why it is worth being able to rule out.
+#
+# ⚠ opt-in (`./build_for_web.sh --optimize`), because fat LTO + one codegen unit
+# turns a ~6 minute build into a much longer one, and the ordinary web dev loop
+# wants the fast build.
+[profile.web-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
 [profile.android-size]
 inherits = "release"
 opt-level = "z"

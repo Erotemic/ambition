@@ -23,6 +23,10 @@ Usage: ./build_for_web.sh [options]
 Options:
   --release             Build the wasm artifact with Cargo --release (default).
   --debug               Build the wasm artifact with the dev profile (much larger, faster compile).
+  --optimize            Build with the `web-release` profile (fat LTO, opt-level=s,
+                        stripped). Much smaller module, much slower build. Use this
+                        when the browser sits on "starting..." and the console shows
+                        no Rust output at all.
   --features LIST       Cargo features to enable. Default: web (or web_served_assets when --served is passed)
   --use-default-features  Also enable ambition_app default features. Off by default for web.
   --no-default-features Disable default features (default for web builds).
@@ -142,6 +146,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --release) PROFILE="release" ;;
         --debug) PROFILE="debug" ;;
+        --optimize) PROFILE="web-release" ;;
         --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a value"; FEATURES=$1; FEATURES_EXPLICIT=true ;;
         --use-default-features) USE_DEFAULT_FEATURES=true ;;
         --no-default-features) USE_DEFAULT_FEATURES=false ;;
@@ -199,7 +204,8 @@ TARGET_DIR=$(cargo_target_dir)
 case "$PROFILE" in
     release) WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/release" ;;
     debug)   WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/debug" ;;
-    *) fatal "unknown profile: $PROFILE (expected release or debug)" ;;
+    web-release) WASM_BUILD_DIR="$TARGET_DIR/wasm32-unknown-unknown/web-release" ;;
+    *) fatal "unknown profile: $PROFILE (expected release, web-release or debug)" ;;
 esac
 WASM_ARTIFACT="$WASM_BUILD_DIR/ambition_app.wasm"
 
@@ -267,6 +273,7 @@ if [[ "$SKIP_BUILD" != true ]]; then
     CARGO_ARGS=(build -p ambition_app --lib --target wasm32-unknown-unknown)
     case "$PROFILE" in
         release) CARGO_ARGS+=(--release) ;;
+        web-release) CARGO_ARGS+=(--profile web-release) ;;
         debug) ;;
     esac
     if [[ "$USE_DEFAULT_FEATURES" != true ]]; then
@@ -295,6 +302,20 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
     OUT_JS="$OUT_DIR/ambition_app.js"
     if [[ -f "$OUT_WASM" ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
+        # ⚠ **SIZE IS A BOOT FAILURE MODE, not a nicety.** The browser must
+        # download AND COMPILE this before a single line of Rust runs, and a
+        # module in the hundreds of MB can take a minute or hang a tab outright —
+        # which presents as "the page loads and nothing happens", indistinguishable
+        # from a panic. Say the number and the fix, because the symptom does not.
+        OUT_WASM_BYTES=$(stat -c%s "$OUT_WASM" 2>/dev/null || echo 0)
+        if [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
+            warn "the wasm module is $(human_size "$OUT_WASM") — very large for a browser to compile."
+            warn "  This build has no LTO and no wasm-opt pass. If the page sits on"
+            warn "  'starting…' and the console shows no Rust output, this is the first"
+            warn "  suspect, not the composition. Shrink it with a release profile that"
+            warn "  sets lto = \"fat\", codegen-units = 1, opt-level = \"s\", strip = \"symbols\","
+            warn "  and/or install wasm-opt (binaryen) and run it over $OUT_WASM."
+        fi
     else
         warn "wasm-bindgen finished but expected $OUT_WASM was not produced"
     fi

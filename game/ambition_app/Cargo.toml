@@ -82,6 +82,18 @@ visible_web_base = [
     "portal",
     "portal_render",
     "bevy_ui_menu",
+    # ⛔⛔ **A SHELL HOST ROUTES; IT DOES NOT PAINT.** `MinimalShellPlugins` adds
+    # `BasicShellPresentationPlugin` only under this feature, so without it the
+    # browser composes a perfectly correct host, boots to the launcher route, and
+    # renders NOTHING — a blank canvas with a live simulation behind it. That was
+    # the second half of the 2026-08-14 web-parity bug: the first half was
+    # `run_web` not composing a shell host at all, and fixing it moved the app
+    # from "no route" to "a route nothing can draw".
+    #
+    # ⚠ this is the SIMPLE UI, which is what the web build wants: kaleidoscope
+    # stays excluded (`KALEIDOSCOPE_MENU_BACKEND_ENABLED` is false on wasm) and
+    # this is the plain-Bevy-UI shell that replaces it.
+    "basic_shell_presentation",
 ]
 visible_web = ["visible_web_base", "static_core_assets"]
 visible_web_served = ["visible_web_base", "web_served", "web_audio"]

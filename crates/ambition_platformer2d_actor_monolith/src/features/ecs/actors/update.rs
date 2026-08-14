@@ -332,34 +332,13 @@ pub fn tick_actor_brains(
     // and read as a seating bug for hours (2026-08-06). Nothing in this system
     // may become conditional on a player existing again.
 
-    // Pass 1: collect every live body that is in a fight, with the position and
-    // crowd kind the spacing signals need.
-    let mut requests: Vec<(String, ae::Vec2, crate::combat::crowd::CrowdKind)> = Vec::new();
-    // Faction per actor id, so the anti-clump crowding signal counts only
-    // same-faction allies (fanning a swarm out) and never a different-faction
-    // opponent — the spectator-duel fighters are hostile to each other and must
-    // close, not anti-clump apart.
-    let mut faction_by_id: std::collections::HashMap<
-        String,
-        super::super::super::components::ActorFaction,
-    > = std::collections::HashMap::new();
-    // Liveness of every potential TARGET, keyed by entity, so a fighter can
-    // perceive that its foe has died. A fighter's target is often another actor
-    // (the spectator-duel pair target each other), so this can't come from
-    // `player_query` alone. Defaults to alive when an entity isn't found.
-    let mut alive_by_entity: std::collections::HashMap<Entity, bool> =
-        std::collections::HashMap::new();
-    // Entity → actor id, so a fighter's CURRENT TARGET entity (its foe this frame —
-    // a faction-opponent OR a personal grudge) can be resolved to an id for the
-    // anti-clump rule: a body you're actively fighting is an opponent to close on,
-    // not an ally to spread away from. This is what lets two SAME-faction `Npc`
-    // duelists (feuding via a grudge) close instead of mutually anti-clumping apart.
-    let mut entity_to_id: std::collections::HashMap<Entity, String> =
-        std::collections::HashMap::new();
-    let mut target_entity_by_id: std::collections::HashMap<String, Entity> =
-        std::collections::HashMap::new();
+    // ── OBSERVATION ──────────────────────────────────────────────────────
+    // Look at every body once, then derive. `crowd_observation` owns the
+    // derivations so the boundary between "look at the world" and "decide what
+    // this body does" is a type rather than a place in a long function.
+    let mut observation = super::crowd_observation::CrowdObservation::default();
     for (entity, health) in &player_query {
-        alive_by_entity.insert(entity, health.current() > 0);
+        observation.note_controlled_liveness(entity, health.current() > 0);
     }
     for (
         entity,
@@ -376,55 +355,32 @@ pub fn tick_actor_brains(
         in_a_fight,
     ) in &actors
     {
-        if let Some(c) = &clusters {
-            alive_by_entity.insert(entity, c.health.alive());
-            entity_to_id.insert(entity, c.config.id.clone());
-        }
-        // Only bodies IN a fight compete for combat slots; a bystander does not
-        // crowd the board.
-        //
-        // ⚠ **the two arms are the two ways to be in one.** Social hostility is
-        // how an AI body joins a fight; `ActiveCombatant` is how a ruleset puts
-        // one in. A human-driven fighter is the second without ever being the
+        // ⚠ **the two arms are the two ways to be in a fight.** Social hostility
+        // is how an AI body joins one; `ActiveCombatant` is how a ruleset puts a
+        // body in. A human-driven fighter is the second without ever being the
         // first — it holds no AI target, so asking only the disposition left it
-        // off the board it is standing in the middle of.
-        if crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage() {
-            if let Some(c) = clusters {
-                if c.health.alive() {
-                    requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.crowd_kind()));
-                    if let Some(faction) = faction {
-                        faction_by_id.insert(c.config.id.clone(), *faction);
-                    }
-                    if let Some(foe) = target.entity {
-                        target_entity_by_id.insert(c.config.id.clone(), foe);
-                    }
-                }
-            }
-        }
+        // off the picture it is standing in the middle of.
+        let fighting =
+            crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
+        observation.note_actor(
+            entity,
+            clusters.as_ref().is_some_and(|c| c.health.alive()),
+            clusters.as_ref().map(|c| super::crowd_observation::ObservedBody {
+                id: c.config.id.as_str(),
+                pos: c.kin.pos,
+                kind: c.config.tuning.crowd_kind(),
+                faction: faction.copied(),
+                foe: target.entity,
+            }),
+            fighting,
+        );
     }
-    // Resolve each fighter's target ENTITY to the target's id (dropping targets that
-    // aren't crowd actors — e.g. the player). The anti-clump builder reads this to
-    // treat the body you're fighting as an opponent, never a neighbor to flee.
-    let opponent_id_by_id: std::collections::HashMap<String, String> = target_entity_by_id
-        .iter()
-        .filter_map(|(id, foe)| entity_to_id.get(foe).map(|fid| (id.clone(), fid.clone())))
-        .collect();
-    // ⛔ **CANONICAL ORDER, and it is not cosmetic.** This slice is built by
-    // iterating a Bevy Query, whose order is not stable and is outright
-    // reshuffled by GGRS entity recreation on rollback. Both readers below break
-    // ties over it — `compute_nearest_neighbors` keeps the first-found nearest
-    // among equidistant peers, and the crowding sum is float addition, which is
-    // not associative — so an unstable slice is a desync, not a wobble. The
-    // actor id is the stable semantic key.
-    requests.sort_by(|a, b| a.0.cmp(&b.0));
+    let crowd = observation.finish();
+    // The neighbour index is handed to the movement phase (surface-walker
+    // anti-clump steering) rather than consumed here — the one piece of the
+    // observation that leaves this system.
+    steering.neighbor_by_id = crowd.neighbor_index().clone();
 
-    // Per-actor nearest-same-kind-neighbor index (see
-    // `compute_nearest_neighbors`). Handed to the movement phase via
-    // `ActorSteering` for surface-walker anti-clump steering.
-    steering.neighbor_by_id = compute_nearest_neighbors(&requests);
-
-    // Per-actor crowding signal for brains that need personal space.
-    let crowding_by_id = compute_crowding_by_id(&requests, &faction_by_id, &opponent_id_by_id);
 
     // Pass 2: tick each actor's brain into its `ActorControl`. The slot-board
     // holding fallback that steers unassigned actors is folded into the brain
@@ -470,7 +426,7 @@ pub fn tick_actor_brains(
         // faction-feud fighter has no target once its foe is gone), so `entity ==
         // None` here means "no one to fight" → the brain idles (peaceful behavior).
         let target_alive = match target.entity {
-            Some(e) => alive_by_entity.get(&e).copied().unwrap_or(true),
+            Some(e) => crowd.is_alive(e),
             None => false,
         };
         // Disposition is DERIVED from having a combat target: an aggressive actor
@@ -555,7 +511,7 @@ pub fn tick_actor_brains(
                 };
                 let enemy_gravity_dir = resolved_frame.down();
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = crowding_by_id.get(&em.config.id).copied();
+                    let crowding = crowd.crowding(&em.config.id);
                     let mut snapshot = build_enemy_brain_snapshot(
                         &em,
                         target_pos,

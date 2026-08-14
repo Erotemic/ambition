@@ -30,9 +30,10 @@ use crate::platforms::{world_with_moving_platforms, MovingPlatformState};
 
 /// The active room's live moving platforms.
 ///
-/// Owned by the physics/rendering pipeline; the player tick advances each
-/// platform per frame and carries the player by its delta. The physics plugin
-/// registers this as a resource; the room-load path (setup, load_room, LDtk
+/// Owned by the world/simulation pipeline; the scheduled simulation phase
+/// advances each platform once per frame before body integration, and bodies
+/// consume the resulting delta. The physics plugin registers this as a resource;
+/// the room-load path (setup, load_room, LDtk
 /// hot-reload, sandbox reset) replaces the Vec when the active room changes.
 ///
 /// Lives beside [`MovingPlatformState`] rather than a tier up: it is a newtype

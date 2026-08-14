@@ -31,10 +31,13 @@ The milestone is reached when:
 This directly unlocks cleaner multiplayer/multiview, open-world population,
 navigation, possession, item custody and actor-monolith decomposition.
 
-## Milestone status against HEAD (2026-08-14)
+## Milestone status against HEAD (2026-08-13 local)
 
-Six of the seven properties hold. ⛔ **two were reached by DELETING what the
-milestone described, not by building it** — check before starting a slice.
+One property is **partial** and one remains **open**; the rest hold. Deleting the
+dead slot board was the right architectural result, but reducing a system's
+parameter count is not the same as completing its semantic decomposition, and two
+of the properties that do hold were reached by DELETING what the milestone
+described rather than by building it. Check HEAD before starting the next slice.
 
 - ✔ **generic crowd/combat arbitration.** No longer anchored on a primary
   player, because the slot board it anchored is gone: `assign_slots` filled it
@@ -43,33 +46,49 @@ milestone described, not by building it** — check before starting a slice.
   comes from the crowding signal, which reads positions and a ground/aerial kind
   and has no anchor at all. If a crowd board is wanted as a feature, it is a
   product decision and needs a real reader first.
-- ✔ **parameter limit no longer hidden.** `tick_actor_brains` went from sixteen
-  parameters packed in a tuple to ten named ones. The room came from deleting the
-  slot board and from adopting `CollisionWorld` — a contract that already existed
-  and that the six largest systems had never taken, each hand-composing the same
-  three-ingredient collision world.
+- ◐ **parameter pressure is fixed; semantic decomposition is not.**
+  `tick_actor_brains` went from sixteen parameters packed in a tuple to ten named
+  ones. Deleting the dead slot board and adopting `CollisionWorld` were both good
+  changes, and `PerceivedWorld` names a real observation concept. But the system
+  is still large and still performs disposition mutation, snapshot/view
+  construction, memory mutation, brain decision and `ActorControl` publication in
+  one function. The next slice should split those responsibilities by
+  authority/phase rather than declaring victory because Bevy accepts the
+  signature.
+
+  **First cut taken 2026-08-14:** liveness/index collection and crowding
+  derivation moved out to `actors::crowd_observation` — the OBSERVATION half as a
+  value, with the derivations testable without an App (three tests, one of which
+  pins that query order cannot reach the result). The system is 619 lines, down
+  from 663; the honest read is that the boundary is now a type rather than a
+  place in a long function, and the bulk that remains is the per-body decision
+  loop. That loop is the next cut.
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and
-  `tick_actor_brains` are two producers of `ActorControl`, and until 2026-08-14
-  the first was unfiltered, so a possessed body got both — from materially
+  `tick_actor_brains` are two producers of `ActorControl`, and until the current
+  run the first was unfiltered, so a possessed body got both — from materially
   different snapshots (`max_run_speed: 0.0` versus the body's real top speed,
   which `tick_player_brain` multiplies the stick by). The populations are
-  disjoint now. **Collapsing the two producers is the remaining work, and the
-  fork is one layer below them**: the two INTEGRATORS differ, so the two
-  producers must. `integrate_home_body` has no flight limb and never reads
-  `velocity_target`, which is why the home path passes `max_run_speed: 0.0` —
-  deliberate and inert, not an oversight. The actor integrator projects
-  `velocity_target` onto its flight axis, so its brain must be handed the body's
-  real top speed. ⇒ **unify the integrators first**; the brain producers collapse
-  behind them, and doing it in the other order would mean choosing which
-  integrator's convention to break.
+  disjoint now. **Collapsing the two producers is the remaining work.** Do not
+  solve it by giving the home body an actor cluster merely so one query matches;
+  that asymmetry is evidence that the common decision seam must be expressed in
+  terms of common body/brain/control facts, with actor-only facts supplied only
+  where a brain actually needs them.
+
+  ⭐ **and the fork is one layer below the producers.** Traced `velocity_target`
+  to its only consumer: the actor integrator's flight limb. `integrate_home_body`
+  has no flight limb and never reads the field, which is why the home path passes
+  `max_run_speed: 0.0` — deliberate and inert, and the brain's own comment says
+  so. The actor integrator projects `velocity_target` onto its flight axis, so
+  its brain must be handed the body's real top speed. The two producers differ
+  because the two INTEGRATORS do; a common decision seam has to account for that
+  rather than pick one integrator's convention.
 
   ⚠ **no live defect today**: `BodyMode` has no flight variant, so the home
-  avatar cannot reach the case where the zeroed field would matter. This is a
-  structural fork with a latent edge, and the edge arrives the moment a
-  controlled body can fly — which the open-world and possession programs both
-  point at.
+  avatar cannot reach the case where the zeroed field would matter. A structural
+  fork with a latent edge, and the edge arrives the moment a controlled body can
+  fly — which the open-world and possession programs both point at.
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.
@@ -132,6 +151,9 @@ not an Ambition composition root renamed after files moved around it.
 
 - What is the smallest stable observation/decision input without creating a
   giant context struct?
+- `PerceivedWorld::peers_seen_by` currently clones a peer `Vec` for each body;
+  what borrowed/indexed observation shape avoids making per-body O(N) allocation
+  part of the permanent open-world AI contract?
 - Which targeting/crowd facts should be cached resources versus derived per
   phase?
 - Where should long-lived controller state live relative to body state?

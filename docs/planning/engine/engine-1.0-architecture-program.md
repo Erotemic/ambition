@@ -57,7 +57,8 @@ a generic rollback census of every domain.
 
 ### E3 — multiplayer, multiview and room residency
 
-Use [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md) and
+Use [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md),
+[`camera-reference-frame-policy.md`](camera-reference-frame-policy.md) and
 [`../game/multiplayer.md`](../game/multiplayer.md).
 
 Transport, control assignment, world residency and presentation layout remain

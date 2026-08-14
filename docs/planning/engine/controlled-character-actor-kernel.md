@@ -98,6 +98,24 @@ described rather than by building it. Check HEAD before starting the next slice.
   use sim `dt`. That difference is deliberate and is the open half of **D114**,
   a feel question, not a fork to collapse. Merging the three into one system
   would force one clock and decide D114 by refactor.
+
+  ⚠ **the automatic pacify is a candidate with a stated cost.** `if
+  disposition.is_hostile() && target.entity.is_none() && !in_a_fight` reverting a
+  body to `Peaceful` is a consequence of target LOSS, so it belongs with
+  `select_actor_targets`, which owns the target and runs immediately before —
+  adding `&mut ActorDisposition` and `Has<ActiveCombatant>` there is
+  straightforward. But it would take effect one tick earlier than today: the
+  observation pass currently reads the pre-pacify disposition, so a body that
+  just lost its foe leaves the crowd on the NEXT tick. Probably an improvement,
+  certainly a behaviour change, and nothing pins it. Do it with a test that names
+  the tick, or not at all.
+
+  ⇒ with those three cuts the loop reads as a sequence — observe, decay, pacify,
+  assemble the snapshot, build the view, apply belief, decide, publish — and
+  `build_enemy_brain_snapshot` was already extracted. **This system is at a
+  reasonable resting point; the remaining structural work in this milestone is
+  the two-producer/two-integrator fork above, which needs a design decision
+  rather than another extraction.**
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and

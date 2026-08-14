@@ -84,14 +84,7 @@ rule for **held-item drops** after a fight:
 Whichever rule is chosen, simulation entity and presentation must share the same
 lifetime.
 
-### 7. Do we want a gravity-camera mode that follows the controlled body's reference frame? (former D64)
-
-This is a new relativity-facing feature, not a bug fix. If wanted, its input and
-camera semantics should be expressed in the controlled body's local reference
-frame rather than adding a privileged global/player frame. Confirm the feature
-before opening an implementation campaign.
-
-### 8. Which platform-fighter verbs does each creature author?
+### 7. Which platform-fighter verbs does each creature author?
 
 **Authoring verbs is currently a nerf, and that is why only two characters do
 it.** A seat's abilities are the character's authored set ∩ the mode's declared

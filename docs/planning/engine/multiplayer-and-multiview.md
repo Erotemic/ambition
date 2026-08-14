@@ -106,6 +106,24 @@ participants, one participant normally has at most one primary local view, and a
 remote participant may have no local view on a given client at all. Spectator or
 inspection views may exist without owning a participant.
 
+### View reference-frame policy
+
+A local view also owns an observer/reference-frame policy. The existing
+world-fixed/external-observer camera remains a valid mode; Ambition additionally
+wants a subject-relative mode where the view follows the designated body's
+resolved reference frame and gravity changes appear to rotate the world.
+
+This policy is independent of transport, control assignment, residency and view
+layout. Two split views may therefore follow two bodies under different gravity
+frames. A shared view whose subjects disagree about orientation must use an
+explicit shared-view policy rather than silently adopting participant one as the
+frame authority.
+
+Use [`camera-reference-frame-policy.md`](camera-reference-frame-policy.md) for the
+focused design. Camera/reference-frame selection is presentation; coherent
+body-relative movement/aim is a control-policy pairing, not something camera code
+mutates.
+
 ### View grouping policy
 
 Presentation policy chooses grouping independently of simulation:
@@ -160,7 +178,7 @@ A TwinTrack split-screen proof should allow two controlled bodies to have:
 
 - independent viewport rectangles;
 - independent view subjects/framing;
-- independent observer/reference-frame presentation;
+- independent observer/reference-frame presentation, including different view-frame policies;
 - one shared authoritative simulation.
 
 The proof must not clone the world per viewport.

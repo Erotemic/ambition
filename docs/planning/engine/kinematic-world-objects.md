@@ -168,10 +168,13 @@ behaviors are authoritative versus presentation.
   plan predicts: platform ownership questions keep resolving into actor/body
   questions, and are cheaper to answer after the actor kernel is coherent.
 
-### K2 — typed authored motion
+### K2 — typed authored motion — PARTIAL
 
-Replace ambiguous optional-field precedence with a validated motion spec and
-resolve the path link during world preparation.
+The ambiguous optional-field precedence is now gone: LDtk conversion classifies
+into a validated `MovingPlatformMotionSpec` and rejects conflicting motion fields.
+The remaining half is identity: path motion still carries a string `path_id`;
+move the relationship to typed/native reference authoring when a real authored
+path customer justifies that slice.
 
 ### K3 — isolate dynamic geometry ownership
 

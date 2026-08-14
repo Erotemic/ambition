@@ -81,6 +81,13 @@ These cards are capability fronts, not a serial mega-campaign.
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
   and [`game/multiplayer.md`](game/multiplayer.md).
 
+- ▢ **Per-view camera reference frames.** Preserve the current external/world
+  observer camera and add an optional controlled-body/view-subject-relative mode
+  so gravity changes can visually rotate the world. Keep it a view policy, pair
+  it coherently with body-relative input, and make rotated clamps/portal roll
+  composition correct. Use
+  [`engine/camera-reference-frame-policy.md`](engine/camera-reference-frame-policy.md).
+
 - ▢ **Simulation authority and deterministic phase structure.** Decompose
   parameter-ceiling systems such as actor-brain ticks by semantic phase and
   ownership; invert rollback declaration ownership so the generic runtime is not

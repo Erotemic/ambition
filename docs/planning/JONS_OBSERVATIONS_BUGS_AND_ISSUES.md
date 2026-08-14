@@ -121,6 +121,7 @@
 
 
 * I want to implement a camera mode for gravity where the camera just follows the player's reference frame. We should be careful so we use player-reference frame inputs in this mode. It doesn't need special gravity affordances. 
+  * ◐ Decision recorded; implementation remains open in [`engine/camera-reference-frame-policy.md`](engine/camera-reference-frame-policy.md). Existing external/world-observer camera behavior remains an option.
 
 
 * Holding up for 2 seconds should be an alternative way of entering a door or interacting with an object.

@@ -34,6 +34,14 @@ support frame. A portal crossing is a transform between frames. A moving
 platform is not just a block with velocity; it is a support frame in motion.
 A camera is not the world; it is an observer.
 
+For cameras this is now a concrete product decision, not only a manifesto. A
+view may remain world-fixed/external-observer (the current ordinary mode), or it
+may follow a designated subject's resolved frame so gravity changes visually
+rotate the world around that body. The choice belongs to the **view/context**,
+not to gravity simulation and not to a global player singleton. Existing modes
+remain valid; future multiview may choose independently per view. See
+[`camera-reference-frame-policy.md`](camera-reference-frame-policy.md).
+
 We should not build a grand frame graph before we need it. We should not
 infect every system with abstract machinery too early. But we should write
 APIs, docs, and mental models that leave room for local frames to emerge

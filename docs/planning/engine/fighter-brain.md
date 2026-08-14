@@ -21,22 +21,32 @@ the real `tick_fighter` seam and returns a report. Two properties hold and are
 tested: one seed produces one report (108 rows, identical), and the report covers
 every scenario the suite names.
 
-⛔⛔ **the rig's first measurement is that it cannot yet measure the ladder.**
-Every rung emits **zero presses** and identical frames. That is not a degenerate
-ladder — it is `BrainSnapshot::idle()`, which carries no attack kit, and the
-decision tests already say so: *"no scene here can arm one"*. An empty kit means
-`generate_options` offers movement only, so no attack exists for a rung's scoring
-to differ about.
+⛔ **its first run measured that it could not yet measure the ladder**: with
+`BrainSnapshot::idle()` every rung emitted zero presses, because an empty attack
+kit leaves `generate_options` offering movement only. Armed with a kit shaped
+like the one `build_attack_kit` assembles in the actor tick, the ladder appears:
 
-⇒ **the next slice is a snapshot fixture that carries a real attack kit**, and it
-is the same slice that unlocks survival/damage: a brain with nothing to throw
-cannot lose a stock either.
+```text
+L1 mean 28.5 apm (cap 120)   L5  66.0 (270)   L9 103.5 (420)
+```
 
-⚠ two checks are deliberately NOT in the rig until then. A within-`apm_cap`
-assertion at zero presses cannot fail, and neither can a ladder-ordering one.
-(Enforcement itself is not missing — `ApmLedger::may_press` gates every press;
-`apm_cap`'s *"enforcement is FB4's rig"* comment is stale about that. What was
-missing is the measurement.)
+**Measured properties, all tested:** press rate rises monotonically across the
+nine rungs; every rung stays inside its authored `apm_cap`; one seed produces one
+report; the report covers every scenario the suite names. The APM and ladder
+checks were probed by un-arming the kit — both go red, so neither can pass
+vacuously the way the first draft did.
+
+⭐ **calibration fact worth keeping: the caps are not what separates the levels.**
+Every rung presses at roughly a QUARTER of its own cap, so raising a cap alone
+would move nothing — reaction and decision cadence are doing the ordering.
+
+⚠ **and the ordering claim is narrower than "stronger levels win".** Winning is a
+survival/damage question needing two bodies; this rig has one brain and a
+scripted opponent. That is the remaining half, below.
+
+(`apm_cap`'s *"Data today; enforcement is FB4's rig"* comment is stale:
+`ApmLedger::may_press` gates every press already. What was missing was the
+measurement.)
 
 ⚠ and one rig detail worth keeping: **the opponent has to move.** A rung's
 headline difference is `reaction_ms`, and a delayed view of a world that never

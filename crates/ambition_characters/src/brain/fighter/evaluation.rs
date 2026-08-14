@@ -28,6 +28,8 @@
 //! is this rig's next slice and is what also unlocks survival/damage.
 
 use super::decision::{tick_fighter, FighterCfg, FighterState};
+use super::options::{AttackBinding, AttackCandidate, AttackVerb};
+use crate::actor::attack_gesture::AttackDir;
 use super::profile::FighterBrainProfile;
 use super::scenarios::{suite, Scenario};
 use crate::actor::control::ActorControlFrame;
@@ -39,6 +41,62 @@ pub const RIG_TICK_HZ: f32 = 60.0;
 
 /// Long enough for a rate to be a rate: ten seconds of decisions.
 pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
+
+/// **A kit shaped like the one production builds.**
+///
+/// ⛔ the rig ran with `BrainSnapshot::idle()` first and every rung emitted zero
+/// presses, because an empty kit leaves `generate_options` offering movement
+/// only. A brain with nothing to throw cannot be told apart from another brain
+/// with nothing to throw, so the ladder read as degenerate.
+///
+/// Mirrors `build_attack_kit` in the actor tick: one candidate per (verb,
+/// direction) the moveset answers for, each carrying its move's frame data. The
+/// numbers here are a plausible spread rather than any character's real moveset
+/// — the rig measures the DECIDING, and a scenario that named a specific
+/// character would be measuring content instead.
+fn rig_kit() -> Vec<AttackCandidate> {
+    let frames = |startup_s: f32, reach: f32, damage: i32| {
+        ambition_entity_catalog::MoveFrameData {
+            total_s: startup_s + 0.1 + 0.2,
+            startup_s,
+            active_spans: vec![(startup_s, startup_s + 0.1)],
+            recovery_s: 0.2,
+            cancel_windows: Vec::new(),
+            reach,
+            max_damage: damage,
+            max_knockback: 0.0,
+            start_impulse: (0.0, 0.0),
+        }
+    };
+    // Fast-and-short, slow-and-long, and an aerial — enough that scoring has a
+    // trade-off to make. One candidate is not a choice.
+    vec![
+        AttackCandidate {
+            move_id: "rig_jab".into(),
+            frames: frames(0.03, 40.0, 2),
+            binding: AttackBinding {
+                verb: AttackVerb::Basic,
+                direction: AttackDir::Forward,
+            },
+        },
+        AttackCandidate {
+            move_id: "rig_smash".into(),
+            frames: frames(0.18, 90.0, 12),
+            binding: AttackBinding {
+                verb: AttackVerb::Smash,
+                direction: AttackDir::Forward,
+            },
+        },
+        AttackCandidate {
+            move_id: "rig_uptilt".into(),
+            frames: frames(0.06, 55.0, 5),
+            binding: AttackBinding {
+                verb: AttackVerb::Basic,
+                direction: AttackDir::Up,
+            },
+        },
+    ]
+}
 
 /// One scenario played by one ladder rung.
 #[derive(Clone, Debug, PartialEq)]
@@ -70,7 +128,8 @@ pub fn play(scenario: &Scenario, profile: FighterBrainProfile, seed: u64) -> Sce
     let apm_cap = profile.apm_cap;
     let cfg = FighterCfg::new(profile);
     let mut state = FighterState::new(&cfg, seed);
-    let snapshot = BrainSnapshot::idle();
+    let mut snapshot = BrainSnapshot::idle();
+    snapshot.attack_kit = rig_kit();
     let mut out = ActorControlFrame::neutral();
     let mut frames: Vec<ActorControlFrame> = Vec::new();
     let mut view = scenario.view.clone();

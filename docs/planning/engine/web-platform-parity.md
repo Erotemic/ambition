@@ -126,6 +126,32 @@ interrupts instead of whispering at 12px in a corner.
   suffix comparison carries its own poison: a match without a path boundary would
   call `miniboss.png` and `boss.png` the same file.
 
+## What was verified over HTTP
+
+`./build_for_web.sh --served --skip-build` ran the whole packaging path
+(wasm-bindgen 0.2.120 → 163 MB module + 112 KB JS; publication → 4485 files,
+contract verified), and the tree was served with `python3 -m http.server` and
+probed:
+
+| URL | before | after |
+|---|---|---|
+| `assets/worlds/sandbox.ldtk` | **404** — not in the published tree at all | **200**, 2.7 MB |
+| `assets/worlds/hall_of_characters.ldtk` | **404** | **200**, 481 KB |
+| `assets/ambition/platformer_defaults.ron` | 200 | 200, 2.9 KB |
+| `assets/audio/sfx.bank` | 200 | 200, 31 MB |
+| `assets/fonts/bundled/InterDisplay-SemiBold.otf` | 200 | 200, 625 KB |
+| `assets/sprites/judy_spritesheet.png` | 200 | 200, 468 KB |
+| `assets/backgrounds/parallax_layers/forest_near_background.png` | 200 | 200, 197 KB |
+| `assets/audio/music/generated/burn_rate_bossa/full.ogg` | 200 | 200, 1.97 MB |
+| `assets/sprites/judy_spritesheet.png.meta` | 404 | **404 — unchanged, deliberately** |
+
+⚠ **what this does NOT show.** No browser is installed on this machine, so
+nothing here observed `App::run()` being entered, a state after startup, or a
+frame drawn. The composition is measured behaviourally on a native App
+(`visible_composition_contract`), the artifact is measured by a release link,
+and the transport is measured by the table above — but the last step, a human
+seeing the launcher, is Jon's.
+
 ## ⚠ NOT the bug
 
 `.meta` 404s beside `200`s for the real asset are Bevy probing optional metadata
@@ -157,6 +183,20 @@ coverage was a compile, and later a link, both of which stayed green throughout.
 That is the argument for the shape of the repair rather than for a patch: a
 second builder does not drift because someone is careless, it drifts because
 being a second builder is what drift *is*.
+
+## §9 — declarative platform policy, without pre-generalizing
+
+`VisibleGameSpec` is the seam a persona is expressed through, and
+`VisibleGameSpec::browser()` is the first one to name itself. An Android or
+Steam Deck persona can be a second and third constructor beside it — host
+integration, asset profile, quality profile, and input capabilities selected
+independently, over one unchanged game composition.
+
+⛔ **the other constructors were deliberately NOT written.** The native builder
+has one call site and derives its spec from `(render, shell_hosted)`; adding
+four unused constructors to look declarative is exactly the pre-generalizing the
+engine direction warns against. The shape is reachable when a real second
+platform asks for it.
 
 ## Still open
 

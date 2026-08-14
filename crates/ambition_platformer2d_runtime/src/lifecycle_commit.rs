@@ -145,6 +145,25 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             if let Some(mut pending) = world.get_resource_mut::<PendingLifecycleCommit>() {
                 pending.take();
             }
+            // ⛔⛔ **AND THE TRANSACTION THE INTENT OPENED, or the crossing is
+            // only half-cancelled.** Dropping the intent alone left the
+            // authorized transaction resident in `CommitAuthorized` with its
+            // load barrier never retired and nothing left that could ever
+            // commit it. `begin_room_transition_load_system` returns early
+            // whenever no intent is pending, so nothing else would ever come
+            // back for it — and the next crossing to the SAME destination
+            // matches `same_destination`, returns early against the orphan, and
+            // commits under a plan prepared for a crossing that was cancelled.
+            //
+            // ⚠ safe from here, `PreUpdate`, unlike the intent: the transaction
+            // state is NOT rollback-registered (that is the whole reason
+            // readiness moved host-side), so writing it outside the rewound
+            // schedule is ordinary. The rollback-registered `PendingLifecycleCommit`
+            // above is cleared from the exclusive world on a CONFIRMED frame,
+            // which is the one place that is legal.
+            if let LifecycleIntent::Transition(intent) = kind {
+                retire_cancelled_room_transition(world, &intent);
+            }
             return;
         }
         CommitOutcome::Committed => {}
@@ -304,6 +323,43 @@ fn retire_committed_room_transition(world: &mut World) {
         bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>,
     >() {
         mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+    }
+}
+
+/// Close out the readiness transaction a CANCELLED crossing opened.
+///
+/// ⛔ **only the transaction this exact intent opened.** A crossing is cancelled
+/// because its body is gone, not because room transitions in general are off;
+/// retiring whatever happens to be active would take out a newer, unrelated
+/// transaction opened by somebody else in the same frame. Matching the intent is
+/// the same key `same_destination` uses to decide the transaction OWNS the
+/// crossing, asked in the other direction.
+///
+/// ⚠ **no `GameMode` restore, deliberately.** Only a rollback host reaches here,
+/// and the rollback host never entered `GameMode::RoomTransition` in the first
+/// place — `begin_room_transition_load_system` guards that on
+/// `!pending.is_rollback_host()`, because setting it gates the sim systems and
+/// desynced the checksum. Restoring a mode that was never set would be the
+/// symmetry looking right rather than being right.
+fn retire_cancelled_room_transition(
+    world: &mut World,
+    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
+) {
+    let Some(barrier) = world
+        .get_resource::<crate::room_transition::RoomTransitionLoadState>()
+        .and_then(|state| state.active.as_ref())
+        .filter(|active| &active.intent == intent)
+        .map(|active| active.barrier.load_id.clone())
+    else {
+        return;
+    };
+    if let Some(mut loads) = world.get_resource_mut::<ambition_load::LoadCoordinator>() {
+        loads.retire(&barrier);
+    }
+    if let Some(mut state) =
+        world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+    {
+        state.active = None;
     }
 }
 
@@ -487,6 +543,9 @@ mod tests {
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
+    use crate::room_transition::{
+        ActiveRoomTransitionLoad, RoomTransitionLoadPhase, RoomTransitionLoadState,
+    };
     /// GPT review #1/#2: the deferred transition transports the body that CROSSED
     /// the exit — resolved by its recorded, rollback-stable `SimId` — and NEVER
     /// substitutes another body. A recorded id that has since despawned resolves
@@ -507,6 +566,103 @@ mod tests {
     /// Both are gone into `RoomTransitionApplication::subject_entity`, so this
     /// invariant is now asserted about the resolver BOTH hosts use rather than
     /// about one host's copy of it.
+    use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
+
+    fn intent_to(target_room: &str, subject: SimId) -> RoomTransitionIntent {
+        RoomTransitionIntent {
+            subject,
+            target_room: target_room.to_string(),
+            arrival: ae::Vec2::ZERO,
+            edge_exit: true,
+            zone_sfx: None,
+        }
+    }
+
+    fn authorized_transaction(intent: RoomTransitionIntent) -> ActiveRoomTransitionLoad {
+        ActiveRoomTransitionLoad {
+            sequence: 1,
+            content_epoch: 1,
+            session_scope: None,
+            source_room: 0,
+            source_room_id: "a".to_string(),
+            target_room_id: intent.target_room.clone(),
+            target_room: 1,
+            intent,
+            construction_plan: None,
+            barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
+            commit_not_before_tick: 0,
+            cover_required: false,
+            cover_presented: true,
+            phase: RoomTransitionLoadPhase::CommitAuthorized,
+            failure: None,
+            asset_work_id: ambition_load::LoadWorkId::new("room-transition.assets:b"),
+            staged_actor_names: Vec::new(),
+            asset_readiness_complete: true,
+            last_asset_progress: None,
+            prefetch_hit: false,
+            construction_preflight_duration: None,
+            asset_manifest_duration: None,
+            requested_at: None,
+            asset_ready_at: None,
+            ready_at: None,
+            cover_presented_at: None,
+            commit_duration: None,
+            committed_at: None,
+        }
+    }
+
+    /// ⛔⛔ **A CANCELLED CROSSING MUST NOT LEAVE ITS TRANSACTION BEHIND.**
+    ///
+    /// A void crossing — the body that walked through the door died during the
+    /// confirmation delay — drops the intent. It used to drop ONLY the intent,
+    /// leaving the authorized transaction resident in `CommitAuthorized` with its
+    /// load barrier never retired. Nothing would ever come back for it:
+    /// `begin_room_transition_load_system` returns early whenever no intent is
+    /// pending, so the orphan simply sat there — and the next crossing to the
+    /// same destination matches `same_destination`, returns early against the
+    /// orphan, and commits under a plan prepared for a crossing that was
+    /// cancelled.
+    #[test]
+    fn a_cancelled_crossing_retires_the_transaction_it_opened() {
+        let mut world = World::new();
+        world.insert_resource(ambition_load::LoadCoordinator::default());
+        let intent = intent_to("b", SimId::placement("triggerer"));
+        let mut state = RoomTransitionLoadState::default();
+        state.active = Some(authorized_transaction(intent.clone()));
+        world.insert_resource(state);
+
+        retire_cancelled_room_transition(&mut world, &intent);
+
+        assert!(
+            world.resource::<RoomTransitionLoadState>().active.is_none(),
+            "the cancelled crossing left its authorized transaction resident; the next \
+             crossing to the same destination will match it and commit under a plan \
+             prepared for a crossing that never happened"
+        );
+    }
+
+    /// ⛔ **and ONLY the one it opened.** A crossing is cancelled because its body
+    /// is gone, not because room transitions are off. Retiring whatever happens
+    /// to be active would take out an unrelated transaction — another
+    /// participant's crossing, in the same frame.
+    #[test]
+    fn a_cancelled_crossing_leaves_somebody_else_s_transaction_alone() {
+        let mut world = World::new();
+        world.insert_resource(ambition_load::LoadCoordinator::default());
+        let theirs = intent_to("c", SimId::player_slot(1));
+        let mut state = RoomTransitionLoadState::default();
+        state.active = Some(authorized_transaction(theirs));
+        world.insert_resource(state);
+
+        retire_cancelled_room_transition(&mut world, &intent_to("b", SimId::placement("gone")));
+
+        assert!(
+            world.resource::<RoomTransitionLoadState>().active.is_some(),
+            "a cancelled crossing retired a transaction that belonged to a different \
+             crossing entirely"
+        );
+    }
+
     #[test]
     fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();

@@ -283,13 +283,39 @@
     must be NAMED before being compared; and the state must be sampled on the
     NEAR side of the step, because a commit retires the transaction it committed
     and the far side reads `None`.
-  - ▢ **cancellation is asymmetric, and both halves need pinning.** A confirmed
-    `CommitOutcome::Cancelled` clears the pending intent but leaves the authorized
-    transaction alive; presentation `Cancel`/`Quit` retires the transaction but
-    leaves the intent pending, so `begin` can reopen the same crossing next
-    frame. ⚠ measure before changing: clearing rollback-registered
-    `PendingLifecycleCommit` from host-side `Update` is the trap Retry was
-    rewritten to avoid.
+  - ◐ **cancellation is asymmetric. HALF A IS FIXED; half B was measured and is
+    a different question than this row assumed.**
+
+    ▣ **Half A — a confirmed `Cancelled` left its transaction behind.** It
+    dropped the intent only, leaving the authorized transaction resident in
+    `CommitAuthorized` with its load barrier never retired. Nothing would ever
+    come back for it: `begin_room_transition_load_system` returns early whenever
+    no intent is pending, so the orphan simply sat there — and the next crossing
+    to the SAME destination matches `same_destination`, returns early against the
+    orphan, and commits under a plan prepared for a crossing that was cancelled.
+    `retire_cancelled_room_transition` now closes it, matching on the INTENT so a
+    void crossing cannot retire somebody else's transaction opened the same
+    frame. Pinned by a pair: the invariant, and the poison that it retires only
+    its own. ⚠ **no `GameMode` restore, deliberately** — only a rollback host
+    reaches here and it never entered `RoomTransition` (that set is guarded on
+    `!is_rollback_host` because it gates the sim systems and desynced the
+    checksum). ⚠ what is NOT pinned is the one-line call site; a void-crossing
+    harness test would need a body that dies inside the confirmation delay.
+
+    ▢ **Half B is not the bug this row described.** The "presentation
+    `Cancel`/`Quit`" path is `finalize_unpresented_room_transition_failure_system`,
+    and it retires a **Failed** transaction in hosts that install no presentation
+    adapter — a windowed host deliberately keeps a failed transaction resident so
+    the loading foreground can offer retry/cancel. Leaving the intent pending
+    there is not obviously wrong: the body is still standing in the exit, so the
+    crossing is still WANTED, and reopening is what retry means. What the
+    measurement actually shows is an **unbounded retry with no backoff and no
+    report**: a deterministically-failing target in a headless host reopens a
+    fresh transaction every few frames forever. ⛔ that is a product question
+    (how many attempts before a headless host gives up, and who hears about it),
+    not a symmetry defect — and the fix is NOT to clear the intent from
+    host-side `Update`, which is the rollback-state trap Retry was rewritten to
+    avoid.
   - ▢ the neighbour-prefetch measurement below, now that `prefetch_hit` is
     populated on the route players take.
   - ▢ readiness that begins on a PREDICTED intent — deliberately not taken,

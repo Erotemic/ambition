@@ -624,6 +624,42 @@ pub(crate) fn perception_body_for(
                         }
 }
 
+
+/// **Where this body BELIEVES its target is, after seeing and remembering.**
+///
+/// Sight and memory are one answer, so they are one call: the belief store is
+/// updated from what the body just saw, and the target it then reports may come
+/// from either. Splitting them let a caller update memory and forget to consult
+/// it, or consult it without updating.
+///
+/// `None` means the policy does not override — an `Omniscient` body already
+/// carries the global target and simply knows. `Some(None)` means a sighted body
+/// perceives nobody, which is a real answer (idle), not a missing one.
+pub(crate) fn believed_target(
+    policy: Perception,
+    view: &ambition_characters::perception::WorldView,
+    mut memory: Option<&mut PerceptionMemory>,
+    dt: f32,
+) -> Option<Option<ae::Vec2>> {
+    if let Some(mem) = memory.as_deref_mut() {
+        mem.0.update(view, dt);
+    }
+    match policy {
+        Perception::Omniscient => None,
+        // The nearest foe IN VIEW, or when none is visible the most-confident foe
+        // the body REMEMBERS — pursuit of one that left the viewport (invariant
+        // I6).
+        Perception::Sighted { .. } => Some(
+            view.nearest_hostile().map(|a| a.pos).or_else(|| {
+                memory
+                    .as_deref()
+                    .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
+            }),
+        ),
+    }
+}
+
+
 /// **What a body can perceive this tick, as one parameter.**
 ///
 /// The three channels a brain's world-out view needs are collected by three

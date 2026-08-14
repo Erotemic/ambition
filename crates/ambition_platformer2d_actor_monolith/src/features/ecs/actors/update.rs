@@ -607,36 +607,23 @@ pub fn tick_actor_brains(
                         viewport_half,
                         sim_now,
                     );
-                    if let Some(mem) = perception_memory.as_deref_mut() {
-                        mem.0.update(&world_view, dt);
-                    }
-                    match perception_policy {
-                        // OMNISCIENT (fixtures + any body not granted senses): the snapshot
-                        // already carries the global `ActorTarget` (`target_pos`/
-                        // `target_alive` from `build_enemy_brain_snapshot`) — nothing to
-                        // override, the body simply knows.
-                        super::super::perception::Perception::Omniscient => {}
-                        // SIGHTED: the brain observes its foe through the world-out port —
-                        // redirect the snapshot's target onto the nearest foe IN VIEW, or,
-                        // when none is visible, the most-confident foe the body REMEMBERS
-                        // (pursuit of one that left the viewport, invariant I6). Perceiving
-                        // nobody ⇒ no target (idle).
-                        super::super::perception::Perception::Sighted { .. } => {
-                            let perceived =
-                                world_view.nearest_hostile().map(|a| a.pos).or_else(|| {
-                                    perception_memory
-                                        .as_deref()
-                                        .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
-                                });
-                            match perceived {
-                                Some(pos) => {
-                                    snapshot.target_pos = pos;
-                                    snapshot.target_alive = true;
-                                }
-                                None => {
-                                    snapshot.target_pos = em.kin.pos;
-                                    snapshot.target_alive = false;
-                                }
+                    // Sight and memory answer together; an `Omniscient` body
+                    // already carries the global `ActorTarget` and is not
+                    // overridden. Perceiving nobody is a real answer (idle).
+                    if let Some(believed) = super::super::perception::believed_target(
+                        perception_policy,
+                        &world_view,
+                        perception_memory.as_deref_mut(),
+                        dt,
+                    ) {
+                        match believed {
+                            Some(pos) => {
+                                snapshot.target_pos = pos;
+                                snapshot.target_alive = true;
+                            }
+                            None => {
+                                snapshot.target_pos = em.kin.pos;
+                                snapshot.target_alive = false;
                             }
                         }
                     }

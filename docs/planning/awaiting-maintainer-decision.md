@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **11 open** (recounted against the table 2026-08-13; D68 reopened, and six rows added for the decisions D96 had been holding out of sight)
+## ⇥ INDEX — **12 open** (recounted against the table 2026-08-13; D68 reopened, and six rows added for the decisions D96 had been holding out of sight)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -47,11 +47,12 @@ drift.
 | **Is `DeclaredCombatRules::unarmed_melee` scaffolding, or permanent architecture?** | P3.24 and P3.26's remaining ▢ | ▢ **needs Jon** on the RULESET half only — ⚠ **its second half is ANSWERED 2026-08-13**: *"seven peaceful characters re-authored as fighters"* was the wrong question, because a body fights exactly to the extent it has authored damaging abilities. ⭐ his ruling also constrains this one: *"a ruleset may restrict available verbs but does not create combat abilities that the body lacks"* |
 | ~~Does Carl Stargan fight?~~ (D96 5) | ~~one `REGISTERED_WITHOUT_A_BODY` entry~~ | ✔✔ **ANSWERED by Jon 2026-08-13, and then GENERALISED** — Carl does NOT fly; he fights because his BODY has authored abilities. ⛔⛔ **the question's own framing is now rejected**: *"there is no separate 'can fight' character property"* — never introduce a `can_fight`/`combatant`/peaceful-vs-fighter taxonomy. Both rulings in `maintainer-decisions.md` |
 | **Is a Sanic badnik the 1-HP wanderer its own file describes?** (D96 6) | the sanic demo's own row; the smallest of these and the only one confined to one demo | ▢ **needs Jon** — one yes/no |
+| **Which platform-fighter verbs does each creature AUTHOR?** (P3.25) | ⛔ the `(None, mode) => mode` GRANT scaffold, which cannot die while 12 of 14 fighters need it | ▢ **new 2026-08-14** — recommendation below, and it is a genre fact rather than a taste call |
 | **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O, and roughly WHEN?** (queue D68) | queue D70 (*"some blocks stay spent"*) waits on it, and every other explanation is now eliminated | ▢ **OPEN — this row said ANSWERED and its own section still asks the question** (corrected 2026-08-13) |
 
-⇒ **6 open** (the `small_lurker` row is applied-awaiting-veto, not waiting), and
-**two of them block CODE** — D23 (added 2026-08-10) and D68 (reopened
-2026-08-13, see below).
+⇒ **7 open** (the `small_lurker` row is applied-awaiting-veto, not waiting), and
+**three of them block CODE** — D23 (added 2026-08-10), D68 (reopened
+2026-08-13), and the platform-fighter verb question (added 2026-08-14).
 
 ⭐⭐ **FOUR ROWS CLOSED AT ONCE ON 2026-08-13**, in one unprompted handoff from
 Jon while the Authority Convergence campaign was running: the goblin-lab heavy
@@ -117,6 +118,65 @@ scoped, small, and waiting; none is blocked on unknowns, which is this file's
 entry condition.
 
 ---
+
+## Which platform-fighter verbs does each creature AUTHOR? (P3.25, 2026-08-14)
+
+⛔ **AUTHORING VERBS IS CURRENTLY A NERF, which is why exactly two characters do
+it.** `seat_abilities` = the character's authored verbs ∩ the mode's declared
+set. That intersection is right and is pinned — *a ruleset may FORBID and may
+never hand a body a verb it lacks* (`a_match_cannot_grant_a_verb_the_character_
+does_not_have`, probed RED by swapping intersect→union). The consequence is the
+problem: a character that authors `basic() + attack` — everything its archetype
+row actually stated — **LOSES** `shield`, `dodge`, `ledge_grab`, `double_jump`
+and `dash` on the smash stage, because today it receives those from the GRANT
+arm `(None, mode) => mode`. Migrating the goblin's verbs faithfully would ground
+it.
+
+⇒ **the grant arm is scaffolding that cannot die**, because dying requires every
+seated fighter to author the full platform-fighter set, and nobody will while
+authoring makes a character worse. `the_cast_that_states_its_own_verbs_only_grows`
+counts the adopters: **two** (`perfect_cellular_automaton`,
+`imperfect_cellular_automaton`).
+
+### ⭐ THE RECOMMENDATION — and it is RESEARCH, not taste
+
+**Author the full platform-fighter baseline on every seated fighter, and treat
+an ABSENCE as the authored statement.** In the genre this demo is modelled on,
+every fighter shields, dodges, grabs a ledge, double-jumps and dashes; those are
+not per-character flavour, they are the floor that makes the format legible. A
+creature that should NOT have one — a crawler with no double jump — says so by
+omitting it, deliberately, and that omission then means something.
+
+Under that rule the nerf disappears: the baseline is universal, so
+character ∩ mode = baseline, and authoring costs a character nothing. The grant
+arm loses its last consumer and is deleted, which is what P3.24 and P3.25 are
+both waiting on.
+
+### What each answer costs
+
+```text
+(a) universal baseline, absences authored   the grant arm DIES; ~12 characters
+    ⭐ recommended                          gain an authored AbilitySet; a
+                                            creature that should not shield must
+                                            be named, once, per creature
+
+(b) per-creature verb sets, no baseline     the grant arm STAYS forever, and the
+                                            mask keeps punishing whoever authors
+                                            first; the cast stays at two
+
+(c) drop the intersection, let the mode     ⛔ deletes the invariant a test
+    grant verbs a body lacks                 already pins, and hands a body a
+                                            verb its character denies
+```
+
+⚠ **(c) is listed to be refused, not chosen** — it is the shape
+`a_match_cannot_grant_a_verb_the_character_does_not_have` exists to prevent.
+
+⚠ **the question that is genuinely yours** is the per-creature absence list: can
+a goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
+should not invent one; that is the same class as the five casting decisions this
+campaign already sent you.
+
 
 ## Who is the goblin lab's HEAVY? (Jon's magenta-box observation, 2026-08-10)
 

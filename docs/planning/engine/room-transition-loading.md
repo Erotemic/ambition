@@ -217,11 +217,47 @@
      transaction. Fixed by comparing the room ids by VALUE; a restore reproduces
      them, a hot-reload does not.
 
-  **Still owed:** the neighbour-prefetch measurement below (now that
-  `prefetch_hit` is populated on the route players take), and readiness that
-  begins on a PREDICTED intent rather than a confirmed one — deliberately not
-  taken here, because an orphaned transaction after a mispredicted crossing needs
-  its own cancellation rule.
+  ### ◐ Slice 3 (2026-08-14) — the authorized plan is the applied plan
+
+  ⛔⛔ **slice 2 used the transaction as a PERMISSION BIT.** The confirmed commit
+  waited for `CommitAuthorized` and then called `RoomConstructionPlan::prepare`
+  AGAIN — so readiness accounted for the assets of one plan and the world was
+  built from another, prepared a frame later. A content-epoch change in between
+  (a hot reload) and the transaction authorized E while the room was constructed
+  from E+1, which is the whole point of the transaction defeated silently.
+
+  **Landed:** `commit_transition` takes the `Arc<RoomConstructionPlan>` the
+  transaction prepared (`apply_to_world` became `&self` — every step already
+  borrowed, so consuming bought nothing and cost the caller that matters), and
+  `authorized_plan` refuses to hand it over unless the active transaction still
+  matches the pending intent, the content epoch, the session scope and the source
+  room it was prepared against. A mismatch WAITS: the intent is untouched and
+  `begin`'s ordinary supersession opens a fresh transaction.
+
+  **Still owed under this row, and none of it is cosmetic:**
+
+  - ▢ **ONE application operation.** `commit_transition` still hand-rolls the
+    apply that `commit_room_transition_geometry` performs for the eager path, and
+    says so (*"mirrors … kept in sync by the line comments below"*) — a fork
+    declaration. The seam is *"apply this PREPARED transition to this RECORDED
+    subject"*; the obstacle is that the eager side is a system with `SystemParam`s
+    and the confirmed side is `&mut World`, which `SystemState` bridges. ⛔ do not
+    bridge it with a callback or a context bag.
+  - ▢ **the epoch POISON test.** Prove that a transaction authorized under epoch
+    E does not commit after the epoch moves. The validation above is written; the
+    test that would have caught its absence is not.
+  - ▢ **cancellation is asymmetric, and both halves need pinning.** A confirmed
+    `CommitOutcome::Cancelled` clears the pending intent but leaves the authorized
+    transaction alive; presentation `Cancel`/`Quit` retires the transaction but
+    leaves the intent pending, so `begin` can reopen the same crossing next
+    frame. ⚠ measure before changing: clearing rollback-registered
+    `PendingLifecycleCommit` from host-side `Update` is the trap Retry was
+    rewritten to avoid.
+  - ▢ the neighbour-prefetch measurement below, now that `prefetch_hit` is
+    populated on the route players take.
+  - ▢ readiness that begins on a PREDICTED intent — deliberately not taken,
+    because an orphaned transaction after a mispredicted crossing needs its own
+    cancellation rule, which is the row above.
 
   **The field mapping, derived 2026-08-14 — the intent is a superset except in
   two places, and both are cheap:**

@@ -93,16 +93,25 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // ⚠ **returning is not dropping.** The intent stays pending and this runs
     // again next frame; the transaction is progressing in `Update` in between.
     // The other lifecycle variants open no transaction and are unaffected.
-    if matches!(kind, LifecycleIntent::Transition(_))
-        && !world
-            .get_resource::<crate::room_transition::RoomTransitionLoadState>()
-            .and_then(|state| state.active.as_ref())
-            .is_some_and(|active| {
-                active.phase == crate::room_transition::RoomTransitionLoadPhase::CommitAuthorized
-            })
-    {
-        return;
-    }
+    //
+    // ⛔⛔ **AND IT COMMITS THE PLAN THE TRANSACTION AUTHORIZED, NOT A FRESH
+    // ONE.** Waiting for `CommitAuthorized` and then calling
+    // `RoomConstructionPlan::prepare` again would use the transaction as a
+    // permission BIT and start construction over — so the readiness could
+    // authorize a plan built under content epoch E while the world got built from
+    // E+1, with the assets accounted for on the wrong one. `authorized_plan`
+    // hands over the exact `Arc<RoomConstructionPlan>` the transaction prepared,
+    // or refuses.
+    let authorized = match &kind {
+        LifecycleIntent::Transition(intent) => match authorized_plan(world, intent) {
+            AuthorizedPlan::Ready(plan) => Some(plan),
+            // Not yet, or no longer valid. Returning is not DROPPING: the intent
+            // stays pending and this runs again next frame while the transaction
+            // progresses (or is superseded) in `Update`.
+            AuthorizedPlan::Wait => return,
+        },
+        _ => None,
+    };
 
     // ATOMICITY: build the replacement session — the ONLY fallible step of the
     // whole commit — BEFORE any destructive mutation. It touches no world and
@@ -123,7 +132,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
 
     // Now the fallible work is done. Reconstruct the room (also atomic: it
     // prepares + preflights before its own infallible `apply_to_world`).
-    match execute_lifecycle_commit(world, &kind) {
+    match execute_lifecycle_commit(world, &kind, authorized) {
         // A transient failure (target room not preparable yet) changed nothing —
         // leave the intent pending to retry on a later confirmed frame and DROP
         // the already-built session (installing it without the op would rebase
@@ -167,6 +176,108 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     retire_committed_room_transition(world);
 
     install_rebased_sync_test_session(world, session, settings, owner);
+}
+
+/// The authorized plan, or a reason to wait.
+enum AuthorizedPlan {
+    Ready(std::sync::Arc<RoomConstructionPlan>),
+    Wait,
+}
+
+/// **Does an AUTHORIZED transaction still describe THIS crossing, and what plan
+/// did it authorize?**
+///
+/// ⛔⛔ **the transaction is not a permission bit.** Checking only
+/// `phase == CommitAuthorized` and then preparing a fresh plan means readiness
+/// authorized one construction and the world got another — the assets were
+/// accounted for on a plan nobody applied. Every term below is a way that can go
+/// wrong between the frame the transaction authorized and the frame this commits:
+///
+/// * a DIFFERENT intent — the transaction was superseded, or belongs to another
+///   crossing entirely;
+/// * a stale CONTENT EPOCH — the room set or a construction registry changed, so
+///   the prepared plan describes content that no longer exists (a hot reload is
+///   the ordinary way this happens, and `same_destination` already treats the
+///   epoch as identity for exactly this reason);
+/// * a different SESSION SCOPE — the session was torn down and rebuilt under the
+///   transaction;
+/// * a different SOURCE ROOM — something else moved the world since preparation,
+///   so the retirement half of the plan targets the wrong roster.
+///
+/// ⚠ **a mismatch WAITS rather than failing.** The pending intent is untouched
+/// and the readiness transaction is left to its own supersession path in
+/// `Update`: `begin` sees a still-pending intent whose destination no longer
+/// matches the active transaction, opens a fresh one, and this commits that.
+/// Failing here would need a cancellation contract for a crossing that is still
+/// perfectly wanted.
+fn authorized_plan(
+    world: &mut World,
+    intent: &ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent,
+) -> AuthorizedPlan {
+    // Everything the active transaction is compared against, copied out FIRST:
+    // the checks below query the world, and a live borrow of the load state
+    // would make that impossible.
+    let epoch = world
+        .get_resource::<crate::room_transition::RoomTransitionContentEpoch>()
+        .map(|epoch| epoch.get());
+    let session_scope = world
+        .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
+        .and_then(|scope| scope.current());
+    let source_room = {
+        let mut rooms = world.query::<&ambition_platformer2d_actor_monolith::rooms::RoomSet>();
+        rooms.iter(world).next().map(|set| set.active)
+    };
+    let Some(state) = world.get_resource::<crate::room_transition::RoomTransitionLoadState>()
+    else {
+        return AuthorizedPlan::Wait;
+    };
+    let Some(active) = state.active.as_ref() else {
+        return AuthorizedPlan::Wait;
+    };
+    if active.phase != crate::room_transition::RoomTransitionLoadPhase::CommitAuthorized {
+        return AuthorizedPlan::Wait;
+    }
+    if &active.intent != intent {
+        bevy::log::warn_once!(
+            "the authorized room transition describes a different crossing than the \
+             pending one ({:?} vs {:?}); waiting for a transaction that matches",
+            active.intent,
+            intent
+        );
+        return AuthorizedPlan::Wait;
+    }
+    let Some(plan) = active.construction_plan.clone() else {
+        // Authorized with no prepared plan is not a state the transaction should
+        // reach; say so rather than silently preparing one here.
+        bevy::log::error_once!(
+            "a room transition authorized its commit without a prepared construction \
+             plan; refusing to construct one at commit time"
+        );
+        return AuthorizedPlan::Wait;
+    };
+    if epoch != Some(active.content_epoch) {
+        bevy::log::warn_once!(
+            "the authorized room transition was prepared under content epoch {} and \
+             the world is now at {:?}; waiting for a transaction prepared against \
+             the current content",
+            active.content_epoch,
+            epoch
+        );
+        return AuthorizedPlan::Wait;
+    }
+    if session_scope != active.session_scope {
+        return AuthorizedPlan::Wait;
+    }
+    if source_room != Some(active.source_room) {
+        bevy::log::warn_once!(
+            "the authorized room transition was prepared from room index {} and the \
+             world is now in {:?}; waiting",
+            active.source_room,
+            source_room
+        );
+        return AuthorizedPlan::Wait;
+    }
+    AuthorizedPlan::Ready(plan)
 }
 
 /// Close out the readiness transaction a just-committed confirmed transition
@@ -220,25 +331,40 @@ enum CommitOutcome {
     Cancelled,
 }
 
-fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> CommitOutcome {
-    match kind {
-        LifecycleIntent::Transition(intent) => commit_transition(
+fn execute_lifecycle_commit(
+    world: &mut World,
+    kind: &LifecycleIntent,
+    // The plan the readiness transaction AUTHORIZED. `Some` for every transition
+    // that reaches here (`authorized_plan` returned it a moment ago); `None` for
+    // the variants that open no transaction.
+    authorized: Option<std::sync::Arc<RoomConstructionPlan>>,
+) -> CommitOutcome {
+    match (kind, authorized) {
+        (LifecycleIntent::Transition(intent), Some(plan)) => commit_transition(
             world,
+            &plan,
             &intent.subject,
             &intent.target_room,
             intent.arrival,
             intent.edge_exit,
             intent.zone_sfx.as_deref(),
         ),
+        // A transition with no authorized plan cannot reach here: the caller
+        // returns before building a session. Treated as transient rather than
+        // asserted, so a future caller cannot turn a mistake into a panic.
+        (LifecycleIntent::Transition(_), None) => CommitOutcome::Retry,
         // The in-place resets (death / manual / replay) are already rollback-safe
         // executed eagerly, and the full sandbox reset was proven rollback-safe
         // single-tick, so no consumer records these variants. Keep a stray intent
         // pending rather than laundering a rebase for a no-op; the match stays
         // exhaustive if deferral extends.
-        LifecycleIntent::DeathReset
-        | LifecycleIntent::ManualReset
-        | LifecycleIntent::Replay
-        | LifecycleIntent::FullReset => CommitOutcome::Retry,
+        (
+            LifecycleIntent::DeathReset
+            | LifecycleIntent::ManualReset
+            | LifecycleIntent::Replay
+            | LifecycleIntent::FullReset,
+            _,
+        ) => CommitOutcome::Retry,
     }
 }
 
@@ -279,24 +405,19 @@ fn resolve_transition_subject(
 /// here is a regression.
 fn commit_transition(
     world: &mut World,
+    // ⭐⭐ **THE PLAN THE READINESS TRANSACTION AUTHORIZED** (D71, 2026-08-14).
+    // This function used to call `RoomConstructionPlan::prepare` ITSELF, which
+    // made the transaction a permission bit: readiness accounted for the assets
+    // of one plan and the world was built from another, prepared a frame later
+    // and possibly under different content. The transaction's own plan is the
+    // only one whose assets were proven present.
+    plan: &RoomConstructionPlan,
     subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
-    target_room: &str,
+    _target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,
     zone_sfx: Option<&str>,
 ) -> CommitOutcome {
-    // Preparation is mutation-free and fallible — every room/content lookup
-    // happens here, before any world mutation. A failure commits NOTHING and is
-    // treated as TRANSIENT (the target room may become preparable later), so the
-    // caller keeps the intent pending.
-    let plan = match RoomConstructionPlan::prepare(world, target_room) {
-        Ok(plan) => plan,
-        Err(error) => {
-            error!("Track B: transition commit could not prepare room {target_room:?}: {error:?}");
-            return CommitOutcome::Retry;
-        }
-    };
-
     // Resolve + PREFLIGHT the subject BEFORE any destructive mutation (GPT review
     // #1/#2): everything that can fail must fail with the world still whole. A
     // subject that no longer resolves is a VOID crossing — the body that crossed

@@ -24,10 +24,10 @@ use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
-use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component, session_world_component_mut, ActiveSessionScope, SessionSpawnScope,
 };
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 
 /// Stable same-build identity for one prepared construction artifact.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -265,7 +265,8 @@ impl RoomConstructionPlan {
             room: spec.id.clone(),
             reason,
         })?;
-        let platform_states = ambition_platformer2d_world::platforms::moving_platforms_for_room(&spec);
+        let platform_states =
+            ambition_platformer2d_world::platforms::moving_platforms_for_room(&spec);
         let id = construction_plan_id(&spec, feature_plan.construction());
         Ok(Self {
             id,
@@ -443,7 +444,14 @@ impl RoomConstructionPlan {
     /// with the old room scope — the same exemption
     /// `commit_room_transition_geometry` gives it. `None` for the ordinary
     /// primary player, which is not room-scoped and so is never in `outgoing`.
-    pub fn apply_to_world(self, world: &mut World, carry_body: Option<Entity>) {
+    /// ⚠ **`&self`, not `self`** (D71, 2026-08-14). Every step below already
+    /// borrowed — `retire_outgoing`, `spawn_contents`, `spec`, `target_index`
+    /// all take `&self` — so consuming the plan bought nothing and cost the one
+    /// caller that matters: the confirmed room commit holds the plan the
+    /// readiness transaction PREPARED, behind the `Arc` the transaction also
+    /// holds, and could not move out of it. Taking a reference is what lets the
+    /// authorized plan be the applied plan instead of a freshly prepared twin.
+    pub fn apply_to_world(&self, world: &mut World, carry_body: Option<Entity>) {
         if let Some(mut pending) =
             world.get_resource_mut::<bevy::ecs::message::Messages<features::SpawnActorRequest>>()
         {

@@ -668,16 +668,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # stopped one crate short of the runtime that owns `bevy_ggrs` (2026-08-14).
     # A check cannot see that. A build can.
     #
-    # ⚠ **debug, and only the primary persona.** A linked wasm artifact is
-    # expensive; this buys the missing-import class for one composition rather
-    # than paying it twice. The served persona differs in ASSET TRANSPORT, not in
-    # its dependency graph, so it stays a check — if that ever stops being true,
-    # this is the line to change.
+    # ⚠ **RELEASE, and only the primary persona.** Release because that is what
+    # `build_for_web.sh` builds and what Jon's failure was — and because the same
+    # DCE/inlining that decides whether a bad extern survives to the link differs
+    # by profile, so a debug link is a weaker contract than the observed failure.
+    # One persona because a linked wasm artifact is expensive; the served persona
+    # differs in ASSET TRANSPORT, not in its dependency graph, so it stays a
+    # check — if that ever stops being true, this is the line to change.
     if not only and everything:
         if wasm_target_installed():
             jobs.append(Job(
-                "web build LINK [web]",
-                [CARGO, "build", "-p", "ambition_app", "--lib",
+                "web build LINK [web, release]",
+                [CARGO, "build", "-p", "ambition_app", "--lib", "--release",
                  "--target", "wasm32-unknown-unknown",
                  "--no-default-features", "--features", "web"]))
             jobs.append(Job(

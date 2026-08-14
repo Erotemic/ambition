@@ -25,9 +25,15 @@
 //! exclusive world once the originating frame can never be simulated again, and
 //! **rebases the session** so no earlier snapshot can restore the pre-op room.
 //!
-//! Non-rollback hosts (fixed-tick, render-frame, headless — no
-//! `ConfirmedFrameBoundary`) never record: the consumers execute eagerly exactly
-//! as before, so the shipped games are untouched.
+//! ⛔⛔ **AND SINCE D71 (2026-08-14) EVERY HOST RECORDS A ROOM TRANSITION.** This
+//! said non-rollback hosts *"never record: the consumers execute eagerly exactly
+//! as before"*, and for the in-place resets that is still true. It is no longer
+//! true of a transition: a crossing is described ONCE, here, on every host, and
+//! the readiness transaction is its only consumer. What still differs is WHEN
+//! the intent may be acted on — an eager host has no speculative frames, so it
+//! stamps frame `0` and its intent is confirmed on arrival, while a rollback host
+//! stamps the recording frame and waits for it. Two confirmation adapters, one
+//! description.
 
 use bevy::prelude::*;
 

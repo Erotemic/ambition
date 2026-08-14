@@ -177,40 +177,38 @@ than a fifth of a second of running.
    contract is exactly `rollout_k × (1 + rollout_depth)` shadow steps with no
    early exit, so reaching 24 ticks doubles the per-decision cost of every
    upper-ladder fighter.
-2. *Price the committed fall.* A body that is airborne, below the platform top
-   and outside `ground_span` is already dead whatever the horizon says — that is
-   the point of no return a human reads instantly. Pricing unrecoverable
-   TRAJECTORY rather than only achieved KO costs nothing per step and does not
-   move the budget.
+2. *Price the committed fall* — ⛔ **REFUSED (Jon, 2026-08-14).** The rule *a body
+   that is airborne, below the platform top and outside `ground_span` is already
+   dead* was implemented, measured (depth 12 went from 7.4s to 43.2s, surviving
+   past 60s), and then **removed**, because it is not body-generic and it is not
+   true. A body may still recover with air movement, a jump it has not spent,
+   flight, a wall, a ledge grab, a recovery attack, an impulse, a portal or a
+   grapple. It happened to hold for THIS stage and THIS fighter, which is exactly
+   what a Smash-specific approximation looks like from inside.
 
-**FIXED 2026-08-14, and the measurement moved.** Both changes landed:
+⇒ **the diagnosis stands and the fix is deferred, deliberately.** A committed-fall
+terminal value has to come from actual recoverability/reachability under the
+body's own capabilities — a future consumer of
+[`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)
+— or from a horizon long enough to contain the landing (option 1, at a known
+price). D72 does not invent an approximation for it now, and the fighter is not
+tuned further until higher-leverage architecture work is exhausted.
 
-```text
-                  before          after
-9 / depth 0     47.8s, 3 stocks   47.8s, 3 stocks   (unchanged, as expected)
-9 / depth 12     7.4s, 3 stocks   43.2s, 1 stock, survived >60s
-```
+⭐ **one half of the removed change was KEPT, because it is fidelity rather than
+heuristic.** `ShadowFighter::ground_level` was `view.on_ground.then(…)` — `None`
+for any airborne body — so the shadow of a falling body fell through the world
+forever and never landed. `WorldView::floor_below` was added beside
+`supporting_floor`: the supporting one answers *"what am I standing on"* and is
+right to give up when nobody is standing; a rollout asks *"what will I land on"*,
+which has an answer at any height. `ShadowState::from_perceived` seeds both
+`ground_span` and `ground_level` from it, and `advance_phase` lands the body on
+the floor that is actually there.
 
-⭐ **the rollout now HELPS instead of hurting.** Depth 12 went from six times
-worse than depth 0 to losing one stock where depth 0 loses three.
-
-⛔⛔ **and the committed-fall predicate alone did nothing — the first attempt
-measured IDENTICAL numbers.** Pricing an unrecoverable trajectory cannot fire
-when the model has no floor to be unrecoverable from, and
-`ShadowFighter::ground_level` was `view.on_ground.then(…)`: **`None` for an
-airborne body**, which is every body that is falling to its death. The blindness
-the earlier note called "survivable" was the whole mechanism.
-
-⇒ `WorldView::floor_below` was added beside `supporting_floor`. The supporting
-one answers *"what am I standing on"* and is right to give up when nobody is
-standing; a rollout is asking *"what will I land on"*, which has an answer at any
-height. `ShadowState::from_perceived` seeds both `ground_span` and `ground_level`
-from it.
-
-⚠ **the threshold is BELOW the lip, not past it.** Killing a body the moment it
-clears the edge both lies (it can still jump back) and freezes it mid-air, which
-broke the rollout guard that says a body must FALL off a platform. Unrecoverable
-is: out of air jumps, a body-height below the surface it left, still descending.
+⛔⛔ **and the measurement is the lesson: the terminal value alone changed
+NOTHING.** The first run with the predicate and without `floor_below` measured
+identical numbers to the baseline, because an unrecoverable-trajectory test
+cannot fire when the model has no floor to be unrecoverable from. Whatever
+replaces the refused rule needs the floor knowledge too.
 
 (The other two suspects are cleared: `started_offstage` resets the moment a body
 re-enters the box, so it cannot suppress a death for a fighter that walks out

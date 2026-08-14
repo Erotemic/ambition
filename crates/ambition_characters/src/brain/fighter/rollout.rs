@@ -504,8 +504,10 @@ impl ShadowState {
         let mut me = fighter_from_self(&view.self_view, gravity_down);
         me.ground_span = ground_span;
         // An airborne body has no `ground_level` of its own (it is not standing
-        // on anything), but it does have a surface it is falling toward, and the
-        // committed-fall test needs that height to mean anything.
+        // on anything), but it does have a surface it is falling TOWARD, and
+        // `advance_phase` needs that height to land it. Without it the shadow of
+        // every airborne body fell through the world forever, which is a worse
+        // model than the one the terrain actually supports.
         if me.ground_level.is_none() {
             me.ground_level = landing.map(|floor| floor.min.dot(down_unit(gravity_down)));
         }
@@ -651,47 +653,23 @@ pub fn shadow_step(
     //     an immediate KO is what removed the discrimination in the first place.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
         let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
-        // ⛔⛔ **A COMMITTED FALL IS A DEATH THE HORIZON CANNOT REACH.**
+        // ⛔⛔ **A COMMITTED FALL IS A DEATH THIS HORIZON CANNOT REACH — and the
+        // fix is NOT a predicate here.** Measured 2026-08-14: from the Smash
+        // platform's top the blast floor is 180px, 24 ticks at 2250px/s², while
+        // the level-9 horizon is 12. Stepping off the ledge therefore scores
+        // FREE, and a deeper search finds more ways to leave, every one of them
+        // free — depth 12 survived 7.4s against depth 0's 47.8s at 0% damage,
+        // because the fighters died before engaging.
         //
-        // Leaving the box is what this priced, and on a platform stage that
-        // consequence is simply too far away to be seen: from the Smash
-        // platform's top the box floor is 180px — 24 ticks at 2250px/s² — while
-        // the level-9 horizon is 12. Stepping off the ledge scored FREE, so a
-        // deeper search found more ways to leave, every one of them free.
-        // Measured 2026-08-14: rollout depth 12 survived 7.4s against depth 0's
-        // 47.8s, at 0% damage, because the fighters died before engaging.
-        //
-        // ⭐ so price the TRAJECTORY, not only the arrival. A body that is
-        // airborne, past the floor it was standing on, falling, and out of air
-        // jumps has no action left that changes where it lands — which is the
-        // point of no return a human reads instantly and the search could not.
-        // This costs nothing per step and leaves the deterministic budget
-        // (`rollout_k × (1 + depth)`, no early exit) exactly as it was.
-        //
-        // ⚠ **the test for it is BELOW the floor, not past the lip.** A body that
-        // has just cleared the edge is falling and can still jump back; killing
-        // it there both lies and freezes it mid-air, which broke
-        // `a_shadow_body_driven_past_the_platforms_edge_falls_off_it` — the
-        // guard that says the model must let a body FALL. The unrecoverable
-        // state is: out of air jumps, already sunk a body-height below the
-        // surface it left, and still descending.
-        const BELOW_THE_LIP: f32 = 48.0;
-        let doomed = !fighter.koed
-            && !fighter.on_ground
-            && fighter.air_jumps == 0
-            && fighter.vel.dot(down) > 0.0
-            && fighter
-                .ground_span
-                .zip(fighter.ground_level)
-                .is_some_and(|((min, max), level)| {
-                    let lateral = fighter.pos.dot(frame.side);
-                    let depth = fighter.pos.dot(down);
-                    (lateral < min || lateral > max) && depth > level + BELOW_THE_LIP
-                });
-        if doomed {
-            fighter.koed = true;
-            events.push(ShadowEvent::Ko { of_me });
-        }
+        // ⛔ the tempting terminal value — *airborne, below the floor's top,
+        // outside its span ⇒ already dead* — is REFUSED (Jon, 2026-08-14). It is
+        // not body-generic and it is not true: a body may still recover with air
+        // movement, a jump it has not spent, flight, a wall, a ledge grab, a
+        // recovery attack, an impulse, a portal or a grapple. A terminal value
+        // for a fall has to come from actual reachability under THAT body's
+        // capabilities (a future consumer of
+        // `platformer-navigation-and-reachability`) or from a horizon long
+        // enough to contain the landing. Not from a Smash-shaped guess.
         if !fighter.koed && outside && !fighter.started_offstage {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });

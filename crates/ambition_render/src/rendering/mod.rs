@@ -73,6 +73,7 @@ mod item_visuals;
 pub mod label_layout;
 pub mod mark_beacon;
 pub mod morph_ball;
+pub mod moving_platforms;
 mod nameplates;
 mod parallax;
 mod primitives;
@@ -280,6 +281,13 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
+                    // ⭐ **the moving platform, drawn like every other feature.**
+                    // Its picture used to be spawned inside the room-construction
+                    // transaction, by the actor monolith, which is why the visual
+                    // adapter could not follow the state into the world crate.
+                    // Reconciled from `MovingPlatformSet` here, it derives and
+                    // never writes — see `moving_platforms`.
+                    moving_platforms::sync_moving_platform_visuals,
                 )
                     .after(item_visuals::report_unloadable_item_art)
                     .run_if(session_presentation_is_ready),

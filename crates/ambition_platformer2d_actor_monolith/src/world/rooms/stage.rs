@@ -24,7 +24,6 @@ use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
-use crate::world::platforms;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component, session_world_component_mut, ActiveSessionScope, SessionSpawnScope,
@@ -369,12 +368,11 @@ impl RoomConstructionPlan {
             self.predicted_authoritative_ids(),
             "room construction execution diverged from its prepared root roster",
         );
-        platforms::spawn_moving_platforms(
-            commands,
-            self.session_scope,
-            &self.spec().world,
-            &self.platform_states,
-        );
+        // ⛔ **no platform VISUAL is spawned here any more.** The commit installs
+        // platform STATE (the receipt below counts it); the picture is
+        // reconciled by a render family from `MovingPlatformSet`, like every
+        // other room feature. That is what let the visual adapter leave the
+        // actor monolith at all — see `world::platforms`.
         commands.insert_resource(LastRoomConstructionCommit {
             plan_id: self.id.clone(),
             room_id: self.room_id().to_string(),
@@ -933,16 +931,12 @@ mod tests {
             bevy::prelude::Update,
             move |mut reader: bevy::ecs::message::MessageReader<crate::rooms::RoomLoaded>,
                   commit: Option<bevy::prelude::Res<LastRoomConstructionCommit>>,
-                  platforms: bevy::prelude::Query<
-                &crate::world::platforms::MovingPlatformVisual,
-            >,
                   ids: bevy::prelude::Query<
                 &ambition_platformer2d_shared_tangle::sim_id::SimId,
             >| {
                 if reader.read().next().is_some() {
                     *sink.lock().unwrap() = Some((
                         commit.map(|c| c.moving_platform_count),
-                        platforms.iter().count(),
                         ids.iter().any(|id| id.as_str() == "placement:occupant"),
                     ));
                 }
@@ -955,7 +949,7 @@ mod tests {
         }
         app.update();
 
-        let (commit_platforms, platform_bodies, saw_occupant) = observed
+        let (commit_platforms, saw_occupant) = observed
             .lock()
             .unwrap()
             .expect("RoomLoaded must have published for a valid room");
@@ -964,10 +958,12 @@ mod tests {
             Some(1),
             "the last-commit receipt existed before RoomLoaded"
         );
-        assert_eq!(
-            platform_bodies, 1,
-            "the moving-platform body was spawned before RoomLoaded"
-        );
+        // ⚠ this used to ALSO count `MovingPlatformVisual`s, and that clause
+        // described machinery that deliberately no longer exists: the platform's
+        // picture left the transaction in 2026-08-14's carve and is reconciled by
+        // a render family from `MovingPlatformSet`. What the test defends is
+        // unchanged — the receipt, and therefore the room's STATE, is complete
+        // before `RoomLoaded` publishes.
         assert!(
             saw_occupant,
             "the authoritative occupant existed before RoomLoaded"

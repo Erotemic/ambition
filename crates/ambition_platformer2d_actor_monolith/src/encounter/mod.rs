@@ -69,7 +69,10 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
         app.add_systems(
             sim,
             (
-                crate::world::platforms::sync_moving_platform,
+                // ⛔ `sync_moving_platform` stood here and is DELETED. Platform
+                // pictures are reconciled by a render family from
+                // `MovingPlatformSet` now, in `Update`, not by a sim-schedule
+                // system in the actor monolith — see `world::platforms`.
                 // ⭐⭐ **IT RUNS ONLY WHERE THERE ARE ENCOUNTERS** (ledger D88,
                 // 2026-08-11). Its query is `Query<&Encounter, ..>`, so with none
                 // in the world it had nothing to do — but it takes SIX plain

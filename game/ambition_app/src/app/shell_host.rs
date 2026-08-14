@@ -402,7 +402,9 @@ fn ambition_activate_session_visuals(
         let Some(world_entity) = active_session.active_world_entity() else {
             continue;
         };
-        let Ok((geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
+        // ⭐ the room GEOMETRY is no longer read here: the dressing wanted it only
+        // to place moving-platform sprites, and those are a render family's now.
+        let Ok((_geometry, room_set, runtime_rooms)) = session_worlds.get(world_entity) else {
             continue;
         };
         let scope = ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
@@ -413,8 +415,6 @@ fn ambition_activate_session_visuals(
             &mut commands,
             scope,
             super::scene_setup::SessionDressingSetup {
-                world: geometry,
-                room_set,
                 ui_fonts: ui_fonts.as_deref(),
             },
         );

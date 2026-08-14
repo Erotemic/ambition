@@ -12,19 +12,16 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition_platformer2d::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
 // The platform VISUAL spawn is presentation and lives in the actor monolith;
 // the platform STATE it renders is the world crate's and is named there.
-use ambition_platformer2d::actors::world::platforms;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::SfxBankResource;
-use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
@@ -257,33 +254,30 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 }
 
 /// Borrowed inputs for [`session_gameplay_dressing`].
+///
+/// ⭐ **it carried the room geometry and the room set, and they are gone.** They
+/// existed for the moving-platform visual spawn; when that left for a render
+/// family the compiler reported them unused, which is the deletion this carve
+/// was actually worth. The dressing is text widgets now, and its signature says
+/// so.
 pub struct SessionDressingSetup<'a> {
-    pub world: &'a RoomGeometry,
-    pub room_set: &'a RoomSet,
     pub ui_fonts: Option<&'a UiFonts>,
 }
 
-/// The Ambition-specific SESSION dressing: moving platforms and the
-/// marker-tagged HUD/quest text widgets. Split from the generic
-/// room visuals so the shell host can delegate parallax/room visuals to the
-/// provider-agnostic `SessionRoomVisualsPlugin` (one system serves every
-/// linked game) while Ambition keeps its own dressing.
+/// The Ambition-specific SESSION dressing: the marker-tagged HUD/quest text
+/// widgets. Split from the generic room visuals so the shell host can delegate
+/// parallax/room visuals to the provider-agnostic `SessionRoomVisualsPlugin`
+/// (one system serves every linked game) while Ambition keeps its own dressing.
 pub fn session_gameplay_dressing(
     commands: &mut Commands,
     scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     params: SessionDressingSetup<'_>,
 ) {
-    let world = params.world;
-    let room_set = params.room_set;
     let ui_fonts = params.ui_fonts;
-    platforms::spawn_moving_platforms(
-        commands,
-        scope,
-        &world.0,
-        &ambition_platformer2d::world::platforms::moving_platforms_for_room(
-            room_set.active_spec(),
-        ),
-    );
+    // ⛔ **the moving platforms' visuals are no longer spawned here.** They are
+    // reconciled by a render family from the authoritative `MovingPlatformSet`,
+    // like every other room feature — see
+    // `ambition_render::rendering::moving_platforms`.
 
     // The player's character sprite is NO LONGER bound here. It is installed by
     // the reusable `bind_worn_character_presentation` system (in

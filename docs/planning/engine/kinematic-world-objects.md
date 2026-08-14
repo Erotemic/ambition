@@ -250,6 +250,30 @@ A published view is not a second authority — it is derived each tick from
 `MovingPlatformSet` like every other row — but the rebuild must be shown to
 survive a room change and a rollback restore, which is the test this slice owes.
 
+**DONE 2026-08-14 — and the deletion went further than the plan expected.**
+`ambition_render::rendering::moving_platforms` reconciles the visuals from the
+authoritative set: spawn what is missing, retire what left, move and resize the
+rest. Deleted with it: `MovingPlatformVisual` and `spawn_moving_platform(s)` and
+`sync_moving_platform` from the actor monolith (the module is now a note saying
+where they went), the spawn inside `spawn_contents`, the app-side dressing call,
+and the rollback-coverage waiver that existed only to excuse the component.
+
+⭐ **the compiler then found more.** With the platform spawn gone,
+`SessionDressingSetup`'s `world` and `room_set` fields were unused — they existed
+for that one call — so the dressing's whole signature shrank to the text widgets
+it actually installs, and the shell host stopped reading the room geometry there.
+That is the campaign's method working as advertised: delete the root, let the
+compiler expose the survivors.
+
+⚠ **the property the old code lost is the one now pinned.** A pure reconcile has
+nothing to remember, so it cannot clobber a restored set — the test drives the
+set to a new position with no event at all (which is what a rollback restore or a
+room change looks like from here) and asserts the visual follows rather than
+sitting at its authored start.
+
+⇒ carve step 2 is closed, and step 4 (an explicit dynamic-geometry overlay/query)
+is the remaining one.
+
 Remaining after that: give collision an explicit dynamic-geometry overlay/query
 if measurement shows that is cleaner than rebuilding a world per reader.
 

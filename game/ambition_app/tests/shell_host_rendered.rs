@@ -207,7 +207,9 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         "{context}: no gameplay map root",
     );
     assert_eq!(
-        count::<ambition_platformer2d::actors::world::platforms::MovingPlatformVisual>(app),
+        count::<ambition_platformer2d::render::rendering::moving_platforms::MovingPlatformVisual>(
+            app,
+        ),
         0,
         "{context}: no moving-platform presentation",
     );

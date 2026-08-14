@@ -158,10 +158,6 @@ const WAIVED: &[(&str, &str)] = &[
         "authored shrine geometry; the heal reads it and never writes it",
     ),
     (
-        "ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformVisual",
-        "presentation index for the platform's sprite",
-    ),
-    (
         "ambition_portal2d::link::PortalLink",
         "authored portal channel identity, hashed at spawn",
     ),

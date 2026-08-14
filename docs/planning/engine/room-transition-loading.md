@@ -13,6 +13,30 @@
   bypass the canonical construction plan. Reconcile confirmed-frame commitment
   with the normal transition transaction rather than maintaining two loaders.
 
+  **Anchor recomputed 2026-08-14 and it still holds**, unchanged from the
+  2026-08-09 census: fixed-tick host 11 room changes / 11 transactions / 0
+  deferred; ROLLBACK host 24 / **0** / 24. The shipped desktop binary composes
+  the rollback host, so the shipped game takes the transaction-free route on
+  every room change.
+
+  ⭐ **the two routes live in different schedules, and that is the actual
+  obstacle.** The transaction chain (`begin` → `authorize` → `finalize` →
+  `commit`) is registered in `app.sim_schedule()` — the REWOUND one under a
+  rollback host — while `commit_confirmed_lifecycle` runs after `RunGgrsSystems`,
+  deliberately outside it, because the load machine is not rollback-registered.
+
+  ⛔ **so the obvious fix is unsound, and the repo already knows why.** Having the
+  confirmed commit emit `RoomTransitionRequested` would put a message written
+  outside the rewound schedule in front of a consumer inside it — and that
+  message is registered with `clear_message_on_rollback`, so any rewind wipes it.
+  That is the cross-frame-message trap, not a scheduling detail.
+
+  ⇒ **the direction is to move the LOADER to the confirmed side, not to teach the
+  confirmed side to load.** The transaction machinery is already not
+  rollback-registered; scheduling it where the confirmed commit already runs is
+  what makes one loader possible. Size that against the other `RoomTransitionSet`
+  consumers before moving it.
+
 - ▢ **Finish canonical plan/provenance convergence.** Transition, reset, and
   reconstruction should consume the same prepared construction semantics; remove
   any remaining family-specific reconstruction/legacy adapter only after its

@@ -152,13 +152,47 @@ that plans twelve ticks ahead is choosing to leave.
   above, but it means the ledge-relative half of the model goes blind exactly
   during recovery.
 
-⇒ **the two live suspects are option SCORING and `started_offstage`**: does a
-predicted `Ko { of_me: true }` actually lose the option its score, and can a
-fighter that begins a rollout already outside the box have its own death
-suppressed for the whole horizon? Both are readable in
-`rollout.rs` around the KO event and in the option scorer; neither has been
-checked. Answering them is the next slice, and `ladder_probe`'s depth A/B is
-the instrument that will say whether it worked.
+⭐⭐ **MECHANISM, and it is arithmetic.** The rollout prices a KO when the body
+leaves the stage box — and on the Smash stage that consequence lies **beyond the
+search horizon**:
+
+```text
+platform top   y = 300      world box      640 x 480      gravity 2250 px/s²
+fall to the box floor       180 px    ⇒    t = √(2·180/2250) = 0.40s = 24 ticks
+rollout_depth (level ≥ 6)                                        12 ticks = 0.20s
+free fall within the horizon              ½·2250·0.2²    =        45 px
+```
+
+The death is at twenty-four ticks. The imagination stops at twelve. **Stepping
+off the ledge costs nothing inside the horizon**, so the option scores clean —
+and a deeper search simply finds more ways to leave, every one of them free.
+That is why depth 12 is worse than depth 0 rather than better: it is not a
+broken model, it is a model that stops looking one step before the cliff bites.
+Horizontally the same holds — 112 px from the platform lip to the box edge, more
+than a fifth of a second of running.
+
+⇒ **two candidate fixes, and they are not equivalent.**
+
+1. *Lengthen the horizon* past the fall. Honest but expensive: the module's
+   contract is exactly `rollout_k × (1 + rollout_depth)` shadow steps with no
+   early exit, so reaching 24 ticks doubles the per-decision cost of every
+   upper-ladder fighter.
+2. *Price the committed fall.* A body that is airborne, below the platform top
+   and outside `ground_span` is already dead whatever the horizon says — that is
+   the point of no return a human reads instantly. Pricing unrecoverable
+   TRAJECTORY rather than only achieved KO costs nothing per step and does not
+   move the budget.
+
+⚠ **not yet demonstrated**: the arithmetic explains every observation (self-KO at
+every rung, depth 12 six times worse, 0% damage because they die before
+engaging), but no fix has been run. `ladder_probe`'s depth A/B is the instrument
+— depth 0 at 47.8s versus depth 12 at 7.4s is a wide enough gap to read a change
+against.
+
+(The other two suspects are cleared: `started_offstage` resets the moment a body
+re-enters the box, so it cannot suppress a death for a fighter that walks out
+from inside; and `ground_span` feeds only `on_ground`, so it makes the body fall
+without ever raising a KO of its own.)
 
 Use the evaluation rig to determine whether the authored level ladder is
 meaningfully ordered. The historical target was that stronger levels beat weaker

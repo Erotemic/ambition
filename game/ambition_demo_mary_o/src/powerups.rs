@@ -614,6 +614,9 @@ pub fn bonk_power_blocks(
     mut struck: bevy::prelude::MessageWriter<
         ambition_platformer2d::platformer::block_nudge::BlockStruck,
     >,
+    // The coin a struck coin block visibly pays. Presentation only — the purse
+    // is credited below whether or not anything is drawing.
+    mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     // ⚠ **the WALLET rides the same query**, because a coin block credits the
     // body that struck it rather than a global counter — the same component the
     // vault's loose coins credit and the same one the HUD's COINS readout is
@@ -718,6 +721,12 @@ pub fn bonk_power_blocks(
                 if let Some(purse) = wallet.as_mut() {
                     purse.add(amount);
                 }
+                // ⭐ Jon: *"It just visually pops out a coin when you jump up
+                // into it."* One coin per payout, launched from the block's top
+                // face so it reads as coming OUT rather than through.
+                vfx.write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
+                    pos: ae::Vec2::new(pos.x, block_aabb.min.y),
+                });
                 // ⛔ **this was the `Hit` cue — the MASONRY THUNK — and the
                 // comment justifying it went stale.** It read *"there is no
                 // `Pickup` cue in the shared vocabulary yet"*, which was true
@@ -2023,6 +2032,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -2113,6 +2123,7 @@ mod tests {
             ae::RoomGeometry(world),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -2201,6 +2212,7 @@ mod tests {
             ae::RoomGeometry(world),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -2233,6 +2245,30 @@ mod tests {
             .expect("she has a wallet")
             .balance;
         assert_eq!(balance, 8, "the coin is credited on the strike");
+
+        // ⭐ Jon asked for the coin to be SEEN, not only counted: *"It just
+        // visually pops out a coin when you jump up into it."* The wallet
+        // assertion above passes with nothing drawn, which is exactly the state
+        // this block was in before — the counter worked and the coin was
+        // invisible.
+        let popped: Vec<_> = app
+            .world_mut()
+            .resource_mut::<bevy::prelude::Messages<ambition_platformer2d::vfx::VfxMessage>>()
+            .drain()
+            .filter(|message| {
+                matches!(
+                    message,
+                    ambition_platformer2d::vfx::VfxMessage::CoinPop { .. }
+                )
+            })
+            .collect();
+        assert_eq!(
+            popped.len(),
+            1,
+            "one strike pays one coin and should draw exactly one; none means \
+             the block credits an invisible coin, more than one means the payout \
+             ran twice"
+        );
         assert_eq!(
             app.world_mut()
                 .query::<&WorldItem>()
@@ -2284,6 +2320,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame

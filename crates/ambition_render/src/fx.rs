@@ -296,6 +296,9 @@ pub fn vfx_spawn_messages(
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
             VfxMessage::Impact { pos } => spawn_impact(&mut commands, spawn_scope, world, pos),
+            VfxMessage::CoinPop { pos } => {
+                spawn_coin_pop(&mut commands, spawn_scope, world, pos)
+            }
             VfxMessage::Explosion { pos, kind, scale } => {
                 spawn_explosion(
                     &mut commands,
@@ -855,6 +858,56 @@ pub fn spawn_burst(
             ),
         );
     }
+}
+
+/// **One coin, up and back down** — the acknowledgement a struck coin block owes.
+///
+/// A single ballistic particle rather than a burst: the coin leaves straight up,
+/// gravity brings it back, and it is gone inside a third of a second. It is
+/// presentation only — no collider, no pickup, no session state — because the
+/// block already credited the purse before this was written.
+///
+/// ⭐ **the four numbers are the whole feel and they are together on purpose.**
+/// Rise, gravity, size and colour are the dials worth turning; everything else
+/// about the effect follows from them.
+pub fn spawn_coin_pop(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    pos: ae::Vec2,
+) {
+    const RISE_SPEED: f32 = 260.0;
+    const FALL: f32 = 900.0;
+    const RADIUS: f32 = 5.0;
+    const GOLD: [f32; 4] = [1.0, 0.84, 0.22, 1.0];
+
+    let Some(session_scope) = session_scope else {
+        return;
+    };
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite::from_color(
+                rgba(GOLD[0], GOLD[1], GOLD[2], GOLD[3]),
+                BVec2::splat(RADIUS * 2.0),
+            ),
+            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
+            ParticleVisual {
+                kind: ParticleKind::Shard,
+                pos,
+                // ⚠ NEGATIVE y is up: world y is down-positive here.
+                vel: ae::Vec2::new(0.0, -RISE_SPEED),
+                age: 0.0,
+                // Long enough to rise and fall back past where it started.
+                lifetime: 2.0 * RISE_SPEED / FALL,
+                radius: RADIUS,
+                rgba: GOLD,
+                gravity: FALL,
+                // No drag: a coin arcs, it does not drift to a halt in the air.
+                drag: 0.0,
+            },
+        ),
+    );
 }
 
 pub fn spawn_dust(

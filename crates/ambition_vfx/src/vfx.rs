@@ -225,6 +225,20 @@ pub enum VfxMessage {
     Impact {
         pos: ae::Vec2,
     },
+    /// **A coin popping out of a struck block.**
+    ///
+    /// Jon, on the multi-coin block: *"It just visually pops out a coin when you
+    /// jump up into it. It's not a real coin entity, just a vfx and your coin
+    /// count directly goes up by 1."* The wallet is credited by the block's own
+    /// payout; this draws the acknowledgement and nothing else — one coin that
+    /// rises and falls, never something a body can collect or collide with.
+    ///
+    /// ⭐ its own variant rather than a one-particle `Burst`, because a burst
+    /// fans its particles around a circle: a single one leaves at whatever angle
+    /// index zero lands on, which is sideways. "Out of the block" means UP.
+    CoinPop {
+        pos: ae::Vec2,
+    },
     Explosion {
         pos: ae::Vec2,
         kind: ExplosionKind,

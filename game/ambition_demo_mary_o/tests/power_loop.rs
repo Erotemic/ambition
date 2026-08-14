@@ -92,6 +92,7 @@ impl Loop {
         // `sync_grown_form` now voices a transform chime through `SfxWriter`.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
 
         let size = ae::movement::default_player_body_size();
         let body = app
@@ -665,6 +666,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
@@ -829,6 +831,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
@@ -976,6 +979,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
@@ -1121,6 +1125,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
     // ⭐ every Mary-O enemy is a CHARACTER now (the plane swarms joined
@@ -1251,6 +1256,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     });
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
 
     // A full body standing ON the entry pipe's mouth.
@@ -1377,6 +1383,7 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
     });
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
 
     // A body with its head in the return pipe's mouth, which is where a player

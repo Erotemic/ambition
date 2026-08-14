@@ -87,15 +87,49 @@ same build, same seeds-are-deterministic brain. So the 3-seed default was
 producing confident nonsense, and it was the file's own default while its header
 warned *"the median over seeds, never one run"*. `DEFAULT_SEEDS` is now 15.
 
-**What the 15-seed run does and does not say.** It leans the intended way — the
-stronger rung outlasts the weaker in three of four pairs. It does **not**
-demonstrate an ordered ladder: every pair is still *within spread*, with ranges
-around 10–38s swamping medians 2–4s apart. ⇒ do not tune profile data against
-these numbers yet; the next move is more seeds (or a tighter bout) until a pair
-separates outside its spread, not a change to the brain.
+⛔⛔ **AND THEN THE ENGAGEMENT COLUMN LANDED AND VOIDED ALL OF IT.** The rig
+reported outlast times with no way to tell a duel from two solo walks off the
+edge — its own header demanded *"pair every 'it won' with 'and it engaged'"* and
+nothing did. Adding peak damage percent per seat:
 
-⚠ and the 6-vs-5 pair is the one to watch: it reports LOWER at both sample
-sizes, which is the only verdict that did not move.
+```text
+3 vs 1   0.03% : 0.09%      5 vs 3   0.30% : 0.03%
+6 vs 5   0.11% : 0.84%      9 vs 6   0.33% : 0.34%
+```
+
+A Smash KO lands north of 80%. **These fighters never hit each other.** Every
+"outlast" number above is measuring which body walked off the stage later, so
+the direction of the 15-seed lean says nothing about skill — that reading is
+withdrawn.
+
+⭐ **`ladder_probe` confirms it by a different route** (one fighter, opponent
+cannot attack, so every loss is a self-KO):
+
+```text
+level   first self-KO   survived   stocks lost   peak%
+    1        6.0s        12.2s          3          0%
+    3       11.1s        13.8s          3          0%
+    5       34.0s        36.5s          3          0%
+    6        5.6s         8.4s          3          0%
+    9        7.4s        17.7s          3          0%
+```
+
+Every rung loses all three stocks to itself, at 0% damage, exiting at |v| 760.
+⇒ **the ladder cannot be calibrated on outcomes until a duelist stops walking
+off the stage**, because suicide latency is the only thing these bouts measure.
+
+⭐⭐ **and the probe's clean A/B is the lead worth pulling.** Same level-9
+profile, only `rollout_depth` varied:
+
+```text
+9 / depth 0     47.8s to first self-KO,  54.3s survived
+9 / depth 12     7.4s to first self-KO,  17.7s survived
+```
+
+The L3 rollout — enabled automatically at level ≥ 6 — makes a fighter **more
+than six times worse** at staying on the stage. That is a decision-model
+finding, not a tuning one, and it is the first thing to investigate: a search
+that plans twelve ticks ahead is choosing to leave.
 
 Use the evaluation rig to determine whether the authored level ladder is
 meaningfully ordered. The historical target was that stronger levels beat weaker

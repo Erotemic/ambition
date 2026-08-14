@@ -71,6 +71,15 @@ struct Bout {
     /// three is a different result from one that survived with one, and the
     /// time column cannot tell them apart.
     stocks: [u32; 2],
+    /// Highest damage percent each seat ever carried.
+    ///
+    /// ⛔ **the column that says whether the other two mean anything.** This
+    /// file's own header demands it — *"pair every 'it won' with 'and it
+    /// engaged'. A fighter that stands still beats one that walks off the
+    /// stage"* — and it went a week reporting outlast times with no way to tell
+    /// a duel from two solo walks off the edge. A pair whose peaks stay near
+    /// zero was never a fight, whatever its verdict column says.
+    peak_percent: [f32; 2],
 }
 
 fn main() {
@@ -79,7 +88,7 @@ fn main() {
         return run_scenarios(seeds);
     }
     println!(
-        "[ladder_rig] higher vs lower   eliminated(hi:lo)     stocks   verdict   \
+        "[ladder_rig] higher vs lower   eliminated(hi:lo)     stocks    peak%(hi:lo)   verdict   \
          (median of {seeds} seeds, {}s each)",
         TICKS / 60
     );
@@ -261,8 +270,24 @@ fn report_row(label: &str, bouts: &[Bout]) {
     } else {
         verdict.to_string()
     };
+    let hi_peak = median(bouts.iter().map(|b| b.peak_percent[0]).collect());
+    let lo_peak = median(bouts.iter().map(|b| b.peak_percent[1]).collect());
+    // ⛔ **an unfought row is not a result.** Two fighters that never damaged
+    // each other produce an outlast time made of walking, and the verdict column
+    // would still name a winner. Say so on the row rather than in a footnote
+    // nobody reads next to the number.
+    // A Smash KO lands somewhere north of 80%. Anything under one percent is
+    // incidental contact, not a fight — and `f32::EPSILON` was the wrong
+    // threshold for that: the first run printed medians of 0.03%–0.84% and the
+    // marker stayed silent, which is precisely the row it exists to flag.
+    const FOUGHT_AT_ALL: f32 = 1.0;
+    let verdict = if hi_peak < FOUGHT_AT_ALL && lo_peak < FOUGHT_AT_ALL {
+        format!("{verdict} — BUT NEITHER LANDED A HIT")
+    } else {
+        verdict
+    };
     println!(
-        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}  {verdict}",
+        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}          {hi_peak:>6.2}% : {lo_peak:<6.2}%  {verdict}",
         span(&hi_all),
         span(&lo_all)
     );
@@ -359,6 +384,7 @@ fn run_bout_at(
     // answer — reading only at the end would report zero for both.
     let mut stocks = [ambition_demo_smash::STARTING_STOCKS; 2];
     let mut eliminated = [TICKS; 2];
+    let mut peak_percent = [0.0f32; 2];
     // ⛔ **a seat that has not ARRIVED yet is not an eliminated one, and the
     // first draft could not tell them apart.** Seating is a transaction that
     // takes frames, so both seats are absent on tick 0 — and reading absence as
@@ -392,12 +418,17 @@ fn run_bout_at(
             }
         }
         let world = app.world_mut();
-        let mut q = world.query::<(&MatchSeat, &FighterStocks)>();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &FighterStocks,
+            &ambition_platformer2d::characters::actor::BodyHealth,
+        )>();
         let mut seen = [false; 2];
-        for (seat, remaining) in q.iter(world) {
+        for (seat, remaining, health) in q.iter(world) {
             if seat.0 < 2 {
                 seen[seat.0] = true;
                 stocks[seat.0] = remaining.remaining;
+                peak_percent[seat.0] = peak_percent[seat.0].max(health.damage_percent());
             }
         }
         // An ELIMINATED seat stops existing — that disappearance is the event,
@@ -427,5 +458,9 @@ fn run_bout_at(
          stage",
         appeared.iter().position(|seen| !seen)
     );
-    Bout { eliminated, stocks }
+    Bout {
+        eliminated,
+        stocks,
+        peak_percent,
+    }
 }

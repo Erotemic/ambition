@@ -55,6 +55,25 @@ Needed fact: **was the report actually in Mary-O, and was it before or after
 2026-08-08?** If it was Ambition or Sanic, investigation should move to that
 host instead of changing Mary-O's proven replay path.
 
+### 5. Smash CPUs walk off the stage at every difficulty — is this news? (measured 2026-08-14)
+
+Not a decision so much as a finding you should see before it gets designed
+around. Two independent rigs agree: a Smash duelist loses all three stocks to
+ITSELF, at 0% damage, at every authored rung. In a real duel neither fighter
+exceeds 0.84% peak damage — they never hit each other; the "outlast" numbers the
+ladder rig reports are measuring who walked off later.
+
+The clean A/B, same level-9 profile with only `rollout_depth` varied: **depth 0
+survives 47.8s, depth 12 survives 7.4s.** The L3 rollout is enabled
+automatically at level ≥ 6, so the upper half of the ladder is the half that
+self-destructs fastest.
+
+⇒ engine-side this is a decision-model investigation (a twelve-tick search is
+choosing to leave the stage), and it blocks ladder calibration entirely. The
+question for you is priority: is CPU quality on the path to what Smash is for,
+or is it acceptable that CPUs are currently sparring partners that suicide?
+Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
+
 ### 5. What should fighter-vs-fighter hit emphasis do without the primary local seat? (former D114)
 
 `BodyCombat::hitstop_timer` is armed for every body, but the actor road does not

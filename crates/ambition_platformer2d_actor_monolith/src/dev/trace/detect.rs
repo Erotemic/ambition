@@ -199,7 +199,7 @@ pub fn build_frame(
     active_area: &str,
     seq: u64,
     tick: u64,
-    moving_platforms: &[crate::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
 ) -> GameplayTraceFrame {
@@ -254,7 +254,7 @@ pub fn build_frame(
 /// Snapshot all active moving platforms into trace shapes.
 fn build_moving_platform_states(
     clusters: &ae::BodyClustersMut<'_>,
-    moving_platforms: &[crate::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
 ) -> Vec<MovingPlatformTraceState> {
     let player_pos = clusters.kinematics.pos;
     let player_aabb = clusters.kinematics.aabb();

@@ -176,10 +176,31 @@ The remaining half is identity: path motion still carries a string `path_id`;
 move the relationship to typed/native reference authoring when a real authored
 path customer justifies that slice.
 
-### K3 — isolate dynamic geometry ownership
+### K3 — isolate dynamic geometry ownership — ROUTING DONE
 
-Give collision/room simulation a direct moving-geometry seam and remove
-unnecessary actor-monolith routing.
+**The monolith no longer re-exports world-owned platform state (2026-08-14).**
+`world::platforms` handed out `MovingPlatformSpec`, `MovingPlatformState`,
+`moving_platforms_for_room` and `world_with_moving_platforms` under an
+actor-monolith path, so every consumer that only wanted world state reached
+through the actor monolith to get it and read as depending on it: the provider's
+room lifecycle, the room-transition commit, `sim_view`'s facts, the portal host
+adapter, and five app-side call sites. All name
+`ambition_platformer2d_world::platforms` (or the facade's `world::platforms`)
+directly now, and deleting the re-export is what found them — including an unused
+crate-root `pub use` and an import left over in the debug overlay.
+
+What stays in the monolith is what genuinely belongs there: `MovingPlatformVisual`
+and the spawn/sync systems, which name Bevy sprite and lifecycle types. The
+acceptance line *"the world/provider path does not depend on the actor monolith
+merely to obtain moving-platform state"* holds.
+
+⚠ **no Cargo edge disappeared** — every repointed crate already depended on the
+world crate, and most still depend on the monolith for other reasons. This
+removes a false authority, not a compile unit; the compile payoff comes when the
+visual adapter moves to presentation ownership (carve step 2).
+
+Remaining: give collision an explicit dynamic-geometry overlay/query if
+measurement shows that is cleaner than rebuilding a world per reader.
 
 ### K4 — contact completeness
 

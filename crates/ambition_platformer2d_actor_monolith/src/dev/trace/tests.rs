@@ -28,8 +28,8 @@ fn scratch_from(scratch: &ae::BodyClusterScratch) -> ae::BodyClusterScratch {
     scratch.clone()
 }
 
-fn dummy_moving_platform() -> crate::world::platforms::MovingPlatformState {
-    crate::world::platforms::MovingPlatformState::from_authored(
+fn dummy_moving_platform() -> ambition_platformer2d_world::platforms::MovingPlatformState {
+    ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
         ae::Vec2::new(96.0, 80.0),
         ae::Vec2::new(80.0, 12.0),
         48.0,

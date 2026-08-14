@@ -1465,7 +1465,7 @@ fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
 #[test]
 fn a_portal_on_a_moving_platform_rides_its_host_face() {
     use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
-    use ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformState;
+    use ambition_platformer2d_world::platforms::MovingPlatformState;
     use ambition_platformer2d_world::collision::MovingPlatformSet;
 
     let mut app = App::new();

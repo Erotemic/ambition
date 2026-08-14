@@ -15,6 +15,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_platformer2d::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
+// The platform VISUAL spawn is presentation and lives in the actor monolith;
+// the platform STATE it renders is the world crate's and is named there.
 use ambition_platformer2d::actors::world::platforms;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
@@ -278,7 +280,9 @@ pub fn session_gameplay_dressing(
         commands,
         scope,
         &world.0,
-        &platforms::moving_platforms_for_room(room_set.active_spec()),
+        &ambition_platformer2d::world::platforms::moving_platforms_for_room(
+            room_set.active_spec(),
+        ),
     );
 
     // The player's character sprite is NO LONGER bound here. It is installed by

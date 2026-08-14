@@ -364,7 +364,7 @@ fn processor_warps_player_to_start_spawn() {
 #[test]
 fn processor_restores_authored_start_room_platform() {
     let mut app = min_app();
-    let authored = crate::world::platforms::MovingPlatformState::from_authored(
+    let authored = ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
         ae::Vec2::new(512.0, 900.0),
         ae::Vec2::new(128.0, 16.0),
         192.0,
@@ -382,7 +382,7 @@ fn processor_restores_authored_start_room_platform() {
         let mut platform_set =
             app.world_mut()
                 .resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>();
-        platform_set.0 = vec![crate::world::platforms::MovingPlatformState::from_authored(
+        platform_set.0 = vec![ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
             64.0,

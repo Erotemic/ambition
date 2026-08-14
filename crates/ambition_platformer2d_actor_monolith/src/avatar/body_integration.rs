@@ -26,7 +26,7 @@ use ambition_platformer2d_core as ae;
 use crate::features::ecs::attack::engine_input_from_actor_control;
 use crate::features::FeatureEcsWorldOverlay;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
-use crate::world::platforms::MovingPlatformState;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_world::collision::world_with_sandbox_solids;
 

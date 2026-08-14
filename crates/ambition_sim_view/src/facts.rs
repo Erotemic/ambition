@@ -727,7 +727,7 @@ pub fn rebuild_blink_preview_fact(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms(
+        ambition_platformer2d_world::platforms::world_with_moving_platforms(
             &world.0,
             &platform_set.0,
         );

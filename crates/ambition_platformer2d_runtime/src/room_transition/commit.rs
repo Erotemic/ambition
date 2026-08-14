@@ -186,7 +186,7 @@ pub fn load_room(
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
     moving_platforms: &mut Vec<
-        ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformState,
+        ambition_platformer2d_world::platforms::MovingPlatformState,
     >,
     dialogue: &mut ambition_dialog::DialogState,
     conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,

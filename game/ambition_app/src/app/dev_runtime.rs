@@ -356,7 +356,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     moving_platforms: &mut Vec<
-        ambition_platformer2d::actors::world::platforms::MovingPlatformState,
+        ambition_platformer2d::world::platforms::MovingPlatformState,
     >,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,

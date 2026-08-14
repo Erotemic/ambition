@@ -128,7 +128,6 @@ pub use world::{ldtk_world, rooms};
 pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
-pub use world::platforms::MovingPlatformState;
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Message, Resource};

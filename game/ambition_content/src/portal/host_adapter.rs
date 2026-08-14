@@ -27,7 +27,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms;
+use ambition_platformer2d_world::platforms::world_with_moving_platforms;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_portal2d::PlacedPortal;
 use ambition_platformer2d_world::collision::MovingPlatformSet;

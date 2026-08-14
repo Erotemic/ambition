@@ -116,7 +116,7 @@ pub(super) fn setup_simulation_system(
             asset_server: &asset_server,
         },
     );
-    platform_set.0 = ambition_platformer2d::actors::world::platforms::moving_platforms_for_room(
+    platform_set.0 = ambition_platformer2d::world::platforms::moving_platforms_for_room(
         room_set.active_spec(),
     );
     // `PlayerSafetyState::last_safe_pos` is initialized by the player

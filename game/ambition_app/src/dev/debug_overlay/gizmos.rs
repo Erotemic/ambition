@@ -275,7 +275,7 @@ pub(crate) fn draw_player_debug(
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
     motion_model: &ae::MotionModel,
-    moving_platforms: &[ambition_platformer2d::actors::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_platformer2d::world::platforms::MovingPlatformState],
     attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
     actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
     gameplay_active: bool,
@@ -423,7 +423,10 @@ pub(crate) fn draw_player_debug(
         && developer_tools.show_blink_preview
         && (controls.blink_held || facts.blink_aiming)
     {
-        let blink_world = platforms::world_with_moving_platforms(world, moving_platforms);
+        let blink_world = ambition_platformer2d::world::platforms::world_with_moving_platforms(
+            world,
+            moving_platforms,
+        );
         let (desired, target) = if facts.blink_aiming {
             let desired = pos + facts.blink_aim_offset;
             let target = ae::blink_destination_to_point_clusters(

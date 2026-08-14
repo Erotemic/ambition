@@ -24,7 +24,8 @@ use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
-use crate::world::platforms::{self, MovingPlatformState};
+use crate::world::platforms;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component, session_world_component_mut, ActiveSessionScope, SessionSpawnScope,
 };
@@ -265,7 +266,7 @@ impl RoomConstructionPlan {
             room: spec.id.clone(),
             reason,
         })?;
-        let platform_states = platforms::moving_platforms_for_room(&spec);
+        let platform_states = ambition_platformer2d_world::platforms::moving_platforms_for_room(&spec);
         let id = construction_plan_id(&spec, feature_plan.construction());
         Ok(Self {
             id,

@@ -1202,7 +1202,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         // Live moving-platform state derives from the activating room. Rooms
         // without authored platforms (every current demo) reset it to empty.
         self.moving_platforms.0 =
-            ambition_platformer2d_actor_monolith::world::platforms::moving_platforms_for_room(
+            ambition_platformer2d_world::platforms::moving_platforms_for_room(
                 live_world.room_set.active_spec(),
             );
 

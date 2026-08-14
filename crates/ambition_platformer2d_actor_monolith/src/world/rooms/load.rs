@@ -13,7 +13,7 @@ use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
-use crate::world::platforms::MovingPlatformState;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 use crate::RoomTransitionCooldown;
 use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d_core as ae;

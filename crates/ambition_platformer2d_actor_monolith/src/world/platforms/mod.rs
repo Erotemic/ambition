@@ -13,9 +13,15 @@ use bevy::prelude::*;
 
 use crate::platformer_runtime::lifecycle::RoomVisual;
 
-pub use ambition_platformer2d_world::platforms::{
-    moving_platforms_for_room, world_with_moving_platforms, MovingPlatformSpec, MovingPlatformState,
-};
+// ⛔ **the world-owned types are NOT re-exported here, and the absence is the
+// point.** This module used to hand out `MovingPlatformSpec`,
+// `MovingPlatformState`, `moving_platforms_for_room` and
+// `world_with_moving_platforms` under an actor-monolith path, so four consumers
+// that only wanted world state — the provider's room lifecycle, the room-
+// transition commit, `sim_view`'s facts and the portal host adapter — reached
+// through the actor monolith to get it, and read as depending on it. They name
+// `ambition_platformer2d_world::platforms` directly now. Import from the owner.
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 
 #[derive(Component)]
 pub struct MovingPlatformVisual {

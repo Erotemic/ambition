@@ -30,7 +30,7 @@ pub fn record_simulation_frame(
     sim_dt: f32,
     game_mode: &str,
     active_area: &str,
-    moving_platforms: &[crate::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
     timeline: (Option<ae::ConfirmedFrameBoundary>, bool),

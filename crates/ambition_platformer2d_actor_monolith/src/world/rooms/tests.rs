@@ -76,9 +76,17 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     // The vacated home avatar, far from the zone.
+    //
+    // ⚠ **the `SimId`s below are what CONSTRUCTION would have given these
+    // bodies**, not decoration: `ensure_sim_id` runs in the sim schedule on every
+    // host and files a `PrimaryPlayer` under `player_slot(0)` and an authored body
+    // under `placement(feature_id)`. These fixtures build their bodies by hand and
+    // never run it, so without this they model a body no construction path
+    // produces — and a crossing whose subject cannot be named is now refused.
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
         BodyKinematics {
             pos: ae::Vec2::new(1000.0, 1000.0),
             vel: ae::Vec2::ZERO,
@@ -89,12 +97,14 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     // The possessed actor the player is driving, standing IN the walk zone.
     let actor = app
         .world_mut()
-        .spawn(BodyKinematics {
+        .spawn((
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("possessed_actor"),
+            BodyKinematics {
             pos: zone_center,
             vel: ae::Vec2::ZERO,
             size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
-        })
+        }))
         .id();
     app.world_mut()
         .insert_resource(ControlledSubject(Some(actor)));
@@ -188,6 +198,9 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
+        // What `ensure_sim_id` gives a primary avatar on every host; see the
+        // note in `a_possessed_actor_triggers_a_room_transition_through_a_walk_zone`.
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
         BodyKinematics {
             pos: end,
             vel,
@@ -309,7 +322,13 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             size: body_half * 2.0,
             facing: 1.0,
         };
-        let mut entity = app.world_mut().spawn((PlayerEntity, PrimaryPlayer, body));
+        let mut entity = app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            // What `ensure_sim_id` gives a primary avatar on every host.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+            body,
+        ));
         if let Some(sample) = sample {
             entity.insert(sample);
         }

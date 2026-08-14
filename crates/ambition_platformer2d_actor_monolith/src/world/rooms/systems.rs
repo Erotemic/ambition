@@ -228,6 +228,20 @@ pub fn detect_room_transition_system(
             Some(RoomSfxId::new("world.portal.enter"))
         }
     };
+    // ⭐ **WHO is crossing, resolved ONCE and required by BOTH hosts.** This used
+    // to sit inside the rollback branch, because only the deferred intent named
+    // its subject — the eager message carried no subject at all and the commit
+    // re-derived `ControlledSubject`-or-primary several frames later. Two
+    // descriptions of one crossing that disagreed about the body is exactly the
+    // fork D71 exists to close, so the refusal below is now universal: a body we
+    // cannot name is a crossing we cannot describe, on any host.
+    let Ok(subject) = sim_ids.get(subject_entity) else {
+        bevy::log::error_once!(
+            "transition subject {:?} has no SimId; refusing an ambiguous crossing",
+            subject_entity
+        );
+        return;
+    };
     if let Some(boundary) = boundary {
         // Rollback host: record a deferred reconstruction intent instead of
         // firing the message. The host-side committer runs it on a confirmed
@@ -251,13 +265,6 @@ pub fn detect_room_transition_system(
             );
             return;
         };
-        let Ok(subject) = sim_ids.get(subject_entity) else {
-            bevy::log::error_once!(
-                "rollback transition subject {:?} has no SimId; refusing an ambiguous intent",
-                subject_entity
-            );
-            return;
-        };
         // Consume the gesture only after every invariant required to record the
         // deferred transition has been validated.
         slot_gestures.primary_mut().clear();
@@ -278,8 +285,11 @@ pub fn detect_room_transition_system(
         );
         return;
     }
-    // Eager hosts need no deferred stable identity, but still consume the press
-    // only once the transition is known to be actionable.
+    // Consume the press only once the transition is known to be actionable.
     slot_gestures.primary_mut().clear();
-    transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
+    transition_writer.write(RoomTransitionRequested::new(
+        zone,
+        subject.clone(),
+        zone_sfx,
+    ));
 }

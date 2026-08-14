@@ -276,3 +276,160 @@ fn a_room_change_on_the_shipped_host_opens_a_readiness_transaction() {
         rollback.deferred_intents,
     );
 }
+
+/// **The body that CROSSED is the body that ARRIVES — whoever is driving when
+/// the transaction finally commits.**
+///
+/// A room transition is not instantaneous: detection opens a readiness
+/// transaction and the authorized commit lands several frames later. Until
+/// 2026-08-14 `RoomTransitionRequested` carried no subject at all, so
+/// `commit_ready_room_transition_system` asked `ControlledSubject` — falling back
+/// to the primary player — at COMMIT time, under a comment claiming it was *"the
+/// same subject the detect side resolves"*. It is the same subject only while
+/// nothing changes hands in between, and possession, death and control handoff
+/// are exactly the things that do.
+///
+/// ⭐ **the rollback path never had this bug**, which is what makes it a
+/// convergence rather than a repair: `LifecycleIntent::Transition` has recorded
+/// `subject: SimId` at detection since Track B. D71 makes the richer contract the
+/// only one, and this is the behaviour that proves the message now carries it.
+///
+/// ⛔ **it names a body that is NOT the controlled one on purpose.** A test that
+/// transited the avatar would pass identically under the old code, because the
+/// avatar is what `ControlledSubject`-or-primary resolves to anyway. The summoned
+/// body is a subject nothing at commit time would ever guess.
+#[test]
+fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
+    const SUMMONED: &str = "d71_crossing_body";
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz()),
+    )
+    .expect("the harness builds");
+    for _ in 0..20 {
+        sim.step(base());
+    }
+    let start_room = active_room(&mut sim);
+
+    // A second body in the room, built the ordinary way, which is emphatically
+    // not the body anybody is driving.
+    sim.spawn_enemy_character_at(
+        SUMMONED,
+        "Crossing Body",
+        (620.0, 300.0),
+        (12.0, 16.0),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Passive,
+        "npc_puppy_slug",
+    );
+    for _ in 0..8 {
+        sim.step(base());
+    }
+
+    // ⚠ the id is READ off the body, never spelled: `SimId::placement(id)` would
+    // reproduce the construction site's spelling and agree with itself even if
+    // construction changed.
+    let subject = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(
+            &ambition_platformer2d::actors::features::FeatureId,
+            &ambition_platformer2d::platformer::sim_id::SimId,
+        )>();
+        query
+            .iter(world)
+            .find(|(feature, _)| feature.0 == SUMMONED)
+            .map(|(_, id)| id.clone())
+            .expect("the summoned body reached the world with an identity")
+    };
+
+    let transition = {
+        let world = sim.world_mut();
+        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let room_set = query
+            .iter(world)
+            .next()
+            .expect("the active room has a RoomSet");
+        let zone = room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
+            .cloned()
+            .expect("the start room authors a Door zone");
+        room_set
+            .transition_for_player(
+                zone.aabb,
+                ambition_platformer2d::engine_core::Vec2::ZERO,
+                true,
+            )
+            .expect("the authored door resolves to a transition")
+    };
+    let arrival = transition.arrival;
+    let avatar_before = primary_pos(&mut sim);
+
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
+            transition, subject, None,
+        ),
+    );
+
+    let mut room = start_room.clone();
+    for _ in 0..600 {
+        sim.step(base());
+        room = active_room(&mut sim);
+        if room != start_room {
+            break;
+        }
+    }
+    assert_ne!(
+        room, start_room,
+        "the transition never committed, so this test says nothing about WHICH \
+         body it moved"
+    );
+
+    let summoned_pos = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(
+            &ambition_platformer2d::actors::features::FeatureId,
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+        )>();
+        query
+            .iter(world)
+            .find(|(feature, _)| feature.0 == SUMMONED)
+            .map(|(_, kin)| kin.pos)
+            .expect(
+                "the recorded subject did not survive its own crossing — a carried \
+                 body must arrive, not be swept with the source room",
+            )
+    };
+    assert!(
+        summoned_pos.distance(arrival) < 32.0,
+        "the transition named the summoned body but landed it at {summoned_pos:?} \
+         instead of the arrival {arrival:?}. The commit is still deciding who \
+         transits from who is CONTROLLED rather than from who the request recorded"
+    );
+    let avatar_after = primary_pos(&mut sim);
+    assert!(
+        avatar_after.distance(arrival) > 32.0,
+        "the AVATAR was transited to {arrival:?} by a request that named another \
+         body ({avatar_before:?} -> {avatar_after:?}). That is the
+         `ControlledSubject`-at-commit-time fallback, and it moves whichever body \
+         happens to be driven when readiness finishes rather than the one that \
+         crossed"
+    );
+}
+
+/// The primary avatar's position — read the same way in both halves of the
+/// assertion above so a change of frame cannot flatter it.
+fn primary_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Vec2 {
+    let world = sim.world_mut();
+    let mut query = world.query_filtered::<
+        &ambition_platformer2d::actors::actor::BodyKinematics,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >();
+    query
+        .iter(world)
+        .next()
+        .expect("gameplay has a primary avatar")
+        .pos
+}

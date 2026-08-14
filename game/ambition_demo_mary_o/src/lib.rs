@@ -2418,6 +2418,14 @@ fn cycle_level_on_flag_tally(
     // can change.
     mut departing: bevy::prelude::Local<Option<String>>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
+    // The body the flag sequence drove to the pole, by stable identity. A
+    // transition names the body it moves (D71); the flag sequence drives the
+    // primary avatar, so that is the body leaving for the next level, and saying
+    // so stops the commit re-deriving a subject several frames later.
+    subjects: bevy::prelude::Query<
+        &ambition_platformer2d::platformer::sim_id::SimId,
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+    >,
     destination: Option<bevy::prelude::Res<LevelDestination>>,
     room_set: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -2562,6 +2570,13 @@ fn cycle_level_on_flag_tally(
         return;
     }
     let arrival = set.rooms[target_index].world.spawn;
+    // ⚠ no avatar, no crossing to describe. The sequence stays `Tallied` and this
+    // system re-asks every tick (see the ⛔ above), so returning here costs a
+    // frame rather than the level's departure.
+    let Ok(subject) = subjects.single() else {
+        return;
+    };
+    let subject = subject.clone();
     transitions.write(
         ambition_platformer2d::world::rooms::RoomTransitionRequested::new(
             ambition_platformer2d::world::rooms::RoomTransition {
@@ -2577,6 +2592,7 @@ fn cycle_level_on_flag_tally(
                 target_room: target_index,
                 arrival,
             },
+            subject,
             None,
         ),
     );

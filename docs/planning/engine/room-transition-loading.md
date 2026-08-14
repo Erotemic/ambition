@@ -144,6 +144,37 @@
   have GGRS frame semantics to share code; the shared thing is the intent, not
   the waiting.
 
+  ### ✔ Slice 1 landed 2026-08-14 — the transition names its subject
+
+  `RoomTransitionRequested` now carries `subject: SimId`, and all four origins
+  name one. Detection resolves it ONCE above the host fork, so the refusal
+  *"transition subject has no SimId; refusing an ambiguous crossing"* is universal
+  instead of rollback-only. `commit_ready_room_transition_system` resolves the
+  RECORDED id and cancels a vanished subject rather than substituting — the same
+  rule, in the same words, as the confirmed side's `resolve_transition_subject`.
+
+  ⭐ **the deletion: `ControlledSubject` and the `PrimaryPlayerOnly` fallback are
+  gone from `TransitBodies`.** They answered *"who is driving now"*, a different
+  question from *"who walked through the door"* the moment readiness spans more
+  than one frame. Proven by `the_recorded_subject_transits_rather_than_whoever_is_
+  controlled` (summons a body, names IT, asserts it arrives and the avatar does
+  not); PROBED by restoring the primary-player resolution, which turns it red.
+
+  ⭐ **dedup is now the semantic key** `(subject, target_room, arrival,
+  activation)` under session scope + content epoch — with the poison beside it:
+  same room, DIFFERENT arrival is not deduped. Two zones onto one arrival now
+  dedupe, which is what the caller's comment always claimed.
+
+  ⚠ **four fixtures were repaired rather than the rule weakened.** Three room
+  fixtures and one shrine fixture built bodies by hand and never ran
+  `ensure_sim_id`, so they modelled a body no construction path produces — and the
+  shrine's checkpoint-resume test had no body at all, for a system whose whole job
+  is putting one back.
+
+  **Still owed by later slices:** migrating the four origins onto the shared
+  semantic intent so the message type itself can die, the readiness/commit split,
+  and the schedule move.
+
   **The field mapping, derived 2026-08-14 — the intent is a superset except in
   two places, and both are cheap:**
 

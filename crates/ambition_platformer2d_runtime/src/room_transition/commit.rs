@@ -185,9 +185,7 @@ pub fn load_room(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
-    moving_platforms: &mut Vec<
-        ambition_platformer2d_world::platforms::MovingPlatformState,
-    >,
+    moving_platforms: &mut Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
     dialogue: &mut ambition_dialog::DialogState,
     conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
     combat: &mut ambition_characters::actor::BodyCombat,
@@ -279,15 +277,19 @@ pub fn load_room(
 /// The bodies a room transition can relocate, bundled into one `SystemParam` to
 /// keep `commit_ready_room_transition_system` under Bevy's 16-param limit.
 ///
-/// A transition moves the CONTROLLED (observed) body — the home avatar during
-/// normal play, or a possessed actor. `clusters` is body-generic (`ae::BodyClusterQueryData`
-/// matches every body: the home avatar AND actors carry the same movement clusters),
-/// so one `get_mut(subject)` relocates whichever body is driven. `presentation`
-/// holds the home-only blink-camera + respawn-point state (a possessed actor has
-/// neither); `primary` is the startup-frame fallback subject.
+/// A transition moves the body the REQUEST NAMED — the home avatar during normal
+/// play, a possessed actor, or whatever else crossed. `clusters` is body-generic
+/// (`ae::BodyClusterQueryData` matches every body: the home avatar AND actors
+/// carry the same movement clusters), so one `get_mut(subject)` relocates
+/// whichever body it is. `presentation` holds the home-only blink-camera +
+/// respawn-point state (a possessed actor has neither).
+///
+/// ⭐ **`ControlledSubject` and the primary-player fallback are GONE from here**
+/// (D71). They answered *"who is driving right now"*, which is a different
+/// question from *"who walked through the door"* the moment readiness takes more
+/// than one frame. The request carries the answer; this only resolves it.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TransitBodies<'w, 's> {
-    controlled: Option<Res<'w, ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
     /// The transiting body's movement policy — a room transition is a discrete
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
@@ -308,13 +310,42 @@ pub struct TransitBodies<'w, 's> {
         ),
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
-    primary: Query<'w, 's, Entity, ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly>,
+    /// Stable body identity — how the transiting subject is NAMED. The request
+    /// records a `SimId` at detection and this resolves it at commit; see
+    /// [`Self::subject_entity`].
+    sim_ids: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ),
+    >,
     /// The Class-B transit ledger (`docs/concepts/movement-collision.md`). It rides in
     /// this param because a room transition IS one of the four Class-B
     /// authorities, and this struct is the one that names the body it moves.
     /// `Option`, and bundled here rather than added to the system's signature —
     /// `commit_ready_room_transition_system` already sits at Bevy's 16-param ceiling.
     class_b: Option<ResMut<'w, ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
+}
+
+impl TransitBodies<'_, '_> {
+    /// Resolve the EXACT body a transition request recorded, or `None`.
+    ///
+    /// Mirrors the confirmed side's `resolve_transition_subject` in both
+    /// behaviour and REFUSAL: an id that still resolves gives that body, and one
+    /// that no longer resolves gives `None` — never a substitute. The crossing
+    /// body being gone is a void crossing, not a licence to move somebody else
+    /// into the room the player walked to.
+    fn subject_entity(
+        &self,
+        subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ) -> Option<Entity> {
+        self.sim_ids
+            .iter()
+            .find(|(_, id)| *id == subject)
+            .map(|(entity, _)| entity)
+    }
 }
 
 pub fn commit_ready_room_transition_system(
@@ -439,22 +470,32 @@ pub fn commit_ready_room_transition_system(
     }
 
     let request = active.request;
-    // The transition relocates the CONTROLLED body — the body the local player
-    // is driving (home avatar or possessed actor), falling back to the primary
-    // player at startup. This is the same subject the detect side resolves, so
-    // the body that CROSSED the seam is the body that ARRIVES.
-    let Some(subject) = transit
-        .controlled
-        .as_deref()
-        .and_then(|c| c.0)
-        .or_else(|| transit.primary.single().ok())
-    else {
+    // **The body that CROSSED is the body that ARRIVES** — resolved from the
+    // `SimId` the DETECTION recorded, never re-derived here.
+    //
+    // ⛔⛔ this asked `ControlledSubject`, falling back to the primary player,
+    // under a comment claiming *"this is the same subject the detect side
+    // resolves"*. A citation, and a false one across time: readiness takes
+    // several frames, and possession changing hands or a death inside that window
+    // silently transited a different body than the one that walked through the
+    // door. The rollback path never had this bug — `LifecycleIntent::Transition`
+    // has carried its subject since Track B — and D71 makes the richer contract
+    // the only one.
+    //
+    // A subject that no longer resolves is a VOID crossing: the crossing body is
+    // gone, so the transition FAILS rather than substituting whoever is driving
+    // now. Same rule, same words, as `commit_transition`'s confirmed side.
+    let Some(subject) = transit.subject_entity(&request.subject) else {
         super::loading::fail_room_transition_commit_precondition(
             &mut transition_state,
             &mut loads,
             &mut load_events,
             active.sequence,
-            "authorized room transition has no controlled or primary body".to_string(),
+            format!(
+                "the body that triggered this room transition ({:?}) no longer exists; \
+                 cancelling the crossing rather than transiting a substitute",
+                request.subject
+            ),
         );
         return;
     };

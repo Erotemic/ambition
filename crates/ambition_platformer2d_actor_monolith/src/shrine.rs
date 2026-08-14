@@ -164,6 +164,15 @@ pub fn restore_checkpoint_on_session_start(
         (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
         crate::actor::PrimaryPlayerOnly,
     >,
+    // The body being RESUMED, by stable identity. A transition names the body it
+    // moves (D71): the resume is the primary avatar by definition — it is the
+    // body the save is about — and saying so is what keeps the commit from
+    // asking, several frames later, whoever happens to be controlled then.
+    // Disjoint from `bodies`, which borrows no `SimId`.
+    subjects: Query<
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        crate::actor::PrimaryPlayerOnly,
+    >,
     mut applied_for: Local<Option<Option<u64>>>,
     mut routed_for: Local<Option<Option<u64>>>,
 ) {
@@ -215,26 +224,37 @@ pub fn restore_checkpoint_on_session_start(
             *applied_for = Some(generation);
             return;
         };
+        // ⚠ resolved BEFORE the latch: a session whose avatar has not been built
+        // yet cannot name its subject, and marking the route done would spend the
+        // once-per-session request on a crossing nobody could describe. Try again
+        // next tick instead.
+        let Ok(subject) = subjects.single() else {
+            return;
+        };
+        let subject = subject.clone();
         *routed_for = Some(generation);
-        transitions.write(ambition_platformer2d_world::rooms::RoomTransitionRequested::new(
-            ambition_platformer2d_world::rooms::RoomTransition {
-                // A synthetic zone: the resume is not a door anybody walked
-                // through, and `Door` is the activation that never fires on its
-                // own, so this cannot be re-triggered by proximity.
-                zone: ambition_platformer2d_world::rooms::LoadingZone {
-                    id: "checkpoint_resume".to_string(),
-                    name: "Checkpoint".to_string(),
-                    activation: ambition_platformer2d_world::rooms::LoadingZoneActivation::Door,
-                    aabb: ae::Aabb::new(
-                        ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
-                        ae::Vec2::ONE,
-                    ),
+        transitions.write(
+            ambition_platformer2d_world::rooms::RoomTransitionRequested::new(
+                ambition_platformer2d_world::rooms::RoomTransition {
+                    // A synthetic zone: the resume is not a door anybody walked
+                    // through, and `Door` is the activation that never fires on its
+                    // own, so this cannot be re-triggered by proximity.
+                    zone: ambition_platformer2d_world::rooms::LoadingZone {
+                        id: "checkpoint_resume".to_string(),
+                        name: "Checkpoint".to_string(),
+                        activation: ambition_platformer2d_world::rooms::LoadingZoneActivation::Door,
+                        aabb: ae::Aabb::new(
+                            ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                            ae::Vec2::ONE,
+                        ),
+                    },
+                    target_room,
+                    arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
                 },
-                target_room,
-                arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
-            },
-            None,
-        ));
+                subject,
+                None,
+            ),
+        );
         return;
     }
 

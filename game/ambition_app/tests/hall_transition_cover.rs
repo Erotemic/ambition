@@ -29,9 +29,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::load_presentation::{BasicLoadRoot, LoadForegroundPhase, LoadForegroundState};
 use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
+use ambition_platformer2d::game_shell::ShellCommand;
+use ambition_platformer2d::load_presentation::{
+    BasicLoadRoot, LoadForegroundPhase, LoadForegroundState,
+};
 
 /// The authored door from the hub. Named rather than "any zone" so this test
 /// fails loudly if the Hall stops being reachable, instead of quietly covering
@@ -105,7 +107,9 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     // The REAL transition, resolved through the room graph rather than
     // synthesised: stand in the Hall door and press interact.
     let transition = {
-        let mut query = app.world_mut().query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
             .active_loading_zones()
@@ -120,14 +124,33 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             })
             .clone();
         room_set
-            .transition_for_player(zone.aabb, ambition_platformer2d::engine_core::Vec2::ZERO, true)
+            .transition_for_player(
+                zone.aabb,
+                ambition_platformer2d::engine_core::Vec2::ZERO,
+                true,
+            )
             .expect("the hall door resolves to a transition")
     };
 
-    app.world_mut()
-        .write_message(ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
-            transition, None,
-        ));
+    // A transition names the body that is crossing (D71). This one is injected
+    // rather than walked, so the test names the avatar the same way detection
+    // would.
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world)
+            .next()
+            .expect("the hall has a primary avatar to send through its door")
+            .clone()
+    };
+    app.world_mut().write_message(
+        ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
+            transition, subject, None,
+        ),
+    );
     step(&mut app);
 
     // ── The bill arrives at once ────────────────────────────────────────────

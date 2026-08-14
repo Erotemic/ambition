@@ -120,20 +120,48 @@ impl RoomSfxId {
 /// the host's readiness-gated transition coordinator, which commits only after
 /// target preparation and one-shot authorization.
 ///
-/// Carries the resolved `RoomTransition` payload and the optional SFX id for the
-/// zone type so the apply system can emit the sound at the correct player position
-/// after repositioning.
+/// Carries the resolved `RoomTransition` payload, the SUBJECT that triggered it,
+/// and the optional SFX id for the zone type so the apply system can emit the
+/// sound at the correct player position after repositioning.
 #[derive(Message, Clone, Debug)]
 pub struct RoomTransitionRequested {
     pub transition: RoomTransition,
+    /// **WHICH BODY IS CROSSING** — named where the crossing is DETECTED, by the
+    /// stable identity that survives the frames of readiness in between.
+    ///
+    /// ⛔⛔ **it used to carry no subject at all, and the commit re-derived one.**
+    /// `commit_ready_room_transition_system` asked `ControlledSubject`, falling
+    /// back to the primary player, under a comment claiming *"this is the same
+    /// subject the detect side resolves"*. That is a citation, and a transition
+    /// takes several frames: possession changing hands, a death, or any control
+    /// handoff between the request and the authorized commit silently transited a
+    /// DIFFERENT body than the one that walked through the door.
+    ///
+    /// ⭐ **the rollback path already had this right.**
+    /// `LifecycleIntent::Transition` has recorded `subject: SimId` at detection
+    /// since Track B, precisely so a confirmation delay cannot change who
+    /// arrives. The two descriptions of one crossing now agree about the fact
+    /// that matters most, which is what lets one readiness transaction serve
+    /// both hosts (D71).
+    ///
+    /// ⚠ a `SimId`, not an `Entity`: identity has to outlive rollback entity
+    /// recreation, and `ensure_sim_id` runs in the sim schedule on EVERY host —
+    /// not only rollback ones — so every body carrying `BodyKinematics` and an
+    /// authored fact has one to name.
+    pub subject: ambition_platformer2d_shared_tangle::sim_id::SimId,
     /// SFX id to play at the new player position after the room loads.
     pub zone_sfx: Option<RoomSfxId>,
 }
 
 impl RoomTransitionRequested {
-    pub fn new(transition: RoomTransition, zone_sfx: Option<RoomSfxId>) -> Self {
+    pub fn new(
+        transition: RoomTransition,
+        subject: ambition_platformer2d_shared_tangle::sim_id::SimId,
+        zone_sfx: Option<RoomSfxId>,
+    ) -> Self {
         Self {
             transition,
+            subject,
             zone_sfx,
         }
     }

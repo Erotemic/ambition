@@ -356,6 +356,15 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
             Vec::new(),
         ),
     );
+    // ⚠ **the resume needs a body to name.** A transition states WHICH body is
+    // crossing (D71), and the resume's answer is the avatar the save is about —
+    // so a fixture with no avatar at all models nothing the game can do. The
+    // `SimId` is what `ensure_sim_id` files a `PrimaryPlayer` under on every host.
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
 
@@ -373,6 +382,12 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
          they rested"
     );
     assert_eq!(requests[0].transition.target_room, 1);
+    assert_eq!(
+        requests[0].subject,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        "the resume asked for a room without saying whose resume it is, so the \
+         commit would transit whoever happens to be controlled several frames later"
+    );
     assert_eq!(
         (
             requests[0].transition.arrival.x,

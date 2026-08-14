@@ -153,10 +153,32 @@ impl ActiveRoomTransitionLoad {
         session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
+        // ⭐ **the SEMANTIC destination, which is not the zone and not the room.**
+        //
+        // This ANDed in `zone.id` while its own caller's comment said *"one
+        // transaction owns that destination; trigger noise is not a new
+        // request"* — so two zones into one room opened two transactions, the
+        // comment's opposite. ⛔ but the fix is not "compare target_room": two
+        // doors can lead to the SAME room at DIFFERENT arrivals, and a room-only
+        // key silently lands the second crossing at the first one's coordinates.
+        //
+        // So the key is what a crossing IS: who is crossing, where they are
+        // going, where they come out, and by which kind of exit. Repeated
+        // detection from one zone repeats all four and dedupes; two exits into
+        // one room differ in `arrival` and do not; and once a second participant
+        // can transit, two bodies differ in `subject` and do not either — which
+        // is why `subject` is in the KEY and not merely in the payload.
+        //
+        // ⚠ `arrival` is compared exactly, and that is correct rather than
+        // sloppy: both sides come from the same authored `RoomSpec` field by the
+        // same path, so trigger noise reproduces the same bits. A near-miss here
+        // means a genuinely different destination.
         self.content_epoch == content_epoch
             && self.session_scope == session_scope
+            && self.request.subject == request.subject
             && self.request.transition.target_room == request.transition.target_room
-            && self.request.transition.zone.id == request.transition.zone.id
+            && self.request.transition.arrival == request.transition.arrival
+            && self.request.transition.zone.activation == request.transition.zone.activation
     }
 }
 
@@ -855,7 +877,22 @@ mod tests {
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, RoomTransition};
 
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    fn hero() -> SimId {
+        SimId::placement("hero")
+    }
+
     fn request(zone: &str, target_room: usize) -> rooms::RoomTransitionRequested {
+        request_by(zone, target_room, ae::Vec2::ZERO, hero())
+    }
+
+    fn request_by(
+        zone: &str,
+        target_room: usize,
+        arrival: ae::Vec2,
+        subject: SimId,
+    ) -> rooms::RoomTransitionRequested {
         rooms::RoomTransitionRequested::new(
             RoomTransition {
                 zone: LoadingZone {
@@ -865,8 +902,9 @@ mod tests {
                     aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE),
                 },
                 target_room,
-                arrival: ae::Vec2::ZERO,
+                arrival,
             },
+            subject,
             None,
         )
     }
@@ -902,8 +940,31 @@ mod tests {
             commit_duration: None,
             committed_at: None,
         };
+        // Trigger noise: the same body re-detecting the same crossing.
         assert!(active.same_destination(&request("door", 1), None, 1));
-        assert!(!active.same_destination(&request("other", 1), None, 1));
+        // ⭐ **a SECOND ZONE onto the same arrival is the SAME destination, and
+        // this line used to assert the opposite.** It compared `zone.id`, which is
+        // a proxy for the destination rather than the destination — so two doors
+        // into one room opened two transactions, which is exactly what the
+        // caller's *"one transaction owns that destination"* comment forbids.
+        assert!(active.same_destination(&request("other", 1), None, 1));
+        // ⛔⛔ **THE POISON, and the reason the key is not just `target_room`.**
+        // Two exits can lead to the same room at different arrivals. A room-only
+        // key collapses them and lands this crossing at the other one's
+        // coordinates.
+        assert!(!active.same_destination(
+            &request_by("other", 1, ae::Vec2::new(0.0, 64.0), hero()),
+            None,
+            1
+        ));
+        // ⛔ and a DIFFERENT BODY crossing to the same place is a different
+        // crossing, not noise. Nothing can trigger this today — one participant
+        // transits — which is why it is asserted rather than discovered later.
+        assert!(!active.same_destination(
+            &request_by("door", 1, ae::Vec2::ZERO, SimId::placement("other_body")),
+            None,
+            1
+        ));
         assert!(!active.same_destination(&request("door", 2), None, 1));
         assert!(!active.same_destination(&request("door", 1), None, 2));
         assert!(!active.same_destination(

@@ -240,11 +240,7 @@ fn cross(app: &mut App, zone_id: &str) -> String {
 /// swallows: it returns the instant the active room flips, and the transition
 /// COVER is up for part of the window before that. A test that wants to know
 /// "was the cover ever actually up" cannot ask afterwards.
-fn cross_observing(
-    app: &mut App,
-    zone_id: &str,
-    observe: &mut dyn FnMut(&mut App),
-) -> String {
+fn cross_observing(app: &mut App, zone_id: &str, observe: &mut dyn FnMut(&mut App)) -> String {
     cross_observing_with(app, zone_id, observe, step)
 }
 
@@ -285,8 +281,22 @@ fn cross_observing_with(
             .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
             .unwrap_or_else(|| panic!("`{zone_id}` does not resolve to a transition"))
     };
+    // A transition names the body that is crossing (D71). This one is injected
+    // rather than walked, so the test names the avatar the same way detection
+    // would.
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        q.iter(world)
+            .next()
+            .expect("the room has a primary avatar to send across its boundary")
+            .clone()
+    };
     app.world_mut()
-        .write_message(RoomTransitionRequested::new(transition, None));
+        .write_message(RoomTransitionRequested::new(transition, subject, None));
     let mut trace: Vec<String> = Vec::new();
     let mut last = String::new();
     for frame in 0..CROSSING_CAP {

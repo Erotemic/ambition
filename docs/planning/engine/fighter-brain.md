@@ -131,6 +131,35 @@ than six times worse** at staying on the stage. That is a decision-model
 finding, not a tuning one, and it is the first thing to investigate: a search
 that plans twelve ticks ahead is choosing to leave.
 
+**Four hypotheses tested against HEAD (2026-08-14); two are dead.**
+
+- ✘ *the shadow model cannot see the floor.* The stage is one
+  `Block::solid("smash_platform", …)`, `perceived_solid_kind` maps `Solid` →
+  `SolidKind::Solid`, and `build_world_view` clips terrain from `world.blocks`.
+  Terrain is perceived.
+- ✘ *the model cannot see the stage edge.* `ShadowState` carries `stage:
+  StageView` and prices leaving it: `outside && !started_offstage` raises
+  `ShadowEvent::Ko`. The rollout tests already pin that a bounded floor produces
+  a self-KO event and an infinite plane does not.
+- ⚠ *the model's death line is in the wrong place, and conservatively so.*
+  `StageView.bounds` is `world.size`; the sim kills at `world.size +
+  blast_margin`. The imagination therefore thinks it dies EARLIER than it does,
+  which should make a fighter more cautious, not less. It cannot explain a
+  fighter that leaves.
+- ▢ **`ground_span` is only known while standing.** `supporting_floor()` requires
+  the solid's top within roughly one body-height of the feet, so an airborne
+  fighter has `ground_span: None`. That is survivable given the stage bound
+  above, but it means the ledge-relative half of the model goes blind exactly
+  during recovery.
+
+⇒ **the two live suspects are option SCORING and `started_offstage`**: does a
+predicted `Ko { of_me: true }` actually lose the option its score, and can a
+fighter that begins a rollout already outside the box have its own death
+suppressed for the whole horizon? Both are readable in
+`rollout.rs` around the KO event and in the option scorer; neither has been
+checked. Answering them is the next slice, and `ladder_probe`'s depth A/B is
+the instrument that will say whether it worked.
+
 Use the evaluation rig to determine whether the authored level ladder is
 meaningfully ordered. The historical target was that stronger levels beat weaker
 ones more often and that the upper ladder clears a useful damage/survival floor;

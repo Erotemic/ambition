@@ -76,9 +76,19 @@ described rather than by building it. Check HEAD before starting the next slice.
   sitting between a snapshot build and a brain call — moved beside the type it
   builds, in `perception::perception_body_for`. "What does a body know about
   itself" is answered by the perception module now, not by reading a decision
-  loop. Body code 214 → 188; the loop's remaining responsibilities are snapshot
-  assembly, the sighted-target override, memory mutation, disposition mutation
-  and control publication.
+  loop. Body code 214 → 188.
+
+  **Third cut:** belief. The memory update and the sighted-target override sat
+  adjacent but separate in the loop; they are one question — *where does this
+  body believe its target is, after seeing and remembering* — and are now one
+  call, `perception::believed_target`. Keeping them apart is what lets a caller
+  update memory and forget to consult it, or consult it without updating. Body
+  code 188 → 181.
+
+  ⇒ **214 → 181 across three cuts**, and what remains in the loop is snapshot
+  assembly, disposition mutation and control publication. The next cut is the
+  mutation half: pacifying a hostile whose foe died, and publishing
+  `ActorControl`, are both writes sitting inside what should be a decision.
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and

@@ -227,6 +227,40 @@ vocabulary for that classification.
 Remove singleton assumptions from the camera/read-model seam while preserving
 one-view behavior byte-for-byte where practical.
 
+**Re-measured 2026-08-14 against HEAD, and the shape of the slice is decided by
+one fact: the resolve is ALREADY a single function over an input bundle.**
+`resolve_follow_camera_snapshot(CameraSnapshotResolveInput, &mut CameraEaseState)`
+is pure apart from the ease state it threads. So M1 is not "rewrite the camera" —
+it is **give the input bundle an owner**, and the owner is a view entity.
+
+| what moves onto the view | who writes it | who reads it |
+| --- | --- | --- |
+| `CameraViewport` | host `publish_camera_viewport` | the resolve |
+| `CameraScreenFraming` | host `publish_camera_screen_framing` | the resolve |
+| `CameraPresentationInputs` | render `publish_portal_camera_clamp` | the resolve |
+| `CameraEaseState` | the resolve (sole writer) | the resolve; host portal reset |
+| `ResolvedCameraSnapshot` | the resolve | render `camera_follow` |
+| `CameraReferenceFrame` | nobody yet — the SELECTION D118 C2 left open | the resolve |
+
+⭐ **that last row is why this slice is worth taking now.** D118 C1–C4 landed the
+whole mechanism; the only thing keeping subject-relative view unselectable is
+that a policy belonging to a view has nowhere to live. A component on the view
+entity is that place, and the one-view case is the one-entry case.
+
+⛔ **stays global, with the reason stated rather than forgotten:**
+`ResolvedGameplayPresentation` (a DISPLAY resolve — one physical screen, which
+becomes per-view only when layout splits), `CameraViewState` (a render
+diagnostic read by the debug overlay and nameplates), `CameraShakeState` (whose
+per-view semantics are C4's open shake question, not this slice's).
+
+⚠ **spawn the view at plugin BUILD time, not from a startup system.** Every
+reader would otherwise need a `single()` + `else { return }`, which is the exact
+shape that has produced four production defects in this repo — a system that
+silently does nothing is indistinguishable from one that ran.
+
+⇒ deletion payoff: five process-global resources stop existing. Nothing new
+"indexes" anything — the index IS the entity, and M2 adds a second one.
+
 ### M2 — two local views, one room
 
 Render two independently framed gameplay views over one simulation. Prove local

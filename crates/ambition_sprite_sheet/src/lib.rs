@@ -518,11 +518,63 @@ pub struct FrameRect {
 #[derive(Resource, Debug, Default)]
 pub struct SheetRegistry {
     sheets: HashMap<String, SheetRecord>,
+    /// **Targets a later record took from an earlier one with a DIFFERENT frame
+    /// grid** — recorded rather than warned about here. See
+    /// [`Self::shadowed_targets`].
+    shadowed: Vec<ShadowedTarget>,
+}
+
+/// One target claimed twice with different frame geometry: the winner crops the
+/// loser's image with the wrong grid, IF anything resolves art by that target.
+///
+/// ⛔ **whether it does is not this crate's to know** (ledger D36). A rig name
+/// like `toon` is shared by 17 characters legitimately and nothing looks it up;
+/// a character id like `pirate_heavy_broadside_bess` is looked up, and a stale
+/// manifest winning that key cost a day and a bisect through the asset tree. The
+/// collision is visible only HERE, where both records pass through; which keys
+/// are resolvable is visible only to a caller that owns a catalog. So this type
+/// carries the fact across that gap instead of guessing at it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShadowedTarget {
+    pub target: String,
+    pub loser_image: String,
+    pub loser_frame: (u32, u32),
+    pub winner_image: String,
+    pub winner_frame: (u32, u32),
+}
+
+impl std::fmt::Display for ShadowedTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "target `{}` claimed twice with DIFFERENT frame geometry — {}x{} \
+             (image `{}`) is replaced by {}x{} (image `{}`). One of these \
+             manifests is stale; the survivor crops with the wrong grid.",
+            self.target,
+            self.loser_frame.0,
+            self.loser_frame.1,
+            self.loser_image,
+            self.winner_frame.0,
+            self.winner_frame.1,
+            self.winner_image,
+        )
+    }
 }
 
 impl SheetRegistry {
     pub fn get(&self, target: &str) -> Option<&SheetRecord> {
         self.sheets.get(target)
+    }
+
+    /// **Every target a later manifest took from an earlier one with a different
+    /// grid**, in insertion order.
+    ///
+    /// ⭐ **the caller decides which of these MATTER**, because only it knows
+    /// which targets something resolves art by — see [`ShadowedTarget`]. A
+    /// consumer that reports all of them reproduces the ~30-per-boot Android
+    /// noise this replaced; one that reports none re-opens the day-long bisect.
+    pub fn shadowed_targets(&self) -> &[ShadowedTarget] {
+        &self.shadowed
     }
 
     pub fn len(&self) -> usize {
@@ -595,24 +647,32 @@ impl SheetRegistry {
                         // records claiming one target with DIFFERENT frame
                         // geometry, because that is the case where the winner
                         // crops the loser's image with the wrong grid.
+                        //
+                        // ⛔⛔ **THIS USED TO `warn!` HERE AND FIRED ~30 TIMES PER
+                        // ANDROID BOOT** (ledger D36, Jon's device log). The
+                        // condition cannot tell its harmful case from its harmless
+                        // one: 17 characters share the rig target `toon` and
+                        // legitimately have 17 different frame sizes, and nothing
+                        // resolves art by `toon` at all. Measured: 146 targets are
+                        // claimed by more than one record, and ZERO images are
+                        // described by two different grids — so the sharers differ
+                        // in IMAGE, every one of them.
+                        //
+                        // ⇒ recorded, not reported. The collision is visible only
+                        // here; whether the loser is RESOLVABLE is visible only to
+                        // a caller with a catalog, and this crate's whole claim is
+                        // to be a content-free sprite-sheet vocabulary.
                         if let Some(prior) = registry.sheets.get(&record.target) {
                             if prior.frame_width != record.frame_width
                                 || prior.frame_height != record.frame_height
                             {
-                                warn!(
-                                    "SheetRegistry: target `{}` claimed twice with \
-                                     DIFFERENT frame geometry — {}x{} (image `{}`) \
-                                     is being replaced by {}x{} (image `{}`). One \
-                                     of these manifests is stale; the survivor will \
-                                     crop with the wrong grid.",
-                                    record.target,
-                                    prior.frame_width,
-                                    prior.frame_height,
-                                    prior.image,
-                                    record.frame_width,
-                                    record.frame_height,
-                                    record.image,
-                                );
+                                registry.shadowed.push(ShadowedTarget {
+                                    target: record.target.clone(),
+                                    loser_image: prior.image.clone(),
+                                    loser_frame: (prior.frame_width, prior.frame_height),
+                                    winner_image: record.image.clone(),
+                                    winner_frame: (record.frame_width, record.frame_height),
+                                });
                             }
                         }
                         registry.sheets.insert(record.target.clone(), record);
@@ -631,6 +691,33 @@ impl SheetRegistry {
         );
         for (file, err) in failed {
             warn!("SheetRegistry: failed to parse baked {file}: {err}");
+        }
+        // ⭐ **ONE line, not one per collision** (ledger D36). The per-record
+        // `warn!` this replaced fired ~30 times on every Android boot, and the
+        // count was a function of what LOADED rather than of what was wrong —
+        // N records sharing a target produce N−1 warnings, so the shared rig
+        // targets alone (`toon` x17, `robot` x18, `goblin` x9) can reach 45.
+        //
+        // ⛔ **NOT silenced, and the row says why not**: the case underneath is
+        // real — a May-dated manifest won `pirate_heavy_broadside_bess`, so she
+        // loaded the right image and cropped it with a dead grid, found by
+        // bisecting the asset tree. What is wrong with the old warning is that it
+        // cannot tell that from 17 characters legitimately sharing a rig, and the
+        // fact it needs — *is this target one a reader resolves art by* — belongs
+        // to a caller with a catalog, not to this crate.
+        //
+        // ⇒ so: one summary here, the detail on [`Self::shadowed_targets`], and
+        // the catalog-aware filter is a separate slice that consumes it.
+        if !registry.shadowed.is_empty() {
+            warn!(
+                "SheetRegistry: {} target(s) claimed twice with different frame \
+                 geometry — a shared RIG target (`toon`, `robot`, `goblin`) is \
+                 legitimate and harmless, but a CHARACTER id here means the \
+                 survivor crops with the wrong grid. First: {}. Full list: \
+                 `SheetRegistry::shadowed_targets()`.",
+                registry.shadowed.len(),
+                registry.shadowed[0],
+            );
         }
         registry
     }

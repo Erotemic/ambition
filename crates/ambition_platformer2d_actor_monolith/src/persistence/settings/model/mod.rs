@@ -8,17 +8,21 @@
 
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+// A browser has one surface and no window mode to set — `apply_display_mode`
+// tracks the setting there and pokes nothing — so these names belong to the
+// native arm alone.
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
 use super::video::FlashIntensity;
 use super::UserSettings;
 use crate::host::windowing::{DisplayModeKind, DisplayModeState};
-use ambition_platformer2d_ldtk::LdtkHotReloadState;
 use ambition_dev_tools::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
     EditableMovementTuning,
 };
 use ambition_dev_tools::DeveloperRuntimeState;
+use ambition_platformer2d_ldtk::LdtkHotReloadState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user

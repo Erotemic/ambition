@@ -86,9 +86,9 @@ use crate::world::rooms::RoomMetadata;
 /// a discovery problem, not a convenience.
 pub mod prelude {
     pub use super::{
-        AssetSource, CompositionError, EMPTY_CHARACTER_ROSTER_RON, GameModule, HostStatus,
-        MINIMAL_CHARACTER_ROSTER_RON, ModuleDraft, ModuleManifest, PlatformerApp, SessionMode,
-        StartAt, host_status,
+        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
+        ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
+        MINIMAL_CHARACTER_ROSTER_RON,
     };
     pub use bevy::prelude::App;
 
@@ -230,6 +230,12 @@ pub fn host_status(app: &App) -> HostStatus {
 #[derive(Clone, Debug)]
 pub struct AssetSource {
     name: String,
+    // ⚠ read by the native installer, which builds a layered filesystem reader
+    // from it. A browser build declares the same source and reads it over HTTP
+    // from the page origin, so it never consults the root — but the DECLARATION
+    // must still carry it, which is the whole point of checking declarations in
+    // a composition shape the engine cannot apply.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     root: String,
 }
 
@@ -1784,8 +1790,8 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
         // rather than to a manually stepped fixture.
-        use bevy::render::RenderPlugin;
         use bevy::render::settings::{RenderCreation, WgpuSettings};
+        use bevy::render::RenderPlugin;
         let plugins = plugins
             .disable::<bevy::log::LogPlugin>()
             .disable::<bevy::core_pipeline::CorePipelinePlugin>()
@@ -1956,8 +1962,8 @@ mod tests {
     #[test]
     fn a_capabilitys_action_lands_in_the_compositions_registry() {
         use ambition_input::{
-            ActionControlKind, GAMEPLAY_CONTEXT, InstalledActions, SemanticActionDef,
-            SemanticActionId,
+            ActionControlKind, InstalledActions, SemanticActionDef, SemanticActionId,
+            GAMEPLAY_CONTEXT,
         };
 
         const GRAPPLE: &[SemanticActionDef] = &[SemanticActionDef {
@@ -2019,7 +2025,7 @@ mod tests {
     #[test]
     fn two_capabilities_claiming_one_action_refuse_the_composition() {
         use ambition_input::{
-            ActionControlKind, GAMEPLAY_CONTEXT, SemanticActionDef, SemanticActionId,
+            ActionControlKind, SemanticActionDef, SemanticActionId, GAMEPLAY_CONTEXT,
         };
 
         const STOLEN: &[SemanticActionDef] = &[SemanticActionDef {

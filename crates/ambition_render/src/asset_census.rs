@@ -27,8 +27,15 @@ pub struct ImageCensus {
     window_started_at: Instant,
     total_images: u64,
     total_megapixels: f64,
+    // ⚠ accumulated on every platform, REPORTED only where there is a periodic
+    // census to print — the report is `not(wasm32)`, because a browser build has
+    // no terminal to print a rolling window to. Keeping the fields identical
+    // across platforms keeps the accounting identical; only the readout differs.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     total_bytes: u64,
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     window_images: u64,
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     window_megapixels: f64,
 }
 

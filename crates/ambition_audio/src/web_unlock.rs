@@ -85,7 +85,11 @@ fn log_initial_lock_status() {
 /// to start audio. Flip the unlock flag in Startup so downstream
 /// systems that gate on it behave identically to the pre-deferred
 /// startup.
-fn prime_unlock_for_native(mut state: ResMut<AudioUnlockState>) {
+fn prime_unlock_for_native(
+    // Written only by the native arm below; the wasm build waits for a real
+    // gesture instead, so there the binding is read-only.
+    #[cfg_attr(target_arch = "wasm32", allow(unused_mut))] mut state: ResMut<AudioUnlockState>,
+) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         state.unlocked = true;

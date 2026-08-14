@@ -276,7 +276,11 @@ pub fn load_save_at_startup(
 /// value comparison has neither problem and is the honest question anyway:
 /// *is what is on disk still correct?*
 #[derive(Resource, Clone, Debug, Default)]
-pub struct LastPersistedSave(Option<AmbitionGameSaveData>);
+// ⚠ see `LastPersistedSettings`: the type is platform-identical because the wasm
+// no-op systems take it as a parameter; only the native writer reads the value.
+pub struct LastPersistedSave(
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] Option<AmbitionGameSaveData>,
+);
 
 /// Bevy update system: commit the save to disk when it no longer matches what
 /// is there, and only while the simulation holds no predicted state.

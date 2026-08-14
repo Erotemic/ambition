@@ -9,11 +9,17 @@
 //! world camera for text readability. Routing nav/selection input to it is the
 //! next step — see `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition_platformer2d::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
+use ambition_platformer2d::menu::backend::InventoryUiBackend;
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED;
 use ambition_platformer2d::menu::{
-    ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuActionActivated,
-    MenuDynamicText, MenuDynamicTextContent, MenuVisualState,
+    ActiveMenuPages, AmbitionInventoryUiPlugin, MenuActionActivated,
 };
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::menu::{MenuDynamicText, MenuDynamicTextContent};
+// Named only by the cube's own systems, so they follow the same gate the cube does.
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::menu::{AmbitionMenuControl, MenuVisualState};
 // The cube renderer's own vocabulary. Everything that touches it is gated with
 // it — see the module doc and `menu/mod.rs`.
 #[cfg(feature = "kaleidoscope_menu")]
@@ -23,18 +29,26 @@ use ambition_menu_kaleidoscope::{
 };
 use bevy::prelude::*;
 
+#[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::effects::{MenuEffectManaQuery, MenuEffectPlayers};
+#[cfg(feature = "kaleidoscope_menu")]
 use crate::menu::model::{
-    build_inventory_pages_with_quality_prompt, items_detail_slot_text,
-    scroll_fraction_to_window_start, system_detail_slot_text, system_effective_window_start,
-    system_max_window_start, system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction,
-    SystemRow, SYSTEM_VISIBLE_ROWS,
+    build_inventory_pages_with_quality_prompt, scroll_fraction_to_window_start,
+    system_effective_window_start, system_max_window_start, SYSTEM_VISIBLE_ROWS,
+};
+#[cfg(feature = "kaleidoscope_menu")]
+use crate::menu::model::{items_detail_slot_text, system_detail_slot_text};
+use crate::menu::model::{
+    system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
+#[cfg(feature = "kaleidoscope_menu")]
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::input::MenuControlFrame;
-use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_platformer2d::items::{Item, OwnedItems};
+#[cfg(feature = "kaleidoscope_menu")]
+use ambition_platformer2d::items::{ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
@@ -70,9 +84,13 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
         .init_resource::<KaleidoscopeSystemNav>()
-        .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
+    // The System-model cache belongs to the cube — the grid backend builds and
+    // dirties its own page model — so it is initialised with the renderer that
+    // reads it rather than in the backend-neutral chain above.
+    #[cfg(feature = "kaleidoscope_menu")]
+    app.init_resource::<CachedSystemMenu>();
     // Publish the focused item's verb (Equip/Use) as the inventory's UiCue so
     // the on-screen menu-confirm control reads the real action. Backend-
     // agnostic (reads the shared KaleidoscopeCursor), and self-gates on the
@@ -111,6 +129,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     );
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// The menu BACKEND SEAM as a single run-condition: gate a system on
 /// "the 3D kaleidoscope backend is installed and active." Systems whose only
 /// backend handling was a bare `if *backend != LunexKaleidoscope { return; }`
@@ -122,6 +141,7 @@ fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// The cube backend is selected and the inventory overlay is currently open.
 ///
 /// Use this for host-side model/text/focus work that has no value while the
@@ -159,6 +179,7 @@ fn kaleidoscope_render_needed(
     )
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Pure decision for [`kaleidoscope_render_needed`]: should the cube's render set tick
 /// this frame? Either it's actively open (Cube backend selected AND the menu is up),
 /// OR it's still folding shut (`target`/`amount` not yet decayed) — the latter holds
@@ -180,6 +201,7 @@ fn cube_render_needed(
     target > 0.0 || amount > 0.08
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Peak opacity of the readability dim-scrim (black) when the cube is fully open.
 /// The game runs the cube as an Option-1 overlay (cube camera clears `None`, so the
 /// live world shows through); that busy world wrecks the cube text contrast. A
@@ -188,6 +210,7 @@ fn cube_render_needed(
 /// the cube text reads. The demo doesn't need this (it has a dark `ClearColor`).
 const SCRIM_PEAK_ALPHA: f32 = 0.7;
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Marks the full-screen readability dim-scrim node (game host only).
 #[derive(Component)]
 pub(crate) struct KaleidoscopeScrim;
@@ -350,6 +373,7 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
 enum FocusSource {
     #[default]
     Keyboard,
+    #[cfg(feature = "kaleidoscope_menu")]
     Pointer,
 }
 
@@ -363,6 +387,7 @@ pub(crate) struct KaleidoscopeCursor {
     focus: MenuFocus,
     /// Which input source last moved the cursor (keyboard nav vs pointer hover).
     owner: FocusSource,
+    #[cfg(feature = "kaleidoscope_menu")]
     /// The last focus the POINTER moved over. A parked mouse should not count as a
     /// selection; only actual pointer motion can change the cursor here.
     last_pointer_focus: Option<MenuFocus>,
@@ -393,6 +418,7 @@ pub(crate) struct KaleidoscopeSystemNav {
     pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Feature E: the in-flight pointer press, so a press-then-drag-away can be CANCELLED
 /// (no activation) while a clean tap still activates. Set on `Pointer<Press>`, marked
 /// cancelled once the pointer travels past `ui_nav::ROW_TAP_SLOP_PX` from the press
@@ -446,6 +472,7 @@ impl RebindCapture {
         self.armed_this_frame = true;
     }
 
+    #[cfg(feature = "kaleidoscope_menu")]
     /// Let one frame pass before a press can be captured. Returns whether the
     /// caller should wait.
     pub(crate) fn settle(&mut self) -> bool {
@@ -454,16 +481,19 @@ impl RebindCapture {
         waiting
     }
 
+    #[cfg(feature = "kaleidoscope_menu")]
     pub(crate) fn armed(&self) -> Option<usize> {
         self.armed_row
     }
 
     /// Take the arm — a capture resolves once, whatever it produced.
+    #[cfg(feature = "kaleidoscope_menu")]
     pub(crate) fn take(&mut self) -> Option<usize> {
         self.armed_row.take()
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// **Resolve an armed rebind: the next physical press becomes the binding.**
 ///
 /// ⛔ **this cannot live in the menu's dispatch**, which is why arming and
@@ -529,6 +559,7 @@ pub(crate) fn capture_armed_rebind(
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
 /// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
@@ -786,6 +817,7 @@ impl SystemMenuParams<'_> {
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Read the current game mode + queue the next one, bundled into ONE [`SystemParam`]
 /// so the nav system / pointer observer that need to UNPAUSE on a close-via-action
 /// (e.g. Reset Sandbox) stay within Bevy's 16-param ceiling. Threaded into
@@ -796,6 +828,7 @@ pub(crate) struct GameModeIo<'w> {
     next: ResMut<'w, NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
@@ -821,6 +854,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     radio: Option<Res<'w, ambition_platformer2d::audio::library::RadioStationState>>,
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 impl SystemMenuSnapshotParams<'_> {
     /// Build the live radio-station snapshot for the SYSTEM IR (empty under no
     /// `audio` / when the radio resources are absent).
@@ -880,6 +914,7 @@ mod scrim;
 #[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use scrim::*;
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Directional focus navigation for the cube (keyboard / gamepad), porting the
 /// demo's `MockDemo::move_spatial` (`crates/ambition_mock_demo/src/app/state.rs`).
 /// The cursor lives on the [`KaleidoscopeCursor`] resource as a [`MenuFocus`], and the
@@ -1113,6 +1148,7 @@ fn kaleidoscope_focus_nav(
     );
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// **The cube's ONE dispatcher for a chosen action.**
 ///
 /// ⛔ **the cube had no consumer at all**, which is the asymmetry this closes.
@@ -1414,6 +1450,7 @@ fn apply_system_option_step(
     play_ui(sfx, ambition_platformer2d::sfx::ids::UI_SLIDER_TICK);
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Outcome of a spatial cursor move on the items page.
 enum SpatialMove {
     /// The cursor moves to a new focus (item or arrow) on the same page.
@@ -1424,6 +1461,7 @@ enum SpatialMove {
     TurnRight,
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Port of the demo's `MockDemo::move_spatial` for the items grid + flanking
 /// arrows. Pure (no ECS) so it's unit-testable and easy to reason about. See
 /// [`kaleidoscope_focus_nav`] for the rule list.
@@ -1590,6 +1628,13 @@ fn turn_page_seeded(
 enum EdgeInward {
     /// The opposite edge button. Placeholder faces (Map/Quest) have no centre content,
     /// so stepping in from one edge crosses straight to the other.
+    ///
+    /// ⚠ **NOT gated, though only cube code constructs it.** `edge_button_nav`
+    /// MATCHES on it in backend-neutral code, so removing the variant removes an
+    /// arm the flat backend still compiles. `#[allow]` on the variant would be the
+    /// wrong tool too — the variant is not dead, it is unreachable in one
+    /// configuration, and that is a fact about the callers rather than about it.
+    #[cfg_attr(not(feature = "kaleidoscope_menu"), allow(dead_code))]
     OppositeEdge,
     /// A fixed focus — the head of the System face's row list.
     Into(MenuFocus),
@@ -1765,6 +1810,7 @@ mod pointer;
 #[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use pointer::*;
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Fix 3: route the game's menu-open inputs to the CUBE when it is the active
 /// backend, opening it on the page that matches the requested menu:
 ///
@@ -1907,6 +1953,7 @@ fn kaleidoscope_menu_open_routing(
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Open the cube overlay on `page`, pausing the sim and seeding the cursor: raise
 /// `visible`, switch to
 /// `GameMode::Paused` when coming from gameplay, and make sure the standalone map
@@ -1946,6 +1993,7 @@ fn open_kaleidoscope_menu(
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Close the cube overlay (Esc while open), restoring `GameMode::Playing` when the
 /// cube was opened directly from gameplay (matching `close_grid_menu`). Also used by the
 /// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
@@ -1967,6 +2015,7 @@ fn close_kaleidoscope_menu(
     }
 }
 
+#[cfg(feature = "kaleidoscope_menu")]
 /// Dev hotkey: `\` cycles the room's ambient gravity through the four cardinal
 /// directions — down → left → up → right — so flipped / sideways-gravity behavior
 /// (pogo, cling, orientation, slug-crawl) is testable without an authored switch.
@@ -2106,6 +2155,9 @@ fn kaleidoscope_sync_focus_visuals(
 /// slot. The page data itself is cursor-INDEPENDENT, so the cursor-dependent detail
 /// text updates without a face rebuild — the lib's `apply_dynamic_text` copies the
 /// content into the `Text3d`.
+///
+/// Cube-only: `Text3d` is Lunex's, and so is the panel this fills.
+#[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_detail_text(
     owned: Option<Res<OwnedItems>>,
     cursor: Res<KaleidoscopeCursor>,
@@ -2146,9 +2198,33 @@ fn kaleidoscope_sync_detail_text(
     }
 }
 
+// ⭐ **THE GATE IS `bevy_lunex`, AND ONLY `bevy_lunex`** (Jon, 2026-08-14: *"that's
+// the only reason we don't include it in the web build"*). Nothing about the cube
+// menu is unwanted in a browser; the 3D UI toolkit it renders through is what the
+// web persona declines to carry. So these submodules are gated on the feature that
+// pulls Lunex, not on a target — the day Lunex is viable on wasm the web build
+// turns this back on by enabling one feature and changing no line of code.
+//
+// ⚠ **and the gate is worth keeping even then** (Jon, same day: *"once lunex has
+// compatibility with wasm we may want to remove the gate, although there is
+// something to be said for not requiring it"*). This is an OPTIONAL-DEPENDENCY
+// boundary, not a wasm workaround: a game embedding this engine gets to have a
+// menu without taking a 3D UI toolkit, and that stays true whatever Lunex
+// supports. Treat a future wasm-capable Lunex as permission to flip the web
+// persona's feature, not as a reason to delete the seam.
+//
+// ⛔ **and gated, not `#[allow(dead_code)]`.** Silencing the warning would keep
+// compiling every one of these into the browser module, which measured 220 MB of
+// wasm (100 MB code) with them in it. An `allow` hides the report; a `cfg` removes
+// the weight.
+#[cfg(feature = "kaleidoscope_menu")]
 mod cache;
+#[cfg(feature = "kaleidoscope_menu")]
 mod scroll;
+#[cfg(feature = "kaleidoscope_menu")]
 pub(crate) use cache::*;
+#[cfg(feature = "kaleidoscope_menu")]
+#[allow(unused_imports)]
 pub(crate) use scroll::*;
 
 // The cube's own tests, which build the Lunex plugin stack.

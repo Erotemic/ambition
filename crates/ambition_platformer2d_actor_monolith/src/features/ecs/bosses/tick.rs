@@ -416,9 +416,15 @@ pub fn tick_boss_brains_system(
         ),
         With<FeatureSimEntity>,
     >,
-    // Any body a boss may be aiming at — read-only, and disjoint from the boss
-    // query above, which borrows no `CenteredAabb`.
-    target_bodies: Query<&crate::features::CenteredAabb>,
+    // Any body a boss may be aiming at — its COLLISION extent, read-only. ⛔ NOT
+    // `CenteredAabb`: that is the coarse footprint, and a boss publishes it from
+    // its `BodyEnvelope` render envelope (AJ5.1), so asking it about a boss
+    // target would answer with a render quad. `BodyKinematics::size` is the box
+    // the movement seam actually sweeps, for every body including a boss —
+    // `integrate_boss_bodies` heals `kin.size` onto the authored `combat_size`
+    // every tick, which is the same extent `BossPatternCfg::combat_size` gives
+    // the asking side.
+    target_bodies: Query<&crate::actor::BodyKinematics>,
 ) {
     let dt = world_time.sim_dt();
     // A room used to arrive as a `Single`, so no room meant Bevy skipped this
@@ -520,13 +526,13 @@ pub fn tick_boss_brains_system(
         // The target's own BODY, not just where it stands. A contact chase asks
         // whether two bodies touch; answering that from positions alone made
         // every wide body's contact unreachable (see `lateral_body_gap`). Every
-        // body publishes a `CenteredAabb`, player and actor alike, so this asks
-        // one question of one component. A target we cannot find a body for
+        // body carries `BodyKinematics`, player and actor and boss alike, so this
+        // asks one question of one component. A target we cannot find a body for
         // reads as a point, which is exactly what the old arithmetic assumed.
         let target_body_size = target
             .entity
             .and_then(|entity| target_bodies.get(entity).ok())
-            .map_or(ae::Vec2::ZERO, |aabb| aabb.size());
+            .map_or(ae::Vec2::ZERO, |kin| kin.size);
 
         // The front-wall standoff the pattern probes with — read before the brain
         // borrow that `brain.tick` needs.

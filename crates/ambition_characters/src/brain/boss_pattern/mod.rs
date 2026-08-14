@@ -985,10 +985,19 @@ pub struct BossPatternContext {
     /// Target position the boss is interested in (typically the
     /// primary player). Drives the movement profile's chase math.
     pub target_pos: ae::Vec2,
-    /// The TARGET body's box, centred on [`Self::target_pos`] — read from the
-    /// published `CenteredAabb` every body carries. Together with the boss's own
-    /// [`BossPatternCfg::combat_size`] it is what makes *body contact* a fact
-    /// about two bodies rather than about two points.
+    /// The TARGET body's COLLISION box, centred on [`Self::target_pos`].
+    /// Together with the boss's own [`BossPatternCfg::combat_size`] — also a
+    /// collision extent — it is what makes *body contact* a fact about two
+    /// bodies rather than about two points.
+    ///
+    /// ⛔⛔ **COLLISION, not the coarse footprint, and the two genuinely
+    /// differ.** The caller must read the size the movement seam sweeps
+    /// (`BodyKinematics::size`), NOT the published `CenteredAabb` — that box is
+    /// the coarse hurtbox footprint, and for a boss it is deliberately the much
+    /// larger `BodyEnvelope` render envelope (the AJ5.1 envelope split). This
+    /// field said "the published `CenteredAabb`" for one day; against an ordinary
+    /// body the two agree and nothing showed, but a boss reading it about
+    /// ANOTHER boss would have measured contact against a render quad.
     ///
     /// ⚠ `ZERO` (the default) means *a point target*, which is what every
     /// distance rule here assumed before: surface separation then degenerates to

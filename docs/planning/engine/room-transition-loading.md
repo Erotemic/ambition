@@ -28,11 +28,23 @@
   transition → arrival exercise so the behavior is not only inferred from unit
   pieces.
 
-- ▢ **Exercise loading-zone entry through the real movement kernel.** The
-  detector now consumes `SweepSample` and the focused regression models a body
-  stopped at a boundary, but it still constructs the kernel output directly. Add
-  one end-to-end movement-kernel → loading-zone transition case so a future
-  change to sweep publication cannot silently reintroduce the bug.
+- ✔ **Exercise loading-zone entry through the real movement kernel.** Done
+  2026-08-14. `the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_
+  stopped_on` builds real floor/wall geometry, walks a body east under the real
+  movement model until the solver stops it against a band coincident with the
+  wall, and hands the sample the KERNEL published — not one the test wrote — to
+  the real `RoomSet::transition_for_player`. The poison half asserts the
+  post-collision velocity still cannot reach the band. Probed: removing the
+  kernel's `clusters.sweep` slot makes it fail, so it catches lost publication
+  rather than only wrong consumption.
+
+  ⭐ **and building it surfaced a timing fact worth stating.** The crossing lives
+  in the ARRIVAL tick's segment — from short of the band to against it. Every
+  later tick is pinned, and its segment is a POINT. A first attempt asserted on
+  the pinned tick and failed for that reason. So the detector sees the crossing
+  only on the tick the kernel publishes it: this is a same-tick contract between
+  sweep publication and transition detection, not a state a later reader can
+  observe.
 
 - ▢ **External/P2P coordinated commit is trigger-based.** When real netplay is
   built, give the external rollback host a peer-coordinated barrier/rebase seam

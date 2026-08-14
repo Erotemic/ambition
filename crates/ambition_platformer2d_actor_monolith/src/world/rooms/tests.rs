@@ -766,3 +766,158 @@ fn kinematic_path_spec_matches_id_accepts_compacted_form() {
         "unrelated id must NOT match"
     );
 }
+
+/// **The MOVEMENT KERNEL walks a body into a wall on an exit band, and the
+/// transition fires from the sample the kernel actually published.**
+///
+/// ⛔⛔ **the sibling test above MANUFACTURES its `SweepSample`, and that is the
+/// hole this one closes.** It proves the detector reads a sample correctly; it
+/// cannot prove the kernel still WRITES one, or writes one whose `prev` is the
+/// pre-collision position. A change to sweep publication would leave that test
+/// green and the game broken — the exact shape of the bug it was written for.
+///
+/// Nothing is hand-built here but the room: the floor and wall are real
+/// geometry, the body accelerates under the real movement model, the stop is the
+/// real collision solver's, and the delta handed to the real predicate is
+/// `SweepSample::delta()` off the borrowed view the kernel wrote through.
+#[test]
+fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() {
+    let zone_center = ae::Vec2::new(300.0, 100.0);
+    let zone_half = ae::Vec2::new(8.0, 40.0);
+    let body_half = ae::Vec2::new(12.0, 20.0);
+    let band_left = zone_center.x - zone_half.x;
+    let floor_top = 130.0;
+    let block = |name: &str, center: ae::Vec2, half: ae::Vec2| ae::Block {
+        id: ae::GeoId::placement(ae::PlacementId::new(name), 0),
+        name: name.into(),
+        aabb: ae::Aabb::new(center, half),
+        velocity: ae::Vec2::ZERO,
+        kind: ae::BlockKind::Solid,
+        art_color: None,
+    };
+    let world = ae::World::new(
+        "kernel_zone",
+        ae::Vec2::new(600.0, 400.0),
+        ae::Vec2::new(40.0, 100.0),
+        vec![
+            block(
+                "floor",
+                ae::Vec2::new(300.0, floor_top + 50.0),
+                ae::Vec2::new(300.0, 50.0),
+            ),
+            // The wall's left face IS the band's left face, so a body walking
+            // east is stopped exactly against the zone it is trying to enter.
+            block(
+                "east_wall",
+                ae::Vec2::new(band_left + 100.0, floor_top - 100.0),
+                ae::Vec2::new(100.0, 100.0),
+            ),
+        ],
+    );
+
+    let start = ae::Vec2::new(band_left - body_half.x - 120.0, floor_top - body_half.y);
+    let mut scratch =
+        ae::BodyClusterScratch::new_with_abilities(start, ae::AbilitySet::sandbox_all());
+    scratch.kinematics.size = body_half * 2.0;
+    let frame = ae::MotionFrame::from_acceleration(
+        ambition_platformer2d_core::movement::DEFAULT_GRAVITY_DIR
+            * ambition_platformer2d_core::movement::GRAVITY,
+    )
+    .expect("the default gravity is non-zero");
+
+    // Walk east until the solver stops making eastward progress — the arrival
+    // tick is the one whose sample spans "short of the band" to "against it".
+    let mut arrival: Option<(ae::SweepSample, ae::Vec2, ae::Vec2)> = None;
+    for _ in 0..240 {
+        let before = scratch.kinematics.pos;
+        let mut sample = ae::SweepSample {
+            prev: before,
+            curr: before,
+            vel: ae::Vec2::ZERO,
+            half: body_half,
+        };
+        {
+            let (model, mut clusters) = scratch.parts();
+            clusters.sweep = Some(&mut sample);
+            ambition_platformer2d_core::step_motion(
+                model,
+                &mut clusters,
+                ambition_platformer2d_core::MotionStepContext {
+                    world: &world,
+                    input: ae::InputState {
+                        axes: ae::LocalAxes::new(1.0, 0.0),
+                        ..Default::default()
+                    },
+                    frame,
+                    facing_intent: 1.0,
+                    dt: 1.0 / 60.0,
+                },
+            );
+        }
+        let after = scratch.kinematics.pos;
+        if after.x - before.x < 0.01 && before.x > start.x + 1.0 {
+            // Progress has stopped: the ARRIVAL tick is the last one that moved,
+            // whose segment runs from short of the band to against it. This tick
+            // is the pinned one after it, and its segment is a point — which is
+            // exactly why a reader that waits for "now" never sees the crossing.
+            break;
+        }
+        arrival = Some((sample, after, scratch.kinematics.vel));
+    }
+
+    let (sample, stopped, post_vel) =
+        arrival.expect("the body never stopped advancing east — it never reached the wall");
+    assert!(
+        (stopped.x + body_half.x - band_left).abs() <= 1.0,
+        "the body settled at {stopped:?}, right face {}, but the band starts at \
+         {band_left} — this fixture only models the bug while the solver leaves \
+         the body against the band it walked into",
+        stopped.x + body_half.x
+    );
+
+    let mut room = spec_with(RoomMetadata::default(), "a");
+    room.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(zone_center, zone_half),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), zone_half),
+    }];
+    let set = RoomSet::from_parts(
+        "a",
+        vec![room, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let body_aabb = ae::Aabb::new(stopped, body_half);
+    assert!(
+        set.transition_for_player(body_aabb, sample.delta(), false)
+            .is_some(),
+        "the kernel's own published segment ({:?} -> {:?}) reaches the band the \
+         body was stopped against, so the transition must fire",
+        sample.prev,
+        sample.curr
+    );
+
+    // ⛔ THE POISON: the fallback the detector uses when no sample exists. The
+    // solver zeroed the axis, so this describes movement that never reaches the
+    // band the body is touching.
+    assert!(
+        set.transition_for_player(body_aabb, post_vel * (1.0 / 60.0), false)
+            .is_none(),
+        "post-collision velocity {post_vel:?} still reaches the zone, so this \
+         fixture no longer models the collision that makes the sample necessary"
+    );
+}

@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 8
+## Open decisions — 9
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -146,3 +146,52 @@ Choose one:
 **The part that is genuinely yours** is the per-creature absence list — can a
 goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
 should not invent one.
+
+### 9. What should the per-turn suite actually run? (measured 2026-08-14)
+
+**471 tests are hidden behind features in eight crates, nothing runs them
+automatically, and every one of them is green today.** So this is a question
+about future regressions, and the price is small but not zero.
+
+`scripts/feature_gated_tests.py` says 24 crates hide 629 tests. Eight were run
+explicitly at HEAD:
+
+| crate | bare | with its features |
+|---|---|---|
+| `ambition_demo_mary_o_app` | 31 | 45 (`visible`, 9.7s) |
+| `ambition_demo_sanic_app` | 25 | 45 (`visible`, 4.9s) |
+| `ambition_touch_input` | 4 | 45 (`mobile_touch`) |
+| `ambition_audio` | 25 | 64 |
+| `ambition_portal2d_presentation` | 16 | 45 (`effect_view_cones`) |
+| `ambition_input` | 54 | 115 (`input`) |
+| `ambition_game_shell` | 45 | 70 (`basic_presentation`) |
+| `ambition_dialog` | 30 | 42 |
+
+The ones that matter most for the reports you actually file are the demo apps'
+`visible` guards: they are the only thing in the repo asserting what a block
+LOOKS like, and D64's row was opened because a *"a discovered hidden block pays
+out invisibly"* report turned out to be already-fixed-and-never-run.
+
+**Why this is yours and not mine.** Both runners are decisions you made:
+
+- `.github/workflows/test.yml` is `on: workflow_dispatch` — disabled 2026-05-07,
+  *"no need to churn the servers with rust CIs until we have something we really
+  need github action testing for."*
+- `scripts/gate_suite.py` runs only `cargo test -p ambition_app --test app_it`,
+  shrunk on your measurement — *"I want to bias towards running less tests to
+  balance out the agent urge to run more."*
+
+Quietly enlarging the gate you shrank would be disobeying that ruling while
+looking careful, so:
+
+- **Leave it as-is** — the guards run only when an agent is doing visual work and
+  remembers. That is today, and it is why the stale report survived.
+- **Add the two demo `visible` runs to the FULL path of `gate_suite.py`**
+  *(recommended)* — ~15s of test time, but a distinct build configuration from
+  the gate's, so the first run of a turn that touches source pays a compile. It
+  buys the only automated watch on presentation art.
+- **Re-enable CI for these** — costs you nothing per turn and catches things a
+  day later; needs the 2026-05-07 ruling revisited.
+- **Something narrower** — e.g. run them only when `game/ambition_demo_*` or
+  `crates/ambition_render` changed, which is the cheap targeted version and needs
+  a path rule in `gate_suite.py`.

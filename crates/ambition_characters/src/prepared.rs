@@ -30,7 +30,7 @@
 //! not, because the workspace policy `engine.character-authority-is-app-local`
 //! puts the catalog beyond an engine-side projection's reach. A worn player and
 //! a seated fighter wearing the same character therefore disagreed about that
-//! character's kit. See `docs/planning/character-preparation-finalization-plan.md`.
+//! character's kit. See `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
 //!
 //! ## What is DERIVED rather than registered again
 //!
@@ -1979,7 +1979,7 @@ pub fn stage_authored_character(
              after finalization would be folded against a catalog the published cast \
              was already built without, so half the session would know a character the \
              other half does not. A later cast change is a separate explicit \
-             transaction (see docs/planning/character-preparation-finalization-plan.md)"
+             transaction (see docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md)"
         );
     }
     // A display name already spoken for by a DIFFERENT id is rejected before the

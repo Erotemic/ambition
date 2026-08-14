@@ -2,20 +2,20 @@
 
 **Authored by fable, 2026-07-05.** How Ambition-the-game relates to the
 engine and the demo suite. Story/pillars: [`vision.md`](vision.md);
-bosses: [`bosses.md`](bosses.md); cast: [`characters.md`](characters.md).
+bosses: [`bosses.md`](bosses.md); cast/Hall doctrine: [`../../concepts/hall-of-characters-is-not-special.md`](../../concepts/hall-of-characters-is-not-special.md).
 
 ## The relationship
 
 Ambition is `ambition_content` + the host choices in `ambition_app` —
 structurally identical to a demo, just bigger. Every engine capability
-lands with Ambition as its first consumer (the sandbox is the integration
-lab); the full game build-out (story beats, biomes, the theorem-upgrade
+lands with Ambition as its first consumer (the integrated game host is the
+first proving ground); the full game build-out (story beats, biomes, the theorem-upgrade
 arc) happens on the FINISHED engine, per the north star ordering.
 
-## The sandbox hosts the demo suite
+## The Ambition host composes the demo suite
 
 The composability showcase ([`../vision.md`](../vision.md) §5): the
-sandbox world gains a wing per demo (the Sanic zone, the Mary-O pipe
+Ambition world gains a wing per demo (the Sanic zone, the Mary-O pipe
 room, the Colosseum for Super Smash Siblings, the Hollow Lite well), each
 mounted via the mode-scope pattern
 ([`../demos/README.md`](../demos/README.md)) — `ambition_app` depends on

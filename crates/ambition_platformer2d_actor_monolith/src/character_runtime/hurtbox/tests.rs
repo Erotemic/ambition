@@ -106,7 +106,7 @@ fn a_move_override_is_sampled_on_the_move_clock() {
 /// construction rather than by care.
 ///
 /// This is the disease that produced the rollback divergence recorded in
-/// `docs/planning/triage/rollback-equipment-oracle-divergence.md`: simulation
+/// `docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md`: simulation
 /// geometry derived from a presentation-adjacent path. Hurtboxes do not get to
 /// repeat it.
 #[test]

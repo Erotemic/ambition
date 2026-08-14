@@ -180,7 +180,7 @@ pub fn blink_system(
         target,
         ae::movement::TransitVelocity::Keep,
     );
-    // Class-B transit authority (`collision-and-ccd.md` §3.2): a traversal
+    // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
     // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
     // mid-blink is a death, not a blink.
     if let Some(log) = class_b.as_mut() {

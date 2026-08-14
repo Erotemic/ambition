@@ -1,337 +1,60 @@
-# Combat model — the full smash stack, as data, for every actor
+# Combat model — remaining engine work
 
-**Authored by fable, 2026-07-05; compressed 2026-07-09 (CM1–CM5 + CM7 landed).**
-Completes the combat architecture from "one damage resolver + movesets" to the
-FULL platform-fighter stack: knockback scaling on a damage-accumulation axis,
-directional influence, smash attacks, cancel/chain tables, and per-move
-presentation. Everything here is body-generic (relativity principle), authored
-as data (RON on archetype/catalog rows + `MoveSpec`s), and **headless: every
-rule below changes simulation outcomes and therefore must be steppable and
-assertable without a renderer.** Only cosmetic presentation (what a hit LOOKS
-like) is render-side.
+> **Verified against `cecd01ca` (2026-08-13).** CM1–CM5, CM7 and CM8 from the
+> original combat campaign are implemented. The full design/execution record is
+> archived at
+> [`../../archive/planning-superseded/2026-08-13/engine/combat-model.md`](../../archive/planning-superseded/2026-08-13/engine/combat-model.md).
+>
+> Current body-generic platform-fighter integration is owned by
+> [`../smash-body-generic-combat-2026-08-09.md`](../smash-body-generic-combat-2026-08-09.md).
 
----
+## Already landed — do not schedule again
 
-## 1. The damage-accumulation axis (one meter, two death policies)
+The engine already has the shared damage/knockback axis, DI, smash-charge data,
+attack hold/release gesture signals, cancel windows/chains, per-move
+presentation validation, derived frame data, body-generic hit feedback, a shared
+victim-side shield/parry seam, equipment modifiers/grants, touch-to-collect
+`WorldItem` equipment, and Mary-O consumers of the equipment model.
 
-Smash's percent and Ambition's HP are the SAME quantity read through different
-policies:
+## Remaining combat capabilities
 
-- **`DamageMeter`** — the accumulated damage a body has taken. It already
-  exists implicitly as `Health.max - Health.current`; it is a first-class read
-  (`BodyHealth::damage_taken()`), not a new component, so no state is
-  duplicated.
-- **Death policy** (per-game/per-body data, an archetype field):
-  - `HpDepleted` — dies when the meter reaches `max` (Ambition today).
-  - `Unbounded` — the meter has no death threshold (`Health.max` acts as a
-    display normalizer only); death comes from the WORLD (blast-zone/OOB rule,
-    which the engine already has as the hazard/fell-out gate). This is smash
-    percent, and it costs one enum.
-- **Knockback formula** (the resolver's launch step):
+### 1. Grab / hold / throw vocabulary
 
-  ```text
-  kb = (base + growth * damage_taken * scale_of(victim.weight)) * move.knockback_mult
-  dir = di_adjust(move.launch_dir_bodyframe -> worldframe, victim_DI)
-  hitstun_frames = hitstun_base + hitstun_per_kb * kb
-  ```
+Platform-fighter grabs and throws are still absent as a body-generic combat
+capability. Design them through existing control-authority/body seams rather than
+creating a Smash-only grabbed-body state machine. A successful throw must feed
+the ordinary damage/launch/DI pipeline and release the temporary hold authority.
 
-  `base`, `growth`, `launch_dir` author per `HitVolume`/`MoveSpec` (with prefab
-  defaults); `weight` authors per archetype. Flat knockback is exactly
-  `growth = 0` — the migration was byte-parity by construction, and content
-  opts rows into growth.
+This is **deferred behind the current D72 feel/body-generic campaign**; do not
+rush it merely because the old CM6 sketch exists.
 
-## 2. Directional influence (DI) — the two-port discipline applied to defense
+### 2. Shield-stun / shield durability, if the product still wants it
 
-The victim's CONTROLLER gets a say; the victim's BODY enforces the limits. At
-launch resolution, read the victim's `ActorControl.locomotion` (the same gated
-input every system reads — hitstun gating does NOT zero DI; DI is what hitstun
-input is FOR) and rotate the launch vector toward the held direction by at most
-`di_max_angle` (data; smash-like ≈ 18°). Because it reads `ActorControl`, DI
-works identically for humans, brains, and RL policies — a level-9 CPU that DIs
-correctly falls out of the fighter brain reading the same seam. v1 is launch-DI
-only; SDI (hitstun nudges) is a listed extension, not speculative work.
+Current source has `BodyShieldState { active, parry_window_timer }`, directional
+blocking, parry behavior, and shared damage resolution. The older CM6 proposal's
+shield HP, shield stun, break stun, regeneration, and `OnBlock` cancel fact are
+not implemented as that model.
 
-C4 test: identical hit under rotated gravity with rotated DI input produces the
-conjugated trajectory. RL test: optimal DI measurably extends survival in the
-headless rig.
+Treat those as an optional next capability to justify from Smash feel. Extend the
+one body shield/damage authority; do not introduce a second shield subsystem.
 
-## 3. Smash attacks & charge
+### 3. Finish body-scale equipment resolution
 
-Composition of two landed pieces plus one rule: the `simple_charge` prefab
-provides hold-to-charge move shells; the directional-verb chain provides the
-smash-input surface (a `smash` verb family binds strong-directional attacks
-distinct from tilts — the flick-vs-hold input distinction is a resolver knob,
-authored per game); released charge fraction multiplies damage and `knockback_mult`
-(`1.0 → smash_charge_mult`, data). Charge state lives on `MovePlayback` (a held
-Startup phase) — no new component.
+`ambition_characters::equipment::resolved_param` supports `BODY_SCALE`, and the
+pickup/equipment path is live, but current actor/render/collision body-size reads
+do not generally resolve `BODY_SCALE` through that fold. If equipment-authored
+body scaling remains desired, make the authoritative size/collider/presentation
+read path consume the resolved value once rather than adding demo-specific size
+patches.
 
-## 4. Cancels & chains (the animation/ability chain)
+### 4. Content-level hurt identity
 
-`MoveSpec` carries a **cancel table**: per phase-window, `(condition,
-into_class)` rows — conditions from {`OnHit`, `OnBlock`, `OnWhiff`, `Always`},
-`into_class` naming move classes (`jump`, `dash`, `special`, `any_attack`,
-specific ids). When a cancel-legal input arrives (from the SAME buffered-intent
-path that starts moves), the current move ends at the cancel point and the next
-starts. Combo/chain design is therefore AUTHORED DATA (a jab that chains into
-jab2 on hit; aerials canceling into jump on hit = jump-cancel), and the fighter
-brain reads the table as frame-data.
+The engine can author attack strike cues and victim `HurtFeedback`; distinct
+shipped hurt identities remain content work where characters need them. This is
+not a new combat architecture campaign.
 
-**As landed:** the sketch's parallel `cancels: Vec<CancelRule>` was replaced by
-extending the EXISTING timeline vocabulary — `WindowTag::Cancelable` grew
-`condition: CancelCondition` (serde-default `Always`) — because the timeline
-already IS the span structure and `frame_data()` already derived `CancelWindow`
-from it. One authoring surface, no parallel table. `into` entries share ONE
-string namespace: literal move ids, verbs, and `CANCEL_CLASS_NAMES`. `OnBlock`
-deliberately waits for CM6's shield-contact fact — **a parseable-but-never-
-firing variant is an authoring trap.**
+## Exit
 
-## 5. Per-move presentation
-
-A `MoveSpec` phase may author **presentation events** — `sfx: <cue-id>`, `vfx:
-<effect-id>` — resolved through the SAME content-registered registries as
-everything else, so a typo fails at the startup validation gate rather than
-silently producing no effect. `simple_melee`/`simple_ranged`/`simple_charge`
-prefab params include the cue/effect ids, so every authored row can sound and
-look distinct with zero code. The sim emits the event facts; presentation
-consumes them.
-
-**Scope correction (surveyed 2026-07-19):** everything above is TIMELINE
-presentation — `MoveEventKind::{Sfx,Vfx}` fire when the owner's proper-time
-clock crosses `MoveEvent.at_s`, at the OWNER's position, with no knowledge of
-whether anything was hit (`dispatch_move_events`,
-`ambition_combat/src/moveset/mod.rs:789`). **There is no contact-time authored
-presentation at all.** No effect identity survives the
-`HitVolume`→`Hitbox`→`HitEvent` chain: `apply_hitbox_damage`
-(`hitbox/mod.rs:87`) constructs `HitEvent` from `volume/damage/source/attacker/
-target/mode/knockback/ignored_targets` only. The single per-volume presentation
-field, `HitVolume.vfx` (`ambition_entity_catalog/src/lib.rs:231`), is consumed
-at SPAWN, has a two-value vocabulary (`slash_arc`/`slash_poke`), and doubles as
-a gameplay switch (it gates the sprite-manifest hit-polygon override,
-`moveset/mod.rs:427`) — so it is NOT the hook to extend. Closing this is CM8.
-
-## 6. Grabs, throws, shield-stun (staged vocabulary, SSB-gated)
-
-Not speculative — Super Smash Siblings needs them; they land WITH that demo
-under the oracle discipline. Design pinned in §8.
-
-## 7. Match/mode state lives OUTSIDE the engine
-
-Stocks, percent HUD, blast-zone dimensions, respawn invulnerability,
-platforms-only stages, victory conditions — ALL demo-content (see
-[`../demos/super-smash-siblings.md`](../demos/super-smash-siblings.md)). The
-engine's obligations end at: the damage axis (§1), OOB events a mode can
-consume as "blast", spawn/respawn primitives, and local-N slot routing
-([`netcode.md`](netcode.md) N1). If SSB needs anything else engine-side, that's
-an oracle-violation to state and land as engine work, not a quiet edit — and not
-smuggled match policy in core or a privately rebuilt engine facility in the demo.
-
-## 8. Design sketches for the UNLANDED slices (pre-solved; do not re-derive)
-
-**CM6 — shield / grab / throw (fable, 2026-07-06 night; opus executes):**
-
-- **Shield is a component + a held verb, resolved INSIDE the one victim-side
-  resolver.** `BodyShield { hp, max, regen_per_s, raised, stun_s }` on
-  shield-capable bodies (authored per archetype/`ActorTuning`; ABSENT by
-  default = byte-parity for all PvE). The raise input is a held `shield` verb
-  on the shared control frame — so a brain / RL policy / level-9 CPU shields
-  through the SAME seam a human does (relativity principle), and the EXISTING
-  bubble-shield visual + `ShieldRingsView` become this component's presentation
-  for free. Resolution order: **grab beats shield beats damage** — (1) a Grab
-  contact ignores `raised`; (2) `raised && stun_s == 0.0` routes the hit to
-  shield HP (× authored `shield_efficiency`), victim takes zero body
-  damage/knockback, gains `stun_s = stun_base + stun_per_damage × dmg` (data),
-  and optional authored `chip_fraction` leaks to body HP (default 0); (3)
-  otherwise today's path, unchanged. Shield BREAK (`hp ≤ 0`): long authored
-  `break_stun_s`, shield unusable until regen crosses a re-enable threshold.
-  v1 shield volume = the body hurtbox (no spatial shrink; shrink is a later
-  presentation + partial-exposure slice, explicitly out of v1).
-- **The shield FACT (what CM4's `OnBlock` waits for):** the hit path already
-  marks `MovePlayback.landed_hit`; the same mark pass sets a new `landed_block`
-  when the victim's shield absorbed it, and `HitEvent` grows `outcome:
-  HitOutcome { Hit (serde-default), Blocked }`. `CancelCondition::OnBlock` then
-  reads `landed_block` exactly as `OnHit` reads `landed_hit` — one namespace,
-  one mark pass.
-- **Grab = a MoveSpec volume with a contact VERB, and holding = the mount
-  vocabulary reused.** `HitVolume` grows `on_contact: ContactVerb { Damage
-  (serde-default), Grab }`. A Grab contact establishes a hold: the victim body
-  receives a temporary **`ControlGrant(Total)` to the holder** — the SAME
-  authority transfer ADR 0020 mounts use (do NOT mint a parallel grabbed-state
-  machine; a grab IS a hostile brief mount). Victim pose follows the holder's
-  authored hold anchor (body-local offset, gravity-frame). Escape = mash:
-  accumulated victim input activity (any verb edges on its slot frame) shortens
-  the authored `hold_s`; brains mash through the same seam.
-- **Throws are moves in the `throw` verb family** — `directional_verb_chain(base
-  = "throw")` resolves throw_up/forward/back/down while holding. A throw's hit
-  applies DIRECTLY to the held victim (the hold is the contact — no volume
-  overlap test), releasing the grant and feeding damage + `launch_dir` + growth
-  + DI through the UNCHANGED resolver chain. Pummel (attack verb while holding)
-  is an optional v1.5 flag: small fixed damage, extends `hold_s` slightly.
-- **Parity + tests:** every new field serde-defaults to absent/off; the CM exit
-  test grows: two archetypes → one shields a hit (stun, no knockback, OnBlock
-  cancel fires), one gets grabbed + thrown (grant applied/released, launch
-  through DI) — all via `SlotControls` headlessly. C4 conjugation applies to
-  throws like any launch.
-
-**A3 — equipment→params — ✅ LANDED (opus, 2026-07-11).** The mechanism is
-`ambition_characters::equipment` (below combat/actors, above engine_core, so the
-resolver, the moveset dispatch, and the body reads all call it; engine_core
-untouched). `EquipmentRow { id, modifiers, grants, on_hit }` on a per-body
-`WornEquipment` component. The three mechanisms landed exactly as sketched:
-(a) `resolved_param(base, worn, key, scope)` — a read-time fold, all Adds then all
-Muls, order-independent, never baked — scoped `Body` vs `Move`/`Verb`; (b) grants
-overlay `ActionSet` on equip (`apply_equipment_grants`), from which
-`build_actor_moveset` derives the move; (c) `OnHit::ConsumeAsArmor` is spent inside
-the ONE `resolve_body_hit` (shield beats armor beats damage) with a new
-`BodyHitResolution::Armored`. The fire-time fold rides `dispatch_move_events`
-(`resolved_ranged`). The player damage system threads the worn set; actor/boss
-callers pass `None` (the resolver stays generic). Exit test met headlessly across
-three suites (armor sequence through the real resolver, grant→moveset verb map,
-Mul-at-trigger-resolve). M1 (`ambition_demo_mary_o::powerups`) is the first consumer.
-**Three v1 deviations, stated:** the mushroom's SIZE is a `Body` numeric modifier
-(the (a) path), not a component grant — one mechanism for numeric effects; a
-`downgrade_to` armor row is expected grant-free (the resolver rewrites the worn set
-but can't run equip-time grants); and the live BODY-scale collision/render read is
-not yet folded (the resolver + fire folds are, which the exit test asserts) — it
-needs the actors/render read-site fold and is the named remaining wiring, alongside
-the powerup PICKUP path. **The equip half of that pickup landed
-(`combat::moveset::equip_equipment_row`, 45cce0dd)** — the one ECS-free contract
-(grants + `worn.equip` + idempotent moveset rebuild) a pickup or menu equip calls;
-what remains is the pickup ENTITY/overlap system + level spawns + art + the
-body-scale read-fold.
-
-- **The model:** worn equipment contributes (a) NUMERIC modifiers that merge
-  into move/body params at the moment a value is RESOLVED, and (b) BEHAVIORAL
-  grants that are ordinary components/prefab rows — never a third mechanism.
-- **(a) Numeric modifiers.** `EquipmentRow` (items RON) gains `modifiers:
-  Vec<ParamModifier>` where `ParamModifier { param: String /* the
-  EffectRef/prefab param namespace the catalog already validates */, op:
-  Add(f32) | Mul(f32), scope: Move(String) | Verb(String) | Body }`.
-  Resolution: ONE pure helper `resolved_param(base, worn_equipment, param_key,
-  scope) -> f32` called at TRIGGER-RESOLVE time (where the prefab expansion /
-  move trigger already reads its params) and at the few body-param read points
-  (max HP, `BodyBaseSize` scale). **Never bake modified values into stored
-  state** — resolution is a read-time fold (ordering: all Adds, then all Muls;
-  document IN the helper).
-- **(b) Behavioral grants.** An equipment row may name a `grants:` list —
-  moveset prefab rows (the flower-analog grants a `simple_ranged` row into the
-  wearer's verb map) and/or components (the mushroom-analog raises
-  `BodyBaseSize`). Grant application/removal rides equip/unequip through the
-  EXISTING wear/roster seams; no new lifecycle.
-- **Armor-instead-of-HP (the on-hit equipment policy).** An equipment row may
-  declare `on_hit: ConsumeAsArmor { downgrade_to: Option<RowId> }`: inside the
-  ONE victim-side resolver (before body damage), a worn armor row consumes the
-  hit — equipment is removed/downgraded, victim takes zero HP damage, gains the
-  normal brief i-frames. Default absent = parity. (Mary-O: big→small is
-  `downgrade_to: None` on the mushroom row.)
-- **Exit test:** headless — equip mushroom-analog (size + armor: one hit
-  downgrades, second hit damages HP), equip flower-analog (verb map gains the
-  ranged move; unequip removes it), a `Mul` modifier visibly scales one
-  authored param at trigger-resolve.
-
-**CM8 — ONE victim-side hit/death feedback seam (surveyed opus 2026-07-19; not
-yet executed). Jon's ask: "each attack binds its own VFX/SFX", i.e. the goblin
-swipe must not sound like the sword.**
-
-The four facts that decide the design — each verified at HEAD, so do not
-re-derive them:
-
-1. **A plain delete of the attacker-side emit blocks REGRESSES player feel.**
-   The rich player-victim payload (`PLAYER_DAMAGE` sfx + 14-shard red `Burst` +
-   `DebrisBurst{Impact}`) exists ONLY attacker-side, at two byte-identical
-   sites: `ambition_combat/src/hitbox/mod.rs:250-268` and
-   `ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1134-1149`. The victim
-   side emits only `SfxMessage::Hit` + `Impact` (`damage/mod.rs:378`,
-   `damage_apply.rs:623-624`). So the seam MOVES the payload; it does not drop
-   it. This is why the smell is M-sized, not S.
-2. **There are THREE payload forks, not two, and one is a live bug.**
-   `actors/update.rs:1121` binds `is_player` and then IGNORES it in the emit
-   block — so an enemy body-checking another enemy plays `PLAYER_DAMAGE` and
-   the red "player got hurt" burst. `hazards.rs` is the third fork (two
-   hand-split loops, `:114-134` player vs `:180-185` actor). The bug disappears
-   as a SIDE EFFECT of the seam; do not patch it in place first.
-3. **`hitbox/mod.rs:241`'s vulnerability suppression is player-only**
-   (`!is_player || body_vulnerable(..)`), so an actor in i-frames still gets an
-   `Impact`. Victim-side resolution makes this uniform for free.
-4. **There is no per-character feel profile.** `Platformer2dFeelTuningMonolith`
-   (`actors/src/time/feel.rs:13`) is one GLOBAL resource; `BodyHitFeel`
-   (`damage_apply.rs:94`) is a plain argument with hardcoded call-site literals.
-   `CombatTuning` (`combat/src/components/mod.rs:212`) is the per-body component
-   already projected actors→combat, so it is the natural home.
-
-Shape: authored effect identity rides `HitVolume` → `Hitbox` → `HitEvent` (a
-NEW field — see fact 4 about not overloading `HitVolume.vfx`), and ONE
-victim-side reaction system resolves the payload as *authored attack identity,
-falling back to the victim's feel profile*. Both attacker-side emit blocks are
-then deleted, not bridged. Watch determinism: effect ids are `String` today
-(`SfxId::new(cue)`), and a `String` on a sim component is GGRS-snapshot weight —
-prefer an interned/small id if the profile shows it.
-
-Free cleanup while in here: `Platformer2dFeelTuningMonolith::attack_hitstop_time` (declared,
-default `0.055`) has **no reader** — the attacker hitstop at `damage/mod.rs:364`
-hardcodes `0.06`, and that write is itself gated on the attacker being a
-`PlayerEntity`, so an actor landing a hit gets no hitstop.
-
-**As landed (CM8 — 2026-07-24).** The split above is the shipped shape: the
-ATTACK owns its strike SOUND, the VICTIM owns its hurt reaction.
-
-- **`ambition_vfx::HurtFeedback`** (`Copy`: `sfx: SfxId` + `Option<HitBurst>` +
-  `Option<PhysicsDebrisCue>`) with consts `PLAYER` (the `player.damage` grunt +
-  the red 14-shard `HitBurst::HURT` + impact debris) and `ENEMY` (a plain
-  `player.hit` tick, no spray). Projected onto `CombatTuning.hurt_feedback` at
-  actor/boss spawn; the player consumer uses `HurtFeedback::PLAYER` directly (the
-  player carries no `CombatTuning`).
-- **Attack strike sound**: `HitVolume.hit_sfx: Option<String>` (an `SfxId` name)
-  → lowered to `Hitbox.strike_sfx: Option<SfxId>` at the moveset spawn
-  (`SfxId::new`) → copied to `HitEvent.strike_sfx` at overlap → carried through
-  the snapshotted `PendingPlayerHitEvents` FIFO (an `SfxId` is a `Copy` `u64`, so
-  no `String` weight, and both `Hitbox`/`CombatTuning` are clone-registered so the
-  new fields snapshot for free — no codec change). `SimpleMeleeParams`/
-  `SimpleChargeParams` gained a `hit_sfx` field so a roster row authors its own
-  contact sound.
-- **The ONE reaction**: `ambition_combat::util::emit_hit_feedback(sfx, vfx,
-  debris, hurt, strike_sfx, pos)` — one hit sound (`strike_sfx ?? hurt.sfx`), the
-  universal Impact spark, and the victim's spray/debris. Called from the player
-  (`apply_player_knockback`), actor (`apply_actor_hit`), and boss
-  (`apply_boss_hit`) consumers on the LANDED branch only, so i-frame/parry muting
-  is free (an Ignored hit never reaches it).
-- **Deleted forks**: the two attacker-side player payloads (`hitbox/mod.rs`
-  overlap, `actors/update.rs` body-contact — the latter the live bug where
-  `is_player` was bound but ignored, so enemy-vs-enemy played `PLAYER_DAMAGE` + the
-  red burst), the two hand-split hazard loops (now one `strike_sfx` stamp), the
-  shared post-hit `SfxMessage::Hit` (`damage/mod.rs`), and the two projectile
-  attacker-side cues — all removed, so exactly one reaction fires per landed hit.
-- **Free cleanup done**: the attacker hitstop now reads `feel.attack_hitstop_time`.
-
-Tests: `combat::util` (the rule — sword≠claw, enemy no red burst, player keeps
-its burst even under an authored strike), `combat::hitbox` (the overlap carries
-`strike_sfx`), `combat::moveset` (the spec→volume link), and
-`actors::damage` end-to-end (an enemy struck by another enemy reacts with its own
-profile, NOT `PLAYER_DAMAGE`/red-burst, through the real consumer).
-
-**Honestly still owed (not overclaimed):** (1) `CombatTuning.hurt_feedback` is
-READ by the consumers but every actor/boss carries the `ENEMY` default today —
-per-archetype authoring (a metal body clangs, a slime squishes) is the wired seam,
-not yet fed from authored `ActorTuning` data. (2) `hit_sfx` is authorable on every
-prefab melee row and tested, but no SHIPPED character authors a distinct one yet —
-that is a content pass, not engine work. (3) The peaceful-NPC poke keeps its own
-Impact-only cue (not routed through the seam — it is not an `is_player` payload
-fork). (4) The player wielded-AOE keeps its own center-flash Impact (the attack's
-landing cue, not a per-victim payload).
-
-## 9. Slices
-
-| # | Slice | Grade |
-|---|---|---|
-| CM1 | ✅ LANDED. `HitVolume.{knockback_growth,launch_dir}`, `ActorTuning.{weight,death_policy}`, `BodyHealth::damage_taken()`, pure `scaled_knockback()` applied victim-side at the moveset-hitbox overlap (the ONE growth-carrying path), `DeathPolicy::kills_at_max()` gating the kill path. `launch_dir` is direction-only, victim-gravity-frame, and preserves the feel-tuned launch SPEED — an authored angle can never out-throw the default. | done |
-| CM2 | ✅ LANDED. Pure `di_adjust(launch, di_input_local, gravity_dir, max_angle)`; `di_max_angle` defaults `0.0` (off = parity; a fighter mode authors ≈0.31/18°). Wired via a localized `Option<&ActorControl>` on the two knockback-consumer SYSTEM queries, not the shared cluster views. **Turning DI on for a fighter is a feel number Jon sets.** | done |
-| CM3 | ✅ LANDED. `MoveSpec.smash_charge_mult` + `charge_scale_at(t)` — charge state IS the move's clock, no new component. **Partial-charge-on-EARLY-release awaits an `attack_held`/`attack_released` control signal** (input + feel, Jon's domain); the fraction already derives from `t`. | done |
-| CM4 | ✅ LANDED. See §4 "As landed". Empty timeline = byte-parity reject (tested). `frame_data().cancel_windows` carries conditions (FB2-ready). | done |
-| CM5 | ✅ LANDED. See §5. `MoveSpec::presentation_problems(vfx_known)` (oracle injected — `entity_catalog` stays vfx-free) runs inside `MovePrefabRegistry::expand`. **NOTE: the slash-VFX black square is a SEPARATE render-side sprite-source quirk (needs a visual run), NOT closed here.** | done |
-| CM6 | Grab/throw/shield-stun — **design PINNED §8** | [opus, lands with SSB demo] |
-| CM8 | ✅ **LANDED 2026-07-24** (§8 "As landed"). ONE victim-side reaction (`emit_hit_feedback`): the ATTACK owns its `strike_sfx`, the VICTIM owns its `HurtFeedback` spray. The three `is_player` payload forks are deleted (incl. the live enemy-vs-enemy `PLAYER_DAMAGE`+red-burst bug), the free `attack_hitstop_time` cleanup is done, and "a sword and a claw are heard apart" is authorable + tested. OWED (§8): per-archetype hurt authoring + shipped distinct sounds are a content pass, not engine work. | [opus] |
-| CM7 | ✅ LANDED. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation, no storage, in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |
-
-Exit: a headless test drives two archetypes through hit → DI → knockback →
-cancel-chain → KO-by-blast-zone entirely via `SlotControls`, and the same data
-renders the ambition robot's unchanged HP combat (`growth=0`, `HpDepleted`)
-byte-identically.
+New combat work is done when the capability is body-generic, driven through the
+same control and victim-resolution seams for human/AI/possessed bodies, and does
+not add mode-specific duplicate authority.

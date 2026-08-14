@@ -345,7 +345,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     The inversion is the point, not a refactor: the exhaustive plan is opt-in as
     of 2026-08-02 because being the default made it the thing an agent reached
     for instead of the focused test that would have answered the question. See
-    the module docstring and `docs/planning/test-iteration-cost-2026-08-02.md`.
+    the module docstring and `docs/recipes/cheapest-sufficient-check.md`.
     """
     jobs: list[Job] = []
     members = selected_members(only)
@@ -389,38 +389,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # the suite. Every other check in that file is fatal.
         jobs.append(Job("agent KB (doc contracts + inline-test review)",
                         [sys.executable, "scripts/check_agent_kb.py"]))
-        # ⭐ **AND THE FOURTH AND FIFTH, found by asking the question the third
-        # one raised instead of waiting to trip over them.** Cross-referencing
-        # `ls scripts/check_*.py` against this plan AND against `scripts/tests/`
-        # (several checkers run through a pytest wrapper rather than directly, so
-        # absence from this list is not proof) left exactly two orphans:
-        #   * `check_doc_links.py` — 0.5s, dead links in the ACTIVE knowledge base
-        #     (archives keep stale paths on purpose and are excluded);
-        #   * `check_roadmap_evidence.py` — 10s, re-derives each roadmap
-        #     `**Status …**` claim from SOURCE. Its own docstring records three
-        #     stale claims found that way on 2026-07-27; prose does not rot loudly.
-        # Both were already green, so wiring them in adds 10.7s and no red — the
-        # value is the regression they now catch rather than anything they say today.
+        # Active documentation links remain a cheap correctness check.
+        # Completed campaign evidence is archived rather than carried in the live
+        # roadmap, so `check_roadmap_evidence.py` is now an on-demand archaeology
+        # tool rather than a backbone gate.
         jobs.append(Job("doc links (active KB)",
                         [sys.executable, "scripts/check_doc_links.py"]))
-        # ⛔ `--check` IS LOAD-BEARING AND WAS MISSING (fixed 2026-08-07).
-        # ⚠ and unlike `check_absence_contracts.py` — whose own `--check` is also
-        # optional and is FINE, because `scripts/tests/test_absence_contracts.py`
-        # asserts every contract against the live tree — this script has NO pytest
-        # gate. Checked: 26 files in `scripts/tests/` and none of them is about
-        # roadmap evidence. So this invocation was its only enforcement path, and
-        # the flag was the whole of it. The
-        # script prints its findings either way and returns
-        # `1 if (problems and args.check) else 0`, so without the flag this job
-        # could not go red — it ran for the whole period the comment above says
-        # its value is "the regression they now catch", catching nothing. Proven
-        # rather than reasoned: a fixture citing a deleted type exits 0 without
-        # the flag and 1 with it. ⚠ this is the repo's recorded failure shape —
-        # an optional `--check` that turns a guard green-by-construction — inside
-        # the guard whose own docstring is about claims that do not rot loudly.
-        jobs.append(Job("roadmap claims match source",
-                        [sys.executable, "scripts/check_roadmap_evidence.py",
-                         "--check"]))
         # ⭐ **the compile-cost ratchet** (Jon, 2026-08-08: *"I want to quantify
         # those compile wins as we do those. And to guard against compile time
         # regressions."*). Guards the DETERMINISTIC cause — blast radius of an

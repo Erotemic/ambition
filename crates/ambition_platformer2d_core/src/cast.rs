@@ -1,4 +1,4 @@
-//! `cast` — the swept-primitive library (collision-and-ccd.md §2, CC1).
+//! `cast` — the swept-primitive library (docs/concepts/movement-collision.md).
 //!
 //! THE SWEEP LAW: anything that changes state as a function of a body's path
 //! evaluates against the continuous swept path `pos → pos + vel·dt`, never
@@ -18,9 +18,9 @@
 //! - **Segment ray vs the solid world** — [`raycast_solids`] over the narrow
 //!   [`SolidWorldQuery`] seam, and the underlying [`ray_aabb`] slab query
 //!   (moved down from `ambition_platformer2d_shared_tangle` per the CC1 ruling —
-//!   collision-and-ccd.md §3.4(b)).
+//!   docs/concepts/movement-collision.md).
 //!
-//! Deliberately NOT absorbed (ruled, collision-and-ccd.md §3.4(a)): the
+//! Deliberately NOT absorbed (ruled, docs/concepts/movement-collision.md): the
 //! **swept-circle** primitive (`first_circle_hit`) is load-bearing interior of
 //! the momentum kernel (`SurfaceChain` / `resolve_surface` intimacy, on the
 //! no-pushout/OOB path) and stays kernel-private in [`crate::movement::surface_momentum`]; a
@@ -156,7 +156,7 @@ pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
 }
 
 /// Recursive, portal-aware raycast — THE portal-aware cast family entry
-/// (collision-and-ccd.md §3.4(c)/§3.5, landed with CC5). Cast from `origin`
+/// (docs/concepts/movement-collision.md, landed with CC5). Cast from `origin`
 /// along `dir`; if the ray crosses an aperture's PLANE within its opening,
 /// entering from the front (`dir · normal < 0`), before any solid hit, it
 /// re-anchors at the mapped point on the exit and continues along the mapped

@@ -484,7 +484,7 @@ Phase C is marked DONE there.
 
 **Unblocked. Small. This is the gate on R6 — write it BEFORE the fold.**
 
-[`unified-actors.md`](../../../planning/engine/unified-actors.md) step 5 said "Phase C (payoff
+[`unified-actors.md`](../../../archive/planning-superseded/2026-08-13/engine/unified-actors.md) step 5 said "Phase C (payoff
 verification) remains" and never defined it. Defined 2026-07-10: it is this lint.
 
 **Why it's needed, not ceremony.** B3's audit conclusion claims the only

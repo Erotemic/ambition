@@ -2,7 +2,7 @@
 //! simulation body may carry, including bodies under participant control.
 //!
 //! Establishing this module is step 4 (the keystone) of the unified-actors plan
-//! (`docs/planning/engine/unified-actors.md` / `engine/architecture.md`): the
+//! (`docs/concepts/one-body-one-path.md` / `engine/architecture.md`): the
 //! shared body/sim-state was historically surfaced through `crate::avatar`, which
 //! made `crate::avatar` a universal dependency sink — ~20 of the non-player
 //! modules imported it just to name a body component. Re-homing the shared types

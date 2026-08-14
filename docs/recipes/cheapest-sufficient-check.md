@@ -1,6 +1,6 @@
 # The cheapest command that settles a change
 
-⭐ **Front 3b of the test-iteration campaign** (`docs/planning/test-iteration-cost-2026-08-02.md`).
+This is the durable residue of the completed test-iteration campaign; the full campaign record is archived at `docs/archive/planning-superseded/2026-08-13/test-iteration-cost-2026-08-02.md`.
 Jon, 2026-08-02: *"run_tests looks so alluring to an agent, it prevents it from
 running the focused test that actually matters, and instead it just runs all the
 junk."* A faster front door does not fix that. Knowing which narrow command is

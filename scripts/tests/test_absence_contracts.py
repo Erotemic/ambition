@@ -339,7 +339,7 @@ def test_the_allowlist_catches_a_stale_baseline_entry():
     Without it, migrating `time` away while leaving `time` in the baseline
     frees a slot: the COUNT still reads 2, and the next module to appear
     occupies the gap without ever tripping invariant 1. `Freeze the SET`
-    (api-growth-method.md §5) is only enforced if the set is pruned as it
+    (the archived API campaign method) is only enforced if the set is pruned as it
     shrinks, so an unpruned entry has to be as red as a new one.
     """
     contract = {"allowed": set(), "baseline": {"runtime", "time"}}

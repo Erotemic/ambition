@@ -1,4 +1,4 @@
-//! Durable geometry identity — `GeoId`/`GeoFaceRef` (collision-and-ccd.md §3.6).
+//! Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md).
 //!
 //! What durably names a piece of ROOM geometry — for `WorldDelta` ops, the CC6
 //! portal host ref, save overlays, and debug traces? `Block.name` is an informal

@@ -1321,7 +1321,7 @@ fn walk_the_combat_route_with(
 /// because two different failures were tangled together in it:
 ///
 /// * a genuine **value divergence** at frames ~[149, 150, 151] —
-///   `docs/planning/triage/rollback-equipment-oracle-divergence.md` records the
+///   `docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md` records the
 ///   bisection. `IdentityKit` and `PlayerVisual` were found and fixed on the way;
 ///   the actual cause was `ProjectileOwner` declared rollback-DERIVED on the
 ///   promise of a system whose query could not see enemy projectiles. Fixed, and

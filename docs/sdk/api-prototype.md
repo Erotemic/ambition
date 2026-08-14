@@ -35,7 +35,7 @@ were never written down at all.
 | 8 | manual stepping needs `TimeUpdateStrategy::ManualDuration(Time<Fixed>::timestep())`, read back out of the world *after* the plugins built it | silently: frame dt drifts from tick dt |
 
 Four of the eight fail **silently**, which
-[§3a of the growth method](../planning/engine/api-growth-method.md) prices at
+[the public-API growth method](../concepts/api-growth.md) prices at
 triple. That is the leak slice A closes: *a rule the engine knows and makes the
 consumer re-derive.*
 
@@ -317,7 +317,7 @@ Listed because the campaign's first draft absorbed all of it:
 * `PreparedCapabilityPlan`, rollback schema fragments (**C**);
 * `ContentRevision` (**D**);
 * any `ambition_platformer2d_actor_monolith` decomposition (authorised only by
-  [the growth method §4](../planning/engine/api-growth-method.md)).
+  [the public-API growth method](../concepts/api-growth.md)).
 
 ---
 

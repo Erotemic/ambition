@@ -4,7 +4,7 @@ This is the canonical current architecture. It describes responsibilities and
 allowed composition, not a historical carve ledger. Current gaps are in
 [`../status.md`](../status.md); execution order is in
 [`../tracks.md`](../tracks.md); settled recon decisions are in
-[`decisions-2026-07-16.md`](decisions-2026-07-16.md).
+[archived recon consensus](../../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md).
 
 **Design oracle:** could another platformer be built by adding a provider and
 content crate without editing reusable engine crates? It judges the end state:

@@ -4,7 +4,7 @@
 //! can say "frames [149, 150, 151] differ" and nothing more, so every divergence
 //! becomes a bisection: remove an entity class, re-walk a 150-frame route, guess
 //! again. The triage doc for the equipment oracle
-//! (`docs/planning/triage/rollback-equipment-oracle-divergence.md`) ends by naming
+//! (`docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md`) ends by naming
 //! this module as the tool that would have answered it in minutes.
 //!
 //! ## What it measures, and why that is the right question

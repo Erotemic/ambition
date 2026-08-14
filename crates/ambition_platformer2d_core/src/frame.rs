@@ -1,4 +1,4 @@
-//! `frame` — the engine-level aperture vocabulary (collision-and-ccd.md §7, CC5).
+//! `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md).
 //!
 //! A portal endpoint IS a frame: an origin on a host face, an outward normal,
 //! and (for moving portals, CC6) the aperture's own velocity. The pair map

@@ -96,7 +96,7 @@ not satisfy that.
 This is a real defect, not a documentation quirk: an engine another game can be
 built on has to be an engine another game can *link*. It is recorded as the
 top-ranked finding in
-`docs/planning/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-a-baseline.json`.
+`docs/archive/planning-superseded/2026-08-13/engine/slice-evidence/blind-agent-runs/2026-07-30-slice-a-baseline.json`.
 
 ## Standing a game up
 

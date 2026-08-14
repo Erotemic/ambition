@@ -39,7 +39,7 @@ boxes, for the same reason.
 
 A block's name IS its meaning — the engine has no typed channel for a game's own
 nouns, so this is the convention (see
-`docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4):
+`docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4):
 
     MaryOBlock (kind: Power|Quasar|Brick)   the reactive blocks — a FIELD, not
                                             a name; see `ldtk_vocabulary.rs`

@@ -79,7 +79,7 @@ become character-first."*
 
 The fuller multi-agent recon consensus, including accepted campaigns and explicit
 non-goals, is in
-[`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md).
+[the archived 2026-07-16 recon consensus](../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md).
 
 Questions that are WAITING for a decision — scoped far enough that the choice is
 real and the work after it is small — are collected in

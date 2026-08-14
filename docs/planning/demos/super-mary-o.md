@@ -239,7 +239,7 @@ Remaining acceptance work
     vault under unbroken ground moved pit B clear of it, and nobody noticed the
     report was answered. Now pinned by `no_pit_drops_into_the_secret_vault`
     rather than trusted, since the bug is invisible until someone falls in.
-    [`../triage/room-replay-followups-2026-07-21.md`](../triage/room-replay-followups-2026-07-21.md) §5.
+    [`../../archive/planning-superseded/2026-08-13/triage-room-replay-followups-2026-07-21.md`](../../archive/planning-superseded/2026-08-13/triage-room-replay-followups-2026-07-21.md) §5.
 - ✅ **World 1-2, and the reason it could not exist — 2026-07-25.** The demo's
   world was one `RoomSpec` because it had to be: `RoomTransitionRequested` had
   exactly one consumer and only `ambition_app` registered it, and no demo depends

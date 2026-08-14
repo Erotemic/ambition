@@ -34,7 +34,7 @@ Landed:
   `ControlPrompt.menu_confirm` folds in. (2026-07-20: the original
   `MenuConfirmPrompt` bridge was replaced by the open, context-keyed
   `ambition_input::cues::UiCue` vocabulary of the participant-centered input
-  architecture — see `docs/planning/engine/participant-input.md`. Same
+  architecture — see `docs/planning/engine/participant-action-system.md`. Same
   one-writer/one-reader property, now shared with the shell's startup and
   launcher cues.)
 

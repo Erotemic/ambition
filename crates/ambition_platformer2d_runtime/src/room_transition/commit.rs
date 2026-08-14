@@ -311,7 +311,7 @@ pub struct TransitBodies<'w, 's> {
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
     primary: Query<'w, 's, Entity, ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly>,
-    /// The Class-B transit ledger (`collision-and-ccd.md` §3.2). It rides in
+    /// The Class-B transit ledger (`docs/concepts/movement-collision.md`). It rides in
     /// this param because a room transition IS one of the four Class-B
     /// authorities, and this struct is the one that names the body it moves.
     /// `Option`, and bundled here rather than added to the system's signature —

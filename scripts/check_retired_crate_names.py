@@ -99,7 +99,6 @@ HISTORICAL_PREFIXES = (
     "dev/benchmark-candidates/",
     ".agent/",
     ".llm_resource_tally/",
-    "docs/planning/engine_rename_campaign.md",
     # ⛔ the QUEUE files were exempt here until 2026-08-02, and the exemption was
     # backwards. They are not a record of the past — they are the LIVE WORKLIST
     # this repository is driven from, so a dead name in one does not misdescribe

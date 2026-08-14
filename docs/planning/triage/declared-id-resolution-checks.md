@@ -1,142 +1,39 @@
-# Declared-id resolution checks — catch the silent binding, not at boot
+# Declared-id resolution — remaining authoring diagnostics
 
-> **State:** ◐ **OPTION 2 LANDED 2026-07-28** — the gate exists for two of the
-> four registries. Opened 2026-07-25 as TRIAGE/LOW PRIORITY with the shape
-> agreed. Jon ruled out the obvious answer (a boot-time validation pass) on
-> startup cost; the options below are the alternatives that cost the shipped
-> binary nothing.
->
-> **What shipped:** `game/ambition_app/tests/declared_art_resolves.rs`, asserting
-> against the composed SHIPPED host rather than a fixture — a provider that
-> declares art nobody generated is exactly the case, and only the real
-> composition knows which providers are in the build.
->
-> * `every_declared_world_item_art_path_names_a_file_that_exists` — the row from
->   the table below, now a gate. RED-probed by declaring a bogus entry on the
->   Mary-O provider; it names the id, the path, and what the symptom looks like.
-> * `every_declared_projectile_image_names_a_file_that_exists` — same question
->   where the miss behaviour is even MORE forgiving:
->   `ProjectileVisualCatalog::resolve` falls back to the generic hostile shot, so
->   a declared image naming no file is indistinguishable from a bolt nobody
->   skinned. Needed a read-only `iter()` on the catalog: a whole-registry check is
->   not expressible against a resolver that answers every id.
->
-> ⚠ **`is_empty()` is asserted for world items and NOT for projectiles**, and the
-> difference is a judgement rather than an oversight. The shipped host definitely
-> declares world-item art, so an empty list there means the test is checking
-> nothing; a build whose every shot is tinted or sheet-backed legitimately
-> declares no `Image` source, so that one reports and returns.
->
-> * `every_declared_music_track_path_names_a_file_that_exists` — the
->   `mary_o_you_died` row, "a cue requested successfully, into silence". The
->   existing `every_live_music_track_resolves_under_web_served_assets` asserts the
->   catalog produces a PATH; this asserts the path names a FILE. A track whose OGG
->   was never rendered resolves, loads nothing, and gives the radio a silent
->   station — indistinguishable from a quiet moment.
->
-> **Still owed from option 2:** catalog `manifest` targets.
->
-> ⚠ **OPTION 1 IS LARGELY ALREADY DONE, and the triage did not know it.** The
-> world-item art path has carried a report-once miss reporter since before this
-> was written — `resolve_art` consults a `ReportedOnce` watch and calls
-> `log_unresolved` with the resolver's own explanation (namespace, declarer,
-> what was available). The "roughly six sites discarding the `None` with a bare
-> `?`" is a count from 2026-07-25 that nobody re-took. Re-take it before
-> scheduling the rest: this is the pessimism direction, which nobody audits.
+> **Verified against `cecd01ca` (2026-08-13).** The original silent-resolution
+> triage is mostly implemented. The complete investigation is archived at
+> [`../../archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md`](../../archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md).
 
-## The failure this is about
+## What already exists
 
-Content declares a thing by STRING ID and something else resolves that id to an
-asset. When the id names nothing, the resolution returns `None`, the caller
-treats it the way it treats "this build has no assets", and the content
-**simulates perfectly while producing nothing at all**. No warning, no log line,
-no failing test.
+The shipped host now checks declared world-item art, projectile image paths, and
+music paths against real files in `game/ambition_app/tests/declared_art_resolves.rs`.
+Character art and summoned-character/body resolution have their own composed-host
+checks, construction reports unresolved refs with provenance, and several runtime
+resolvers already explain/report misses rather than silently treating them as
+"feature absent".
 
-Five instances surfaced in two days, all in the same demo:
+Do not recreate the old boot-time validation proposal or duplicate these tests.
 
-| What was declared | What resolved it | Symptom |
-| --- | --- | --- |
-| `WorldItemArt` → `sprites/props/super_mary_o_spark_blossom.png` | the ASSET SERVER, not the id map — the id was registered; no generator target produced the PNG | a fire-flower you collect and never see |
-| a runtime `spawn_pickup` (Sanic's scattered rings) | the dynamic-visual families | rings that magnetize and credit, invisibly |
-| the Solid Snake's collision box | nothing — hand-authored beside the art | a box with no relation to the sprite |
-| the `dead` sheet row | `CharacterAnim::from_name("death")` | a death animation that could never play |
-| `mary_o_you_died` (had it been bound early) | the provider audio fragment | a cue requested successfully, into silence |
+## Remaining work
 
-The common cause is not carelessness. It is that `Option` is doing two jobs at
-once: *"this build legitimately has no assets"* and *"this content named
-something that does not exist."* They are indistinguishable at the call site, so
-the second silently inherits the first's tolerance.
+1. **Manifest-backed catalog targets.** Identify any still-live catalog `manifest`
+   declarations whose target can name a missing generated asset without a useful
+   preparation/authoring diagnostic. Add the check at the authoring/preparation
+   boundary that owns that declaration, not as a generic startup sweep.
 
-## Why not a boot-time pass
+2. **Runtime-composed misses.** At concrete resolver call sites that still discard
+   an unexpected `None`, make the miss observable once with the resolver's own
+   provenance/explanation. Re-measure before changing anything; the July count of
+   "roughly six" sites is stale.
 
-Rejected by Jon on 2026-07-25: it puts the cost on every launch forever to catch
-a class of mistake that is made at authoring time. Startup budget is not the
-place to pay for author errors.
+3. **Typed/generated ids only when the owning pipeline is already open.** If the
+   sprite/content pipeline naturally exposes stable generated symbols, use them
+   to make impossible references unrepresentable. Do not open a standalone
+   symbol-generation campaign merely to replace strings.
 
-## Options
+## Exit
 
-### 1. Make the miss loud, at the miss site — smallest, immediate
-
-Roughly six sites resolve an art/audio id and discard the `None` with a bare
-`?`. Replace those with `error_once!`.
-
-Cost is **zero on the success path** — the new branch only runs where a lookup
-has already failed. It is the pattern already in use in this tree
-(`scatter_rings_on_hit`'s spend guard, the room-transition guards), so it needs
-no new vocabulary.
-
-Catches: anything, including ids composed at RUNTIME, but only once the content
-is actually exercised.
-
-### 2. Extend the `every_*` tests — the gate, and already the house pattern
-
-This repo already asserts whole-registry resolution in tests:
-
-- `every_live_music_track_resolves_under_web_served_assets`
-- `every_renderer_target_has_catalog_entry_or_explicit_exclusion`
-- `every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace`
-
-The sprite one checks **target → catalog**. Every bug above was the **other
-direction**: a declared id → a generated target that does not exist. So this is
-a gap-fill in an established pattern rather than a new mechanism. It runs in CI
-and costs the shipped binary nothing.
-
-Should cover, in the shipped app registries: `WorldItemArtManifest` entries,
-authored `PickupSpec.sprite` ids, provider audio-fragment track ids, and catalog
-`manifest` targets.
-
-Catches: everything statically declared — four of the five above. Cannot see
-ids assembled at runtime.
-
-### 3. Generated ids as symbols — kills the class
-
-Have the sprite generator emit its target names as Rust consts, and have content
-reference the symbol instead of a string literal. A missing target becomes a
-**compile error** and neither of the above is needed for the cases it covers.
-
-Right time is whenever the sprite pipeline is next open; not worth opening it
-for this alone. Note the interaction with
-[`stable-identifier-centralization.md`](stable-identifier-centralization.md):
-this is the same "an id should not be a bare string" question, arrived at from
-the asset side.
-
-## Recommendation
-
-**2 as the gate, 1 alongside.** The test catches the statically declared
-majority; `error_once!` covers the runtime-composed remainder that no static
-check can see. **3** is the real fix and should be folded into the next sprite
-pipeline change rather than scheduled on its own.
-
-## Note on scope
-
-`max_health`, `WorldItemArt`, prop-sheet ids and audio track ids are each
-resolved by DIFFERENT machinery, so this is deliberately not proposing one
-unified resolver. The claim is narrower: whatever resolves a declared id should
-be able to tell "absent by design" from "absent by mistake", and today it
-cannot.
-
-## Provenance
-
-Opened out of the 2026-07-25 Mary-O playtest round (commits `7b2ee66a6`
-through `e94107cda`). Every row in the table above was found by a player
-noticing something missing, not by a test.
+A newly declared asset/reference that is absent by mistake fails authoring or is
+reported with actionable provenance, while intentionally absent optional content
+remains valid. No always-on boot census is added.

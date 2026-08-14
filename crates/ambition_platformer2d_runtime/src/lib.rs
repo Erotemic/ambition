@@ -254,7 +254,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
             app,
         );
-        // The Class-B transit ledger (`collision-and-ccd.md` §3.2). Frame-scoped:
+        // The Class-B transit ledger (`docs/concepts/movement-collision.md`). Frame-scoped:
         // cleared at the head of the sim, appended to by portal transit, room
         // transitions, death/respawn, and the teleport abilities. It belongs to
         // THIS plugin because it is a property of the sim FRAME, not of any one

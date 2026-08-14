@@ -386,7 +386,7 @@ pub struct BodyDeathWriters<'w> {
 }
 
 /// Resolve this frame's hits against one body. Returns **true when the body was
-/// Class-B remapped** (`collision-and-ccd.md` §3.2) — a death respawn or a
+/// Class-B remapped** (`docs/concepts/movement-collision.md`) — a death respawn or a
 /// hazard safe-respawn both teleport it. Knockback does not: it writes velocity,
 /// which is Class-A's business. The caller owns the entity id, so the caller
 /// records into `ClassBRemapLog`.
@@ -1448,7 +1448,7 @@ pub fn apply_player_hit_events(
             &mut motion_model,
             facts,
         );
-        // Class-B transit authority (`collision-and-ccd.md` §3.2). Death and the
+        // Class-B transit authority (`docs/concepts/movement-collision.md`). Death and the
         // hazard safe-respawn both teleport the victim; recorded here because
         // this is where the entity id lives.
         if remapped {

@@ -58,20 +58,22 @@ links to it.
 
 - ▢ **Public facade / optional capability closure.** Continue making the semantic
   facade hide implementation topology and keep capability selection honest. Use
-  [`engine/api-growth-method.md`](engine/api-growth-method.md),
-  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md), and the competitive
-  roadmap; re-measure old campaign status before acting.
+  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) and
+  [`../concepts/api-growth.md`](../concepts/api-growth.md); the old A–G campaign
+  history is archived, so act only on the residual work listed there.
 
 - ▢ **Room transition loading transaction.** Keep transition requests behind
   readiness/preparation/commit semantics, especially under rollback hosts; retain
-  the genuinely open preload/performance work. Rewrite the old phase history when
-  implementing from [`engine/room-transition-loading.md`](engine/room-transition-loading.md).
+  the genuinely open preload/performance and possession/carry proof work in
+  [`engine/room-transition-loading.md`](engine/room-transition-loading.md).
 
-- ▢ **Rollback scope provenance correction.** `RoomScopedEntity`/possession made
-  the old write-once-provenance assumption false. The current analysis and
-  proposed behavioral probe live in
-  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md); this is
-  agent-delegated architecture work rather than a blocker waiting on Jon.
+- ▢ **Rollback scope provenance correction.** `RoomScopedEntity` is still in
+  `rollback_coverage.rs::PROVENANCE_ONLY` under the claim that it is written
+  once, but possession removes/restores room/session scope and makes that premise
+  false. Exercise rollback across the real possess/release scope transition, then
+  correct the waiver/registration shape from the behavioral result. Do not add a
+  source-only policy test for the same fact. Historical analysis is archived in
+  [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
 - ▢ **Stable identity where strings/numbers still combine distinct lifetimes.**
   Keep `ParticipantId`, session seat, control channel, simulation slot, placement
@@ -94,10 +96,11 @@ links to it.
 
 ## Construction, content and authoring reservoir
 
-- ▢ **Provider-owned authored vocabulary.** Re-measure
-  [`proposal-authored-vocabulary-2026-08-04.md`](proposal-authored-vocabulary-2026-08-04.md)
-  against the Mary-O LDtk vocabulary that has since landed, then preserve only
-  the still-open provider-extension problem.
+- ▢ **Remaining authoring-loop authority splits.** The content compiler,
+  per-seat input contexts, open semantic action registry and causal inspector have
+  landed. What remains is the concrete duplicate-reader work and the final
+  provider-defined physical-action proof in
+  [`authoring-loop-program-2026-07-31.md`](authoring-loop-program-2026-07-31.md).
 
 - ▢ **Remaining content evictions from reusable engine crates.** When a real
   named family is still closed in core, migrate one structurally complete family
@@ -106,9 +109,10 @@ links to it.
   parameterized summon-ally ability + content data. Verify each candidate before
   touching it.
 
-- ▢ **Character/action authoring followups.** Continue provider-extensible action
-  schemas, context-aware controls, inventory/special-menu migration, vehicle and
-  loading/retry contexts, and authorable binding/cue ownership through
+- ▢ **Character/action authoring followups.** The semantic action registry and
+  module-contribution seam have landed; finish provider-defined actions through
+  physical binding/cues/touch, remove the seat-0 control split, and finish the
+  remaining menu/context migrations through
   [`engine/participant-action-system.md`](engine/participant-action-system.md).
 
 - ▢ **Editable component/SVG character authoring.** Continue the code-authored
@@ -198,26 +202,20 @@ links to it.
   inventing engine special cases.
 
 - ▢ **Game cast, bosses and story.** Preserve open product intent in
-  [`game/characters.md`](game/characters.md), [`game/bosses.md`](game/bosses.md)
-  and [`game/vision.md`](game/vision.md) even when no architecture campaign points
-  at it.
+  [`game/bosses.md`](game/bosses.md) and [`game/vision.md`](game/vision.md)
+  even when no architecture campaign points at it.
 
 ## Documentation work that is still genuinely useful
 
 These are documentation migrations because the underlying design is still worth
 keeping, not because every old plan needs polishing:
 
-- ▢ rewrite [`engine/room-transition-loading.md`](engine/room-transition-loading.md)
-  around the current transaction/readiness model and retain only real open
-  preload/performance work;
-- ▢ distill [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md)
-  from completed E8–E13 execution history to the surviving encounter model;
 - ▢ reconcile [`engine/boss-system.md`](engine/boss-system.md) with
   [`engine/boss-design.md`](engine/boss-design.md) so current boss architecture
   has one durable authority; and
-- ▢ archive [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md)
-  after its remaining VC5/VC6 product work is either completed or moved to a
-  live backlog card.
+- ▢ finish the remaining VC5 title-content fade-in in
+  [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md), then archive
+  the residual plan. VC1–VC4 and VC6 are already implemented.
 
 ## Deferred / trigger-based work
 
@@ -234,6 +232,22 @@ These stay discoverable without occupying current execution order:
 - **Broader stable-id centralization** — do not invent one universal ID framework
   ahead of concrete identity families; use the focused triage document when a
   real migration provides the pressure.
+- **Provider-owned placement families** — the Tier-0 placement vocabulary may
+  remain closed until a real provider needs a new family. At that point choose an
+  explicit typed extension seam rather than opaque payloads or editing every
+  provider into core.
+- **`features/` subtree rename** — rename only when its ownership can be stated
+  precisely; do not perform a module-only cosmetic half-rename.
+- **Reusable menu-host extraction** — draw the reusable/product boundary from a
+  real second consumer instead of moving Ambition's inventory UI wholesale.
+- **Boss crate extraction** — reassess only after boss behavior/animation has
+  converged onto shared character/action vocabulary; do not extract a legacy
+  ontology just to preserve it.
+- **Body-generic NPC world interaction/economy** — when NPC agency or
+  multiplayer currency becomes a real feature, consume the same body-level
+  interaction intent and `BodyWallet` semantics rather than introducing
+  NPC/player-specific resolver paths. The durable rule is
+  [`../concepts/one-body-one-path.md`](../concepts/one-body-one-path.md).
 
 ## Standing execution rule
 
@@ -248,3 +262,16 @@ Before promoting a card into the queue:
 4. keep tests proportional to the invariant: behavior tests behavior, structure
    should encode architecture, and migration scans normally retire with the
    migration.
+
+### Test-run execution parallelism — trigger-based
+
+The 2026-08-02 test-iteration campaign already landed the high-value changes:
+the default runner is the focused backbone, timings are recorded, the cheapest
+sufficient command is documented, app/runtime optimization choices were measured,
+and compile cost feeds carve ranking. The full campaign is archived.
+
+- ▢ If current measurements show test *execution* (rather than compile/link) is
+  again the dominant inner-loop cost, measure bounded parallel execution of
+  independent test binaries before adding another runner dependency. Do not
+  optimize this from the old 63-minute baseline; re-measure the current runner.
+

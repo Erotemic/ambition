@@ -16,16 +16,15 @@
 //! headless acceptance runners. Every one of those apps has plugins whose
 //! `finish` has never run.
 //!
-//! Today that costs nothing, because nothing in the workspace implements
-//! `finish` — verified: zero occurrences. It stops costing nothing the moment
-//! character preparation seals its registry there
-//! ([`docs/planning/character-preparation-finalization-plan.md`]), because then
-//! production would receive a sealed complete registry while every test and
-//! tool silently kept only the preparation fragments. Green tests, wrong game —
-//! and the failure would read as a preparation bug rather than a lifecycle one.
+//! Character preparation now DOES seal its staged registry in `Plugin::finish`
+//! (with a `PreStartup` backstop). A hand-driven app that skips finalization can
+//! therefore observe a different prepared cast from the production runner: green
+//! tests, wrong game. The historical migration that introduced the barrier is
+//! archived in
+//! `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
 //!
-//! So the helper lands BEFORE the thing that needs it, and the audit has one
-//! place to point at instead of a scattering of hand-written `finish()` calls.
+//! This helper keeps every manually driven App on the same lifecycle contract as
+//! a runner without scattering hand-written `finish()` calls across tests/tools.
 
 use bevy::prelude::App;
 

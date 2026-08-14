@@ -101,7 +101,7 @@ the widest-reaching change of 2026-08-08 and it touches every `SimId` carrier:
 * `SimIdCounter` was **already** snapshot-registered
   (`rollback/domains/primitives.rs:51`, `rollback_component_canonical`), so **no
   new type entered the schema.** Confirmed: the schema version is still **18** and
-  neither `rollback_schema_baseline.txt` nor the slice-evidence JSON has moved
+  neither `rollback_schema_baseline.txt` nor `scripts/baselines/rollback-schema-baseline.json` has moved
   since `a7013ef82`, which predates the change.
 * What changed is how many ENTITIES carry an already-registered component — a
   snapshot-payload cost (8 bytes each), not a schema or determinism change.

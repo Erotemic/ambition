@@ -271,7 +271,7 @@ fn player_entity(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer
 /// **Invariant 2's read-model row.** The carve volume of the portal the player
 /// is currently straddling, if it is straddling one.
 ///
-/// `docs/planning/engine/collision-and-ccd.md` §6.1 said this needed "a
+/// `docs/concepts/movement-collision.md` said this needed "a
 /// read-model row" that did not exist. It did exist: `PortalTransit.straddling`
 /// has always named the channel — what was missing was a caller. The hole is the
 /// same `pieces::carve_hole` that `publish_portal_carves` pushes, so the oracle
@@ -303,7 +303,7 @@ fn straddled_carve(_sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
 }
 
 /// Every Class-B remap the engine applied to `body` on the tick that just ran
-/// (`collision-and-ccd.md` §3.2), newest last. Empty when the ledger is absent.
+/// (`docs/concepts/movement-collision.md`), newest last. Empty when the ledger is absent.
 ///
 /// This is invariant 5's countable event — and it is also what finally retires
 /// the TELEPORT false positive: a body the transit authority legally warped did
@@ -1044,7 +1044,7 @@ fn collision_oracle_full_sweep() {
 
     // ── THE GATE (CC3 enforcement) ────────────────────────────────────────
     //
-    // `collision-and-ccd.md` §6.1 has said since 2026-07-10: *"Re-close CC3
+    // `docs/concepts/movement-collision.md` has said since 2026-07-10: *"Re-close CC3
     // only after an executable behavioral gate runs all required rooms and
     // fails on the exact invariant classes it claims to exclude."* This sweep
     // ran all the rooms and asserted nothing, so it was measurement — valuable,

@@ -1,21 +1,19 @@
-# ControlFrame allowlist configuration (unified-actors step 5 / R6c guardrail).
+# ControlFrame allowlist configuration (participant-action/control-authority guardrail).
 #
-# The invariant: the global `ControlFrame` is ONE player's device frame; only the
-# INPUT LAYER may hold it. A body/sim system that reads it is silently slot-0-only
-# (possession, co-op, netcode slot routing all break quietly).
+# The invariant: the global `ControlFrame` is ONE participant's device frame; only
+# the INPUT LAYER may hold it. A body/sim system that reads it is silently
+# slot-0-only (possession, co-op, netcode slot routing all break quietly).
 #
-# The SCANNER is Rust (src/custom/control_frame.rs) — the Res<>/ResMut<>/World
-# holder detection, enclosing-fn attribution, whole-word matching, and cfg(test)
-# skipping are too semantic for a generic rule. Only CONFIGURATION lives here: the
-# scoped sim roots, excluded subpaths, the review marker, and the justified
-# allowlist of holders (file + fn + bridge category + reason).
+# The scanner is Rust (src/custom/control_frame.rs) because holder detection,
+# enclosing-function attribution, whole-word matching, and cfg(test) skipping are
+# too semantic for a generic textual rule. This file only configures the scoped
+# roots, excluded subpaths, review marker, and justified holder allowlist.
 #
-# Bidirectional, like the determinism lints: an unlisted holder fails, AND an
-# allowlist entry matching no holder fails (that is exactly how unified-actors.md
-# B3's holder list rotted). Roots are scoped so engine_policies (crates/*) and
-# game_policies (game/ambition_content) run independently off one scanner.
+# The allowlist is bidirectional: an unlisted holder fails, and an allowlist entry
+# matching no holder fails so stale input-authority exceptions cannot survive.
+# Roots are scoped so engine and game policy checks can run independently.
 
-source_doc = "docs/planning/engine/unified-actors.md"
+source_doc = "docs/planning/engine/participant-action-system.md"
 rationale = "ControlFrame allowlist: only the input layer may hold the global device frame; a body/sim holder is silently slot-0-only and breaks possession/co-op/netcode slot routing (N1). Every allowed holder is a justified input-layer bridge or a named multiplayer TODO."
 review_marker = "AMBITION_REVIEW(control_frame)"
 non_sim_subpaths = ["menu/", "dev/", "audio/", "assets/", "persistence"]

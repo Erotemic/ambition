@@ -164,7 +164,6 @@ PLANNING_FILE_MAX_LINES = {
     "docs/planning/status.md": 360,
     "docs/planning/tracks.md": 440,
     "docs/planning/roadmap.md": 360,
-    "docs/planning/engine/encounter-orchestration.md": 640,
 }
 
 FORBIDDEN_PLANNING_PATTERNS = [

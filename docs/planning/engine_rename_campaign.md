@@ -1,181 +1,14 @@
-The main focus remains building an exceptional 2D platformer engine.
-That vertical push should stay central: movement, combat, worlds, portals,
-  actors, runtime composition, and presentation should become increasingly
-  polished and coherent as a dedicated `platformer2d` stack.
-
-At the same time, Ambition should leave clean seams for external contributors to
-  extend the engine and for other styles of games to become possible in the
-  future.
-The goal is not to prematurely generalize every platformer subsystem.
-It is to avoid claiming generic names for crates that are currently
-  platformer-specific, while preserving genuinely general services such as
-  content compilation, input, causal inspection, loading, assets, audio, and
-  time.
-
-This supports the longer-term ambition of becoming a real Unity or Godot
-  competitor without weakening the immediate product focus.
-Ambition can grow outward from a deep, high-quality 2D platformer engine rather
-  than attempting to become shallowly universal from the beginning.
-
----
-
-
-Recommended debt vocabulary
-
-Use each term for one specific condition:
-
-Monolith
-    one type or crate owns multiple concerns that should eventually have
-    different authorities
-
-Tangle
-    dependency direction and ownership are mutually entangled
-
-Legacy
-    an old path retained temporarily while replacement code is already active
-
-Bridge
-    intentional temporary integration between two architectures
-
-Compatibility
-    intentionally retained translation for an older external contract - WE SHOULD NEVER BE USING THIS UNTIL WE HAVE A REAL RELEASE, WHICH WILL NOT HAPPEN ANYTIME SOON.
-
-Do not use Legacy for merely unattractive code, and do not use Monolith for every aggregate.
-
----
-
-# Retire Stale Sandbox and Ambition Naming
-
-## Extended abstract
-
-The engine has outgrown the historical `Sandbox*` vocabulary. Most remaining uses no longer describe experimental systems: they name the production simulation schedule, game save, asset catalog, presentation stack, and runtime composition. These names now obscure whether a concept belongs to the reusable platformer engine or the shipped Ambition game.
-
-This should be handled as a bounded mechanical rename campaign. It should not introduce compatibility aliases or become a disguised architecture rewrite.
-
-Use three naming classes:
-
-```text
-Platformer2d*
-    reusable platformer-engine concepts
-
-AmbitionGame*
-    shipped Ambition game concepts
-
-descriptive unqualified names
-    generic engine concepts
-```
-
-Keep `Sandbox*` only for actual sandbox worlds, development modes, experimental loadouts, or similarly literal concepts.
-
-## Recommended direct renames
-
-### Platformer-engine concepts
-
-```text
-SandboxSet → Platformer2dSimulationPhase
-
-SandboxSetsPlugin → Platformer2dSimulationSchedulePlugin
-
-SandboxSim → Platformer2dSimHarness
-
-SandboxSimOptions → Platformer2dSimHarnessOptions
-
-SandboxSolidContributor → PlatformerWorldSolidContributor
-```
-
-### Shipped-game concepts
-
-```text
-SandboxSave → AmbitionGameSave
-
-SandboxSaveData → AmbitionGameSaveData
-
-SandboxDevState → AmbitionGameDeveloperState
-
-SandboxAssetCatalog → AmbitionGameAssetCatalog
-
-SandboxCatalogInputs → AmbitionGameAssetCatalogInputs
-
-SandboxDataSpec → AmbitionGamePlatformerDefaults
-
-SandboxDataAsset → AmbitionGamePlatformerDefaultsAsset
-
-SandboxSimState → AmbitionGameSessionState
-
-SandboxSimulationPlugin → AmbitionGameSimulationPlugin
-
-SandboxSimulationResourcesPlugin → AmbitionGameSimulationResourcesPlugin
-
-SandboxPresentationPlugin → AmbitionGamePresentationPlugin
-
-SandboxAudioPlugin → AmbitionGameAudioPlugin
-
-SandboxLdtkPlugin → AmbitionGameLdtkPlugin
-
-SandboxLdtkProject → AmbitionGameLdtkProject
-
-SandboxEventWriters → AmbitionGameEventWriters
-
-SandboxFeelTuning → AmbitionGameFeelTuningMonolith
-
-SandboxAction → AmbitionGameInputActionMonolith
-
-ambition/platformer_defaults.ron → ambition/platformer_defaults.ron
-```
-
-
-Is SandboxQueues dead code? Can it be removed?
-
-The same pass should correct unambiguous bare `Ambition*` names:
-
-* shipped-game concepts become `AmbitionGame*`;
-* platformer concepts become `Platformer2d*`;
-* generic engine types lose redundant nominative prefixes.
-
-The package namespace may remain `ambition_*`. Runtime identifiers such as content IDs, asset namespaces, experience IDs, and save-directory names are product identities and must not be changed mechanically.
-
-## Small semantic subpass
-
-`SandboxReset*` should be renamed according to what each operation actually does:
-
-```text
-RoomReplayRequested
-SessionRestartRequested
-NewGameResetRequested
-EraseProgressRequested
-```
-
-This requires inspection, but not a larger redesign.
-
-## Explicit exclusions
-
-Do not mechanically rename:
-
-```text
-SandboxAction
-SandboxFeelTuning
-```
-
-`SandboxAction` belongs to the planned input separation. `SandboxFeelTuning` combines several ownership domains and should be decomposed rather than hidden behind a new broad name.
-
-The campaign is complete when production systems no longer use `Sandbox*` as a historical namespace, while literal sandbox content and development modes retain the name.
-
-
-The eventual decomposition is roughly:
-
-```
-AmbitionGameInputActionMonolith
-    ├── ShellAction
-    │     menu navigation, confirm, cancel, pause
-    ├── Platformer2dAction
-    │     movement, jump, dash, attacks, traversal
-    └── AmbitionGameAction
-          inventory, map, and game-specific commands
-```
-
-
-----
-
+# Engine restructuring candidates and couch multiplayer — remaining work
+
+> **Verified against `cecd01ca` (2026-08-13).** The original stale
+> `Sandbox*`/Ambition naming campaign is complete: `scripts/check_retired_crate_names.py`
+> reports no retired production names. Its full record is archived at
+> [`../archive/planning-superseded/2026-08-13/engine_rename_campaign.md`](../archive/planning-superseded/2026-08-13/engine_rename_campaign.md).
+>
+> This live file retains only the architecture/product work that was bundled
+> behind that rename campaign. These are candidates/triggers, not one mandatory
+> flag-day refactor. The focused actor carve remains
+> [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
 # Candidate Engine Restructures by Difficulty
 
@@ -205,7 +38,7 @@ Current quest data should remain with the game save until a proper quest archite
 
 ### Decompose gameplay tuning as touched
 
-`SandboxFeelTuning` mixes unrelated concerns. Split fields into domain-owned resources when those systems are next modified:
+`Platformer2dFeelTuningMonolith` still mixes unrelated concerns. Split fields into domain-owned resources when those systems are next modified:
 
 ```text
 MovementFeelTuning
@@ -276,7 +109,7 @@ ambition_platformer2d_input
     semantic-action-to-control-frame translation
 ```
 
-`SandboxAction` should not survive as another closed everything-enum. Separate shell actions, platformer actions, and AmbitionGame-specific actions.
+`Platformer2dInputActionMonolith` should not remain a closed everything-enum. Separate shell actions, platformer actions, and AmbitionGame-specific actions.
 
 This is moderate rather than easy because it changes ownership at the boundary between devices, participants, session preparation, rollback input, and controlled actors.
 

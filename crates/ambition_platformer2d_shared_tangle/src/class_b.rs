@@ -1,6 +1,6 @@
 //! **Class-B transit authority** — the per-frame remap ledger.
 //!
-//! `docs/planning/engine/collision-and-ccd.md` §3.2 splits every consumer of a
+//! `docs/concepts/movement-collision.md` splits every consumer of a
 //! frame's motion path into three classes. Class A is the movement kernel (one
 //! per body, resolves solid contacts at TOI). Class C are observers that read
 //! the path and never move the body. **Class B is the transit authority**: the

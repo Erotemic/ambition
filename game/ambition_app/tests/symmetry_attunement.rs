@@ -1,4 +1,4 @@
-//! **E13 exit (encounter-orchestration.md):** the first non-boss, non-wave
+//! **Generic encounter acceptance (docs/systems/boss-encounter-architecture.md):** the first non-boss, non-wave
 //! encounter customer — the Noether attunement, a signal-driven NO-ACTOR
 //! puzzle — completes through the GENERIC path in the real headless sim.
 //!

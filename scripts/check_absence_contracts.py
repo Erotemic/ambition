@@ -763,7 +763,7 @@ DEPENDENCY_CONTRACTS: list[dict] = [
 # contract is believed.
 #
 # ⚠ TWO invariants, and the second is what makes this a RATCHET rather than a
-# count. api-growth-method.md §5: *"a ratchet on a COUNT is not one, because a
+# count. the archived API campaign method: *"a ratchet on a COUNT is not one, because a
 # count permits deleting one entry and adding another. Freeze the SET."*
 #
 #   1. `named ⊆ allowed ∪ baseline` — the consumer may not name a NEW module.
@@ -1058,7 +1058,7 @@ MODULE_ALLOWLISTS: list[dict] = [
 # two ratchets need both halves; copying that here would add a rule with no
 # failure behind it, which is how a guard becomes ceremony.
 CAPABILITY_FOOTPRINT_BASELINE = (
-    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json"
+    "scripts/baselines/capability-footprint-baseline.json"
 )
 
 CAPABILITY_FOOTPRINT_SENTINEL = "fixtures/minimal_game"
@@ -1108,7 +1108,7 @@ def capability_footprint_violations(root: Path) -> list[str]:
 
 
 ROLLBACK_SCHEMA_BASELINE = (
-    "docs/planning/engine/slice-evidence/rollback-schema-baseline.json"
+    "scripts/baselines/rollback-schema-baseline.json"
 )
 
 

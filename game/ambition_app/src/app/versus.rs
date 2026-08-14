@@ -332,12 +332,12 @@ pub const MAX_VERSUS_SEATS: usize = 4;
 /// seating it is bodies on a stage, and silently reseating mid-match would be a
 /// worse bug than the disagreement; that case is reported instead.
 ///
-/// ⚠ this is detection plus a safe early repair, not the full fix. The full fix
-/// is match ACTIVATION — validate every participant, activate the roster
-/// atomically, publish it, and start the countdown from THAT — which is written
-/// up in `character-preparation-finalization-plan.md` under "Related,
-/// deliberately after". Doing it here would mean building that seam inside a
-/// change about a counter.
+/// Match activation now performs the full atomic publication step: a prepared
+/// match builds the seated bodies and publishes `ActiveMatch` in one flush, and
+/// `ActiveMatch` is optional canonical rollback state. This reconciler therefore
+/// owns only the earlier question: whether a still-unactivated roster must be
+/// rebuilt against the topology that actually froze. The migration history is
+/// archived in `docs/archive/planning-superseded/2026-08-13/character-preparation-finalization-plan.md`.
 ///
 /// ⛔ **"no `ActiveMatch`" does NOT mean "no bodies yet", and reading it that way
 /// was a real authority split** (GPT 5.6, 2026-07-30). Seating retries across

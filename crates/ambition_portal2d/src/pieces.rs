@@ -22,7 +22,7 @@
 //! frame math (now `ambition_platformer2d_core::frame` — the CC5 aperture
 //! vocabulary) is angle-general; arbitrary-angle portals need polygon clipping
 //! and non-AABB body pieces before this can be a fully general standalone
-//! portal crate (collision-and-ccd.md P3b).
+//! portal crate (docs/concepts/movement-collision.md).
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::math::Vec2;

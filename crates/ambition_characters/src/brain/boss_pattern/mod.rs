@@ -985,6 +985,16 @@ pub struct BossPatternContext {
     /// Target position the boss is interested in (typically the
     /// primary player). Drives the movement profile's chase math.
     pub target_pos: ae::Vec2,
+    /// The TARGET body's box, centred on [`Self::target_pos`] — read from the
+    /// published `CenteredAabb` every body carries. Together with the boss's own
+    /// [`BossPatternCfg::combat_size`] it is what makes *body contact* a fact
+    /// about two bodies rather than about two points.
+    ///
+    /// ⚠ `ZERO` (the default) means *a point target*, which is what every
+    /// distance rule here assumed before: surface separation then degenerates to
+    /// centre distance, so a fixture that declares no body keeps the old
+    /// arithmetic exactly. It is not an "unknown" — there is no second rule.
+    pub target_body_size: ae::Vec2,
     /// World size (px). Used for the soft `desired_vel` clamp so the
     /// brain doesn't ask the boss to walk off the map. Real collision
     /// is still enforced by `step_kinematic` downstream.

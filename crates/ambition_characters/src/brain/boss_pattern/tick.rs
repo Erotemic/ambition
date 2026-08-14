@@ -403,6 +403,31 @@ fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContex
             .is_some_and(|clearance| clearance <= tuning.front_wall_standoff + 1.0)
 }
 
+/// How much daylight between two body surfaces still counts as touching. A
+/// contact predicate needs SOME slack — bodies separated by integration
+/// tolerance are in contact for every purpose the player can see — but it is a
+/// skin on a real separation, not a stand-in for the bodies' own size.
+const CONTACT_SKIN: f32 = 4.0;
+
+/// **Lateral separation between the two BODY SURFACES**, negative once the
+/// boxes overlap.
+///
+/// ⛔⛔ this is what "body contact" always meant and never measured. The
+/// closure test used to compare centre-to-centre distance against
+/// [`CONTACT_SKIN`], which asks a 208px-wide boss to put its centre inside its
+/// target's — a place body collision does not let it reach. The wider the body,
+/// the more permanently its contact chase stayed open, so the biggest bodies
+/// were the ones that never engaged and (under
+/// `suppress_attacks_while_moving`) never attacked.
+///
+/// Lateral, not planar: a contact chase is the horizontal run-in a grounded
+/// body performs, and the profiles that author it lock themselves to the arena
+/// lane. A target directly overhead is not something this boss can walk into.
+fn lateral_body_gap(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> f32 {
+    let centre_gap = (ctx.target_pos.x - ctx.actor_pos.x).abs();
+    centre_gap - (cfg.combat_size.x + ctx.target_body_size.x) * 0.5
+}
+
 /// Advance the chase/engage/retreat macro state machine. Transitions:
 ///
 /// - `Engage` → `Approach` if distance > too_far_distance, or in
@@ -436,7 +461,8 @@ fn advance_macro_state(
     let tuning = &cfg.macro_tuning;
     let front_wall_blocked = front_wall_standoff_reached(tuning, ctx);
     let contact_chase_mode = tuning.contact_chase_mode();
-    let contact_chase_closed = contact_chase_mode && distance <= tuning.engage_distance.max(4.0);
+    let contact_chase_closed = contact_chase_mode
+        && lateral_body_gap(cfg, ctx) <= tuning.engage_distance.max(CONTACT_SKIN);
     match &mut state.macro_state {
         BossMacroState::Engage => {
             state.engage_timer += ctx.dt;

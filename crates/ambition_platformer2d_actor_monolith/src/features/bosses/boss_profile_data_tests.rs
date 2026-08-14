@@ -44,3 +44,110 @@ fn legacy_baseline_pins() {
     let mocker = BossBehaviorProfile::mockingbird();
     assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
 }
+
+/// **⭐ THE ACCEPTANCE TEST for the missing eye beam.** Jon reported that the
+/// Smirking Behemoth chases correctly but never fires, both after a dialogue
+/// replay and after an ordinary room re-entry — so the fault was never in
+/// construction, it was in the boss's own decision to stop approaching.
+///
+/// The authored profile is a CONTACT chase: `engage_distance = 0`, no standoff
+/// ring, `suppress_attacks_while_moving`. Its Approach was ended by a
+/// centre-to-centre test against a 4px epsilon, which a 208px-wide body cannot
+/// satisfy, so it approached forever and stayed silent forever. This drives the
+/// REAL authored row rather than a hand-built one, because the numbers that
+/// produced the bug are authored numbers.
+#[test]
+fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
+    use ambition_characters::brain::{
+        tick_boss_pattern, BossAttackIntent, BossAttackProfile, BossMacroState, BossPatternCfg,
+        BossPatternContext, BossPatternState,
+    };
+    use ambition_platformer2d_core as ae;
+
+    let behavior = BossBehaviorProfile::from_data(
+        crate::boss_encounter::test_boss_catalog(),
+        "smirking_behemoth_boss",
+    );
+    let combat_size = behavior
+        .combat_size
+        .expect("the Smirking Behemoth authors its own body box");
+    assert!(
+        behavior.macro_tuning.contact_chase_mode(),
+        "this test is about a CONTACT chase; the profile stopped authoring one",
+    );
+
+    let mut cfg = BossPatternCfg::neutral_test();
+    cfg.aggressiveness = 1.0;
+    cfg.pattern = behavior.attack_pattern.clone();
+    cfg.movement = behavior.movement.clone();
+    cfg.combat_size = combat_size;
+    cfg.macro_tuning = behavior.macro_tuning;
+    // The encounter id seeds the boss's one deterministic random stream, and
+    // this profile's idle beat is probabilistic — so it has to be the real one
+    // or the draw under test is not the draw that ships.
+    cfg.encounter_id = behavior.id.clone();
+    cfg.spawn = ae::Vec2::new(640.0, 400.0);
+
+    let actor_pos = cfg.spawn;
+    // An ordinary body pressed against the boss's left flank — where a player
+    // who has run at this boss ends up, because contact is what stops them.
+    let target_body_size = ae::Vec2::new(32.0, 64.0);
+    let target_pos = ae::Vec2::new(
+        actor_pos.x - (combat_size.x + target_body_size.x) * 0.5,
+        actor_pos.y,
+    );
+
+    let mut state = BossPatternState::default();
+    let mut intent = BossAttackIntent::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
+    let mut fired_after_s: Option<f32> = None;
+    let dt = 1.0 / 60.0;
+    // Ten seconds. The authored phase-1 script rests 1.4s and then leaves that
+    // beat on an authored 0.55/s idle chance, so the wait is a real draw from
+    // the boss's deterministic stream rather than a fixed duration — a few
+    // seconds, generously bounded here. What it is NOT is the pre-fix
+    // behaviour: a boss whose contact chase never closes gets one attacking
+    // tick per `approach_duration_s` (8s), which stretched this three-beat
+    // script to minutes of wall clock.
+    for tick in 0..600 {
+        let ctx = BossPatternContext {
+            encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
+            actor_pos,
+            target_pos,
+            target_body_size,
+            world_size: ae::Vec2::new(1_280.0, 768.0),
+            front_wall_clearance: None,
+            dt,
+            actor_facing: -1.0,
+            hp_current: 100,
+            hp_max: 100,
+            live_attack: None,
+        };
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut intent);
+        let fired = intent
+            .active_profile
+            .as_ref()
+            .or(intent.telegraph_profile.as_ref());
+        if let (None, Some(profile)) = (fired_after_s, fired) {
+            assert_eq!(
+                *profile,
+                BossAttackProfile::Special("eye_beam".to_string()),
+                "the only attack this boss authors is the eye beam",
+            );
+            fired_after_s = Some(tick as f32 * dt);
+        }
+    }
+
+    assert_eq!(
+        state.macro_state,
+        BossMacroState::Engage,
+        "a target touching the boss has closed its contact chase",
+    );
+    let fired_after_s = fired_after_s.expect(
+        "a contact boss standing against its target must reach its authored attack within 10s",
+    );
+    assert!(
+        fired_after_s < 10.0,
+        "the eye beam arrived at {fired_after_s}s",
+    );
+}

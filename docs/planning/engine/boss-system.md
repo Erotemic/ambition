@@ -65,6 +65,17 @@ bosses are content.
 - **Reactions are message-driven, per-entity.** `BossPhaseEvent` (its `PhaseChanged` variant)
   carries the entity; music / cutscene / reward subscribers never collide across
   simultaneous bosses.
+- **⛔⛔ Spacing reasoning about BODIES uses body envelopes, never centres.** A
+  `BossPatternContext` carries the target's body box beside its position, and
+  `lateral_body_gap` is the separation between the two SURFACES. This is not
+  pedantry: the contact-chase closure test used to be
+  `centre_distance <= 4.0`, which a 208px-wide boss can only satisfy by standing
+  with its centre inside its target's. It never engaged, and with
+  `suppress_attacks_while_moving` it therefore never attacked — a defect whose
+  severity scaled with body size, so the biggest, most memorable boss in the game
+  was the one it silenced completely. Standoff RINGS (`too_close_distance`,
+  `engage_distance`) remain distance policy and stay centre-based on purpose;
+  only the predicate that claims *contact* was ever making a claim about bodies.
 
 ## Scripted encounters are data
 

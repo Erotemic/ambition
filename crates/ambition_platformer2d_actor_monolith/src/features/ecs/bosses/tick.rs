@@ -416,6 +416,9 @@ pub fn tick_boss_brains_system(
         ),
         With<FeatureSimEntity>,
     >,
+    // Any body a boss may be aiming at — read-only, and disjoint from the boss
+    // query above, which borrows no `CenteredAabb`.
+    target_bodies: Query<&crate::features::CenteredAabb>,
 ) {
     let dt = world_time.sim_dt();
     // A room used to arrive as a `Single`, so no room meant Bevy skipped this
@@ -514,6 +517,16 @@ pub fn tick_boss_brains_system(
         // A boss that wanted bounded, juke-able senses would carry `Perception::Sighted`
         // and branch here exactly as `tick_actor_brains` does; none do today.
         let target_pos = target.pos;
+        // The target's own BODY, not just where it stands. A contact chase asks
+        // whether two bodies touch; answering that from positions alone made
+        // every wide body's contact unreachable (see `lateral_body_gap`). Every
+        // body publishes a `CenteredAabb`, player and actor alike, so this asks
+        // one question of one component. A target we cannot find a body for
+        // reads as a point, which is exactly what the old arithmetic assumed.
+        let target_body_size = target
+            .entity
+            .and_then(|entity| target_bodies.get(entity).ok())
+            .map_or(ae::Vec2::ZERO, |aabb| aabb.size());
 
         // The front-wall standoff the pattern probes with — read before the brain
         // borrow that `brain.tick` needs.
@@ -533,6 +546,7 @@ pub fn tick_boss_brains_system(
                     encounter_phase: boss.status.encounter_phase,
                     actor_pos: boss.kin.pos,
                     target_pos,
+                    target_body_size,
                     world_size: feature_world.size,
                     front_wall_clearance,
                     dt,

@@ -1221,6 +1221,10 @@ fn tick_boss_pattern_via_state_machine(
         encounter_phase: snapshot.boss_encounter_phase.unwrap_or_default(),
         actor_pos: snapshot.actor_pos,
         target_pos: snapshot.target_pos,
+        // A point target: the shared snapshot carries no body box, and this path
+        // ticks Dormant (see above), so it never reaches the contact reasoning
+        // that would read one. The ECS boss tick passes the real body.
+        target_body_size: ae::Vec2::ZERO,
         world_size: snapshot.world_size,
         front_wall_clearance: snapshot.front_wall_clearance,
         dt: snapshot.dt,

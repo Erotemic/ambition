@@ -643,6 +643,11 @@ fn boss_motion_respects_world_collision_against_a_wall() {
                 encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
                 actor_pos: seed.kin.pos,
                 target_pos: player_pos,
+                // An ordinary body standing over there. This fight is decided
+                // 600px away by a wall, so the target's size changes nothing
+                // here — but a target with no body is a fiction, and the
+                // contact rules read this.
+                target_body_size: ae::Vec2::new(32.0, 64.0),
                 world_size: world.size,
                 front_wall_clearance: None,
                 dt,

@@ -30,6 +30,8 @@ fn ctx(phase: BossEncounterPhase, dt: f32) -> BossPatternContext {
         encounter_phase: phase,
         actor_pos: ae::Vec2::ZERO,
         target_pos: ae::Vec2::new(50.0, 0.0),
+        // A point target: these cases reason about distances, not contact.
+        target_body_size: ae::Vec2::ZERO,
         world_size: ae::Vec2::new(2_000.0, 2_000.0),
         front_wall_clearance: None,
         dt,
@@ -650,9 +652,14 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
     tick_boss_pattern(
         &cfg,
         &mut state,
+        // ⚠ this used to stand the target 20px from the boss's CENTRE and call
+        // it a gap. The boss body is 100 wide, so that target was *inside* it —
+        // the fixture only read as "a gap" while contact was measured between
+        // two points. Stand it clear of the body instead; the claim under test
+        // (no `too_far_distance` needed to start the chase) is unchanged.
         &macro_ctx(
             ae::Vec2::new(640.0, 400.0),
-            ae::Vec2::new(660.0, 400.0),
+            ae::Vec2::new(900.0, 400.0),
             0.05,
         ),
         &mut out,
@@ -1269,4 +1276,137 @@ fn bd1_the_new_atoms_parse_from_authored_ron() {
     assert_eq!(pattern.interrupts.len(), 3);
     // `total_duration` budgets a `Select` at its heaviest arm, not its lightest.
     assert!((pattern.total_duration() - 0.5).abs() < 1e-5);
+}
+
+/// A contact-chase boss authored the way the Smirking Behemoth is: no standoff
+/// ring, `engage_distance = 0`, hold position once engaged, and attacks
+/// suppressed while closing. The only thing that ends its Approach is body
+/// contact.
+fn contact_chase_cfg() -> BossPatternCfg {
+    let mut cfg = cfg_with(BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1: BossPattern {
+            steps: vec![
+                BossPatternStep::Rest { duration: 0.4 },
+                BossPatternStep::Telegraph {
+                    profile: BossAttackProfile::Special("eye_beam".to_string()),
+                    duration: 0.3,
+                    telegraph: None,
+                },
+                BossPatternStep::Strike {
+                    profile: BossAttackProfile::Special("eye_beam".to_string()),
+                    duration: 0.25,
+                },
+            ],
+            ..Default::default()
+        },
+        transition: BossPattern::default(),
+        phase2: BossPattern::default(),
+        enrage: BossPattern::default(),
+    });
+    // A body the size of the Smirking Behemoth's authored collision box.
+    cfg.combat_size = ae::Vec2::new(208.0, 266.0);
+    cfg.movement = BossMovementProfile::AnchorSway {
+        x_radius: 0.0,
+        y_bob: 0.0,
+        x_frequency: 0.0,
+        y_frequency: 0.0,
+        chase_scale: 0.0,
+        chase_limit: 0.0,
+        speed: 135.0,
+    };
+    cfg.macro_tuning = BossMacroTuning {
+        too_close_distance: 0.0,
+        too_far_distance: 0.0,
+        engage_distance: 0.0,
+        approach_duration_s: 8.0,
+        retreat_duration_s: 0.0,
+        engage_max_duration_s: 0.0,
+        front_wall_standoff: 48.0,
+        idle_attack_chance_per_second: 0.0,
+        hold_position_while_engaged: true,
+        approach_speed_scale: 1.05,
+        retreat_speed_scale: 1.0,
+        retreat_distance: 0.0,
+        suppress_attacks_while_moving: true,
+    };
+    cfg
+}
+
+/// **⛔⛔ A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.**
+///
+/// The contact-chase closure test compared a CENTRE-TO-CENTRE distance against
+/// a 4px epsilon. A 208px-wide boss can only satisfy that by standing with its
+/// centre inside the target's — which body collision prevents. So the boss sat
+/// in `Approach` forever, and `suppress_attacks_while_moving` meant forever
+/// silent: the eye beam was reachable only in the single tick per
+/// `approach_duration_s` that the Approach timeout bought, so the three-beat
+/// script needed minutes of wall-clock per shot.
+///
+/// The condition this pins is the SEMANTIC one, not the arithmetic: a body
+/// standing against this boss's flank IS in contact, whatever the boss's size.
+#[test]
+fn a_wide_contact_chase_boss_engages_when_the_bodies_touch() {
+    let cfg = contact_chase_cfg();
+    let mut state = BossPatternState::default();
+    let mut attack_intent = BossAttackIntent::default();
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+
+    // An ordinary 32x64 body standing against the boss's left flank: 104 (boss
+    // half-width) + 16 (target half-width) = 120px between the centres, which
+    // is exactly touching surfaces.
+    let actor_pos = ae::Vec2::new(640.0, 400.0);
+    let target_pos = ae::Vec2::new(520.0, 400.0);
+
+    let mut fired = false;
+    // One second of ticks — comfortably more than the 0.95s script.
+    for _ in 0..60 {
+        let mut ctx = macro_ctx(actor_pos, target_pos, 1.0 / 60.0);
+        ctx.target_body_size = ae::Vec2::new(32.0, 64.0);
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
+        fired |=
+            attack_intent.active_profile.is_some() || attack_intent.telegraph_profile.is_some();
+    }
+
+    assert_eq!(
+        state.macro_state,
+        BossMacroState::Engage,
+        "touching bodies must have closed the contact chase",
+    );
+    assert!(
+        fired,
+        "an engaged contact boss must reach its authored attack; it stayed silent",
+    );
+}
+
+/// The poison for the test above: a target genuinely far away must still keep
+/// the boss approaching and silent. Without this, "always closed" would pass.
+#[test]
+fn a_distant_target_keeps_the_contact_chase_open_and_silent() {
+    let cfg = contact_chase_cfg();
+    let mut state = BossPatternState::default();
+    let mut attack_intent = BossAttackIntent::default();
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let actor_pos = ae::Vec2::new(640.0, 400.0);
+    let target_pos = ae::Vec2::new(200.0, 400.0); // ~320px of clear ground between the bodies
+
+    for _ in 0..60 {
+        let mut ctx = macro_ctx(actor_pos, target_pos, 1.0 / 60.0);
+        ctx.target_body_size = ae::Vec2::new(32.0, 64.0);
+        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut attack_intent);
+        assert!(
+            attack_intent.active_profile.is_none() && attack_intent.telegraph_profile.is_none(),
+            "a boss still closing distance must not attack",
+        );
+    }
+    assert!(
+        matches!(state.macro_state, BossMacroState::Approach { .. }),
+        "a distant target must leave the contact chase open; got {:?}",
+        state.macro_state,
+    );
+    assert!(
+        out.velocity_target.x < 0.0,
+        "and the boss must be closing toward it; got {:?}",
+        out.velocity_target,
+    );
 }

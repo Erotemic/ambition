@@ -26,11 +26,21 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
-    struct Captured(Option<usize>);
+    struct Captured(Option<String>);
 
-    fn capture(mut reqs: MessageReader<RoomTransitionRequested>, mut out: ResMut<Captured>) {
-        if let Some(req) = reqs.read().last() {
-            out.0 = Some(req.transition.target_room);
+    // ⭐ **observe the INTENT, which is what detection produces on every host**
+    // (D71). This read a `RoomTransitionRequested` message, which only an eager
+    // host ever wrote — so these fixtures were checking the half of a fork that
+    // the shipped game does not take. The intent names its destination by
+    // authored id, so the room is asserted by NAME rather than by index.
+    fn capture(
+        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
         }
     }
 
@@ -72,7 +82,6 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    app.add_message::<RoomTransitionRequested>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     // The vacated home avatar, far from the zone.
@@ -100,11 +109,12 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         .spawn((
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("possessed_actor"),
             BodyKinematics {
-            pos: zone_center,
-            vel: ae::Vec2::ZERO,
-            size: ae::Vec2::new(24.0, 40.0),
-            facing: 1.0,
-        }))
+                pos: zone_center,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(24.0, 40.0),
+                facing: 1.0,
+            },
+        ))
         .id();
     app.world_mut()
         .insert_resource(ControlledSubject(Some(actor)));
@@ -112,8 +122,8 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<Captured>().0,
-        Some(1),
+        app.world().resource::<Captured>().0.as_deref(),
+        Some("b"),
         "the possessed (controlled) actor in the walk zone triggers the transition to room b, \
          even though the home avatar is far away",
     );
@@ -132,11 +142,21 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
-    struct Captured(Option<usize>);
+    struct Captured(Option<String>);
 
-    fn capture(mut reqs: MessageReader<RoomTransitionRequested>, mut out: ResMut<Captured>) {
-        if let Some(req) = reqs.read().last() {
-            out.0 = Some(req.transition.target_room);
+    // ⭐ **observe the INTENT, which is what detection produces on every host**
+    // (D71). This read a `RoomTransitionRequested` message, which only an eager
+    // host ever wrote — so these fixtures were checking the half of a fork that
+    // the shipped game does not take. The intent names its destination by
+    // authored id, so the room is asserted by NAME rather than by index.
+    fn capture(
+        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
         }
     }
 
@@ -184,7 +204,6 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         ..Default::default()
     });
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    app.add_message::<RoomTransitionRequested>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
     // The body has already SHOT PAST the zone this frame: it ends at x = 200
@@ -212,8 +231,8 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     app.update();
 
     assert_eq!(
-        app.world().resource::<Captured>().0,
-        Some(1),
+        app.world().resource::<Captured>().0.as_deref(),
+        Some("b"),
         "a body that tunnelled through the walk zone in one frame still triggers \
          the transition — the reader sweeps its path (CC2), it does not sample \
          the endpoint",
@@ -256,11 +275,21 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
-    struct Captured(Option<usize>);
+    struct Captured(Option<String>);
 
-    fn capture(mut reqs: MessageReader<RoomTransitionRequested>, mut out: ResMut<Captured>) {
-        if let Some(req) = reqs.read().last() {
-            out.0 = Some(req.transition.target_room);
+    // ⭐ **observe the INTENT, which is what detection produces on every host**
+    // (D71). This read a `RoomTransitionRequested` message, which only an eager
+    // host ever wrote — so these fixtures were checking the half of a fork that
+    // the shipped game does not take. The intent names its destination by
+    // authored id, so the room is asserted by NAME rather than by index.
+    fn capture(
+        pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+        mut out: ResMut<Captured>,
+    ) {
+        if let Some(crate::session::lifecycle_commit::LifecycleIntent::Transition(transition)) =
+            pending.pending.as_ref().map(|intent| &intent.kind)
+        {
+            out.0 = Some(transition.target_room.clone());
         }
     }
 
@@ -312,7 +341,6 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             ..Default::default()
         });
         app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-        app.add_message::<RoomTransitionRequested>();
         app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
         let body = BodyKinematics {
@@ -333,7 +361,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             entity.insert(sample);
         }
         app.update();
-        app.world().resource::<Captured>().0
+        app.world().resource::<Captured>().0.clone()
     };
 
     // The kernel's record of the frame: it walked 40 px east and was stopped.
@@ -344,8 +372,8 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         half: body_half,
     };
     assert_eq!(
-        build(Some(travelled)),
-        Some(1),
+        build(Some(travelled)).as_deref(),
+        Some("b"),
         "the body walked into the exit band and was stopped ON it. Its TRUE path \
          (SweepSample) crosses the zone, so the transition fires — the reader must \
          read the kernel's segment, not the velocity collision just zeroed",
@@ -355,10 +383,10 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     // sample ⇒ the reader falls back to `vel · dt`, which is zero, and the zone
     // it is standing against goes unnoticed.
     assert_eq!(
-        build(None),
+        build(None).as_deref(),
         None,
         "and with no sample the reconstruction is `vel · dt` = 0, which cannot \
-         describe that movement at all — if this ever returns Some(1) the fixture \
+         describe that movement at all — if this ever names a room the fixture \
          has stopped modelling the collision that makes the bug possible",
     );
 }

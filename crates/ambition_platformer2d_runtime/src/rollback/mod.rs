@@ -699,10 +699,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.room_loaded",
     )
-    .clear_message_on_rollback::<ambition_platformer2d_world::rooms::RoomTransitionRequested>(
-        ENGINE,
-        "message.room_transition_requested",
-    )
     // A same-tick handshake: the reset processor announces it, and the teardown
     // systems chained after it read it. A cursor GGRS did not rewind would let
     // that teardown fire for a reset the resimulation never committed to — the

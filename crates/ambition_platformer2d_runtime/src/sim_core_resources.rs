@@ -56,7 +56,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()
-            .add_message::<ambition_platformer2d_actor_monolith::rooms::RoomTransitionRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_platformer2d_actor_monolith::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes

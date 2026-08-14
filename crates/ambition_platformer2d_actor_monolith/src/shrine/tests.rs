@@ -11,7 +11,6 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 fn interacting_at_the_shrine_heals_to_full() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);
@@ -214,7 +213,6 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     // A fresh app with the recorded save: the body starts at the room's authored
     // spawn and must be moved to the checkpoint instead.
     let mut next = App::new();
-    next.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
     next.insert_resource(ambition_persistence::save::AmbitionGameSave(
         app.world()
             .resource::<ambition_persistence::save::AmbitionGameSave>()
@@ -226,6 +224,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .resource_mut::<ActiveSessionScope>()
         .begin();
     insert_session_world_component(next.world_mut(), room_set("shrine_room"));
+    next.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     next.add_systems(Update, restore_checkpoint_on_session_start);
     // The REAL player bundle, at the room's authored spawn — the body the
     // construction path produces, with every cluster the transit authority reads.
@@ -266,7 +265,6 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
         999,
         999,
     ));
-    app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
     app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
@@ -284,6 +282,9 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
             Vec::new(),
         ),
     );
+    // The slot a transition is recorded into (D71): production initializes it in
+    // sim-core resources, so a fixture running this system owes it too.
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     let body = app
         .world_mut()
@@ -331,7 +332,6 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
         512,
         300,
     ));
-    app.add_message::<ambition_platformer2d_world::rooms::RoomTransitionRequested>();
     app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
     app.init_resource::<ActiveSessionScope>();
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
@@ -365,46 +365,58 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
         PrimaryPlayer,
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
+    // The slot a transition is recorded into (D71): production initializes it in
+    // sim-core resources, so a fixture running this system owes it too.
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
 
-    let requests: Vec<_> = app
-        .world()
-        .resource::<bevy::prelude::Messages<ambition_platformer2d_world::rooms::RoomTransitionRequested>>()
-        .iter_current_update_messages()
-        .cloned()
-        .collect();
+    // ⭐ **the resume records the SAME intent a loading zone records** (D71). It
+    // wrote a `RoomTransitionRequested` around a synthetic door; the message is
+    // gone and so is the invented zone. The intent names its room by AUTHORED ID,
+    // which is also what made the index lookup here deletable.
+    fn recorded(app: &App) -> Option<crate::session::lifecycle_commit::PendingIntent> {
+        app.world()
+            .resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+            .pending
+            .clone()
+    }
+    let Some(intent) = recorded(&app) else {
+        panic!(
+            "the session opened in `entry` while the checkpoint is in `rest_room` \
+             and no transition was recorded — the player does not resume where \
+             they rested"
+        );
+    };
+    let crate::session::lifecycle_commit::LifecycleIntent::Transition(transition) = intent.kind
+    else {
+        panic!("the resume recorded a lifecycle intent that is not a transition");
+    };
+    assert_eq!(transition.target_room, "rest_room");
     assert_eq!(
-        requests.len(),
-        1,
-        "the session opened in `entry` while the checkpoint is in `rest_room` \
-         and no transition was requested — the player does not resume where \
-         they rested"
-    );
-    assert_eq!(requests[0].transition.target_room, 1);
-    assert_eq!(
-        requests[0].subject,
+        transition.subject,
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
         "the resume asked for a room without saying whose resume it is, so the \
          commit would transit whoever happens to be controlled several frames later"
     );
     assert_eq!(
-        (
-            requests[0].transition.arrival.x,
-            requests[0].transition.arrival.y
-        ),
+        (transition.arrival.x, transition.arrival.y),
         (512.0, 300.0),
         "the transition must arrive AT the checkpoint, not at the room's own spawn"
     );
 
     // Once per session: a transition takes several frames to commit, and
-    // re-requesting every frame would restart it forever.
+    // re-requesting every frame would restart it forever. ⚠ the intent SURVIVES
+    // until its commit clears it, so "asked again" is no longer a second message
+    // but a second RECORD — which `PendingLifecycleCommit` is earliest-sticky
+    // against. Clearing the slot is what makes the question askable at all.
+    app.world_mut()
+        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .take();
     app.update();
     app.update();
-    let repeats = app
-        .world()
-        .resource::<bevy::prelude::Messages<ambition_platformer2d_world::rooms::RoomTransitionRequested>>()
-        .iter_current_update_messages()
-        .count();
-    assert_eq!(repeats, 0, "the resume transition was requested repeatedly");
+    assert!(
+        recorded(&app).is_none(),
+        "the resume transition was recorded repeatedly"
+    );
 }

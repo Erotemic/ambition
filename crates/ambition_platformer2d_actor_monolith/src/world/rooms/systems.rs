@@ -11,7 +11,7 @@ use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
 
 use super::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalRegistry, LoadingZoneActivation,
-    RoomMusicRequest, RoomSet, RoomSfxId, RoomTransitionRequested,
+    RoomMusicRequest, RoomSet, RoomSfxId,
 };
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
@@ -85,11 +85,12 @@ pub fn tick_portal_phases_system(
     }
 }
 
-/// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
-/// message. The host begins a readiness transaction after detection while the
-/// current room remains authoritative; the actual room load (despawn old, spawn
-/// new, reset the controlled body to its arrival) commits only on a later sim
-/// tick after one-shot authorization.
+/// Detect a loading-zone overlap and RECORD the crossing it describes. The host
+/// opens a readiness transaction from that record while the current room remains
+/// authoritative; the actual room load (despawn old, spawn new, place the
+/// recorded body at its arrival) commits only later, once the transaction
+/// authorizes it — and, on a rollback host, once the recording frame is
+/// confirmed.
 ///
 /// Attacks may still advance on the detection frame, but replay fixtures confirm
 /// player-position determinism because attacks do not push the player.
@@ -101,7 +102,6 @@ pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     sim_state: Res<crate::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
-    mut transition_writer: MessageWriter<RoomTransitionRequested>,
     // The transition subject is the CONTROLLED body: if the driven body (home
     // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
     // door restrictions gate on body properties (size/shape/locomotion), never on
@@ -242,54 +242,51 @@ pub fn detect_room_transition_system(
         );
         return;
     };
-    if let Some(boundary) = boundary {
-        // Rollback host: record a deferred reconstruction intent instead of
-        // firing the message. The host-side committer runs it on a confirmed
-        // frame and rebases the session. Earliest-sticky (see
-        // `PendingLifecycleCommit::record`), so a re-detected overlap on the next
-        // predicted frame — the body is still on the exit until the commit
-        // relocates it — is a no-op rather than a duplicate.
-        // The deferred path — and ONLY the deferred path — needs the target's
-        // spec, because the recorded intent names the room by id rather than by
-        // index. The eager path never did, so this check stays inside the
-        // boundary branch instead of gating both.
-        //
-        // Both failures leave the press buffered on purpose (the transition is
-        // still wanted; we just cannot describe it yet), which means this system
-        // re-runs and re-logs every tick the body stays on the exit. `_once`
-        // keeps a stuck exit from drowning the log.
-        let Some(target_spec) = room_set.spec_at(zone.target_room) else {
-            bevy::log::error_once!(
-                "transition target {:?} has no room spec; leaving input buffered",
-                zone.target_room
-            );
-            return;
-        };
-        // Consume the gesture only after every invariant required to record the
-        // deferred transition has been validated.
-        slot_gestures.primary_mut().clear();
-        let edge_exit = matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit);
-        pending_lifecycle.record(
-            boundary.current,
-            crate::session::lifecycle_commit::LifecycleIntent::Transition {
+    // ⭐ **ONE description, recorded the same way on every host** (D71).
+    //
+    // This used to fork: a rollback host recorded a `LifecycleIntent` and an
+    // eager host wrote a `RoomTransitionRequested` carrying a resolved zone and
+    // no subject. Two descriptions of one crossing, and only the message opened
+    // the readiness transaction — so the SHIPPED game, which composes the
+    // rollback host, changed rooms with no cover, no failure reporting and no
+    // asset accounting. Now both hosts record the intent and the transaction is
+    // its only consumer; they differ only in WHEN it is safe to act on, which is
+    // the frame stamped here.
+    //
+    // Earliest-sticky (see `PendingLifecycleCommit::record`), so a re-detected
+    // overlap on a later frame — the body stays on the exit until the commit
+    // relocates it — is a no-op rather than a duplicate.
+    //
+    // ⚠ the intent names the room by ID, so it needs the target's spec. A
+    // failure here leaves the press buffered on purpose (the transition is still
+    // wanted; we just cannot describe it yet), so this system re-runs every tick
+    // the body stays on the exit — `_once` keeps a stuck exit out of the log.
+    let Some(target_spec) = room_set.spec_at(zone.target_room) else {
+        bevy::log::error_once!(
+            "transition target {:?} has no room spec; leaving input buffered",
+            zone.target_room
+        );
+        return;
+    };
+    // Consume the gesture only after every invariant required to describe the
+    // crossing has been validated.
+    slot_gestures.primary_mut().clear();
+    pending_lifecycle.record(
+        // ⚠ **an eager host has no frames to be ahead of.** `0` is not a
+        // placeholder: with no `ConfirmedFrameBoundary` there is no speculation,
+        // so the intent is confirmed the instant it is recorded, which is what
+        // `ConfirmedRoomTransitionIntent` reads it as.
+        boundary.map_or(0, |boundary| boundary.current),
+        crate::session::lifecycle_commit::LifecycleIntent::Transition(
+            crate::session::lifecycle_commit::RoomTransitionIntent {
                 subject: subject.clone(),
                 target_room: target_spec.id.clone(),
                 arrival: zone.arrival,
-                edge_exit,
-                // The cue the eager path hands to `RoomTransitionRequested`,
-                // resolved by the SAME rule a few lines up and carried on the
-                // intent because the commit happens far from the zone that
+                edge_exit: matches!(zone.zone.activation, LoadingZoneActivation::EdgeExit),
+                // Carried because the commit happens far from the zone that
                 // named it.
                 zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
             },
-        );
-        return;
-    }
-    // Consume the press only once the transition is known to be actionable.
-    slot_gestures.primary_mut().clear();
-    transition_writer.write(RoomTransitionRequested::new(
-        zone,
-        subject.clone(),
-        zone_sfx,
-    ));
+        ),
+    );
 }

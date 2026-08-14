@@ -371,13 +371,15 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                     LifecycleIntent::DeathReset => put_u8(out, 0),
                     LifecycleIntent::ManualReset => put_u8(out, 1),
                     LifecycleIntent::Replay => put_u8(out, 2),
-                    LifecycleIntent::Transition {
-                        subject,
-                        target_room,
-                        arrival,
-                        edge_exit,
-                        zone_sfx,
-                    } => {
+                    LifecycleIntent::Transition(
+                        crate::session::lifecycle_commit::RoomTransitionIntent {
+                            subject,
+                            target_room,
+                            arrival,
+                            edge_exit,
+                            zone_sfx,
+                        },
+                    ) => {
                         put_u8(out, 3);
                         put_str(out, subject.as_str());
                         put_str(out, target_room);
@@ -404,19 +406,21 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
             0 => LifecycleIntent::DeathReset,
             1 => LifecycleIntent::ManualReset,
             2 => LifecycleIntent::Replay,
-            3 => LifecycleIntent::Transition {
-                subject: ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
-                    r.str()?.to_string(),
-                ),
-                target_room: r.str()?.to_string(),
-                arrival: r.vec2()?,
-                edge_exit: r.bool()?,
-                zone_sfx: {
-                    let present = r.bool()?;
-                    let cue = r.str()?.to_string();
-                    present.then_some(cue)
+            3 => LifecycleIntent::Transition(
+                crate::session::lifecycle_commit::RoomTransitionIntent {
+                    subject: ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(
+                        r.str()?.to_string(),
+                    ),
+                    target_room: r.str()?.to_string(),
+                    arrival: r.vec2()?,
+                    edge_exit: r.bool()?,
+                    zone_sfx: {
+                        let present = r.bool()?;
+                        let cue = r.str()?.to_string();
+                        present.then_some(cue)
+                    },
                 },
-            },
+            ),
             4 => LifecycleIntent::FullReset,
             _ => return None,
         };

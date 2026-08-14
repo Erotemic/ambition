@@ -14,15 +14,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::prelude::{
-    DetectChanges, MessageReader, MessageWriter, NextState, Res, ResMut, Resource,
-};
+use bevy::prelude::{DetectChanges, MessageWriter, NextState, Res, ResMut, Resource};
 
 use ambition_load::{
     BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
 use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
 use ambition_time::SimTick;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
@@ -91,6 +90,24 @@ impl RoomTransitionContentEpoch {
 }
 
 /// Advance the transition content epoch when any construction input changes.
+///
+/// ⛔⛔ **THE ROOM SET IS COMPARED BY VALUE, NOT BY `is_changed()`, AND THAT IS
+/// NOT A STYLE CHOICE.** `RoomSet` is rollback-registered state, and a rollback
+/// host RESTORES it every frame — so `is_changed()` is TRUE every frame there,
+/// whatever the content is doing. This system's write is not idempotent (a bump
+/// is a bump), which is exactly the *"change ticks don't rewind"* trap.
+///
+/// It was invisible until D71 (2026-08-14), because the rollback host opened no
+/// readiness transactions at all. The moment it did, the epoch advanced every
+/// frame, `same_destination` therefore matched nothing, and `begin` minted a
+/// FRESH transaction every frame that superseded the one before it — measured as
+/// `seq=1,2,3,… epoch=18,19,20,…`, a transaction that reached `Ready` and could
+/// never reach the next tick's commit gate because it was replaced first.
+///
+/// The registries below are ordinary content resources, are not restored, and
+/// keep their change-tick reads. The room set is compared against the ids it
+/// last had: a restore reproduces them exactly and bumps nothing, while a
+/// hot-reload that changes the world's rooms still bumps.
 pub fn advance_room_transition_content_epoch_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<rooms::RoomSet>,
     placement_lowering: Res<
@@ -102,8 +119,20 @@ pub fn advance_room_transition_content_epoch_system(
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     boss_catalog: Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
     mut epoch: ResMut<RoomTransitionContentEpoch>,
+    // The room ids this last saw. Allocation-free on the steady path: the
+    // comparison walks the two lists and only clones when they genuinely differ.
+    mut last_rooms: bevy::prelude::Local<Vec<String>>,
 ) {
-    if room_set.is_changed()
+    let rooms_changed = last_rooms.len() != room_set.rooms.len()
+        || last_rooms
+            .iter()
+            .zip(room_set.rooms.iter())
+            .any(|(had, now)| had != &now.id);
+    if rooms_changed {
+        last_rooms.clear();
+        last_rooms.extend(room_set.rooms.iter().map(|room| room.id.clone()));
+    }
+    if rooms_changed
         || placement_lowering.is_changed()
         || content_staging.is_changed()
         || character_catalog.is_changed()
@@ -121,7 +150,20 @@ pub struct ActiveRoomTransitionLoad {
     pub source_room: usize,
     pub source_room_id: String,
     pub target_room_id: String,
-    pub request: rooms::RoomTransitionRequested,
+    /// The destination's INDEX in the live `RoomSet`, resolved once from
+    /// [`Self::intent`]'s authored room id. Host-side only — the intent names the
+    /// room by id because it is rollback state and an index is not stable across
+    /// a content reload.
+    pub target_room: usize,
+    /// **What this transaction is FOR** — the semantic crossing, subject
+    /// included, exactly as detection recorded it.
+    ///
+    /// ⭐ this was a `RoomTransitionRequested` message (D71, 2026-08-14). The
+    /// message described the same crossing a second time, with a resolved zone
+    /// and no subject, and only an eager host ever produced one — which is why
+    /// the shipped rollback host opened no transaction at all and every room
+    /// change in the game went uncovered.
+    pub intent: RoomTransitionIntent,
     pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
     pub commit_not_before_tick: u64,
@@ -149,7 +191,7 @@ pub struct ActiveRoomTransitionLoad {
 impl ActiveRoomTransitionLoad {
     fn same_destination(
         &self,
-        request: &rooms::RoomTransitionRequested,
+        intent: &RoomTransitionIntent,
         session_scope: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
         content_epoch: u64,
     ) -> bool {
@@ -175,10 +217,10 @@ impl ActiveRoomTransitionLoad {
         // means a genuinely different destination.
         self.content_epoch == content_epoch
             && self.session_scope == session_scope
-            && self.request.subject == request.subject
-            && self.request.transition.target_room == request.transition.target_room
-            && self.request.transition.arrival == request.transition.arrival
-            && self.request.transition.zone.activation == request.transition.zone.activation
+            && self.intent.subject == intent.subject
+            && self.intent.target_room == intent.target_room
+            && self.intent.arrival == intent.arrival
+            && self.intent.edge_exit == intent.edge_exit
     }
 }
 
@@ -307,6 +349,47 @@ pub fn fail_room_transition_commit_precondition(
     bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
 }
 
+/// **The confirmed crossing waiting to be loaded**, or nothing.
+///
+/// Two resources that are always read together and mean nothing apart: the
+/// pending intent, and how far the host has confirmed. Bundled because
+/// [`begin_room_transition_load_system`] sits at Bevy's 16-parameter ceiling and
+/// because "is this crossing safe to act on yet" is one question, not two.
+///
+/// ⚠ **a host with no `ConfirmedFrameBoundary` confirms on arrival**, which is
+/// not a special case: an eager host has no speculative frames, so nothing it
+/// records can be un-recorded. That is the whole of the host difference.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ConfirmedRoomTransitionIntent<'w> {
+    pending: Res<
+        'w,
+        ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+    >,
+    boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+}
+
+impl ConfirmedRoomTransitionIntent<'_> {
+    /// Whether this host defers on confirmed frames. The one thing about the
+    /// host that the readiness transaction has to know: what it may do to state
+    /// the simulation reads.
+    fn is_rollback_host(&self) -> bool {
+        self.boundary.is_some()
+    }
+
+    fn get(&self) -> Option<&RoomTransitionIntent> {
+        let confirmed = self
+            .boundary
+            .as_deref()
+            .map_or(i32::MAX, |boundary| boundary.confirmed);
+        match &self.pending.confirmed(confirmed)?.kind {
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
+            // The in-place resets are not transitions and open no transaction;
+            // the confirmed-lifecycle committer owns them.
+            _ => None,
+        }
+    }
+}
+
 /// Convert loading-zone detections into exact load transactions and perform the
 /// mutation-free target preflight.
 ///
@@ -316,7 +399,17 @@ pub fn fail_room_transition_commit_precondition(
 /// tick observes the complete barrier and receives one-shot authorization.
 #[allow(clippy::too_many_arguments)]
 pub fn begin_room_transition_load_system(
-    mut requests: MessageReader<rooms::RoomTransitionRequested>,
+    // **The one description of a crossing**, recorded by whatever detected it
+    // (a loading zone, a checkpoint resume, a level flag, a retry) and read here
+    // only once its originating frame can never be simulated again.
+    //
+    // ⭐ this read a `MessageReader<RoomTransitionRequested>` until 2026-08-14,
+    // and only an EAGER host ever wrote one — so the shipped rollback host
+    // recorded intents that nothing opened a transaction for, and every room
+    // change in the game happened with no cover, no failure reporting and no
+    // asset accounting (D71). ⚠ a host with no `ConfirmedFrameBoundary` has no
+    // speculative frames, so everything it records is confirmed on arrival.
+    pending: ConfirmedRoomTransitionIntent,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
     active_binding: Option<Res<ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding>>,
@@ -365,14 +458,17 @@ pub fn begin_room_transition_load_system(
 ) {
     let (prepared_characters, brain_profiles) = character_authorities;
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
-    for request in requests.read() {
+    let Some(intent) = pending.get() else {
+        return;
+    };
+    {
         if state.active.as_ref().is_some_and(|active| {
-            active.same_destination(request, current_session, content_epoch.get())
+            active.same_destination(intent, current_session, content_epoch.get())
         }) {
-            // Zone overlap may emit every tick until the eventual commit moves
-            // the body. One transaction owns that destination; trigger noise is
-            // not a new request.
-            continue;
+            // The intent SURVIVES until its commit moves the body, so this system
+            // sees it again every frame in between. One transaction owns that
+            // destination; a still-pending crossing is not a new one.
+            return;
         }
 
         let superseded = state.active.take().map(|active| active.barrier.load_id);
@@ -383,11 +479,14 @@ pub fn begin_room_transition_load_system(
             .get(source_room)
             .map(|room| room.id.clone())
             .unwrap_or_else(|| format!("<room-index-{source_room}>"));
-        let target_label = room_set
-            .rooms
-            .get(request.transition.target_room)
+        // The intent names its destination by AUTHORED ID, because it is rollback
+        // state and an index is not stable across a content reload. Resolving it
+        // is this transaction's first job — and its first way to fail.
+        let target_index = room_set.room_index_by_id(&intent.target_room);
+        let target_label = target_index
+            .and_then(|index| room_set.rooms.get(index))
             .map(|room| room.id.clone())
-            .unwrap_or_else(|| format!("<room-index-{}>", request.transition.target_room));
+            .unwrap_or_else(|| intent.target_room.clone());
         let load_id = LoadId::new(format!(
             "room-transition:{sequence}:{source_room_id}->{target_label}"
         ));
@@ -451,7 +550,24 @@ pub fn begin_room_transition_load_system(
             ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition,
             "room_transition_begin",
         );
-        next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition);
+        // ⛔⛔ **A ROLLBACK HOST DOES NOT PAUSE FOR ITS OWN LOADING SCREEN.**
+        //
+        // `GameMode::RoomTransition` fails `gameplay_allowed`, which gates
+        // `detect_room_transition_system` and other SIM systems. Requesting it
+        // from here — host-side, outside the rewound schedule — makes the
+        // simulation's behaviour depend on non-rollback state: frames resimulated
+        // after the mode flipped skip work the original pass did, and the
+        // sync-test checksum diverges. Measured 2026-08-14: mismatch at frames
+        // [15, 16, 17] the moment the shipped host started opening transactions.
+        //
+        // ⭐ and it is not merely unsound, it is wrong for the thing this
+        // enables: peers do not stop simulating because one of them is loading.
+        // The COVER still goes up — it is driven off `RoomTransitionLoadState`,
+        // not off the mode — so the player sees the same screen; the world
+        // behind it keeps its own time.
+        if !pending.is_rollback_host() {
+            next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition);
+        }
 
         let cover_required = presentation_available.is_some();
         // **A transition always says it started.**
@@ -488,7 +604,8 @@ pub fn begin_room_transition_load_system(
             source_room,
             source_room_id,
             target_room_id: target_label,
-            request: request.clone(),
+            target_room: target_index.unwrap_or(usize::MAX),
+            intent: intent.clone(),
             construction_plan: None,
             barrier: barrier.clone(),
             // Even when every contributor resolves immediately, commit happens
@@ -514,10 +631,10 @@ pub fn begin_room_transition_load_system(
             committed_at: None,
         };
 
-        let Some(target_spec) = room_set.rooms.get(request.transition.target_room) else {
+        let Some(target_spec) = target_index.and_then(|index| room_set.rooms.get(index)) else {
             let detail = format!(
-                "transition from '{}' targets missing room index {}",
-                active.source_room_id, request.transition.target_room,
+                "transition from '{}' targets room '{}', which this world does not contain",
+                active.source_room_id, intent.target_room,
             );
             fail_work(
                 &mut loads,
@@ -548,8 +665,10 @@ pub fn begin_room_transition_load_system(
             active.failure = Some(detail.clone());
             bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
             state.active = Some(active);
-            continue;
+            return;
         };
+        // Resolved above and proven present by the arm just closed.
+        let resolved_target_index = target_index.expect("target_spec resolved from this index");
         set_work_state(
             &mut loads,
             &mut load_events,
@@ -558,10 +677,10 @@ pub fn begin_room_transition_load_system(
             LoadWorkState::Complete,
         );
 
-        if !request.transition.arrival.is_finite() {
+        if !intent.arrival.is_finite() {
             let detail = format!(
                 "transition into '{}' has non-finite arrival {:?}",
-                target_spec.id, request.transition.arrival,
+                target_spec.id, intent.arrival,
             );
             fail_work(
                 &mut loads,
@@ -590,7 +709,7 @@ pub fn begin_room_transition_load_system(
             active.failure = Some(detail.clone());
             bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
             state.active = Some(active);
-            continue;
+            return;
         }
         set_work_state(
             &mut loads,
@@ -626,7 +745,7 @@ pub fn begin_room_transition_load_system(
             active.failure = Some(detail.clone());
             bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
             state.active = Some(active);
-            continue;
+            return;
         };
         // AMBITION_REVIEW(determinism): same as `commit_duration` — wall clock
         // feeding the write-only `construction_preflight_duration` diagnostic,
@@ -647,7 +766,7 @@ pub fn begin_room_transition_load_system(
             Some(plan) => Ok(plan),
             None => rooms::RoomConstructionPlan::prepare_from_parts(
                 &room_set,
-                request.transition.target_room,
+                resolved_target_index,
                 &construction_services.0,
                 &construction_services.1,
                 &construction_services.2,
@@ -704,7 +823,7 @@ pub fn begin_room_transition_load_system(
                 active.failure = Some(detail.clone());
                 bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
                 state.active = Some(active);
-                continue;
+                return;
             }
         };
         #[cfg(not(target_arch = "wasm32"))]
@@ -875,7 +994,6 @@ pub fn finalize_unpresented_room_transition_failure_system(
 mod tests {
     use super::*;
     use ambition_platformer2d_core as ae;
-    use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, RoomTransition};
 
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
@@ -883,30 +1001,18 @@ mod tests {
         SimId::placement("hero")
     }
 
-    fn request(zone: &str, target_room: usize) -> rooms::RoomTransitionRequested {
-        request_by(zone, target_room, ae::Vec2::ZERO, hero())
+    fn request(target_room: &str) -> RoomTransitionIntent {
+        request_by(target_room, ae::Vec2::ZERO, hero())
     }
 
-    fn request_by(
-        zone: &str,
-        target_room: usize,
-        arrival: ae::Vec2,
-        subject: SimId,
-    ) -> rooms::RoomTransitionRequested {
-        rooms::RoomTransitionRequested::new(
-            RoomTransition {
-                zone: LoadingZone {
-                    id: zone.to_string(),
-                    name: zone.to_string(),
-                    activation: LoadingZoneActivation::Door,
-                    aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE),
-                },
-                target_room,
-                arrival,
-            },
+    fn request_by(target_room: &str, arrival: ae::Vec2, subject: SimId) -> RoomTransitionIntent {
+        RoomTransitionIntent {
             subject,
-            None,
-        )
+            target_room: target_room.to_string(),
+            arrival,
+            edge_exit: false,
+            zone_sfx: None,
+        }
     }
 
     #[test]
@@ -918,7 +1024,8 @@ mod tests {
             source_room: 0,
             source_room_id: "a".to_string(),
             target_room_id: "b".to_string(),
-            request: request("door", 1),
+            target_room: 1,
+            intent: request("b"),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             commit_not_before_tick: 1,
@@ -940,20 +1047,16 @@ mod tests {
             commit_duration: None,
             committed_at: None,
         };
-        // Trigger noise: the same body re-detecting the same crossing.
-        assert!(active.same_destination(&request("door", 1), None, 1));
-        // ⭐ **a SECOND ZONE onto the same arrival is the SAME destination, and
-        // this line used to assert the opposite.** It compared `zone.id`, which is
-        // a proxy for the destination rather than the destination — so two doors
-        // into one room opened two transactions, which is exactly what the
-        // caller's *"one transaction owns that destination"* comment forbids.
-        assert!(active.same_destination(&request("other", 1), None, 1));
+        // Trigger noise: the same body re-detecting the same crossing. The
+        // intent SURVIVES until its commit moves the body, so the transaction
+        // sees it again every frame in between.
+        assert!(active.same_destination(&request("b"), None, 1));
         // ⛔⛔ **THE POISON, and the reason the key is not just `target_room`.**
         // Two exits can lead to the same room at different arrivals. A room-only
         // key collapses them and lands this crossing at the other one's
         // coordinates.
         assert!(!active.same_destination(
-            &request_by("other", 1, ae::Vec2::new(0.0, 64.0), hero()),
+            &request_by("b", ae::Vec2::new(0.0, 64.0), hero()),
             None,
             1
         ));
@@ -961,14 +1064,14 @@ mod tests {
         // crossing, not noise. Nothing can trigger this today — one participant
         // transits — which is why it is asserted rather than discovered later.
         assert!(!active.same_destination(
-            &request_by("door", 1, ae::Vec2::ZERO, SimId::placement("other_body")),
+            &request_by("b", ae::Vec2::ZERO, SimId::placement("other_body")),
             None,
             1
         ));
-        assert!(!active.same_destination(&request("door", 2), None, 1));
-        assert!(!active.same_destination(&request("door", 1), None, 2));
+        assert!(!active.same_destination(&request("c"), None, 1));
+        assert!(!active.same_destination(&request("b"), None, 2));
         assert!(!active.same_destination(
-            &request("door", 1),
+            &request("b"),
             Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(9)),
             1,
         ));
@@ -983,7 +1086,8 @@ mod tests {
             source_room: 0,
             source_room_id: "a".to_string(),
             target_room_id: "b".to_string(),
-            request: request("door", 1),
+            target_room: 1,
+            intent: request("b"),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
             commit_not_before_tick: 1,

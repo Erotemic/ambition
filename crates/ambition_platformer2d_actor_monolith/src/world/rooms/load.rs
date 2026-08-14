@@ -13,11 +13,11 @@ use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
-use ambition_platformer2d_world::platforms::MovingPlatformState;
 use crate::RoomTransitionCooldown;
 use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 pub struct RoomLoadResult {
@@ -47,13 +47,18 @@ pub fn commit_room_transition_geometry(
     room_set: &mut RoomSet,
     room_visuals: &Query<(Entity, Option<&PhysicsRoomEntity>), With<RoomScopedEntity>>,
     carry_body: Option<Entity>,
-    transition: RoomTransition,
+    // **The crossing, as three facts rather than a resolved loading zone.** It
+    // took a `RoomTransition` and read exactly these three things out of it
+    // (D71): the zone the body walked through is long out of scope by the time a
+    // transition commits, and a confirmed commit never had one to pass.
+    target_room: usize,
+    arrival_at: ae::Vec2,
+    edge_exit: bool,
     tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
 ) -> RoomLoadResult {
-    debug_assert_eq!(plan.target_index(), transition.target_room);
+    debug_assert_eq!(plan.target_index(), target_room);
     let player_size = clusters.kinematics.size;
-    let edge_exit = matches!(transition.zone.activation, LoadingZoneActivation::EdgeExit);
 
     plan.retire_outgoing(
         commands,
@@ -64,7 +69,7 @@ pub fn commit_room_transition_geometry(
     );
     plan.commit_deferred(commands, room_set, world, moving_platforms);
 
-    let arrival = validated_spawn(&world.0, transition.arrival, player_size);
+    let arrival = validated_spawn(&world.0, arrival_at, player_size);
     // The follow-up `refresh_movement_resources_clusters` that used to sit here is
     // GONE: the reset takes the live air-jump count now and already restores dash
     // charges from the same `BodyAbilities`, so the second call restated its

@@ -309,7 +309,6 @@ message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.room_transition_requested	message-clear	RoomTransitionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping

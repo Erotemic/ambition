@@ -171,9 +171,57 @@
   shrine's checkpoint-resume test had no body at all, for a system whose whole job
   is putting one back.
 
-  **Still owed by later slices:** migrating the four origins onto the shared
-  semantic intent so the message type itself can die, the readiness/commit split,
-  and the schedule move.
+  ### ✔ Slice 2 landed 2026-08-14 — one loader, and the shipped host uses it
+
+  **The census that opened this row is closed.** Re-measured at the end of the
+  slice: fixed-tick 11 room changes / 11 transactions, **ROLLBACK host 21 room
+  changes / 21 transactions** (was 24 / **0**). Every room change in the shipped
+  game now runs the readiness transaction — asset accounting, the opaque cover,
+  and the unpresented-failure state included.
+  `a_room_change_on_the_shipped_host_opens_a_readiness_transaction` is no longer
+  `#[ignore]`d.
+
+  **What it did.** `LifecycleIntent::Transition` now carries a
+  `RoomTransitionIntent` — the one description of a crossing — and all four
+  origins record it: loading-zone detection (both hosts, one code path),
+  checkpoint resume, Mary-O's level flag, and Retry. The transaction reads it and
+  nothing else. **`RoomTransitionRequested` is DELETED**, with its message
+  registration, its `clear_message_on_rollback` entry, its schema-baseline row,
+  and the two SYNTHETIC loading zones that existed only because a message could
+  not describe a crossing nobody walked through. `commit_room_transition_geometry`
+  takes `(target_room, arrival, edge_exit)` instead of a `RoomTransition`, because
+  those were the only three things it ever read out of one.
+
+  **Readiness moved to `Update`; the room change did not.** The four readiness
+  systems mutate no sim state and are not rollback-registered, so they run
+  host-side where a rewind cannot reach them. The commit stays in the sim
+  schedule for the eager host; the rollback host reaches an identical change
+  through `commit_confirmed_lifecycle`, which now WAITS for the same transaction
+  to authorize and retires it afterwards — the build-session → mutate → rebase
+  ordering is untouched.
+
+  ⛔⛔ **two rollback traps, both found by measurement rather than review:**
+
+  1. **`GameMode::RoomTransition` cannot be requested by host-side readiness.**
+     It fails `gameplay_allowed`, which gates SIM systems — so the sim's
+     behaviour started depending on non-rollback state and the sync test
+     diverged at frames [15, 16, 17]. It is also simply wrong for what this
+     enables: peers do not stop simulating because one of them is loading. The
+     cover is driven off `RoomTransitionLoadState`, so the player still sees it.
+  2. **`advance_room_transition_content_epoch_system` read `RoomSet::is_changed()`,
+     and a rollback host RESTORES that component every frame** — so the epoch
+     advanced every frame, `same_destination` matched nothing, and `begin` minted
+     a fresh superseding transaction per frame: `seq=1,2,3… epoch=18,19,20…`,
+     always one tick short of its own commit gate. This is the *"change ticks
+     don't rewind"* class, invisible until the rollback host opened its first
+     transaction. Fixed by comparing the room ids by VALUE; a restore reproduces
+     them, a hot-reload does not.
+
+  **Still owed:** the neighbour-prefetch measurement below (now that
+  `prefetch_hit` is populated on the route players take), and readiness that
+  begins on a PREDICTED intent rather than a confirmed one — deliberately not
+  taken here, because an orphaned transaction after a mispredicted crossing needs
+  its own cancellation rule.
 
   **The field mapping, derived 2026-08-14 — the intent is a superset except in
   two places, and both are cheap:**

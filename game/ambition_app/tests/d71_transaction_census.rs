@@ -252,9 +252,6 @@ fn d71_probe_counts_room_changes_against_transactions() {
 /// which is how a known gap becomes an unknown one. Run it with `--ignored`; when
 /// it passes, DELETE the attribute rather than the test.
 #[test]
-#[ignore = "ACCEPTANCE TARGET for D71: red until the confirmed route opens a \
-           readiness transaction. Run with --ignored; delete this attribute when \
-           it passes."]
 fn a_room_change_on_the_shipped_host_opens_a_readiness_transaction() {
     let rollback = census(true, 900);
     assert!(
@@ -341,7 +338,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             .expect("the summoned body reached the world with an identity")
     };
 
-    let transition = {
+    let (target_room, arrival) = {
         let world = sim.world_mut();
         let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
         let room_set = query
@@ -356,22 +353,34 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
             })
             .cloned()
             .expect("the start room authors a Door zone");
-        room_set
+        let transition = room_set
             .transition_for_player(
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,
             )
-            .expect("the authored door resolves to a transition")
+            .expect("the authored door resolves to a transition");
+        (
+            room_set.rooms[transition.target_room].id.clone(),
+            transition.arrival,
+        )
     };
-    let arrival = transition.arrival;
     let avatar_before = primary_pos(&mut sim);
 
-    sim.world_mut().write_message(
-        ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
-            transition, subject, None,
-        ),
-    );
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(
+            0,
+            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room,
+                    arrival,
+                    edge_exit: false,
+                    zone_sfx: None,
+                },
+            ),
+        );
 
     let mut room = start_room.clone();
     for _ in 0..600 {

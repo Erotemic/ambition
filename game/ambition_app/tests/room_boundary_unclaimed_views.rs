@@ -66,7 +66,7 @@ use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
 use ambition_platformer2d::actors::actor::BodyKinematics;
 use ambition_platformer2d::actors::combat::components::ActorDisposition;
 use ambition_platformer2d::actors::features::FeatureId;
-use ambition_platformer2d::actors::rooms::{RoomSet, RoomTransitionRequested};
+use ambition_platformer2d::actors::rooms::RoomSet;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::game_shell::ShellCommand;
@@ -259,7 +259,7 @@ fn cross_observing_with(
     drive: fn(&mut App),
 ) -> String {
     let from = active_room(app);
-    let transition = {
+    let (target_room, arrival) = {
         let world = app.world_mut();
         let mut query = world.query::<&RoomSet>();
         let room_set = query
@@ -277,11 +277,15 @@ fn cross_observing_with(
                 )
             })
             .clone();
-        room_set
+        let transition = room_set
             .transition_for_player(zone.aabb, ae::Vec2::ZERO, true)
-            .unwrap_or_else(|| panic!("`{zone_id}` does not resolve to a transition"))
+            .unwrap_or_else(|| panic!("`{zone_id}` does not resolve to a transition"));
+        (
+            room_set.rooms[transition.target_room].id.clone(),
+            transition.arrival,
+        )
     };
-    // A transition names the body that is crossing (D71). This one is injected
+    // A transition names the body that is crossing (D71). This one is recorded
     // rather than walked, so the test names the avatar the same way detection
     // would.
     let subject = {
@@ -296,7 +300,19 @@ fn cross_observing_with(
             .clone()
     };
     app.world_mut()
-        .write_message(RoomTransitionRequested::new(transition, subject, None));
+        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(
+            0,
+            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room,
+                    arrival,
+                    edge_exit: false,
+                    zone_sfx: None,
+                },
+            ),
+        );
     let mut trace: Vec<String> = Vec::new();
     let mut last = String::new();
     for frame in 0..CROSSING_CAP {

@@ -554,7 +554,6 @@ fn handle_room_transition_presentation_events(
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
-    mut room_requests: MessageWriter<ambition_platformer2d::actors::rooms::RoomTransitionRequested>,
     mut next_mode: ResMut<NextState<GameMode>>,
 ) {
     for event in events.read() {
@@ -578,7 +577,21 @@ fn handle_room_transition_presentation_events(
                 // extra confirmation after readiness.
             }
             LoadPresentationEvent::RetryRequested { .. } => {
-                let request = active.request.clone();
+                // ⭐⭐ **RETRY RE-ISSUES NOTHING, and that is the whole change.**
+                //
+                // It re-minted a `RoomTransitionRequested` from the failed
+                // transaction — a description that could not name a body, so a
+                // retry after a possession change transited whoever was driving
+                // by then. The crossing is now a `PendingLifecycleCommit` record
+                // that only a SUCCESSFUL commit clears (D71), so the intent this
+                // transaction failed on is still sitting there, subject included.
+                // Dropping the transaction is the entire retry: `begin` opens a
+                // fresh one for the same crossing on the next frame.
+                //
+                // ⛔ and re-recording it would have been worse than redundant.
+                // `PendingLifecycleCommit` is ROLLBACK STATE and this system runs
+                // in `Update`, which never rewinds — writing it here would drift
+                // from the peers' copy on every rewind, silently.
                 let load_id = active.barrier.load_id.clone();
                 apply_load_command(
                     &mut loads,
@@ -592,7 +605,6 @@ fn handle_room_transition_presentation_events(
                 presentation.write(LoadPresentationCommand::Cancel {
                     owner: expected_owner,
                 });
-                room_requests.write(request);
             }
             LoadPresentationEvent::CancelRequested { .. }
             | LoadPresentationEvent::QuitRequested { .. } => {

@@ -198,7 +198,9 @@ pub fn load_room(
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // The transiting body, exempt from the old-room despawn so it rides along.
     carry_body: Option<Entity>,
-    transition: rooms::RoomTransition,
+    target_room: usize,
+    arrival_at: ae::Vec2,
+    edge_exit_crossing: bool,
     tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
 ) {
@@ -223,7 +225,9 @@ pub fn load_room(
         room_set,
         room_visuals,
         carry_body,
-        transition,
+        target_room,
+        arrival_at,
+        edge_exit_crossing,
         tuning,
         feel,
     );
@@ -373,6 +377,16 @@ pub fn commit_ready_room_transition_system(
         MessageWriter<ambition_load::LoadEvent>,
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
+        // **Whose commit this is.** Present ⇒ a rollback host, whose room change
+        // must go through `commit_confirmed_lifecycle`'s rebase; this system
+        // would mutate the world inside the rewound schedule and the next
+        // snapshot restore would put the old room back.
+        Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+        // The crossing's own record, cleared when it lands. Sticky until then, so
+        // leaving it set would wedge every later crossing.
+        ResMut<
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
+        >,
     ),
     mut combat_reset: RoomTransitionCombatReset,
 ) {
@@ -384,7 +398,17 @@ pub fn commit_ready_room_transition_system(
         mut load_events,
         mut next_mode,
         real_time,
+        boundary,
+        mut pending_lifecycle,
     ) = load_resources;
+    // ⛔ **the EAGER commit, and only the eager one.** A rollback host reaches an
+    // identical room change through `commit_confirmed_lifecycle`, which runs
+    // outside the rewound schedule and rebases the session afterwards. Both read
+    // the same authorized transaction; they differ in what they must do to be
+    // allowed to mutate the world at all.
+    if boundary.is_some() {
+        return;
+    }
 
     let Some(active) = transition_state
         .active
@@ -395,16 +419,13 @@ pub fn commit_ready_room_transition_system(
         return;
     };
 
-    let target_still_matches = room_set
-        .rooms
-        .get(active.request.transition.target_room)
-        .is_some_and(|room| {
-            room.id == active.target_room_id
-                && active
-                    .construction_plan
-                    .as_ref()
-                    .is_some_and(|plan| plan.matches_room_spec(room))
-        });
+    let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
+        room.id == active.target_room_id
+            && active
+                .construction_plan
+                .as_ref()
+                .is_some_and(|plan| plan.matches_room_spec(room))
+    });
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     if active.content_epoch != content_epoch.get()
         || active.session_scope != current_session
@@ -449,7 +470,7 @@ pub fn commit_ready_room_transition_system(
         );
         return;
     };
-    if construction_plan.target_index() != active.request.transition.target_room
+    if construction_plan.target_index() != active.target_room
         || construction_plan.room_id() != active.target_room_id
     {
         super::loading::fail_room_transition_commit_precondition(
@@ -463,13 +484,13 @@ pub fn commit_ready_room_transition_system(
                 construction_plan.room_id(),
                 construction_plan.target_index(),
                 active.target_room_id,
-                active.request.transition.target_room,
+                active.target_room,
             ),
         );
         return;
     }
 
-    let request = active.request;
+    let intent = active.intent;
     // **The body that CROSSED is the body that ARRIVES** — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //
@@ -485,7 +506,7 @@ pub fn commit_ready_room_transition_system(
     // A subject that no longer resolves is a VOID crossing: the crossing body is
     // gone, so the transition FAILS rather than substituting whoever is driving
     // now. Same rule, same words, as `commit_transition`'s confirmed side.
-    let Some(subject) = transit.subject_entity(&request.subject) else {
+    let Some(subject) = transit.subject_entity(&intent.subject) else {
         super::loading::fail_room_transition_commit_precondition(
             &mut transition_state,
             &mut loads,
@@ -494,7 +515,7 @@ pub fn commit_ready_room_transition_system(
             format!(
                 "the body that triggered this room transition ({:?}) no longer exists; \
                  cancelling the crossing rather than transiting a substitute",
-                request.subject
+                intent.subject
             ),
         );
         return;
@@ -547,14 +568,14 @@ pub fn commit_ready_room_transition_system(
     combat_reset.clear_carryover();
     let mut clusters = cluster_item.as_clusters_mut();
     let pos_before = clusters.kinematics.pos;
-    if let Some(sfx_id) = &request.zone_sfx {
+    if let Some(sfx_id) = &intent.zone_sfx {
         event_writers.sfx.write(SfxMessage::Play {
             id: ambition_sfx::SfxId::new(sfx_id.as_str()),
             pos: pos_before,
         });
     }
 
-    let target_room = request.transition.target_room;
+    let target_room = active.target_room;
     // AMBITION_REVIEW(determinism): wall clock, and deliberately so — this
     // measures how long the commit TOOK for `commit_duration`, a write-only
     // diagnostic field on `ActiveRoomTransitionLoad`. It is never read back, and
@@ -584,7 +605,9 @@ pub fn commit_ready_room_transition_system(
         construction_plan,
         &room_visuals,
         carry_body,
-        request.transition.clone(),
+        target_room,
+        intent.arrival,
+        intent.edge_exit,
         active_tuning.0,
         *feel_tuning,
     );
@@ -616,6 +639,10 @@ pub fn commit_ready_room_transition_system(
         &world.0,
         &combat_reset.feature_overlay,
     );
+    // The crossing landed, so the intent that described it is spent. ⛔ NOT
+    // earlier: every failure path above leaves it pending on purpose, which is
+    // what lets Retry re-open the same crossing rather than invent a new one.
+    pending_lifecycle.take();
     if active.cover_required {
         if let Some(current) = transition_state
             .active

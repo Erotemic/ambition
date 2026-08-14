@@ -81,6 +81,29 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
         return;
     }
 
+    // ⭐⭐ **A ROOM CHANGE WAITS FOR ITS ROOM** (D71). A transition intent is
+    // handed to the SAME readiness transaction an eager host uses, and may only
+    // commit once that transaction authorizes it: the destination prepared, its
+    // assets accounted for, the opaque cover proven up. Until 2026-08-14 this
+    // committed the instant the frame confirmed — no transaction ever opened on
+    // this route — so the SHIPPED game rebuilt every destination room the moment
+    // it was confirmed, uncovered, with the theme's parallax still lazy-loading
+    // behind it and no way to report a failure.
+    //
+    // ⚠ **returning is not dropping.** The intent stays pending and this runs
+    // again next frame; the transaction is progressing in `Update` in between.
+    // The other lifecycle variants open no transaction and are unaffected.
+    if matches!(kind, LifecycleIntent::Transition(_))
+        && !world
+            .get_resource::<crate::room_transition::RoomTransitionLoadState>()
+            .and_then(|state| state.active.as_ref())
+            .is_some_and(|active| {
+                active.phase == crate::room_transition::RoomTransitionLoadPhase::CommitAuthorized
+            })
+    {
+        return;
+    }
+
     // ATOMICITY: build the replacement session — the ONLY fallible step of the
     // whole commit — BEFORE any destructive mutation. It touches no world and
     // depends only on `settings`, so if it fails the room is never reconstructed,
@@ -136,7 +159,43 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // new world; it does not change whose session it is, and inferring an owner
     // here would quietly hand a match-activation session to the local
     // maintainer.
+    // The transaction this crossing waited on is spent: retire it so the cover
+    // comes down and the next crossing gets a fresh one. ⛔ the eager commit does
+    // the same thing at the same point; a transaction left open here would hold
+    // `GameMode::RoomTransition` forever and the game would never hand control
+    // back.
+    retire_committed_room_transition(world);
+
     install_rebased_sync_test_session(world, session, settings, owner);
+}
+
+/// Close out the readiness transaction a just-committed confirmed transition
+/// used, mirroring the eager commit's own retirement.
+fn retire_committed_room_transition(world: &mut World) {
+    let Some(barrier) = world
+        .get_resource::<crate::room_transition::RoomTransitionLoadState>()
+        .and_then(|state| state.active.as_ref())
+        .map(|active| active.barrier.load_id.clone())
+    else {
+        return;
+    };
+    if let Some(mut loads) = world.get_resource_mut::<ambition_load::LoadCoordinator>() {
+        loads.retire(&barrier);
+    }
+    if let Some(mut state) =
+        world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+    {
+        state.active = None;
+    }
+    ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+        ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+        "room_commit_confirmed",
+    );
+    if let Some(mut mode) = world.get_resource_mut::<
+        bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>,
+    >() {
+        mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+    }
 }
 
 /// What a commit attempt resolved to. The three outcomes differ in what happens
@@ -163,19 +222,13 @@ enum CommitOutcome {
 
 fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> CommitOutcome {
     match kind {
-        LifecycleIntent::Transition {
-            subject,
-            target_room,
-            arrival,
-            edge_exit,
-            zone_sfx,
-        } => commit_transition(
+        LifecycleIntent::Transition(intent) => commit_transition(
             world,
-            subject,
-            target_room,
-            *arrival,
-            *edge_exit,
-            zone_sfx.as_deref(),
+            &intent.subject,
+            &intent.target_room,
+            intent.arrival,
+            intent.edge_exit,
+            intent.zone_sfx.as_deref(),
         ),
         // The in-place resets (death / manual / replay) are already rollback-safe
         // executed eagerly, and the full sandbox reset was proven rollback-safe

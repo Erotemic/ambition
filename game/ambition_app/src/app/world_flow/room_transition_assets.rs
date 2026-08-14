@@ -620,7 +620,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         .cloned()
         .unwrap_or_default();
 
-    let Some(target_spec) = room_set.rooms.get(active.request.transition.target_room) else {
+    let Some(target_spec) = room_set.rooms.get(active.target_room) else {
         return;
     };
 

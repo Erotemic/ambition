@@ -159,7 +159,8 @@ pub fn restore_checkpoint_on_session_start(
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
-    mut transitions: MessageWriter<ambition_platformer2d_world::rooms::RoomTransitionRequested>,
+    mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut bodies: Query<
         (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
         crate::actor::PrimaryPlayerOnly,
@@ -207,11 +208,11 @@ pub fn restore_checkpoint_on_session_start(
         if *routed_for == Some(generation) {
             return;
         }
-        let Some(target_room) = room_set
+        if !room_set
             .rooms
             .iter()
-            .position(|room| room.id == checkpoint.room_id)
-        else {
+            .any(|room| room.id == checkpoint.room_id)
+        {
             // The checkpoint names a room this world does not have — a save from
             // another game, or a room that was removed. Not fatal and not
             // silent: the session keeps its own starting room.
@@ -223,7 +224,7 @@ pub fn restore_checkpoint_on_session_start(
             );
             *applied_for = Some(generation);
             return;
-        };
+        }
         // ⚠ resolved BEFORE the latch: a session whose avatar has not been built
         // yet cannot name its subject, and marking the route done would spend the
         // once-per-session request on a crossing nobody could describe. Try again
@@ -233,26 +234,25 @@ pub fn restore_checkpoint_on_session_start(
         };
         let subject = subject.clone();
         *routed_for = Some(generation);
-        transitions.write(
-            ambition_platformer2d_world::rooms::RoomTransitionRequested::new(
-                ambition_platformer2d_world::rooms::RoomTransition {
-                    // A synthetic zone: the resume is not a door anybody walked
-                    // through, and `Door` is the activation that never fires on its
-                    // own, so this cannot be re-triggered by proximity.
-                    zone: ambition_platformer2d_world::rooms::LoadingZone {
-                        id: "checkpoint_resume".to_string(),
-                        name: "Checkpoint".to_string(),
-                        activation: ambition_platformer2d_world::rooms::LoadingZoneActivation::Door,
-                        aabb: ae::Aabb::new(
-                            ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
-                            ae::Vec2::ONE,
-                        ),
-                    },
-                    target_room,
+        // ⭐ **the SAME description a loading zone records** (D71). This used to
+        // write a `RoomTransitionRequested` wrapping a SYNTHETIC loading zone —
+        // an invented door with an invented aabb — because the message could not
+        // describe a crossing that nobody walked through. The intent can: a resume
+        // is a body, a destination and an arrival, which is all a crossing ever
+        // was. The synthetic zone is deleted with the message, and so is the
+        // room-INDEX lookup that only existed to fill it.
+        pending.record(
+            boundary.map_or(0, |boundary| boundary.current),
+            crate::session::lifecycle_commit::LifecycleIntent::Transition(
+                crate::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room: checkpoint.room_id.clone(),
                     arrival: ae::Vec2::new(checkpoint.x as f32, checkpoint.y as f32),
+                    // A resume is not a walk off the side of a room.
+                    edge_exit: false,
+                    // ⚠ silent on purpose: nobody opened a door.
+                    zone_sfx: None,
                 },
-                subject,
-                None,
             ),
         );
         return;

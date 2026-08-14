@@ -57,29 +57,50 @@ pub enum LifecycleIntent {
     /// because possession may have changed, ended, or the body may have died
     /// during the confirmation delay. A body without stable identity cannot
     /// produce a deferred transition intent.
-    Transition {
-        subject: SimId,
-        target_room: String,
-        arrival: Vec2,
-        edge_exit: bool,
-        /// The door / portal cue this crossing owes, resolved from the zone's
-        /// activation at DETECTION time — the same rule and the same value the
-        /// eager path passes on `RoomTransitionRequested::zone_sfx`.
-        ///
-        /// ⛔ **it has to ride the intent.** The commit runs on a confirmed
-        /// frame, long after the zone that named it is out of reach, and the
-        /// intent deliberately stores no zone: it names the room by id. Without
-        /// this the deferred path had no way to know which cue was owed, so
-        /// every door and every portal was SILENT under the rollback host — the
-        /// eager path plays it from `zone_sfx` in `room_transition::commit`, and
-        /// nothing on this side played anything at all.
-        ///
-        /// ⚠ a `String`, like `target_room` beside it, because this is rollback
-        /// state and must encode deterministically.
-        zone_sfx: Option<String>,
-    },
+    Transition(RoomTransitionIntent),
     /// Reconstruction: full sandbox reset back to the world's start room.
     FullReset,
+}
+
+/// **WHAT A ROOM TRANSITION IS**, stated once and independently of how any host
+/// waits for it to be safe.
+///
+/// ⭐ **one description, two confirmation adapters** (D71). Until 2026-08-14 a
+/// crossing was described twice and differently: a rollback host recorded these
+/// fields as rollback state, while an eager host wrote a `RoomTransitionRequested`
+/// message carrying a resolved zone and NO subject. Two descriptions of one event
+/// that disagreed about the body is what let the eager commit transit whoever
+/// happened to be driving several frames later. This is the surviving one; the
+/// hosts differ only in WHEN they hand it to the readiness transaction —
+/// immediately, or once its originating frame is confirmed.
+///
+/// ⛔ **every field must encode deterministically**, because the enclosing
+/// [`PendingLifecycleCommit`] is rollback state: the room is named by its authored
+/// id and the body by its [`SimId`], never by an index or an `Entity`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoomTransitionIntent {
+    /// The body that CROSSED. Never re-resolved from live control at commit
+    /// time: possession may have changed, ended, or the body may have died during
+    /// the wait. A body without stable identity cannot produce a transition.
+    pub subject: SimId,
+    /// The destination's authored room id.
+    pub target_room: String,
+    /// Where in it the subject comes out.
+    pub arrival: Vec2,
+    /// Selects the transition cooldown/feel, mirroring
+    /// `commit_room_transition_geometry`. An `EdgeExit` crossing feels different
+    /// from a door, and the zone that knew which is long out of reach by commit.
+    pub edge_exit: bool,
+    /// The door / portal cue this crossing owes, resolved from the zone's
+    /// activation at DETECTION time.
+    ///
+    /// ⛔ **it has to ride the intent.** The commit runs long after the zone that
+    /// named it is out of reach, and the intent deliberately stores no zone.
+    /// Without this the deferred path had no way to know which cue was owed, so
+    /// every door and every portal was SILENT under the rollback host.
+    ///
+    /// ⚠ a `String`, like `target_room` beside it, because this is rollback state.
+    pub zone_sfx: Option<String>,
 }
 
 /// One deferred lifecycle op, stamped with the sim frame that produced it.
@@ -155,13 +176,13 @@ mod tests {
         let mut slot = PendingLifecycleCommit::default();
         slot.record(
             10,
-            LifecycleIntent::Transition {
+            LifecycleIntent::Transition(RoomTransitionIntent {
                 subject: SimId::placement("hero"),
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,
                 zone_sfx: Some("world.portal.enter".into()),
-            },
+            }),
         );
         assert!(
             slot.confirmed(9).is_none(),

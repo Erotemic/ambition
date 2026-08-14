@@ -299,7 +299,6 @@
     "message.respawn_room_visuals",
     "message.room_loaded",
     "message.room_replay_requested",
-    "message.room_transition_requested",
     "message.sandbox_reset_committed",
     "message.set_flag_requested",
     "message.shop_transaction_requested",

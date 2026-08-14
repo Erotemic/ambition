@@ -106,7 +106,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
 
     // The REAL transition, resolved through the room graph rather than
     // synthesised: stand in the Hall door and press interact.
-    let transition = {
+    let (target_room, arrival) = {
         let mut query = app
             .world_mut()
             .query::<&ambition_platformer2d::actors::rooms::RoomSet>();
@@ -123,16 +123,20 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
                 )
             })
             .clone();
-        room_set
+        let transition = room_set
             .transition_for_player(
                 zone.aabb,
                 ambition_platformer2d::engine_core::Vec2::ZERO,
                 true,
             )
-            .expect("the hall door resolves to a transition")
+            .expect("the hall door resolves to a transition");
+        (
+            room_set.rooms[transition.target_room].id.clone(),
+            transition.arrival,
+        )
     };
 
-    // A transition names the body that is crossing (D71). This one is injected
+    // A transition names the body that is crossing (D71). This one is recorded
     // rather than walked, so the test names the avatar the same way detection
     // would.
     let subject = {
@@ -146,12 +150,46 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             .expect("the hall has a primary avatar to send through its door")
             .clone()
     };
-    app.world_mut().write_message(
-        ambition_platformer2d::actors::rooms::RoomTransitionRequested::new(
-            transition, subject, None,
-        ),
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .record(
+            0,
+            ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+                ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                    subject,
+                    target_room,
+                    arrival,
+                    edge_exit: false,
+                    zone_sfx: None,
+                },
+            ),
+        );
+    // ⚠ **step until the cast bill ARRIVES, rather than assuming it arrives on
+    // the next frame.** Two things moved under this test on 2026-08-14 (D71) and
+    // neither is what it measures: the shipped host defers a crossing until its
+    // recording frame is confirmed, and the readiness transaction now opens
+    // host-side in `Update` while the asset manifest is built from the sim
+    // schedule — so the bill lands a frame after the transaction opens rather
+    // than inside it.
+    //
+    // ⛔ **the loop must not be the assertion.** It waits for the cast to grow AT
+    // ALL and then measures that same frame, so a Hall that trickled its
+    // characters in ten at a time still fails the bill below. A loop that waited
+    // for `>= MINIMUM_HALL_CAST` would pass by waiting, which is the shape this
+    // whole file exists to catch.
+    let mut arrived = false;
+    for _ in 0..120 {
+        step(&mut app);
+        if staged_cast_len(&app) > before {
+            arrived = true;
+            break;
+        }
+    }
+    assert!(
+        arrived,
+        "the Hall transition never demanded a single new character in 120 frames, \
+         so this test measured no bill at all"
     );
-    step(&mut app);
 
     // ── The bill arrives at once ────────────────────────────────────────────
     let staged = staged_cast_len(&app);

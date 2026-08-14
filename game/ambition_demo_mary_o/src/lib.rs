@@ -1761,12 +1761,14 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
-        // ⚠ **and the TRANSITION**, because a level's goal names where it leads
-        // now and `cycle_level_on_flag_tally` writes one whichever answer it
-        // gets. An unregistered message fails parameter validation rather than
-        // being ignored, so a fixture that never transitions still has to
-        // declare that it could.
-        app.add_message::<ambition_platformer2d::world::rooms::RoomTransitionRequested>();
+        // ⚠ **and the TRANSITION SLOT**, because a level's goal names where it
+        // leads now and `cycle_level_on_flag_tally` records a crossing whichever
+        // answer it gets. It used to be a message declared here; a transition is
+        // now a `PendingLifecycleCommit` record (D71), and a fixture that never
+        // transitions still has to have the slot to record into.
+        app.init_resource::<
+            ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit,
+        >();
         // ⚠ declared HERE as well as engine-side, because a channel's EMITTER
         // owes its existence: a composition that installs this demo without the
         // full sim-core resources (every one of this crate's own test apps) still
@@ -2432,8 +2434,11 @@ fn cycle_level_on_flag_tally(
             ambition_platformer2d::world::rooms::RoomSet,
         >,
     >,
-    mut transitions: bevy::prelude::MessageWriter<
-        ambition_platformer2d::world::rooms::RoomTransitionRequested,
+    mut pending: bevy::prelude::ResMut<
+        ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit,
+    >,
+    boundary: Option<
+        bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
     >,
     mut replay: bevy::prelude::MessageWriter<
         ambition_platformer2d::actors::session::reset::RoomReplayRequested,
@@ -2576,24 +2581,21 @@ fn cycle_level_on_flag_tally(
     let Ok(subject) = subjects.single() else {
         return;
     };
-    let subject = subject.clone();
-    transitions.write(
-        ambition_platformer2d::world::rooms::RoomTransitionRequested::new(
-            ambition_platformer2d::world::rooms::RoomTransition {
-                // A synthetic zone: nobody walked through a door to finish a
-                // level, and `Door` is the activation that never fires on its
-                // own — so this cannot be re-triggered by proximity.
-                zone: ambition_platformer2d::world::rooms::LoadingZone {
-                    id: "mary_o_level_complete".to_string(),
-                    name: "Level complete".to_string(),
-                    activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Door,
-                    aabb: ae::Aabb::new(arrival, ae::Vec2::ONE),
-                },
-                target_room: target_index,
+    // ⭐ **the SAME description a loading zone records** (D71). This wrote a
+    // `RoomTransitionRequested` around a SYNTHETIC loading zone, because the
+    // message could not describe a crossing nobody walked through; the intent
+    // can, so the invented door goes with it.
+    pending.record(
+        boundary.map_or(0, |boundary| boundary.current),
+        ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
+            ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
+                subject: subject.clone(),
+                target_room: target.clone(),
                 arrival,
+                // Finishing a level is not walking off the side of a room.
+                edge_exit: false,
+                zone_sfx: None,
             },
-            subject,
-            None,
         ),
     );
 }

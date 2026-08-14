@@ -106,6 +106,28 @@ fact the surviving signal needs.
 ⇒ **the remaining player-centrism in this system is gone**; what remains to
 carve is phase structure, below.
 
+**Then the contract for the phase above it already existed.** Phase 2's first
+job is separating world observation from decision, and
+`ambition_platformer2d_world::collision::CollisionWorld` — "the single collision
+read-API" — already owns that composition. Eight systems had adopted it and the
+six largest had not: they each carried the room, the moving-platform set and the
+overlay as three parameters and wrote out the same
+`world_with_sandbox_solids(...)` call. Migrating them deleted eight duplicate
+compositions and let `tick_actor_brains` drop its seven-parameter tuple for ten
+named ones — `PerceivedWorld` being the concept that three of the seven turned
+out to share. **Count the adopters, not the capability.**
+
+**A duplicate authority found on the way out.** `advance_moving_platforms` read
+the primary body's `hitstop_timer` to decide whether world geometry may move,
+while that same body's hitstop already drives the global clock to zero through
+`emit_player_time_intent_system`. Two consequences, and the second is the one
+this program is about: no home avatar meant no platform motion at all, and the
+clock request lands a frame after the timer is armed, so the platforms froze one
+frame before the bodies riding them did — a rider integrating on a nonzero `dt`
+across a surface reporting no displacement. Reading the world's own clock fixes
+both. ⇒ **when two systems derive the same freeze from one component, the
+ordering difference between them is a defect waiting for a witness.**
+
 ### S2 — carve decision from mutation
 
 For the selected system, produce a decision/result representation that can be

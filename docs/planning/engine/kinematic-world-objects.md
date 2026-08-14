@@ -151,6 +151,23 @@ Inventory every production consumer of `MovingPlatformSet`, platform
 `last_delta`, `world_with_moving_platforms` and platform identity. Record which
 behaviors are authoritative versus presentation.
 
+**Measured 2026-08-14.** Two results worth carrying forward:
+
+- **Authoring census: 7 platforms across all six worlds** — 4 sweeps, 3 anchored
+  vertical loops, and **zero** authoring `path_id`. The path-following mode has
+  no content customer, so `MovingPlatform -> KinematicPath` is a weak choice for
+  L2's "first proof". The live string relation is `EnemySpawn.brain =
+  "Patrol:<id>"`, resolved against a slug of the path's authored name — that is
+  where typed references would pay. Authored motion is now a validated
+  `MovingPlatformMotionSpec` rather than a precedence over optional fields.
+- **The platforms did not move at all in a session with no home avatar.**
+  `advance_moving_platforms` read the primary player's hitstop through a
+  `single()` that returned early when there was none, so every match froze its
+  moving geometry. Fixed under D117 (the hitstop was a duplicate of the global
+  clock the same body already drives), which is the shape of the coupling this
+  plan predicts: platform ownership questions keep resolving into actor/body
+  questions, and are cheaper to answer after the actor kernel is coherent.
+
 ### K2 — typed authored motion
 
 Replace ambiguous optional-field precedence with a validated motion spec and

@@ -354,21 +354,36 @@ pub fn surface_skidding(motion_model: &crate::features::MotionModel, run: f32) -
 
 /// Advance the world's moving platforms ONCE per frame, ahead of every body
 /// integration (home + actors), so every body rides this frame's platform
-/// positions. Peeled out of the per-entity body loop so it can't multiply. Uses
-/// the PRIMARY player's hitstop so platforms freeze during the player's hitstop.
+/// positions. Peeled out of the per-entity body loop so it can't multiply.
+///
+/// ⛔⛔ **THIS USED TO ASK THE HOME AVATAR WHETHER THE WORLD WAS ALLOWED TO
+/// MOVE**, through a `Query<&BodyCombat, PrimaryPlayerOnly>` whose `single()`
+/// returned early when there was none. `InitialBodyPolicy::NoInitialBody` makes
+/// zero primary players an ordinary steady state, so in every match — and in any
+/// session that lowers no home avatar — not one moving platform advanced. This is
+/// the same freeze Jon reported on 2026-08-07 (*"the characters are just stuck in
+/// air"*): that fix took the clock, in `emit_player_time_intent_system`, and left
+/// this system one step downstream still holding the old shape. `markers.rs`
+/// names it exactly — *"the shape to watch for is not `With<PrimaryPlayer>`
+/// itself but `single()` + `else { return }` around it"*.
+///
+/// ⭐ **the hitstop read was a DUPLICATE AUTHORITY, not a lost feature.** The
+/// primary body's hitstop already drives the global clock to zero — hitstop is
+/// the top rung of `emit_player_time_intent_system`'s ladder — so
+/// `WorldTime::sim_dt` carries the freeze that this system was re-deriving from
+/// the same component. Reading the world's own clock is what every body
+/// integrating against these platforms already does.
+///
+/// ⚠ **and that agreement is the point, not a side effect.** The clock request
+/// lands a frame after the hitstop timer is armed, so the old direct read froze
+/// the platforms one frame BEFORE the bodies riding them stopped — a rider
+/// integrating on a nonzero `dt` while its surface reported `last_delta` of zero.
+/// The platform now freezes on the same frame everything else does.
 pub fn advance_moving_platforms(
     world_time: Res<ambition_time::WorldTime>,
     mut platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    primary_combat: Query<&BodyCombat, crate::actor::PrimaryPlayerOnly>,
 ) {
-    let Ok(combat) = primary_combat.single() else {
-        return;
-    };
-    let sim_dt = if combat.hitstop_timer > 0.0 {
-        0.0
-    } else {
-        world_time.scaled_dt
-    };
+    let sim_dt = world_time.sim_dt();
     for platform in platforms.0.iter_mut() {
         platform.update(sim_dt);
     }
@@ -376,5 +391,7 @@ pub fn advance_moving_platforms(
 
 #[cfg(test)]
 mod home_momentum_tests;
+#[cfg(test)]
+mod platform_advance_tests;
 #[cfg(test)]
 mod ledge_carry_tests;

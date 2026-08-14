@@ -1252,10 +1252,10 @@ pub fn mount_capabilities_of(
     parameters: &ActorConstructionParams,
     bosses: &BossCatalog,
     // **The prepared cast, when the caller has one.** A placement that names a
-    // character takes its mount facts from the DEFINITION; only one that names
-    // none falls back to the archetype. Without this a migrated mount whose row
-    // is gone reads as "not a mount", and its authored `ambition.mount` relation
-    // is refused as *"cannot hold that end"* — see ledger D76.
+    // character takes its mount facts from the prepared definition. A placement
+    // with no prepared character contributes no character-owned mount capability;
+    // there is no archetype fallback. This keeps preflight on the same authority
+    // the construction commit will use.
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> PlannedMountCapabilities {
     match parameters {
@@ -1300,8 +1300,8 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::SummonedMinion(minion) => authored_mount_capabilities(
             prepared.and_then(|cast| cast.get(minion.character_id.as_str())),
         ),
-        // A giant host is a mount (its archetype carries `mount_class`); its hands
-        // are neither mount nor pilot.
+        // A giant host may be a mount when its prepared character authors that
+        // capability; its hands are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
             resolve_planned_character(prepared, authored.payload.character_id.as_ref()),

@@ -272,9 +272,9 @@ pub struct CharacterBodyBlueprint<'a> {
 /// method inferred completeness from `locomotion.is_some()`, which is a
 /// MIGRATION HEURISTIC wearing the shape of an engine contract: it happened to
 /// be true that a character stating its top speed had also stated everything
-/// else, and nothing would have said so when it stopped being true. A body would
-/// simply have taken the archetype road, silently, and looked like an
-/// unmigrated character rather than a broken one.
+/// else, and nothing would have said so when it stopped being true. Post-D73
+/// there is no alternate archetype construction road: an incomplete prepared
+/// character is a content error and should explain exactly what is missing.
 ///
 /// Naming the facts costs one struct and buys the diagnostic: "goblin is not
 /// character-complete: locomotion" is a sentence somebody can act on.

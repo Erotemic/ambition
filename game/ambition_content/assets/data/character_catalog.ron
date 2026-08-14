@@ -1,15 +1,18 @@
-// Character catalog — single source of truth for spawnable
-// characters in the sandbox. See
-// `crates/ambition_platformer2d_actor_monolith/src/content/character_catalog/` for the
-// loader + resolver, and `TODO-character-catalog-and-hall.md` for
-// the architectural posture (Rust = behavior, RON = content, LDtk
-// = space).
+// Ambition character catalog — provider-owned cast metadata, presentation,
+// writing defaults, controller-profile references, and other catalog-shaped
+// authoring data. It participates in character preparation, but it is NOT a
+// second body-construction authority. Runtime bodies are constructed from the
+// resolved `PreparedCharacterDefinition` produced from registered
+// `CharacterDefinition` values plus any catalog/source fragments they consume.
 //
-// Schema: see `content/character_catalog/entry.rs::CharacterCatalogData`.
+// Schema and loading live in
+// `crates/ambition_characters/src/actor/character_catalog/`.
+// Current architecture: `docs/systems/actors-brains-and-character-content.md`.
+// Authoring workflow: `docs/recipes/adding-a-character.md`.
 //
-// To add a new character: pick a `brain_presets` key + an
-// `action_set_presets` key, then add a row to `characters` with the
-// sprite paths and tier. No Rust changes needed.
+// A catalog row alone does not make a spawnable body. Add or update the provider
+// metadata here when the character uses it, and register/author the corresponding
+// `CharacterDefinition` through the current Ambition content seam.
 
 (
     // **Reusable autonomous-controller profiles, by name** — the second of the

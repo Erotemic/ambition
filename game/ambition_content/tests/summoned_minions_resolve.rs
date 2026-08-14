@@ -38,12 +38,10 @@ const ENCOUNTER_FILES: &[(&str, &str)] = &[(
 /// **What each mob in a wave file will actually be built as.**
 ///
 /// ⛔⛔ **this read `kind:` only, and that is not the road the runtime takes.**
-/// `spawn_encounter_mob` is CHARACTER-FIRST: a mob naming a character that can
-/// carry a body builds that character, and `kind` is the archetype fallback for
-/// one that cannot. Reading only `kind` reported the goblin encounter's four
-/// minions as resolving nothing the day `medium_striker`'s row moved into the
-/// engine fixture — while every one of them already authored
-/// `character: Some("goblin")` and had been building a goblin all along.
+/// `spawn_encounter_mob` builds the body from the mob's prepared `character`;
+/// `kind` is controller policy and never a body fallback. Reading only `kind`
+/// therefore measures the wrong authority and can report a healthy encounter as
+/// unresolved even when every mob names a buildable character.
 ///
 /// ⚠ a guard that measures a road nobody drives fails for the wrong reason, and
 /// the temptation then is to add the id to `KNOWN_UNRESOLVED` with a story about
@@ -136,8 +134,7 @@ fn archetype_constants(root: &std::path::Path) -> Vec<(String, String)> {
     out
 }
 
-/// **Each summoned id names a registered character, or an archetype row that
-/// still exists.**
+/// **Each summoned id names a registered character that can build a body.**
 ///
 /// ⭐ the exemption list is EMPTY as of 2026-08-13: `small_lurker`, its last
 /// entry, was cast as `npc_ai_slop` (provisionally — the reversal is one string

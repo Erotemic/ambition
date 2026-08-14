@@ -228,17 +228,16 @@ pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
 /// maintainer-decision surface rather than to register it bare.
 const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 
-/// **What a migrated character authors about its own body.**
+/// **Ambition-specific intrinsic facts layered onto a character definition.**
 ///
-/// The registration loop builds a bare definition from the catalog row — id,
-/// display name, sheet — which is all an unmigrated character can say. This is
-/// where a character that has taken its facts back from
-/// `character_archetypes.ron` states them.
+/// The catalog supplies catalog-shaped metadata; this function supplies body/kit
+/// facts that Ambition authors in Rust. Preparation combines the registered
+/// definition with the provider sources it consumes and produces the single
+/// `PreparedCharacterDefinition` runtime construction uses.
 ///
-/// ⛔ **an id in [`buildable_only_cast`] with no arm here is the bug that list's
-/// doc warns about**: a bare registration means "this character authors no
-/// body", and anything its archetype used to give it is simply lost. Author
-/// first, register second.
+/// An id in [`buildable_only_cast`] with no body/policy/moveset authoring here is
+/// suspicious: registering a bare definition does not conjure a second body
+/// authority. Author the intended character facts before making it buildable.
 pub fn authored_intrinsics(
     id: &str,
     definition: ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition,
@@ -1279,10 +1278,10 @@ mod tests {
             // damage, not preventing it.
             //
             // ⛔ the distinction is REAL and it is checked elsewhere, not asserted
-            // here: `an_unmigrated_character_still_gets_the_roads_defaults` pins
-            // that a registered-but-incomplete character keeps the road's
-            // `max_health: 1` and `MAX_RUN_SPEED`, because the peaceful road reads
-            // body facts only from a body-complete blueprint.
+            // here: `an_incomplete_character_uses_peaceful_npc_defaults` pins that a
+            // registered-but-incomplete definition does not partially leak body
+            // facts into the peaceful-NPC path; only a complete blueprint supplies
+            // character-owned vitals/locomotion there.
             let authors_only_policy = !authors_a_body && authored != bare;
             // ⭐ **AND A THIRD SAFE CASE: a character that has no archetype body
             // to lose.** The rule protects ARCHETYPE-built vitals; a character

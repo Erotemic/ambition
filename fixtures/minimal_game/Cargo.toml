@@ -1,5 +1,8 @@
-# **The movement-only minimal game** — the second entry in the API campaign's
-# consumer matrix (docs/planning/engine/api-1.0-campaign.md).
+# **The movement-only minimal game** — the smallest external consumer used to
+# pressure-test the current SDK and capability-composition programs
+# (`docs/planning/engine/public-sdk-1.0.md` and
+# `docs/planning/engine/capability-and-runtime-composition.md`). It originated as
+# consumer-matrix row 2 of the archived API 1.0 campaign.
 #
 # Outlander proves external composition. It cannot prove what this one is for:
 # *optional-capability closure* — does a SMALL game still link menus,

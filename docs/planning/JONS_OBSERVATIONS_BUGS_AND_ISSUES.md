@@ -90,7 +90,7 @@
   * ✔ Fixed — your 2026-07-06 editor session dropped the four mount refs in `sandbox.ldtk`; they are restored byte-identical from git and guarded. GNU-ton's boss mount turned out never to have been covered at all.
 
 * In the sky enemy the instance of iron marry doesn't use her swordgun, she shoots fireballs, which is not something her character should be able to do. I suppose we do need a distinction between unique characters and re spawning archetype characters.
-  * ✔ Answered by you 2026-08-10 — a character is a reusable template; the plan is `docs/planning/character-template-architecture-2026-08-10.md` (queue D73), and "Iron Mary spawns with Iron Mary's kit" is one of its acceptance tests.
+  * ✔ Answered by you 2026-08-10 — a character is a reusable authored template, and a body always receives that character's prepared kit. D73 is closed; the current model is `docs/systems/actors-brains-and-character-content.md`. The migration plan and its Iron Mary acceptance evidence are archived at `docs/archive/planning-superseded/2026-08-13/character-template-architecture-2026-08-10.md`.
 
 * Changing rooms flashes magenta squares for a brief moment. We need to have cleaner transitions between rooms than that.
 

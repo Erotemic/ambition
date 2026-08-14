@@ -212,8 +212,8 @@ fn a_definition_carries_no_controller_binding() {
         // creature does when nobody drives it, not who is driving it.
         autonomous_profile_ref: _,
         ranged_vfx: _,
-        // Authored on the character since 2026-08-11; the DEFAULT is
-        // `MovesetVerb`, so an unmigrated character keeps behaving as it did.
+        // The default is the ordinary moveset verb. Characters opt into alternate
+        // ranged execution explicitly; absence of an override must not grant one.
         ranged_execution: _,
         provoked_profile_ref: _,
         // The weapon the creature carries — an intrinsic like the sheet, not a

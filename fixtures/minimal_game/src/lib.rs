@@ -1,8 +1,11 @@
 //! **The smallest game this engine can stand up.**
 //!
-//! Consumer-matrix row 2 (`docs/planning/engine/api-1.0-campaign.md`): *a
-//! movement-only minimal game — optional-capability closure. Does a small game
-//! link menus, persistence, audio, bosses?*
+//! The smallest external consumer used by the current SDK and capability-
+//! composition programs (`docs/planning/engine/public-sdk-1.0.md` and
+//! `docs/planning/engine/capability-and-runtime-composition.md`). It began as
+//! consumer-matrix row 2 of the archived API 1.0 campaign: *a movement-only
+//! minimal game — optional-capability closure. Does a small game link menus,
+//! persistence, audio, bosses?*
 //!
 //! Outlander cannot answer that. It authors a character, an enemy, a room, a
 //! construction recipe and a transition, so every capability it links is one it

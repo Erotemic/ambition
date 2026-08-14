@@ -84,7 +84,7 @@ fn an_authored_character_decides_whether_it_charges() {
     assert_eq!(
         plain.ranged_execution,
         RangedExecution::MovesetVerb,
-        "an unmigrated character acquired a charge mechanic it never authored"
+        "a character that did not opt into charged projectiles acquired the capability"
     );
     assert!(!plain.ranged_execution.charges_projectiles());
 }

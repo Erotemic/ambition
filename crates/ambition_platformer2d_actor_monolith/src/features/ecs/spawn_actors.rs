@@ -2104,8 +2104,8 @@ pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    // **The prepared cast**, so a wave that names a migrated character builds
-    // that character rather than an archetype wearing its face (campaign P1.12).
+    // **The prepared cast** — the body authority for every encounter mob that
+    // names a character. `kind` is controller policy, not an alternate body key.
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
@@ -2144,15 +2144,10 @@ pub(super) fn spawn_encounter_mob(
             }
         },
     );
-    // ⭐ **CHARACTER-FIRST when the wave names a character that can carry a
-    // body** — the third road onto the common constructor, after the match seat
-    // and the authored enemy. A wave that names an unmigrated character (or
-    // none) still builds from its archetype, visibly.
-    // ⛔ the third `and_then` of the same shape, and the same split: REGISTERED
-    // BUT INCOMPLETE (`body_blueprint` is `Err`) is the migration still running
-    // and is silent on purpose; NAMED BUT NOT REGISTERED is a fault and goes
-    // through the shared rule. Collapsing them is what let a wave spawn a
-    // generic wearing a character's name.
+    // **The character is the body authority.** A wave that names a character
+    // must resolve a prepared definition whose body blueprint is complete. A
+    // missing/unregistered/incomplete character is a content fault handled by the
+    // refusal below; `kind` never substitutes another body.
     let prepared_character = match character {
         None => None,
         Some(character_id) => match prepared.get(character_id) {
@@ -2230,8 +2225,8 @@ pub(super) fn spawn_encounter_mob(
         enemy,
     )
     .spawn(commands, session_scope);
-    // A migrated mob WEARS its character, so its kit arrives through the one
-    // persona writer rather than from an archetype's melee row.
+    // The mob wears its authored character, so identity/kit state follows the
+    // same character seam used by the other body-construction roads.
     if let Some(definition) = definition {
         commands
             .entity(entity)

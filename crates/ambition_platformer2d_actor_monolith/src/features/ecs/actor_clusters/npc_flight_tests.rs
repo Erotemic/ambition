@@ -157,7 +157,7 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
 /// **A character that authors nothing leaves the road's defaults exactly where
 /// they were** — the poison for the test above.
 #[test]
-fn an_unmigrated_character_still_gets_the_roads_defaults() {
+fn an_incomplete_character_uses_peaceful_npc_defaults() {
     // No locomotion at all ⇒ not body-complete ⇒ the blueprint refuses, which is
     // the state ~150 NPC placements are in.
     let bare = {
@@ -179,8 +179,8 @@ fn an_unmigrated_character_still_gets_the_roads_defaults() {
     // dies to the hit after the one that angers it. That made "being hit" an
     // argument about how tough a creature is (D101). The default is one shared
     // constant now, asked at construction, and provocation writes no health at
-    // all. What this test still pins is that an unmigrated character reaches the
-    // ROAD's answer rather than one of its own.
+    // all. What this test still pins is that an incomplete prepared character
+    // does not partially override the peaceful-NPC road's explicit defaults.
     use ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH;
     let bare_seed = seed_for(Some(&bare), Some("npc_test_flyer"));
     assert_eq!(bare_seed.health.max(), DEFAULT_UNAUTHORED_BODY_HEALTH);

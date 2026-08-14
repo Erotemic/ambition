@@ -248,12 +248,21 @@ pub fn presented_strike_volume(
 /// way, so the rule lives in one place rather than in whichever host somebody
 /// remembered.
 ///
-/// ⭐ **no new presentation identity was needed, and that was worth checking.**
-/// `rebuild_body_pose_views` requires only `BodyKinematics` and
-/// `advance_presented_body_poses` queries every `BodyPoseView` with no filter —
-/// so a PLAYER-bodied and a FEATURE-bodied strike owner are both covered by the
-/// same two components. The `None` arm is a body's first frame, not a
-/// population this cannot reach.
+/// ⛔⛔ **this reaches PLAYER-bodied owners ONLY, and an earlier version of this
+/// comment claimed otherwise.** It read: *"`rebuild_body_pose_views` requires
+/// only `BodyKinematics` … so a PLAYER-bodied and a FEATURE-bodied strike owner
+/// are both covered"*. The first half is true of the optional facts and false of
+/// the population: that system is filtered `With<PlayerVisual>`
+/// (`ambition_sim_view/src/pose_view.rs`), so a boss or an actor publishes no
+/// `BodyPoseView` at all and lands in the `None` arm forever.
+///
+/// So the `None` arm is TWO different things — a body's first frame, and every
+/// feature body there is — and the overlay draws a feature body's strike on the
+/// tick clock while drawing a player's on the frame clock. That is the
+/// unresolved half of the F1 shudder, and the fix is NOT another lookup here:
+/// one body-generic presented-pose seam that collision, hurtboxes and
+/// body-anchored strikes all read the same delta from. See
+/// `docs/planning/engine/multiplayer-and-multiview.md` (D116).
 pub fn presented_strike_owners(
     combat: &CombatGeometryView,
     owners: &bevy::prelude::Query<(

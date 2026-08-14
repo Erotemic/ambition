@@ -323,15 +323,27 @@ per slot, which is exactly what it always meant. Readers then say WHICH
 participant they mean, and the ones that cannot are the interesting ones.
 
 ⚠ **a view's subject is a genuinely different, much smaller concept** — which
-body a view FRAMES, which may be a spectated body no participant drives. The
-camera resolve already threads it (the followed entity, `subject_down`); it does
-not want `ControlledSubject` at all, and three of the four `sim_view` readers are
-that concept wearing this name.
+body a view FRAMES, possibly a spectated body no participant drives. The camera
+resolve already threads it as the followed entity plus `subject_down`.
 
-⛔ do not do both at once. Per-slot participants is a control-authority change;
-per-view subjects is a presentation change. They meet only at the default
-("this view follows the body slot 0 drives") and conflating them is how a
-process-global gets replaced by a process-global with a longer name.
+⛔⛔ **and the first version of this census claimed three of the four `sim_view`
+readers were that concept wearing this name. READING THEM REFUTED IT.** In their
+own words: the HUD meters follow *"THAT body's meters, never the vacated home
+avatar's"*; the held-item view, the blink reticle (*"the body you are driving"*)
+and the control prompt (*"the body you are DRIVING — the same relativity rule the
+camera and input already obey"*) all mean the participant's driven body. Every
+one of the 50 means PARTICIPANT. `camera_snapshot` is the sole site that reads it
+as a view question, and even there it is the default POLICY — *this view follows
+the local participant's body* — not a confusion to unpick.
+
+⇒ that makes the concept UNIFORM and the slice cleaner than the mixed picture
+suggested: one derivation, one meaning, one axis (`PlayerSlot`), and a view's
+subject is a policy layered on top rather than a tangle inside.
+
+⛔ still do not do both at once. Per-slot participants is a control-authority
+change; per-view subjects is a presentation change. They meet only at that
+default, and conflating them is how a process-global gets replaced by a
+process-global with a longer name.
 
 ### M2 — two local views, one room
 

@@ -290,8 +290,48 @@ label is not worth the enlistment.
 ⇒ **what M2 needs next**, in the order the code will demand it: a link from a
 CAMERA entity to the view it presents (`camera_follow` uses `Single` today and
 says so), per-view gameplay rectangles from a split layout, and then
-`ControlledSubject` — 49 sites, three times this slice's whole surface, and the
-one that has to answer *which view's subject?*
+`ControlledSubject`.
+
+## `ControlledSubject`: measured 2026-08-14, and it is NOT a view question
+
+50 non-test reader sites, 32 of them in the actor monolith. The plan expected to
+classify all 50 by *which view's subject?* — **the measurement says that is the
+wrong question twice over.**
+
+⭐⭐ **it is already a DERIVATION, not an authority.** `resolve_controlled_subject`
+scans for the entity carrying `Brain::Player(PlayerSlot::PRIMARY)` and writes it,
+with a `debug_assert!(count <= 1)` that states the single-participant assumption
+out loud. So the assumption is not spread across 50 sites — it is ONE projection
+with a hardcoded slot, and the 50 readers consume its result.
+
+⭐ **and the readers mean PARTICIPANT, not VIEW.** Sampled in their own words:
+
+| site | what its comment says it means |
+| --- | --- |
+| `abilities/traversal/blink` | *"the vacated home avatar is not the subject, so it never blinks"* |
+| `features/ecs/interact` | *"the body you are standing next to, not whatever the vacated home avatar is next to"* |
+| `affordances/intent` | *"the controlled body's slot input and its facing"* |
+| `session/teardown` | *"the driven-body handle… self-heals from the `Brain::Player` query"* |
+
+A second local VIEW does not multiply blinks, interacts or intents. A second
+PARTICIPANT does — and that axis already exists as `PlayerSlot` /
+`SlotControls` / `Brain::Player(slot)`, which is what the derivation reads.
+
+⇒ **the slice is: make the projection per-SLOT.** Same scan, keyed by
+`PlayerSlot` instead of hardcoding `PRIMARY`; the `count <= 1` invariant becomes
+per slot, which is exactly what it always meant. Readers then say WHICH
+participant they mean, and the ones that cannot are the interesting ones.
+
+⚠ **a view's subject is a genuinely different, much smaller concept** — which
+body a view FRAMES, which may be a spectated body no participant drives. The
+camera resolve already threads it (the followed entity, `subject_down`); it does
+not want `ControlledSubject` at all, and three of the four `sim_view` readers are
+that concept wearing this name.
+
+⛔ do not do both at once. Per-slot participants is a control-authority change;
+per-view subjects is a presentation change. They meet only at the default
+("this view follows the body slot 0 drives") and conflating them is how a
+process-global gets replaced by a process-global with a longer name.
 
 ### M2 — two local views, one room
 

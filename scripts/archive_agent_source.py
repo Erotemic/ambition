@@ -66,7 +66,7 @@ CONFIG = {
     # Git history policy. Use None or 'full' for full history, a positive int
     # for a shallow clone, or 0 for source-only git-archive mode.
     'include_git_history': True,
-    'super_depth': 100,
+    'super_depth': 300,
     'submodule_depths': {
         # Keep this explicit so it is easy to tune as submodules grow.
         'tools/ambition_sfx_renderer': 50,
@@ -1625,8 +1625,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--slim',
         '--quick',
         '--fast',
-        action='store_true',
-        help='stage source/history only; skip every generated Ambition payload; incompatible with --full',
+        action='count',
+        default=0,
+        help=(
+            'repeatable slimness (-s, -ss, -sss, -ssss); incompatible with --full. '
+            '1: stage source/history only, skipping every generated Ambition payload. '
+            '2: also cap superproject depth at 100. '
+            '3: also omit submodule working trees. '
+            '4: also cut superproject depth to 10. '
+            'An explicit --depth always wins over the level default.'
+        ),
     )
     parser.add_argument(
         '--allow-forbidden',
@@ -1649,6 +1657,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.skip_agent_navigation = True
         args.skip_dirstats = True
         args.skip_live_inventory = True
+        # An explicitly requested depth is the user's answer, not the level's.
+        if args.depth is None:
+            if args.slim >= 4:
+                args.depth = 10
+            elif args.slim >= 2:
+                args.depth = 100
+        if args.slim >= 3:
+            args.no_submodules = True
 
     step_toggles = {
         'run_agent_index': not args.skip_index,

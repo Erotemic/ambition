@@ -23,7 +23,21 @@ pub const BEVY_UI_MENU_BACKEND_ENABLED: bool = cfg!(feature = "bevy_ui_menu");
 /// platforms exercise the same menu stack. Minimal/headless builds can leave it
 /// off, and backend selection will gracefully collapse to any other compiled
 /// backend.
-pub const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool = cfg!(feature = "kaleidoscope_menu");
+///
+/// ⛔ **NEVER ON THE WEB** (Jon, 2026-08-14: *"there is an issue with
+/// kaleidoscope in web"*). The browser gets the flat Bevy-UI menu, full stop.
+///
+/// ⚠ **the `target_arch` term is not redundant with the feature.** The browser
+/// personas already leave `kaleidoscope_menu` out of their feature lists, and
+/// that was not enough on its own: Cargo features are additive and unify across
+/// a build, so any `--features` composition, a `--use-default-features` web
+/// build, or a future dependency that forwards the flag turns the cube back on
+/// silently. Answering the question at the SELECTION — which is what this
+/// constant is for, per its neighbours' doc — makes the cube unreachable on wasm
+/// however the feature arrives, and collapses a saved `LunexKaleidoscope`
+/// setting to the grid through [`InventoryUiBackend::effective`].
+pub const KALEIDOSCOPE_MENU_BACKEND_ENABLED: bool =
+    cfg!(feature = "kaleidoscope_menu") && !cfg!(target_arch = "wasm32");
 
 /// Which inventory frontend renders. The 3D cube remains the default when its
 /// feature is installed; otherwise builds fall back to the flat Bevy-UI backend

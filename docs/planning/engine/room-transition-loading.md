@@ -47,6 +47,13 @@
   latency, and improve the readiness pipeline where the data shows material
   stalls. Do not hide an unready feature by extending a cover indefinitely.
 
+  ⛔ **do this AFTER the bypass above, not before.** `prefetch_hit` lives on
+  `RoomTransitionLoadState`, and the census re-measured on 2026-08-14 says the
+  rollback host — the shipped composition — opens **zero** transactions per room
+  change. So that state is never populated on the route players take. Measuring
+  now would profile the fixed-tick host's path and report numbers for a loader
+  the game does not use.
+
 - ✔ **Prove possessed-body carry end to end.** Done 2026-08-14.
   `a_possessed_body_is_carried_through_a_room_transition` possesses an actor,
   stands THAT body in an authored `Door`, holds interact, and asserts the room

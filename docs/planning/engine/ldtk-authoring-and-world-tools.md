@@ -108,6 +108,17 @@ and game-owned vocabulary.
 
 Diagnostics should name the LDtk level/entity/field and the expected target.
 
+⛔ **and one thing the tools must NOT do: classify motion themselves.**
+`AuthoredPlatformMotion::classify` is now the single place that turns authored
+fields into a motion and refuses ambiguous combinations, naming the LDtk level in
+the message. A Python re-implementation inside `room describe`/`render` — so the
+inspector could print "downward wrapping loop, 300px shaft" — would be a second
+authority for exactly the precedence rule that was just deleted, and it would
+drift. The inspector should keep showing the authored FIELDS; the diagnosis
+belongs to preparation, where a wrong combination already fails the load with
+provenance. If a semantic view is wanted in the tools, it should ask the engine
+rather than re-derive.
+
 ### L4 — intent-level tooling
 
 For common operations, tools should express the author's intent:

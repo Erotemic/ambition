@@ -27,6 +27,7 @@ use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
 use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
 
@@ -326,5 +327,108 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
         faction(sim.world_mut(), actor),
         ActorFaction::Enemy,
         "on release the actor reverts to its original faction (its own brain again)"
+    );
+}
+
+/// **A possessed body goes through the door, and arrives.**
+///
+/// ⛔⛔ **this is the branch nothing exercised.** The room-transition commit
+/// resolves `carry_body` as *"the controlled subject, unless it is the home
+/// avatar"* — the home body is moved by its own presentation path
+/// (`PlayerBlinkCameraState`/`PlayerSafetyState`, a `PrimaryPlayerOnly` query),
+/// and a POSSESSED body is not in that query, so it is the one `carry_body`
+/// actually carries. Every possession test drove a body around one room; every
+/// room-transition test moved the home avatar. The two halves were only ever
+/// inferred to compose.
+///
+/// So this composes them: possess an actor, stand THAT body in an authored door,
+/// press interact, and assert the room changed AND the possessed body came with
+/// it. Position is the assertion because carrying is the thing under test — a
+/// transition that changed rooms and left the driven body at its old coordinates
+/// would satisfy "the room changed" and be the bug.
+#[test]
+fn a_possessed_body_is_carried_through_a_room_transition() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let actor = spawn_and_possess(&mut sim);
+
+    let before_room = sim.observation().active_room.clone();
+    // Stand the POSSESSED body in the door — not the home avatar, which is the
+    // whole distinction.
+    let door_centre = {
+        let world = sim.world_mut();
+        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let Some(zone) = rooms.iter(world).next().and_then(|set| {
+            set.active_loading_zones()
+                .iter()
+                .find(|zone| {
+                    zone.activation
+                        == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+                })
+                .cloned()
+        }) else {
+            panic!(
+                "the start room '{before_room}' authors no Door zone, so this test \
+                 measures nothing — point it at a room that has one"
+            );
+        };
+        zone.aabb.center()
+    };
+    {
+        let world = sim.world_mut();
+        let mut kin = world
+            .get_mut::<BodyKinematics>(actor)
+            .expect("the possessed body has kinematics");
+        kin.pos = door_centre;
+        kin.vel = ae::Vec2::ZERO;
+    }
+
+    let mut arrived = None;
+    for _ in 0..40 {
+        sim.step(AgentAction {
+            interact: true,
+            interact_held: true,
+            ..AgentAction::default()
+        });
+        if sim.observation().active_room != before_room {
+            arrived = Some(sim.observation().active_room.clone());
+            break;
+        }
+    }
+    let after_room = arrived.unwrap_or_else(|| {
+        panic!(
+            "holding interact inside the door of '{before_room}' while possessing \
+             never changed the room; the possessed body cannot use a door at all"
+        )
+    });
+
+    assert_eq!(
+        possessed(&mut sim),
+        Some(actor),
+        "the room changed but control did not survive the crossing; a body that \
+         arrives without its driver is a different bug from one that does not \
+         arrive, and both would pass a room-id assertion alone"
+    );
+    let world = sim.world_mut();
+    let Some(kin) = world.get::<BodyKinematics>(actor) else {
+        panic!(
+            "the possessed body does not exist after arriving in '{after_room}' — \
+             a transition that despawns the body it is driving is worse than one \
+             that leaves it behind"
+        );
+    };
+    // ⚠ **a LARGE displacement, not merely a nonzero one.** The body falls a few
+    // pixels under gravity across the commit window, so `> 0` would pass on a
+    // transition that carried nothing. An arrival is a jump into the target
+    // room's coordinates — this one crosses ~2000 px into `vertical_shaft`.
+    assert!(
+        kin.pos.distance(door_centre) > 200.0,
+        "the room changed to '{after_room}' but the possessed body is still within \
+         200 px of the door it left ({:?}); `carry_body` did not carry the driven \
+         body, which is exactly the branch the home-avatar path never exercises",
+        kin.pos
     );
 }

@@ -23,10 +23,19 @@
   latency, and improve the readiness pipeline where the data shows material
   stalls. Do not hide an unready feature by extending a cover indefinitely.
 
-- ▢ **Prove possessed-body carry end to end.** The commit path resolves the
-  controlled subject and has `carry_body` plumbing; add a real possession → room
-  transition → arrival exercise so the behavior is not only inferred from unit
-  pieces.
+- ✔ **Prove possessed-body carry end to end.** Done 2026-08-14.
+  `a_possessed_body_is_carried_through_a_room_transition` possesses an actor,
+  stands THAT body in an authored `Door`, holds interact, and asserts the room
+  changed, the driver survived the crossing, and the body arrived — 2003 px into
+  `vertical_shaft`, not the few pixels gravity supplies, which is why the
+  distance assertion is 200 px rather than nonzero.
+
+  ⭐ **the branch was structurally untested, and the reason is worth keeping.**
+  `carry_body` resolves to *"the controlled subject, unless it is the home
+  avatar"*: the home body is moved by its own presentation path, whose query is
+  `PrimaryPlayerOnly`, so a possessed body is precisely the one `carry_body`
+  carries. Possession tests drove a body around one room; transition tests moved
+  the home avatar. The composition was only ever inferred.
 
 - ✔ **Exercise loading-zone entry through the real movement kernel.** Done
   2026-08-14. `the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_

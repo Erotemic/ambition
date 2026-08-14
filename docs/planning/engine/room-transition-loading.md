@@ -9,15 +9,37 @@
 ## Remaining
 
 - ▢ **Keep rollback-host transitions on the same prepare/readiness/commit
-  transaction.** No rollback-host shortcut may directly mutate the target room or
-  bypass the canonical construction plan. Reconcile confirmed-frame commitment
-  with the normal transition transaction rather than maintaining two loaders.
+  transaction.** Reconcile confirmed-frame commitment with the normal transition
+  transaction rather than maintaining two loaders.
 
-  **Anchor recomputed 2026-08-14 and it still holds**, unchanged from the
+  **Anchor recomputed 2026-08-14 (twice) and it still holds**, unchanged from the
   2026-08-09 census: fixed-tick host 11 room changes / 11 transactions / 0
-  deferred; ROLLBACK host 24 / **0** / 24. The shipped desktop binary composes
-  the rollback host, so the shipped game takes the transaction-free route on
-  every room change.
+  deferred; ROLLBACK host 24 / **0** / 24, with the shipped app host reporting
+  `ConfirmedFrameBoundary present=true`. So the shipped game takes the
+  transaction-free route on every room change.
+
+  ⛔⛔ **BUT THIS ROW USED TO SAY "no rollback-host shortcut may … bypass the
+  canonical construction plan", AND THAT DESCRIBES A BYPASS THAT DOES NOT
+  EXIST.** Read `commit_transition` in `lifecycle_commit.rs`: it calls
+  `RoomConstructionPlan::prepare`, preflights the subject, and then
+  `plan.apply_to_world(world, carry_body)`. The confirmed path uses the SAME
+  canonical construction the fixed-tick path does, and it even reuses
+  `validated_spawn`. A transient `prepare` failure returns `Retry`, so it also
+  already defers until the target is preparable.
+
+  ⇒ **the gap is the READINESS TRANSACTION, not the construction.** What the
+  confirmed route genuinely never runs is `RoomTransitionLoadState` and its four
+  chained systems: the asset-readiness authorization, the presentation
+  cover/`RoomTransitionPresentationAvailable` half, the unpresented-failure
+  state, and `prefetch_hit` accounting. Someone acting on the old sentence would
+  go looking for a second constructor to delete and find the one constructor
+  already shared — and the real difference, that the shipped game changes rooms
+  with no cover and no failure reporting, would survive the fix.
+
+  ⚠ **size it before moving anything**, and it is small: `RoomTransitionSet` has
+  exactly three members — `Detect` (1 system), `Apply` (the 5-system chain), and
+  `Reset` (`reset_ecs_room_features`), plus `ContentRoomResetSet` anchored after
+  `Reset`. All are registered in `app.sim_schedule()`, the rewound one.
 
   ⭐ **the two routes live in different schedules, and that is the actual
   obstacle.** The transaction chain (`begin` → `authorize` → `finalize` →
@@ -47,12 +69,12 @@
   latency, and improve the readiness pipeline where the data shows material
   stalls. Do not hide an unready feature by extending a cover indefinitely.
 
-  ⛔ **do this AFTER the bypass above, not before.** `prefetch_hit` lives on
-  `RoomTransitionLoadState`, and the census re-measured on 2026-08-14 says the
-  rollback host — the shipped composition — opens **zero** transactions per room
-  change. So that state is never populated on the route players take. Measuring
-  now would profile the fixed-tick host's path and report numbers for a loader
-  the game does not use.
+  ⛔ **do this AFTER the readiness convergence above, not before.** `prefetch_hit`
+  lives on `RoomTransitionLoadState`, and the census re-measured on 2026-08-14
+  says the rollback host — the shipped composition — opens **zero** transactions
+  per room change. So that state is never populated on the route players take.
+  Measuring now would profile the fixed-tick host's path and report numbers for a
+  readiness pipeline the game does not run.
 
 - ✔ **Prove possessed-body carry end to end.** Done 2026-08-14.
   `a_possessed_body_is_carried_through_a_room_transition` possesses an actor,

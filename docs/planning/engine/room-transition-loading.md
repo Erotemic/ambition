@@ -243,9 +243,32 @@
     subject"*; the obstacle is that the eager side is a system with `SystemParam`s
     and the confirmed side is `&mut World`, which `SystemState` bridges. ⛔ do not
     bridge it with a callback or a context bag.
-  - ▢ **the epoch POISON test.** Prove that a transaction authorized under epoch
-    E does not commit after the epoch moves. The validation above is written; the
-    test that would have caught its absence is not.
+
+    ⛔⛔ **AND THE FORK HAS ALREADY COST SOMETHING, MEASURED 2026-08-14.** The
+    eager path calls `RoomTransitionCombatReset::clear_carryover` — despawn every
+    in-flight enemy projectile, return `BaseGravity` to its default — and
+    `commit_transition` calls NEITHER. Neither string appears anywhere in
+    `lifecycle_commit.rs`. So on the SHIPPED rollback host, walking through a door
+    carries hostile shots into the next room and leaves a room-modified ambient
+    gravity in force. Two hosts, one game, two rules. That is the argument for
+    the convergence rather than for a third reset list, and it is what the
+    convergence must be tested to fix.
+
+    ⚠ the mirror runs both ways: `TransitBodies::subject_entity` documents itself
+    as *"Mirrors the confirmed side's `resolve_transition_subject`"*, so the
+    subject resolution is a declared fork too.
+  - ▣ **the epoch POISON test.** DONE 2026-08-14:
+    `a_transaction_authorized_under_a_stale_content_epoch_never_commits` walks the
+    body to `CommitAuthorized`, bumps `RoomTransitionContentEpoch`, and asserts the
+    room never changes under the transaction authorized before the bump — while
+    still requiring that it changes, so a wedge cannot pass as a pass.
+    ⭐ **FALSIFIED**: with `authorized_plan`'s epoch comparison disabled, it fails
+    with *"the room changed under transaction 1, which was authorized at content
+    epoch 1"*. ⚠ two vacuity holes were found and closed while writing it —
+    `assert_ne!(None, Some(n))` passes for free, so the replacement authorization
+    must be NAMED before being compared; and the state must be sampled on the
+    NEAR side of the step, because a commit retires the transaction it committed
+    and the far side reads `None`.
   - ▢ **cancellation is asymmetric, and both halves need pinning.** A confirmed
     `CommitOutcome::Cancelled` clears the pending intent but leaves the authorized
     transaction alive; presentation `Cancel`/`Quit` retires the transaction but

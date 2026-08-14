@@ -380,3 +380,128 @@ fn a_deferred_transition_still_plays_the_zone_cue() {
         "an EdgeExit owes the portal cue, the same one the eager path passes"
     );
 }
+
+/// The transaction currently open, as `(sequence, content_epoch, is_authorized)`.
+fn open_transaction(sim: &Platformer2dSimHarness) -> Option<(u64, u64, bool)> {
+    sim.world()
+        .get_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+        .and_then(|state| state.active.as_ref())
+        .map(|active| {
+            (
+                active.sequence,
+                active.content_epoch,
+                active.phase
+                    == ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase::CommitAuthorized,
+            )
+        })
+}
+
+/// ⛔⛔ **A TRANSACTION AUTHORIZED UNDER EPOCH E MUST NOT BUILD THE WORLD UNDER
+/// EPOCH E+1.**
+///
+/// The readiness transaction's whole claim is that the assets a room needs were
+/// proven present before the world was torn down. A content epoch moving is the
+/// engine saying *"anything a prepared plan assumed may no longer hold"* — so an
+/// authorization granted before the move is spent, and committing under it would
+/// reconstruct the room from a plan nobody re-checked, with the source roster
+/// already despawned and no way back.
+///
+/// `authorized_plan` compares `active.content_epoch` against the live epoch and
+/// returns `Wait`; the eager side discards the transaction outright. Both were
+/// written in the D71 convergence and NEITHER had a test — this is the one that
+/// would have caught their absence.
+///
+/// ⚠ **the invariant is not "the room never changes".** Bumping the epoch does
+/// not cancel the crossing: readiness re-opens a transaction under the NEW epoch
+/// and that one commits, which is the desired behaviour. What must never happen
+/// is the room changing under the transaction that was authorized before the
+/// bump — so this identifies that transaction by `sequence` and watches which
+/// one is live when the room flips.
+#[test]
+fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
+    let mut sim = repro_sim();
+    sim.step(AgentAction::default());
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+
+    // Walk into the exit until a transaction reaches CommitAuthorized. That is
+    // the exact state the poison targets: readiness has finished, the plan is
+    // prepared, and the only thing left is to build the world from it.
+    let mut poisoned = None;
+    for _ in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        if let Some((sequence, epoch, authorized)) = open_transaction(&sim) {
+            if authorized {
+                poisoned = Some((sequence, epoch));
+                break;
+            }
+        }
+        assert_ne!(
+            obs.active_room.as_str(),
+            TARGET_ROOM,
+            "the room changed before any transaction was ever authorized, so this test \
+             never reached the state it exists to poison"
+        );
+    }
+    let (stale_sequence, stale_epoch) = poisoned.expect(
+        "no room transition reached CommitAuthorized within 240 frames; the shipped host \
+         opens a readiness transaction on every room change (D71: 21/21), so this is a \
+         regression in the transaction path rather than a slow test",
+    );
+
+    // ⭐ THE POISON. The world's content moves out from under the authorization.
+    {
+        let world = sim.world_mut();
+        let mut epoch = world
+            .resource_mut::<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>();
+        epoch.bump();
+        assert_ne!(
+            epoch.get(),
+            stale_epoch,
+            "bump() did not move the epoch, so nothing was poisoned"
+        );
+    }
+
+    // ⚠ **sample BEFORE the step, not after.** A commit RETIRES the transaction
+    // it committed, so reading the state after the room flips shows `None` and
+    // tells you nothing about which authorization built the world. The
+    // transaction authorized on the frame the room changes is the one that
+    // changed it, and it is only visible from the near side of that step.
+    let mut committing = None;
+    let mut flipped = false;
+    for _ in 0..480 {
+        let authorized_now = open_transaction(&sim)
+            .filter(|(_, _, authorized)| *authorized)
+            .map(|(sequence, _, _)| sequence);
+        let obs = sim.step(AgentAction::move_x(1.0));
+        if obs.active_room.as_str() == TARGET_ROOM {
+            committing = authorized_now;
+            flipped = true;
+            break;
+        }
+    }
+
+    assert!(
+        flipped,
+        "the crossing never completed. Bumping the epoch must INVALIDATE the stale \
+         authorization, not wedge the transition — readiness owes a fresh transaction \
+         under the current epoch, and a test that passed by never transitioning would \
+         be pinning a deadlock instead of the invariant."
+    );
+    // ⛔⛔ **BOTH TERMS, OR THIS ASSERTS NOTHING.** `assert_ne!(None, Some(n))`
+    // passes for free, so a run where no transaction was ever authorized after
+    // the bump would report success while having observed nothing at all. The
+    // room changed, so a REPLACEMENT authorization must exist — name it first,
+    // then say it is not the poisoned one.
+    let committing = committing.expect(
+        "the room changed with NO transaction authorized on that frame, so the crossing \
+         committed outside the readiness path entirely — the D71 bypass, back",
+    );
+    assert_ne!(
+        committing, stale_sequence,
+        "the room changed under transaction {stale_sequence}, which was authorized at \
+         content epoch {stale_epoch} and never re-checked after the epoch moved. The \
+         source roster is despawned and the target world was built from a plan whose \
+         assets nobody proved were still there."
+    );
+}

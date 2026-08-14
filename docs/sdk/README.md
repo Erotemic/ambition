@@ -1,37 +1,31 @@
 # Ambition SDK
 
 **Building a game on this engine? Start here — and you should not need to open
-anything under `crates/`.**
+anything under `crates/` for ordinary game authoring or host composition.**
 
-That is the acceptance test, not a courtesy. ADR 0031 makes the blind-agent run
-one of two mechanical gates on the public API: *can an agent implement a
-character, a room and a mechanic with only `docs/sdk/` and `ambition_platformer2d::prelude`
-in context, never opening a file under `crates/`?* The recorded result includes
-**which engine file it had to open first**, because that field names the next
-leak. If you had to open one, that is a bug in this directory.
+That is a product/API goal rather than a blind-agent ritual. Real Ambition and
+secondary-game consumers should expose missing public affordances directly; the
+engine then closes those leaks at semantic APIs instead of asking consumers to
+learn internal crate topology. Current API evolution is owned by
+[`../planning/engine/public-sdk-1.0.md`](../planning/engine/public-sdk-1.0.md) and
+[`../concepts/api-growth.md`](../concepts/api-growth.md). The original API
+campaign and blind-agent evidence remain archived as historical discovery
+material, not recurring acceptance ceremony.
 
-## Status: slices A–F closed
-
-This SDK was built one leak at a time by
-[the API 1.0 campaign](../planning/engine/api-1.0-campaign.md). Being honest
-about what is not here yet is part of the method — a doc that implies coverage
-it lacks sends a reader into `crates/` with no warning.
-
-⚠ **This table was stale for four slices and is the reason four staleness
-guards exist.** It still said "slice A, in progress" and listed content,
-capabilities and rollback as *not started* after all three had shipped. Prose
-went wrong here three times in four blind runs; the countermeasures are
-`scripts/tests/test_sdk_*.py`, and they can check that a named module exists
-but not that a sentence about coverage is true. This paragraph is the honest
-statement of that limit.
+## Status: usable public surface, still pre-1.0
 
 | Area | Status |
 |---|---|
-| Host composition — standing up a game, visible and headless | **IMPLEMENTED** — `ambition_platformer2d::app`, designed in [api-prototype.md](api-prototype.md) |
-| Declaring content — characters, rooms, packs | **IMPLEMENTED** — `ModuleDraft` (slice B) |
-| Multi-experience composition and host policy | **IMPLEMENTED** — several experiences per composition, `start_at_launcher()` (slices D, E) |
-| Rollback — sessions, participants, your own state in the wire format | **IMPLEMENTED** — `ambition_platformer2d::rollback` (slice F) |
-| Revising content at runtime | not started — no consumer has needed it yet |
+| Host composition — visible and headless | **IMPLEMENTED** — `ambition_platformer2d::app` |
+| Declaring content — characters, rooms, packs | **IMPLEMENTED** — `ModuleDraft` and provider composition |
+| Multi-experience composition and host policy | **IMPLEMENTED** — multiple experiences and launcher/gameplay routes |
+| Rollback — sessions, participants, consumer-owned state | **IMPLEMENTED**, with ownership/composition cleanup still planned |
+| Capability-selective dependency closure | **PARTIAL** — see the current Engine 1.0 composition plan |
+| Runtime content revision / broader hot reload | **INCREMENTAL** — grow from real authoring customers |
+
+The historical campaign that established the first facade boundary is archived
+at
+[`../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md`](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md).
 
 ## Before any of that: your `Cargo.toml`
 

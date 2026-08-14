@@ -1,70 +1,37 @@
 {
   "_comment": [
-    "ARMED 2026-08-13T13:10Z on Jon's instruction: 'Start a new 72 hour goal to do",
-    "everything in docs/planning and start with this:",
-    "docs/planning/authority-convergance-campaign-2026-08-13.md'",
-    "",
-    "WHY THIS FILE RESTARTS THE DEADLINE: the previous arming carried",
-    "deadline_utc 2026-08-14T03:00:00Z and was cleared by hand at 2026-08-13T12:56Z.",
-    "Inheriting a stamp that was already expiring is how the 08-09 run released",
-    "itself with 92 open rows. This is a real 72 hours from arming.",
-    "",
-    "HEAD EVIDENCE recomputed at arming, so the campaign's anchors are known live",
-    "and not stale planning prose: ActorIntent 29 refs, ActorCooldowns 25,",
-    "adopt_character_intrinsics 10, CharacterRoster 223, ArchetypeSpec 93,",
-    "ActorTuning 57, sync_actor_components_from_cluster 14,",
-    "shake_camera_on_landed_hits 4, boss_phase_transition_feedback 6,",
-    "character_archetypes.ron present (16K). Base commit 2e3af264d.",
-    "",
-    "Anything Jon says in-session OUTRANKS this text; treat this file as the floor",
-    "that keeps the run alive, not as the specification of the work.",
-    "",
-    "⛔ tools/ambition_sprite2d_renderer is a dirty SUBMODULE pointer and `out/` is",
-    "untracked scratch; both are excluded from the uncommitted check, as before.",
-    "⛔ JONS_OBSERVATIONS_BUGS_AND_ISSUES.md is still Jon's to commit, not mine."
+    "REFRAMED 2026-08-13 local time after D73 authority convergence closed.",
+    "The deadline remains the existing run deadline; this edit does not restart the clock.",
+    "Ambition is the flagship game and primary product driver.",
+    "The queue is intentionally self-replenishing; only Jon ends the run.",
+    "Current successor strategy: docs/planning/engine/engine-1.0-architecture-program.md.",
+    "Immediate maintainer direction: improve LDtk/moving-platform architecture and plan/implement Ambition multiplayer + multi-view presentation.",
+    "Super Smash Siblings is a serious customer and may become first-class later, but does not displace Ambition.",
+    "tools/ambition_sprite2d_renderer and tools/ambition_music_renderer may be dirty submodule/scratch surfaces and remain excluded from the uncommitted check.",
+    "Do not commit docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md; Jon edits it live."
   ],
-  "goal": "Work continuously for 72 hours on docs/planning, and DO NOT STOP: there is no completion condition, only Jon ends this run. ⭐⭐⭐ START WITH, AND ORDER BY, docs/planning/authority-convergance-campaign-2026-08-13.md -- the Authority Convergence campaign, named by Jon 2026-08-13 as the starting point. Its 'Run progress (live updates)' table is the resumption point after a compact and the guard's engine; its topology is the execution order and is SEQUENTIAL: P0 (close finite correctness hazards that would contaminate the measurements) -> AC0 (minimal current-HEAD census, surface maintainer decisions immediately) -> AC1 (delete the dead ActorIntent/ActorCooldowns mirrors) -> AC2 (scheduler-perturbation determinism guard) -> AC3 (converge body/reaction authority; kill the save->rebuild->restore shape in sync_actor_components_from_cluster) -> AC4 (complete prepared character bodies) -> AC5 (one intrinsic construction path; DELETE adopt_character_intrinsics) -> AC6 (delete CharacterRoster/ArchetypeSpec/character_archetypes.ron/ActorTuning) -> AC7 (final naming, docs, D73 closure, the three change-amplification probes). ⛔ ITS OPERATING RULE: each slice removes authority or representation that the next slice would otherwise have to understand. ⛔ EVERY SLICE ANSWERS THE REVIEW CONTRACT in that file (owner / category / rollback justification / DELETION PAYOFF / no shadow architecture / scheduling / control semantics / structural enforcement instead of a source-text scanner). ⛔ DELETION IS THE PROOF: a new abstraction counts as progress only when it removes or makes unreachable an old representation in the SAME slice or names the exact deletion gate. Delete the root, let the compiler expose the survivors, move only the facts that still have real consumers -- do NOT faithfully transplant every field of a transitional structure before discovering which fields were obsolete. ⛔ ITS NON-GOALS ARE REAL: no rollback-registration inversion, no full tick_actor_brains decomposition, no broad shared_tangle split, no BodyCombat2/ActorContext/SimulationContext umbrella, no second character/body/construction registry, no flag-day PrimaryPlayer rename. Successor campaigns start AFTER AC7, not because context remains. ⛔ ITS STOP-AND-REDIRECT LIST is binding -- re-read it before merging any slice that adds a long-lived abstraction. ⛔ RECOMPUTE ITS EVIDENCE ANCHORS AGAINST HEAD before acting on any of them; if HEAD contradicts an anchor, update the plan instead of recreating finished work. THEN continue through the live planning control plane rather than replaying superseded campaign history: docs/planning/overnight-campaign-2026-08-11.md and docs/planning/character-template-architecture-2026-08-10.md remain working evidence that the authority campaign exists to CLOSE, so consume them through the current D73 phases rather than as parallel queues; then docs/planning/smash-body-generic-combat-2026-08-09.md (D72 -- 'Smash is the test case that should force the engine toward the body-generic architecture', never a licence for Smash-specific exceptions); then the open rows of docs/planning/queue-72h-2026-08-08.md, which is the self-replenishing EXECUTION authority -- enumerate them with `grep -n '^- ▢ \\*\\*D' docs/planning/queue-72h-2026-08-08.md`; then Jon's still-open observation rows in JONS_OBSERVATIONS_BUGS_AND_ISSUES.md; then docs/planning/tracks.md when replenishing the queue. The 2026-08-13 structural-bug seed and earlier redirect briefs are historical evidence under docs/archive/planning-superseded/2026-08-13/, not additional execution authorities. ⛔ THE TWO FAILURE MODES JON NAMED FOR D73 STILL GOVERN: (1) do not migrate ArchetypeSpec into CharacterDefinition wholesale -- it holds THREE authorities (intrinsic body, controller policy, placement policy) and they must separate; (2) DO NOT STOP WHEN THE NEW PATH WORKS BESIDE THE OLD ONE. +4000 new / -2400 old means the old model got WRAPPED rather than removed, and that is a failure however green it is. ⛔ BEFORE WORKING ANY OPEN ROW, grep for the thing it says is missing -- a ▢ on work that already LANDED has cost at least four sessions. ⛔ TWO PROHIBITIONS JON HAS STATED TWICE: no `cargo fmt` commands, and no git-diff-checking commands (single-file `rustfmt --config skip_children=true` is fine). ⛔ `cargo check -p ambition_app --all-targets` is the gate, never `-p <one_crate>`; and it is NOT the whole gate -- run `cargo test -p ambition_demo_smash_app` when you touch character, movement or combat. ⛔ Do not weaken a meaningful regression to make it pass; repair an unrealistic fixture to model production construction instead. ⛔ Do not add process/policy/source-text/meta-test machinery -- AGENTS.md 'Avoid bullshit guardrails' is binding and an LLM review WILL ask for it; the answer is no. ⛔ Do not commit docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md; he edits it live. ⛔ Do not invent work outside docs/planning and Jon's observations; refill the ledger rather than letting it empty. ⛔ PUSH what you commit -- superproject and every submodule that is ahead, submodules first. Finishing an item is not a stopping point -- the sentence after 'committed' starts the next biggest lever, with no status report and no request for permission. Jon may give more precise directions at any time; those OUTRANK this text.",
+  "goal": "Work continuously on the live docs/planning control plane until Jon ends the run. There is no completion condition. docs/planning/queue-72h-2026-08-08.md owns execution order and MUST be replenished rather than allowed to become a stopping point. The post-D73 strategic reservoir is docs/planning/engine/engine-1.0-architecture-program.md plus docs/planning/tracks.md. Ambition is the flagship and primary product driver: prefer real Ambition needs that make reusable engine capability. Current maintainer-directed successors are D115 (LDtk authoring + moving/kinematic world objects) and D116 (Ambition multiplayer/multi-view architecture), then D72 Smash and other verified queue rows. For multiplayer, keep transport/locality, control assignment, world residency, and presentation layout independent: local/online/mixed participants, shared/fixed/adaptive split-screen, and eventually participants in different rooms must fit one model. For moving platforms, begin from the existing LDtk-authored MovingPlatform/KinematicPath path and improve typed references, validated motion semantics, world-domain ownership, contact/crush/one-way behavior, diagnostics and tooling rather than creating a parallel feature. TwinTrack should exercise independent observer/reference-frame views through the same multi-view engine; Smash may become a first-class game but Ambition remains the focus. Before working any row, inspect HEAD and verify the named gap still exists. Closed migration history under docs/archive is evidence, not an execution authority. Prefer deletion of duplicate authority, explicit ownership, real behavioral validation, clean dependency direction and useful authoring diagnostics. Do not add process/policy/source-text/meta-test machinery unless a concrete invariant cannot reasonably be structural or behavioral. Do not use cargo fmt commands and do not use git-diff-checking commands. cargo check -p ambition_app --all-targets remains the compile gate; when changing character/movement/combat behavior also run the relevant Smash suite. Do not commit docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md. Push committed work, including changed submodules first. Finishing one item starts the next verified item without requesting permission. Jon's in-session directions always outrank this file.",
   "deadline_utc": "2026-08-16T13:10:00Z",
   "max_run_hours": 74,
   "max_stalled_blocks": 40,
   "checks": [
     {
-      "name": "the authority-convergence campaign's phase table has no open phases",
-      "cmd": "! grep -q '▢' docs/planning/authority-convergance-campaign-2026-08-13.md",
+      "name": "the live queue remains a continuation ledger rather than a terminal checklist",
+      "cmd": "grep -q 'There is no \\\"the queue is empty, therefore stop\\\" state' docs/planning/queue-72h-2026-08-08.md",
       "timeout": 60
     },
     {
-      "name": "AC1: the dead actor mirrors are gone from production",
-      "cmd": "! grep -rqn --include=*.rs 'ActorIntent\\|ActorCooldowns' crates game",
-      "timeout": 120
+      "name": "planning links resolve",
+      "cmd": "python3 scripts/check_doc_links.py",
+      "timeout": 180
     },
     {
-      "name": "AC5: build-legacy-body-then-patch is gone",
-      "cmd": "! grep -rqn --include=*.rs 'adopt_character_intrinsics' crates game",
-      "timeout": 120
+      "name": "planning pointer and row-state contracts hold",
+      "cmd": "python3 -m pytest scripts/tests/test_planning_pointers_are_live.py -q",
+      "timeout": 180
     },
     {
-      "name": "AC6: the legacy archetype ontology is DELETED, not renamed",
-      "cmd": "! test -f game/ambition_content/assets/data/character_archetypes.ron",
-      "timeout": 60
-    },
-    {
-      "name": "the overnight campaign's P0-P5 execution order has no open items",
-      "cmd": "! grep -q '▢' docs/planning/overnight-campaign-2026-08-11.md",
-      "timeout": 60
-    },
-    {
-      "name": "D73: the character-template checklist has no open items",
-      "cmd": "! grep -q '▢' docs/planning/character-template-architecture-2026-08-10.md",
-      "timeout": 60
-    },
-    {
-      "name": "the ledger has no open rows (refill it rather than stopping)",
-      "cmd": "! grep -q '▢' docs/planning/queue-72h-2026-08-08.md",
-      "timeout": 60
-    },
-    {
-      "name": "the app compiles, all targets (the gate)",
+      "name": "the app compiles, all targets",
       "cmd": "$HOME/.cargo/bin/cargo check -p ambition_app --all-targets --quiet",
       "timeout": 1200
     },
@@ -79,12 +46,12 @@
       "timeout": 1800
     },
     {
-      "name": "SMASH, the proving ground, is green (its suite is not in the app gate)",
+      "name": "Smash remains a body-generic customer",
       "cmd": "$HOME/.cargo/bin/cargo test -p ambition_demo_smash_app --test smash_it --quiet",
       "timeout": 1800
     },
     {
-      "name": "the reduced-resolution art tiers are the art (Jon 2026-08-12: a quality change swapped the character)",
+      "name": "quality variants are fresh",
       "cmd": "python3 scripts/check_quality_variants_are_fresh.py",
       "timeout": 300
     },

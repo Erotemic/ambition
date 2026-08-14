@@ -8,12 +8,14 @@
 //! ```
 //!
 //! ⭐ **this is the second of Jon's three authorities**
-//! (`docs/planning/overnight-campaign-2026-08-11.md`), and the one the enemy
-//! archetype hid best. `ArchetypeSpec` states a body's health, mass, hurtboxes
+//! (historical D73 record:
+//! `docs/archive/planning-superseded/2026-08-13/overnight-campaign-2026-08-11.md`),
+//! and the one the old enemy
+//! archetype hid best. The retired `ArchetypeSpec` used to state a body's health, mass, hurtboxes
 //! and repertoire in the same row as its aggro radius and its Smash tactics, so
 //! two characters that fight alike could not share a policy without also sharing
-//! a body — which is why `medium_striker` exists as a whole-body archetype worn
-//! by several different creatures.
+//! a body. D73 deleted that body/policy coupling; a reusable `BrainProfile` now
+//! remains controller policy rather than another body authority.
 //!
 //! ⛔ **a controller supplies INTENT and never manufactures a capability**, and
 //! as of 2026-08-11 there is no longer an exception. A `smash_can_blink` /

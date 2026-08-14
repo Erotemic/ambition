@@ -1,84 +1,118 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-08-13
 ---
 
 # Actors, brains, and character content
 
-Characters are assembled from provider-owned identity/content plus reusable
-body, action, brain, perception, combat, and presentation machinery. “Player,”
-“enemy,” “boss,” and “NPC” are controller/capability/content distinctions, not
-separate body implementations.
+The runtime model is **one body, one construction path**. Controlled bodies,
+NPCs, enemies, bosses, summons and match fighters are ordinary actor bodies
+whose intrinsic kit comes from prepared character content. Controller,
+participant, disposition, placement, encounter role and ruleset are contextual
+facts rather than alternate body species.
 
-## Authorities
+## Current authorities
 
-- `ambition_characters` owns reusable actor identity/control vocabulary,
-  `Brain`, perception/memory, action schemes, equipment-to-parameters, and the
-  character-catalog schema/assembly registry.
-- `ambition_platformer2d_actor_monolith` currently owns the unified live body/simulation integration
-  and some remaining adapters. It is not a license for named content to move
-  back into machinery.
-- `ambition_combat` owns movesets, `MovePlayback`, attack timelines, and shared
-  action execution.
-- provider crates own catalog fragments, roster membership, default presets,
-  named techniques, sprite/audio/dialogue IDs, and boss/encounter content.
-- sprite/render/read-model crates own reusable visual registration and
-  presentation.
+### Authored character composition
 
-## Character catalog
+`CharacterDefinition` is the reusable authored composition seam for a character.
+It can carry or reference intrinsic body/kit facts such as locomotion, vitals,
+abilities/action sets, moves, hurt geometry, contact behavior, death traits and
+presentation identity.
 
-Ambition's authored rows live in:
+Ambition still has provider-owned catalog/source data for broad cast metadata,
+presentation/writing/defaults and tooling. That source may participate in
+preparation. **The catalog is not a second live body-construction authority.**
+Preparation resolves/folds authored inputs into the runtime value.
+
+### Prepared runtime character
+
+`PreparedCharacterDefinition` is the complete immutable character value that
+runtime construction consumes. By the time a body is constructed, authoring
+fallback and cross-document resolution have already happened; spawn roads do not
+choose between an enemy archetype, player archetype and character path.
+
+D73 deleted the separate `ArchetypeSpec` / `CharacterRoster` body ontology and
+the build-legacy-body-then-patch seam. Historical migration details are archived
+under `docs/archive/planning-superseded/2026-08-13/`.
+
+### Body and control
+
+The body owns intrinsic state/capabilities. A controller/brain supplies intent.
+Human input, AI, possession, replay and future remote participants should
+converge through the same control/action seams before body execution.
+
+`BrainBinding` preserves reconstructible autonomous control where appropriate.
+Changing who controls a body does not change the body's authored identity or
+silently grant a different kit.
+
+### Combat and actions
+
+`ambition_combat` owns shared combat/moveset vocabulary and move playback.
+Character/action preparation derives the body-valid action repertoire consumed
+by human and AI controllers. Do not add player-only attack state or boss-only
+combat execution for a rule that belongs to an ordinary body.
+
+## Authoring ownership
+
+Provider/game content owns named characters, writing, art references, tuning and
+composition choices. Reusable engine crates own schemas, preparation,
+validation, simulation and generic capability behavior.
+
+Authoring may come from RON, Rust values, generated metadata or another
+validated provider source. "Declarative" means the authored value is inert and
+composable before installation; it does not mean every character must live in
+one giant data file.
+
+## Construction shape
 
 ```text
-game/ambition_content/assets/data/character_catalog.ron
+provider-authored character inputs
+  CharacterDefinition
+  catalog/source fragments where used
+  referenced moves/art/writing/etc.
+             |
+             v
+        preparation
+  resolve + validate + flatten
+             |
+             v
+PreparedCharacterDefinition
+             |
+             +--> ordinary body construction
+             +--> headless simulation
+             +--> hosted/standalone games
 ```
 
-The schema/parser/App-local fragment registry live under
-`ambition_characters::actor::character_catalog`. Runtime consumers read the
-assembled `CharacterCatalog`; they do not parse a second copy or keep a
-hard-coded roster in engine core.
+Placement/session facts enter beside the prepared character, not inside its
+identity:
 
-A row may reference reusable brain/action presets and provider-owned sprite,
-dialogue, bark, or presentation IDs. Those references must be validated as a
-cross-content graph before the character is considered complete.
+```text
+prepared character + placement + disposition + controller/session context
+                               |
+                               v
+                         ordinary actor body
+```
 
-## Brain and control contract
+## Multiplayer consequence
 
-A brain observes through `WorldView`/perception vocabulary and emits actor-local
-intent/actions. Human input, AI brains, temporary possession, mounts, and RL
-control converge before body/action execution.
-
-`BrainBinding` preserves the reconstructible autonomous source. Temporary
-control changes who drives the body without deleting the brain configuration
-that resumes later. Commands issued while controlled must update the correct
-underlying authority rather than a transient mirror.
-
-Brains may use deterministic simulation budgets. Wall-clock cutoffs cannot be
-authoritative decisions when replay/resimulation is expected.
-
-## Action contract
-
-- abilities and movesets are live authorities;
-- `ActorActionScheme` is derived from those authorities;
-- the shared resolver turns slots into body-valid actions;
-- `MovePlayback` is the attack/action timeline authority;
-- prompts and touch labels consume the same resolved scheme.
-
-Do not add a player-only attack state, boss-only hitbox emitter, or content
-system that steals raw input before the shared resolver.
+A participant is not a body species. Local and future remote participants can
+control ordinary bodies through the same assignment seam. Camera/view focus is
+also independent of body identity; multi-view work is specified in
+[`../planning/engine/multiplayer-and-multiview.md`](../planning/engine/multiplayer-and-multiview.md).
 
 ## Adding a character
 
 Use [`../recipes/adding-a-character.md`](../recipes/adding-a-character.md).
-Extending the reusable brain/action vocabulary is a separate operation described
-in [`../recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md).
+Extending reusable brain/action vocabulary is separate and described in
+[`../recipes/extending-brains-and-action-sets.md`](../recipes/extending-brains-and-action-sets.md).
 
-## Validation
+## Validation principle
 
-```bash
-./run_tests.sh -p ambition_characters
-./run_tests.sh -p ambition_content
-./run_tests.sh -k character_catalog
-./run_tests.sh -k brain_binding
-./run_tests.sh -k action_scheme
-```
+Validate authored references and completeness during preparation. Runtime
+systems should receive resolved identities/values rather than silently looking
+up strings and choosing a fallback body.
+
+Use the focused character/content test suites plus the real provider/headless
+construction path for the character being changed; exact commands evolve with
+the repository and should be localized with `scripts/agent_query.py`.

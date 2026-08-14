@@ -1,7 +1,12 @@
-# The host-composition API, as call sites
+# Historical host-composition API prototype
 
-**Slice A2 of [the API 1.0 campaign](../planning/engine/api-1.0-campaign.md).
-No implementation. Judged by reading.**
+**Historical design record from slice A2 of the archived
+[API 1.0 campaign](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md).**
+
+The host-composition implementation has since landed. Keep this page as design
+provenance for the call-site-first method; use [`README.md`](README.md) and
+[`../planning/engine/public-sdk-1.0.md`](../planning/engine/public-sdk-1.0.md)
+for current SDK guidance and open work.
 
 The rule this document exists to obey is
 [ADR 0031](../adr/0031-public-facade-is-the-compatibility-boundary.md)'s

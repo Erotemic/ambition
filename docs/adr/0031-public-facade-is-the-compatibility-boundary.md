@@ -25,16 +25,17 @@ at WHICH boundary did not.
 
 It records a decision reached across a maintainer conversation and three rounds
 of external review
-([`../reviews/gpt56-jon-conv-2026-07-29.md`](../reviews/gpt56-jon-conv-2026-07-29.md),
-[`../reviews/gpt56-reply-2026-07-29-v2.md`](../reviews/gpt56-reply-2026-07-29-v2.md),
-[`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)),
+([`../archive/reviews/gpt56-jon-conv-2026-07-29.md`](../archive/reviews/gpt56-jon-conv-2026-07-29.md),
+[`../archive/reviews/gpt56-reply-2026-07-29-v2.md`](../archive/reviews/gpt56-reply-2026-07-29-v2.md),
+[`../archive/reviews/claude-reply-2026-07-30-api.md`](../archive/reviews/claude-reply-2026-07-30-api.md)),
 so the constraint is agreed before the first slice is built rather than
 discovered during it.
 
-The executable plan is
-[`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
-This ADR moves to *Accepted; implemented* when the campaign's consumer matrix is
-satisfied and the allowlist ratchet reaches zero — not when slice A lands.
+The historical executable campaign is archived at
+[`../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md`](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md).
+It satisfied the original acceptance bar. Current facade evolution is owned by
+[`../planning/engine/public-sdk-1.0.md`](../planning/engine/public-sdk-1.0.md) and
+[`../planning/engine/capability-and-runtime-composition.md`](../planning/engine/capability-and-runtime-composition.md).
 
 ## Context
 
@@ -164,7 +165,7 @@ into implementation topology. See [`../concepts/api-growth.md`](../concepts/api-
 
 **A consumer matrix, not a consumer.** The compatibility surface may not be
 declared complete until each category in
-[the campaign's matrix](../planning/engine/api-1.0-campaign.md) has a proof:
+[the archived campaign's matrix](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md) has a proof:
 external composition, a movement-only minimal game, a noncombat actor, a module
 standalone *and* embedded, Smash, and Ambition itself. An API proven against one
 consumer is an API shaped like that consumer.

@@ -389,10 +389,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # the suite. Every other check in that file is fatal.
         jobs.append(Job("agent KB (doc contracts + inline-test review)",
                         [sys.executable, "scripts/check_agent_kb.py"]))
-        # Active documentation links remain a cheap correctness check.
-        # Completed campaign evidence is archived rather than carried in the live
-        # roadmap, so `check_roadmap_evidence.py` is now an on-demand archaeology
-        # tool rather than a backbone gate.
+        # Active documentation links remain a cheap correctness check. Completed
+        # campaign evidence is archival provenance; live planning should state open
+        # work rather than carrying machine-parsed completion claims.
         jobs.append(Job("doc links (active KB)",
                         [sys.executable, "scripts/check_doc_links.py"]))
         # ⭐ **the compile-cost ratchet** (Jon, 2026-08-08: *"I want to quantify
@@ -411,9 +410,9 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # `cargo tree --offline` resolve manifests; neither compiles anything, so
         # this is safe beside any other cargo work and cannot be the job that
         # fills the disk.
-        # ⚠ and it needs no `--check`: a violation exits 1 by default, because
-        # an optional enforcement flag is how `check_roadmap_evidence.py` above
-        # spent its whole life green.
+        # ⚠ and it needs no `--check`: a violation exits 1 by default. Gates that
+        # require a special enforcement flag are too easy to run in advisory mode
+        # accidentally.
         jobs.append(Job("compile-cost ratchet (frozen weights, not a stopwatch)",
                         [sys.executable, "scripts/compile_ratchet.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the

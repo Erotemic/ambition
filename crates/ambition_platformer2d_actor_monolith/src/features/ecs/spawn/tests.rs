@@ -614,7 +614,8 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
 /// identity, which is the arrow the character-template campaign exists to
 /// reverse. Nothing in the tree noticed; this module is where it would have.
 ///
-/// See `docs/planning/character-template-architecture-2026-08-10.md`, appendix C.
+/// Historical rationale: `docs/archive/planning-superseded/2026-08-13/`
+/// `character-template-architecture-2026-08-10.md`, appendix C.
 mod authored_enemy_reads_its_character {
     use super::*;
 

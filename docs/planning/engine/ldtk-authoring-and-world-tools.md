@@ -1,0 +1,138 @@
+# LDtk authoring and world tools
+
+**State:** OPEN authoring program. Ambition is the primary customer.
+
+## Goal
+
+Make LDtk authoring feel like a supported engine workflow rather than knowledge
+of JSON field conventions plus converter internals.
+
+LDtk remains one spatial backend over the backend-neutral world model. The goal
+is not to couple engine semantics permanently to LDtk; it is to make the LDtk
+adapter good enough that a game author can discover, author, validate and debug
+engine capabilities without reading Rust implementation details.
+
+## Current strengths
+
+The repository already has substantial authoring infrastructure:
+
+- `ambition_platformer2d_ldtk` lowers editor data into world IR;
+- `ambition_ldtk_tools` can validate, repair, roundtrip, create areas, edit
+  entities, resolve `EntityRef`s, render rooms and produce semantic diffs;
+- provider-owned `LdtkVocabulary` extension exists;
+- hot reload validates/prepares candidate worlds before commit;
+- entity-layer rules and editor icons/visual manifests improve human editing;
+- room tooling can describe/render moving platforms and other spatial features.
+
+The next phase should consolidate these into a coherent authoring product.
+
+## Current weaknesses
+
+1. Some authored relationships remain strings even though the toolchain already
+   supports native LDtk `EntityRef` values.
+2. `KinematicPath` points are currently parsed from an opaque string such as
+   `"10,20; 30,40"` rather than an editor-native point/path representation.
+3. Runtime converters contain field defaults and precedence rules that are hard
+   to discover from the LDtk editor alone.
+4. Engine/provider vocabulary, editor entity definitions, validation and docs can
+   drift because they are not generated/checked from one declarative schema.
+5. Some useful errors arrive only at runtime conversion rather than as immediate
+   authoring diagnostics.
+6. The tools know many intent-level operations, but capability-specific recipes
+   are still scattered.
+
+## First vertical slice: moving platforms
+
+Moving platforms are **already controllable from LDtk**. Current conversion
+supports:
+
+- entity position and bounds -> platform start/size;
+- stable `id` (falling back to iid);
+- `speed`;
+- `sweep_dx` for the simple horizontal ping-pong form;
+- `path_id` / legacy `patrol_path_id` referencing a `KinematicPath`;
+- `loop_dy` and `loop_min_y` for a wrapping vertical elevator/conveyor shaft.
+
+`KinematicPath` currently authors a string `points`, `speed`, `mode`, and
+`start_offset_seconds`.
+
+This is enough to ship content, but it is not the final authoring experience.
+The first phase should make the editor express the relationship directly and
+make invalid combinations impossible or loudly invalid.
+
+### Desired platform authoring
+
+- a platform entity clearly exposes one motion mode;
+- a path-following platform uses an LDtk `EntityRef` to a `KinematicPath`, not a
+  free-form string lookup;
+- path points use native LDtk point/array authoring if the editor schema supports
+  it cleanly; otherwise the tools provide an intent-level path editor/visualizer
+  rather than asking authors to type coordinate strings;
+- inactive fields for another motion mode are hidden or diagnosed;
+- speed/range/loop validation appears before runtime launch;
+- room render/describe shows the path, direction, speed, wrap/ping-pong mode and
+  referenced platform identity;
+- game-owned vocabulary can expose the same authoring quality without modifying
+  reusable engine code.
+
+## Program phases
+
+### L1 — declarative authoring schema
+
+Define one source describing an engine/provider-authored entity's fields,
+editor types, defaults, documentation, validation and lowering identity where
+practical. Generate or reconcile LDtk entity definitions from that schema rather
+than duplicating field knowledge across project JSON, converter comments and
+recipes.
+
+Do not make the common world IR depend on LDtk-specific field metadata.
+
+### L2 — typed references and native editor value types
+
+Migrate string relationships to `EntityRef`/typed resolved IDs where the
+relationship is spatial and editor-local. Improve point/path fields to use native
+LDtk constructs where practical.
+
+MovingPlatform -> KinematicPath is the first proof.
+
+### L3 — preparation-time cross-reference validation
+
+A world candidate should report all unresolved/ambiguous references together:
+paths, mounts, portals, loading targets, content IDs, capability-owned facets,
+and game-owned vocabulary.
+
+Diagnostics should name the LDtk level/entity/field and the expected target.
+
+### L4 — intent-level tooling
+
+For common operations, tools should express the author's intent:
+
+- add/link a moving platform and path;
+- add reciprocal/one-way loading-zone routes;
+- place encounters/characters with stable IDs;
+- move capability-specific entities to appropriate layers;
+- inspect and render semantic world state.
+
+The generated `.ldtk` remains ordinary editor-compatible data.
+
+### L5 — hot reload and transaction quality
+
+Hot reload should use the same compiler/preparation diagnostics as cold load,
+commit only valid candidates, and preserve enough provenance to explain why a
+candidate was rejected.
+
+### L6 — provider extensibility
+
+A provider should be able to add authored spatial nouns/facets with editor
+schema, validation, lowering and diagnostics without editing a closed engine
+switch in several places.
+
+## Acceptance
+
+A competent developer should be able to open the project in LDtk, discover how
+to author a moving platform, connect it to a visible path, validate the room,
+preview the semantic result, hot-reload it, and understand any failure without
+reading the converter implementation.
+
+That same quality bar should become the standard for every spatial capability we
+consider "supported".

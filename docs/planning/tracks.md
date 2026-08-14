@@ -3,275 +3,218 @@
 **Role:** preserve worthwhile unresolved work across runs. This file does **not**
 own execution order; [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) does.
 When the queue needs more work, select from this reservoir, re-measure the claim
-against HEAD, add the chosen work to the queue, and continue.
+against HEAD, promote the chosen work to the queue, and continue.
 
-A focused plan owns technical design. This file should normally carry one compact
-card and a link rather than a second implementation diary.
+A focused plan owns technical design. This file should carry compact cards and
+links, not duplicate implementation diaries.
 
-`▢` means an unresolved reservoir item. Completed execution narratives do not
-stay here; git history and `docs/archive/` preserve them.
+`▢` means unresolved reservoir work. Completed execution history belongs in git
+or `docs/archive/`.
 
 ## Replenishment order
 
 Use this order unless Jon or the live queue says otherwise:
 
-1. finish the current focused campaign already selected by the queue;
-2. direct unresolved items in
-   [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md);
-3. architecture work that removes duplicate authority or materially lowers
-   change amplification;
-4. acceptance-game work that exercises a reusable engine capability;
-5. product/features with settled intent but no current campaign; and
-6. trigger-based/deferred work only when its trigger is actually present.
+1. direct new maintainer direction and reproducible observations;
+2. **Ambition flagship needs that expose reusable engine capability**;
+3. architecture work that removes duplicate authority or major change/dependency
+   amplification;
+4. serious secondary game/acceptance customers that exercise reusable seams;
+5. preserved product features with settled intent; and
+6. trigger-based work only when its trigger actually exists.
 
-Do not infer priority from the age of a card or from whether another document
-links to it.
+D73 is closed. Do not promote its deleted archetype/roster/mirror work again.
 
-## Active architecture reservoir
+## Engine 1.0 successor reservoir
 
-- ▢ **Finish D73 authority convergence.** Current ordering authority:
-  [`authority-convergance-campaign-2026-08-13.md`](authority-convergance-campaign-2026-08-13.md).
-  Close the campaign by its own AC7 criteria; do not reopen deleted archetype,
-  mirror, or build-then-patch representations.
+The umbrella is
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
+These cards are capability fronts, not a serial mega-campaign.
 
-- ▢ **Smash body-generic convergence.** Use
-  [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
-  The proving rule is one body/one path: improve the shared engine instead of
-  adding Smash-only combat/body exceptions.
+- ▢ **Ambition-first authoring/LDtk + kinematic world objects.** Moving platforms
+  already author through LDtk, but their path references, motion-mode shape,
+  diagnostics, dynamic-geometry ownership and contact/crush semantics are not
+  yet Engine-1.0 quality. Use
+  [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md),
+  [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
+  and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
 
-- ▢ **Rollback declaration ownership inversion.** After D73, move toward domain
-  declarations/capabilities that the rollback/runtime composition consumes
-  without the generic runtime importing every gameplay domain merely to register
-  its types. The successor boundary is described in the final section of the
-  authority-convergence campaign and in [`engine/netcode.md`](engine/netcode.md).
+- ▢ **Ambition multiplayer + multi-view presentation.** Build one participant
+  model that supports local, online and mixed parties independently of shared,
+  fixed-split or adaptive split-screen. Grow toward two resident rooms when
+  participants separate. Use
+  [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
+  and [`game/multiplayer.md`](game/multiplayer.md).
 
-- ▢ **Bevy system-authority decomposition.** Break parameter-ceiling systems
-  around semantic phases, named query data/SystemParams and explicit ownership;
-  tuple packing is not a decomposition. Use
-  [`triage/bevy-system-parameter-architecture.md`](triage/bevy-system-parameter-architecture.md).
+- ▢ **Simulation authority and deterministic phase structure.** Decompose
+  parameter-ceiling systems such as actor-brain ticks by semantic phase and
+  ownership; invert rollback declaration ownership so the generic runtime is not
+  a census of every gameplay domain. Use
+  [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+  and [`triage/bevy-system-parameter-architecture.md`](triage/bevy-system-parameter-architecture.md).
 
-- ▢ **Drain the actor monolith by coherent ownership.** Current candidates include
-  presentation/authoring/session/menu-affordance seams and other boundaries that
-  lower meaningful dependency closure. Do not carve by line count. Use
-  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-  and [`engine/decomposition.md`](engine/decomposition.md).
+- ▢ **Drain the actor monolith by coherent ownership.** Choose carves from
+  current dependency/authority evidence, especially boundaries that improve
+  capability closure or iteration cost. Do not carve by line count. Use
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-- ▢ **Public facade / optional capability closure.** Continue making the semantic
-  facade hide implementation topology and keep capability selection honest. Use
-  [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md) and
-  [`../concepts/api-growth.md`](../concepts/api-growth.md); the old A–G campaign
-  history is archived, so act only on the residual work listed there.
+- ▢ **Capability/runtime composition.** Make optional capabilities honest in
+  Cargo dependency closure and runtime/plugin assembly; a minimal consumer
+  should not silently inherit unrelated domains. Use
+  [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 
-- ▢ **Room transition loading transaction.** Keep transition requests behind
-  readiness/preparation/commit semantics, especially under rollback hosts; retain
-  the genuinely open preload/performance and possession/carry proof work in
+- ▢ **Public SDK 1.0.** Continue hiding implementation topology behind semantic
+  game concepts and close real provider ergonomics gaps through real consumers,
+  not permanent blind-agent/source-scan ceremony. Use
+  [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md).
+
+- ▢ **Performance and iteration as engine ergonomics.** Re-measure compile fanout,
+  runtime/mobile budgets, multi-view cost, asset residency and authoring latency
+  when a concrete slice makes them actionable. Use
+  [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+
+- ▢ **Room transition / multi-room transactionality.** Keep real
+  movement-kernel → loading-zone → readiness/commit behavior on one transaction,
+  especially under rollback. This also becomes prerequisite evidence for
+  Ambition participants occupying different rooms. Use
   [`engine/room-transition-loading.md`](engine/room-transition-loading.md).
 
-- ▢ **Rollback scope provenance correction.** `RoomScopedEntity` is still in
-  `rollback_coverage.rs::PROVENANCE_ONLY` under the claim that it is written
-  once, but possession removes/restores room/session scope and makes that premise
-  false. Exercise rollback across the real possess/release scope transition, then
-  correct the waiver/registration shape from the behavioral result. Do not add a
-  source-only policy test for the same fact. Historical analysis is archived in
-  [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
+- ▢ **Rollback scope provenance correction.** `RoomScopedEntity` provenance still
+  needs a behavioral proof across possession/release scope changes before its
+  rollback waiver/registration shape is trusted. Do not replace that proof with
+  a source-only policy test.
 
-- ▢ **Stable identity where strings/numbers still combine distinct lifetimes.**
-  Keep `ParticipantId`, session seat, control channel, simulation slot, placement
-  identity and display labels semantically distinct. Materialize
-  `SessionSeatId`/`ControlChannelId` when topology work next makes that separation
-  pay for itself; until then route through `LocalChannelPlan`. See
+- ▢ **Stable identity where lifetimes differ.** Keep participant, seat, input
+  channel, simulation slot, placement identity and display labels semantically
+  distinct. Materialize stronger ID types when multiplayer/topology work makes
+  the distinction pay for itself. Use
   [`engine/participant-action-system.md`](engine/participant-action-system.md)
   and [`triage/stable-identifier-centralization.md`](triage/stable-identifier-centralization.md).
 
-- ▢ **Declared-id failures should become authoring diagnostics.** Prefer
-  preparation/compiler/schema resolution with useful errors over a permanent
-  runtime census or source scanner. See
-  [`triage/declared-id-resolution-checks.md`](triage/declared-id-resolution-checks.md).
+## Authoring and content reservoir
 
-- ▢ **Cheap real behavioral test support.** Improve reusable harnesses when that
-  makes meaningful integration/invariant tests materially cheaper; do not turn
-  this into another policy-scanner framework. See
-  [`triage/ambition-test-support.md`](triage/ambition-test-support.md) and
-  [`engine/headless-verification.md`](engine/headless-verification.md).
-
-## Construction, content and authoring reservoir
-
-- ▢ **Remaining authoring-loop authority splits.** The content compiler,
-  per-seat input contexts, open semantic action registry and causal inspector have
-  landed. What remains is the concrete duplicate-reader work and the final
-  provider-defined physical-action proof in
-  [`authoring-loop-program-2026-07-31.md`](authoring-loop-program-2026-07-31.md).
-
-- ▢ **Remaining content evictions from reusable engine crates.** When a real
-  named family is still closed in core, migrate one structurally complete family
-  at a time. Historical candidates include the item catalog, content-owned
-  presentation tuning such as `deep_dream_strength`, and the Puppy Slug gun as a
-  parameterized summon-ally ability + content data. Verify each candidate before
-  touching it.
-
-- ▢ **Character/action authoring followups.** The semantic action registry and
-  module-contribution seam have landed; finish provider-defined actions through
-  physical binding/cues/touch, remove the seat-0 control split, and finish the
-  remaining menu/context migrations through
+- ▢ **Provider-defined actions through the full physical/UI seam.** Semantic
+  action registration exists. Finish provider-defined actions through physical
+  binding, cues/touch and remaining participant contexts without restoring a
+  seat-0 special path. Use
   [`engine/participant-action-system.md`](engine/participant-action-system.md).
 
-- ▢ **Editable component/SVG character authoring.** Continue the code-authored
-  sprite workflow toward editable component/paper-doll authoring where it
-  improves iteration without changing runtime body identity. See
-  [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md)
-  and [`engine/sprite-renderer.md`](engine/sprite-renderer.md).
+- ▢ **Authoring diagnostics for declared IDs.** Resolve bad authored references
+  during preparation/compiler/schema validation with provenance and useful
+  errors. Do not grow a permanent runtime census. Use
+  [`triage/declared-id-resolution-checks.md`](triage/declared-id-resolution-checks.md).
 
-- ▢ **Sprite residency and live quality.** The basic quality mechanism exists;
-  remaining residency cohorts, packaging and live-Apply work live in
+- ▢ **Remaining named-content evictions.** When reusable engine crates still own
+  a closed Ambition-specific family, migrate one structurally complete family at
+  a time after verifying it is still present.
+
+- ▢ **Editable SVG/component character authoring.** Continue the procedural
+  sprite workflow toward editable component/paper-doll authoring where it
+  improves iteration without changing runtime identity. See
+  [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md).
+
+- ▢ **Sprite residency and live quality.** Finish useful residency cohorts,
+  packaging and live Apply behavior. See
   [`sprite-residency-and-live-quality.md`](sprite-residency-and-live-quality.md).
 
 ## Combat, AI and actor-behavior reservoir
 
-- ▢ **Fighter-brain L3 acceptance gate.** The rollout implementation and basic
-  fidelity instrumentation exist; what remains is the scenario suite and
-  survival/damage-ratio gate, measured against a clearly named ladder. See
+- ▢ **Smash body-generic residuals.** The old migration diary is closed. Current
+  reusable gaps include grab/hold/throw, optional richer shield semantics,
+  body-scale equipment resolution if still desired, and local-N acceptance.
+  Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
+
+- ▢ **Fighter-brain evaluation/calibration.** The brain stack exists; build the
+  scenario outcome runner and calibrate the difficulty ladder through measured
+  survival/damage/recovery evidence. Use
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-- ▢ **One victim-side hit/death feedback seam.** Attack/volume authored effect
-  identity should reach one victim-side resolution path instead of parallel
-  attacker-kind payload branches. Use [`engine/combat-model.md`](engine/combat-model.md)
-  and the current Smash campaign before assuming the July wording is still live.
+- ▢ **Projectile contact against published body geometry.** Correctness for
+  intangible/no-hurtbox bodies exists; ordinary projectile feel still needs the
+  maintainer decision on authored silhouette/parts versus coarse body AABB.
+  Keep it in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
+  until that decision is made.
 
-- ▢ **Projectile contact against published body geometry.** The correctness half
-  (an intangible/no-hurtbox body is not hit) landed; the remaining product choice
-  is whether ordinary projectiles use the victim's published silhouette/parts
-  instead of the coarse AABB, which changes shot feel. The active question is in
-  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+- ▢ **Boss animation vocabulary fold.** Converge remaining boss animation/frame
+  projection onto shared character semantics without reopening boss body
+  ontology. See [`engine/boss-system.md`](engine/boss-system.md).
 
-- ▢ **Boss animation vocabulary fold.** Converge remaining `BossAnim` / boss-frame
-  projection toward shared `CharacterAnim` semantics and retire obsolete target
-  mirrors. Do not reopen the already-shared boss body integration path. See
-  [`engine/boss-system.md`](engine/boss-system.md) and
-  [`engine/boss-design.md`](engine/boss-design.md).
-
-- ▢ **Dialogue continuity in a running world.** Damage/separation can break a
-  conversation, capable bodies hold station through ordinary movement ability,
-  and interruption gets an outward bark. See
+- ▢ **Dialogue continuity in a running world.** Support body-generic interruption,
+  separation and station-keeping semantics. See
   [`engine/dialogue-continuity.md`](engine/dialogue-continuity.md).
 
 - ▢ **Listener-side dialogue adaptation.** Speaker/listener identity is already
-  body-generic/possession-aware; actual listener-side content adaptation remains
-  a product capability rather than an identity bug.
+  possession-aware; content adaptation to the listener remains a product
+  capability.
 
-## Acceptance-game reservoir
+## Game/customer reservoir
 
-- ▢ **Sanic:** close the remaining single-source acceptance list in
-  [`demos/sanic.md`](demos/sanic.md). Do not copy that list back here.
+- ▢ **Ambition content and story.** Keep building the main game through
+  [`game/vision.md`](game/vision.md), [`game/bosses.md`](game/bosses.md), direct
+  maintainer observations and the new [`game/multiplayer.md`](game/multiplayer.md).
+  Product work should expose reusable engine gaps without becoming subordinate
+  to the acceptance suite.
 
-- ▢ **Super Mary-O:** continue from
-  [`demos/super-mary-o.md`](demos/super-mary-o.md) and direct maintainer
-  observations. Keep block/restart fixes game-owned unless they expose a reusable
-  engine defect.
+- ▢ **Super Smash Siblings.** Serious platform-fighter customer and possible
+  future first-class game. Use
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) and the concise
+  Smash successor plan; Ambition remains the flagship.
 
-- ▢ **Smash:** use [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md)
-  for product acceptance and the D72 campaign for engine convergence.
+- ▢ **TwinTrack.** Use it to force independent observer/reference-frame views,
+  split-screen and relativity presentation through the same multi-view engine
+  that Ambition needs. See [`demos/twintrack.md`](demos/twintrack.md).
 
-- ▢ **Hollow-lite / bosses:** exercise authored combat, encounters and high-quality
-  multi-phase boss authoring through [`demos/hollow-lite.md`](demos/hollow-lite.md)
-  and [`engine/boss-design.md`](engine/boss-design.md).
-
-- ▢ **TwinTrack relativity lab.** Continue the 2D relativity acceptance/research
-  path through [`engine/relativity.md`](engine/relativity.md) and
-  [`demos/twintrack.md`](demos/twintrack.md): observer-local presentation,
-  light-delay mechanics, Doppler/clock pedagogy, dual-observer play and the
-  spacetime visualization remain valid candidate directions.
+- ▢ **Sanic / Super Mary-O / Hollow Lite.** Retain their focused acceptance lists
+  as movement/collision, classic-world-authoring, and boss/encounter customers.
+  Do not copy those lists back here.
 
 ## Product/features deliberately kept alive
 
-- ▢ **Character dialogue from suggestion/bark authoring.** Design is settled and
-  implementation is intentionally shelved; do not delete it as stale. See
+- ▢ **Character dialogue from suggestions/barks.** Design is settled and
+  intentionally shelved. See
   [`triage/character-dialogue-from-suggestions.md`](triage/character-dialogue-from-suggestions.md).
-
-- ▢ **Falling-sand extensions.** Sand exists; water/oil and associated Oiler
-  mechanics are deferred product work, not rejected ideas. See
-  [`engine/falling-sand.md`](engine/falling-sand.md).
-
-- ▢ **Per-route music inside an experience.** The route-keyed frontend/audio
-  architecture landed; route-specific music remains a useful capability. See
+- ▢ **Falling-sand extensions.** Water/oil and Oiler-related mechanics remain
+  desired deferred work. See [`engine/falling-sand.md`](engine/falling-sand.md).
+- ▢ **Per-route music within one experience.** Route-specific music remains a
+  useful capability. See
   [`frontend-audio-is-per-experience.md`](frontend-audio-is-per-experience.md).
-
-- ▢ **Player-facing art/content repairs that are not architecture campaigns.**
-  Morph-ball presentation is primarily missing art, shrine + glider presentation
-  still needs repair, and the kernel-guide NPC still wants peaceful patrol
-  behavior from authored brain policy. Keep these as product work rather than
-  inventing engine special cases.
-
-- ▢ **Game cast, bosses and story.** Preserve open product intent in
-  [`game/bosses.md`](game/bosses.md) and [`game/vision.md`](game/vision.md)
-  even when no architecture campaign points at it.
-
-## Documentation work that is still genuinely useful
-
-These are documentation migrations because the underlying design is still worth
-keeping, not because every old plan needs polishing:
-
-- ▢ reconcile [`engine/boss-system.md`](engine/boss-system.md) with
-  [`engine/boss-design.md`](engine/boss-design.md) so current boss architecture
-  has one durable authority; and
-- ▢ finish the remaining VC5 title-content fade-in in
-  [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md), then archive
-  the residual plan. VC1–VC4 and VC6 are already implemented.
+- ▢ **Player-facing art/content repairs.** Morph-ball presentation, shrine/glider
+  presentation and similar authored repairs stay product work unless a reproduced
+  reusable-engine defect appears.
 
 ## Deferred / trigger-based work
 
-These stay discoverable without occupying current execution order:
-
-- **Matchbox/P2P netplay + predicted-A/corrected-B oracle** — start when a real
-  game needs online play; [`engine/netcode.md`](engine/netcode.md).
+- **Production network transport / Matchbox signaling** — start with the first
+  actual online Ambition or Smash slice; the transport must feed the same
+  participant/control model as local input. See [`engine/netcode.md`](engine/netcode.md).
 - **Slower Light** — future 3D game; wait for a 3D runtime;
   [`engine/slower-light.md`](engine/slower-light.md).
-- **Leafwing clash-scan optimization** — apply only if the dependency/version
-  trigger described in
-  [`triage/leafwing-clash-scan-patch-2026-07-23.md`](triage/leafwing-clash-scan-patch-2026-07-23.md)
+- **Leafwing clash-scan optimization** — only when its dependency/version trigger
   becomes relevant.
-- **Broader stable-id centralization** — do not invent one universal ID framework
-  ahead of concrete identity families; use the focused triage document when a
-  real migration provides the pressure.
-- **Provider-owned placement families** — the Tier-0 placement vocabulary may
-  remain closed until a real provider needs a new family. At that point choose an
-  explicit typed extension seam rather than opaque payloads or editing every
-  provider into core.
-- **`features/` subtree rename** — rename only when its ownership can be stated
-  precisely; do not perform a module-only cosmetic half-rename.
+- **Broader stable-ID centralization** — do not invent one universal ID framework
+  ahead of concrete identity families.
+- **Provider-owned placement families** — open a typed extension seam only when a
+  real provider requires a family outside the common Tier-0 vocabulary.
 - **Reusable menu-host extraction** — draw the reusable/product boundary from a
-  real second consumer instead of moving Ambition's inventory UI wholesale.
-- **Boss crate extraction** — reassess only after boss behavior/animation has
-  converged onto shared character/action vocabulary; do not extract a legacy
-  ontology just to preserve it.
-- **Body-generic NPC world interaction/economy** — when NPC agency or
-  multiplayer currency becomes a real feature, consume the same body-level
-  interaction intent and `BodyWallet` semantics rather than introducing
-  NPC/player-specific resolver paths. The durable rule is
-  [`../concepts/one-body-one-path.md`](../concepts/one-body-one-path.md).
+  real second consumer.
+- **Boss crate extraction** — reassess after remaining boss vocabulary converges;
+  do not preserve a legacy ontology by extracting it.
+- **Body-generic NPC world interaction/economy** — when NPC agency or multiplayer
+  currency requires it, reuse body interaction intent and body-owned wallet
+  semantics rather than player/NPC-specific paths.
+- **Test execution parallelism** — re-measure only if execution again dominates
+  compile/link cost before adding runner machinery.
 
 ## Standing execution rule
 
 The reservoir exists so the continuation queue does not run out of valuable
 work. It is intentionally **not** an execution diary.
 
-Before promoting a card into the queue:
+Before promoting a card:
 
-1. inspect HEAD and verify the missing thing is actually still missing;
+1. inspect HEAD and verify the missing thing is still missing;
 2. prefer the focused plan that already owns the design;
-3. state the deletion/authority/product payoff, not merely a process step; and
-4. keep tests proportional to the invariant: behavior tests behavior, structure
-   should encode architecture, and migration scans normally retire with the
-   migration.
-
-### Test-run execution parallelism — trigger-based
-
-The 2026-08-02 test-iteration campaign already landed the high-value changes:
-the default runner is the focused backbone, timings are recorded, the cheapest
-sufficient command is documented, app/runtime optimization choices were measured,
-and compile cost feeds carve ranking. The full campaign is archived.
-
-- ▢ If current measurements show test *execution* (rather than compile/link) is
-  again the dominant inner-loop cost, measure bounded parallel execution of
-  independent test binaries before adding another runner dependency. Do not
-  optimize this from the old 63-minute baseline; re-measure the current runner.
-
+3. state the product/authority/dependency payoff rather than a process step;
+4. keep tests proportional to the invariant; and
+5. when a card closes, archive its campaign history instead of leaving another
+   permanent completion narrative here.

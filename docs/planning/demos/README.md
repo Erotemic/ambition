@@ -1,109 +1,95 @@
-# The demo suite — doctrine
+# Secondary games and acceptance customers — doctrine
 
-**Authored by fable, 2026-07-05.** The demos are the engine's executable
-acceptance suite ([`../vision.md`](../vision.md) §4–5). The original four are written in
-stone — [Sanic](sanic.md), [Super Mary-O](super-mary-o.md),
-[Super Smash Siblings](super-smash-siblings.md),
-[Hollow Lite](hollow-lite.md) — with later matrix tiers gaining docs when
-their tier opens. [TwinTrack](twintrack.md) is the executable 2D SR Relativity Plaza: permanent proper-velocity flight, visible moving clocks, labeled light-delayed dialogue, octave Doppler music, progressive light tag, optical presentation, and a scrub-able 2+1D teaching replay. **Parody names are policy** (Q28, Jon 2026-07-06): every
-demo name, character, and asset is a parody-original — homage in grammar,
-never a copy. Each demo doc carries a **Consumes (by role) / Owns** section:
-"consumes" lists engine crates by their [role handles]
-([`../engine/architecture.md`](../engine/architecture.md) §2); "owns" is what
-the demo builds for itself. If work appears that fits neither list, stop and
-classify it: a reusable platformer capability is an oracle-violation and becomes
-engine work; a named rule or presentation choice belongs in the provider;
-anything else is scope drift. Priorities may shuffle; the designs do not.
+Ambition is the flagship game and primary product driver. The games in this
+directory are serious secondary customers used to force reusable engine
+capabilities into honest shapes.
 
-## How a demo authors its world
+They are not disposable fixtures, and they are not the project hierarchy. A
+secondary game may eventually graduate into a **first-class game** if its product
+quality warrants that investment. Super Smash Siblings is a plausible candidate.
+Ambition remains the main game.
 
-**LDtk is the preferred way to make a room — and for a DEMO, Rust is allowed.**
-Sanic's speedway comes from its own `.ldtk` through `ambition_ldtk_tools` (never
-hand-edited). Mary-O's 1-1 and 1-2 are constructed as `ambition_platformer2d_world` IR in Rust
-(`RoomSpec` + `LoadingZone` values), and that is fine for a demo — ADR 0021 made
-the IR backend-agnostic so a programmatic source is not a special case.
+Current customers include Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite
+and TwinTrack.
 
-The tolerance is graded, and demos sit at the loose end (Jon, 2026-07-25): demo
-rooms in Rust are fine, the Ambition **sandbox** should prefer LDtk, and the
-Ambition **game** proper will require it. So do not read Mary-O as licence to
-skip LDtk elsewhere, and do not treat "Rust is easier right now" as a reason to
-grow the programmatic path — **if the level needs a concept LDtk cannot express
-yet, add it to LDtk and the tooling.** That is where the investment goes.
+## Ownership rule
 
-Either way the IR is not optional: lower authored placement records rather than
-spawning room content through a parallel channel.
+Each game separates:
 
-Reviewers keep filing Mary-O's Rust-authored rooms as an ADR 0009 violation. For
-a demo they are not one — say so rather than migrating.
+- **engine capability it consumes** — reusable mechanics, simulation, world,
+  participant, presentation, authoring and service seams;
+- **game policy it owns** — named rules, content, tuning, UI flow and fiction.
 
-## The shape (every demo, no exceptions)
+If a secondary game needs a capability that should also be usable by Ambition or
+another game, implement it in the reusable engine with a game-independent API.
+Do not hide missing engine capability in provider-local infrastructure. Equally,
+do not promote named game policy into core merely because it is sophisticated.
 
+## World authoring
+
+LDtk is the preferred spatial authoring surface for Ambition and for games where
+it fits. Programmatic world IR remains useful for focused tests, generated
+content and small experimental games, but it is not a reason to leave obvious
+LDtk authoring gaps unfixed.
+
+If a real level needs a reusable world concept LDtk cannot express pleasantly,
+improve [`../engine/ldtk-authoring-and-world-tools.md`](../engine/ldtk-authoring-and-world-tools.md)
+and the backend-neutral world IR rather than building a second game-specific
+world channel.
+
+## Composition shape
+
+A game should compose ordinary engine capabilities plus its provider/content and
+rules. Hosted and standalone forms should use the same simulation/rules systems
+with explicit scope chosen by the composition root.
+
+Conceptually:
+
+```text
+engine capabilities
+      +
+game/provider content
+      +
+game rules / presentation policy
+      |
+      +--> standalone host
+      +--> Ambition-hosted area when product-appropriate
 ```
-game/
-  ambition_demo_<name>/      — ONE content crate: worlds, rosters/catalog rows,
-                               movesets, rules plugin(s), mode/match state, HUD data
-  ambition_demo_<name>_app/  — explicit composition root: foundation plugins +
-                               PlatformerEnginePlugins + PlatformerHostPlugins +
-                               <Name>DemoContentPlugin + <Name>RulesPlugin (global)
-```
 
-**The executable reference:** each demo installs the common engine/runtime/host
-composition and registers its provider explicitly. The provider lifecycle owns
-preparation, exact activation, session construction, and cleanup; demo apps should
-not copy those mechanics or call low-level session setup directly.
+Hosting a secondary game inside Ambition is a strong composability test, not a
+requirement that every future first-class game remain a tiny embedded mode.
 
-- **Standalone:** depends only on engine crates and composes them through public
-  Bevy/Ambition seams. `git log --stat` for the demo touches ZERO engine crates.
-  A demo may expose reusable engine work; that work is stated as a general
-  platformer capability, introduces no demo-named branch, and lands in its own
-  engine commit — not inside the demo's. Provider commits own the demo's named
-  content and policy.
-- **The `bevy` manifest line is expected, not a violation:** a content crate
-  that defines its own `#[derive(Component)]`/`#[derive(Resource)]` must list
-  `bevy` directly in its `Cargo.toml`, even though it reaches engine types
-  through `ambition_platformer2d::…`. Bevy's derive macros resolve `::bevy_ecs` via the
-  consumer's own manifest, which the umbrella's re-export cannot satisfy. One
-  line, version pinned by the workspace — authoring through the umbrella "alone"
-  carries this asterisk.
-- **Adversarial discipline:** the demo agent may not "quickly fix" the engine,
-  hide a missing engine capability in provider-local infrastructure, or add a
-  demo-specific core hack. Surface the ownership question, then put reusable
-  machinery in the engine and named policy in the provider. The recorded gap is
-  the product as much as the demo — see the named API leaks in
-  [`fixtures/external_consumer/`](../../../fixtures/external_consumer/), the
-  out-of-workspace version of this same discipline.
-- **Headless-first:** every demo ships scripted reachability/win-path
-  tests (complete the level / win a match via `SlotControls` headlessly)
-  before any feel pass. Visuals draw blind and ship.
+## Participant and view doctrine
 
-## The scoped game-mode pattern (ambition hosts every demo)
+Do not assume one human, one controller, one body or one camera merely because a
+particular acceptance game currently has them.
 
-A demo's RULES are a plugin whose systems run under a **mode scope**, not
-global app state:
+- participants/control authority belong to the shared input/session model;
+- local versus network transport is not body identity;
+- shared/split/adaptive presentation belongs to the multi-view engine;
+- one game may require party cohesion while another allows different rooms;
+- TwinTrack may derive a distinct reference-frame presentation per local view;
+- Smash usually uses a shared arena view but must not force the engine back to a
+  singleton-camera ontology.
 
-- Engine seam (decomposition Phase D-C): `RoomMetadata.mode:
-  Option<String>` + an `in_mode("<name>")` run-condition helper; the demo's
-  rules systems attach with `.run_if(in_mode("sanic"))` when hosted, or
-  unconditionally (`GlobalMode`) in the standalone app — same systems, two
-  activation policies, chosen by the APP, not the rules crate.
-- `ambition_app` depends on each `ambition_demo_<name>` content crate, mounts the demo's zone
-  (its .ldtk world merges via the multi-world loader; a LoadingZone door
-  from the sandbox), and tags the zone's rooms with the mode. Possess Sanic
-  in the Hall, walk into the Sanic wing, and the demo IS running — same
-  systems as standalone; only HUD chrome and the surrounding world differ.
-- Mode state (score, stocks, timers) lives on mode-scoped entities/
-  resources owned by the rules plugin, reset on zone entry (the
-  RoomScopedEntity pattern generalizes: ModeScopedEntity).
-- **This pattern is the composability forcing-function:** if a demo's
-  rules can't scope to a zone, the design leaked global assumptions —
-  fix the design, not the pattern.
+See [`../engine/multiplayer-and-multiview.md`](../engine/multiplayer-and-multiview.md).
 
-## Executor notes
+## Headless acceptance
 
-Demo work is [opus] by default (the engine tracks it depends on carry
-their own grades); art draws blind per the standing rule; each demo doc
-lists its engine dependencies — a demo agent finding a dependency unmet
-STOPS to classify the gap. Reusable capability becomes an engine track, executed
-per its own grade and never inlined into a demo commit; named policy remains demo
-work. Do not disguise engine work as provider-local glue or provider policy as a
-reusable core abstraction.
+A serious customer should prove its rules through the real headless simulation
+before relying on visual feel. The test should exercise the capability the game
+actually claims to need rather than building a parallel test-only simulator.
+
+Visual/game-feel evaluation remains human/product work. A passing headless test
+cannot establish that a fight, camera transition or level is fun.
+
+## Graduation to first-class game
+
+Graduation is a product decision, not an architecture loophole. A graduated game
+may gain deeper content, packaging, UX and long-term support, but:
+
+- its ordinary mechanics still use shared engine capabilities;
+- its named rules remain game-owned;
+- its needs can create new engine programs when they are genuinely reusable; and
+- Ambition remains the flagship unless the maintainer explicitly changes that
+  product decision.

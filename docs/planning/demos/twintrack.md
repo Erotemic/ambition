@@ -18,6 +18,41 @@ resolved from that participant's own reference frame. That work is deliberately
 after SR-8; the open-follow camera and centered plaza land first so the single-
 observer experience has a clean spatial baseline.
 
+
+## Dual-observer / split-screen acceptance
+
+TwinTrack is the strongest acceptance customer for the engine's multi-view
+architecture because two local participants can observe **the same authoritative
+Minkowski simulation through different reference frames**.
+
+The target is not two copies of the plaza. It is:
+
+```text
+one simulation + two participants/control assignments + two LocalView-like
+observer contexts + two independently derived presentations
+```
+
+Each view may choose laboratory or observer-local presentation independently. A
+view's aberration, Doppler, light-delay source selection, simultaneity plane, HUD
+and spacetime overlay derive from that view's observer/reference frame. None of
+those presentation choices changes authoritative world state.
+
+This should consume
+[`../engine/multiplayer-and-multiview.md`](../engine/multiplayer-and-multiview.md),
+not create a TwinTrack-only camera manager. The first proof can be fixed 50/50
+split; adaptive grouping is primarily an Ambition product requirement and should
+come from the same engine view-index model.
+
+Acceptance:
+
+- two controlled bodies can move simultaneously through participant-aware input;
+- each half of the screen follows its assigned observer;
+- each observer-local visual transformation is different when their states differ;
+- one view may remain laboratory-frame while the other is observer-local;
+- the default-on 3D spacetime exhibit is view-owned/presented without duplicating
+  simulation state; and
+- rollback/headless state remains independent of how many local views render it.
+
 ## Player-facing premise
 
 Everyone starts with a clock. The controlled participant flies around a plaza

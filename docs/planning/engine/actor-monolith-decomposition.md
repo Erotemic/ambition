@@ -21,7 +21,8 @@ At HEAD `43373f72ddc2` on 2026-08-07:
   crates it did not request because the actor monolith brought them into the
   resolved graph: audio, cutscene, dialog, encounter, items, LDtk, menu,
   persistence, portal, projectiles, settings menu, SFX, SFX bank, UI nav, and
-  VFX. See [`api-1.0-campaign.md`](api-1.0-campaign.md).
+  VFX. See [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md)
+  and [`public-sdk-1.0.md`](public-sdk-1.0.md).
 
 The decomposition trigger has therefore fired for **two independent reasons**:
 consumer dependency leakage and compile-unit cost. The work is no longer

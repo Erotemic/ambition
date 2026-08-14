@@ -1,8 +1,10 @@
 # Game vision
 
-Ambition the *game* — the first content crate, the proof the engine composes. It is
-real and we care about it, but it is **downstream of an elegant engine**: content
-seeds and informs the engine, it does not drive its architecture.
+Ambition the *game* is the **flagship and primary product driver**. It is built
+on the reusable engine rather than privileged engine shortcuts, but the engine
+program is judged partly by whether Ambition becomes better to author, extend,
+ship and play. Product needs should expose reusable capability; they are not
+subordinate to an abstract framework.
 
 ---
 
@@ -66,3 +68,18 @@ quest steps, save flags, NPCs, portals), so they're content, not new systems:
 commit to the Alice/Bob handshake + Eve/Mallory + the Kernel hub first. Add a new idea
 here when it's still rough but should be findable; archive one only when it's
 misleading or superseded.
+
+
+## Multiplayer direction
+
+Ambition should eventually support solo, local couch co-op, online co-op and
+mixed local+remote parties through one body/control architecture. Presentation
+may be shared-screen, fixed split-screen or adaptively split when participants
+separate and merged when they regroup. When the game mode allows independent
+exploration, participants may occupy different rooms rather than being forced
+into one globally active room.
+
+Story/dialogue/save/join policy remains Ambition product design; participant,
+transport, world-residency and view-index machinery belongs to the reusable
+engine. See [`multiplayer.md`](multiplayer.md) and
+[`../engine/multiplayer-and-multiview.md`](../engine/multiplayer-and-multiview.md).

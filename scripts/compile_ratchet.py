@@ -153,11 +153,10 @@ and every edge that changes what an edit reaches. Neither is a superset.
 
 ## ⛔ There is no `--check` flag, and that is deliberate
 
-This repo has been bitten twice by an optional `--check`: a guard that prints
-its findings and exits 0 unless somebody remembered a flag is green by
-construction. `check_roadmap_evidence.py` ran that way for its whole life and
-caught nothing (fixed 2026-08-07). So a violation here exits 1 by default, and
-the flag that makes it advisory is `--report-only`, which has to be typed.
+A guard that prints findings and exits 0 unless somebody remembered an
+enforcement flag is green by construction. So a violation here exits 1 by
+default, and the flag that makes it advisory is `--report-only`, which has to be
+typed deliberately.
 
 ## The subject is `ambition_app`
 

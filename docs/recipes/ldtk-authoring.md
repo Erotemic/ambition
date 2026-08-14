@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-08-13
 related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/systems/ldtk-world-composition.md
@@ -24,13 +24,13 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
 ## Safe manual edit loop
 
 ```bash
-WORLD=game/ambition_content/assets/worlds/sandbox.ldtk
+WORLD=game/ambition_content/assets/worlds/<world>.ldtk
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor "$WORLD"
 # Edit and save in LDtk.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair "$WORLD" --in-place --backup
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip "$WORLD"
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate "$WORLD"
-git diff -- "$WORLD"
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:"$WORLD" "$WORLD"
 ```
 
 Use the exact subcommand help before mutation. Most mutators require an explicit
@@ -54,6 +54,32 @@ PYTHONPATH=tools/ambition_ldtk_tools \
 
 Use `--output /tmp/review.ldtk` for a non-destructive review file and
 `--replace-existing` only for a spec-owned generated level.
+
+
+## Moving platforms and kinematic world objects
+
+Moving platforms are **already authored from LDtk**. The current converter can
+lower authored position/size plus `speed`, horizontal `sweep_dx`, referenced
+`KinematicPath`/legacy path id, and vertical wrapping fields such as `loop_dy`
+and `loop_min_y` into `MovingPlatformSpec`.
+
+That means the forward task is not "add LDtk moving platforms". It is to make the
+existing path Engine-1.0 quality:
+
+- prefer native/typed `EntityRef` linkage for a platform's path instead of a
+  string relation;
+- make motion mode explicit/validated instead of depending on precedence among
+  optional fields;
+- improve path/point editing beyond coordinate strings where LDtk can represent
+  the intent directly;
+- surface mode-specific validation and provenance as authoring diagnostics; and
+- keep runtime moving-geometry/contact semantics in the reusable world/simulation
+  model rather than in an Ambition-only adapter.
+
+See
+[`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md)
+and
+[`../planning/engine/kinematic-world-objects.md`](../planning/engine/kinematic-world-objects.md).
 
 ## Placement discipline
 

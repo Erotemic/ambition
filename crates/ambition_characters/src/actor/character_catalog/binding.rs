@@ -83,7 +83,8 @@ impl std::fmt::Display for BrainPresetId {
 /// preparation.** So a `PreparedCharacterDefinition` still carries a reference
 /// rather than an id — which is honest about where the work happens, and is
 /// itself a thing to fix: a prepared definition should hold resolved identities.
-/// See `docs/planning/character-template-architecture-2026-08-10.md`.
+/// See `docs/planning/engine/simulation-authority-and-determinism.md` for the
+/// remaining preparation/authority cleanup and the archived D73 brief for history.
 ///
 /// ⚠ not to be confused with `content_schema::BrainPresetRef`, which is a
 /// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.

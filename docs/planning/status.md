@@ -1,126 +1,105 @@
 # HEAD orientation
 
-**Snapshot:** `cecd01ca064b` (2026-08-13).
+**Snapshot:** `d9ed6e49e37a` (2026-08-13 local project date).
 
-This page is a cold-start orientation map, not an execution queue and not a
-completion diary. The live continuation authority is
-[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md). The focused plan linked by
-a queue row owns its technical design. [`tracks.md`](tracks.md) is the standing
-reservoir used when the queue needs more work.
+This page is a cold-start map, not an execution queue and not a completion
+diary. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the continuing
+execution authority. [`tracks.md`](tracks.md) is the standing reservoir used to
+replenish it. Focused plans own technical design.
 
-If this page disagrees with a focused active campaign or with current source,
-update this page rather than appending another historical correction.
+If this page disagrees with current source or a focused open plan, update this
+page rather than appending an archaeological correction.
 
-## What is active now
+## Major closure: D73 is finished
 
-### D73 — authority convergence
+The authority-convergence campaign closed on 2026-08-13. The live architecture
+no longer has an enemy `ArchetypeSpec` / `CharacterRoster` body authority or a
+build-legacy-body-then-patch character road. Intrinsic body/capability facts come
+from authored/prepared `CharacterDefinition`; placement, disposition,
+controller, participant and ruleset facts remain contextual.
 
-[`authority-convergance-campaign-2026-08-13.md`](authority-convergance-campaign-2026-08-13.md)
-is the current first ordering authority. At this snapshot the campaign has
-already removed most of the legacy actor/template duplication:
+The migration working memory is archived under
+[`../archive/planning-superseded/2026-08-13/`](../archive/planning-superseded/2026-08-13/).
+Do not reconstruct deleted D73 representations because an archived review names
+them.
 
-- `ActorIntent` / `ActorCooldowns` mirror maintenance is gone;
-- `BodyCombat` has been reduced toward actual reaction history instead of a
-  mixed mirror/configuration object;
-- prepared character bodies are complete enough that the old incomplete-body
-  fallback is no longer the intended architecture;
-- `adopt_character_intrinsics` is deleted;
-- the enemy archetype/roster ontology has been deleted; and
-- the campaign is in its final AC7 naming/documentation/amplification phase.
+## Current architectural direction
 
-The campaign itself is the authority for its exact progress and hard exit
-criteria. Do not recreate an earlier AC phase because an older plan still
-mentions its pre-migration symbols.
+The successor umbrella is
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
+The goal is a credible Godot/Unity-class 2D engine on Bevy while **Ambition
+remains the flagship game and primary product driver**.
 
-### D72 — Smash as a body-generic engine customer
+The highest-value successor fronts are:
 
-[`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md)
-is the next major proving ground after the D73 ordering constraint. Smash is not
-a mode that earns special body/combat paths; it is a customer that should force
-the shared engine abstractions to become expressive enough.
+1. **Ambition authoring + kinematic world objects.** Treat authoring/tooling as
+   an engine product, improve LDtk as a first-class spatial compiler surface,
+   and use moving platforms as the first vertical slice. See
+   [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md) and
+   [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
+   and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
+2. **Ambition multiplayer + multi-view presentation.** Support local, online and
+   mixed participants independently of shared/fixed/adaptive split-screen; grow
+   toward multiple resident rooms when participants separate. See
+   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
+   and [`game/multiplayer.md`](game/multiplayer.md).
+3. **Simulation authority and determinism.** Decompose parameter-ceiling systems
+   by phase/authority and invert rollback declaration ownership. See
+   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
+4. **Capability/runtime composition.** Make optional capabilities honest in
+   dependency and composition topology. See
+   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+5. **Public SDK, authoring ergonomics, performance and iteration.** See
+   [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
+   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
-### Continuation queue
+## Product and engine customers
 
-The queue is intentionally inexhaustible. Finishing its current rows means
-selecting the next highest-value unresolved work, recording it, and continuing.
-Do not treat a short or temporarily empty row list as a project-completion
-signal.
+- **Ambition:** flagship game. Its real content, authoring, multiplayer,
+  persistence and presentation needs have first claim on product value.
+- **Super Smash Siblings:** serious platform-fighter customer and possible future
+  first-class game, but not the project focus. Its remaining body-generic work is
+  in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
+- **TwinTrack:** strongest current pressure test for independent views and
+  observer/reference-frame presentation; split-screen should exercise the same
+  multi-view model Ambition uses.
+- **Sanic / Super Mary-O / Hollow Lite:** retained acceptance customers for
+  movement, classic platforming/content, and encounters/boss authoring.
 
-## Architectural state worth knowing before touching code
+An acceptance customer may eventually become a first-class game. That changes
+its product investment, not the engine ownership rules.
 
-- **One body, one path is the default model.** A controlled body, NPC, hostile
-  actor, boss, summon, and match fighter are ordinary actor bodies distinguished
-  by authored capabilities and contextual control/relationship/session facts.
-  See [`../concepts/one-body-one-path.md`](../concepts/one-body-one-path.md).
-- **Character definitions are reusable authored composition.** Intrinsic body
-  facts belong to the prepared character/body; controller, disposition,
-  placement and ruleset/session facts remain contextual.
-- **Construction is transactional.** Preparation resolves authored identifiers
-  before commit; missing content should refuse before partially replacing a
-  world/session.
-- **Rollback authority is simulation authority.** Irreversible presentation
-  effects caused by speculative simulation cross the confirmed external-effect
-  seam rather than escaping directly.
-- **Determinism must not depend on incidental Bevy graph topology.** The current
-  authority-convergence campaign has a scheduler-perturbation canary; the larger
-  system-parameter/phase decomposition remains successor work.
-- **The actor monolith is drained by coherent ownership, not line-count quotas.**
-  Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
-  and current dependency/ECS evidence.
-- **The public facade is the compatibility boundary.** Internal historical crate
-  topology is not an API promise.
+## Durable architecture to remember
 
-## Important successor architecture work
-
-These are deliberately not folded into D73 just because they are nearby:
-
-- invert rollback declaration/registration ownership so the generic runtime no
-  longer acts as a census of every gameplay domain;
-- decompose Bevy parameter-ceiling systems such as large actor-brain ticks by
-  semantic authority and simulation phase rather than tuple-packing parameters;
-- continue actor-monolith decomposition where a carve improves ownership,
-  dependency closure, API shape or iteration cost; and
-- continue public-facade / optional-capability cleanup where consumers still
-  inherit capabilities they did not request.
-
-The standing reservoir for these and other non-immediate tasks is
-[`tracks.md`](tracks.md).
-
-## Current product / acceptance fronts
-
-- **Sanic:** the shared movement/host seams, ring economy, badnik loop and restart
-  path exist; the remaining acceptance list lives only in
-  [`demos/sanic.md`](demos/sanic.md).
-- **Super Mary-O:** use [`demos/super-mary-o.md`](demos/super-mary-o.md) and Jon's
-  observations for remaining behavior/polish. Do not reconstruct its backlog
-  from old execution ledgers.
-- **Smash:** active body-generic proving ground; see the D72 plan above.
-- **TwinTrack:** relativity research/acceptance remains active through
-  [`engine/relativity.md`](engine/relativity.md) and
-  [`demos/twintrack.md`](demos/twintrack.md).
-- **Hollow-lite / bosses:** still useful engine customers; see
-  [`demos/hollow-lite.md`](demos/hollow-lite.md) and
-  [`engine/boss-design.md`](engine/boss-design.md).
+- one body, one path;
+- character definitions own intrinsic reusable body composition;
+- controllers provide intent rather than defining a body species;
+- construction/preparation fails before partial mutation;
+- deterministic simulation authority is explicit and snapshotable;
+- views are local presentation over one simulation, not duplicate worlds;
+- transport, control assignment, world residency and view layout are independent
+  axes;
+- LDtk is Ambition's preferred spatial authoring surface and should improve when
+  real Ambition content outgrows it;
+- the actor monolith is drained by coherent ownership, not line-count quotas;
+- public APIs should expose game concepts rather than historical crate topology.
 
 ## Explicitly deferred, not abandoned
 
-- Matchbox/P2P predicted-input correction work waits until a game actually needs
-  online play; see [`engine/netcode.md`](engine/netcode.md).
-- Slower Light remains a future 3D relativity game; see
-  [`engine/slower-light.md`](engine/slower-light.md).
-- Water/oil extensions to falling-sand work are shelved product ideas, not
-  rejected features; see [`engine/falling-sand.md`](engine/falling-sand.md).
-- The Leafwing clash-scan optimization remains trigger-based maintenance; see
-  [`triage/leafwing-clash-scan-patch-2026-07-23.md`](triage/leafwing-clash-scan-patch-2026-07-23.md).
+- production online transport/Matchbox work should grow from an actual
+  multiplayer slice rather than be built speculatively;
+- Slower Light remains a future 3D relativity game;
+- water/oil extensions to falling-sand remain desired deferred product ideas;
+- the Leafwing clash-scan optimization remains trigger-based maintenance.
 
 ## Where to look next
 
 1. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) for execution order.
-2. The focused plan named by the selected queue row.
+2. The focused plan named by the selected row.
 3. [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
    for direct maintainer observations.
-4. [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) only for
-   questions that genuinely still need a maintainer decision.
+4. [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) only when
+   an actual product/feel decision is required.
 5. [`tracks.md`](tracks.md) when replenishing the queue.
 6. `docs/concepts/`, `docs/systems/`, `docs/architecture/` and `docs/adr/` for
-   settled current truth; `docs/archive/` for history.
+   settled truth; `docs/archive/` for history.

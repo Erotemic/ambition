@@ -24,7 +24,8 @@
 //! may grow fields the runtime folds into something else. They are the same
 //! today because the five facts happen to be purely authored today.
 //!
-//! See `docs/planning/character-template-architecture-2026-08-10.md`.
+//! See `docs/systems/actors-brains-and-character-content.md`; the D73 migration
+//! brief is archived under `docs/archive/planning-superseded/2026-08-13/`.
 
 /// The authored on-death behaviour of a character template.
 ///

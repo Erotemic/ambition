@@ -1170,7 +1170,8 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// the runtime crate. Re-exported from `ambition_combat::moveset`, so every
 /// existing path still resolves.
 ///
-/// See `docs/planning/character-template-architecture-2026-08-10.md`.
+/// See `docs/systems/actors-brains-and-character-content.md`; historical D73
+/// rationale is archived under `docs/archive/planning-superseded/2026-08-13/`.
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the
 /// distinct `smash` base. A moveset that authors no smash verb falls back to its

@@ -65,6 +65,18 @@ not always centred on its mount: GNU-ton rides his mount's *back*
 (`[869, 754]` on `[786, 832]`). An equal-`px` assertion looks obviously right,
 passes on the pirates, and reddens the one boss mount that was already working.
 
+
+## Moving-platform authoring direction
+
+The runtime/backend already understands LDtk `MovingPlatform` and
+`KinematicPath` content. Current authored platform fields include size/position,
+speed, simple horizontal sweep, path linkage and vertical wrapping-elevator
+parameters. Do not create a parallel hard-coded platform format because the
+editor surface is imperfect.
+
+The next tooling work is tracked in
+[`../planning/engine/ldtk-authoring-and-world-tools.md`](../planning/engine/ldtk-authoring-and-world-tools.md): use the existing `EntityRef` support for typed path links, improve visible path/point authoring and provide semantic diagnostics/previews for motion mode and platform travel.
+
 ## Agent rules
 
 - Validate before and after semantic LDtk edits.

@@ -72,8 +72,8 @@ policy.
 7. [`tracks.md`](tracks.md) when replenishing the queue or surveying standing
    work.
 8. [`roadmap.md`](roadmap.md) and
-   [`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md)
-   for longer-horizon strategy and capability ordering.
+   [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md)
+   for longer-horizon strategy and capability programs.
 
 ## Document roles
 
@@ -87,8 +87,8 @@ policy.
 
 ### Product intent
 
-- `demos/` — acceptance-game specifications.
-- `game/` — Ambition-the-game direction.
+- `game/` — **Ambition-the-game direction; Ambition is the flagship and primary product driver.**
+- `demos/` — serious secondary engine customers / acceptance-game specifications. A customer may later graduate into a first-class game without displacing Ambition.
 - focused engine plans — open engine capabilities and design work.
 - `awaiting-maintainer-decision.md` — unresolved maintainer questions.
 - `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` — direct maintainer reports.
@@ -177,10 +177,15 @@ maintaining independent copies of the same completion narrative.
 ## Binding spine
 
 North star: *every upgrade a theorem, every boss a failed objective function,
-every biome a mathematical world model.* The game is the first engine customer.
-The end-state oracle is whether another platformer can be built by adding
-provider/content crates and using supported Ambition seams rather than editing
-Ambition-specific engine internals.
+every biome a mathematical world model.* **Ambition is the flagship game and
+primary product driver.** Engine capabilities should make Ambition better while
+remaining reusable enough that another substantial game can consume them through
+supported seams rather than editing Ambition-specific engine internals.
+
+Post-D73 forward architecture is organized under
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
+New capability programs feed the live queue; they do not create parallel
+execution queues.
 
 Prefer reusable composition, explicit ownership, deterministic/headless
 simulation, strong public APIs, modular capability selection, useful authoring

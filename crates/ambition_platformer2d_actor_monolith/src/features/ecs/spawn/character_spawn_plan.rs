@@ -17,13 +17,12 @@
 //! generic runtime ECS components
 //! ```
 //!
-//! ⚠ **this is an UPSTREAM layer, not a merge of the two existing plans.**
-//! `EnemyActorSpawnPlan` and `NpcActorSpawnPlan` are already-LOWERED results:
-//! by the time either exists the brain is built, the action set resolved and
-//! the seed constructed from the archetype. They share nine of their twelve
-//! fields, and every one of the nine is an OUTPUT of resolution — which is
-//! evidence of a shared CONSTRUCTOR, not of a shared plan. Merging them would
-//! produce one struct that still asks the archetype what the body is.
+//! ⚠ **this is an UPSTREAM layer, not a taxonomy of enemy/NPC bodies.**
+//! `EnemyActorSpawnPlan` and `NpcActorSpawnPlan` remain executor-local bundles
+//! after the common character request has been resolved. Their shared fields are
+//! outputs of character/control/context resolution, not evidence for restoring
+//! separate body authorities. If they converge further, converge around the
+//! ordinary character-body constructor rather than around an enemy/NPC kind.
 //!
 //! ⚠ **it carries `character` + `context` and NOT YET `controller` or an
 //! autonomous-profile override, deliberately.** Those are the plan's other two
@@ -40,7 +39,8 @@
 //! the CHARACTER states. A field that a character could author belongs on the
 //! definition, and putting it here makes this the next god-object.
 //!
-//! See `docs/planning/character-template-architecture-2026-08-10.md`, appendix E.
+//! See `docs/systems/actors-brains-and-character-content.md`; the original D73
+//! appendix is archived under `docs/archive/planning-superseded/2026-08-13/`.
 
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_core as ae;

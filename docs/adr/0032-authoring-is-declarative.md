@@ -16,9 +16,11 @@ lifecycle to the *public authoring surface*, and extends
 RON authors content) to cover federated capability schemas.
 
 Reached across four rounds of external review; see
-[`../reviews/claude-reply-2026-07-30-api.md`](../reviews/claude-reply-2026-07-30-api.md)
-§8–§11. The executable plan is
-[`../planning/engine/api-1.0-campaign.md`](../planning/engine/api-1.0-campaign.md).
+[`../archive/reviews/claude-reply-2026-07-30-api.md`](../archive/reviews/claude-reply-2026-07-30-api.md)
+§8–§11. The historical executable API campaign is archived at
+[`../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md`](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md).
+Current authoring-product work is owned by
+[`../planning/engine/authoring-and-tools.md`](../planning/engine/authoring-and-tools.md).
 
 ## Context
 
@@ -127,32 +129,39 @@ pipeline, inspector, any third-party plugin. Per
 [ADR 0031](0031-public-facade-is-the-compatibility-boundary.md), `PlatformerApp`
 is a plugin group, not a runtime that owns your app.
 
-**4. Named content is data; Rust names reusable behavior and exceptions.**
+**4. Declarative is a property of the value, not a mandate for one file format.**
 
-This is [ADR 0017](0017-rust-behavior-ron-content-ldtk-space.md), and it is
-already true at scale: `character_catalog.ron` is 2,733 lines and 141 character
-rows, while `CharacterDefinition::new` appears in four places (two versus
-duelists, Sanic, Mary-O, the robot lineage). A module registers *content
-sources*; it does not enumerate the cast.
+ADR 0017 still gives us a useful default: spatial layout belongs in a spatial
+authoring backend, broad data-oriented content benefits from data files, and
+reusable behavior belongs in code. D73 sharpened the important boundary,
+however: **pure Rust construction of an inert authored value is still
+declarative authoring.**
 
-0017 predates capability federation, so two things are added:
+A provider may build a `CharacterDefinition`, rules document, generated world
+fragment, or other content value in Rust when composition, reuse, procedural
+authoring or type-safe capability references make that the clearest source. What
+this ADR forbids is using authoring as an excuse to imperatively mutate `App`,
+bypass preparation, or create a second runtime authority.
 
-* **Facet schemas are federated.** A capability registers the schemas its
-  content may use (`module.content_schemas().register::<T>()`). Without this the
-  content format is a closed world the engine owns, and every new capability
-  needs an engine edit — the monolith in a different file format.
-* **Rust authoring remains for four reasons, not three.** Tests, procedural
-  generation and unrepresentable schemas are the obvious ones. The fourth is the
-  one this repository actually has: **the character's behavior is supplied by
-  host code as a deliberate authoring choice** — the protagonist whose combat is
-  a runtime `AbilitySet` concern. Content must be able to *say* that, or the
-  protagonist stays in Rust forever and the rule keeps an exception nobody can
-  close.
+The choice is therefore not "RON good, Rust bad". It is:
 
-  ⚠ expressed as a **validated, versioned binding identity** — a provider id the
-  content names and validation resolves against installed providers — not as a
-  global `HostCode` flag. A magic enum arm is a second authority on what a kit
-  is; a resolved binding is one more reference obeying decision 5.
+```text
+inert/provider-owned authored values
+        -> validate / resolve / prepare
+        -> deterministic installation / runtime projection
+```
+
+versus an imperative mutation stream whose completeness depends on plugin/order
+history.
+
+Broad cast metadata may still live efficiently in provider data such as
+`character_catalog.ron`; character-specific intrinsic composition may also be
+expressed by registered `CharacterDefinition` values. Preparation is where those
+sources become one complete runtime character rather than parallel authorities.
+
+Facet schemas remain federated: capabilities register the schemas they own so
+third-party content can extend the authored model without editing a closed
+engine enum.
 
 **5. A raw string is never a runtime authority.**
 
@@ -273,13 +282,12 @@ system is not data. Restricting capabilities to an engine-known closed set would
 buy purity by forbidding third-party capabilities, which is the federation
 property the whole design depends on.
 
-**Enumerate content in Rust** (`module.characters().define(mallory())?`).
-Rejected: contradicts ADR 0017, contradicts the existing 2,733-line catalog, and
-makes every content row a recompilation concern in a workspace with ~10-minute
-builds. The sharpened acceptance test is that **adding a character requires no
-Rust compilation to validate** — and its negative half, that a character naming
-a missing schema or unregistered preset must *fail* validation rather than boot
-with a silently missing facet.
+**Imperatively enumerate content into `App` from Rust.** Rejected. Rust-authored
+*values* are allowed; a provider walking a cast and mutating runtime resources or
+registering order-dependent side effects as the authoring model is not. Large
+row-oriented content should still prefer data/generated sources when that
+improves iteration, but compile avoidance is an ergonomics consideration rather
+than the definition of declarative authoring.
 
 ## Current implications for agents
 

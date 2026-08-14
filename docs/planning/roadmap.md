@@ -1,85 +1,114 @@
-# Roadmap
+# Roadmap — Ambition and Engine 1.0
 
-Current source-backed state is in [`status.md`](status.md); execution order is in
-[`tracks.md`](tracks.md); direct Jon decisions and confidence are in
-[`maintainer-decisions.md`](maintainer-decisions.md).
+Current facts are in [`status.md`](status.md). Current execution order is in the
+self-replenishing [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md).
+[`tracks.md`](tracks.md) is the standing reservoir, not a second queue.
 
-**North-star oracle:** could another platformer be built by adding a provider and
-content crate without editing core? It judges the end state: reusable platformer
-capability grows in the engine, while named game policy and content enter through
-Bevy plugins and supported Ambition seams. Its adversarial instrument is
-[`fixtures/external_consumer/`](../../fixtures/external_consumer/) (Outlander).
+## North star
 
-## Phases
+Ambition is the flagship game. The engine should become a credible
+Godot/Unity-class 2D engine because that makes Ambition better to build and makes
+its successful capabilities reusable by other games.
 
-- **P1 — unified mechanical foundation:** substantially landed. One body path,
-  explicit frames/time domains, world IR, movement models, moveset execution,
-  and one-way observation are foundations rather than active decomposition work.
-- **P2 — exclusive extension/lifecycle seams:** complete at the July 16 campaign
-  bar. Placement lowering, provider lifecycle, session ownership, programmatic
-  simulation, selected content ownership, touch separation, and repaired
-  render/domain seams have one authoritative path.
-- **P3 — acceptance-game pressure tests:** current product maturity phase. Super
-  Mary-O has closed its level-1 gate; Sanic's complete-act proof and the remaining
-  external provider-composition workflow evidence are still live. A demo may
-  expose reusable engine work, but it may not create a named core branch or a
-  private replacement for an ordinary engine responsibility.
-- **P4 — richer mechanics and second consumers:** encounter lifecycle convergence
-  is closed; later customers include Super Smash Siblings and Hollow Lite. Real
-  second consumers decide optional domain and presentation seams.
-- **P5 — broader maturity:** GGRS/bevy_ggrs drive rollback; later work includes
-  stronger simulation-participation guarantees, local-N and optional online
-  transport, additional acceptance games, measured budgets, and mature provider
-  documentation.
+The external-composition oracle remains useful:
 
-The phase labels describe customer maturity, not a requirement to serialize all
-work.
+> Can Ambition use the capability deeply while another game can opt into the
+> same capability through supported engine/provider seams without editing
+> Ambition-specific engine code?
 
-## Engine-competitiveness master plan
+That is stricter than "can the Ambition app do it" and more useful than abstract
+internal purity.
 
-The complete capability destination, Bevy/Ambition ownership split, campaign
-breakdown, and strategic dependency order live in
-[`engine/competitive-2d-platformer-engine-roadmap.md`](engine/competitive-2d-platformer-engine-roadmap.md).
-This file remains the durable phase map and decision register. Current facts live
-in [`status.md`](status.md); executable ordering lives in [`tracks.md`](tracks.md).
+## Post-D73 phase map
 
-The durable architecture sequence is:
+D73 closed the duplicate character/body authority. The next phases are capability
+programs rather than another migration chronology.
 
-1. finish the already-active construction/provider-composition closure;
-2. make authoritative simulation participation and rewind proof difficult to omit;
-3. finish participant action routing and add shared temporal action ownership on
-   top of the landed slot-to-action and `MovePlayback` seams;
-4. finish and enforce the existing swept collision/contact doctrine, then migrate
-   remaining ad hoc consumers onto its cast/contact conventions;
-5. compose shippable resource, input, presentation, persistence, and host
-   capabilities with Bevy according to demonstrated game needs;
-6. mature platformer-specific diagnosis, budgets, and supported provider seams.
+### E1 — world authoring and kinematic world objects
 
-Online transport may remain a live product track, but it is not a prerequisite
-for declaring the single-player/local platformer engine core coherent.
+Ambition's level-building loop is a product surface. Mature LDtk integration,
+typed references, validation and semantic tooling, with moving platforms as the
+first dynamic-world vertical slice.
 
-## Acceptance-game matrix
+Owners:
+[`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md),
+[`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
 
-| Game | Primary stress | Phase / state |
+### E2 — simulation authority and deterministic composition
+
+Make mutation phases, actor/control authority, rollback participation and
+cross-domain ownership explicit enough that scheduler topology and global type
+censuses cannot silently change semantics.
+
+Owner:
+[`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
+
+### E3 — multiplayer, multi-view and world residency
+
+One participant model should support solo, couch co-op, online co-op and mixed
+local/remote play. Presentation may be shared, fixed-split or adaptively split;
+participants may occupy different rooms when rules permit it.
+
+Ambition is the primary customer. TwinTrack is a strong independent-observer
+acceptance customer.
+
+Owners:
+[`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md),
+[`game/multiplayer.md`](game/multiplayer.md).
+
+### E4 — capability/runtime composition
+
+Make optional capabilities honest in dependencies and plugin/runtime assembly.
+A minimal game should not inherit unrelated bosses, portals, persistence,
+rollback adapters, presentation or Ambition-specific policy by accident.
+
+Owner:
+[`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+
+### E5 — public SDK and authoring ergonomics
+
+Expose semantic game concepts rather than implementation topology. Improve the
+workflow for worlds, characters, actions, encounters, assets, services,
+diagnostics and provider extensions by exercising real consumers rather than
+institutionalizing source-text/API migration rituals.
+
+Owner: [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md).
+
+### E6 — performance and iteration
+
+Compile topology, runtime budgets, multi-view rendering cost, asset residency,
+mobile quality profiles, headless throughput and content iteration are engine
+product quality.
+
+Owner:
+[`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+
+The phase labels describe strategic capability fronts, not a requirement to
+serialize all work.
+
+## Game/customer matrix
+
+| Game | Project role | Primary pressure |
 |---|---|---|
-| **Sanic** | momentum movement, provider-owned playable identity, hosted rules | P3; mechanics/host path proven, complete act open |
-| **Super Mary-O** | classic AABB, equipment/powerups, sequencing | P3; level-1 acceptance gate closed |
-| **Super Smash Siblings** | N bodies/slots, full combat, local match state | P4 |
-| **Hollow Lite** | exploration, encounter/boss quality, respawn/save policy | P4 |
-| MoneySeize | precision feel and economy | P5 |
-| Celeste slice | assist modes, wind, room gimmicks | P5 |
-| Metroid slice | item-gated traversal, maps, saves | P5 |
-| Braid slice | snapshot/rewind | P5 |
-| Dead Cells slice | runtime room-graph assembly | P5 |
-| Rain World slice | rig animation and ecosystem AI | far edge |
+| **Ambition** | **flagship / primary product** | deep content, LDtk authoring, possession, portals, persistence, multiplayer, multi-room presentation, long-term engine ergonomics |
+| **Super Smash Siblings** | serious acceptance customer; possible future first-class game | N participants, body-generic combat, fighter AI, match state, stage authoring |
+| **TwinTrack** | acceptance/research game | independent observer/reference-frame views, split-screen, unusual spatial presentation |
+| **Sanic** | acceptance game | high-speed movement/collision and momentum feel |
+| **Super Mary-O** | acceptance game | classic platforming, authored levels, equipment/powerups |
+| **Hollow Lite** | acceptance game | encounters, bosses, respawn/save and combat authoring quality |
 
-## Binding architecture decisions
+Acceptance games are not disposable tests: they are persistent engine customers.
+A customer may graduate into a first-class game if product investment warrants
+it. Ambition remains the main game.
+
+## Binding architectural decisions
 
 M1 two-port body · M2 one control seam · M3 actors/props, no player/enemy type
 axis · M4 relational state · M5 frame-agnostic mechanics · M6 install-time
 content registries · M7 sprite metadata owns combat volumes · M8 LDtk owns space,
-RON tuning, Yarn dialogue · M9 explicit time domains · M10 no generic pushout ·
-M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
+RON/Rust/provider data own non-spatial authored composition, Yarn owns dialogue ·
+M9 explicit time domains · M10 no generic pushout · M11 replace rather than
+bridge pre-release · M12 runtime owns global ordering.
 
 | # | Decision | Owner |
 |---|---|---|
@@ -88,42 +117,38 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 | M15 | One damage meter, authored death policy. | [`engine/combat-model.md`](engine/combat-model.md) |
 | M16 | Wearing a character means using that character's authored kit. | [`../concepts/one-body-one-path.md`](../concepts/one-body-one-path.md) |
 | M17 | Shipped brains use the no-cheat observation contract. | [`engine/fighter-brain.md`](engine/fighter-brain.md) |
-| M18 | Boss quality is measured by grammar, validation, and playtest data. | [`engine/boss-design.md`](engine/boss-design.md) |
-| M19 | Demo rules are mode-scoped plugins. | [`demos/README.md`](demos/README.md) |
+| M18 | Boss quality is measured by grammar, validation and playtest evidence. | [`engine/boss-design.md`](engine/boss-design.md) |
+| M19 | Game/mode rules are scoped composition, not core actor taxonomy. | [`demos/README.md`](demos/README.md) |
 | M20 | Determinism is a managed same-build contract now; cross-platform bit exactness is not promised. | [`engine/netcode.md`](engine/netcode.md) |
 | M21 | Encounter is orchestration, never an actor type. | [`../systems/boss-encounter-architecture.md`](../systems/boss-encounter-architecture.md) |
 | M22 | Cutscenes and encounters remain separate domain models; no universal sequence DSL. | [`maintainer-decisions.md`](maintainer-decisions.md) |
 | M23 | Content eviction ends in an open provider-owned ownership shape. | [`maintainer-decisions.md`](maintainer-decisions.md) |
-| M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [archived recon consensus](../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md) |
-| M25 | Session content is assembled deterministically, fingerprinted, and frozen; world construction is planned and validated before mutation, with explicit entity provenance. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
-| M27 | GGRS and bevy_ggrs are the sole ephemeral rollback authority; Ambition owns only deterministic domain registration, exact content/schema binding, and session policy. | [`../adr/0027-ggrs-is-the-sole-rollback-authority.md`](../adr/0027-ggrs-is-the-sole-rollback-authority.md) |
-| M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
-| M28 | The actor monolith is decomposed incrementally by semantic ownership, with compile isolation and minimal-consumer dependency closure as explicit success measures. | [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) |
-
-**M28 clarification (2026-08-13):** compile isolation and optional-capability
-closure are related measurements but not the same mechanism. A coherent carve
-can shorten rebuild chains without changing the minimal consumer's transitive
-capability set. The maintainer has separately decided that capabilities **must be
-optional**; current optional-capability work therefore belongs to the public
-facade/runtime composition track rather than being a success criterion every
-actor carve must satisfy. See [`maintainer-decisions.md`](maintainer-decisions.md)
-and [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md).
+| M24 | Activation, reset, transition and restore use one App-installed placement-lowering authority. | [archived decision record](../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md) |
+| M25 | Session content is assembled deterministically, validated before mutation and committed transactionally. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
+| M26 | Room transitions are readiness-gated; source authority remains until one-shot target commit. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
+| M27 | GGRS/bevy_ggrs own ephemeral rollback; domains own deterministic state declarations and session policy. | [`../adr/0027-ggrs-is-the-sole-rollback-authority.md`](../adr/0027-ggrs-is-the-sole-rollback-authority.md) |
+| M28 | The actor monolith is decomposed incrementally by semantic ownership and measurable dependency/change amplification. | [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) |
+| M29 | Transport, control assignment, world residency and local view layout are orthogonal multiplayer axes. | [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md) |
+| M30 | Views observe one simulation; split-screen is indexed local presentation, not duplicated game state. | [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md) |
 
 ## Durable uncertainties
 
-- **LDtk at scale:** retain a backend-neutral world IR while actively developing one editor path.
-- **Bevy churn:** narrow crate and plugin interfaces remain the shield.
-- **Feel drift:** use per-body data and differential/property tests, never divergent kernels.
-- **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
-- **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
-- **Public naming:** the provider crate shipped as `ambition_platformer2d_provider`; engine/repository split timing remains unsettled. The actor monolith keeps its temporary name during the active carve; the final actor/residual names are chosen only after ownership has been drained enough to make them honest.
-- **Boss carve:** convergence permits reassessment, but the current source review has not identified a concrete reuse, dependency, or build boundary; the maintainer ruling remains open.
-- **Online transport:** GGRS integration is landed; Matchbox signaling/WebRTC and production connection policy are DEFERRED to the Super Smash Siblings era (Jon, 2026-07-24) — no netplay work before a game needs it.
+- **LDtk at scale:** invest deeply in the current preferred editor while keeping
+  the world IR backend-neutral.
+- **Multi-room residency:** grow from a concrete two-participant/two-room
+  Ambition slice before designing a general open-world streamer.
+- **Network product policy:** transport is an engine capability; matchmaking,
+  join/save ownership and narrative party rules are game policy.
+- **Capability granularity:** split real independently useful domains; do not
+  create package noise for theoretical optionality.
+- **Bevy churn:** narrow semantic crate/plugin interfaces remain the shield.
+- **Feel drift:** authored body policy and behavioral/property tests beat
+  divergent kernels.
 
 ## Standing practices
 
-Trustworthy docs or no docs · data-driven ECS · evaluate ecosystem crates before
-custom infrastructure · verify against the real headless simulation · visual
-feel remains BLIND until judged · archive completed narratives · new scanners or
-poison tests require evidence that types/APIs/behavioral tests cannot enforce the
-invariant.
+Trustworthy docs or no docs · Ambition-first product pressure · data-driven ECS ·
+evaluate ecosystem crates before custom infrastructure · verify against the real
+headless simulation · visual feel remains BLIND until judged · archive completed
+migration narratives · source scans/poison tests are exceptional rather than a
+planning default.

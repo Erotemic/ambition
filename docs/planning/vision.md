@@ -1,209 +1,153 @@
-# THE VISION — a Unity/Godot-class 2D platformer engine, the Bevy way
+# THE VISION — Ambition on a Godot/Unity-class 2D engine, the Bevy way
 
-**Authored by fable, 2026-07-05, at Jon's direction.** This is the top of the
-planning stack: what we are building, why, and what "done" looks like. Every
-other document in `docs/planning/` serves this one. If a task cannot be traced
-to this document through [`roadmap.md`](roadmap.md) and a track in
-[`tracks.md`](tracks.md), it is not the work.
+Ambition is the flagship game. The engine exists to make Ambition unusually
+expressive, robust and pleasant to build while turning the capabilities Ambition
+proves into a reusable 2D game-engine surface on top of Bevy.
 
----
+The project is therefore pursuing two outcomes at once:
 
-## 1. What we are building
+1. **Ambition becomes an excellent game with ambitious mechanics and content.**
+2. **The engine underneath it becomes credible competition for Godot/Unity-class
+   2D development in architecture, runtime capability, authoring ergonomics,
+   deterministic/headless execution and extensibility.**
 
-**A reusable, composable, ECS-native 2D platformer engine** on Bevy and Rust
-that competes with Unity, Godot, and (in expressibility ambition) Unreal for
-the 2D platformer / action-platformer / platform-fighter space — plus
-**Ambition**, the first game built on it, and a **suite of demo games** that
-prove the engine the way test vectors prove a kernel.
+Neither goal is served by making Ambition a thin demo for an abstract framework.
+Ambition is the deepest customer and primary product driver. Reuse matters
+because it keeps the flagship from accumulating one-off machinery and makes the
+successful engine usable by other games.
 
-> A primary goal of ambition should be to create a game engine on the level of
-> Unity / Unreal / Godot for 2D platformers, on top of Bevy and Rust. That
-> means ECS-native and centered around the idea of composition and plugins.
-> ELEGANCE and BEAUTY are first-class design constraints of the codebase.
-> — Jon (binding)
+## The design oracle
 
-**Our identity vs. the editor engines:** Unity and Godot are *editors* first.
-We are **the Bevy way taken seriously**: the engine is a set of composable
-crates and plugins; content is a Rust crate + RON + a spatial authoring backend
-(LDtk today; Tiled/Godot-scene importers are legitimate future backends —
-we may well borrow *their* authoring tools) + Yarn for dialogue. The "editor"
-is best-in-class external tools speaking through validated data seams. We
-compete on **architecture, expressibility, headless testability, and agent
-navigability**, not on shipping an editor binary.
+> Can Ambition use this capability deeply while another substantial game can opt
+> into the same capability through supported composition seams without editing
+> Ambition-specific engine code?
 
-**The design oracle** (Jon's, permanent):
+This judges the end state rather than each commit. Named game policy and content
+belong to the game/provider. Reusable world, simulation, input, combat,
+presentation, authoring and service capability belongs to the engine.
 
-> *Could another platformer be built by ADDING a provider/content crate, without
-> editing core?*
+## Product pillars
 
-It judges the end state, not each commit. Reusable platformer capability grows in
-the engine constantly; named game content and policy enter through provider
-crates, Bevy plugins, and supported Ambition seams. What the oracle forbids is a
-core that cannot be extended additively — a game-named branch, a closed roster,
-or a private replacement for an ordinary engine responsibility.
+### 1. Ambition — flagship game
 
-The oracle is executable. The demos run it continuously: a demo's implementation
-exposes missing reusable capability and misplaced policy, and each gap lands as
-engine work or as provider work rather than a demo-shaped core hack.
-[`fixtures/external_consumer/`](../../fixtures/external_consumer/) (Outlander)
-runs it adversarially: a room, character, enemy, recipe, and transition authored
-from OUTSIDE the workspace — own `[workspace]`, own lockfile, no policy
-exemptions — through the `ambition_platformer2d` umbrella alone, gated by `external consumer:
-outlander` in `scripts/run_tests.py`, with every engine-internal assumption it
-must lean on recorded as a named API leak.
+*Every upgrade a theorem, every boss a failed objective function, every biome a
+mathematical world model.* Ambition's world, characters, story and unusual
+mechanics are not delayed until an abstract engine is complete. They drive the
+engine programs by presenting real product requirements.
 
-## 2. The four product pillars
+Ambition should eventually support local and online multiplayer, including
+shared-screen, fixed split-screen and adaptive share/split play, with participants
+able to occupy different rooms when the rules allow independent exploration.
+See [`game/multiplayer.md`](game/multiplayer.md).
 
-1. **The engine** — the crate stack of [`engine/architecture.md`](engine/architecture.md):
-   frame-agnostic movement kernels (axis-swept AABB *and* surface-momentum),
-   the unified actor model (one body pipeline, brains behind one interface,
-   possession as brain transfer), data-driven combat (movesets, volumes,
-   knockback), authored space through backend-agnostic IR, deterministic
-   headless simulation, and a plugin-group bootstrap
-   (`ambition_platformer2d_runtime::PlatformerEnginePlugins`) plus an explicit provider/host
-   composition path that keeps product apps focused on product policy.
-2. **Ambition, the game** — the flagship content crate
-   ([`game/`](game/)): *"Every upgrade a theorem, every boss a failed
-   objective function, every biome a math world model."* The Ambition game is ALSO
-   the engine's integration customer: it can host every demo game inside its world
-   (see §5).
-3. **The demo suite** ([`demos/`](demos/)) — standalone games, each ONE
-   content crate + a thin app: **Sanic**, **Super Mary-O**, **Super Smash
-   Siblings**, **Hollow Lite**, and the later tiers of the matrix in
-   [`roadmap.md`](roadmap.md). These are written in stone as vision; only
-   their ORDER is negotiable.
-4. **The intelligence stack** — headless/RL-first simulation is not a test
-   convenience, it is a product surface: forward-model AI (the
-   [fighter brain](engine/fighter-brain.md)), the
-   [boss-design pipeline](engine/boss-design.md) that lets mid-tier agents
-   author genuinely good fights, and RL training hooks. Only
-   non-simulation-impacting visuals may be presentation-only; everything that
-   affects outcomes must be steppable headless.
+### 2. Engine 1.0
 
-## 3. What "1.0" looks like (the goal state)
+The engine is a set of coherent crates/plugins and public semantic APIs rather
+than an exposed historical crate graph. The post-D73 successor program is
+[`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
 
-- The crate map of `engine/architecture.md` is REAL: every crate is a
-  well-scoped domain a small agent can navigate and modify safely.
-  **Extensibility, pluggability, compile isolation, and agent navigation remain
-  high priorities.** The actor monolith is now an active incremental
-  decomposition target: consumer-footprint measurements and compile-unit cost
-  have both crossed the threshold for a carve. Boundaries are chosen by semantic
-  ownership and dependency direction, not by mirroring directories or slicing
-  by LOC. See
-  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
-- All four named demos exist and pass the oracle — they exercise the shared
-  engine contracts with no parallel private engine paths; the Ambition game
-  can host each demo in-world (§5).
-- The collision doctrine of
-  [`../concepts/movement-collision.md`](../concepts/movement-collision.md) holds: every
-  mover and every trigger is swept (no discrete sampling anywhere), the OOB
-  bug class is structurally dead, non-axis-aligned geometry is a first-class
-  surface, and portals may MOVE.
-- The combat model ([`engine/combat-model.md`](engine/combat-model.md))
-  expresses the full smash stack — knockback scaling on a damage-accumulation
-  axis, directional influence, smash attacks, cancel/chain tables — as data,
-  shared by every actor, headless-testable.
-- Determinism is a managed contract ([`engine/netcode.md`](engine/netcode.md)):
-  local-N multiplayer ships with Super Smash Siblings; the
-  snapshot/rollback seams exist even if online ships post-1.0.
-- Relativity mechanics ([`engine/slower-light.md`](engine/slower-light.md))
-  have their seams paid for (Tier-0 obligations in the read-model), with the
-  full mechanic staged behind the demos.
-- The docs stack is trustworthy: `docs/planning/` is the single source of
-  truth for direction; `docs/concepts|systems|mechanics` describe what exists
-  (updating them is a scheduled track, executable by mid-tier agents).
+A credible 1.0 has:
 
-## 4. The demo suite is written in stone
+- one body/construction model for controlled bodies, NPCs, bosses, summons and
+  match fighters;
+- explicit simulation authority and deterministic phase structure;
+- local/remote participants independent of control assignment and presentation;
+- indexed local views so one simulation can render shared or split presentation;
+- multi-room residency sufficient for real co-op separation;
+- strong LDtk/world authoring, preparation diagnostics and intent-level tools;
+- ordinary kinematic/dynamic world geometry such as moving platforms;
+- honest optional capabilities and narrow runtime composition;
+- a public SDK expressed in game concepts rather than internal topology;
+- headless execution as a supported product surface;
+- desktop/mobile quality, asset residency and iteration budgets that are measured
+  as engine ergonomics.
 
-Each demo is a **standalone provider composed from the engine**:
-`<demo>-content` (one crate: world, rosters, rules, match/level state) + a
-`<demo>-app` (~100-line thin shell). A demo's own commits edit no engine crate
-and no engine crate may name a demo. A demo may expose reusable engine work —
-that work lands as engine work in its own commit, never as a private replacement
-for an ordinary engine responsibility. Full designs live in [`demos/`](demos/):
+### 3. Serious secondary games and acceptance customers
 
-| Demo | Inspiration | Proves |
-|---|---|---|
-| **Sanic** | Sonic 2, Emerald Hill Zone act 1 | the momentum/surface kernel: slopes, loops, springs, rings-analog, momentum enemies |
-| **Super Mary-O** | SMB1 world 1-1 | the classic tile-platformer baseline: powerup-as-equipment, one-way camera, stomp kills, flagpole sequencing |
-| **Super Smash Siblings** | SSB1 | multiple controlled bodies with DIFFERENT movement identities in one arena, shared combat semantics, retained feel; local-N input routing; match state outside engine core |
-| **Hollow Lite** | Hollow Knight's first area + boss | the exploration-combat loop and, above all, the boss-design pipeline producing a FUN fight |
+Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite and TwinTrack force the
+engine to prove capabilities Ambition alone might not stress soon enough. They
+are persistent customers rather than disposable test fixtures.
 
-Later tiers (MoneySeize, Celeste-slice, Metroid-slice, Braid-slice, Dead
-Cells-slice, Rain World-slice) stay in the roadmap matrix as capability test
-vectors; they get full design docs when their tier opens.
+A customer may later **graduate into a first-class game**. Super Smash Siblings
+is an obvious candidate if it becomes compelling enough. Graduation increases
+product investment; it does not move Ambition out of the flagship role or create
+private engine semantics.
 
-## 5. Ambition hosts the demos (maximum composability, forced honesty)
+TwinTrack is especially important for multi-view work because two participants
+can require different observer/reference-frame presentations over one shared
+simulation.
 
-The Ambition app depends on the demo **content** crates and mounts
-each demo inside the LDtk world: possess Sanic in the Hall of Characters, walk
-into the Sanic demo zone, and that game plays *as if launched standalone* —
-same rules, same systems — with only presentation differences (the standalone
-app pulls fewer crates; ambition may keep its own HUD chrome). This forces the
-demo crates to be genuinely scoped systems: **a demo's rules are a plugin
-activated per area/room, not global app state.** The design (the "scoped game
-mode" pattern) lives in [`demos/README.md`](demos/README.md). We do not have
-to build all of this at once — but every demo is DESIGNED for it from day one.
+### 4. Intelligence and headless simulation
 
-## 6. How we get there (the arc, one paragraph)
+Headless/RL-first simulation is not merely a testing convenience. Fighter AI,
+boss authoring/evaluation, deterministic replays and future training hooks should
+consume the same authoritative simulation used by visible hosts.
 
-Finish the engine face: complete the provider/runtime seams, make simulation
-participation mechanically safe, and perform role-driven ownership moves where
-the architecture identifies misplaced policy. Keep the collision, combat, and
-netcode doctrines ahead of the games that need them. Ship Sanic and Super
-Mary-O against the oracle. Land local-N plus the combat stack, then ship Super
-Smash Siblings. Land the boss pipeline and fighter
-brain, then ship Hollow Lite. Ambition-the-game expands on the engine throughout
-this process and becomes its deepest integrated customer rather than waiting for
-an abstractly finished engine. Phases and status:
-[`roadmap.md`](roadmap.md); the live queue: [`tracks.md`](tracks.md).
+## The authoring position
 
-## 7. Who does what (the model ladder)
+We do not need to win by building another monolithic editor executable. Bevy and
+Rust let the runtime remain composable while best-in-class external tools author
+validated content.
 
-Jon has limited frontier-model (fable) access. The plan is deliberately
-structured so that **everything below the hardest tier is executable by
-opus-level agents following the written specs, with sonnet-level agents
-handling mechanically-specified slices.** Every track in `tracks.md` carries
-an executor grade:
+**LDtk is Ambition's preferred spatial editor today and should receive serious
+investment.** If a real Ambition room needs a concept LDtk cannot express
+pleasantly, improve the LDtk schema/tooling/compiler rather than normalizing a
+parallel hard-coded world path.
 
-- **[fable]** — genuinely hard design/kernel work; do while access lasts
-  (the standing list lives at the top of `tracks.md`).
-- **[opus, fable-specced]** — the spec in the planning doc IS the design;
-  opus executes it verbatim and STOPS at the first sign the spec doesn't fit
-  the code (surface the mismatch; do not improvise architecture).
-- **[opus]** — well-bounded engineering; the doc gives shape + exit criteria.
-- **[sonnet]** — mechanical: renames, moves, authored data, test scaffolds,
-  doc sweeps — with exact file lists and commands.
+The world IR remains backend-neutral so other spatial importers are possible in
+the future. That does not make today's LDtk experience second-class.
 
-**Deviation rule (Jon's, binding):** an agent may NOT deviate from the plan
-because a step is hard, tedious, or "you aren't gonna need it" — we are
-building an engine; people will need it. Deviation is legitimate ONLY when
-the code contradicts the plan's factual assumptions ("fable didn't see
-this"); then the agent surfaces the contradiction in the execution log and
-queues the design question, taking parallel work meanwhile. Jon can always
-overrule — and good agent counter-arguments are welcome; make the case, don't
-silently drift.
+Character/content authoring may be RON, Rust values, generated data, SVG/sprite
+metadata or other provider-owned source formats where each is appropriate. The
+important property is declarative/transactional composition into validated
+prepared content, not one universal syntax.
 
-## 8. Principles digest
+## Acceptance/customer matrix
 
-The autonomous-decision criteria are Jon's own words in
-[`decision-principles.md`](decision-principles.md) — read them before any
-architectural choice. The compressed spine:
+| Customer | Primary architectural pressure |
+|---|---|
+| **Ambition** | deep world/content authoring, portals, possession, persistence, multiplayer, multi-room residency, adaptive split-screen, long-term ergonomics |
+| **Super Smash Siblings** | N participants, body-generic combat, fighter AI, match rules, stage authoring; possible future first-class game |
+| **TwinTrack** | independent observer/reference-frame views, split-screen and unusual presentation derived from one simulation |
+| **Sanic** | high-speed movement, collision, momentum and host/provider composition |
+| **Super Mary-O** | classic platforming, level authoring, equipment/powerups and sequencing |
+| **Hollow Lite** | exploration/combat, boss/encounter authoring and quality evaluation |
 
-- **Elegance is the objective function; correctness emerges from it.**
-- **Layer law:** Rust is behavior; RON is content; the world IR is space
-  (authored by a backend: LDtk/Tiled/Godot); machinery never imports named
-  content.
-- **Relativity, not player-centrism:** mechanics are frame-agnostic and
-  shared by every actor; the strongest tests are symmetry/covariance (C4
-  gravity rotation, through-portal invariance).
-- **Two-port body:** controllers attempt, bodies enforce — human, brain, RL,
-  and (future) remote inputs are interchangeable.
-- **No pushout, ever** (one exception: portal-close straddle eviction).
-  Transit emerges at the face; sweep to TOI; nothing teleports.
-- **Headless first:** verify against the real simulation; feel ships BLIND in
-  marked commits for Jon's pass; never pause the architecture for feel.
-- **Delete, don't bridge; rename in place; add seams when the second use case
-  lands.** Pre-release, single-commit replacement beats compat shims.
-- **Grow existing crates before minting new ones;** a crate earns existence
-  by owning a coherent domain (healthy band ~1–15k LOC).
+Additional small games should be added when they expose a capability family the
+existing customers do not adequately pressure. We are not optimizing for a high
+demo count.
+
+## What "done enough for 1.0" means
+
+The common path should be coherent enough that a competent developer can build a
+substantially different 2D game without learning Ambition's migration history or
+editing Ambition-specific machinery.
+
+That means, among other things:
+
+- the actor monolith and shared high-fan-in foundations no longer function as
+  accidental composition roots;
+- rollback participation is declared by owning domains rather than censused by a
+  generic runtime;
+- simulation behavior does not change because unrelated Bevy systems perturb
+  implicit schedule topology;
+- a game can select capabilities without silently inheriting unrelated domains;
+- participant/control/view/world-residency concepts support solo through mixed
+  local+network multiplayer;
+- split-screen is a normal presentation configuration, not a second simulation;
+- moving platforms and future kinematic world objects are authored and validated
+  like ordinary world content;
+- public APIs and diagnostics let an external game author work in game concepts;
+- Ambition itself uses those same supported surfaces rather than privileged
+  internal shortcuts.
+
+## Execution model
+
+[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is intentionally
+self-replenishing and owns immediate work order. [`tracks.md`](tracks.md) is the
+standing reservoir. Focused plans own technical design. Completed migration
+narratives move to `docs/archive` so future agents see the current architecture
+first.
+
+The roadmap is [`roadmap.md`](roadmap.md). Explicit maintainer rulings remain in
+[`maintainer-decisions.md`](maintainer-decisions.md).

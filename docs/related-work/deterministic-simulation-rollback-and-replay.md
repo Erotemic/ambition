@@ -26,8 +26,11 @@ The important remaining work is not "add rollback":
    centerpiece.
 5. PA6 still must make participant frame-policy changes deterministic.
 
-See [Task 2](../planning/engine/competitive-2d-platformer-engine-roadmap.md#task-2--minimal-deterministic-scenario-and-replay-harness)
-and [`netcode.md`](../planning/engine/netcode.md).
+See [`simulation-authority-and-determinism.md`](../planning/engine/simulation-authority-and-determinism.md)
+and [`netcode.md`](../planning/engine/netcode.md). The current successor work
+focuses on explicit deterministic phases, domain-owned rollback participation,
+and real consumer/scenario evidence rather than reopening the retired master
+campaign.
 
 ---
 

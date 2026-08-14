@@ -1,99 +1,92 @@
-# Track F — Super Smash Siblings (platform-fighter / SSB1 acceptance demo)
+# Super Smash Siblings — platform-fighter customer
 
-Inspired by Super Smash Bros (N64). Parody names throughout (Q28 policy).
+**State:** OPEN serious engine customer; possible future first-class game.
+**Project order:** Ambition remains the flagship and primary product driver.
 
-**Purpose (Jon's words, binding):** prove that multiple controlled bodies
-with different movement identities can coexist in one arena, share combat
-semantics, and retain their own feel.
+Inspired by early platform fighters while using parody-original characters,
+stages and presentation.
 
-**First-round scope (Jon, 2026-07-06):** NO online multiplayer. Up to
-**4 fighters** in an arena — any mix of CPUs (fighter-brain profiles) and
-at most one human player by default; **a second local controller joins as
-a second human if the slot binding makes it natural** (it does — netcode
-N1.1 is exactly this; treat 2-human as an expected outcome, not a
-stretch). Percent-style damage display. A character select screen.
+## Purpose
 
-## What the demo CONSUMES from the engine (by role)
+Prove that several ordinary controlled bodies with genuinely different authored
+movement/combat identities can coexist in one match without a fighter-only body
+ontology or player-only combat semantics.
 
-| Role | What SSB uses it for | Must exist first |
-|---|---|---|
-| [the sim assembly] + [the provider lifecycle] + [the windowed host] | app composition, exact session scope, mode scope, fixed-tick option | provider/session tracks 1–2; fixed-tick substrate landed |
-| [the sim heart] | bodies, slots, possession, spawn/respawn primitives | landed foundation; session-root cleanup continues |
-| [the combat resolver] | knockback growth + weight + `Unbounded` death policy (CM1), DI (CM2), smash/charge (CM3), cancels (CM4), per-move sfx/vfx (CM5), grab/throw/shield-stun (CM6), frame-data table (CM7) | CM1–CM7. ⚠ `DeathPolicy::Unbounded` had ZERO production callers until the blast zone above existed — a meter that never kills, and no world that does, is an immortal body. It is reachable now and still uncalled: selecting it needs knockback that can actually reach a blast zone (queue F0e). |
-| [the movement kernel] | BOTH movers in one arena — that's the whole point (robot/mary-o/goblin on axis-swept; sanic on surface-momentum) | landed |
-| [the actor vocabulary] | fighter-brain CPU profiles L1–L9 | FB1–FB4 |
-| [device→intent] | N controllers → N slots, join flow binding | N1.1 |
-| [the space IR] + [the LDtk backend] | stages as the demo's own `.ldtk`; blast zones = the world-AABB OOB event | **landed 2026-07-28, and it was not before.** This row said "landed" while the OOB event did not exist as anything consumable: the kernel gate computed `fell_out` and merged it into an anonymous `hazard` bool, and for ACTORS it dropped the flag entirely — a body knocked off a stage fell forever. Now `ResetCause::LeftTheWorld` + `HitSource::LeftTheWorld`, a per-stage `World::blast_margin` authorable as an LDtk level field, and a lethal hit that kills regardless of `kills_at_max`. All three directions: the fall margin always kills (every room has a pit whether it wanted one or not), while the SIDE and CEILING margins are `Option` and absent by default — a platformer walking off the left edge of a corridor is a room transition, a platform fighter thrown off it has lost a stock, and the same engine has to serve both. Measured in the body's frame, so "ceiling" means "the way you do not fall" under any gravity. |
-| [the observation boundary] | damage-meter + facts read for the percent HUD (the sim never knows "percent" exists) | E4 |
-| [the authoring spine] + [the sprite-geometry authority] | roster rows, movesets, sheets | landed |
+The full body-generic engine plan is
+[`../smash-body-generic-combat-2026-08-09.md`](../smash-body-generic-combat-2026-08-09.md).
 
-Anything beyond this list that turns out to be needed engine-side is an
-**oracle-violation**: a reusable platform-fighter/platformer capability, landed
-as engine work, never inlined in demo commits. Match-specific policy remains in
-the demo. Never hide the former in provider-local infrastructure or the latter in
-a named core branch.
+## Engine capabilities consumed
 
-## What the demo OWNS (builds for itself, in `ssb_content`)
+- prepared `CharacterDefinition`/`PreparedCharacterDefinition` composition and
+  ordinary actor construction;
+- shared movement kernels and body capabilities;
+- body-generic damage, knockback, DI, hitlag/hitstun, charge attacks,
+  landing-lag/autocancel, hurtboxes and hitbox tracks;
+- participant/action routing for multiple human and AI-controlled fighters;
+- fighter-brain profiles through ordinary controller intent;
+- LDtk/world IR stage authoring, blast-zone policy and kinematic stage geometry;
+- shared presentation/multi-view infrastructure even when an arena normally
+  selects one shared view;
+- deterministic/headless simulation and rollback-ready match state.
 
-1. **The match rules plugin** (mode-scoped, M19): stocks (default 3),
-   KO detection (consume the engine's OOB/fell-out event as "blast" per
-   stage-authored blast-zone margins), respawn platform (spawn primitive +
-   a brief invulnerability window + descend-on-input), match timer,
-   sudden-death rule, results/victory screen state machine. All state on
-   mode-scoped entities; a full CPU-vs-CPU match must run headless.
-2. **The percent presentation policy**: per-fighter damage meter read from
-   [the observation boundary], rendered as N% (meter × display scale);
-   the `Unbounded` death policy on every fighter row is what makes the
-   meter percent-like. HUD layout is demo-owned UI.
-3. **The roster** — initial cast (Jon): **player-robot, goblin, PCA,
-   mary-o, sanic** (grows as characters become expressive in the game).
-   Standalone-vs-hosted rule: the STANDALONE demo authors its own catalog
-   rows + archetypes + movesets for these five (sheets produced by the
-   shared sprite tooling targets — tool reuse is fine; CRATE dependency
-   on ambition content is not). The HOSTED demo (inside ambition) reads
-   the host's installed catalog, which already contains these characters
-   — the select screen offers the intersection of "roster ids the mode
-   declares" with "ids installed". Per-fighter data each row owns: weight,
-   moveset rows (tilts/aerials/smashes via prefabs + a few authored
-   `MoveSpec`s, one signature special each), death_policy `Unbounded`.
-4. **The character select screen**: a lightweight mode-scoped scene — a
-   portrait grid from the declared roster (portraits = the catalog's hall
-   sprites), cursor per joined slot, CPU-fill toggles + level picker per
-   empty slot, stage pick, GO. Built on [device→intent] + `ui_nav`
-   primitives; explicitly NOT on [the menu stack] (the host menu is
-   Ambition chrome; a demo select screen is demo UI).
-5. **Stages**: 2 arenas in `ssb_stages.ldtk` — a flat+platforms classic
-   and one with a moving platform; blast-zone margins authored as level
-   fields — the fields exist and are registered in every project as of
-   2026-07-28: `blast_margin` (the fall direction, always live) plus the
-   opt-in `side_blast_margin` and `ceiling_blast_margin`, all in whole
-   pixels, all refusing negatives rather than clamping them. No shipped
-   level sets any of them yet, so this demo would be their first real
-   customer (queue F0m); ledges are the engine's ledge-grab vocabulary.
-6. **The join flow**: press-start-to-join binding UI over N1.1's binding
-   resource (slot ↔ device); default = slot 1 human, others CPU.
+Remaining reusable gaps belong in the focused Smash plan rather than being
+implemented privately here.
 
-## Build order (each step lands with headless tests before any feel pass)
+## What Smash owns
 
-- **F1** `ssb_content` + rules plugin: match loop (spawn 4 fixture
-  fighters → damage → KO on OOB → stocks → results) fully headless, on
-  fixture bodies before the real roster exists.
-- **F2** roster: five rows + movesets; CM7 frame-data sanity checks
-  (startup/recovery bands per weight class); per-row signature special.
-- **F3** stages + blast zones + respawn platform + ledge integration.
-- **F4** select screen + join flow + CPU fill (FB profiles); second
-  local controller path proven with two bound devices in a headless
-  input-injection test.
-- **F5** feel pass queue (BLIND commits; Jon tunes weights/kb bands).
-- **F6** hosting: the Colosseum wing in Ambition through the common provider/session lifecycle; the controlled subject seeds slot 1 without a separate player path.
+- stock/timer/sudden-death rules;
+- percent-style presentation of the shared damage meter;
+- roster declaration and character-select UX;
+- CPU-fill/difficulty policy;
+- stage selection and platform-fighter-specific stage policy;
+- respawn platform behavior, match results and victory presentation;
+- content tuning and game feel.
 
-## Exit (Jon's, verbatim + sharpened)
+## Character composition after D73
 
-One content crate + thin app; no engine crate edits to add the demo, no
-demo-named branch, no private replacement for an ordinary engine capability; at
-least two different body profiles fighting in one arena (we ship both
-movers across five characters); match state lives outside engine core.
-Plus: a full 3-stock 4-CPU match completes headlessly with a
-deterministic replay; DI measurably extends survival in that replay; two
-local controllers can play a match; the same characters remain playable
-in ambition's sandbox unchanged.
+A fighter is not `catalog row + archetype + moveset`. The match selects an
+authored character identity that preparation resolves to the complete character
+body/kit consumed by ordinary actor construction. Catalog/provider source data
+may participate in authoring/preparation, but there is no separate enemy
+archetype body authority for the match to invoke.
+
+Hosted Smash uses the characters installed by Ambition. A standalone build
+installs the character definitions/content it wants through the same supported
+provider/SDK seams; it does not depend on Ambition's game-content crate as an
+engine substitute.
+
+## Stage authoring
+
+Stages should be authored through supported world tooling. The intended moving
+platform stage is deliberately a second consumer of
+[`../engine/kinematic-world-objects.md`](../engine/kinematic-world-objects.md):
+Ambition motivates the engine feature, Smash proves it is reusable.
+
+## Multiplayer
+
+The eventual game should support multiple local participants and may later use
+network transport. Both must feed the same participant/control model described
+in [`../engine/multiplayer-and-multiview.md`](../engine/multiplayer-and-multiview.md).
+
+Arena matches normally choose a shared framing policy. That is a game/presentation
+choice, not a requirement that the engine have only one gameplay view.
+
+## Incremental acceptance
+
+1. deterministic full CPU match through ordinary bodies and fighter brains;
+2. several materially different characters/body movement policies in one arena;
+3. two or more local human participants through the shared participant/action
+   seam;
+4. LDtk-authored stages including a moving/kinematic platform;
+5. character-select/match/results UX entirely game-owned;
+6. remaining body-generic platform-fighter mechanics such as grabs/throws added
+   through reusable engine vocabulary when product feel requires them;
+7. later, if product investment justifies it, packaging and content depth that
+   lets Smash graduate from acceptance customer to first-class game.
+
+## Exit
+
+Smash succeeds architecturally when adding a fighter, stage or match rule does
+not require an engine-named Smash branch, CPU and human fighters obey the same
+body laws, and the same characters remain ordinary Ambition characters outside
+the match ruleset.

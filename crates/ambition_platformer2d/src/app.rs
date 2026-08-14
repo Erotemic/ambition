@@ -1,8 +1,9 @@
 //! **Standing up a game.** The engine owns composition ordering; the consumer
 //! states policy.
 //!
-//! Slice A3 of [the API 1.0 campaign](../../../docs/planning/engine/api-1.0-campaign.md),
-//! implementing the call sites in `docs/sdk/api-prototype.md`. ADR 0031
+//! This surface landed during slice A3 of the archived API 1.0 campaign and
+//! implements the call-site shape preserved in `docs/sdk/api-prototype.md`.
+//! Current SDK evolution lives in `docs/planning/engine/public-sdk-1.0.md`. ADR 0031
 //! decision 4: *a consumer states policy — windowed or headless, which
 //! experience, where it starts. It does not sequence asset sources, engine
 //! plugin groups, host groups, shell composition, asset preparation and

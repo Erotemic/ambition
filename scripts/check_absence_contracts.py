@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Check the architectural absences this repo depends on — claims that nothing exists.
 
-``scripts/check_roadmap_evidence.py`` verifies that a claim's CITATIONS still
-exist. It cannot verify the other kind of claim, the kind whose whole content is
-that a thing does *not* exist:
+This checker covers the kind of architectural claim whose whole content is that
+a thing does *not* exist. Ordinary documentation links and behavioral tests can
+point at positive evidence; an important absence needs a structural/dependency
+predicate instead:
 
 * "`register_character` no longer demands art" (queue A1),
 * "the String-keyed sheet-row lookup is deleted" (binding-resolution boundary),
@@ -15,11 +16,11 @@ the expensive way: a row said `with_moveset` had NO production caller, C4 gave i
 two, and the row went on saying it for as long as it took somebody to notice
 (queue W1). Being right when written is not a property a document keeps.
 
-**The mechanism is a predicate, not a cleverer parser.** Do not teach the
-evidence checker to read "used to" / "no longer" / "not yet" — that is prose
-interpretation, and ``check_roadmap_evidence.py``'s own docstring explains why it
-refuses to go there. An absence that MATTERS belongs in the table below, where it
-reddens the day somebody reintroduces the thing.
+**The mechanism is a predicate, not a prose parser.** Do not build machinery that
+tries to infer current architecture from phrases such as "used to", "no longer"
+or "not yet". An absence that materially protects an architectural boundary
+belongs in the table below, where it reddens the day somebody reintroduces the
+thing.
 
 ⚠ **Why this is not a bare `git grep`, which is what the queue first proposed.**
 Three times a goal-guard check grepped for the absence of an identifier and three

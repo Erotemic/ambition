@@ -222,7 +222,21 @@ oboe = { version = "0.6", features = ["shared-stdcxx"] }
 # Several transitive deps use different getrandom major versions; enabling the
 # features here makes Cargo feature-unify the already-pinned versions for the
 # wasm target without affecting native builds.
-getrandom_02 = { package = "getrandom", version = "=0.2.17", features = ["js"] }
+#
+# ⛔⛔ **`getrandom_02` USED TO BE HERE AND WAS THE WRONG HALF OF A FIX.** `ggrs`
+# publishes `wasm-bindgen = ["instant/wasm-bindgen", "getrandom/js"]` — one
+# feature, two browser needs, owned by the crate that needs them. This file
+# supplied the `getrandom/js` half from the top of the graph and nothing supplied
+# the `instant/wasm-bindgen` half, so the RNG worked and the CLOCK did not: the
+# web build compiled and then died at `rust-lld: undefined symbol: now`. The
+# runtime crate that owns `bevy_ggrs` now enables the whole feature through its
+# own `web_platform` (2026-08-14), which supplies both — so this line's job is
+# done by its rightful owner and the line is gone.
+#
+# ⚠ the 0.3/0.4 entries stay: their `wasm_js` comes from deps that publish no
+# equivalent forwarding feature, so this IS their nearest owner. That they read
+# like the deleted line is the smell worth remembering, not a licence to delete
+# them too.
 getrandom_03 = { package = "getrandom", version = "=0.3.4", features = ["wasm_js"] }
 getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js"] }
 

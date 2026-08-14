@@ -158,7 +158,6 @@ dependencies = [
  "bevy_kira_audio",
  "bevy_yarnspinner",
  "console_error_panic_hook",
- "getrandom 0.2.17",
  "getrandom 0.3.4",
  "getrandom 0.4.2",
  "image",
@@ -2001,6 +2000,7 @@ dependencies = [
  "bevy",
  "disqualified",
  "ggrs",
+ "instant",
  "log",
  "seahash",
  "serde",
@@ -4367,6 +4367,7 @@ checksum = "777d9da4dfd802a272f1795a7a1887d6078fd31487e7e68d689596c4c5298046"
 dependencies = [
  "bincode",
  "bitfield-rle",
+ "getrandom 0.2.17",
  "instant",
  "js-sys",
  "parking_lot 0.12.5",

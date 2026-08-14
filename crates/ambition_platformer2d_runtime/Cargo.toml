@@ -89,3 +89,22 @@ causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", 
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
 portal = ["ambition_platformer2d_actor_monolith/portal"]
+# **Browser support for the rollback host.**
+#
+# ⛔⛔ **THIS CRATE OWNS `bevy_ggrs`, SO THIS CRATE OWES THE WASM CLOCK.** `ggrs`
+# depends on `instant`, whose `now()` on wasm32 is an EXTERN with no body unless
+# `instant/wasm-bindgen` is on. Without it the browser build compiles cleanly and
+# then dies at the final link: `rust-lld: undefined symbol: now`. `bevy_ggrs`
+# publishes exactly one feature and it is this forwarding —
+# `wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]`.
+#
+# ⭐ **named for the CAPABILITY, and enabled beside the dependency that needs
+# it.** The app's `web` persona forwards a semantic `web_platform` down the
+# facade; nothing above this crate should have to know that rollback netcode
+# reads a clock, or which crate supplies it. That is the rule this fixes: the
+# whole `web_platform` chain existed and stopped one crate short of the
+# dependency with the target-specific requirement.
+#
+# ⚠ wasm-only by construction rather than by `cfg`: a native build never enables
+# `web_platform`, so this adds nothing to desktop or Android.
+web_platform = ["bevy_ggrs/wasm-bindgen"]

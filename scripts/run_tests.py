@@ -655,22 +655,36 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                         [CARGO, "test"],
                         cwd=str(REPO / "examples" / "capability_demo")))
 
-    # The WEB build, as a compile CHECK rather than a test run: there is no wasm
-    # runner here, and a check is what the failure mode needs anyway. The web
-    # target sat broken for at least four days (see docs/archive/repair_wasm.md)
-    # because nothing in the suite compiled it — every native job stayed green
-    # while `--features web` had four errors in it.
+    # The WEB build. The web target sat broken for at least four days (see
+    # docs/archive/repair_wasm.md) because nothing in the suite compiled it —
+    # every native job stayed green while `--features web` had four errors in it.
     #
-    # A cargo CHECK, so this costs a compile and not a link + run. Whole-suite
-    # and non-fast, because it builds a second target's dependency graph.
+    # ⛔⛔ **ONE PERSONA LINKS, AND THAT IS THE POINT.** This was two `cargo
+    # check`s, which never invoke `rust-lld` — so a whole class of browser
+    # failure was structurally invisible: a dependency whose wasm feature is
+    # missing compiles perfectly and then dies at the link with `undefined
+    # symbol`. `ggrs` reaches `instant`, whose `now()` on wasm32 has no body
+    # unless `instant/wasm-bindgen` is on, and the `web_platform` feature chain
+    # stopped one crate short of the runtime that owns `bevy_ggrs` (2026-08-14).
+    # A check cannot see that. A build can.
+    #
+    # ⚠ **debug, and only the primary persona.** A linked wasm artifact is
+    # expensive; this buys the missing-import class for one composition rather
+    # than paying it twice. The served persona differs in ASSET TRANSPORT, not in
+    # its dependency graph, so it stays a check — if that ever stops being true,
+    # this is the line to change.
     if not only and everything:
         if wasm_target_installed():
-            for persona in ("web", "web_served_assets"):
-                jobs.append(Job(
-                    f"web build check [{persona}]",
-                    [CARGO, "check", "-p", "ambition_app", "--lib",
-                     "--target", "wasm32-unknown-unknown",
-                     "--no-default-features", "--features", persona]))
+            jobs.append(Job(
+                "web build LINK [web]",
+                [CARGO, "build", "-p", "ambition_app", "--lib",
+                 "--target", "wasm32-unknown-unknown",
+                 "--no-default-features", "--features", "web"]))
+            jobs.append(Job(
+                "web build check [web_served_assets]",
+                [CARGO, "check", "-p", "ambition_app", "--lib",
+                 "--target", "wasm32-unknown-unknown",
+                 "--no-default-features", "--features", "web_served_assets"]))
         else:
             # LOUD, not silent. A skipped coverage that says nothing reads
             # exactly like coverage that passed, which is the failure this job

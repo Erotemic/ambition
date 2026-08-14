@@ -34,6 +34,16 @@
             outline: none;
             background: #0a0c14;
         }
+        /*
+         * The page shell's OWN status line, and nothing more.
+         *
+         * ⛔ it must never claim the GAME is ready. The page can observe three
+         * things — whether the wasm module instantiated, whether the canvas has
+         * keyboard focus, and whether startup threw — and it knows nothing
+         * whatsoever about whether a room is loaded or a route has resolved.
+         * It said "loaded · click the canvas to capture keyboard" the whole time
+         * the app was showing a blank canvas, which is worse than saying nothing.
+         */
         #status {
             position: fixed;
             left: 12px;
@@ -41,6 +51,28 @@
             font-size: 12px;
             opacity: 0.65;
             pointer-events: none;
+            transition: opacity 220ms ease;
+        }
+        /* Nothing to say: fade out rather than sit there being read as news. */
+        #status[data-state="quiet"] {
+            opacity: 0;
+        }
+        /* A startup failure is the one thing worth interrupting for. */
+        #status[data-state="error"] {
+            left: 50%;
+            top: 50%;
+            bottom: auto;
+            transform: translate(-50%, -50%);
+            max-width: min(40rem, 90vw);
+            padding: 1rem 1.25rem;
+            font-size: 14px;
+            line-height: 1.5;
+            opacity: 1;
+            border: 1px solid #7a3b46;
+            border-radius: 6px;
+            background: #1a0e12;
+            color: #f0c8ce;
+            pointer-events: auto;
         }
     </style>
 </head>
@@ -48,7 +80,7 @@
     <div id="stage">
         <canvas id="bevy" tabindex="0"></canvas>
     </div>
-    <div id="status">Ambition · wasm32 first pass · click the canvas to capture keyboard</div>
+    <div id="status" data-state="loading">Ambition · loading…</div>
 
     <!--
         AudioContext unlock shim. Browsers create the Web Audio
@@ -159,13 +191,64 @@
         const status = document.getElementById("status");
         const canvas = document.getElementById("bevy");
 
+        /*
+         * ⛔ **THE STATUS LINE REPORTS THE PAGE, NEVER THE GAME.**
+         *
+         * It used to announce "loaded · click the canvas to capture keyboard"
+         * the instant `init()` resolved, and then never change again — so it
+         * survived a click, and it read as a live instruction while the app was
+         * in fact showing a blank canvas with no shell composed at all
+         * (see `visible_composition.rs`). A permanent message is not a status.
+         *
+         * There is also no capture here: Ambition takes ordinary DOM keyboard
+         * focus. Nothing requests Pointer Lock, so describing it as "capture"
+         * promised a mode the app does not have and never exits.
+         *
+         * What the page can honestly observe is exactly this:
+         *   - the wasm module instantiated (or threw);
+         *   - whether the canvas currently holds keyboard focus.
+         * Whether a room is loaded, a route resolved, or a frame drawn is the
+         * app's business and the DOM has no view of it.
+         */
+        const setStatus = (state, text) => {
+            status.dataset.state = state;
+            status.textContent = text;
+        };
+
+        const canvasHasFocus = () => document.activeElement === canvas;
+
+        const reportFocus = () => {
+            if (status.dataset.state === "error") {
+                return;
+            }
+            if (canvasHasFocus()) {
+                // Keyboard already goes to the game: say nothing, quietly.
+                setStatus("quiet", "Ambition");
+            } else {
+                setStatus("hint", "Ambition · click the canvas to give it keyboard focus");
+            }
+        };
+
+        canvas.addEventListener("focus", reportFocus);
+        canvas.addEventListener("blur", reportFocus);
+
         try {
             await init();
-            status.textContent = "Ambition · loaded · click the canvas to capture keyboard";
+            // The browser grants focus to a `tabindex` canvas on request, but
+            // not always (a background tab, a browser that requires a real
+            // gesture first) — so ASK, then report what actually happened
+            // rather than announcing the outcome we wanted.
             canvas.focus();
+            reportFocus();
         } catch (err) {
             console.error(err);
-            status.textContent = "Ambition · failed to load wasm (see console)";
+            setStatus(
+                "error",
+                "Ambition failed to start: the WebAssembly module did not load. " +
+                "Open the browser console for the underlying error. A stale " +
+                "`pkg/` from an older build, or a wasm-bindgen CLI whose version " +
+                "differs from the one Cargo.lock pins, are the two common causes."
+            );
         }
     </script>
 </body>

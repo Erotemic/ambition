@@ -8,10 +8,6 @@ use bevy::window::WindowResolution;
 use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-use super::plugins::{
-    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
-};
-
 /// Resolve the on-disk asset root for the desktop app.
 ///
 /// Bevy's `FileAssetReader` anchors relative asset paths at
@@ -664,28 +660,12 @@ pub fn build_visible_app_with(
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
-    {
-        // ⭐ **NO LONGER GATED ON `dev_tools`.** Bevy seals `SimSchedule` when the
-        // first simulation plugin registers, so the host is chosen here for the
-        // whole build. It used to be chosen inside `#[cfg(feature = "dev_tools")]`
-        // — not a developer convenience but a COUPLING: the only thing that
-        // installed a GGRS session was the dev observatory, and a GGRS host with
-        // no session composes, boots, renders and never simulates. The engine
-        // owns the session now (`runtime::rollback::local_session`), so every
-        // build can have one.
-        //
-        // Ordinary play runs a zero-distance baseline: GGRS drives the simulation
-        // deterministically and rollback stays dormant. F9 raises the check
-        // distance for one bounded proof pulse and drops it back.
-        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
-        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
-    }
+    // The simulation host, the boot curtain, and every other game-side choice
+    // are made once for all platforms by `compose_ambition_visible_game` at the
+    // end of this function. What is decided HERE is what a desktop host uniquely
+    // answers for: which surface exists, and which side effects a non-session
+    // process must not have.
     let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
-    if direct_windowed {
-        app.insert_resource(
-            ambition_platformer2d::platformer::lifecycle::InitialGameplayReadiness::closed(),
-        );
-    }
     if matches!(
         render,
         VisibleRenderMode::NoWindow | VisibleRenderMode::OffscreenGpu
@@ -830,88 +810,30 @@ pub fn build_visible_app_with(
             ));
         }
     }
-    // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition_platformer2d::runtime::init_engine_states(&mut app);
-    // Main-world frame schedules run serially: headless measurement showed
-    // gameplay bodies at <2% of CPU vs ~40% executor bookkeeping + thread
-    // parking (3.7x wall, 32x fewer context switches — see
-    // serialize_frame_schedules). The render sub-app keeps its own parallel
-    // schedules; this only serializes main-world dispatch.
-    ambition_platformer2d::runtime::serialize_frame_schedules(&mut app);
-    let active_profile = asset_config.asset_profile;
-    app.insert_resource(asset_config);
-    // Launch-time "choose your character": inserted BEFORE the plugins so the
-    // sandbox preparation consumes it before publishing session authority.
-    insert_starting_character_override(&mut app);
-    // Host mode: the shell-routed multi-game title screen is the DEFAULT.
-    // Direct development entry (straight into gameplay, no launcher) is host
-    // configuration: `--direct`, or any explicit start-room request (the
-    // run_game.sh mode aliases pass `--start-room`, and their intent is to
-    // land in that room immediately).
-    // ⭐ **K2b edit 1: the shell host is composed EITHER WAY**, and the mode
-    // only decides which route it boots into. Direct entry stops being a second
-    // way to build a game and becomes what `tracks.md` says it should be — *a
-    // shell host whose initial route is the gameplay route*, the recipe
-    // `ambition_demo_sanic_app` already proves.
+    // ⭐ **AND NOW THE PART THAT IS NOT DESKTOP BUSINESS.** Everything above
+    // chose a render surface; everything below is the game, and it is the SAME
+    // game the browser runs. See `visible_composition` for why that is one
+    // function and not a passage repeated per host.
     //
-    // ⚠ this resource must be inserted BEFORE the sim plugins build: it is what
-    // `publish_direct_prepared_session_root` checks, and without it the app
-    // carries the build-time root AND the activation's, which is two canonical
-    // roots and a panic on the first read.
-    app.insert_resource(super::shell_host::AmbitionShellHosted);
-    // **THE PRE-SIMULATION HOOK** — see [`build_visible_app_with`]. The last
-    // instruction before the simulation plugin builds, which is the deadline
-    // every composition input has.
-    compose_inputs(&mut app);
-    match render {
-        VisibleRenderMode::Windowed => {
-            app.add_plugins((
-                AmbitionGameSimulationPlugin,
-                AmbitionGameLdtkRuntimePlugin,
-                AmbitionGamePresentationPlugin,
-            ));
-        }
-        VisibleRenderMode::NoWindow => {
+    // Host mode: the shell-routed multi-game title screen is the DEFAULT. Direct
+    // development entry (straight into gameplay, no launcher) is host
+    // configuration: `--direct`, or any explicit start-room request (the
+    // run_game.sh mode aliases pass `--start-room`, and their intent is to land
+    // in that room immediately).
+    super::visible_composition::compose_ambition_visible_game(
+        &mut app,
+        super::visible_composition::VisibleGameSpec {
+            shell_hosted,
             // bevy_ecs_tilemap (inside LdtkPlugin) requires a RenderApp, which
-            // the no-backend recipe deliberately omits. Ambition's own room
-            // visuals are ordinary sprites and still draw; only the painted
-            // LDtk tile spine is absent in this mode. The session LDtk roots
-            // guard on the asset registry so nothing dangles.
-            app.add_plugins((AmbitionGameSimulationPlugin, AmbitionGamePresentationPlugin));
-        }
-        VisibleRenderMode::OffscreenGpu => {
-            // The FULL set, tile spine included — this mode has a render app,
-            // which is the whole reason it exists. A capture that quietly
-            // dropped the painted tiles would be a photograph of a different
-            // game than the one a player runs.
-            app.add_plugins((
-                AmbitionGameSimulationPlugin,
-                AmbitionGameLdtkRuntimePlugin,
-                AmbitionGamePresentationPlugin,
-            ));
-        }
-    }
-    if shell_hosted {
-        super::shell_host::compose_ambition_shell_host(&mut app);
-    } else {
-        // Straight to gameplay, no launcher and no vanity run-in — which is what
-        // `--direct` and every `--start-room` alias mean.
-        super::shell_host::compose_ambition_shell_host_booting_to(
-            &mut app,
-            super::shell_host::AMBITION_GAMEPLAY_ROUTE,
-        );
-    }
-    super::shell_host::install_ambition_shell_visuals(&mut app);
-    if direct_windowed {
-        super::startup_loading::install_direct_startup_loading(&mut app);
-    }
-    // AssetSource registration runs LAST so EmbeddedAssetRegistry
-    // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
-    app.add_plugins(
-        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
-            active_profile,
-            &ambition_content::worlds::world_manifest(),
-        ),
+            // the `backends: None` no-window recipe deliberately omits. Ambition's
+            // own room visuals are ordinary sprites and still draw; only the
+            // painted LDtk tile spine is absent in that mode, and the session
+            // LDtk roots guard on the asset registry so nothing dangles.
+            tile_spine: !matches!(render, VisibleRenderMode::NoWindow),
+            startup_loading_curtain: direct_windowed,
+            asset_config,
+        },
+        compose_inputs,
     );
     app
 }
@@ -932,42 +854,32 @@ fn cli_direct_entry() -> bool {
     })
 }
 
-/// Read an optional starting-character override from the
-/// `AMBITION_START_CHARACTER` env var. When set to a non-empty
-/// `character_catalog.ron` id, the local player spawns AS that character —
-/// its sprite, combat moveset, and name — instead of the default protagonist.
-/// This is the launch-time surface behind Jon's "choose your character" ask
-/// (`AMBITION_START_CHARACTER=goblin cargo run -p ambition_app`); an in-game
-/// selection menu is the natural follow-up. Unknown ids still spawn a fully
-/// controllable player (the sprite falls back to the colored rectangle).
-fn insert_starting_character_override(app: &mut App) {
-    let Ok(raw) = std::env::var("AMBITION_START_CHARACTER") else {
-        return;
-    };
-    let id = raw.trim();
-    if id.is_empty() {
-        return;
-    }
-    eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
-    app.insert_resource(super::resources::StartingCharacterOverride(
-        ambition_platformer2d::actors::avatar::StartingCharacter::new(id),
-    ));
-}
-
 /// Build + run the visible Bevy app for a browser (wasm32) target.
 ///
-/// Bypasses every desktop-only branch in [`run_visible`]: no CLI parsing
-/// (`std::env::args` is empty in the browser), no `DISPLAY` / Wayland probe,
-/// and no headless fallback (the browser has no terminal to print to and
-/// `process::exit` traps). The window is attached to the `#bevy` canvas
-/// from `web/index.html` and uses the same sandbox plugin trio the desktop
-/// build composes.
+/// **This function is a PLATFORM FOUNDATION and nothing else.** It answers the
+/// three questions a browser host uniquely owns — which surface (the page's
+/// `<canvas>`), which asset profile (the one its Cargo feature set was built
+/// for), and how the app runs — and then hands off to
+/// [`super::visible_composition::compose_ambition_visible_game`], the same
+/// function the desktop builder calls.
 ///
-/// First-pass: audio, dev tools, file watcher, mobile touch, and physics
-/// debris are intentionally OFF (controlled by the Cargo feature set —
-/// build with `--no-default-features --features web`). LDtk loads via the
-/// embedded `static_map` fallback because the wasm build has no working
-/// synchronous filesystem reader for `sandbox.ldtk` in this pass.
+/// ⛔⛔ **it used to compose the game itself, and that is why the browser showed
+/// a blank canvas.** The hand-spelled copy had the plugins but not
+/// `AmbitionShellHosted`, not the shell host, not an initial route, and not
+/// `install_ambition_shell_visuals` — so the wasm linked, wgpu initialized, the
+/// canvas painted, and there was no launcher, no room, and no error to read. A
+/// build gate proves *links*; nothing there proved *composes*. Reported by Jon
+/// 2026-08-14, fixed by deleting the copy rather than by patching it.
+///
+/// It still bypasses every desktop-only branch in [`run_visible`]: no CLI
+/// parsing (`std::env::args` is empty in the browser), no `DISPLAY` / Wayland
+/// probe, and no headless fallback (the browser has no terminal to print to and
+/// `process::exit` traps).
+///
+/// Audio, dev tools, the file watcher, mobile touch, and physics debris are
+/// controlled by the Cargo feature set — build with
+/// `--no-default-features --features web` (embedded core assets) or
+/// `--features web_served_assets` (the full game over HTTP).
 ///
 /// The `#[wasm_bindgen(start)]` shim that calls this lives in
 /// `ambition_app::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
@@ -975,6 +887,28 @@ fn insert_starting_character_override(app: &mut App) {
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub fn run_web() {
     let mut app = App::new();
+    // ⛔ **THE `game://` SOURCE WAS NEVER REGISTERED HERE.** The world manifest
+    // addresses every `.ldtk` file as `game://worlds/<file>` (and the vanity card
+    // its own art the same way), so on the browser those loads resolved through
+    // a source that did not exist. `static_map` hid it for the worlds — the
+    // embedded fallback answered instead — and nothing hid it for anything else.
+    //
+    // ⭐ **the two roots are ONE root here, and that is the packaged case the
+    // engine already documents.** `layered_asset_source` returns the platform
+    // default unchanged when its roots are equal, precisely because a packaged
+    // build (an APK, a Steam Deck install, a served web tree) has had its trees
+    // MERGED BY THE PACKAGER already — see `package_asset_guard.py compose`,
+    // which is what publishes `web/assets/`. So the browser says the same rule
+    // the desktop says, with the same function, and gets Bevy's wasm HTTP reader
+    // fetching `/assets/<path>` for both sources.
+    //
+    // Must register before DefaultPlugins builds AssetPlugin.
+    app.register_asset_source(
+        "game",
+        ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(
+            "assets", "assets",
+        ),
+    );
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "Ambition - Tangent Space Sandbox (Web)".into(),
@@ -988,23 +922,17 @@ pub fn run_web() {
             // so this fills the page without needing a JS resize observer.
             fit_canvas_to_parent: true,
             // Don't let the canvas swallow the browser's own keyboard
-            // shortcuts; first-pass build wants the user to be able to
-            // refresh / open devtools without leaving the page.
+            // shortcuts; the page wants the user to be able to refresh /
+            // open devtools without leaving it.
             prevent_default_event_handling: false,
             ..default()
         }),
         ..default()
     }));
-    // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition_platformer2d::runtime::init_engine_states(&mut app);
-    // wasm has one thread; the multithreaded executor's bookkeeping is pure
-    // overhead there. Same measured rationale as the desktop adoption.
-    ambition_platformer2d::runtime::serialize_frame_schedules(&mut app);
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.
     let asset_config = GameAssetConfig::default();
-    let active_profile = asset_config.asset_profile;
     // One-line boot banner so anyone opening browser devtools can see
     // which asset profile + feature bundle this wasm artifact was
     // built with. Particularly useful when diagnosing
@@ -1013,51 +941,15 @@ pub fn run_web() {
     bevy::log::info!(
         target: "ambition_platformer2d::platformer_assets",
         "web start: AssetProfile = {} | static_map = {} | static_core_assets = {} | static_sfx_bank = {}",
-        active_profile.label(),
+        asset_config.asset_profile.label(),
         cfg!(feature = "static_map"),
         cfg!(feature = "static_core_assets"),
         cfg!(feature = "static_sfx_bank"),
     );
-    app.insert_resource(asset_config);
-    // Launch-time starting-character override (no-op on wasm: env reads Err).
-    insert_starting_character_override(&mut app);
-    // The browser has exactly one surface — the `<canvas>` configured on the
-    // WindowPlugin above — so install the windowed web composition directly.
-    // (repair_wasm.md failure #5: this used to `match render`, a variable copied
-    // from the native `build_visible_app` builder that never existed here.)
-    // ⭐ **THE SAME SIMULATION HOST AS THE DESKTOP BUILD** (Jon, 2026-08-03: *"the
-    // web build is another deployment of the game so likely needs ggrs if
-    // multiplayer is ever gonna be a real thing"*).
-    //
-    // ⛔ this entry used to set NO host, so it fell to the render-frame default
-    // and the browser stepped the simulation once per RENDER FRAME with the real
-    // frame delta — `refresh_world_time` reads the schedule-local `Res<Time>`.
-    // A platformer's feel is a function of its timestep, so the same game had a
-    // different jump arc in a browser than on a desktop, and at 144 Hz than at 60.
-    //
-    // ⚠ this is only safe because the ENGINE now owns the local GGRS session
-    // (`runtime::rollback::local_session`). While the only installer was the dev
-    // observatory, choosing this host outside `dev_tools` produced a build that
-    // composed, booted, rendered and never simulated.
-    //
-    // Must precede the first simulation plugin: Bevy seals `SimSchedule` on the
-    // first read.
-    {
-        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
-        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
-    }
-    app.add_plugins((
-        AmbitionGameSimulationPlugin,
-        AmbitionGameLdtkRuntimePlugin,
-        AmbitionGamePresentationPlugin,
-    ));
-    // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
-    // by `AssetPlugin` inside `DefaultPlugins`) is already present.
-    app.add_plugins(
-        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
-            active_profile,
-            &ambition_content::worlds::world_manifest(),
-        ),
+    super::visible_composition::compose_ambition_visible_game(
+        &mut app,
+        super::visible_composition::VisibleGameSpec::browser(asset_config),
+        |_| {},
     );
     app.run();
 }

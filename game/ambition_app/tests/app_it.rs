@@ -18,6 +18,7 @@ mod app_it_sync;
 
 mod actor_phase_split;
 mod app_local_catalog_composition;
+mod asset_id_platform_parity;
 mod authored_fighter_ladder;
 mod blink_run_reachability;
 mod boot_budget;
@@ -116,6 +117,7 @@ mod unified_melee;
 mod update_schedule_census;
 mod versus_stage;
 mod versus_through_the_sdk;
+mod visible_composition_contract;
 mod world_manifest_parameterization;
 
 mod enemy_body_scale;

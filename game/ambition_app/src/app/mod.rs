@@ -34,6 +34,7 @@ pub mod shell_host;
 mod sim_resources;
 mod sim_systems;
 mod startup_loading;
+pub mod visible_composition;
 pub mod versus;
 pub mod versus_fighters;
 pub mod versus_rules;

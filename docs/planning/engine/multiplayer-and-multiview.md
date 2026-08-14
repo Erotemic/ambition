@@ -191,6 +191,35 @@ fighters are intentionally constrained to one arena. It validates N participant
 input and body-generic combat, while Ambition/TwinTrack validate the harder
 multi-view and multi-room cases.
 
+## Census: what actually assumes one view (2026-08-14)
+
+⛔ **`FeatureViewIndex` is not a view index.** It is a per-FEATURE render
+read-model that happens to share the word. Local-view identity does not exist at
+HEAD; nothing needs deleting first.
+
+Counting reader/writer parameters, excluding tests:
+
+| One-view state | Sites |
+| --- | --- |
+| `ResolvedCameraSnapshot`, `CameraViewport`, `CameraExtraClamp`, `CameraEaseState`, `CameraScreenFraming`, `FramedCast`, `PortalCameraContinuityState` | **15 across all seven** |
+| `ControlledSubject` | **49** |
+
+⭐ **the presentation state is cheap and `ControlledSubject` is the campaign.**
+Seven camera/view resources total fifteen sites — indexing them is a contained
+slice. `ControlledSubject` alone is three times that surface, 26 of them inside
+the actor monolith, and it is defined as *"which body this local
+presentation/control context follows"*. With two local views there are two such
+contexts, so every one of those 49 has to answer a question it cannot currently
+be asked: **which view's subject?**
+
+⇒ split the first proof accordingly. Index the view-owned presentation state
+first — small, self-contained, and it is what the camera reference-frame policy
+(D118) is waiting on, since that policy must belong to a view rather than become
+a global mode. Then take `ControlledSubject` as its own slice, classifying its
+consumers by whether they mean *this view's* subject, *a* controlled body, or the
+home avatar; the six-name map in `docs/concepts/one-body-one-path.md` is the
+vocabulary for that classification.
+
 ## Phases
 
 ### M1 — view-index observer facts

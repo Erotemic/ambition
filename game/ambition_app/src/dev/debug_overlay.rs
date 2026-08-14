@@ -88,6 +88,9 @@ pub(crate) fn draw_debug_overlay(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     dev_state: Res<DeveloperRuntimeState>,
     platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
+    // The ONE collision read-API, for the blink preview — the same composition
+    // `step_motion` collides against. See `draw_player_debug`'s `blink_world`.
+    collision: ambition_platformer2d::world::collision::CollisionWorld,
     developer_tools: Res<DeveloperTools>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
@@ -211,7 +214,7 @@ pub(crate) fn draw_debug_overlay(
             &clusters,
             player_draw_pos,
             motion_model,
-            &platform_set.0,
+            collision.solids().as_deref().unwrap_or(world),
             attack.swing.as_ref(),
             actions,
             gameplay_active,

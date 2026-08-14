@@ -271,11 +271,38 @@ set to a new position with no event at all (which is what a rollback restore or 
 room change looks like from here) and asserts the visual follows rather than
 sitting at its authored start.
 
-⇒ carve step 2 is closed, and step 4 (an explicit dynamic-geometry overlay/query)
-is the remaining one.
+⇒ carve step 2 is closed.
 
-Remaining after that: give collision an explicit dynamic-geometry overlay/query
-if measurement shows that is cleaner than rebuilding a world per reader.
+**Step 4 — the explicit dynamic-geometry query — closed the same day, and it was
+an ADOPTION.** The plan asked whether collision should get an explicit
+dynamic-geometry overlay/query rather than readers repeatedly reconstructing a
+static world. `CollisionWorld` already WAS that query; three readers had not
+adopted it, and one of them was a live defect:
+
+- **the blink preview** (`sim_view::rebuild_blink_preview_fact`) composed
+  `world_with_moving_platforms` under a comment claiming *"the
+  moving-platform-aware temporary world is what the actual blink resolves
+  against"*. ⛔⛔ **true when written, false now.** The body integrates against
+  `world_with_sandbox_solids`, which also carries the ECS overlay (gate
+  lock-walls, falling-sand pools, broken-brick subtractions) and the portal
+  carves — so the reticle could point through a lock wall the blink stops at, or
+  stop at a portal aperture the blink passes through. Both it and the F1 blink
+  overlay read `CollisionWorld::solids()` now.
+- **the portal host adapter** wanted something genuinely different: *"the
+  uncarved authored + movers view portals may anchor to"*. Uncarved, because an
+  aperture is subtracted from its surface AFTER placement and a portal must not
+  be placed in the hole another portal made; and without ECS solids, because a
+  gate's lock wall should not outlive itself as somebody's portal host. That need
+  was real — what was missing was a NAME. It is
+  `CollisionWorld::hostable_surfaces()`, and `hostable_view` is deleted.
+
+⇒ **no consumer composes a collision world by hand any more.** The API's shape is
+the four questions the game actually asks: everything solid (`solids`), apertures
+only (`carves_only`), anchorable surfaces (`hostable_surfaces`), and the authored
+base for metadata (`base`).
+
+✔ nothing remains in this ownership carve: the visual moved to a render family
+and the dynamic-geometry query turned out to exist and need one more name.
 
 ### K4 — contact completeness
 

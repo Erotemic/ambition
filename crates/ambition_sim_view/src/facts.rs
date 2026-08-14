@@ -675,10 +675,19 @@ pub struct BlinkPreviewFact {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
+    // ⛔⛔ **THE ONE COLLISION READ-API, because the preview was resolving
+    // against a DIFFERENT WORLD than the blink.** This took the room plus
+    // `MovingPlatformSet` and composed `world_with_moving_platforms` itself,
+    // under a comment claiming *"the moving-platform-aware temporary world is
+    // what the actual blink resolves against"*. That was true when written and
+    // is not: the body integrates against `world_with_sandbox_solids`, which
+    // ALSO carries the ECS overlay (gate lock-walls, falling-sand pools,
+    // broken-brick subtractions) and the portal carves.
+    //
+    // ⇒ the reticle could show a destination through a lock wall the blink
+    // stops at, or stop at a portal aperture the blink passes through. A
+    // preview that disagrees with the action is worse than none.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mode: Res<bevy::prelude::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The home avatar's raw input actions. Discovered by the primary-player
     // marker instead of a process-global scene-handle bag: `PlayerVisual` carries
@@ -723,14 +732,10 @@ pub fn rebuild_blink_preview_fact(
         return;
     }
 
-    // Match the debug overlay's destination resolution exactly. The
-    // moving-platform-aware temporary world is what the actual blink
-    // resolves against, so the preview must use it too.
-    let blink_world =
-        ambition_platformer2d_world::platforms::world_with_moving_platforms(
-            &world.0,
-            &platform_set.0,
-        );
+    // The SAME composition `step_motion` collides against — see the parameter.
+    let Some(blink_world) = collision.solids() else {
+        return;
+    };
     let target = if motion_facts.blink_aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,

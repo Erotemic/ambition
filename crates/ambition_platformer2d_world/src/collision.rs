@@ -129,6 +129,32 @@ impl CollisionWorld<'_, '_> {
         Some(world_with_portal_carves(&room.0, carves))
     }
 
+    /// **The surfaces a portal may ANCHOR to: authored geometry plus moving
+    /// platforms, UNCARVED.**
+    ///
+    /// The two differences from [`Self::solids`] are both deliberate and both
+    /// the portal's own requirement:
+    ///
+    /// * **uncarved** — a portal is placed ON a surface, and the aperture it
+    ///   opens is subtracted from that surface afterwards. Anchoring against the
+    ///   already-carved view would let a portal be placed in the hole another
+    ///   portal made.
+    /// * **no ECS overlay** — a gate's lock wall is a transient content solid,
+    ///   not a surface an aperture should be able to outlive.
+    ///
+    /// ⭐ this exists because the portal host adapter composed
+    /// `world_with_moving_platforms` by hand, the LAST reader outside this
+    /// module to do so. Its need was real and different; what was missing was a
+    /// name for it. Now no consumer builds a collision world itself.
+    pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
+        let room = self.room.as_ref()?;
+        let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
+        if platforms.is_empty() {
+            return Some(Cow::Borrowed(&room.0));
+        }
+        Some(Cow::Owned(world_with_moving_platforms(&room.0, platforms)))
+    }
+
     /// The bare authored geometry, no overlay. For metadata / bounds / layout
     /// reads only — never for collision. Prefer `solids()` / `carves_only()`.
     pub fn base(&self) -> Option<&ae::World> {

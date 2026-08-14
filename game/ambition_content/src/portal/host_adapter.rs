@@ -27,10 +27,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_world::platforms::world_with_moving_platforms;
-use ambition_platformer2d_core::RoomGeometry;
 use ambition_portal2d::PlacedPortal;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 /// Attribution probe reach behind the placement point, in px. The gun lifts a
 /// portal 2px proud of the hit face; authored specs sit on the face. The probe
@@ -47,15 +44,17 @@ pub struct PortalHostScanned;
 /// Lazily attach just-placed portals to the identified face they sit on.
 pub fn attach_portal_hosts(
     mut commands: Commands,
-    room: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
-    platforms: Option<Res<MovingPlatformSet>>,
+    // The ONE collision read-API. This composed its own world from the room and
+    // the platform set — the last reader outside the collision module to do so.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut portals: Query<(Entity, &mut PlacedPortal), Without<PortalHostScanned>>,
 ) {
-    let Some(room) = room else { return };
     if portals.is_empty() {
         return;
     }
-    let view = hostable_view(&room, platforms.as_deref());
+    let Some(view) = collision.hostable_surfaces() else {
+        return;
+    };
     for (entity, mut portal) in &mut portals {
         // Probe into the face the portal was placed against.
         let probe = portal.pos - portal.normal * HOST_ATTRIBUTE_REACH * 0.5;
@@ -75,16 +74,16 @@ pub fn attach_portal_hosts(
 /// §5-P2 step 2: re-derive each hosted aperture's frame from its host face.
 pub fn refresh_hosted_portal_frames(
     mut commands: Commands,
-    room: Option<ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>>,
-    platforms: Option<Res<MovingPlatformSet>>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     time: Option<Res<ambition_time::WorldTime>>,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
 ) {
-    let Some(room) = room else { return };
     if !portals.iter().any(|(_, p)| p.host.is_some()) {
         return;
     }
-    let view = hostable_view(&room, platforms.as_deref());
+    let Some(view) = collision.hostable_surfaces() else {
+        return;
+    };
     let dt = time.as_deref().map(|t| t.scaled_dt).unwrap_or(0.0);
     for (entity, mut portal) in &mut portals {
         let Some(host) = portal.host.clone() else {
@@ -111,13 +110,7 @@ pub fn refresh_hosted_portal_frames(
     }
 }
 
-/// The uncarved authored + movers view portals may anchor to.
-fn hostable_view(
-    room: &RoomGeometry,
-    platforms: Option<&MovingPlatformSet>,
-) -> ambition_platformer2d_core::World {
-    match platforms {
-        Some(set) if !set.0.is_empty() => world_with_moving_platforms(&room.0, &set.0),
-        _ => room.0.clone(),
-    }
-}
+// ⛔ `hostable_view` stood here and is DELETED. "The uncarved authored + movers
+// view portals may anchor to" is a real and distinct question — and it is named
+// on the collision API now, as `CollisionWorld::hostable_surfaces`, so no
+// consumer composes a collision world by hand.

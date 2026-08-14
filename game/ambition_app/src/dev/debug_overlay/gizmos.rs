@@ -288,7 +288,15 @@ pub(crate) fn draw_player_debug(
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
     motion_model: &ae::MotionModel,
-    moving_platforms: &[ambition_platformer2d::world::platforms::MovingPlatformState],
+    // ⛔⛔ **THE COLLISION WORLD, not the platform roster.** This used to take
+    // the roster and compose `world_with_moving_platforms` itself for the blink
+    // preview — base + platforms only — while the blink RESOLVES inside
+    // `step_motion` against `world_with_sandbox_solids`, which also carries the
+    // ECS overlay (gate lock-walls, falling-sand pools, broken-brick
+    // subtractions) and the portal carves. The reticle could therefore point
+    // through a wall the blink stops at. The caller passes the one collision
+    // read-API's answer now, so the preview and the action cannot disagree.
+    blink_world: &ae::World,
     attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
     actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
     gameplay_active: bool,
@@ -436,14 +444,10 @@ pub(crate) fn draw_player_debug(
         && developer_tools.show_blink_preview
         && (controls.blink_held || facts.blink_aiming)
     {
-        let blink_world = ambition_platformer2d::world::platforms::world_with_moving_platforms(
-            world,
-            moving_platforms,
-        );
         let (desired, target) = if facts.blink_aiming {
             let desired = pos + facts.blink_aim_offset;
             let target = ae::blink_destination_to_point_clusters(
-                &blink_world,
+                blink_world,
                 clusters.kinematics,
                 clusters.abilities,
                 desired,
@@ -454,7 +458,7 @@ pub(crate) fn draw_player_debug(
                 .normalize_or(ae::Vec2::new(facing, 0.0));
             let desired = pos + aim * ae::BLINK_DISTANCE;
             let target = ae::blink_destination_clusters(
-                &blink_world,
+                blink_world,
                 clusters.kinematics,
                 clusters.abilities,
                 aim,

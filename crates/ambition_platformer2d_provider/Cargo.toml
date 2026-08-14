@@ -12,6 +12,10 @@ default = []
 audio = ["ambition_audio/kira"]
 
 [dependencies]
+# The LDtk backend, named directly. This crate reached it through the actor
+# monolith's `ldtk_world` compatibility facade, whose own doc says callers
+# should repoint to the owning crate; the edge was already here transitively.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
 # Promoted from dev-dependencies 2026-07-19 (K1a): the session builder reads the
 # neutral `ActiveMovementTuning` authority instead of the dev-tools inspector

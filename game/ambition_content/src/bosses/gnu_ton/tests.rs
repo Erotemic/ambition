@@ -254,7 +254,7 @@ fn ladder_is_hidden_on_entry_when_boss_is_alive() {
 #[test]
 fn arena_spawns_the_adr0020_linked_pair() {
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
-    use ambition_platformer2d_actor_monolith::ldtk_world::LdtkProject;
+    use ambition_platformer2d_ldtk::LdtkProject;
 
     // `to_room_set` reads the world manifest + resolves spawn display names
     // through stable authored ids; this test names the provider-owned manifest
@@ -272,7 +272,7 @@ fn arena_spawns_the_adr0020_linked_pair() {
     let room_set = project
         .to_room_set(
             &manifest,
-            &ambition_platformer2d_actor_monolith::ldtk_world::LdtkVocabulary::engine(),
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
         )
         .expect("gnu_ton_arena composes");
     let arena = room_set

@@ -11,6 +11,10 @@ description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlu
 # the desktop/visible/devtools stack. A demo app layers its own presentation on
 # top. (Feature unification with a visible host app is fine — it only ever ADDS
 # rendering features the host already declares.)
+# The LDtk backend, named directly. This crate reached it through the actor
+# monolith's `ldtk_world` compatibility facade, whose own doc says callers
+# should repoint to the owning crate; the edge was already here transitively.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
     "headless",
     "input",

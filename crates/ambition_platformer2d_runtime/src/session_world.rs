@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
+use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
 

@@ -28,8 +28,8 @@ fn chain_table_has_no_trigger_equals_target() {
 /// Hand-build a minimal LdtkProject with a single level whose
 /// activeArea = "alice_relay" and one LockWall entity matching a
 /// known intro gated lock id.
-fn synthetic_alice_relay_project() -> ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkProject {
-    use ambition_platformer2d_actor_monolith::world::ldtk_world::{
+fn synthetic_alice_relay_project() -> ambition_platformer2d_ldtk::LdtkProject {
+    use ambition_platformer2d_ldtk::{
         LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     };
     use serde_json::Value;
@@ -124,7 +124,7 @@ fn lock_wall_compute_skips_other_rooms() {
 /// LockWall in the project.
 #[test]
 fn lock_wall_compute_ignores_unregistered_ids() {
-    use ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkFieldInstance;
+    use ambition_platformer2d_ldtk::LdtkFieldInstance;
     let mut project = synthetic_alice_relay_project();
     // Mutate the one entity's `id` field to something not in
     // INTRO_FLAG_GATED_LOCK_WALLS.
@@ -341,7 +341,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
 #[test]
 fn lock_walls_recompute_when_the_project_resource_changes() {
     use ambition_platformer2d_actor_monolith::rooms::{RoomSet, RoomSpec};
-    use ambition_platformer2d_actor_monolith::world::ldtk_world::ActiveLdtkProject;
+    use ambition_platformer2d_ldtk::ActiveLdtkProject;
     use ambition_platformer2d_core as ae;
     use ambition_persistence::save::AmbitionGameSave;
     use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;

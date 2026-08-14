@@ -151,6 +151,26 @@ the baseline updated in the same commit.
 ⇒ this is closure evidence #5 — a historical compatibility facade deleted — and
 the largest such facade currently measurable in the crate.
 
+**Library half done (2026-08-14):** the provider, the runtime and content now
+declare the LDtk edge and name the owning crate — 27 sites across 10 files. The
+capability footprint is UNCHANGED at 42 crates / 15 unasked-for, which confirms
+these edges were already present transitively and the declaration only made them
+honest.
+
+⚠ **and the lockfile trap is real, in three workspaces.** The
+capability-footprint contract runs `cargo tree --locked` inside
+`fixtures/minimal_game` on purpose — *"a dependency change that alters the
+sentinel's lockfile must arrive WITH that lockfile"* — and `examples/
+capability_demo` and `fixtures/external_consumer` needed refreshing too. The last
+of those is **gitignored**, so it never appears in `git status`: refresh it
+explicitly or the next `--locked` run in it fails for a reason nobody can see.
+
+Remaining: ~30 app-side sites use the FACADE route
+(`ambition_platformer2d::actors::ldtk_world::…`). The facade already offers
+`ldtk_map`, but it is gated on the optional `ambition_platformer2d_ldtk` feature
+while the monolith's re-export is ungated — so that half is a feature-availability
+question, not a rename, and wants its own slice.
+
 ## Slice procedure
 
 For every incremental extraction:

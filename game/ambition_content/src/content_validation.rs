@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::data::MusicRegistry;
 use ambition_encounter::encounter_reward_looted_flag;
-use ambition_platformer2d_actor_monolith::ldtk_world::{field_string, LdtkProject};
+use ambition_platformer2d_ldtk::{field_string, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -84,7 +84,7 @@ pub fn validate_content_graph(
     }
 
     let ldtk_report = project
-        .validate(&ambition_platformer2d_actor_monolith::ldtk_world::LdtkVocabulary::engine());
+        .validate(&ambition_platformer2d_ldtk::LdtkVocabulary::engine());
     report.extend_errors(
         ldtk_report
             .errors

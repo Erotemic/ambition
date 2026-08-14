@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
+use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_runtime::PreparedPlatformerSource;

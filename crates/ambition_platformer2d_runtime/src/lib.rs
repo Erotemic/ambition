@@ -145,7 +145,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
-    pub use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
+    pub use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
     pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
@@ -413,7 +413,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
             // LDtk runtime spine (room load/transition spine).
-            .add(ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeSpinePlugin)
+            .add(ambition_platformer2d_ldtk::LdtkRuntimeSpinePlugin)
             // Encounter + cutscene simulation schedules.
             .add(ambition_platformer2d_actor_monolith::encounter::EncounterSimulationSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)

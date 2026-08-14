@@ -104,7 +104,7 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 /// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
 /// system can be tested without spinning up a full ECS world.
 pub fn compute_intro_flag_gated_lock_walls(
-    project: &ambition_platformer2d_actor_monolith::world::ldtk_world::LdtkProject,
+    project: &ambition_platformer2d_ldtk::LdtkProject,
     active_room_id: &str,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
 ) -> Vec<(
@@ -125,7 +125,7 @@ pub fn compute_intro_flag_gated_lock_walls(
             if entity.identifier != "LockWall" {
                 continue;
             }
-            let Some(id) = ambition_platformer2d_actor_monolith::world::ldtk_world::field_string(entity, "id") else {
+            let Some(id) = ambition_platformer2d_ldtk::field_string(entity, "id") else {
                 continue;
             };
             let id_trim = id.trim();
@@ -174,7 +174,7 @@ pub struct IntroLockWallCache {
 }
 
 pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_platformer2d_actor_monolith::world::ldtk_world::ActiveLdtkProject>>,
+    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
     room_set: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
     >,

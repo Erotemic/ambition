@@ -36,6 +36,10 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-f
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
 ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
+# The LDtk backend, named directly. This crate reached it through the actor
+# monolith's `ldtk_world` compatibility facade, whose own doc says callers
+# should repoint to the owning crate; the edge was already here transitively.
+ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk", default-features = false }
 ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
     "ldtk_runtime",
     "input",

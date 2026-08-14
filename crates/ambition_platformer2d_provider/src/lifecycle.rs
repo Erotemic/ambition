@@ -1374,7 +1374,7 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
+            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1401,7 +1401,7 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
+            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1438,7 +1438,7 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
+            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1562,7 +1562,7 @@ mod tests {
                 ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
                     selected.to_string(),
                 ),
-                ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
+                ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
             );
             let mut epochs = ContentEpochSequence::default();
             prepare_platformer_content(

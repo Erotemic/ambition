@@ -25,7 +25,7 @@
 use std::path::Path;
 
 use ambition_asset_manager::AssetId;
-use ambition_platformer2d_actor_monolith::ldtk_world::{WorldManifest, WorldSource};
+use ambition_platformer2d_ldtk::{WorldManifest, WorldSource};
 
 macro_rules! static_world_text {
     ($name:ident, $path:literal) => {
@@ -123,7 +123,7 @@ mod tests {
     /// day it is authored rather than the day somebody remembers to list it.
     #[test]
     fn every_shipped_enemy_placement_can_be_built() {
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
@@ -224,7 +224,7 @@ mod tests {
     /// together say the axes are independent.
     #[test]
     fn the_basement_gallery_shows_one_body_under_many_controllers_and_the_reverse() {
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
         use std::collections::{BTreeMap, BTreeSet};
 
         let manifest = world_manifest();
@@ -312,7 +312,7 @@ mod tests {
     /// road, and this says so instead of somebody re-running the census.
     #[test]
     fn the_npc_placements_a_character_first_road_would_build_only_grow() {
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register(&mut app);
@@ -418,7 +418,7 @@ mod tests {
     /// profiles — it never rode this road.
     #[test]
     fn only_the_uncast_placements_still_ride_the_display_name_fallback() {
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
 
         let manifest = world_manifest();
         let project =
@@ -488,7 +488,7 @@ mod tests {
     #[test]
     fn the_pirate_sky_riders_lower_into_authored_mount_links() {
         use ambition_entity_catalog::placements::CharacterBrain;
-        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
         use ambition_platformer2d_core::AabbExt;
 
         const LOOKOUT: &str = "pirate_sky_lookout";

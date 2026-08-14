@@ -100,7 +100,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "root.active_room_metadata",
     );
-    app.rollback_component_clone_checksum::<ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex>(
+    app.rollback_component_clone_checksum::<ambition_platformer2d_ldtk::LdtkRuntimeIndex>(
         OWNER,
         "root.ldtk_runtime_index",
         "bevy_ggrs clone snapshot + active LDtk area checksum",
@@ -864,7 +864,7 @@ fn room_set_checksum(rooms: &ambition_platformer2d_actor_monolith::rooms::RoomSe
 }
 
 fn ldtk_runtime_index_checksum(
-    index: &ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex,
+    index: &ambition_platformer2d_ldtk::LdtkRuntimeIndex,
 ) -> u64 {
     checksum_bytes(index.active_area().as_bytes())
 }

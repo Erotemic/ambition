@@ -1087,8 +1087,19 @@ pub fn resolve_camera_observation(
     // sprite is sampled on the same frame clock; if the camera framed the tick
     // pose instead, the two would disagree by up to a tick of travel and the
     // subject would shudder against the world at speed.
+    //
+    // ⛔⛔ **carried by the DELTA, not replaced by the position.** For a body the
+    // camera follows directly these are the same number — `pos` IS that body's
+    // authoritative pose, so `pos + (presented − authoritative) == presented`.
+    // For a FRAMED CAST they are not: `pos` is the pair's CENTRE, and assigning
+    // the anchor's presented position throws that centre away and points the
+    // camera at seat 0. That was unreachable only because a fighter published no
+    // presented pose at all — the population was player-bodied — so widening
+    // that population (D116 M2a) is what made this live. A framing centre is
+    // rigidly attached to the cast exactly as a hitbox is to its owner, and both
+    // are carried on the frame clock the same way.
     if let Ok(presented) = presented.get(followed) {
-        player_body.pos = presented.presented();
+        player_body.pos += presented.delta();
     }
 
     let active_spec = room_set.active_spec();

@@ -99,17 +99,18 @@ pub struct CombatStrikeGeometryView {
     /// opposed to fixed in the world (an arena hazard, a wielded AOE)?
     ///
     /// The distinction presentation actually needs: only a body-tracking strike
-    /// stands in for somebody's attack.
-    pub anchored_to_body: bool,
-    /// **The owner position `volume` was resolved against.**
+    /// stands in for somebody's attack, and only a body-tracking strike takes
+    /// its owner's presentation translation.
     ///
-    /// Presentation draws bodies at the PRESENTED pose, not the simulated one,
-    /// and a stand-in placed on the sim pose shudders against the body it is
-    /// supposed to be attached to. Publishing the anchor lets an observer
-    /// re-place the same geometry at the drawn pose with one translation —
-    /// `presented - owner_anchor` — instead of reaching back into the
-    /// authoritative `Hitbox` to recompute it.
-    pub owner_anchor: ae::Vec2,
+    /// ⚠ this row used to also publish `owner_anchor`, the owner position the
+    /// volume was resolved against, so an observer could re-place the geometry
+    /// by `presented - owner_anchor`. That was one lookup per STRIKE, and a
+    /// body's collision envelope and hurtboxes had no equivalent — so the
+    /// overlay smoothed strikes alone and mixed clocks in one picture. The
+    /// translation is now `PresentedPose::delta()`, asked once per BODY and
+    /// applied to every row of it, and the field had no consumer left. It was
+    /// also `ZERO` for a world-anchored strike, which is not an anchor.
+    pub anchored_to_body: bool,
 }
 
 /// Presentation-facing snapshot of authoritative combat geometry.
@@ -209,7 +210,6 @@ pub fn rebuild_combat_geometry_view(
             strike,
             owner: hitbox.owner,
             anchored_to_body: matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }),
-            owner_anchor: owner_pos,
         });
     }
 }

@@ -185,10 +185,15 @@ pub(crate) fn spawn_slash_effects(
     active_session: Option<Res<ActiveSessionScope>>,
     // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics` — presentation reads
     // `ambition_sim_view` (E4), and naming the live cluster here is what turned
-    // `engine.render-never-names-live-sim-state` red on 2026-08-02. The
-    // population is unchanged: `rebuild_body_pose_views` requires only
-    // `BodyKinematics`, so every body this matched still matches.
-    owners: Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
+    // `engine.render-never-names-live-sim-state` red on 2026-08-02.
+    //
+    // ⛔⛔ this used to require a `BodyPoseView` beside the presented pose, and
+    // claimed *"the population is unchanged"*. It was not: that view is rebuilt
+    // `With<PlayerVisual>`, so no boss and no actor ever matched and every one
+    // of their slashes took the miss arm. `PresentedPose` follows
+    // `BodyKinematics` and answers for every body, which is all this needs — the
+    // drawn position of the swinging body.
+    owners: Query<&PresentedPose>,
     // Which sheet each swinging body's character authors — the READ-MODEL fact,
     // resolved sim-side by `rebuild_attack_vfx_views`.
     //
@@ -349,14 +354,11 @@ fn spawn_one(
 /// composes — so the miss may never happen. The fix stands on its own: a
 /// fallback that invents an answer is wrong whether or not it is currently
 /// firing.
-fn owner_pos(
-    owners: &Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
-    owner: Entity,
-) -> Option<ae::Vec2> {
+fn owner_pos(owners: &Query<&PresentedPose>, owner: Entity) -> Option<ae::Vec2> {
     owners
         .get(owner)
         .ok()
-        .map(|(pose, presented)| presented.map_or(pose.pos, |p| p.presented()))
+        .map(|presented| presented.presented())
 }
 
 /// **Keep every live slash on the body that is swinging it.**
@@ -378,14 +380,14 @@ pub(crate) fn follow_slash_owner(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    owners: Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
+    owners: Query<&PresentedPose>,
     mut slashes: Query<(&SlashVisual, &mut Transform)>,
 ) {
     for (slash, mut transform) in &mut slashes {
-        let Ok((pose, presented)) = owners.get(slash.owner) else {
+        let Ok(presented) = owners.get(slash.owner) else {
             continue;
         };
-        let pos = presented.map_or(pose.pos, |p| p.presented());
+        let pos = presented.presented();
         let target = world_to_bevy(&world.0, pos + slash.local.center(), WORLD_Z_FX + 2.0);
         transform.translation.x = target.x;
         transform.translation.y = target.y;

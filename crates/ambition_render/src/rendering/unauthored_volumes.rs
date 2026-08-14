@@ -79,13 +79,19 @@ pub(crate) fn draw_unauthored_attack_volumes(
     // `ambition_combat` where it belongs would have forced a render→combat
     // dependency. The strike rows carry everything this needs.
     combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
-    // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics`. Presentation reads
+    // ⚠ the READ-MODEL facts, not the sim's `BodyKinematics`. Presentation reads
     // `ambition_sim_view` (E4) and `engine.render-never-names-live-sim-state`
     // enforces it; this system named the live cluster and the policy went red on
-    // 2026-08-02. `rebuild_body_pose_views` requires only `BodyKinematics`, so
-    // the population is identical — every body this used to match has a view.
+    // 2026-08-02.
+    //
+    // ⛔⛔ this required a `BodyPoseView` and claimed *"the population is
+    // identical — every body this used to match has a view"*. It is not: that
+    // view is rebuilt `With<PlayerVisual>`, so EVERY boss and actor failed the
+    // `get` below and its unauthored attack drew no stand-in at all — the warn
+    // arm fired for a population that was never going to be there. All this
+    // needs from the owner is its presentation delta, which every body
+    // publishes, and the read-model's authored/unauthored verdict.
     owners: Query<(
-        &ambition_sim_view::BodyPoseView,
         Option<&ambition_sim_view::presented_pose::PresentedPose>,
         // The READ-MODEL fact, not the catalog — see the read below.
         Option<&ambition_sim_view::AttackVfxView>,
@@ -123,7 +129,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         if !strike.anchored_to_body {
             continue;
         }
-        let Ok((pose, presented, attack_vfx)) = owners.get(strike.owner) else {
+        let Ok((presented, attack_vfx)) = owners.get(strike.owner) else {
             // ⚠ **SILENT WAS THE PROBLEM, not the skip** (queue D54). Skipping is
             // right — the alternative is the world-origin draw that cost an
             // investigation on the slash path. But D54 names THIS site as the
@@ -138,9 +144,9 @@ pub(crate) fn draw_unauthored_attack_volumes(
             // its own way of being unreadable.
             bevy::log::warn_once!(
                 target: "ambition_platformer2d::render",
-                "a live strike names owner {:?}, which publishes no combat pose \
-                 view; drawing no stand-in. If Jon's stray VFX appears while this \
-                 is in the log, THIS is the system, not the slash path.",
+                "a live strike names owner {:?}, which is not a live entity; \
+                 drawing no stand-in. If Jon's stray VFX appears while this is in \
+                 the log, THIS is the system, not the slash path.",
                 strike.owner
             );
             continue;
@@ -165,14 +171,11 @@ pub(crate) fn draw_unauthored_attack_volumes(
 
         // The DRAWN position, not the simulated one — the same reason the slash
         // visual samples it. A stand-in placed on the sim pose shudders against
-        // a body drawn from the presented one.
-        // The DRAWN position, not the simulated one — the same reason the slash
-        // visual samples it. A stand-in placed on the sim pose shudders against
-        // a body drawn from the presented one. The observation publishes the
-        // anchor it resolved against, so re-placing is one translation rather
-        // than a second evaluation of authoritative geometry.
-        let drawn = presented.map_or(pose.pos, |p| p.presented());
-        let to_drawn = drawn - strike.owner_anchor;
+        // a body drawn from the presented one. The owner's presentation delta IS
+        // that translation, and it is the same one the debug overlay applies to
+        // this strike, so the product-facing polygon and the developer's red box
+        // cannot disagree about where the attack is.
+        let to_drawn = presented.map_or(ambition_platformer2d_core::Vec2::ZERO, |p| p.delta());
         let already = existing
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)

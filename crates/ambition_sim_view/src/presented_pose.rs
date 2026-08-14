@@ -133,9 +133,12 @@ pub fn sample_fixed_overstep_phase(fixed: Res<Time<Fixed>>, mut phase: ResMut<Pr
 
 /// The presented position of one body, plus the two ticks it was derived from.
 ///
-/// Attached automatically to every entity carrying a [`BodyPoseView`].
-/// Presentation-only: the simulation never reads it, so a rollback resim
-/// neither restores nor consults it.
+/// Attached automatically to every entity carrying [`BodyKinematics`] — every
+/// simulated BODY, not only the player-bodied ones that publish a
+/// [`BodyPoseView`]. Presentation-only: the simulation never reads it, so a
+/// rollback resim neither restores nor consults it.
+///
+/// [`BodyKinematics`]: ambition_platformer2d_actor_monolith::actor::BodyKinematics
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PresentedPose {
     previous: Vec2,
@@ -202,6 +205,31 @@ impl PresentedPose {
         (self.current - self.previous) / self.spanned.max(1) as f32
     }
 
+    /// **The one translation everything rigidly attached to this body takes.**
+    ///
+    /// `presented − authoritative`: how far this frame's drawn body has been
+    /// carried away from the tick position every authoritative geometry row was
+    /// resolved against. A consumer holding tick-clock geometry for this body —
+    /// its collision envelope, its hurtboxes, a strike anchored to it — moves
+    /// the WHOLE rigid group by this and by nothing else.
+    ///
+    /// ⛔⛔ **the same delta, in the same frame, for every row of one body.**
+    /// Translating one row and not its neighbours does not fix a shudder, it
+    /// relocates it: the F1 overlay smoothed its red strike box and Jon
+    /// immediately saw a different box start jumping, because collision and
+    /// hurtboxes were still being drawn on the tick clock beside it. A
+    /// diagnostic that mixes clocks invites you to debug geometry that is fine.
+    ///
+    /// ⚠ world-anchored geometry takes NO delta. It is fixed in the world, not
+    /// carried by a body, and moving it would be the mirror-image lie.
+    ///
+    /// Shape, size and relative placement are never touched — this is a rigid
+    /// translation of already-resolved geometry, never a recomputation.
+    #[inline]
+    pub fn delta(self) -> Vec2 {
+        self.presented - self.current
+    }
+
     /// Accept a newly published tick pose. `continuous` false means the body did
     /// not TRAVEL here (portal, room change, respawn, possession swap): the
     /// history collapses so the jump is drawn as a jump and never extrapolated
@@ -249,11 +277,24 @@ fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: u32) -> boo
 
 /// Roll every body's presented pose forward: extend the history on a new tick,
 /// then resample for THIS frame's phase.
+///
+/// ⭐ **the population is every BODY, read from `BodyKinematics` itself.** This
+/// used to require a [`BodyPoseView`], which is rebuilt only for
+/// `With<PlayerVisual>` entities — so a boss or an actor had no presented pose
+/// at all, and every consumer that joined on one silently took its "no history"
+/// arm forever. The two facts this needs are `pos` and `vel`, and
+/// `rebuild_body_pose_views` copies both from `BodyKinematics` verbatim, so the
+/// player population's numbers are unchanged to the bit while every other body
+/// gains the smoothing it was always meant to have.
 pub fn advance_presented_body_poses(
     mut commands: Commands,
     tick: Res<SimTick>,
     phase: Res<PresentationPhase>,
-    mut bodies: Query<(Entity, &BodyPoseView, Option<&mut PresentedPose>)>,
+    mut bodies: Query<(
+        Entity,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        Option<&mut PresentedPose>,
+    )>,
 ) {
     let phase = phase.get();
     for (entity, pose, presented) in &mut bodies {
@@ -755,6 +796,111 @@ mod tests {
             pose.authoritative(),
             Vec2::new(6.0, 0.0),
             "debug overlays that must not lie read this, not the presented pose"
+        );
+    }
+
+    /// **⭐ THE POPULATION IS EVERY BODY, and it was not.**
+    ///
+    /// A boss or an actor carries `BodyKinematics` and no `BodyPoseView` — that
+    /// read model is rebuilt only `With<PlayerVisual>`. While this system joined
+    /// on the view, every such body published no presented pose at all, and each
+    /// consumer that looked one up took its "no history" fallback forever. The
+    /// visible cost was a combat overlay drawing a player's strike on the frame
+    /// clock beside a boss's on the tick clock.
+    ///
+    /// The poison is the SECOND body: it carries the view too, so a regression
+    /// that re-narrowed the query to `With<BodyPoseView>` would still satisfy
+    /// half of this test.
+    #[test]
+    fn a_body_with_no_pose_view_still_gets_a_presented_pose() {
+        use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
+        use bevy::prelude::{App, Update};
+
+        let mut app = App::new();
+        app.init_resource::<SimTick>();
+        app.init_resource::<PresentationPhase>();
+        app.add_systems(Update, advance_presented_body_poses);
+
+        let mut kin = BodyKinematics::default();
+        kin.pos = Vec2::new(120.0, 40.0);
+        // A feature body: kinematics, no player pose view.
+        let feature_body = app.world_mut().spawn(kin.clone()).id();
+        // A player-bodied one, which already worked.
+        let player_body = app
+            .world_mut()
+            .spawn((kin.clone(), BodyPoseView::default()))
+            .id();
+
+        app.update();
+
+        for (label, entity) in [("feature", feature_body), ("player", player_body)] {
+            let presented = app
+                .world()
+                .entity(entity)
+                .get::<PresentedPose>()
+                .unwrap_or_else(|| panic!("the {label} body must publish a presented pose"));
+            assert_eq!(
+                presented.presented(),
+                kin.pos,
+                "first sight presents exactly where the body is",
+            );
+            assert_eq!(
+                presented.delta(),
+                Vec2::ZERO,
+                "and a body with no history is drawn where it was resolved",
+            );
+        }
+    }
+
+    /// **The delta is what a rigidly attached row is translated by**, and it is
+    /// the same number for every row of one body.
+    #[test]
+    fn the_delta_is_the_presented_lead_over_the_authoritative_pose() {
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.push(Vec2::new(10.0, 0.0), 1, true);
+        pose.resample(0.5);
+        assert_eq!(pose.authoritative(), Vec2::new(10.0, 0.0));
+        assert_eq!(pose.presented(), Vec2::new(15.0, 0.0));
+        assert_eq!(
+            pose.delta(),
+            pose.presented() - pose.authoritative(),
+            "the delta IS that difference; a consumer must never re-derive it \
+             from a second source that can disagree",
+        );
+    }
+
+    /// **⛔⛔ WHY THE CAMERA CARRIES ITS FRAMING POSE BY THE DELTA.**
+    ///
+    /// `resolve_camera_observation` used to write `pos = presented.presented()`.
+    /// That is correct only when the pose being framed IS the followed body's
+    /// own — and it silently is not when the camera frames a CAST, where the
+    /// pose is the pair's CENTRE and the presented sample comes from one anchor
+    /// seat. Assigning then throws the centre away and points the camera at that
+    /// seat. It was unreachable only while fighters published no presented pose.
+    ///
+    /// The identity below is what made the old line look safe; the second half
+    /// is what it forgot.
+    #[test]
+    fn carrying_by_the_delta_equals_replacing_only_for_the_bodys_own_pose() {
+        let mut pose = pose_at(Vec2::new(100.0, 0.0));
+        pose.push(Vec2::new(112.0, 0.0), 1, true);
+        pose.resample(0.5);
+
+        let own = pose.authoritative();
+        assert_eq!(
+            own + pose.delta(),
+            pose.presented(),
+            "for the followed body's own pose the two rules agree exactly",
+        );
+
+        // A framing centre between two bodies is NOT the anchor's pose.
+        let centre = Vec2::new(60.0, 0.0);
+        assert_eq!(centre + pose.delta(), Vec2::new(66.0, 0.0));
+        assert_ne!(
+            centre + pose.delta(),
+            pose.presented(),
+            "replacing would have snapped the camera from the centre onto the \
+             anchor seat — 46px here, and half the cast's span in general",
         );
     }
 }

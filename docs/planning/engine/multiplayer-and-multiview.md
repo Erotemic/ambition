@@ -292,6 +292,75 @@ CAMERA entity to the view it presents (`camera_follow` uses `Single` today and
 says so), per-view gameplay rectangles from a split layout, and then
 `ControlledSubject`.
 
+### M2a — one body-generic presented pose (LANDED 2026-08-14)
+
+Taken first because Jon's F1 overlay handed it a live symptom, and because every
+later per-view slice draws bodies that are not the player's.
+
+**The measurement.** `PresentedPose` followed `BodyPoseView`, and
+`rebuild_body_pose_views` is filtered `With<PlayerVisual>`. So no boss and no
+actor had a presented pose at all — and three separate consumers read that
+absence as *"this body has no interpolation"* rather than *"this body is not in
+the population"*:
+
+| consumer | what a non-player body got |
+|---|---|
+| combat overlay (F1) | strike drawn on the TICK clock beside a player's on the frame clock |
+| unauthored attack stand-in | skipped entirely, with a warn naming a population that could never be there |
+| slash visual | miss arm — the drawn blade never followed a boss |
+
+Two of the three carried a comment asserting the population was identical
+because `rebuild_body_pose_views` "requires only `BodyKinematics`" — true of its
+OPTIONAL facts, false of its filter. ⛔ one wrong claim, copied twice, hid three
+defects.
+
+**The change.** `advance_presented_body_poses` reads `BodyKinematics` — which is
+where `BodyPoseView` copied `pos`/`vel` from verbatim, so the player population's
+numbers are unchanged to the bit. Every body now publishes a presented pose, and
+the seam every body-attached consumer reads is one method:
+
+```text
+PresentedPose::delta()  =  presented − authoritative
+```
+
+Applied to the whole rigid group in the same frame — collision envelope,
+hurtboxes, body-anchored strikes, and the tuning readout that hangs off the box.
+⛔ translating a subset does not fix a shudder, it relocates it, which is what
+the strikes-only version did.
+
+**Deletion payoff.** `CombatStrikeGeometryView::owner_anchor` is gone. It existed
+so an observer could re-place a strike by `presented − owner_anchor`: one lookup
+per STRIKE, with no equivalent for a body's own boxes — the shape that made the
+half-fix possible. It was also `ZERO` for a world-anchored strike, which is not
+an anchor. ⭐ and the delta is the more honest translation: `presented −
+owner_anchor` silently re-anchors a strike whose volume was resolved against a
+position the body has since left, absorbing a real disagreement a diagnostic
+exists to show.
+
+**⭐ and widening the population immediately exposed a fourth defect the narrow
+one had been hiding.** `resolve_camera_observation` ended with
+
+```rust
+if let Ok(presented) = presented.get(followed) { player_body.pos = presented.presented(); }
+```
+
+which is correct only when the pose being framed IS the followed body's own. For
+a FRAMED CAST it is not: `pos` is the pair's CENTRE and the presented sample
+comes from one anchor seat, so assigning threw the centre away and pointed the
+camera at seat 0. Unreachable while fighters published no presented pose;
+instantly live once they did — `two_cpus_can_fight_each_other` went red on the
+same commit that widened the population, which is the test earning its keep.
+
+The repair is the same rule again: `pos += presented.delta()`. Byte-identical
+for the home-avatar and controlled-subject paths (`pos` IS that body's
+authoritative pose there), and correct for the cast. A framing centre is rigidly
+attached to its cast exactly as a hitbox is to its owner.
+
+**Still open here.** `PresentedFeaturePoses` remains a second, id-keyed history
+for the same actor bodies, because feature VISUALS join to the sim by string id.
+That is a fork worth closing once a feature visual can name its sim entity — not
+before, and not by giving the read model a second identity type.
+
 ## `ControlledSubject`: measured 2026-08-14, and it is NOT a view question
 
 50 non-test reader sites, 32 of them in the actor monolith. The plan expected to

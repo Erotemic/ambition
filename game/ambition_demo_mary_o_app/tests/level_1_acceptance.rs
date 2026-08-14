@@ -185,7 +185,7 @@ fn health(app: &mut App) -> Option<i32> {
     q.iter(app.world()).next().map(|h| h.current())
 }
 
-fn level(app: &mut App) -> (u8, i64, f32) {
+fn level(app: &mut App) -> (i8, i64, f32) {
     let mut q = app
         .world_mut()
         .query::<&ambition_demo_mary_o::MaryOLevelState>();

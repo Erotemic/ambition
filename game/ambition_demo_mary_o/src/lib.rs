@@ -62,7 +62,7 @@ pub const MARY_O_MODE: &str = "mary_o";
 pub const STARTING_TIME: f32 = 400.0;
 
 /// Lives Mary-O starts a run with.
-const STARTING_LIVES: u8 = 3;
+const STARTING_LIVES: i8 = 3;
 
 /// How long the "WORLD 1-1 / MARY-O x3" card sits before play reads as normal.
 const INTRO_CARD_SECONDS: f32 = 2.0;
@@ -1684,7 +1684,14 @@ pub struct MaryOLevelState {
     /// total rather than the last banner.
     pub score: u32,
     /// Lives left. A death spends one; the run restarts at zero.
-    pub lives: u8,
+    /// ⭐ **SIGNED, and a run never ends.** Jon: *"When you die you should
+    /// restart the level with 1 less life. For now let's allow lives to go
+    /// NEGATIVE and the user to play forever, so no game over screen yet."*
+    /// This was a `u8` decremented with `saturating_sub`, which floors at zero
+    /// — and the floor had a consequence attached: reaching it silently
+    /// restarted the run and wiped the score, which is a game over in
+    /// everything but name and the one thing that sentence ruled out.
+    pub lives: i8,
     /// Seconds left on the level-intro card. Counts down on the sim clock, and
     /// the card is published only while it is positive — an unpublished HUD
     /// slot draws nothing, so the card retires itself.
@@ -2170,17 +2177,15 @@ fn spend_lives_on_death(
     // spent a life for each one. Nothing pins her now and the world stops acting
     // on a body that is out of play, so ONE attempt produces ONE death fact by
     // construction — which is what a latch was always a substitute for.
-    level.lives = level.lives.saturating_sub(1);
+    // ⛔ **no floor and no reset.** Not `saturating_sub`: the count is allowed
+    // below zero on purpose, and the run carries on with its score. See the
+    // field's own note — the reset that used to sit here was a game over in
+    // everything but name, and Jon's ask ruled one out for now.
+    level.lives -= 1;
     level.time_remaining = STARTING_TIME;
     // A fresh attempt gets a fresh card — it is how the player reads how many
     // lives that death cost them.
     level.intro_card = INTRO_CARD_SECONDS;
-
-    if level.lives == 0 {
-        // Game over: the whole run resets, score included.
-        level.lives = STARTING_LIVES;
-        level.score = 0;
-    }
 }
 
 /// **Running out of time is a death, so it goes out the same door.**
@@ -3763,7 +3768,7 @@ mod tests {
                     },
                 });
         }
-        fn level(app: &mut App) -> (u8, u32, f32) {
+        fn level(app: &mut App) -> (i8, u32, f32) {
             let mut q = app.world_mut().query::<&MaryOLevelState>();
             let s = q.iter(app.world()).next().expect("the mode owner exists");
             (s.lives, s.score, s.time_remaining)
@@ -3803,20 +3808,29 @@ mod tests {
         );
 
         // ── Zero lives restarts the RUN, score included ──────────────────────
+        // ⛔ **RUNNING OUT IS NOT A GAME OVER — that is the whole ask.** Jon:
+        // *"For now let's allow lives to go negative and the user to play
+        // forever, so no game over screen yet."* This block used to assert the
+        // opposite: that spending the last life reset the run and wiped the
+        // score. It was a green test pinning behaviour the maintainer had ruled
+        // out in the same sentence that asked for the feature.
         let mut app = shell(0.0);
         app.update();
         {
             let mut q = app.world_mut().query::<&mut MaryOLevelState>();
             let mut state = q.iter_mut(app.world_mut()).next().unwrap();
-            state.lives = 1;
+            state.lives = 0;
             state.score = 4200;
         }
         kill(&mut app);
         app.update();
         let (lives, score, remaining) = level(&mut app);
-        assert_eq!(lives, STARTING_LIVES, "a game over starts a fresh run");
-        assert_eq!(score, 0, "and a fresh run scores from zero");
-        assert_eq!(remaining, STARTING_TIME, "on a full clock");
+        assert_eq!(lives, -1, "the count goes below zero rather than stopping");
+        assert_eq!(
+            score, 4200,
+            "and the run keeps its score, because nothing ended"
+        );
+        assert_eq!(remaining, STARTING_TIME, "on a fresh clock, like any death");
     }
 
     /// **A replay's own body reset must not read as a death.**
@@ -3888,7 +3902,7 @@ mod tests {
         );
     }
 
-    fn level_lives(app: &mut App) -> u8 {
+    fn level_lives(app: &mut App) -> i8 {
         let mut q = app.world_mut().query::<&MaryOLevelState>();
         q.iter(app.world())
             .next()

@@ -320,7 +320,7 @@ fn health(app: &mut App) -> i32 {
         .current()
 }
 
-fn lives(app: &mut App) -> u8 {
+fn lives(app: &mut App) -> i8 {
     let mut q = app.world_mut().query::<&MaryOLevelState>();
     q.iter(app.world())
         .next()

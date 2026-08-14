@@ -456,7 +456,7 @@ fn wallet(app: &mut App) -> i32 {
         .balance
 }
 
-fn run_state(app: &mut App) -> (u8, u32) {
+fn run_state(app: &mut App) -> (i8, u32) {
     let mut query = app
         .world_mut()
         .query::<&ambition_demo_mary_o::MaryOLevelState>();

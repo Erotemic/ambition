@@ -381,7 +381,7 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
     displace(&mut app, Vec2::new(200.0, 4000.0));
 
     let mut beat_armings: Vec<usize> = Vec::new();
-    let mut lives_timeline: Vec<(usize, u8)> = Vec::new();
+    let mut lives_timeline: Vec<(usize, i8)> = Vec::new();
     let mut reflagged_during_beat = 0usize;
     let mut reflag_causes: Vec<String> = Vec::new();
     let mut previous_active = false;
@@ -485,7 +485,7 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
 }
 
 /// The level owner's lives counter, if the level is staged.
-fn level_lives(app: &mut App) -> Option<u8> {
+fn level_lives(app: &mut App) -> Option<i8> {
     let mut query = app
         .world_mut()
         .query::<&ambition_demo_mary_o::MaryOLevelState>();

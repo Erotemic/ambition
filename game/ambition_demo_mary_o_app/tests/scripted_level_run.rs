@@ -139,7 +139,7 @@ fn place_player(app: &mut App, pos: Vec2) {
     );
 }
 
-fn level(app: &mut App) -> (u8, u32, f32) {
+fn level(app: &mut App) -> (i8, u32, f32) {
     let mut query = app.world_mut().query::<&MaryOLevelState>();
     let state = query
         .iter(app.world())

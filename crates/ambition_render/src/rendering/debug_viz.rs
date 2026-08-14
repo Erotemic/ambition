@@ -202,17 +202,93 @@ pub fn draw_hitbox_volume(
     }
 }
 
+/// **Where a body-anchored strike is DRAWN, as opposed to where it was resolved.**
+///
+/// ⛔⛔ **the red F1 box used to be the authoritative volume, verbatim, and that
+/// is why it shuddered.** `volume` is tick-clock geometry; the sprite and the
+/// camera are resampled on the frame clock, so at any frame rate that is not an
+/// exact multiple of the tick the box steps while the body it is attached to
+/// glides. A diagnostic that misreports ATTACHMENT is worse than no diagnostic:
+/// it invites you to debug the hitbox when the hitbox is fine.
+///
+/// The read model already publishes the fix and says so in its own docs — it
+/// carries the `owner_anchor` the volume was resolved against, so an observer
+/// re-places the identical shape with ONE translation:
+/// `presented_owner_position - owner_anchor`. `unauthored_volumes.rs` is the
+/// precedent; this is the same rule for the overlay.
+///
+/// ⚠ **a WORLD-anchored strike does not move.** An arena hazard or a wielded AOE
+/// is fixed in the world, not carried by a body, so translating it would be the
+/// mirror-image lie.
+///
+/// ⛔ the shape is never recomputed: `CombatVolume::translated` preserves it
+/// exactly, and presentation must not reach back into the authoritative
+/// `Hitbox` — the coupling the read model exists to remove.
+pub fn presented_strike_volume(
+    strike: &ambition_sim_view::CombatStrikeGeometryView,
+    presented_owner: Option<ae::Vec2>,
+) -> ae::CombatVolume {
+    if !strike.anchored_to_body {
+        return strike.volume.clone();
+    }
+    match presented_owner {
+        Some(drawn) => strike.volume.translated(drawn - strike.owner_anchor),
+        // No presented pose published for the owner: the authoritative geometry
+        // IS the drawn geometry, which is what a body with no interpolation is.
+        None => strike.volume.clone(),
+    }
+}
+
+/// **The presented position of every body that owns a live strike**, keyed by
+/// owner — the join a caller performs once and hands to the shared draw.
+///
+/// The lookup is the read model's, not the sim's: `BodyPoseView` for the tick
+/// pose, `PresentedPose` for the frame-clock resample, exactly as the
+/// unauthored-volume stand-in reads them. Both overlay hosts build it the same
+/// way, so the rule lives in one place rather than in whichever host somebody
+/// remembered.
+///
+/// ⭐ **no new presentation identity was needed, and that was worth checking.**
+/// `rebuild_body_pose_views` requires only `BodyKinematics` and
+/// `advance_presented_body_poses` queries every `BodyPoseView` with no filter —
+/// so a PLAYER-bodied and a FEATURE-bodied strike owner are both covered by the
+/// same two components. The `None` arm is a body's first frame, not a
+/// population this cannot reach.
+pub fn presented_strike_owners(
+    combat: &CombatGeometryView,
+    owners: &bevy::prelude::Query<(
+        &ambition_sim_view::BodyPoseView,
+        Option<&ambition_sim_view::presented_pose::PresentedPose>,
+    )>,
+) -> std::collections::HashMap<bevy::prelude::Entity, ae::Vec2> {
+    combat
+        .strikes
+        .iter()
+        .filter(|strike| strike.anchored_to_body)
+        .filter_map(|strike| {
+            owners.get(strike.owner).ok().map(|(pose, presented)| {
+                (strike.owner, presented.map_or(pose.pos, |p| p.presented()))
+            })
+        })
+        .collect()
+}
+
 /// Draw authoritative body-combat geometry from the simulation-view boundary.
 ///
 /// Orange is the body's coarse collision envelope, cyan is the effective
 /// damageable silhouette, and red is a live strike. The rows intentionally
 /// carry no controller/primary-player distinction: a fighter is debugged by
 /// the geometry it publishes, not by who is driving it.
+///
+/// `presented_owners` re-places body-anchored strikes on the frame clock — see
+/// [`presented_strike_volume`]. An empty map draws the authoritative geometry,
+/// which is the honest answer for a host that publishes no presented poses.
 pub fn draw_combat_geometry_view(
     gizmos: &mut Gizmos,
     world: &ae::World,
     combat: &CombatGeometryView,
     developer_tools: &DeveloperTools,
+    presented_owners: &std::collections::HashMap<bevy::prelude::Entity, ae::Vec2>,
 ) {
     if developer_tools.show_player_hitbox || developer_tools.show_feature_hitboxes {
         let collision_color = with_alpha(orange(), 0.52);
@@ -225,7 +301,9 @@ pub fn draw_combat_geometry_view(
     }
     if developer_tools.show_combat_preview || developer_tools.show_feature_hitboxes {
         for strike in &combat.strikes {
-            draw_hitbox_volume(gizmos, world, &strike.volume, red(), developer_tools);
+            let volume =
+                presented_strike_volume(strike, presented_owners.get(&strike.owner).copied());
+            draw_hitbox_volume(gizmos, world, &volume, red(), developer_tools);
         }
         for body in &combat.bodies {
             draw_combat_tuning_readout(gizmos, world, body);
@@ -789,7 +867,13 @@ pub fn draw_debug_viz(
             draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
         }
     }
-    draw_combat_geometry_view(&mut gizmos, world, &combat_geometry, &developer_tools);
+    draw_combat_geometry_view(
+        &mut gizmos,
+        world,
+        &combat_geometry,
+        &developer_tools,
+        &presented_strike_owners(&combat_geometry, &bodies),
+    );
 }
 
 #[cfg(test)]
@@ -865,5 +949,88 @@ mod blast_zone_overlay_tests {
             (line.from.x - (480.0 + 480.0 + 96.0)).abs() < 0.01,
             "{line:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod presented_strike_tests {
+    use super::*;
+    use ambition_sim_view::CombatStrikeGeometryView;
+
+    fn strike(anchored_to_body: bool, anchor: ae::Vec2) -> CombatStrikeGeometryView {
+        CombatStrikeGeometryView {
+            volume: ae::CombatVolume::aabb(ae::Aabb::new(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::splat(10.0),
+            )),
+            strike: bevy::prelude::Entity::from_raw_u32(1).unwrap(),
+            owner: bevy::prelude::Entity::from_raw_u32(2).unwrap(),
+            anchored_to_body,
+            owner_anchor: anchor,
+        }
+    }
+
+    /// **⛔⛔ THE REGRESSION: a body-anchored strike is drawn where its owner is
+    /// DRAWN.**
+    ///
+    /// The overlay drew `strike.volume` verbatim — authoritative tick geometry —
+    /// beside a body resampled on the frame clock, so the red box stepped while
+    /// the fighter glided. The read model publishes `owner_anchor` precisely so
+    /// an observer can re-place the identical shape by
+    /// `presented - owner_anchor`.
+    #[test]
+    fn a_body_anchored_strike_follows_its_owners_presented_position() {
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let drawn = ae::Vec2::new(107.5, 100.0);
+        let volume = presented_strike_volume(&strike(true, anchor), Some(drawn));
+        assert_eq!(
+            volume.bounds().center(),
+            ae::Vec2::new(107.5, 100.0),
+            "the strike must move by the owner's presentation delta"
+        );
+        assert_eq!(
+            volume.bounds().half_size(),
+            ae::Vec2::splat(10.0),
+            "translation must preserve the authoritative SHAPE exactly — the \
+             overlay reports geometry, it does not recompute it"
+        );
+    }
+
+    /// **A world-anchored strike does NOT move.** An arena hazard is fixed in
+    /// the world; translating it by some body's interpolation would be the
+    /// mirror image of the bug.
+    #[test]
+    fn a_world_anchored_strike_stays_where_the_simulation_put_it() {
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let volume =
+            presented_strike_volume(&strike(false, anchor), Some(ae::Vec2::new(999.0, 0.0)));
+        assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
+    }
+
+    /// **No presented pose is not a fallback, it is the answer.** A body with no
+    /// interpolation is drawn at its simulated position, so the authoritative
+    /// geometry already IS the drawn geometry.
+    #[test]
+    fn without_a_presented_owner_the_authoritative_geometry_is_drawn() {
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let volume = presented_strike_volume(&strike(true, anchor), None);
+        assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
+    }
+
+    /// **The overlay and the unauthored-attack visual use the SAME rule.**
+    ///
+    /// `unauthored_volumes.rs` translates by `drawn - owner_anchor`; if these
+    /// two ever disagreed, the product-facing red polygon and the developer's
+    /// red box would sit in different places for one strike, and the overlay
+    /// would be the one lying.
+    #[test]
+    fn the_overlay_matches_the_unauthored_attack_visuals_rule() {
+        let anchor = ae::Vec2::new(40.0, 60.0);
+        let drawn = ae::Vec2::new(52.0, 57.0);
+        let row = strike(true, anchor);
+        let overlay = presented_strike_volume(&row, Some(drawn));
+        // The rule as `draw_unauthored_attack_volumes` spells it.
+        let unauthored_centre = row.volume.bounds().center() + (drawn - row.owner_anchor);
+        assert_eq!(overlay.bounds().center(), unauthored_centre);
     }
 }

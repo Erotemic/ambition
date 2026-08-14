@@ -136,6 +136,19 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// hurtboxes are extracted once from simulation truth and shared by every
     /// host; this richer overlay consumes the same rows as standalone games.
     pub combat_geometry: Res<'w, ambition_platformer2d::sim_view::CombatGeometryView>,
+    /// **Where the owners of those strikes are DRAWN.** A body-anchored strike
+    /// is authoritative tick geometry and the body beside it is resampled on the
+    /// frame clock, so the box shudders against its own owner unless it is
+    /// re-placed — `presented_strike_owners` performs that join and the shared
+    /// draw applies it. The reusable overlay reads exactly these two rows.
+    pub strike_owners: Query<
+        'w,
+        's,
+        (
+            &'static ambition_platformer2d::sim_view::BodyPoseView,
+            Option<&'static ambition_platformer2d::sim_view::PresentedPose>,
+        ),
+    >,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in

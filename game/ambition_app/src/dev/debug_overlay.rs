@@ -36,9 +36,9 @@ pub use prims::*;
 pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
     blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_geometry_view,
     draw_combat_volume, draw_hitbox_volume, draw_micro_grid, draw_moving_platform_debug,
-    draw_rebound_vectors, draw_room_bounds,
-    draw_surface_chains, draw_world_blocks, draw_world_grid, engine_delta_to_bevy, gray, green,
-    magenta, orange, red, w2, white_dim, with_alpha, yellow,
+    draw_rebound_vectors, draw_room_bounds, draw_surface_chains, draw_world_blocks,
+    draw_world_grid, engine_delta_to_bevy, gray, green, magenta, orange, presented_strike_owners,
+    red, w2, white_dim, with_alpha, yellow,
 };
 
 /// Marker for the pooled `Text2d` entities that render debug-box labels.
@@ -180,6 +180,7 @@ pub(crate) fn draw_debug_overlay(
         world,
         &feature_q.combat_geometry,
         &developer_tools,
+        &presented_strike_owners(&feature_q.combat_geometry, &feature_q.strike_owners),
     );
 
     // The historical Ambition protagonist still has extra app-specific policy

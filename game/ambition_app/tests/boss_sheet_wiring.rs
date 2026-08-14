@@ -146,7 +146,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     let boss_catalog = content_boss_catalog();
 
     let world_manifest = ambition_content::worlds::world_manifest();
-    let project = ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest)
         .expect("the shipped LDtk project loads");
     let room_set = project
         .to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary())

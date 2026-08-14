@@ -585,8 +585,8 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
 /// installed, so `world_manifest()` panicked the moment it ran — a runtime
 /// failure nothing could catch at build time. With the manifest an explicit
 /// argument the omission became a compile error, which is how it was found.
-fn sandbox_world_manifest() -> sb::ldtk_world::WorldManifest {
-    use sb::ldtk_world::{WorldManifest, WorldSource};
+fn sandbox_world_manifest() -> ambition_platformer2d_ldtk::WorldManifest {
+    use ambition_platformer2d_ldtk::{WorldManifest, WorldSource};
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");
     let source = |id: &str, file: &str, required: bool| WorldSource {
@@ -617,7 +617,7 @@ fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
     let manifest = sandbox_world_manifest();
-    let project = sb::ldtk_world::LdtkProject::load_default_for_dev(&manifest)
+    let project = ambition_platformer2d_ldtk::LdtkProject::load_default_for_dev(&manifest)
         .expect("sandbox LDtk should load");
     let report = project.validate(&ambition_platformer2d_ldtk::LdtkVocabulary::engine());
     if !report.is_ok() {

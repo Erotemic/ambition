@@ -534,7 +534,7 @@ mod dispatch_parity {
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
         app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
-        app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_platformer2d::ldtk_map::LdtkHotReloadState>();
         app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();

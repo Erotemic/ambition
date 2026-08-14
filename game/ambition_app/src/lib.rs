@@ -31,8 +31,8 @@ static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// already does — that becomes one edit here rather than eight scattered
 /// literals, none of which would have been findable by asking "what can this
 /// app convert?".
-pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::actors::ldtk_world::LdtkVocabulary {
-    ambition_platformer2d::actors::ldtk_world::LdtkVocabulary::engine()
+pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
+    ambition_platformer2d::ldtk_map::LdtkVocabulary::engine()
 }
 
 pub mod app;

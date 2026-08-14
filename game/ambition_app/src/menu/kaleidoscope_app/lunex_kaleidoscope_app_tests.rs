@@ -62,7 +62,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
-    app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_platformer2d::ldtk_map::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
@@ -117,7 +117,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 fn extra_dev_toggles_flip_their_non_developer_resources() {
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_platformer2d::dev_tools::DeveloperRuntimeState::default();
-    let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
+    let mut ldtk_reload = ambition_platformer2d::ldtk_map::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::default();
 
     let debug_before = dev_state.debug;
@@ -188,7 +188,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_platformer2d::dev_tools::DeveloperRuntimeState::default();
-    let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
+    let mut ldtk_reload = ambition_platformer2d::ldtk_map::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::Grid;
 
     // The snapshot label reflects the live backend.
@@ -257,7 +257,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
     let mut dev = ambition_platformer2d::dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_platformer2d::dev_tools::DeveloperRuntimeState::default();
-    let mut ldtk_reload = ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState::default();
+    let mut ldtk_reload = ambition_platformer2d::ldtk_map::LdtkHotReloadState::default();
     dev.show_feature_hitboxes = false;
     dev.show_player_hitbox = false;
     let mut backend = InventoryUiBackend::default();
@@ -924,7 +924,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
-    app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_platformer2d::ldtk_map::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
@@ -1457,7 +1457,7 @@ fn scroll_total_rows(app: &App) -> usize {
         .resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
     let ldtk_reload = app
         .world()
-        .resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+        .resource::<ambition_platformer2d::ldtk_map::LdtkHotReloadState>();
     let backend = *app.world().resource::<InventoryUiBackend>();
     let snap = dev_snapshot(DevToggleRead {
         dev,
@@ -1840,7 +1840,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.insert_resource(owned);
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
-    app.init_resource::<ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_platformer2d::ldtk_map::LdtkHotReloadState>();
     app.init_resource::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();

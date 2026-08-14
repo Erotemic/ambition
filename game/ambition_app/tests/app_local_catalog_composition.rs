@@ -204,7 +204,7 @@ fn separate_apps_select_independent_provider_sets() {
 /// bark and a catalog-backed LDtk dialogue binding that names a real Yarn node.
 #[test]
 fn the_full_hall_validates_with_all_three_provider_catalogs() {
-    use ambition_platformer2d::actors::ldtk_world::{field_string, LdtkProject};
+    use ambition_platformer2d::ldtk_map::{field_string, LdtkProject};
 
     // The world manifest (which names the Hall's secondary world) must be
     // installed before any world load, exactly as the content plugin does.

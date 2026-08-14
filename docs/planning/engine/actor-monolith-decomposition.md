@@ -165,11 +165,25 @@ capability_demo` and `fixtures/external_consumer` needed refreshing too. The las
 of those is **gitignored**, so it never appears in `git status`: refresh it
 explicitly or the next `--locked` run in it fails for a reason nobody can see.
 
-Remaining: ~30 app-side sites use the FACADE route
-(`ambition_platformer2d::actors::ldtk_world::…`). The facade already offers
-`ldtk_map`, but it is gated on the optional `ambition_platformer2d_ldtk` feature
-while the monolith's re-export is ungated — so that half is a feature-availability
-question, not a rename, and wants its own slice.
+**App and monolith halves done too:** 38 app sites moved to the facade's own
+`ldtk_map` (available by default — `all_capabilities` includes the LDtk dep), and
+24 monolith-internal uses of its own compatibility path now name
+`ambition_platformer2d_ldtk` directly. 89 sites in total.
+
+⛔ **ONE consumer remains, and it is a real finding rather than a leftover.**
+`ambition_platformer2d::game_assets` uses `WorldManifest` — which is genuinely
+LDtk-specific, *"which LDtk files exist and where play starts"* — UNCONDITIONALLY,
+while the facade declares `ambition_platformer2d_ldtk` as **optional**. It
+compiles only because the monolith's re-export is ungated and the monolith's own
+LDtk dependency is not optional. ⇒ **the facade is laundering an unconditional
+dependency through the monolith to keep its own optional**, and the compat module
+cannot be deleted until that is resolved.
+
+Two honest resolutions, and it is a decision about the facade's feature surface
+rather than a repoint: make the facade's LDtk dependency non-optional (it is
+required in practice), or feature-gate `game_assets` so a no-LDtk consumer stops
+getting a world manifest it cannot use. Either makes the compat module deletable
+in the same slice.
 
 ## Slice procedure
 

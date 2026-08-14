@@ -415,11 +415,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Hot-reload watcher state read by `poll_ldtk_file_changes` below.
         // Default = watcher disabled; the visible app pre-inserts its
         // `from_catalog` value before the engine group (init never clobbers).
-        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition_platformer2d_ldtk::LdtkHotReloadState>();
         app.add_systems(
             sim,
             (
-                crate::ldtk_world::poll_ldtk_file_changes,
+                ambition_platformer2d_ldtk::poll_ldtk_file_changes,
                 // Sprite-driven boss metrics must be available before
                 // boss damageable/pogo volumes are derived, otherwise
                 // composite bosses such as GNU-ton would briefly fall

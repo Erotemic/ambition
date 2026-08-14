@@ -90,7 +90,7 @@ pub(crate) fn draw_debug_overlay(
     platform_set: Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
-    ldtk_spine_index: Res<ambition_platformer2d::actors::ldtk_world::LdtkRuntimeSpineIndex>,
+    ldtk_spine_index: Res<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     // Per-frame buffer of debug-box labels; filled below, rendered as Text2d by

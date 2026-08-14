@@ -15,7 +15,7 @@ use super::*;
 pub(crate) struct DevToggleRead<'a> {
     pub(crate) dev: &'a ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a ambition_platformer2d::dev_tools::DeveloperRuntimeState,
-    pub(crate) ldtk_reload: &'a ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState,
+    pub(crate) ldtk_reload: &'a ambition_platformer2d::ldtk_map::LdtkHotReloadState,
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
     // frontend (Grid / Cube), read from `InventoryUiBackend`.
     pub(crate) backend: InventoryUiBackend,
@@ -36,7 +36,7 @@ pub(crate) struct DevToggleRead<'a> {
 pub(crate) struct DevToggleWrite<'a> {
     pub(crate) dev: &'a mut ambition_platformer2d::dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a mut ambition_platformer2d::dev_tools::DeveloperRuntimeState,
-    pub(crate) ldtk_reload: &'a mut ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState,
+    pub(crate) ldtk_reload: &'a mut ambition_platformer2d::ldtk_map::LdtkHotReloadState,
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
     pub(crate) portal_effect: Option<&'a mut ambition_platformer2d::portal_presentation::PortalEffectSelection>,

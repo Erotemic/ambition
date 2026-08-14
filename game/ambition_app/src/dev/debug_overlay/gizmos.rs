@@ -221,26 +221,26 @@ pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: 
 pub(crate) fn draw_ldtk_runtime_spine(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    spine_index: &ambition_platformer2d::actors::ldtk_world::LdtkRuntimeSpineIndex,
+    spine_index: &ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex,
 ) {
     for entity in &spine_index.entities {
         let color = match entity.role {
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::LoadingZone => {
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::PlayerStart => green(),
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::LoadingZone => {
                 Color::srgba(1.0, 1.0, 1.0, 0.70)
             }
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::DebugLabel => magenta(),
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::CameraZone => blue(),
             // Solid runtime rects are drawn by the dedicated Solid index pass
             // so they can be color-keyed against the JSON-derived collision
             // blocks during the Step 2 raw-vs-runtime overlay work.
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::Solid => continue,
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::Solid => continue,
             // OneWayPlatform / DamageVolume have their own dedicated runtime
             // indices and overlay passes; skip them in the generic spine
             // overlay so colors don't double-stamp.
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
-            ambition_platformer2d::actors::ldtk_world::LdtkRuntimeRole::Other => continue,
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::OneWayPlatform => continue,
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::DamageVolume => continue,
+            ambition_platformer2d::ldtk_map::LdtkRuntimeRole::Other => continue,
         };
         draw_aabb(gizmos, world, entity.aabb(), color);
     }

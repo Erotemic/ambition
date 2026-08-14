@@ -40,7 +40,7 @@ pub fn sync_map_from_save(
 }
 
 pub fn populate_map_rooms(
-    project: Res<crate::ldtk_world::ActiveLdtkProject>,
+    project: Res<ambition_platformer2d_ldtk::ActiveLdtkProject>,
     mut map: ResMut<MapMenuState>,
 ) {
     if !map.rooms.is_empty() {

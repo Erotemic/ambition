@@ -142,7 +142,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition_platformer2d::actors::ldtk_world::WorldManifest>,
+    world_manifest: Res<ambition_platformer2d::ldtk_map::WorldManifest>,
 ) {
     // The host-resident music library must resolve EVERY linked provider's
     // authored tracks — not just Ambition's — so a Sanic or Mary-O session's
@@ -264,7 +264,7 @@ pub(crate) fn setup_host_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    world_manifest: Res<ambition_platformer2d::actors::ldtk_world::WorldManifest>,
+    world_manifest: Res<ambition_platformer2d::ldtk_map::WorldManifest>,
 ) {
     // Same provider-sprite composition as the audio variant: rebuild the sandbox
     // asset catalog from the merged character catalog so host-launched Sanic and

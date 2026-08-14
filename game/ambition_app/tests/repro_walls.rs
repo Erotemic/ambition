@@ -796,8 +796,8 @@ fn goblin_encounter_real_walljump_repro() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
-fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String> {
-    ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(
+fn load_project_for_test() -> Result<ambition_platformer2d::ldtk_map::LdtkProject, String> {
+    ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(
         &ambition_content::worlds::world_manifest(),
     )
 }

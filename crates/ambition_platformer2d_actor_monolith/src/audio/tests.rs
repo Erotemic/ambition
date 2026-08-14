@@ -17,8 +17,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 /// The sandbox world this test's catalog carries, as a plain value. The
 /// `Once` guard died with the install seam — a manifest is now just an
 /// argument, so repeated construction is free of cross-test coupling.
-fn test_world_manifest() -> crate::ldtk_world::WorldManifest {
-    use crate::ldtk_world::{WorldManifest, WorldSource};
+fn test_world_manifest() -> ambition_platformer2d_ldtk::WorldManifest {
+    use ambition_platformer2d_ldtk::{WorldManifest, WorldSource};
     use ambition_asset_manager::AssetId;
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");

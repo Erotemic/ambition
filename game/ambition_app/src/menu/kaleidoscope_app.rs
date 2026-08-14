@@ -556,7 +556,7 @@ pub(crate) struct SystemMenuParams<'w> {
     // The Developer screen also reaches global debug flags and LDtk auto-reload,
     // which live on these two resources (not `DeveloperTools`).
     dev_state: ResMut<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
-    ldtk_reload: ResMut<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
+    ldtk_reload: ResMut<'w, ambition_platformer2d::ldtk_map::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
     backend: ResMut<'w, InventoryUiBackend>,
@@ -803,7 +803,7 @@ pub(crate) struct GameModeIo<'w> {
 pub(crate) struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
-    ldtk_reload: Res<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
+    ldtk_reload: Res<'w, ambition_platformer2d::ldtk_map::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
     portal_effect:

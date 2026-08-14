@@ -11,7 +11,7 @@ use ambition_persistence::save_data::PersistedEncounterState;
 #[cfg(test)]
 use std::collections::HashMap;
 
-use crate::ldtk_world::LdtkProject;
+use ambition_platformer2d_ldtk::LdtkProject;
 
 use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 
@@ -74,10 +74,10 @@ pub fn load_encounter_specs_from_ldtk(
         else {
             continue;
         };
-        let trigger_id = crate::ldtk_world::field_string(trigger, "id")
+        let trigger_id = ambition_platformer2d_ldtk::field_string(trigger, "id")
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| area_id.clone());
-        let camera_zoom = crate::ldtk_world::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
+        let camera_zoom = ambition_platformer2d_ldtk::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
         let trigger_min = [trigger.px[0] as f32, trigger.px[1] as f32];
         let trigger_size = [trigger.width as f32, trigger.height as f32];
 
@@ -124,14 +124,14 @@ pub fn load_encounter_specs_from_ldtk(
 }
 
 fn fallback_waves_from_enemy_spawns(
-    level: &crate::ldtk_world::LdtkLevel,
+    level: &ambition_platformer2d_ldtk::LdtkLevel,
 ) -> Vec<EncounterWaveSpec> {
     let mut wave_mobs = Vec::new();
     for entity in level.all_entity_instances() {
         if entity.identifier != "EnemySpawn" {
             continue;
         }
-        let kind = crate::ldtk_world::field_string(entity, "brain")
+        let kind = ambition_platformer2d_ldtk::field_string(entity, "brain")
             .unwrap_or_else(|| "medium_striker".into());
         let mut mob = EncounterMobSpec::new(
             kind,
@@ -145,7 +145,7 @@ fn fallback_waves_from_enemy_spawns(
         // enemy — a marker-derived wave mob is the same body reached by a
         // different road, so it must not be the one path left wearing its
         // instance id. A marker without the field keeps today's behaviour.
-        if let Some(character) = crate::ldtk_world::field_string(entity, "character_id")
+        if let Some(character) = ambition_platformer2d_ldtk::field_string(entity, "character_id")
             .map(|character| character.trim().to_string())
             .filter(|character| !character.is_empty())
         {

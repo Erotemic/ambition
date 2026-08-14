@@ -18,7 +18,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::Platformer2dStartupAssets;
-use crate::ldtk_world::LdtkRuntimeIndex;
+use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
 use crate::session::data::Platformer2dGameplayDefaultsHandle;

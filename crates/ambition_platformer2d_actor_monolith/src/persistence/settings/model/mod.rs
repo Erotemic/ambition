@@ -13,7 +13,7 @@ use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 use super::video::FlashIntensity;
 use super::UserSettings;
 use crate::host::windowing::{DisplayModeKind, DisplayModeState};
-use crate::ldtk_world::LdtkHotReloadState;
+use ambition_platformer2d_ldtk::LdtkHotReloadState;
 use ambition_dev_tools::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
     EditableMovementTuning,

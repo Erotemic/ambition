@@ -12,7 +12,7 @@
 //! manifests share no world file and no entry room, so "B got A's rooms" is
 //! detectable rather than a coincidence.
 
-use ambition_platformer2d::actors::ldtk_world::{LdtkProject, WorldManifest, WorldSource};
+use ambition_platformer2d::ldtk_map::{LdtkProject, WorldManifest, WorldSource};
 use ambition_platformer2d::asset_manager::AssetId;
 
 /// A single-world manifest built directly against the content crate's

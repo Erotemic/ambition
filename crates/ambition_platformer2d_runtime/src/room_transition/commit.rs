@@ -51,20 +51,18 @@ pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub enemy_projectiles:
         Query<'w, 's, Entity, With<ambition_projectiles::enemy::EnemyProjectile>>,
-    pub slot_board: ResMut<'w, ambition_platformer2d_actor_monolith::combat::slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, FeatureEcsWorldOverlay>,
     pub base_gravity: ResMut<'w, ambition_platformer2d_actor_monolith::physics::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
-    /// Drop every in-flight enemy projectile and every slot reservation, and
-    /// return ambient gravity to its default, so a fresh room does not inherit
-    /// hostile shots or stale assignments from the one just left.
+    /// Drop every in-flight enemy projectile and return ambient gravity to its
+    /// default, so a fresh room does not inherit hostile shots or a stale
+    /// gravity frame from the one just left.
     pub fn clear_carryover(&mut self) {
         for entity in &self.enemy_projectiles {
             self.commands.entity(entity).despawn();
         }
-        self.slot_board.0.clear_assignments();
         // Resetting the AMBIENT is the real gravity reset; the presentation
         // `GravityField` is a per-tick mirror of the primary body's resolved
         // frame and has exactly one writer (`resolve_active_gravity`).

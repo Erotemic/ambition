@@ -28,10 +28,6 @@ const OWNER: &str = "ambition_platformer2d_runtime";
 
 /// Register everything the combat domain needs rewound.
 pub(in crate::rollback) fn register(app: &mut App) {
-    app.rollback_resource_cursor::<ambition_combat::slots::CombatSlotsRes>(
-        OWNER,
-        "resource.combat_slot_board",
-    );
     app.rollback_resource_clone::<ambition_combat::targeting::FactionRelations>(
         OWNER,
         "resource.faction_relations",

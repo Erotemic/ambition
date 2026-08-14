@@ -24,6 +24,12 @@ use super::{
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
 ///
+/// ⚠ **v28 (2026-08-14): `resource.combat_slot_board` is no longer registered.**
+/// Its subject was a crowd-arbitration board that no production reader
+/// consumed, so every peer was agreeing each tick about a value nothing asked
+/// for. Removing a registration shrinks the SET, so unlike v27 this moves the
+/// frozen-name count and the schema baseline as well as the codec-shape hash.
+///
 /// ⚠ **v27 (2026-08-14): `BodyCombat` encodes seven fields, not nine.** AC3
 /// deleted `alive` and `attacking` as duplicate authorities — liveness is
 /// `BodyHealth`'s and the melee answer is `BodyMelee`'s, and a mirror that
@@ -203,7 +209,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 27;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 28;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

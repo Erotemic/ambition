@@ -45,15 +45,15 @@ fn shark_crashes_on_a_fast_charge_blocked_on_either_axis() {
 
 #[test]
 fn nearest_neighbor_is_same_kind_and_closest() {
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     let reqs = vec![
-        ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
-        ("b".to_string(), ae::Vec2::new(10.0, 0.0), SlotKind::Melee), // closest to a
-        ("c".to_string(), ae::Vec2::new(100.0, 0.0), SlotKind::Melee),
+        ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        ("b".to_string(), ae::Vec2::new(10.0, 0.0), CrowdKind::Ground), // closest to a
+        ("c".to_string(), ae::Vec2::new(100.0, 0.0), CrowdKind::Ground),
         (
             "flyer".to_string(),
             ae::Vec2::new(1.0, 0.0),
-            SlotKind::Aerial,
+            CrowdKind::Aerial,
         ), // closer but wrong kind
     ];
     let neighbors = compute_nearest_neighbors(&reqs);
@@ -62,56 +62,6 @@ fn nearest_neighbor_is_same_kind_and_closest() {
     assert_eq!(neighbors.get("a"), Some(&ae::Vec2::new(10.0, 0.0)));
     // The lone aerial actor has no same-kind peer → absent.
     assert!(!neighbors.contains_key("flyer"));
-}
-
-#[test]
-fn unassigned_actors_spread_across_distinct_holding_positions() {
-    use crate::combat::slots::{assign_slots, CombatSlotBoard, SlotKind, SlotRequest};
-    // 2 melee slots, 4 melee actors → 2 win slots, 2 are leftover.
-    let mut board = CombatSlotBoard::new(2, 80.0, 0, 0.0, 0.0);
-    let target = ae::Vec2::ZERO;
-    let requests: Vec<(String, ae::Vec2, SlotKind)> = (0..4)
-        .map(|i| {
-            (
-                format!("e{i}"),
-                ae::Vec2::new(i as f32 * 30.0, 0.0),
-                SlotKind::Melee,
-            )
-        })
-        .collect();
-    let slot_reqs: Vec<SlotRequest> = requests
-        .iter()
-        .map(|(id, pos, kind)| SlotRequest {
-            actor_id: id,
-            actor_pos: *pos,
-            kind: *kind,
-        })
-        .collect();
-    assign_slots(&mut board, target, &slot_reqs);
-
-    let holding = compute_holding_positions(&board, &requests, target);
-    let assigned = requests
-        .iter()
-        .filter(|(id, _, _)| board.slot_for(id).is_some())
-        .count();
-    assert_eq!(assigned, 2, "two actors should win the two slots");
-    assert_eq!(
-        holding.len(),
-        2,
-        "the two leftover actors get holding positions"
-    );
-    // The leftover actors are spread round-robin across the two slots'
-    // holding points — they must not share a single clump point.
-    let positions: Vec<ae::Vec2> = holding.values().copied().collect();
-    assert_ne!(
-        positions[0], positions[1],
-        "leftover actors must occupy distinct holding positions, not clump"
-    );
-    // Deterministic: recomputing yields the same map.
-    assert_eq!(
-        holding,
-        compute_holding_positions(&board, &requests, target)
-    );
 }
 
 /// Same-faction (Enemy) map for the given ids — the common case where anti-clump
@@ -137,10 +87,10 @@ fn no_opponents() -> std::collections::HashMap<String, String> {
 
 #[test]
 fn crowding_pushes_clustered_ground_actors_apart() {
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     let reqs = vec![
-        ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
-        ("b".to_string(), ae::Vec2::new(20.0, 0.0), SlotKind::Melee), // within 80px
+        ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        ("b".to_string(), ae::Vec2::new(20.0, 0.0), CrowdKind::Ground), // within 80px
     ];
     let crowding = compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]), &no_opponents());
     let a = crowding.get("a").expect("a is crowded by b");
@@ -161,10 +111,10 @@ fn crowding_pushes_clustered_ground_actors_apart() {
 
 #[test]
 fn crowding_ignores_actors_outside_the_radius() {
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     let reqs = vec![
-        ("a".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
-        ("b".to_string(), ae::Vec2::new(500.0, 0.0), SlotKind::Melee), // > 80px
+        ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        ("b".to_string(), ae::Vec2::new(500.0, 0.0), CrowdKind::Ground), // > 80px
     ];
     assert!(
         compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]), &no_opponents()).is_empty(),
@@ -178,13 +128,13 @@ fn crowding_ignores_a_different_faction_opponent() {
     // the crowding radius. Anti-clump is for same-faction allies fanning out, so
     // a different-faction opponent must NOT register as crowding — otherwise the
     // back-actor hold rule freezes both fighters instead of letting them close.
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     let reqs = vec![
-        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
         (
             "robot".to_string(),
             ae::Vec2::new(20.0, 0.0),
-            SlotKind::Melee,
+            CrowdKind::Ground,
         ), // within 80px
     ];
     let mut factions = std::collections::HashMap::new();
@@ -210,13 +160,13 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
     // crowding ally, or the back-actor hold rule freezes the duel (the exact regress
     // the duel reframe hit). The `opponent_id_by_id` map (id → the id it's fighting)
     // overrides the same-faction default.
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     let reqs = vec![
-        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
+        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
         (
             "robot".to_string(),
             ae::Vec2::new(20.0, 0.0),
-            SlotKind::Melee,
+            CrowdKind::Ground,
         ), // within 80px
     ];
     let mut opponents = std::collections::HashMap::new();
@@ -230,16 +180,16 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
 
 #[test]
 fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
-    use crate::combat::slots::SlotKind;
+    use crate::combat::crowd::CrowdKind;
     // 150px apart: outside the 80px ground radius but inside the 220px
     // aerial radius. Two flyers crowd; two ground actors at the same
     // spacing do not.
     let aerial = vec![
-        ("f1".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Aerial),
+        ("f1".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Aerial),
         (
             "f2".to_string(),
             ae::Vec2::new(150.0, 0.0),
-            SlotKind::Aerial,
+            CrowdKind::Aerial,
         ),
     ];
     assert!(
@@ -247,8 +197,8 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
         "aerial actors crowd at 150px (aerial radius 220)"
     );
     let ground = vec![
-        ("g1".to_string(), ae::Vec2::new(0.0, 0.0), SlotKind::Melee),
-        ("g2".to_string(), ae::Vec2::new(150.0, 0.0), SlotKind::Melee),
+        ("g1".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        ("g2".to_string(), ae::Vec2::new(150.0, 0.0), CrowdKind::Ground),
     ];
     assert!(
         compute_crowding_by_id(&ground, &same_faction(&["g1", "g2"]), &no_opponents()).is_empty(),

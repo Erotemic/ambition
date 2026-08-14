@@ -13,7 +13,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u8, put_vec2, Reader,
+    put_bool, put_f32, put_i32, put_str, put_u32, put_u8, put_vec2, Reader,
     SnapshotCursor, SnapshotResolve, SnapshotState,
 };
 use ambition_platformer2d_core::snapshot_unit_enum;
@@ -271,20 +271,6 @@ impl SnapshotState for crate::components::BossPatternTimer {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(crate::components::BossPatternTimer(r.f32()?))
-    }
-}
-
-/// **The combat slot board**: which attacker holds which approach slot around the
-/// target. The slot GEOMETRY is authored (`kind`, `offset`, `holding_offset`); the
-/// `assigned_to: Option<String>` is live, and it is a stable id rather than an `Entity`,
-/// so it rewinds cleanly. A boss holding a slot it never claimed attacks on a tick it
-/// never earned.
-impl SnapshotCursor for crate::slots::CombatSlotsRes {
-    fn encode_cursor(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.0.slots.len() as u32);
-        for slot in &self.0.slots {
-            put_opt_str(out, slot.assigned_to.as_deref());
-        }
     }
 }
 

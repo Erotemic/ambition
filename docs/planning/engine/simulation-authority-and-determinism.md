@@ -85,6 +85,27 @@ Re-measure HEAD. Rank systems by:
 Start with a system where decomposition removes real authority coupling, not the
 largest function by LOC.
 
+**Measured 2026-08-14 on `tick_actor_brains`, the ranking's top system.** Its
+largest player-centric authority — a combat slot board anchored on
+`PrimaryPlayer`, or the lowest `PlayerSlot` when a build had none — turned out to
+drive nothing. `assign_slots` filled the board every tick and no production
+reader consumed the assignment; the per-actor position it produced had been
+discarded since before the monolith split, and the board was rewound as
+registered rollback state on top of that. Actor spacing comes from the brain's
+crowding signal, which reads positions and a ground/aerial kind and has no
+anchor at all.
+
+So the slice was a deletion, not a target-relative rewrite: arbitration that no
+consumer observes does not become correct by being re-anchored. Gone with it are
+`CombatSlotBoard`/`assign_slots`/`CombatSlotsRes`, the `PrimaryPlayer` query and
+the position/`PlayerSlot` reads in `tick_actor_brains`, one rollback
+registration (schema v28), and the room-transition and room-reset paths that
+cleared the board. `ambition_combat::slots` is now `::crowd`, holding the one
+fact the surviving signal needs.
+
+⇒ **the remaining player-centrism in this system is gone**; what remains to
+carve is phase structure, below.
+
 ### S2 — carve decision from mutation
 
 For the selected system, produce a decision/result representation that can be

@@ -24,7 +24,7 @@ pub mod moveset;
 pub mod on_hit;
 pub mod path_motion;
 pub mod rules;
-pub mod slots;
+pub mod crowd;
 mod snapshot_impls;
 pub mod stocks;
 /// The live strike: the authoritative damage volume, its lifecycle state, and

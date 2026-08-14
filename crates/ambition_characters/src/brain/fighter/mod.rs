@@ -46,6 +46,7 @@
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
 pub mod decision;
+pub mod evaluation;
 pub mod habit;
 pub mod options;
 pub mod profile;

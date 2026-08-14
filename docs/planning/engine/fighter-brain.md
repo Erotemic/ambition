@@ -14,7 +14,36 @@ open work.
 
 ## Remaining work
 
-### 1. Make the scenario suite an actual evaluation rig
+### 1. Make the scenario suite an actual evaluation rig — STARTED, and it found its own blocker
+
+`brain::fighter::evaluation` runs every scenario across all nine rungs through
+the real `tick_fighter` seam and returns a report. Two properties hold and are
+tested: one seed produces one report (108 rows, identical), and the report covers
+every scenario the suite names.
+
+⛔⛔ **the rig's first measurement is that it cannot yet measure the ladder.**
+Every rung emits **zero presses** and identical frames. That is not a degenerate
+ladder — it is `BrainSnapshot::idle()`, which carries no attack kit, and the
+decision tests already say so: *"no scene here can arm one"*. An empty kit means
+`generate_options` offers movement only, so no attack exists for a rung's scoring
+to differ about.
+
+⇒ **the next slice is a snapshot fixture that carries a real attack kit**, and it
+is the same slice that unlocks survival/damage: a brain with nothing to throw
+cannot lose a stock either.
+
+⚠ two checks are deliberately NOT in the rig until then. A within-`apm_cap`
+assertion at zero presses cannot fail, and neither can a ladder-ordering one.
+(Enforcement itself is not missing — `ApmLedger::may_press` gates every press;
+`apm_cap`'s *"enforcement is FB4's rig"* comment is stale about that. What was
+missing is the measurement.)
+
+⚠ and one rig detail worth keeping: **the opponent has to move.** A rung's
+headline difference is `reaction_ms`, and a delayed view of a world that never
+changes IS the live view — so a static scenario would report the ladder as
+degenerate for the wrong reason.
+
+### Original item
 
 `brain/fighter/scenarios.rs` already defines the named starting situations, but
 its own source says the metrics half is not there. Build the smallest headless

@@ -216,13 +216,39 @@ would split that transaction and reintroduce exactly that second authority. ⛔
 and a `is_changed()`-style reaction to `LastRoomConstructionCommit` is worse: a
 spawn is not idempotent, and change ticks do not rewind.
 
-**What the carve actually needs is a construction → presentation seam:** one
-authoritative message published by the commit, carrying the session scope and the
-constructed platform states, which a render-owned system consumes to spawn the
-visuals. That keeps one transaction per commit while moving the ownership, and it
-is the same shape every other "registration moves with the domain" carve wants.
-Size it with the other room-construction consumers before minting it for one
-feature.
+**What the carve looked like it needed is a construction → presentation seam:**
+one authoritative message published by the commit, carrying the session scope and
+the constructed platform states, which a render-owned system consumes.
+
+⛔⛔ **CENSUSED 2026-08-14, AND THAT SEAM ALREADY EXISTS — the platform simply
+never joined it.** Every other room feature is drawn REACTIVELY: *"every render
+family discovers its own population"* from published views, and
+`ambition_render::rendering::features` even draws a marked rectangle for any id
+the sim published that no family claimed, so the failure mode is LOUD rather than
+invisible. Room construction spawns exactly two visuals directly, and both are
+the exceptions: the moving platform, and physics debris (a transient effect that
+is presentation by nature).
+
+⇒ **the question is not "what message should construction publish", it is "why is
+a moving platform not a published feature view".** It is the only piece of
+authored room geometry whose picture is installed by the transaction that builds
+it, and `sim_view` publishes no platform row at all — its one platform read is
+the blink preview, and render's is a debug gizmo, both reaching straight into
+`MovingPlatformSet`.
+
+⇒ **the slice is therefore a DELETION, not a new seam**: publish platform rows the
+way features are published, let a render family claim them, and delete
+`MovingPlatformVisual` plus its spawn/sync pair from the actor monolith. That
+removes the transaction problem instead of designing around it — a reactive
+family cannot split a transaction it never participates in — and it closes carve
+step 2 without minting a generic mechanism for one customer.
+
+⚠ **what must be preserved is the reason the transaction existed.**
+`sync_moving_platform`'s own doc records that it once carried a room-change reset
+and that the hidden second authority clobbered freshly restored platform state.
+A published view is not a second authority — it is derived each tick from
+`MovingPlatformSet` like every other row — but the rebuild must be shown to
+survive a room change and a rollback restore, which is the test this slice owes.
 
 Remaining after that: give collision an explicit dynamic-geometry overlay/query
 if measurement shows that is cleaner than rebuilding a world per reader.

@@ -42,7 +42,16 @@ const TICKS: usize = 3_600;
 /// The rungs the demo actually registers. See the sparseness warning above.
 const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
 
-const DEFAULT_SEEDS: usize = 3;
+/// ⛔⛔ **THREE WAS TOO FEW, AND IT ANSWERED CONFIDENTLY ANYWAY.** Measured
+/// 2026-08-14: at three seeds the rig reported LOWER-lasts on three of the four
+/// registered pairs; at fifteen, on the same build, three of four report
+/// HIGHER-lasts. Nothing changed but the sample count, so every verdict in
+/// between was noise wearing a direction — the exact failure this file's own
+/// header warns about one paragraph up, reached by its own default.
+///
+/// ⚠ fifteen seeds is roughly twenty minutes. That is the price of an answer
+/// here; a faster number is not a cheaper one, it is a different question.
+const DEFAULT_SEEDS: usize = 15;
 
 /// What one match said.
 ///

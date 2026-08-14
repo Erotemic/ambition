@@ -1304,7 +1304,7 @@ pub fn mount_capabilities_of(
         // capability; its hands are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
-            resolve_planned_character(prepared, authored.payload.character_id.as_ref()),
+            resolve_planned_character(prepared, Some(&authored.payload.character_id)),
         ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
         // Same profile resolution as the staged boss arm above — and never a
@@ -1391,7 +1391,7 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<Planne
         ActorConstructionParams::AuthoredEnemy { authored, .. }
         | ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::GiantHand { authored } => Some(PlannedBody {
-            character: authored.payload.character_id.as_ref().map(|id| id.as_str()),
+            character: Some(authored.payload.character_id.as_str()),
             named_by: format!("{:?}", authored.payload.brain),
         }),
         ActorConstructionParams::StagedActor(request) => match &request.kind {
@@ -1728,8 +1728,17 @@ pub fn staged_actor_requests(
                 // build its body — never reached the row the executor spawns.
                 // Invisible while an archetype row could answer for the brain
                 // key; a refusal the moment they went (AC6).
-                let mut host_payload = crate::rooms::EnemySpawnSpec::new(brain.clone());
-                host_payload.character_id = character.clone();
+                // ⚠ the staged REQUEST still carries an `Option`; the spec no
+                // longer can. `preflight_planned_bodies` refuses a body that
+                // names no character before anything is built, so this names
+                // that twin rather than inventing a default id — the one thing
+                // the required field exists to make impossible.
+                let host_character = character.clone().expect(
+                    "a staged giant host reached construction naming no character, \
+                     so the row was never preflighted (see \
+                     `ActorConstructionError::BodyNamesNoCharacter`)",
+                );
+                let host_payload = crate::rooms::EnemySpawnSpec::new(brain.clone(), host_character);
                 let host_authored = crate::rooms::Authored::new(
                     request.id.clone(),
                     request.name.clone(),
@@ -1807,7 +1816,7 @@ pub fn authored_actor_requests(
         // and nothing else does.
         if crate::features::is_limbed_host(resolve_planned_character(
             prepared,
-            enemy.payload.character_id.as_ref(),
+            Some(&enemy.payload.character_id),
         )) {
             let giant_sim = SimId::placement(&enemy.id);
             let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb);
@@ -1906,20 +1915,22 @@ fn giant_cluster_rows(
                             hand.feature_id.clone(),
                             "Giant GNU Hand",
                             hand.aabb,
-                            ambition_entity_catalog::placements::CharacterBrain::Custom(
-                                "giant_gnu_hands".into(),
+                            crate::rooms::EnemySpawnSpec::new(
+                                ambition_entity_catalog::placements::CharacterBrain::Custom(
+                                    "giant_gnu_hands".into(),
+                                ),
+                                // ⭐ **the hand NAMES its character** at
+                                // construction now, so its body comes from a
+                                // definition like every other creature and the
+                                // spec cannot exist without one.
+                                "npc_giant_gnu_hands",
                             ),
                         );
-                    // ⭐ **the hand NAMES its character**, so its body comes from
-                    // a definition like every other creature. ⛔ the brain key
-                    // beside it used to be the fallback for a composition that
-                    // had not registered the cast; there is no such fallback, so
-                    // a host whose cast lacks `npc_giant_gnu_hands` is refused
-                    // the whole cluster at preparation rather than given two
-                    // generic hands.
-                    authored.payload.character_id = Some(
-                        ambition_entity_catalog::CharacterId::new("npc_giant_gnu_hands"),
-                    );
+                    // ⛔ the brain key beside it used to be the fallback for a
+                    // composition that had not registered the cast; there is no
+                    // such fallback, so a host whose cast lacks
+                    // `npc_giant_gnu_hands` is refused the whole cluster at
+                    // preparation rather than given two generic hands.
                     // A limb is not a combatant: the rider's routed strikes are
                     // what hurt, and the hand itself must never be targeted.
                     authored.payload.disposition =

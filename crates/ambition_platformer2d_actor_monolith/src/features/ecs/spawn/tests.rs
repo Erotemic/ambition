@@ -699,14 +699,12 @@ mod authored_enemy_reads_its_character {
     /// hand a later re-wear something wrong to retract to.
     #[test]
     fn construction_stamps_the_applied_template_so_nothing_reapplies_it() {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
-        );
-        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
             "npc_busy_beaver",
-        ));
+        );
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
@@ -850,10 +848,8 @@ mod authored_enemy_reads_its_character {
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
-        );
-        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
             "npc_busy_beaver",
-        ));
+        );
         spec.brain_profile = policy.map(ambition_entity_catalog::BrainProfileRef::new);
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
@@ -993,12 +989,12 @@ mod authored_enemy_reads_its_character {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
 
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
+            "npc_raider",
         );
-        spec.character_id = Some(ambition_entity_catalog::CharacterId::from("npc_raider"));
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
             "Cove Raider",
@@ -1056,7 +1052,7 @@ mod authored_enemy_reads_its_character {
     /// is the positive half — 77 px/s exists nowhere but the definition.
     #[test]
     fn a_complete_character_is_built_from_itself_rather_than_from_an_archetype() {
-        let (max, speed, contact) = spawn_with(prepared_complete(), Some("npc_busy_beaver"));
+        let (max, speed, contact) = spawn_with(prepared_complete(), "npc_busy_beaver");
         assert_eq!(max, 9, "the character's pool");
         assert_eq!(
             speed, 77.0,
@@ -1107,7 +1103,7 @@ mod authored_enemy_reads_its_character {
         // ⚠ the registry is NON-EMPTY here on purpose — an empty one is the
         // shape a host with no cast has, and this asserts the content rule
         // rather than that shape.
-        spawn_with_prepared_and_brain(prepared(), Some("iron_mary"), "no_such_archetype");
+        spawn_with_prepared_and_brain(prepared(), "iron_mary", "no_such_archetype");
     }
     // ⛔⛔ **`a_composition_with_no_cast_at_all_falls_back_instead_of_refusing`
     // WAS HERE AND IS DELETED** (AC6) — the HOST WAIVER, the last fallback road
@@ -1170,10 +1166,8 @@ mod authored_enemy_reads_its_character {
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
-        );
-        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
             "npc_busy_beaver",
-        ));
+        );
         spec.respawn = respawn;
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
@@ -1223,7 +1217,7 @@ mod authored_enemy_reads_its_character {
     /// The two roads, sharing one harness: `(max health, run speed, contact damage)`.
     fn spawn_with(
         prepared: crate::character_runtime::PreparedCharacterRegistry,
-        character_id: Option<&'static str>,
+        character_id: &'static str,
     ) -> (i32, f32, i32) {
         spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
     }
@@ -1237,13 +1231,16 @@ mod authored_enemy_reads_its_character {
 
     fn spawn_with_prepared_and_brain(
         prepared: crate::character_runtime::PreparedCharacterRegistry,
-        character_id: Option<&'static str>,
+        // ⚠ was `Option`, and both callers always passed `Some`. The placement
+        // type requires a character now, so the axis this could vary no longer
+        // exists.
+        character_id: &'static str,
         brain_key: &'static str,
     ) -> (i32, f32, i32) {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
+            character_id,
         );
-        spec.character_id = character_id.map(ambition_entity_catalog::CharacterId::from);
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
@@ -1292,13 +1289,13 @@ mod authored_enemy_reads_its_character {
         )
     }
 
-    fn spawn(name: &'static str, character_id: Option<&'static str>) -> (i32, Option<String>) {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+    fn spawn(name: &'static str, character_id: &'static str) -> (i32, Option<String>) {
+        let spec = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
+            character_id,
         );
-        spec.character_id = character_id.map(ambition_entity_catalog::CharacterId::from);
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
             name,
@@ -1354,7 +1351,7 @@ mod authored_enemy_reads_its_character {
         // — every registered character can build its own body — and a fixture
         // modelling the vanished middle state would pin a road that no longer
         // exists.
-        let (max, sprite) = spawn("Some Room Enemy", Some("npc_busy_beaver"));
+        let (max, sprite) = spawn("Some Room Enemy", "npc_busy_beaver");
         assert_eq!(
             max, 9,
             "the character authored 9 and it must outrank the archetype's 3"

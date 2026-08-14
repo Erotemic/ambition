@@ -72,7 +72,7 @@ fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
         .iter()
         .flat_map(|room| room.enemy_spawns.iter())
         .filter_map(|spawn| {
-            let character = spawn.payload.character_id.as_ref()?.as_str().to_string();
+            let character = spawn.payload.character_id.as_str().to_string();
             let policy = spawn.payload.brain_profile.as_ref()?.as_str().to_string();
             Some((character, policy))
         })
@@ -152,13 +152,7 @@ fn the_giant_mount_is_peaceful_by_placement_now_that_no_policy_says_so() {
         .rooms
         .iter()
         .flat_map(|room| room.enemy_spawns.iter())
-        .filter(|spawn| {
-            spawn
-                .payload
-                .character_id
-                .as_ref()
-                .is_some_and(|id| id.as_str() == "npc_giant_gnu")
-        })
+        .filter(|spawn| spawn.payload.character_id.as_str() == "npc_giant_gnu")
         .collect();
     assert!(
         !giants.is_empty(),

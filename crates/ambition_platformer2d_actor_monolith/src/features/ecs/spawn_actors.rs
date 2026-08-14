@@ -298,8 +298,18 @@ pub(crate) fn spawn_staged_actor_into(
             ) {
                 return;
             }
-            let mut payload = crate::rooms::EnemySpawnSpec::new(brain.clone());
-            payload.character_id = character.clone();
+            // ⚠ see the giant-host twin in `construction`: the staged REQUEST
+            // still carries an `Option` and the spec no longer can. The
+            // preflight refuses a body that names no character before anything
+            // is built, so this names that twin rather than defaulting an id.
+            let payload = crate::rooms::EnemySpawnSpec::new(
+                brain.clone(),
+                character.clone().expect(
+                    "a staged actor reached construction naming no character, so \
+                     the row was never preflighted (see \
+                     `ActorConstructionError::BodyNamesNoCharacter`)",
+                ),
+            );
             let authored =
                 crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
             // Staged outside the authored RoomSpec lists: mark it so the
@@ -1454,14 +1464,11 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // against the same registry, before the world is touched; the panics below
     // exist so the two cannot silently disagree, and each one names its
     // preflight twin.
-    let character = authored.payload.gameplay_character_id().unwrap_or_else(|| {
-        panic!(
-            "authored placement `{}` names brain `{:?}` and no character, and \
-             reached construction — so the row was never preflighted (see \
-             `ActorConstructionError::BodyNamesNoCharacter`)",
-            authored.id, authored.payload.brain,
-        )
-    });
+    // ⭐ **this used to panic here**, because the placement's character was an
+    // `Option` and construction had no answer without one. The field is
+    // required now, so the question this panic asked cannot be asked — one
+    // runtime failure replaced by a type.
+    let character = authored.payload.gameplay_character_id();
     let plan = super::spawn::CharacterSpawnPlan::new(
         character,
         super::spawn::SpawnContext {

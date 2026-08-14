@@ -1329,51 +1329,59 @@ mod tests {
                 .enemy_spawns
                 .remove(0)
         };
+        let convert_err = |entity: &LdtkEntityInstance| {
+            let ctx = LdtkEntityCtx {
+                entity,
+                name: "Solid Snake".to_string(),
+                min: ae::Vec2::new(32.0, 48.0),
+                size: ae::Vec2::new(16.0, 16.0),
+                offset: ae::Vec2::ZERO,
+            };
+            super::entity_converters::convert_enemy_spawn(&ctx)
+                .expect_err("an EnemySpawn with no character must be refused")
+        };
 
         let authored = convert(&enemy(vec![
             named("brain", "mary_o_snake"),
             named("character_id", "solid_snake"),
         ]));
         assert_eq!(
-            authored.payload.character_id.as_ref().map(|id| id.as_str()),
-            Some("solid_snake"),
-            "the authored art identity did not survive conversion"
+            authored.payload.character_id.as_str(),
+            "solid_snake",
+            "the authored identity did not survive conversion"
         );
         assert_eq!(
-            authored.payload.presentation_identity(&authored.name),
+            authored.payload.presentation_identity(),
             "solid_snake",
-            "the id must win over the display name — that is the whole point of \
-             the field, and a rename must not be able to un-art the level"
+            "one field answers art and gameplay alike; a rename cannot un-art the \
+             level and cannot swap the creature either"
         );
         assert_eq!(
             authored.name, "Solid Snake",
             "the label is still the label; the id did not swallow it"
         );
 
-        let legacy = convert(&enemy(vec![named("brain", "mary_o_snake")]));
+        // ⛔⛔ **the display-name road is REFUSED, not defaulted** (2026-08-14).
+        // These two cases used to assert `character_id.is_none()` and art
+        // falling back to "Solid Snake" — the documented silent join. With the
+        // field required an authored entity that names no creature cannot be
+        // lowered at all, and the conversion says which entity and why.
+        let missing = convert_err(&enemy(vec![named("brain", "mary_o_snake")]));
         assert!(
-            legacy.payload.character_id.is_none(),
-            "a level that authors nothing must not acquire an identity from \
-             somewhere else"
-        );
-        assert_eq!(
-            legacy.payload.presentation_identity(&legacy.name),
-            "Solid Snake",
-            "the display-name road closed. Every world authored before this \
-             field existed resolves art exactly this way"
+            missing.contains("authors no `character_id`"),
+            "a placement naming no creature must be refused by name: {missing}"
         );
 
         // ⚠ an authored-but-BLANK field is what the LDtk editor writes for a
-        // field a human tabbed through, and it must read as absent rather than
-        // as an identity nothing in the catalog can match.
-        let blank = convert(&enemy(vec![
+        // field a human tabbed through. It reads as absent — which is now a
+        // refusal rather than an identity nothing in the catalog can match.
+        let blank = convert_err(&enemy(vec![
             named("brain", "mary_o_snake"),
             named("character_id", "   "),
         ]));
         assert!(
-            blank.payload.character_id.is_none(),
-            "a whitespace-only field became an art identity, which resolves to \
-             no character and draws a placeholder"
+            blank.contains("authors no `character_id`"),
+            "a whitespace-only field must refuse exactly as an absent one does: {blank}"
         );
     }
 

@@ -609,15 +609,22 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     // They were the same string until 2026-08-06, which meant renaming a
     // character silently un-arted every level that placed it and two demos
     // carried a hand-written pass to patch the name back in after conversion.
-    // Absent (the state of every level authored before the field existed) leaves
-    // the display-name join intact — see `EnemySpawnSpec`.
-    let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain);
-    if let Some(character_id) = field_string(entity, "character_id") {
-        let character_id = character_id.trim();
-        if !character_id.is_empty() {
-            payload.character_id = Some(ambition_entity_catalog::CharacterId::from(character_id));
-        }
-    }
+    // ⛔ **REQUIRED, and refused LOUDLY when absent** (2026-08-14). Absence used
+    // to leave the display-name join intact, which is how "which character is
+    // this" got two answers. Measured before the field was tightened: 184
+    // `EnemySpawn` entities across every `.ldtk` in the repo — content, both
+    // demos, the map-assets submodule — and every one authors an id, so this
+    // refusal has no authored content to reject. It exists for the NEXT entity
+    // somebody draws, which is precisely when a default would be invisible.
+    let character_id = field_string(entity, "character_id")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            format!(
+                "EnemySpawn `{name}` authors no `character_id`. A placement states                  which creature it places; the display name is a label, and using                  it was a coincidence the engine acted on."
+            )
+        })?;
+    let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain, character_id);
     // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one
     // (ADR 0022). A migrated character has no archetype row to inherit a policy
     // from, and the same creature is a permanent casualty in a story room and a

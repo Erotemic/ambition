@@ -2068,8 +2068,8 @@ fn giant_room() -> crate::rooms::RoomSpec {
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
-        )
-        .with_character_id("fixture_giant"),
+            "fixture_giant",
+        ),
     ));
     room
 }
@@ -2097,10 +2097,10 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
                 ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "no_such_archetype".into(),
                 ),
-            )
-            .with_character_id("no_such_archetype"),
+                "no_such_archetype",
+            ),
         );
-    authored.payload.character_id = Some(ambition_entity_catalog::CharacterId::new("npc_giant"));
+    authored.payload.character_id = ambition_entity_catalog::CharacterId::new("npc_giant");
     room.enemy_spawns.push(authored);
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
@@ -2722,8 +2722,8 @@ fn mounted_pair_room() -> crate::rooms::RoomSpec {
         ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
-        )
-        .with_character_id("fixture_mount"),
+            "fixture_mount",
+        ),
     ));
     room.enemy_spawns.push(crate::rooms::Authored::new(
         "sky_rider",
@@ -2731,8 +2731,8 @@ fn mounted_pair_room() -> crate::rooms::RoomSpec {
         ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
-        )
-        .with_character_id("pirate_raider"),
+            "pirate_raider",
+        ),
     ));
     room.mount_links
         .push(("sky_rider".to_string(), "sky_shark".to_string()));
@@ -2930,8 +2930,8 @@ fn two_riders_claiming_one_authored_mount_are_refused() {
         ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
-        )
-        .with_character_id("pirate_raider"),
+            "pirate_raider",
+        ),
     ));
     room.mount_links
         .push(("second_rider".to_string(), "sky_shark".to_string()));
@@ -2990,8 +2990,8 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-        )
-        .with_character_id("combatant"),
+            "combatant",
+        ),
     ));
     room.boss_spawns.push(crate::rooms::Authored::new(
         "warden",
@@ -3049,8 +3049,8 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
         crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-        )
-        .with_character_id("combatant"),
+            "combatant",
+        ),
     ));
     room.boss_spawns.push(crate::rooms::Authored::new(
         "warden",
@@ -3416,16 +3416,17 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
             ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
         ));
-    let mut walker: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
-        crate::rooms::Authored::new(
-            "walker_authored",
-            "Walker",
-            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+    let walker: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> = crate::rooms::Authored::new(
+        "walker_authored",
+        "Walker",
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+        crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some("ledge_patrl".into()),
             },
-        );
-    walker.payload.character_id = Some(ambition_entity_catalog::CharacterId::new("fixture_walker"));
+            "fixture_walker",
+        ),
+    );
     room.enemy_spawns.push(walker);
 
     let mut staging = crate::features::RoomContentStagingRegistry::default();
@@ -3489,16 +3490,18 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 /// the three assertions above and refuse every shipping room.
 #[test]
 fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
-    let room_naming = |character: Option<&str>| {
+    let room_naming = |character: &str| {
         let mut room = empty_room("hall");
-        let mut enemy: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
+        let enemy: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
             crate::rooms::Authored::new(
                 "walker_authored",
                 "Walker",
                 ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-                ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
+                crate::rooms::EnemySpawnSpec::new(
+                    ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
+                    character,
+                ),
             );
-        enemy.payload.character_id = character.map(ambition_entity_catalog::CharacterId::new);
         room.enemy_spawns.push(enemy);
         room
     };
@@ -3510,18 +3513,18 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         )
     };
 
+    // ⛔⛔ **the first of the three shapes is GONE, and that is the point of the
+    // 2026-08-14 change rather than a hole in this test.** It asserted that a
+    // placement naming NO character is refused with `BodyNamesNoCharacter`;
+    // `EnemySpawnSpec::character_id` is required now, so that placement cannot
+    // be constructed at all, and the LDtk lowering refuses the authored entity
+    // by name (`convert_enemy_spawn`, pinned in `conversion::mod`'s tests). The
+    // refusal moved from preparation to the type and to authoring — earlier on
+    // both counts. `ActorConstructionError::BodyNamesNoCharacter` survives for
+    // the STAGED request path, whose character is still an `Option`.
     assert!(
         matches!(
-            prepare_room(&room_naming(None)),
-            Err(RoomFeatureConstructionError::ActorConstruction(
-                ActorConstructionError::BodyNamesNoCharacter { .. }
-            ))
-        ),
-        "a placement that names no character has nothing to build a body from",
-    );
-    assert!(
-        matches!(
-            prepare_room(&room_naming(Some("iron_mary"))),
+            prepare_room(&room_naming("iron_mary")),
             Err(RoomFeatureConstructionError::ActorConstruction(
                 ActorConstructionError::BodyCharacterNotRegistered { .. }
             ))
@@ -3541,7 +3544,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         .prepared,
     );
     let incomplete = RoomFeatureConstructionPlan::prepare(
-        &room_naming(Some("npc_mute")),
+        &room_naming("npc_mute"),
         &Default::default(),
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -3561,9 +3564,10 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
          fix from an unregistered one, and the diagnostic has to say which",
     );
 
-    prepare_room(&room_naming(Some("fixture_walker")))
-        .expect("and a registered, body-complete character prepares — or the three above are \
-                 a preflight that refuses everything");
+    prepare_room(&room_naming("fixture_walker")).expect(
+        "and a registered, body-complete character prepares — or the three above are \
+                 a preflight that refuses everything",
+    );
 }
 
 /// **A STAGED actor takes its mount facts from its CHARACTER**, exactly as an

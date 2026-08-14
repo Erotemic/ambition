@@ -664,10 +664,10 @@ mod tests {
     /// that used to override it is deleted with the rows (AC6).
     fn giant_spec_sized(id: &str, half: f32) -> RoomSpec {
         let mut spec = empty_spec(id);
-        let mut payload = crate::rooms::EnemySpawnSpec::new(
+        let payload = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+            "giant_gnu",
         );
-        payload.character_id = Some(ambition_entity_catalog::CharacterId::from("giant_gnu"));
         spec.enemy_spawns.push(crate::rooms::Authored::new(
             "gnu",
             "Giant GNU",
@@ -841,8 +841,8 @@ mod tests {
             aabb,
             crate::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-            )
-            .with_character_id("combatant"),
+                "combatant",
+            ),
         ));
         spec.enemy_spawns.push(crate::rooms::Authored::new(
             "same-id",
@@ -850,8 +850,8 @@ mod tests {
             aabb,
             crate::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-            )
-            .with_character_id("combatant"),
+                "combatant",
+            ),
         ));
         let error = prepare(spec).expect_err("duplicate roots must fail preparation");
         assert!(matches!(
@@ -979,8 +979,8 @@ mod tests {
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
             crate::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-            )
-            .with_character_id("combatant"),
+                "combatant",
+            ),
         ));
         let plan = prepare(spec).expect("plan");
         let expected = plan.predicted_authoritative_ids().clone();

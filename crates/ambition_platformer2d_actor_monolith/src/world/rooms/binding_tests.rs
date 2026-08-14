@@ -4,7 +4,7 @@ use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_core as ae;
 
 use super::binding::RoomBindings;
-use crate::rooms::{Authored, GroundItemSpec, KinematicPathSpec, RoomSpec};
+use crate::rooms::{Authored, EnemySpawnSpec, GroundItemSpec, KinematicPathSpec, RoomSpec};
 
 fn aabb(x: f32, y: f32) -> ae::Aabb {
     ae::Aabb::new(ae::Vec2::new(x, y), ae::Vec2::new(8.0, 8.0))
@@ -36,25 +36,40 @@ fn room_with_two_typos() -> RoomSpec {
         "goomba_a",
         "Goomba A",
         aabb(32.0, 0.0),
-        CharacterBrain::Patrol {
-            path_id: Some("ledge_patrl".to_owned()),
-        },
+        EnemySpawnSpec::new(
+            CharacterBrain::Patrol {
+                path_id: Some("ledge_patrl".to_owned()),
+            },
+            // ⚠ the placement must name a creature now; these rows
+            // are about PATH binding, so any registered id serves.
+            "fixture_walker",
+        ),
     ));
     // Points at the path by its display name, which the runtime accepts.
     room.enemy_spawns.push(Authored::new(
         "goomba_b",
         "Goomba B",
         aabb(64.0, 0.0),
-        CharacterBrain::Patrol {
-            path_id: Some("Ledge Patrol".to_owned()),
-        },
+        EnemySpawnSpec::new(
+            CharacterBrain::Patrol {
+                path_id: Some("Ledge Patrol".to_owned()),
+            },
+            // ⚠ the placement must name a creature now; these rows
+            // are about PATH binding, so any registered id serves.
+            "fixture_walker",
+        ),
     ));
     // Names an archetype no catalog carries.
     room.enemy_spawns.push(Authored::new(
         "koopa_a",
         "Koopa A",
         aabb(96.0, 0.0),
-        CharacterBrain::Custom("snake_kooopa".to_owned()),
+        EnemySpawnSpec::new(
+            CharacterBrain::Custom("snake_kooopa".to_owned()),
+            // ⚠ the placement must name a creature now; these rows
+            // are about PATH binding, so any registered id serves.
+            "fixture_walker",
+        ),
     ));
 
     room.ground_items.push(GroundItemSpec {
@@ -146,9 +161,14 @@ fn normalized_path_name_is_not_a_false_binding_error() {
         "goomba_a",
         "Goomba A",
         aabb(32.0, 0.0),
-        CharacterBrain::Patrol {
-            path_id: Some("enemy_patrol_path_a".to_owned()),
-        },
+        EnemySpawnSpec::new(
+            CharacterBrain::Patrol {
+                path_id: Some("enemy_patrol_path_a".to_owned()),
+            },
+            // ⚠ the placement must name a creature now; these rows
+            // are about PATH binding, so any registered id serves.
+            "fixture_walker",
+        ),
     ));
 
     let report = RoomBindings::default().sweep(&room);

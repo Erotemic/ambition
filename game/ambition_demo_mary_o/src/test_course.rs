@@ -180,8 +180,8 @@ pub fn test_course() -> RoomSpec {
                 ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
                     crate::snake::SNAKE_BRAIN_KEY.to_string(),
                 ),
-            )
-            .with_character_id(crate::snake::SNAKE_SHEET_TARGET),
+                crate::snake::SNAKE_SHEET_TARGET,
+            ),
         ));
     room
 }

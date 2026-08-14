@@ -262,12 +262,18 @@ pub struct EnemySpawnSpec {
     /// repertoire) and presentation is a projection of it. Which sprite a body
     /// wears therefore never determines which character it is.
     ///
-    /// ⚠ **optional only during the migration.** A spawn that authors no id
-    /// still resolves ART through [`Self::presentation_identity`]'s display-name
-    /// fallback; that road is presentation compatibility and must never answer
-    /// the gameplay question. Ask [`Self::gameplay_character_id`] for that.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub character_id: Option<ambition_entity_catalog::CharacterId>,
+    /// ⭐ **REQUIRED, since 2026-08-14.** It was `Option` "only during the
+    /// migration", and the migration is over: measured across every `.ldtk` in
+    /// the repo — the content worlds, both demos, and the `ambition_map_assets`
+    /// submodule — **184 `EnemySpawn` entities, 0 without an id.** AC6.1 deleted
+    /// the archetype road an absent id used to fall back to, so the last thing
+    /// absence could mean was already gone.
+    ///
+    /// ⛔ the lowering REFUSES an authored entity with no id rather than
+    /// defaulting one. Defaulting is what made "which character is this" a
+    /// question with two answers, and the point of the type is that absence
+    /// stops being representable.
+    pub character_id: ambition_entity_catalog::CharacterId,
     /// **When this body comes back after it dies** (ADR 0022).
     ///
     /// ⭐ **a PLACEMENT fact with nowhere to be authored, until now.** Respawn
@@ -317,10 +323,18 @@ pub struct EnemySpawnSpec {
 }
 
 impl EnemySpawnSpec {
-    pub fn new(brain: ambition_entity_catalog::placements::CharacterBrain) -> Self {
+    /// ⛔ **the character is a CONSTRUCTOR argument, not something added later.**
+    /// This took only a brain and left `character_id: None`, so every call site
+    /// was one `.with_character_id(..)` away from a placement that names no
+    /// creature — and forgetting it compiled. Taking it here is what makes the
+    /// required field mean anything.
+    pub fn new(
+        brain: ambition_entity_catalog::placements::CharacterBrain,
+        character_id: impl Into<ambition_entity_catalog::CharacterId>,
+    ) -> Self {
         Self {
             brain,
-            character_id: None,
+            character_id: character_id.into(),
             respawn: None,
             disposition: None,
             brain_profile: None,
@@ -330,37 +344,35 @@ impl EnemySpawnSpec {
     /// **The PRESENTATION identity this spawn wears** — which sheet, portrait
     /// and animation set the renderer should bind.
     ///
-    /// `name` is the caller's [`Authored::name`]. Returning the name unchanged
-    /// when no id is authored keeps the display-name road intact — the resolver
-    /// downstream (`id_for_authored_identity`) accepts either form.
+    /// ⛔⛔ **the `name` parameter and the display-name fallback are GONE.** This
+    /// took `name: &str` and returned it unchanged when no id was authored,
+    /// which made a display name that happens to match a character into a
+    /// gameplay-adjacent join — tolerable for pixels, because a wrong sheet is
+    /// visible, and the exact silent coincidence the id exists to replace. With
+    /// the id required there is nothing to fall back FROM.
     ///
-    /// ⛔ **NOT the gameplay character.** The name fallback is the silent join
-    /// this struct's doc describes above; it is tolerable for pixels because a
-    /// wrong sheet is visible, and intolerable for health, mass, repertoire or
-    /// death traits, where being wrong is not.
-    pub fn presentation_identity<'a>(&'a self, name: &'a str) -> &'a str {
-        self.character_id
-            .as_ref()
-            .map(ambition_entity_catalog::CharacterId::as_str)
-            .unwrap_or(name)
+    /// Kept as a named accessor rather than inlined because presentation and
+    /// gameplay asking the same question through two names is what made the
+    /// divergence expressible in the first place; now they demonstrably agree.
+    pub fn presentation_identity(&self) -> &str {
+        self.character_id.as_str()
     }
 
-    /// **Which `CharacterDefinition` this spawn instantiates**, when it says.
+    /// **Which `CharacterDefinition` this spawn instantiates.**
     ///
-    /// ⭐ **no fallback, and the absence of one is the point.** A display name
-    /// that happens to match a character is a coincidence the engine must not
-    /// act on. `None` means *"this placement did not say"*, which construction
-    /// answers with the legacy archetype — a transitional state that must stay
-    /// visible rather than be papered over by a name match.
-    pub fn gameplay_character_id(&self) -> Option<&ambition_entity_catalog::CharacterId> {
-        self.character_id.as_ref()
+    /// ⭐ no fallback and no `Option`: a placement states its character or it is
+    /// not a placement. `None` used to mean *"this placement did not say"*, which
+    /// construction answered with the legacy archetype — a road AC6.1 deleted, so
+    /// the last thing absence could mean went with it.
+    pub fn gameplay_character_id(&self) -> &ambition_entity_catalog::CharacterId {
+        &self.character_id
     }
 
     pub fn with_character_id(
         mut self,
         character_id: impl Into<ambition_entity_catalog::CharacterId>,
     ) -> Self {
-        self.character_id = Some(character_id.into());
+        self.character_id = character_id.into();
         self
     }
 
@@ -384,11 +396,9 @@ impl EnemySpawnSpec {
     }
 }
 
-impl From<ambition_entity_catalog::placements::CharacterBrain> for EnemySpawnSpec {
-    fn from(brain: ambition_entity_catalog::placements::CharacterBrain) -> Self {
-        Self::new(brain)
-    }
-}
+// ⛔ **`From<CharacterBrain>` is DELETED.** It said a brain alone is a
+// placement, which is the exact claim the required `character_id` refutes: a
+// controller is not a creature, and a spec built from one named no body at all.
 
 /// Pure authored damage-volume payload carried by [`RoomSpec`]. Runtime combat
 /// crates lower this to their live `DamageVolume`; the world IR only stores
@@ -448,44 +458,31 @@ pub use ambition_entity_catalog::placements::{
 mod enemy_spawn_identity_tests {
     use super::EnemySpawnSpec;
 
-    fn spec() -> EnemySpawnSpec {
-        EnemySpawnSpec::new(ambition_entity_catalog::placements::CharacterBrain::Custom(
-            "medium_striker".to_string(),
-        ))
-    }
-
-    /// **The two identities answer differently, and the difference is the point.**
+    /// **The two identities agree BY CONSTRUCTION, and that is the whole change.**
     ///
-    /// D73's sharpest correction: a body's gameplay character must not be
-    /// inferred from the sprite it wears. An unauthored spawn resolves its ART
-    /// through its display name — a join this file's own doc calls a documented
-    /// silent failure, tolerable only because a wrong sheet is visible — and
-    /// that same chain must return NOTHING when asked which character the body
-    /// IS. Poison the accessor to fall back to the name and this reds.
+    /// ⛔⛔ this module used to assert the opposite and was right to:
+    /// `an_unauthored_spawn_wears_a_name_but_claims_no_character` pinned that art
+    /// fell back to the display name while the gameplay accessor returned
+    /// `None` — a documented silent join, tolerable only because a wrong sheet
+    /// is visible. That state is now unrepresentable: `character_id` is
+    /// required, `presentation_identity` takes no name to fall back to, and
+    /// `gameplay_character_id` has no `None` to return. A test demanding a value
+    /// the type can no longer hold is a product decided against, not a
+    /// regression, so it is deleted rather than weakened.
     #[test]
-    fn an_unauthored_spawn_wears_a_name_but_claims_no_character() {
-        let spec = spec();
-        assert_eq!(
-            spec.presentation_identity("Fretjaw"),
-            "Fretjaw",
-            "art still falls back to the display name; that road is unchanged",
+    fn presentation_and_gameplay_cannot_disagree_about_the_character() {
+        let spec = EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+            "fretjaw",
         );
+        assert_eq!(spec.presentation_identity(), "fretjaw");
+        assert_eq!(spec.gameplay_character_id().as_str(), "fretjaw");
         assert_eq!(
-            spec.gameplay_character_id(),
-            None,
-            "a display name is not a character claim, even when one matches",
-        );
-    }
-
-    /// The authored road answers BOTH questions, which is why authoring an id is
-    /// the migration: it is the only form in which the two agree by construction.
-    #[test]
-    fn an_authored_id_answers_both_questions() {
-        let spec = spec().with_character_id("fretjaw");
-        assert_eq!(spec.presentation_identity("Fretjaw"), "fretjaw");
-        assert_eq!(
-            spec.gameplay_character_id().map(|id| id.as_str()),
-            Some("fretjaw")
+            spec.presentation_identity(),
+            spec.gameplay_character_id().as_str(),
+            "one field answers both questions; there is no second source to drift",
         );
     }
 }

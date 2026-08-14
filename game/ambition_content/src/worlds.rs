@@ -147,11 +147,8 @@ mod tests {
         {
             for room in &room_set.rooms {
                 for enemy in &room.enemy_spawns {
-                    let complete = enemy
-                        .payload
-                        .character_id
-                        .as_ref()
-                        .and_then(|id| prepared.get(id.as_str()))
+                    let complete = prepared
+                        .get(enemy.payload.character_id.as_str())
                         .is_some_and(|character| character.body_blueprint().is_ok());
                     if complete {
                         continue;
@@ -244,9 +241,7 @@ mod tests {
         let mut controllers_per_body: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         let mut bodies_per_controller: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for enemy in &room.enemy_spawns {
-            let Some(body) = enemy.payload.gameplay_character_id() else {
-                continue;
-            };
+            let body = enemy.payload.gameplay_character_id();
             let controller = format!("{:?}", enemy.payload.brain);
             controllers_per_body
                 .entry(body.as_str().to_string())
@@ -396,78 +391,20 @@ mod tests {
         );
     }
 
-    /// **WHO IS STILL RIDING THE DISPLAY-NAME ROAD** — the measurement that
-    /// sizes checklist item 15, kept as an exact set rather than a count.
-    ///
-    /// `EnemySpawnSpec::presentation_identity` falls back to the placement's
-    /// display NAME when no `character_id` is authored. That road is
-    /// presentation compatibility: tolerable for pixels, because a wrong sheet
-    /// is visible, and intolerable for gameplay, which is why
-    /// `gameplay_character_id` deliberately has no fallback. Item 15 deletes it
-    /// once every placement names its character.
-    ///
-    /// ⭐ **an EXACT set, so this ratchets in both directions.** A new
-    /// unnamed placement fails it, and so does casting the last one — at which
-    /// point the fallback has no shipped user left and item 15 is a deletion
-    /// rather than a survey. A count would only catch the first.
-    ///
-    /// ⚠ what is left is a CONTENT decision, not migration work: a thing called
-    /// "Target" in a dive-drill room is plausibly the sandbag, but that changes
-    /// the drill (ledger D96). ⚠ `BossSpawn` is a different population that
-    /// carries no `character_id` field at all and resolves through boss
-    /// profiles — it never rode this road.
-    #[test]
-    fn only_the_uncast_placements_still_ride_the_display_name_fallback() {
-        use ambition_platformer2d_ldtk::{LdtkProject, LdtkVocabulary};
-
-        let manifest = world_manifest();
-        let project =
-            LdtkProject::load_default_for_dev(&manifest).expect("the shipped worlds load");
-        let room_set = project
-            .to_room_set(&manifest, &LdtkVocabulary::engine())
-            .expect("the shipped worlds compose");
-
-        let mut unnamed: Vec<String> = Vec::new();
-        let mut total = 0usize;
-        for room in &room_set.rooms {
-            for enemy in &room.enemy_spawns {
-                total += 1;
-                if enemy.payload.gameplay_character_id().is_none() {
-                    unnamed.push(format!("{}/{}", room.id, enemy.id));
-                }
-            }
-        }
-        assert!(
-            total > 20,
-            "only {total} enemy placements were walked, so this census is not \
-             seeing the shipped worlds and an empty result would read as success"
-        );
-        unnamed.sort();
-
-        // ⭐⭐ **EMPTY, as of 2026-08-13.** Every `EnemySpawn` in every world this
-        // provider ships names the character it is. The last two were content
-        // decisions Jon made that day: `under_town_skitter` is a Puppy Slug, and
-        // the dive-drill's anonymous "Target" — AI-invented placeholder content
-        // he does not care about preserving — was deleted rather than cast.
-        //
-        // ⇒ **so this asserts the INVARIANT now, not a countdown.** A placement
-        // authored without a character resolves its art by display name, which is
-        // a string matching a sprite by luck; the list being empty is what makes
-        // "an enemy placement names its character" a rule rather than a target.
-        //
-        // ⚠ **it unblocks checklist item 15** — deleting the `presentation_identity`
-        // name fallback and making `EnemySpawnSpec::character_id` required — and
-        // that is the thing to do next, not another entry here. When the type
-        // makes the absence unrepresentable, delete this test with the fallback.
-        assert!(
-            unnamed.is_empty(),
-            "these placements name no character and are resolving art by display \
-             name: {unnamed:?}\n\nEvery shipped enemy placement named its \
-             character as of 2026-08-13. A new one that does not is either a \
-             casting decision nobody made or an authoring slip — and the fix is \
-             the `character_id` field, never a wider fallback"
-        );
-    }
+    // ⛔⛔ **`only_the_uncast_placements_still_ride_the_display_name_fallback`
+    // is DELETED, on its own instruction.** It censused which shipped
+    // `EnemySpawn` rows resolved art by display name, reached empty on
+    // 2026-08-13, and said what to do next: *"⚠ it unblocks checklist item 15 —
+    // deleting the `presentation_identity` name fallback and making
+    // `EnemySpawnSpec::character_id` required — and that is the thing to do
+    // next, not another entry here. When the type makes the absence
+    // unrepresentable, delete this test with the fallback."*
+    //
+    // Done 2026-08-14: the field is required, `presentation_identity` takes no
+    // name to fall back to, and the LDtk lowering refuses an authored entity
+    // that names no creature. A census of a state the type cannot hold measures
+    // nothing, and the refusal it was watching for is pinned where it now
+    // happens — `convert_enemy_spawn`, in `conversion::mod`'s tests.
 
     /// **The authored `mounted_on` refs have to survive all the way to a
     /// `RoomSpec`, and for a month they did not.** Jon, 2026-08-08: *"The

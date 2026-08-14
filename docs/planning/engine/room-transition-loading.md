@@ -106,6 +106,25 @@
   `clear_message_on_rollback` cross-schedule trap that made this whole area
   hazardous, which is the deletion payoff the slice owes.
 
+  **The field mapping, derived 2026-08-14 — the intent is a superset except in
+  two places, and both are cheap:**
+
+  | the transaction reads | the intent has |
+  |---|---|
+  | `transition.target_room` (an INDEX) | `target_room` as a room-id `String` ⇒ `RoomSet::room_index_by_id` |
+  | `transition.arrival` | `arrival` |
+  | `zone_sfx` | `zone_sfx` |
+  | the crossing SUBJECT | `subject: SimId` — which the message does NOT carry, and is why the deferred path exists |
+  | `transition.zone.id`, for `same_destination` dedup | ⚠ nothing |
+
+  ⇒ the dedup term is the only genuine gap, and losing it is a FIX rather than a
+  concession: `same_destination` ANDs in the zone id while its own comment says
+  *"one transaction owns that destination; trigger noise is not a new request."*
+  Two zones into one room currently open two transactions, which is the comment's
+  opposite. Key it on the destination — as the comment already claims — and the
+  intent carries everything. ⛔ do that IN the convergence commit, where it has a
+  reason; on its own it is a behaviour change with no symptom behind it.
+
   ⚠ the one fact to check first: `sim_schedule()` is a configured label, so the
   Apply chain moves by registering in `Update` rather than `app.sim_schedule()`.
   On a fixed-tick host whose sim IS `Update` that is a no-op; on one running

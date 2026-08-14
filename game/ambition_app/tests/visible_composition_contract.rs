@@ -78,10 +78,16 @@ fn assert_contract_holds(persona: &str, app: &App) {
     );
 }
 
+/// ⭐ **this is the BROWSER's game-side composition, run on a native host.**
+/// `shell_hosted` is read off `VisibleGameSpec::browser` rather than written as
+/// `true`, so what gets composed here is what `run_web` composes — the browser
+/// and this test cannot drift apart without the shared spec changing under
+/// both. Only the render surface differs, and a surface is not a composition.
 #[test]
 fn the_launcher_persona_composes_a_route_and_room_visuals() {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    assert_contract_holds("launcher persona", &app);
+    let browser = VisibleGameSpec::browser(GameAssetConfig::default());
+    let app = build_visible_app(VisibleRenderMode::NoWindow, browser.shell_hosted);
+    assert_contract_holds("browser / launcher persona", &app);
 }
 
 #[test]

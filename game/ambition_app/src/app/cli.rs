@@ -841,6 +841,10 @@ pub fn build_visible_app_with(
 /// True when this process should boot straight into gameplay (the pre-shell
 /// behavior): `--direct`, `AMBITION_DIRECT=1`, or an explicit start-room
 /// request.
+///
+/// Desktop-only, like every other reader of the command line: a browser has no
+/// argv to carry a development entry flag, so `run_web` never asks.
+#[cfg(not(target_arch = "wasm32"))]
 fn cli_direct_entry() -> bool {
     if std::env::var("AMBITION_DIRECT").is_ok_and(|v| v == "1") {
         return true;
@@ -893,21 +897,26 @@ pub fn run_web() {
     // a source that did not exist. `static_map` hid it for the worlds — the
     // embedded fallback answered instead — and nothing hid it for anything else.
     //
-    // ⭐ **the two roots are ONE root here, and that is the packaged case the
-    // engine already documents.** `layered_asset_source` returns the platform
-    // default unchanged when its roots are equal, precisely because a packaged
-    // build (an APK, a Steam Deck install, a served web tree) has had its trees
-    // MERGED BY THE PACKAGER already — see `package_asset_guard.py compose`,
-    // which is what publishes `web/assets/`. So the browser says the same rule
-    // the desktop says, with the same function, and gets Bevy's wasm HTTP reader
-    // fetching `/assets/<path>` for both sources.
+    // ⭐ **the two roots are ONE root here, and this is the platform default the
+    // engine's layering rule already reduces to.** `layered_asset_source`
+    // documents that equal roots return `AssetSourceBuilder::platform_default`
+    // UNCHANGED, and that the equality is load-bearing rather than an
+    // optimisation: a packaged build — an APK, a Steam Deck install, a served
+    // web tree — has had its roots MERGED BY THE PACKAGER already (here, by
+    // `package_asset_guard.py compose`, which publishes `web/assets/`), so
+    // there is nothing left to fall back TO and the platform reader is the
+    // correct one. On wasm that reader is Bevy's HTTP reader, fetching
+    // `/assets/<path>` from the page origin for both sources.
+    //
+    // ⚠ spelled as the platform default rather than as `layered_asset_source`
+    // because that function is `not(target_arch = "wasm32")` — it is built on
+    // `FileAssetReader`, which a browser does not have. The rule is the same;
+    // only the half of it that needs a filesystem is absent here.
     //
     // Must register before DefaultPlugins builds AssetPlugin.
     app.register_asset_source(
         "game",
-        ambition_platformer2d::asset_manager::consumer_source::layered_asset_source(
-            "assets", "assets",
-        ),
+        bevy::asset::io::AssetSourceBuilder::platform_default("assets", None),
     );
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {

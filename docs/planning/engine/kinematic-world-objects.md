@@ -199,8 +199,33 @@ world crate, and most still depend on the monolith for other reasons. This
 removes a false authority, not a compile unit; the compile payoff comes when the
 visual adapter moves to presentation ownership (carve step 2).
 
-Remaining: give collision an explicit dynamic-geometry overlay/query if
-measurement shows that is cleaner than rebuilding a world per reader.
+**The visual carve (ownership step 2) is blocked by a TRANSACTION, not by
+dependencies — measured 2026-08-14.** `ambition_render` already depends on
+`shared_tangle` and the world crate and NOT on the actor monolith, and the visual
+adapter needs exactly those (plus `RoomVisual`, which is shared_tangle's). So the
+code could move today. What stops it is where the spawn is called from:
+`spawn_moving_platforms` runs inside the room-construction commit, immediately
+after the authoritative-id receipt, with the same session scope and the platform
+states that construction just produced. State and visuals are installed by one
+transaction on purpose — `sync_moving_platform`'s own doc records that it once
+carried a room-change reset of its own and that the hidden second authority
+clobbered freshly restored platform state.
+
+⇒ making the spawn reactive (poll `MovingPlatformSet`, spawn what is missing)
+would split that transaction and reintroduce exactly that second authority. ⛔
+and a `is_changed()`-style reaction to `LastRoomConstructionCommit` is worse: a
+spawn is not idempotent, and change ticks do not rewind.
+
+**What the carve actually needs is a construction → presentation seam:** one
+authoritative message published by the commit, carrying the session scope and the
+constructed platform states, which a render-owned system consumes to spawn the
+visuals. That keeps one transaction per commit while moving the ownership, and it
+is the same shape every other "registration moves with the domain" carve wants.
+Size it with the other room-construction consumers before minting it for one
+feature.
+
+Remaining after that: give collision an explicit dynamic-geometry overlay/query
+if measurement shows that is cleaner than rebuilding a world per reader.
 
 ### K4 — contact completeness
 

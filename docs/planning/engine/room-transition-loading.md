@@ -81,6 +81,37 @@
   `RoomConstructionPlan::prepare` + `apply_to_world` is DELETED, leaving it the
   boundary gate it should have been. That is the deletion this slice owes.
 
+  ⭐⭐ **AND THE FORK IS AT THE DETECTION SITE, WHICH MOVES THE WHOLE SLICE.**
+  Measured 2026-08-14 in `world/rooms/systems.rs`: one decision, recorded two
+  ways, chosen by host —
+
+  ```rust
+  if let Some(boundary) = boundary {
+      pending_lifecycle.record(boundary.current, LifecycleIntent::Transition { .. });
+      return;                       // rollback host: a rollback-registered INTENT
+  }
+  transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
+  ```                               // fixed-tick host: a cross-schedule MESSAGE
+
+  The two representations fork at BIRTH, and neither contains the other: the
+  message carries the resolved zone (target index, arrival, activation), the
+  intent carries a stable `SimId` subject and the room id as a string — because
+  the commit happens far from the zone that named it.
+
+  ⇒ **so the convergence is not "give the transaction a second input", which
+  would be the fork again in a new place.** Record the intent on BOTH hosts; make
+  the transaction its only consumer; let the eager host's confirmation be
+  immediate and the rollback host's be the confirmed frame. **`RoomTransitionRequested`
+  then has no producer and is DELETED** — and with it the
+  `clear_message_on_rollback` cross-schedule trap that made this whole area
+  hazardous, which is the deletion payoff the slice owes.
+
+  ⚠ the one fact to check first: `sim_schedule()` is a configured label, so the
+  Apply chain moves by registering in `Update` rather than `app.sim_schedule()`.
+  On a fixed-tick host whose sim IS `Update` that is a no-op; on one running
+  `FixedUpdate` detection still precedes it within the frame; on the rollback
+  host it leaves the rewind, which is the point.
+
   **Acceptance target, red today and ⚠ deliberately `#[ignore]`d**:
   `a_room_change_on_the_shipped_host_opens_a_readiness_transaction`
   (`game/ambition_app/tests/d71_transaction_census.rs`). Measured at HEAD: 60 room

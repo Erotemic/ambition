@@ -33,7 +33,7 @@ navigation, possession, item custody and actor-monolith decomposition.
 
 ## Milestone status against HEAD (2026-08-14)
 
-Five of the seven properties hold. ⛔ **two were reached by DELETING what the
+Six of the seven properties hold. ⛔ **two were reached by DELETING what the
 milestone described, not by building it** — check before starting a slice.
 
 - ✔ **generic crowd/combat arbitration.** No longer anchored on a primary
@@ -60,9 +60,18 @@ milestone described, not by building it** — check before starting a slice.
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.
-- ▢ **important ordering explicit.** The phase order that decides which of the
-  two control producers wins is currently implicit in `PlayerInput` running
-  before `WorldPrep`.
+- ✔ **important ordering explicit.** Audited the four relationships these slices
+  introduced or exposed. Perception → brain tick is chained inside `WorldPrep`
+  with the reason written down. Overlay rebuild → the migrated `CollisionWorld`
+  readers is the same chain; the readers outside `WorldPrep` (the pogo resolver
+  in `Combat`, the OOB recorder in `Trace`) are trivially later, which is what
+  makes a trace show the world the simulation actually collided against. The
+  clock → platform advance is frame-stable, because `WorldTime` is snapshotted at
+  frame top. And the one relationship that was genuinely implicit — which of the
+  two `ActorControl` producers wins for a possessed body — is **removed rather
+  than documented**: disjoint populations need no order at all. ⭐ that is the
+  preferred resolution whenever it is available; an ordering constraint you do
+  not need is stronger than one you have written down.
 - ✔ **no replacement god context.** No `ActorContext` or service bag was added;
   the new types are `PerceivedWorld` (three perception channels a view needs
   together) and an adopted `CollisionWorld`.

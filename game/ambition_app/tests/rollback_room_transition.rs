@@ -505,3 +505,84 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
          assets nobody proved were still there."
     );
 }
+
+/// The ambient gravity direction the whole room simulates under.
+fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2> {
+    sim.world()
+        .get_resource::<ambition_platformer2d::actors::physics::BaseGravity>()
+        .map(|gravity| gravity.dir)
+}
+
+/// ⛔⛔ **A ROOM YOU LEFT MUST NOT KEEP SIMULATING THE ROOM YOU ENTERED.**
+///
+/// The eager commit path calls `RoomTransitionCombatReset::clear_carryover` —
+/// despawn every in-flight enemy projectile, return `BaseGravity` to its default
+/// — because a fresh room must not inherit hostile shots or a gravity frame from
+/// the one just left. `commit_transition`, the CONFIRMED path the shipped
+/// rollback host actually runs, calls neither: measured 2026-08-14, neither
+/// `clear_carryover` nor `BaseGravity` appears anywhere in `lifecycle_commit.rs`.
+///
+/// Two hosts, one game, two rules — which is what a "mirrors X" fork buys, and
+/// what the ONE-application-operation convergence exists to end.
+///
+/// ⛔⛔ **IGNORED BECAUSE IT IS RED, AND IT IS RED BECAUSE THE GAP IS REAL.**
+/// Measured 2026-08-14: it fails with `left: Vec2(-0.0, -1.0)` — the previous
+/// room's flipped gravity, still in force after the door — against the
+/// `Vec2(0.0, 1.0)` default the eager host resets to. That is a MEASUREMENT, not
+/// a wish, and this test is the gap rather than the fix.
+///
+/// ⛔ **do not delete or weaken it to make a run green, and do not satisfy it by
+/// pasting a third reset list into `commit_transition`.** The fix is the ONE
+/// application operation both hosts call (see
+/// `docs/planning/engine/room-transition-loading.md`); un-ignore it in the same
+/// commit that lands the convergence, and it becomes that slice's proof.
+#[test]
+#[ignore = "RED: the shipped rollback host does not clear room carryover — un-ignore with the D71 one-application-operation convergence"]
+fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
+    let mut sim = repro_sim();
+    sim.step(AgentAction::default());
+    let default_dir =
+        base_gravity_dir(&sim).expect("the sim publishes ambient gravity as BaseGravity");
+
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+
+    // A room that flipped ambient gravity, exactly as an authored gravity room
+    // does. The value only has to DIFFER — what is asserted is that crossing a
+    // door puts it back, not what it was.
+    let flipped_dir = -default_dir;
+    {
+        let world = sim.world_mut();
+        world
+            .resource_mut::<ambition_platformer2d::actors::physics::BaseGravity>()
+            .dir = flipped_dir;
+    }
+    assert_eq!(
+        base_gravity_dir(&sim),
+        Some(flipped_dir),
+        "the test could not establish the precondition it measures: ambient gravity \
+         did not take the flipped value"
+    );
+
+    let mut crossed = false;
+    for _ in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        if obs.active_room.as_str() == TARGET_ROOM {
+            crossed = true;
+            break;
+        }
+    }
+    assert!(
+        crossed,
+        "the body never reached the target room, so nothing about the transition was \
+         measured"
+    );
+
+    assert_eq!(
+        base_gravity_dir(&sim),
+        Some(default_dir),
+        "the shipped rollback host carried the previous room's ambient gravity across a \
+         door. The eager path resets it in `clear_carryover`; the confirmed path never \
+         calls that, so the two hosts disagree about what a room transition IS."
+    );
+}

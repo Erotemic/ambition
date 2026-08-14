@@ -86,9 +86,18 @@ described rather than by building it. Check HEAD before starting the next slice.
   code 188 → 181.
 
   ⇒ **214 → 181 across three cuts**, and what remains in the loop is snapshot
-  assembly, disposition mutation and control publication. The next cut is the
-  mutation half: pacifying a hostile whose foe died, and publishing
-  `ActorControl`, are both writes sitting inside what should be a decision.
+  assembly, disposition mutation and control publication.
+
+  ⛔ **the reaction-timer decay is NOT the next cut, and checking cost less than
+  moving it.** `combat.decay_reaction_timers(dt)` looks like unrelated work
+  riding in the brain tick, and a test fixture in `character_runtime` even
+  hand-writes the system production appears to lack. But the rule is already
+  consolidated into one function called from three places — controlled bodies in
+  `control::input_systems`, actors here, bosses in the boss tick — one per
+  population, and the controlled site decays on `frame_dt` where the other two
+  use sim `dt`. That difference is deliberate and is the open half of **D114**,
+  a feel question, not a fork to collapse. Merging the three into one system
+  would force one clock and decide D114 by refactor.
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and

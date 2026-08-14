@@ -126,11 +126,18 @@ pub fn validate_content_graph(
 ///    runs collapsed to underscores).
 /// 3. Otherwise, the iid.
 ///
-/// This validator only emits warnings rather than errors so an
-/// existing latent mismatch (sandbox's basement `Patrol:enemy_patrol_a`
-/// vs the nearby `name: "enemy patrol path A"` whose slug is
-/// `enemy_patrol_path_a`) surfaces without breaking the regression
-/// test. Promote to an error once the slugs are aligned.
+/// ⭐ **THESE ARE ERRORS NOW, which is what this validator always wanted.** It
+/// emitted warnings only because one authored mismatch existed when it was
+/// written — sandbox's basement `Patrol:enemy_patrol_a` against a path whose
+/// name slugged to `enemy_patrol_path_a` — and its own doc said *"promote to an
+/// error once the slugs are aligned"*. Measured 2026-08-14: the content graph
+/// reports ZERO patrol warnings, so the mismatch is gone and the promotion is
+/// unblocked.
+///
+/// ⛔ the failure it catches is silent by construction: a patrol whose path does
+/// not resolve falls back to PASSIVE, so the enemy simply stands there and the
+/// level looks finished. That is exactly the class of defect a content check
+/// should refuse to let ship, not mention.
 fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValidationReport) {
     for level in &project.levels {
         let mut path_ids: BTreeSet<String> = BTreeSet::new();
@@ -163,14 +170,14 @@ fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValida
             };
             let path_id = path_id.trim();
             if path_id.is_empty() {
-                report.push_warning(format!(
+                report.push_error(format!(
                     "level '{}' EnemySpawn '{}' uses bare brain 'Patrol:' (no path_id); enemy will fall back to passive",
                     level.identifier, entity.iid
                 ));
                 continue;
             }
             if !path_ids.contains(path_id) {
-                report.push_warning(format!(
+                report.push_error(format!(
                     "level '{}' EnemySpawn '{}' brain 'Patrol:{}' references no matching KinematicPath (resolved ids: {:?}); enemy will fall back to passive",
                     level.identifier, entity.iid, path_id, path_ids
                 ));
@@ -686,6 +693,35 @@ mod tests {
     fn embedded_content_graph_validates() {
         let report = validate_embedded_content_graph();
         report.panic_if_errors();
+    }
+
+    /// **⛔ THE PATROL CHECK MUST HAVE SOMETHING TO CHECK.**
+    ///
+    /// `validate_patrol_brain_paths` is an ERROR now, and an error that no
+    /// authored entity can trigger is a check that cannot fail — it would go on
+    /// passing after the last patrol was deleted, and the next one authored
+    /// would land unguarded. Measured 2026-08-14: two distinct patrol brains
+    /// (`enemy_patrol_path_a`, `lab_patrol_line`), both resolving.
+    ///
+    /// ⭐ this is the non-vacuity half, not a count to maintain: it asserts
+    /// SOMETHING patrols, which is what makes the green above mean anything.
+    #[test]
+    fn the_patrol_path_check_has_live_subjects() {
+        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let patrols = project
+            .levels
+            .iter()
+            .flat_map(|level| level.all_entity_instances())
+            .filter(|entity| entity.identifier == "EnemySpawn")
+            .filter_map(|entity| field_string(entity, "brain"))
+            .filter(|brain| brain.starts_with("Patrol:"))
+            .count();
+        assert!(
+            patrols > 0,
+            "no authored EnemySpawn uses a 'Patrol:' brain, so the path-resolution \
+             error above can never fire — it is passing over an empty set"
+        );
     }
 
     #[test]

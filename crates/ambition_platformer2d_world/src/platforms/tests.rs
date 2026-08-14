@@ -224,14 +224,14 @@ fn moving_platform_spec_resolves_path_id_against_room_paths() {
         ae::Aabb::new(ae::Vec2::new(20.0, 30.0), ae::Vec2::new(8.0, 8.0)),
         path,
     );
-    let platform = MovingPlatformSpec::from_authored(
+    let platform = MovingPlatformSpec::new(
         "lift",
         "Lift",
         ae::Vec2::new(999.0, 999.0),
         ae::Vec2::new(80.0, 16.0),
-        400.0,
-        10.0,
-        Some("intro_lift_path".into()),
+        MovingPlatformMotionSpec::Path {
+            path_id: "intro_lift_path".into(),
+        },
     )
     .resolve(&[spec])
     .expect("path resolves");
@@ -582,17 +582,17 @@ fn a_looping_platform_keeps_going_the_same_way_forever() {
 /// its start, so the direction check is what separates the two.
 #[test]
 fn an_authored_vertical_loop_wraps_instead_of_reversing() {
-    let spec = MovingPlatformSpec::from_authored(
+    let spec = MovingPlatformSpec::new(
         "shaft_lift",
         "Shaft Lift",
         ae::Vec2::new(0.0, 100.0),
         ae::Vec2::new(96.0, 16.0),
-        // A sweep is authored too, and must LOSE to the loop.
-        240.0,
-        100.0,
-        None,
-    )
-    .with_vertical_loop(Some(200.0));
+        MovingPlatformMotionSpec::VerticalLoop {
+            dy: 200.0,
+            anchor_y: None,
+            speed: 100.0,
+        },
+    );
 
     let mut platform = spec.resolve(&[]).expect("a loop spec resolves");
     assert!(platform.direction() > 0.0, "a positive loop_dy rises");
@@ -652,17 +652,17 @@ fn a_staggered_run_of_looping_platforms_shares_one_shaft() {
         .into_iter()
         .enumerate()
         .map(|(i, phase)| {
-            MovingPlatformSpec::from_authored(
+            MovingPlatformSpec::new(
                 format!("lift_{i}"),
                 format!("Lift {i}"),
                 ae::Vec2::new(0.0, BASE + phase),
                 ae::Vec2::new(96.0, 16.0),
-                240.0,
-                100.0,
-                None,
+                MovingPlatformMotionSpec::VerticalLoop {
+                    dy: SPAN,
+                    anchor_y: Some(BASE),
+                    speed: 100.0,
+                },
             )
-            .with_vertical_loop(Some(SPAN))
-            .with_loop_anchor(Some(BASE))
             .resolve(&[])
             .expect("a conveyor spec resolves")
         })
@@ -693,4 +693,125 @@ fn a_staggered_run_of_looping_platforms_shares_one_shaft() {
              has been lost, so the shaft has a gap somewhere else"
         );
     }
+}
+
+/// **Every motion an author can write reaches exactly one variant.**
+///
+/// The two shapes at the top are the ones content actually authors today (a
+/// swept platform in the sandbox, an anchored conveyor in Mary-O 1-2); the rest
+/// are the legal forms the editor allows. This is the non-vacuity half of the
+/// refusal test below — a classifier that rejected everything would pass that
+/// one and fail this one.
+#[test]
+fn authored_motion_fields_classify_to_exactly_one_motion() {
+    let sweep = AuthoredPlatformMotion {
+        sweep_dx: Some(320.0),
+        speed: Some(90.0),
+        ..Default::default()
+    };
+    assert_eq!(
+        sweep.classify(),
+        Ok(MovingPlatformMotionSpec::Sweep {
+            dx: 320.0,
+            speed: 90.0
+        })
+    );
+
+    let conveyor = AuthoredPlatformMotion {
+        speed: Some(60.0),
+        loop_dy: Some(-300.0),
+        loop_anchor_y: Some(100.0),
+        ..Default::default()
+    };
+    assert_eq!(
+        conveyor.classify(),
+        Ok(MovingPlatformMotionSpec::VerticalLoop {
+            dy: -300.0,
+            anchor_y: Some(100.0),
+            speed: 60.0
+        })
+    );
+
+    let path = AuthoredPlatformMotion {
+        path_id: Some("  lab_lift  ".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        path.classify(),
+        Ok(MovingPlatformMotionSpec::Path {
+            path_id: "lab_lift".into()
+        }),
+        "an editor field carries whatever whitespace the author typed"
+    );
+
+    // Placing a platform and stating nothing is legal, and means a platform that
+    // moves. An empty `path_id` is the same as no `path_id`, because LDtk writes
+    // one for a field the author never filled in.
+    assert_eq!(
+        AuthoredPlatformMotion::default().classify(),
+        Ok(MovingPlatformMotionSpec::Sweep {
+            dx: DEFAULT_SWEEP_DX,
+            speed: DEFAULT_PLATFORM_SPEED
+        })
+    );
+    assert_eq!(
+        AuthoredPlatformMotion {
+            path_id: Some("   ".into()),
+            ..Default::default()
+        }
+        .classify(),
+        Ok(MovingPlatformMotionSpec::Sweep {
+            dx: DEFAULT_SWEEP_DX,
+            speed: DEFAULT_PLATFORM_SPEED
+        })
+    );
+}
+
+/// **Ambiguous authoring is REFUSED, where it used to be ranked in silence.**
+///
+/// ⛔ the old model read these fields by precedence — path beat loop beat sweep
+/// — so a platform authoring two motions ran one of them and never said which,
+/// and an anchor written without a span was simply dropped. A precedence rule is
+/// invisible from inside LDtk: the author sees a field they filled in and a
+/// platform that ignores it. Each message names the fields, because the message
+/// is the whole diagnostic an author gets.
+#[test]
+fn authoring_two_motions_at_once_is_refused_rather_than_ranked() {
+    let both = AuthoredPlatformMotion {
+        sweep_dx: Some(240.0),
+        loop_dy: Some(200.0),
+        ..Default::default()
+    }
+    .classify()
+    .expect_err("a sweep and a loop are two motions");
+    assert!(
+        both.contains("sweep_dx") && both.contains("loop_dy"),
+        "the refusal must name both fields, or the author cannot act on it: {both}"
+    );
+
+    let anchor_alone = AuthoredPlatformMotion {
+        loop_anchor_y: Some(100.0),
+        ..Default::default()
+    }
+    .classify()
+    .expect_err("an anchor describes no motion by itself");
+    assert!(anchor_alone.contains("loop_min_y"), "{anchor_alone}");
+
+    let flat_shaft = AuthoredPlatformMotion {
+        loop_dy: Some(0.0),
+        ..Default::default()
+    }
+    .classify()
+    .expect_err("a shaft with no span never moves");
+    assert!(flat_shaft.contains("loop_dy"), "{flat_shaft}");
+
+    // A path carries its own speed, so a `speed` here does nothing at all.
+    let path_speed = AuthoredPlatformMotion {
+        path_id: Some("lab_lift".into()),
+        speed: Some(90.0),
+        ..Default::default()
+    }
+    .classify()
+    .expect_err("the path owns the speed");
+    assert!(path_speed.contains("speed"), "{path_speed}");
 }

@@ -1,148 +1,235 @@
-//! LDtk-authored moving-platform runtime helpers.
+//! Authored moving platforms: the spec an editor writes, the motion it
+//! resolves to, and the runtime state the simulation advances.
 //!
-//! Moving platforms remain sandbox-side as a design experiment, but they now
-//! contribute temporary solid blocks to the engine collision world each frame.
-//! That gives us rideable/collidable behavior without committing moving-solid
-//! semantics to `ambition_platformer2d_core` before we have tests for carrying, crushing,
-//! and one-way platform interactions.
+//! Moving platforms are ordinary deterministic world geometry. They contribute
+//! solid blocks to the collision world each frame, carry riders and ledge
+//! contacts by [`MovingPlatformState::last_delta`], and can host a portal face.
+//! The authoritative state lives here in the world crate; the Bevy visual is a
+//! read-model projection of it.
 
 use crate::rooms::KinematicPathSpec;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-/// LDtk-authored moving-platform declaration before path references are resolved.
+/// Sweep span used when an author places a platform and states no motion.
+///
+/// ⭐ **the engine owns its own defaults.** These lived in the LDtk converter,
+/// which made "what does an empty field mean" a question you answered by
+/// reading the adapter rather than the capability.
+pub const DEFAULT_SWEEP_DX: f32 = 240.0;
+/// Travel speed used when an author states none.
+pub const DEFAULT_PLATFORM_SPEED: f32 = 130.0;
+
+/// **How an authored platform moves — exactly one motion, decided when the room
+/// is authored.**
+///
+/// ⛔ **this replaced a bag of optional fields whose meaning was a PRECEDENCE**
+/// (a path beat a loop beat a sweep). Precedence makes every wrong combination
+/// SILENT, and silence is the worst outcome for an editor field: a platform
+/// authoring both a path and a loop ran the path and never said so, and a
+/// `loop_min_y` written without `loop_dy` anchored a shaft that no motion ever
+/// consulted. An author cannot see a precedence rule from inside LDtk, so the
+/// ambiguous combinations are now REFUSED by [`AuthoredPlatformMotion::classify`]
+/// with the offending field names in the message.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum MovingPlatformMotionSpec {
+    /// Horizontal ping-pong across `dx` from the authored position. Sign is the
+    /// direction the platform first travels.
+    Sweep { dx: f32, speed: f32 },
+    /// Follow a room-local [`KinematicPathSpec`], which owns its own speed.
+    Path { path_id: String },
+    /// **A wrapping vertical loop — the paternoster / "infinite elevator".**
+    ///
+    /// `dy` mirrors a sweep's span: magnitude is the shaft, sign is the
+    /// direction of travel. ⚠ **positive travels DOWN** — world y is
+    /// down-positive here and the LDtk conversion preserves it, so a descending
+    /// elevator is a POSITIVE `dy`. ⛔ **a loop is not a vertical sweep**: it
+    /// never reverses, which is what makes a run of them read as one elevator
+    /// instead of a row of lifts.
+    ///
+    /// `anchor_y` is **where the shaft starts, independent of where this
+    /// platform does**, and without it a conveyor is not authorable: `dy` alone
+    /// is measured from the platform's own position, so a run of staggered
+    /// platforms gets a run of DIFFERENT shafts and drifts into separate bands
+    /// instead of chasing each other round one. Anchored, the authored position
+    /// becomes a PHASE within a shared shaft. `None` anchors the shaft at the
+    /// platform, which is right for a lone lift and keeps that authoring to one
+    /// field.
+    VerticalLoop {
+        dy: f32,
+        anchor_y: Option<f32>,
+        speed: f32,
+    },
+}
+
+/// The motion fields an editor can write on one platform, before they are known
+/// to describe a coherent motion.
+///
+/// This is the adapter-facing shape: an LDtk converter fills in whichever fields
+/// the author touched and asks [`Self::classify`] what they mean. Nothing
+/// downstream of `classify` can observe an ambiguous platform.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AuthoredPlatformMotion {
+    pub sweep_dx: Option<f32>,
+    pub speed: Option<f32>,
+    pub path_id: Option<String>,
+    pub loop_dy: Option<f32>,
+    pub loop_anchor_y: Option<f32>,
+}
+
+impl AuthoredPlatformMotion {
+    /// Decide which motion these fields describe, or say why they describe none.
+    ///
+    /// Stating nothing is legal and means a default sweep — an author who drops
+    /// a platform into a room gets a platform that moves. Stating two motions is
+    /// not legal, because there is no honest way to guess which one was meant.
+    pub fn classify(self) -> Result<MovingPlatformMotionSpec, String> {
+        let path_id = self.path_id.and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        });
+
+        let mut authored = Vec::new();
+        if self.sweep_dx.is_some() {
+            authored.push("sweep_dx");
+        }
+        if path_id.is_some() {
+            authored.push("path_id");
+        }
+        if self.loop_dy.is_some() {
+            authored.push("loop_dy");
+        }
+        if authored.len() > 1 {
+            return Err(format!(
+                "authors {} at once, but a platform has exactly one motion — \
+                 keep the field for the motion you want and clear the others",
+                authored.join(" and ")
+            ));
+        }
+
+        if self.loop_anchor_y.is_some() && self.loop_dy.is_none() {
+            return Err(
+                "authors loop_min_y without loop_dy — the anchor names where a \
+                 wrapping shaft starts, so on its own it describes no motion at \
+                 all"
+                    .to_string(),
+            );
+        }
+
+        if let Some(dy) = self.loop_dy {
+            if dy.abs() <= f32::EPSILON {
+                return Err(
+                    "authors loop_dy of zero — a shaft with no span never moves; \
+                     give it a signed height (positive travels DOWN) or clear it"
+                        .to_string(),
+                );
+            }
+            return Ok(MovingPlatformMotionSpec::VerticalLoop {
+                dy,
+                anchor_y: self.loop_anchor_y,
+                speed: self.speed.unwrap_or(DEFAULT_PLATFORM_SPEED),
+            });
+        }
+
+        if let Some(path_id) = path_id {
+            // ⭐ the path owns its speed, so a `speed` written here does
+            // nothing. That was silent before this classification existed.
+            if self.speed.is_some() {
+                return Err(format!(
+                    "follows path '{path_id}' and also authors speed, but a \
+                     path carries its own speed — set it on the KinematicPath"
+                ));
+            }
+            return Ok(MovingPlatformMotionSpec::Path { path_id });
+        }
+
+        Ok(MovingPlatformMotionSpec::Sweep {
+            dx: self.sweep_dx.unwrap_or(DEFAULT_SWEEP_DX),
+            speed: self.speed.unwrap_or(DEFAULT_PLATFORM_SPEED),
+        })
+    }
+}
+
+/// An authored moving-platform declaration before path references are resolved.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MovingPlatformSpec {
     pub id: String,
     pub name: String,
     pub start_pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub sweep_dx: f32,
-    pub speed: f32,
-    pub path_id: Option<String>,
-    /// **Signed vertical span of a WRAPPING loop**, the paternoster authoring.
-    ///
-    /// Mirrors `sweep_dx`: magnitude is the shaft, sign is the direction of
-    /// travel. ⚠ **positive travels DOWN** — world y is down-positive here and
-    /// the LDtk conversion preserves it, so a descending elevator is a POSITIVE
-    /// `loop_dy`. ⛔ **a loop is not a vertical sweep** — it never
-    /// reverses, which is what makes a run of them read as an elevator instead
-    /// of a row of lifts. `None`/zero leaves the platform on its sweep.
-    pub loop_dy: Option<f32>,
-    /// **Where the shaft STARTS, independent of where this platform does.**
-    ///
-    /// ⛔ **without this a conveyor is not authorable.** `loop_dy` alone is
-    /// measured from the platform's own position, so a run of staggered
-    /// platforms gets a run of DIFFERENT shafts and they drift into separate
-    /// bands instead of chasing each other round one. A conveyor is N platforms
-    /// sharing ONE shaft at different PHASES, and the phase is exactly what the
-    /// authored position should mean once the shaft is stated separately.
-    ///
-    /// `None` anchors the shaft at the platform, which is the right default for
-    /// the single-platform case and keeps that authoring one field.
-    pub loop_min_y: Option<f32>,
+    pub motion: MovingPlatformMotionSpec,
 }
 
 impl MovingPlatformSpec {
-    pub fn from_authored(
+    pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
         start_pos: ae::Vec2,
         size: ae::Vec2,
-        sweep_dx: f32,
-        speed: f32,
-        path_id: Option<String>,
+        motion: MovingPlatformMotionSpec,
     ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
             start_pos,
             size,
-            sweep_dx,
-            speed,
-            path_id: path_id.and_then(|value| {
-                let trimmed = value.trim();
-                (!trimmed.is_empty()).then(|| trimmed.to_string())
-            }),
-            loop_dy: None,
-            loop_min_y: None,
+            motion,
         }
     }
 
-    /// Author this platform as a wrapping vertical loop instead of a sweep.
-    ///
-    /// Additive on purpose: `from_authored` keeps its shape, so the existing
-    /// callers and every world that authors no `loop_dy` are untouched.
-    pub fn with_vertical_loop(mut self, loop_dy: Option<f32>) -> Self {
-        self.loop_dy = loop_dy.filter(|dy| dy.abs() > f32::EPSILON);
-        self
-    }
-
-    /// Anchor this platform's shaft somewhere other than its own position, so a
-    /// run of platforms can SHARE one shaft and differ only in phase.
-    pub fn with_loop_anchor(mut self, loop_min_y: Option<f32>) -> Self {
-        self.loop_min_y = loop_min_y;
-        self
-    }
-
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
-        if let Some(path_id) = self.path_id.as_deref() {
-            let Some(path_spec) = paths.iter().find(|path| path.matches_id(path_id)) else {
-                let known = paths
-                    .iter()
-                    .flat_map(|path| path.resolution_aliases())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                return Err(format!(
-                    "MovingPlatform '{}' references unknown path_id '{}' (known: [{}])",
-                    self.name, path_id, known
-                ));
-            };
-            Ok(MovingPlatformState::from_path(
-                self.id,
-                self.name,
-                self.size,
-                path_spec.path.clone(),
-            ))
-        } else if let Some(loop_dy) = self.loop_dy {
-            // ⚠ **the loop wins over `sweep_dx`**, which is authored by default
-            // (the converter falls back to 240.0 when nobody says otherwise), so
-            // "no sweep authored" is not a thing a spec can express. Precedence
-            // is stated rather than emergent: a path beats a loop beats a sweep,
-            // because each is a more specific statement of intent than the last.
-            // ⭐ **an anchored shaft is SHARED; an unanchored one belongs to
-            // this platform.** With `loop_min_y` the authored position becomes a
-            // PHASE within a shaft several platforms can occupy at once, which is
-            // what makes a conveyor rather than a row of independent lifts.
-            // Without it the shaft is measured from here, which is the right
-            // default for a lone platform and keeps that authoring one field.
-            let (min_y, max_y) = match self.loop_min_y {
-                Some(base) => (base, base + loop_dy.abs()),
-                None => {
-                    let end_y = self.start_pos.y + loop_dy;
-                    (self.start_pos.y.min(end_y), self.start_pos.y.max(end_y))
-                }
-            };
-            Ok(MovingPlatformState::from_vertical_loop(
-                self.id,
-                self.name,
-                self.start_pos,
-                self.size,
-                min_y,
-                max_y,
-                self.speed,
-                // positive dy travels toward +y, which is DOWN.
-                loop_dy > 0.0,
-            ))
-        } else {
-            Ok(MovingPlatformState::from_sweep(
+        match self.motion {
+            MovingPlatformMotionSpec::Path { path_id } => {
+                let Some(path_spec) = paths.iter().find(|path| path.matches_id(&path_id)) else {
+                    let known = paths
+                        .iter()
+                        .flat_map(|path| path.resolution_aliases())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return Err(format!(
+                        "MovingPlatform '{}' references unknown path_id '{}' (known: [{}])",
+                        self.name, path_id, known
+                    ));
+                };
+                Ok(MovingPlatformState::from_path(
+                    self.id,
+                    self.name,
+                    self.size,
+                    path_spec.path.clone(),
+                ))
+            }
+            MovingPlatformMotionSpec::VerticalLoop {
+                dy,
+                anchor_y,
+                speed,
+            } => {
+                let (min_y, max_y) = match anchor_y {
+                    Some(base) => (base, base + dy.abs()),
+                    None => {
+                        let end_y = self.start_pos.y + dy;
+                        (self.start_pos.y.min(end_y), self.start_pos.y.max(end_y))
+                    }
+                };
+                Ok(MovingPlatformState::from_vertical_loop(
+                    self.id,
+                    self.name,
+                    self.start_pos,
+                    self.size,
+                    min_y,
+                    max_y,
+                    speed,
+                    // positive dy travels toward +y, which is DOWN.
+                    dy > 0.0,
+                ))
+            }
+            MovingPlatformMotionSpec::Sweep { dx, speed } => Ok(MovingPlatformState::from_sweep(
                 self.id,
                 self.name,
                 self.start_pos,
                 self.size,
-                self.sweep_dx,
-                self.speed,
-            ))
+                dx,
+                speed,
+            )),
         }
     }
 }

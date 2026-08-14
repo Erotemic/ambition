@@ -236,9 +236,13 @@ impl LdtkProject {
                         chains.extend(emission.chains);
                         placements.extend(emission.placements);
                     }
-                    Err(error) => {
-                        errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
-                    }
+                    // ⭐ **name the LEVEL.** An iid is not something an author can
+                    // search for; the level is what they open to fix it, and
+                    // every other diagnostic on this path already says which one.
+                    Err(error) => errors.push(format!(
+                        "level '{}' {} {}: {error}",
+                        level.identifier, entity.identifier, entity.iid
+                    )),
                 }
             }
 

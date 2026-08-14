@@ -779,12 +779,28 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     // follows the referenced active-area-local `KinematicPathSpec`
     // instead and uses its first point as the runtime center.
     let start_pos = min + size * 0.5;
-    let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
-    let speed = field_f32(entity, "speed").unwrap_or(130.0);
-    let path_id =
-        field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
+    // Hand the engine what the author actually wrote — `None` where a field was
+    // left alone — and let it say which motion that is. The adapter no longer
+    // owns platform defaults or the rule for reading two motions at once.
+    //
+    // ⚠ `sweep_dx` and `loop_dy` are DELTAS, so they take no level offset.
+    // ⛔ **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
+    // says it outright — "apply it to any ADDITIONAL points a converter parses
+    // out of entity fields; `min` has it applied already" — and an anchor
+    // compared against an already-offset `start_pos` is a shaft in a different
+    // place than the author drew, by exactly the level's offset. Silent in a
+    // level at the origin, which is the worst way for it to be wrong.
+    let motion = ambition_platformer2d_world::platforms::AuthoredPlatformMotion {
+        sweep_dx: field_f32(entity, "sweep_dx"),
+        speed: field_f32(entity, "speed"),
+        path_id: field_string(entity, "path_id")
+            .or_else(|| field_string(entity, "patrol_path_id")),
+        loop_dy: field_f32(entity, "loop_dy"),
+        loop_anchor_y: field_f32(entity, "loop_min_y").map(|y| y + ctx.offset.y),
+    }
+    .classify()?;
     Ok(RoomEmission::moving_platform(
-        ambition_platformer2d_world::platforms::MovingPlatformSpec::from_authored(
+        ambition_platformer2d_world::platforms::MovingPlatformSpec::new(
             // ⛔ **an author could not name a platform, and every other converter
             // lets them.** `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
             // and the rest all read `field_string(entity, "id")` and fall back to
@@ -794,31 +810,12 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
             // presentation — `FeatureName`'s own doc calls it "human-facing … for
             // debug overlays / inspectors", which is not a thing to key gameplay
             // on. This repo has already paid for that twice with the snake.
-            //
-            // ⭐ purely additive: nothing authors an `id` on a `MovingPlatform`
-            // today, so every existing world keeps the iid it already had.
             field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
             name,
             start_pos,
             size,
-            sweep_dx,
-            speed,
-            path_id,
-        )
-        // ⭐ the elevator authoring (Jon, 1-2): a signed vertical span that WRAPS
-        // rather than reversing. Absent on every existing platform, so nothing
-        // authored before this changes behaviour.
-        // ⚠ `loop_dy` is a DELTA, so it needs no offset — the same reason
-        // `sweep_dx` never did.
-        .with_vertical_loop(field_f32(entity, "loop_dy"))
-        // ⛔ **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
-        // says it outright — "apply it to any ADDITIONAL points a converter
-        // parses out of entity fields; `min` has it applied already" — and an
-        // anchor compared against an already-offset `start_pos` is a shaft in a
-        // different place than the author drew, by exactly the level's offset.
-        // Silent in a level at the origin, which is the worst way for it to be
-        // wrong.
-        .with_loop_anchor(field_f32(entity, "loop_min_y").map(|y| y + ctx.offset.y)),
+            motion,
+        ),
     ))
 }
 

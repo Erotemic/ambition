@@ -1080,6 +1080,7 @@ fn apply_capture_snapshot(
             dt: 0.0,
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
+            chart_transit: None,
             ease_tuning: *ease_tuning,
             screen_framing: None,
             reference_frame: Default::default(),

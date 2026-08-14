@@ -250,10 +250,69 @@ must arrive at one place under one rule.
 portal roll does not. Until both do, a rotation-aware clamp would be correct for
 the mode nobody selects and still wrong for the one that ships.
 
-### C4 — presentation composition
+✔ **DONE 2026-08-14, immediately after C4 unblocked it.** The clamp now measures
+the view's world FOOTPRINT rather than its size: `rolled_view_half_extents`
+returns the axis-aligned bound of the rotated rectangle, which is the question a
+clamp that must CONTAIN the view is actually asking. At zero roll it is the
+identity, so every upright view — every view outside a transit — clamps exactly
+as it did; at a quarter turn it swaps width and height, which is the defect.
+
+⭐ **the sign convention turned out not to reach it**, which was worth deriving
+rather than assuming: both terms take absolute values and `cos(-t) == cos(t)`,
+`|sin(-t)| == |sin(t)|`, so a render-space angle and a world-space clamp agree
+about the footprint. Rolling either way occupies the same rectangle. Pinned by a
+test, because the next reader will wonder the same thing.
+
+Still open for later: `visible_view` keeps the UNROTATED extents (it describes
+the view's own size, which is what its consumers mean), camera-ZONE bounds are
+clamped by the same footprint, and safe-area framing has not been re-derived for
+a rolled view. Capture parity holds trivially today — captures pass no transit
+and select no subject frame — and needs a real test the moment either changes.
+
+### C4 — presentation composition — PORTAL HALF DONE (2026-08-14)
 
 Specify and test composition with portal continuity, shake, easing, possession
-and abrupt gravity changes.
+and abrupt gravity changes. **The portal composition is derived, implemented and
+tested; shake, easing and possession remain.**
+
+⭐⭐ **THE TWO ROLLS ARE NOT INDEPENDENT ANGLES TO ADD.** That was the tempting
+rule and it is wrong. The portal roll is the render-space rotation of the portal
+MAP (`portal_transit_roll`, a property of the pair — not of gravity, not of the
+observer, not of the body), and its own docs say the final camera orientation is
+always identity: it is a temporary alignment so the visible chart lines up
+during the seam.
+
+Take a floor↔wall pair, map rotation `M = ±π/2`:
+
+- **destination gravity matches the source's.** The body somersaults, its down
+  axis is unchanged, the base roll is unchanged. The view needs `M` on top of
+  its base for continuity and gives it back at the end ⇒ `base + M`.
+- **the portal also changes the body's frame** (it lands on what is now its
+  floor). The subject's down rotates by `M` too, so a `SubjectFrame` view's base
+  roll has ALREADY moved by `M` the instant the body crossed. Adding `M` again
+  spins the world a full extra half turn through the seam and then spins it back.
+
+⇒ **one rule covers both: the view presents the roll it had ADOPTED at entry,
+turned by the chart rotation.** In the first case the adopted roll is still the
+live base (`base + M`); in the second it is the pre-crossing base, so the result
+is exactly the post-crossing base — the view arrives where it was always going,
+with no overshoot. `WorldFixed` is the degenerate case, not a separate path: its
+base is identically 0, so the rule reduces to `M` decaying to 0, which is
+byte-identical to the overwrite that shipped. The old code was not wrong; it was
+one instance of this rule, written where the general case could not be expressed.
+
+**Where it now lives.** `presented_roll_radians` in `ambition_sim_view`, fed by
+`CameraPresentationInputs` — which REPLACED the single-field `CameraExtraClamp`
+rather than adding a resource beside it, because both fields are the same act:
+*what the presentation layer needs the resolve to know before it resolves.*
+`publish_portal_camera_clamp` writes both pre-resolve and latches
+`observer_roll_at_entry` on the transit's rising edge from the previous frame's
+resolved roll (that frame had no transit, so its roll is the pure base).
+`camera_follow` no longer writes `rotation_radians` at all.
+
+⇒ **C3 is unblocked**: the resolved snapshot now states the view's actual final
+orientation, so a rotation-aware clamp is expressible where the clamp is
+computed.
 
 ### C5 — view-index migration
 

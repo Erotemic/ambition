@@ -94,11 +94,9 @@ pub enum CameraReferenceFrame {
 /// `atan2(dx, dy)`. Rotating the CAMERA by that angle presents the world rotated
 /// the other way, which puts the subject's feet at the bottom of the screen.
 ///
-/// ⚠ **this is the BASE roll only.** The portal continuity adapter still
-/// overwrites `rotation_radians` during a transit; composing a base observer
-/// roll with a transit roll is a deliberate decision that has not been made, and
-/// defaulting to `WorldFixed` is what keeps that decision unmade rather than
-/// silently taken.
+/// ⚠ **this is the BASE roll only** — what the view presents when nothing is
+/// mapping the world through a chart rotation. [`presented_roll_radians`]
+/// composes it with a transit.
 pub fn observer_roll_radians(frame: CameraReferenceFrame, subject_down: Option<ae::Vec2>) -> f32 {
     match frame {
         CameraReferenceFrame::WorldFixed => 0.0,
@@ -111,6 +109,63 @@ pub fn observer_roll_radians(frame: CameraReferenceFrame, subject_down: Option<a
             }
             _ => 0.0,
         },
+    }
+}
+
+/// **A chart rotation the view is presenting through, and the roll it had
+/// adopted when that began.**
+///
+/// A portal maps one part of the world onto another through a rotation; while a
+/// subject is crossing, the view must present the DESTINATION chart or the image
+/// tears at the seam. `chart_roll_radians` is that map's render-space rotation
+/// (`portal_transit_roll`), which is a property of the portal PAIR — not of
+/// gravity, not of the observer, and not of the body.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CameraChartTransit {
+    /// The map's render-space rotation while the crossing is active.
+    pub chart_roll_radians: f32,
+    /// **The roll the view had already adopted when the crossing began**, which
+    /// is what stops the composition double-counting. See
+    /// [`presented_roll_radians`].
+    pub observer_roll_at_entry: f32,
+}
+
+/// **The roll a view actually presents**: its own frame, plus whatever part of
+/// the chart rotation its frame has not already absorbed.
+///
+/// ⭐⭐ **the two rolls are NOT independent angles to add, and deriving that is
+/// the whole of this function.** Take a floor↔wall portal, whose map rotation
+/// `M` is ±π/2:
+///
+/// - **the destination's gravity matches the source's.** The body somersaults
+///   but its down axis is unchanged, so the base roll is unchanged. The view
+///   needs `M` on top of its base to keep the image continuous, and gives it
+///   back when the crossing ends. `base + M`.
+/// - **the portal also changes the body's frame** (it lands on a wall that is
+///   now its floor). The subject's down rotates by `M` too, so a
+///   [`CameraReferenceFrame::SubjectFrame`] view's base roll ALREADY moved by
+///   `M` the instant the body crossed. Adding `M` again would spin the world a
+///   full extra half-turn through the seam and then spin it back.
+///
+/// Both cases are one rule: **the view presents the roll it had adopted at
+/// entry, turned by the chart rotation.** In the first case the adopted roll is
+/// still the live base, so this is `base + M`; in the second the adopted roll is
+/// the PRE-crossing base, so it is `base_before + M` — which is exactly the
+/// post-crossing base, reached with no overshoot.
+///
+/// ⭐ and `WorldFixed` is the degenerate case rather than a separate path: its
+/// base is identically 0, so this is `M`, decaying to 0 when the crossing ends —
+/// byte-identical to the overwrite the renderer used to perform. The old code
+/// was not wrong; it was one instance of this rule, written where the general
+/// case could not be expressed.
+pub fn presented_roll_radians(
+    frame: CameraReferenceFrame,
+    subject_down: Option<ae::Vec2>,
+    transit: Option<CameraChartTransit>,
+) -> f32 {
+    match transit {
+        None => observer_roll_radians(frame, subject_down),
+        Some(transit) => transit.observer_roll_at_entry + transit.chart_roll_radians,
     }
 }
 
@@ -275,6 +330,10 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// The view subject's resolved down axis, read by `SubjectFrame`. `None`
     /// when the view has no subject to orient on.
     pub subject_down: Option<ae::Vec2>,
+    /// A chart rotation this view is presenting through — a portal crossing
+    /// today. `None` whenever nothing is mapping the world, which is almost
+    /// every frame and every capture.
+    pub chart_transit: Option<CameraChartTransit>,
 }
 
 /// Resolve a camera snapshot for an arbitrary focus.
@@ -451,11 +510,22 @@ pub fn resolve_follow_camera_snapshot(
 
     let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
     let target = world_to_centered_render(input.world, target_world);
+    // **THE CLAMP MEASURES THE VIEW'S WORLD FOOTPRINT, NOT ITS SIZE.** A rolled
+    // view occupies a rotated rectangle; asking whether it fits inside a room is
+    // a question about that rectangle's bound, and until this line it was asked
+    // of an upright one.
+    let rotation_radians = presented_roll_radians(
+        input.reference_frame,
+        input.subject_down,
+        input.chart_transit,
+    );
+    let (clamp_half_w, clamp_half_h) =
+        rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
     let (normal_host_x, normal_host_y) = clamp_camera_target(
         input.world,
         target,
-        half_view_w,
-        half_view_h,
+        clamp_half_w,
+        clamp_half_h,
         bounds,
         active_zone,
         None,
@@ -464,8 +534,8 @@ pub fn resolve_follow_camera_snapshot(
         clamp_camera_target(
             input.world,
             target,
-            half_view_w,
-            half_view_h,
+            clamp_half_w,
+            clamp_half_h,
             bounds,
             active_zone,
             Some(padding_center),
@@ -510,7 +580,7 @@ pub fn resolve_follow_camera_snapshot(
         target_world,
         center_world,
         unpadded_center_world,
-        rotation_radians: observer_roll_radians(input.reference_frame, input.subject_down),
+        rotation_radians,
         active_camera_zones,
         active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     }
@@ -579,6 +649,37 @@ fn zone_area(zone: &CameraZoneSpec) -> f32 {
 
 fn world_to_centered_render(world: &ae::World, p: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new(p.x - world.size.x * 0.5, world.size.y * 0.5 - p.y)
+}
+
+/// **The world-space half-extents a ROLLED view occupies.**
+///
+/// A camera clamp asks *does the view fit inside these bounds*, and the answer
+/// depends on the view's ORIENTATION: at a quarter turn a 16:9 viewport is
+/// taller than it is wide. The clamp read `half_view_w`/`half_view_h` — the
+/// footprint of an upright rectangle — so a rolled view was clamped as though it
+/// were upright, and portal transits roll ±π/2 TODAY for a floor↔wall pair. That
+/// is how a transit could show outside the room.
+///
+/// This is the axis-aligned bound of the rotated rectangle, which is what a
+/// clamp that must CONTAIN the view needs. A tighter policy would use the convex
+/// footprint; nothing asks for one.
+///
+/// ⭐ **the render-space y flip does not reach this**, which is worth stating
+/// rather than rediscovering: both terms take absolute values, and `cos(-t) ==
+/// cos(t)`, `|sin(-t)| == |sin(t)|`. Rolling either way occupies one footprint.
+///
+/// At zero roll this is the identity, so every upright view — which is every
+/// view that is not mid-transit — clamps exactly as it always did.
+fn rolled_view_half_extents(half_view_w: f32, half_view_h: f32, roll_radians: f32) -> (f32, f32) {
+    if roll_radians == 0.0 {
+        return (half_view_w, half_view_h);
+    }
+    let (sin, cos) = roll_radians.sin_cos();
+    let (sin, cos) = (sin.abs(), cos.abs());
+    (
+        half_view_w * cos + half_view_h * sin,
+        half_view_w * sin + half_view_h * cos,
+    )
 }
 
 fn clamp_camera_target(
@@ -717,12 +818,33 @@ impl Default for CameraViewport {
     }
 }
 
-/// Optional extra clamp target for the resolve (world-frame center) — the
-/// generic seam a presentation adapter (portal camera continuity today) may
-/// write when it needs the clamp bounds padded toward a point. `None` every
-/// frame it isn't actively needed (the writer owns clearing it).
+/// **What a presentation adapter tells the resolve, before it resolves.**
+///
+/// The generic seam a presentation adapter (portal camera continuity today) may
+/// write: an extra clamp target the bounds should be padded toward, and the
+/// chart rotation the view is presenting through. Both default to `None` every
+/// frame they are not actively needed — the writer owns clearing them.
+///
+/// ⛔ **the chart rotation had to join it rather than be layered afterwards.**
+/// The renderer used to overwrite `rotation_radians` AFTER the resolve, which
+/// left the resolver clamping an axis-aligned footprint for a view it did not
+/// know was rolled — at a quarter turn the world-space footprint swaps width for
+/// height, so a floor↔wall transit could show outside the room. A rotation-aware
+/// clamp is only expressible once the roll is an INPUT.
+///
+/// ⭐ **one resource, because it is one act.** Both fields are written by the
+/// same adapter, in the same frame, for the same reason: *this is what the
+/// presentation layer needs the resolve to know before it resolves.* This
+/// REPLACED a single-field `CameraExtraClamp` rather than adding a second
+/// resource beside it — which also keeps the resolve system under Bevy's
+/// parameter ceiling without bundling unrelated things to get there.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
-pub struct CameraExtraClamp(pub Option<ae::Vec2>);
+pub struct CameraPresentationInputs {
+    /// Optional extra center that should remain inside the clamp bounds.
+    pub extra_clamp_center_world: Option<ae::Vec2>,
+    /// The chart rotation this view is presenting through, if any.
+    pub chart_transit: Option<CameraChartTransit>,
+}
 
 /// THE published observation: the follow-camera snapshot resolved once per
 /// rendered FRAME, plus the raw follow point it framed. Presentation reads
@@ -819,7 +941,7 @@ pub fn resolve_camera_observation(
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     screen_framing: bevy::prelude::Res<CameraScreenFraming>,
-    extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
+    presentation: bevy::prelude::Res<CameraPresentationInputs>,
     ease_tuning: bevy::prelude::Res<
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning,
     >,
@@ -997,7 +1119,7 @@ pub fn resolve_camera_observation(
             blink: Some(blink),
             dt: time.delta_secs(),
             mode: CameraSnapshotResolveMode::Eased,
-            extra_clamp_center_world: extra_clamp.0,
+            extra_clamp_center_world: presentation.extra_clamp_center_world,
             ease_tuning: *ease_tuning,
             screen_framing: Some(*screen_framing),
             // ⚠ **the policy is still the world-fixed default, and that is the
@@ -1009,6 +1131,10 @@ pub fn resolve_camera_observation(
             // view is what owns it once views are indexed.
             reference_frame: Default::default(),
             subject_down: subject_frames.get(followed).ok().map(|frame| frame.down()),
+            // Written pre-resolve by the portal adapter, exactly like the extra
+            // clamp beside it — so the snapshot states the view's ACTUAL final
+            // orientation instead of one the renderer overwrites afterwards.
+            chart_transit: presentation.chart_transit,
         },
         Some(&mut *camera_state),
     );
@@ -1063,7 +1189,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         use bevy::prelude::IntoScheduleConfigs as _;
         app.init_resource::<CameraViewport>();
         app.init_resource::<CameraScreenFraming>();
-        app.init_resource::<CameraExtraClamp>();
+        app.init_resource::<CameraPresentationInputs>();
         app.init_resource::<ResolvedCameraSnapshot>();
 
         // Declared ONLY when the sim shares this schedule. In fixed-tick and
@@ -1148,6 +1274,7 @@ mod m2_forward_scroll_tests {
                 dt: 1.0 / 60.0,
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
+                chart_transit: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing: None,
                 reference_frame: Default::default(),
@@ -1274,6 +1401,7 @@ mod soft_framing_tests {
                 dt: 1.0 / 60.0,
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
+                chart_transit: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing,
                 reference_frame: Default::default(),
@@ -1581,6 +1709,164 @@ mod reference_frame_tests {
             observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(ae::Vec2::ZERO)),
             0.0,
             "a degenerate down axis must not produce a NaN roll"
+        );
+    }
+
+    /// **A world-fixed view presents the chart rotation and nothing else.**
+    ///
+    /// ⛔ this is the behaviour that shipped, and it must be preserved to the
+    /// bit: the renderer overwrote `rotation_radians` with the portal roll, and
+    /// under `WorldFixed` the composed rule has to agree exactly — the base is
+    /// identically zero, so the composition is the identity on the chart roll.
+    #[test]
+    fn a_world_fixed_view_presents_exactly_the_chart_rotation() {
+        for chart in [0.0, HALF_PI, -HALF_PI, std::f32::consts::PI, 0.37] {
+            assert_eq!(
+                presented_roll_radians(
+                    CameraReferenceFrame::WorldFixed,
+                    Some(ae::Vec2::new(0.0, 1.0)),
+                    Some(CameraChartTransit {
+                        chart_roll_radians: chart,
+                        observer_roll_at_entry: 0.0,
+                    }),
+                ),
+                chart,
+                "a world-fixed view must present the portal's roll unchanged"
+            );
+        }
+        // And gives it back when the crossing ends.
+        assert_eq!(
+            presented_roll_radians(
+                CameraReferenceFrame::WorldFixed,
+                Some(ae::Vec2::new(0.0, 1.0)),
+                None
+            ),
+            0.0
+        );
+    }
+
+    /// **A subject-frame view adds the chart rotation when the portal did not
+    /// move its frame.**
+    ///
+    /// Body somersaults, gravity is the same on both sides: the base roll never
+    /// changes, so the crossing needs the map's rotation on top of it to keep
+    /// the image continuous, and returns to base afterwards.
+    #[test]
+    fn a_crossing_that_leaves_the_frame_alone_adds_its_rotation() {
+        let inverted = ae::Vec2::new(0.0, -1.0);
+        let base = observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(inverted));
+        let presented = presented_roll_radians(
+            CameraReferenceFrame::SubjectFrame,
+            Some(inverted),
+            Some(CameraChartTransit {
+                chart_roll_radians: HALF_PI,
+                // The frame did not move, so the roll adopted at entry is still
+                // the live base.
+                observer_roll_at_entry: base,
+            }),
+        );
+        assert!(
+            (presented - (base + HALF_PI)).abs() < 1e-5,
+            "expected {} + {HALF_PI}, got {presented}",
+            base
+        );
+    }
+
+    /// **⛔⛔ A CROSSING THAT ROTATES THE BODY'S OWN FRAME MUST NOT COUNT TWICE.**
+    ///
+    /// This is the case the naive rule gets wrong, and it is the reason the
+    /// composition is not an addition of two independently-derived angles. A
+    /// floor→wall portal rotates the map by a quarter turn AND leaves the body
+    /// standing on what is now its floor — so a subject-frame view's base roll
+    /// has already moved by that same quarter turn the instant the body crossed.
+    /// Adding the chart rotation to the LIVE base would spin the world a full
+    /// half turn through the seam and then spin it back.
+    ///
+    /// The rule composes against the roll adopted at ENTRY, so the presented
+    /// roll during the crossing is exactly the destination's base roll: the view
+    /// arrives where it was always going to arrive, with no overshoot.
+    #[test]
+    fn a_crossing_that_rotates_the_frame_does_not_double_count() {
+        let before = ae::Vec2::new(0.0, 1.0);
+        let after = ae::Vec2::new(1.0, 0.0);
+        let base_before = observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(before));
+        let base_after = observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(after));
+        // The portal's map rotation IS the frame change here.
+        let chart = base_after - base_before;
+        let presented = presented_roll_radians(
+            CameraReferenceFrame::SubjectFrame,
+            // The body has crossed: its live down is already the destination's.
+            Some(after),
+            Some(CameraChartTransit {
+                chart_roll_radians: chart,
+                observer_roll_at_entry: base_before,
+            }),
+        );
+        assert!(
+            (presented - base_after).abs() < 1e-5,
+            "a frame-rotating crossing must present the destination's own roll \
+             ({base_after}), not it plus the map again; got {presented}"
+        );
+        // The poison: the rule this replaces.
+        let naive = base_after + chart;
+        assert!(
+            (naive - presented).abs() > 1e-3,
+            "this test proves nothing unless the naive rule actually differs"
+        );
+    }
+
+    /// **An upright view's clamp footprint is its viewport, exactly.**
+    ///
+    /// The rotation-aware clamp must be the identity for every view that is not
+    /// rolled, which is every view outside a transit. If this drifts, every room
+    /// in the game re-frames.
+    #[test]
+    fn an_upright_view_clamps_by_its_own_extents() {
+        for (w, h) in [(400.0, 225.0), (225.0, 400.0), (1.0, 1.0), (960.0, 540.0)] {
+            assert_eq!(rolled_view_half_extents(w, h, 0.0), (w, h));
+        }
+    }
+
+    /// **⛔ A QUARTER TURN SWAPS WIDTH AND HEIGHT** — the defect this exists for.
+    ///
+    /// `portal_transit_roll` returns ±π/2 for a floor↔wall pair, so this is not
+    /// a future mode's problem: it is what a portal does today. A 400×225 view
+    /// rolled a quarter turn is 225 wide and 400 tall in the world, and clamping
+    /// it as 400×225 lets it show past the room's floor and ceiling.
+    #[test]
+    fn a_quarter_turn_swaps_the_footprint() {
+        let (w, h) = (400.0f32, 225.0f32);
+        for quarter in [HALF_PI, -HALF_PI] {
+            let (rw, rh) = rolled_view_half_extents(w, h, quarter);
+            assert!(
+                (rw - h).abs() < 1e-3 && (rh - w).abs() < 1e-3,
+                "a quarter turn must swap the footprint, got ({rw}, {rh})"
+            );
+        }
+        // Half a turn is upright again.
+        let (rw, rh) = rolled_view_half_extents(w, h, std::f32::consts::PI);
+        assert!((rw - w).abs() < 1e-3 && (rh - h).abs() < 1e-3);
+    }
+
+    /// **A diagonal roll grows BOTH extents, and rolling either way is the same
+    /// footprint.**
+    ///
+    /// The second half is the sign claim in the helper's own docs: the roll is a
+    /// render-space angle and the clamp is world-space, a y flip apart, and this
+    /// is why that does not matter here.
+    #[test]
+    fn a_diagonal_roll_grows_both_extents_symmetrically() {
+        let (w, h) = (400.0f32, 225.0f32);
+        let eighth = HALF_PI / 2.0;
+        let (rw, rh) = rolled_view_half_extents(w, h, eighth);
+        let expected = (w + h) / 2.0f32.sqrt();
+        assert!((rw - expected).abs() < 1e-2, "got {rw}, want {expected}");
+        assert!((rh - expected).abs() < 1e-2, "got {rh}, want {expected}");
+        assert!(rw > w && rh > h, "a rolled view cannot occupy less");
+        assert_eq!(
+            rolled_view_half_extents(w, h, eighth),
+            rolled_view_half_extents(w, h, -eighth),
+            "the footprint must not depend on which way the view rolled"
         );
     }
 }

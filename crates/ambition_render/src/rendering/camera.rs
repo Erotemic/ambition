@@ -27,7 +27,7 @@ use bevy::prelude::*;
 
 use super::primitives::PlayerVisual;
 use ambition_sim_view::camera_snapshot::{
-    CameraExtraClamp, CameraSnapshot2d, ResolvedCameraSnapshot,
+    CameraChartTransit, CameraPresentationInputs, CameraSnapshot2d, ResolvedCameraSnapshot,
 };
 
 /// Live camera diagnostics and feel-lab data.
@@ -80,22 +80,54 @@ pub struct PortalCameraContinuityParams<'w> {
     host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
 }
 
-/// Bridge the portal-continuity clamp pad into the sim resolver's generic
-/// [`CameraExtraClamp`] input BEFORE this tick's resolve — same-frame, like
-/// the old inline read (a post-resolve copy would lag the pad one frame and
-/// visibly step the camera at transit clear).
+/// Bridge the portal-continuity facts the RESOLVER needs — the clamp pad and
+/// the chart rotation — into its generic inputs BEFORE this tick's resolve.
+///
+/// Same-frame, like the old inline read: a post-resolve copy would lag the pad
+/// one frame and visibly step the camera at transit clear.
+///
+/// ⭐ **the roll moved here from `camera_follow`, and that is the point.** It
+/// used to be written onto the snapshot AFTER resolution, so the resolver
+/// clamped an axis-aligned footprint for a view it did not know was rolled. A
+/// rotation-aware clamp is only expressible once the roll is an input, and the
+/// composition rule ([`presented_roll_radians`]) can only be applied where the
+/// base observer roll is also known.
+///
+/// ⚠ **`observer_roll_at_entry` is latched on the RISING EDGE from the previous
+/// frame's resolved roll.** That frame had no transit, so its roll is the pure
+/// base — the roll this view had adopted before the crossing began, which is
+/// exactly what the composition needs to avoid double-counting a frame change
+/// the portal itself caused.
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
     selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
     state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
-    mut extra_clamp: ResMut<CameraExtraClamp>,
+    resolved: Res<ResolvedCameraSnapshot>,
+    mut presentation: ResMut<CameraPresentationInputs>,
 ) {
     let enabled = selection.as_deref().is_some_and(|selection| {
         selection.mode == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
     });
-    extra_clamp.0 = enabled
+    presentation.extra_clamp_center_world = enabled
         .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
         .flatten();
+    let crossing = enabled
+        .then(|| {
+            state
+                .as_deref()
+                .filter(|s| s.active_weight() > 0.0)
+                .map(|s| s.roll_radians)
+        })
+        .flatten();
+    presentation.chart_transit = crossing.map(|chart_roll_radians| CameraChartTransit {
+        chart_roll_radians,
+        observer_roll_at_entry: match presentation.chart_transit {
+            // Already crossing: keep the roll adopted when it began.
+            Some(active) => active.observer_roll_at_entry,
+            // Rising edge: last frame's resolved roll is the base roll.
+            None => resolved.snapshot.rotation_radians,
+        },
+    });
 }
 
 /// Apply the sim-resolved camera snapshot to the main camera, layering the
@@ -107,7 +139,7 @@ pub fn camera_follow(
     >,
     mut view_state: ResMut<CameraViewState>,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
-    mut extra_clamp: ResMut<CameraExtraClamp>,
+    mut presentation: ResMut<CameraPresentationInputs>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
@@ -130,12 +162,12 @@ pub fn camera_follow(
 
     #[cfg(not(feature = "portal_render"))]
     {
-        // Without portal continuity nothing writes the extra clamp; keep it
-        // cleared so a stale pad can't linger across feature configs.
-        extra_clamp.0 = None;
+        // Without portal continuity nothing writes these; keep them cleared so a
+        // stale pad or roll can't linger across feature configs.
+        *presentation = CameraPresentationInputs::default();
     }
     #[cfg(feature = "portal_render")]
-    let _ = &mut extra_clamp; // written pre-resolve by publish_portal_camera_clamp
+    let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
     #[cfg(feature = "portal_render")]
     {
@@ -161,7 +193,14 @@ pub fn camera_follow(
                 } else if !portal_clamp_padding_still_needed {
                     portal_state.clear_clamp_padding();
                 }
-                snapshot.rotation_radians = portal_state.roll_radians;
+                // ⛔ **the roll is NOT applied here any more.** It used to be
+                // `snapshot.rotation_radians = portal_state.roll_radians`, an
+                // overwrite of a value the resolver had just computed — which
+                // meant the resolver clamped for an orientation it never saw,
+                // and a base observer roll had nowhere to compose with this one.
+                // `publish_portal_camera_clamp` now hands both facts to the
+                // resolve, and `snapshot.rotation_radians` already carries the
+                // composed answer by the time this runs.
             } else {
                 portal_state.clear();
             }

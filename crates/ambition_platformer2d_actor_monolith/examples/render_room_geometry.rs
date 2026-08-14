@@ -432,6 +432,7 @@ fn resolve_headless_snapshot(
             dt: 0.0,
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
+            chart_transit: None,
             ease_tuning:
                 ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
             screen_framing: None,

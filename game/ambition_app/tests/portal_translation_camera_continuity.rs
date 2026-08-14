@@ -31,12 +31,35 @@ struct CameraSample {
     camera_center: Vec2,
     active_transit: bool,
     camera_roll: f32,
+    /// What the RESOLVER decided this view's orientation is — the value the
+    /// renderer writes onto the camera transform.
+    presented_roll: f32,
 }
 
 impl CameraSample {
     fn screen_pos(self) -> Vec2 {
         self.player_pos - self.camera_center
     }
+}
+
+/// **The portal's roll still reaches the camera, now that it arrives by a
+/// different road.**
+///
+/// ⛔ it used to be written straight onto the snapshot by `camera_follow`, AFTER
+/// the resolve. It is now an INPUT to the resolve (`CameraPresentationInputs`),
+/// composed with the view's own observer roll — which is what lets the clamp
+/// know the view's real orientation. This asserts the composition is the
+/// identity for the world-fixed views these fixtures use, so a refactor that
+/// dropped the portal roll on the way in would be caught here rather than by
+/// somebody noticing the world stopped turning at a seam.
+fn assert_presented_roll_follows_the_portal(sample: CameraSample) {
+    assert!(
+        (sample.presented_roll - sample.camera_roll).abs() < 1e-4,
+        "the resolved view orientation ({}) disagrees with the portal's roll \
+         ({}); a world-fixed view must present exactly the chart rotation",
+        sample.presented_roll,
+        sample.camera_roll,
+    );
 }
 
 struct HeadlessCameraHarness {
@@ -137,12 +160,17 @@ impl HeadlessCameraHarness {
         };
         let view = world.resource::<CameraViewState>();
         let camera_roll = world.resource::<PortalCameraContinuityState>().roll_radians;
+        let presented_roll = world
+            .resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+            .snapshot
+            .rotation_radians;
         CameraSample {
             player_pos: kin.pos,
             player_vel: kin.vel,
             camera_center: view.center_world,
             active_transit,
             camera_roll,
+            presented_roll,
         }
     }
 
@@ -254,6 +282,7 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
                 "translation wall-wall portal must not roll the camera, roll={}",
                 current.camera_roll,
             );
+            assert_presented_roll_follows_the_portal(current);
             assert!(
                 current.player_vel.x > 30.0,
                 "held-right motion should continue right through c141->c140, vel={:?}",
@@ -356,6 +385,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
                 "translation floor-ceiling portal must not roll the camera, roll={}",
                 current.camera_roll,
             );
+            assert_presented_roll_follows_the_portal(current);
             assert!(
                 current.player_vel.y > 30.0,
                 "falling into c135 should continue falling out of c134, vel={:?}",

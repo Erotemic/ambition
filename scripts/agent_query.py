@@ -417,7 +417,7 @@ RESOLVED_GRAPH_MEANING = (
     "'what is actually linked'. ⚠ still workspace-wide: a specific consumer's "
     "closure is a different question, measured per-consumer with "
     "`cargo tree --edges normal` in that consumer's own workspace (see "
-    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json)."
+    "scripts/baselines/capability-footprint-baseline.json)."
 )
 
 
@@ -760,7 +760,7 @@ nothing, so "X declares Y" is not "X links Y". Conversely the resolved graph
 unifies features across the whole workspace, so it is not the closure of any one
 consumer — that is a per-consumer measurement (`cargo tree --edges normal` in
 that consumer's own workspace; see
-`docs/planning/engine/slice-evidence/capability-footprint-baseline.json`).
+`scripts/baselines/capability-footprint-baseline.json`).
 
 `graph-resolved.json` is always present. When cargo was unavailable at
 generation it carries `"available": false` and a reason, because a missing file

@@ -5,13 +5,13 @@
 > races, puzzles, escorts, and no-actor set pieces now converge on one generic
 > encounter authority. Boss-capable actors retain only actor-local capabilities
 > and phase/pattern state. The binding migration plan is
-> [`encounter-orchestration.md`](encounter-orchestration.md); where this document
+> [`../../systems/boss-encounter-architecture.md`](../../systems/boss-encounter-architecture.md); where this document
 > describes boss-specific encounter entities, music, progress, or scripting, that
 > machinery is migration input rather than the final authority. Actor-local boss
 > behavior and fight-quality guidance remain valid.
 
 Bosses are not a special simulation path — they are actors (see
-[`unified-actors.md`](unified-actors.md)) with **entity-local phase state** and an
+[`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)) with **entity-local phase state** and an
 **optional encounter wrapper**. The whole system is engine machinery; specific
 bosses are content.
 

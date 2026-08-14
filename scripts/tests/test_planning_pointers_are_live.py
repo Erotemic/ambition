@@ -125,7 +125,7 @@ def test_the_ledgers_rollback_schema_version_matches_the_source():
     assert claimed.group(1) == actual, (
         f"{ledger.relative_to(REPO)} says the rollback schema is at "
         f"v{claimed.group(1)}; registry.rs says {actual}. A registration change "
-        f"moves the version, the live baseline dump and the slice-evidence JSON "
+        f"moves the version, the live baseline dump and the rollback-schema baseline JSON "
         f"together — and this line too."
     )
 

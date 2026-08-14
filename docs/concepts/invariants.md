@@ -75,7 +75,7 @@ may not have transparent edges, or the collision stops being visible.
   `ClockScaleRequest`. `docs/concepts/input-and-game-modes.md`, ADR 0011.
 - **No pushout, ever** (one exception: portal-close straddle eviction) —
   sweep to TOI; nothing teleports. `docs/planning/vision.md` §8,
-  `engine/collision-and-ccd.md`.
+  `docs/concepts/movement-collision.md`.
 - **Feet = the +gravity face of the contact box** (`AabbExt::feet`) — never
   screen-down. `engine/unified-movement-kernel.md`.
 - **ONE BODY, ONE PATH** — before keying anything on player-vs-actor, run the

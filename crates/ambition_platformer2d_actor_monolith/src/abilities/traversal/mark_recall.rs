@@ -123,7 +123,7 @@ pub fn mark_recall_system(
                 target,
                 ae::movement::TransitVelocity::Keep,
             );
-            // Class-B transit authority (`collision-and-ccd.md` §3.2): the
+            // Class-B transit authority (`docs/concepts/movement-collision.md`): the
             // recall JUMPS the body, so it is a scripted teleport.
             if let Some(log) = class_b.as_mut() {
                 log.record(player, ClassBRemap::ScriptedTeleport);

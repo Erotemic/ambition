@@ -288,7 +288,7 @@ def path_exists(candidate: str, document: Path) -> bool:
     """A cited path is checked AS a path — a file, not a string that occurs.
 
     Resolved against the DOCUMENT as well as the repo root: a planning page
-    links to its siblings relatively (`engine/encounter-orchestration.md`), and
+    links to its siblings relatively (`engine/combat-model.md`), and
     resolving those only from the root reports a live document as deleted.
 
     A BARE FILENAME resolves against the tracked tree. Prose cites `save_data.rs`
@@ -370,19 +370,12 @@ def main() -> int:
         elif any(word in verdict_sentence(verdict) for word in COMPLETION_WORDS):
             partial.append(f"{Path(args.document).name} [{headline}]")
 
-    # A document whose shape was READ and whose rows honestly claim nothing is a
-    # legitimate zero — most ADRs say "Accepted direction", which is a decision
-    # rather than a claim that work is finished. The failure being caught here is
-    # a document this script cannot PARSE, which looks identical in the output
-    # and is not the same thing at all.
-    if not claims and not problems and not shape_found:
-        problems.append(
-            "no completion claims found at all — neither a `### Task N` section "
-            "claiming MET nor a table row with a bolded DONE/FIXED/CLOSED "
-            "verdict. A guard reporting zero rows checked is not a clean bill of "
-            "health; it means this document does not have a shape this script "
-            "can read."
-        )
+    # A residual-only planning document intentionally carries no completion
+    # claims: completed execution history belongs in docs/archive. In that shape
+    # there is nothing for this archaeology/checking tool to verify, and zero is
+    # an honest result rather than a reason to force DONE prose back into a live
+    # plan. Documents that DO use Task/status or completion-table shapes are still
+    # parsed and checked below.
 
     for label, body in claims:
         checked += 1

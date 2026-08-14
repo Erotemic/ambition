@@ -111,7 +111,7 @@ const GROUND_TILES: f32 = 2.0;
 // for one game's nouns: an authored block carries `{id, name, aabb, kind,
 // velocity, art_color}` and nothing else. Sanic's monitor boxes work the same
 // way (`monitors.rs`), and the trade-off is written up in
-// `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4.
+// `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
 //
 // ⚠ **these prefixes are the contract between the LDtk file and this crate.**
 // Renaming one silently unhooks every block that wore it — the level still

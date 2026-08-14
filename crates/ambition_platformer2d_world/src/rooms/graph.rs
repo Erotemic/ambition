@@ -188,7 +188,7 @@ impl RoomSet {
 
     /// Find the loading zone the controlled body's frame path enters this tick.
     ///
-    /// CC2 (the sweep law, collision-and-ccd.md §3.3): a loading-zone entry is
+    /// CC2 (the sweep law, docs/concepts/movement-collision.md): a loading-zone entry is
     /// path-dependent. An overlap-fire zone (`Walk`, mid-room, not backed by a
     /// world edge) must not be tunnelled by a fast body (blink / dash / Sanic
     /// run) between frames, so the reader sweeps the body's `delta` path through

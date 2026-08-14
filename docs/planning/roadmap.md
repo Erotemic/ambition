@@ -83,47 +83,31 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 
 | # | Decision | Owner |
 |---|---|---|
-| M13 | Path-dependent state uses swept evaluation. | [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) |
+| M13 | Path-dependent state uses swept evaluation. | [`../concepts/movement-collision.md`](../concepts/movement-collision.md) |
 | M14 | Blocks are surfaces; AABB is a fast special case. | [`engine/spatial-model.md`](engine/spatial-model.md) |
 | M15 | One damage meter, authored death policy. | [`engine/combat-model.md`](engine/combat-model.md) |
-| M16 | Wearing a character means using that character's authored kit. | [`engine/unified-actors.md`](engine/unified-actors.md) |
+| M16 | Wearing a character means using that character's authored kit. | [`../concepts/one-body-one-path.md`](../concepts/one-body-one-path.md) |
 | M17 | Shipped brains use the no-cheat observation contract. | [`engine/fighter-brain.md`](engine/fighter-brain.md) |
 | M18 | Boss quality is measured by grammar, validation, and playtest data. | [`engine/boss-design.md`](engine/boss-design.md) |
 | M19 | Demo rules are mode-scoped plugins. | [`demos/README.md`](demos/README.md) |
 | M20 | Determinism is a managed same-build contract now; cross-platform bit exactness is not promised. | [`engine/netcode.md`](engine/netcode.md) |
-| M21 | Encounter is orchestration, never an actor type. | [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md) |
+| M21 | Encounter is orchestration, never an actor type. | [`../systems/boss-encounter-architecture.md`](../systems/boss-encounter-architecture.md) |
 | M22 | Cutscenes and encounters remain separate domain models; no universal sequence DSL. | [`maintainer-decisions.md`](maintainer-decisions.md) |
 | M23 | Content eviction ends in an open provider-owned ownership shape. | [`maintainer-decisions.md`](maintainer-decisions.md) |
-| M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [`engine/decisions-2026-07-16.md`](engine/decisions-2026-07-16.md) |
+| M24 | Activation, reset, transition, and restore use one App-installed placement-lowering authority. | [archived recon consensus](../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md) |
 | M25 | Session content is assembled deterministically, fingerprinted, and frozen; world construction is planned and validated before mutation, with explicit entity provenance. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
 | M27 | GGRS and bevy_ggrs are the sole ephemeral rollback authority; Ambition owns only deterministic domain registration, exact content/schema binding, and session policy. | [`../adr/0027-ggrs-is-the-sole-rollback-authority.md`](../adr/0027-ggrs-is-the-sole-rollback-authority.md) |
 | M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
 | M28 | The actor monolith is decomposed incrementally by semantic ownership, with compile isolation and minimal-consumer dependency closure as explicit success measures. | [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) |
 
-⚠ **M28's two success measures were MEASURED on 2026-08-08, and they do not
-behave alike.** The decision names *"compile isolation and minimal-consumer
-dependency closure as explicit success measures"*:
-
-* **compile isolation** responds, weakly. `scripts/compile_ratchet.py` prices the
-  one carve that is ready (`conversation`, zero inward edges) at **−1.94%** of
-  the largest recompilation unit, and **0%** for edits to the carved module
-  itself — six monolith files name it, so the new crate lands below the monolith
-  and the isolation runs one direction only.
-* **minimal-consumer dependency closure does NOT respond at all.** Of the fifteen
-  capability crates a movement-only consumer inherits, exactly one has the
-  monolith as its only direct dependent; `ambition_platformer2d_runtime` declares
-  ten and is a direct facade dependency. **No carve of the monolith moves that
-  number** — only `optional = true` dependencies do, and they would have to be
-  optional in the runtime as much as in the monolith.
-
-So M28's second measure is not a bar this mechanism can clear, and the honest
-options are to change the measure or to change the mechanism. That is a
-maintainer question and it is already written up as *"May a game compose this
-engine WITHOUT a given capability?"* in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
-⚠ related and unresolved: `AGENTS.md:68` still states the monolith *"is not
-awaiting a size-driven carve"*, which these numbers support more than
-`status.md` and `tracks.md:488` do.
+**M28 clarification (2026-08-13):** compile isolation and optional-capability
+closure are related measurements but not the same mechanism. A coherent carve
+can shorten rebuild chains without changing the minimal consumer's transitive
+capability set. The maintainer has separately decided that capabilities **must be
+optional**; current optional-capability work therefore belongs to the public
+facade/runtime composition track rather than being a success criterion every
+actor carve must satisfy. See [`maintainer-decisions.md`](maintainer-decisions.md)
+and [`engine/api-1.0-campaign.md`](engine/api-1.0-campaign.md).
 
 ## Durable uncertainties
 

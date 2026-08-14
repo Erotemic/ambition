@@ -18,7 +18,7 @@
 //! types — so a game-specific PAYLOAD still has nowhere typed to land, and the
 //! authored block reaches the runtime carrying a `name` and nothing else. The
 //! trade-off is written up in
-//! `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4.
+//! `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
 //!
 //! ⭐ **so the name convention did not go away — it stopped being something a
 //! HUMAN types.** The author picks `kind: Power` from a dropdown; this converter
@@ -460,7 +460,7 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
 // GEOMETRY, which a placement is not: its collision is the tube you walk into.
 // So it lowers to a `Block` carrying its authored answers in the one channel a
 // block has, the same trade-off `maryo_block:` makes, written up in
-// `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4.
+// `docs/archive/planning-superseded/2026-08-13/proposal-authored-vocabulary-2026-08-04.md` §4.
 
 /// **Which way a pipe half's OPEN FACE points**, and so which press enters it.
 ///

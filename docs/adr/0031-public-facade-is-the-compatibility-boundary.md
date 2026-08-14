@@ -132,10 +132,11 @@ would have been believed.
 > count. The implemented contract takes its baseline from the instrument rather
 > than from either document.
 
-**It lands green against a recorded baseline that may not grow**, not red on
-`main`. A permanently failing branch is not a gradient, it is a broken gate that
-teaches people to ignore gates. Demonstrate it failing during development; land
-the ratchet. See [the campaign's §Ratchets](../planning/engine/api-1.0-campaign.md).
+**It lands green against a recorded boundary that may not widen**, not as a
+permanently failing migration gate. The contract protects the reviewed consumer
+surface; there is no standing requirement to deliberately poison the check just
+to prove that an ordinary assertion can fail. Historical ratchet construction is
+recorded in the archived API campaign evidence.
 
 **4. The engine owns composition ordering.** A consumer states policy —
 windowed or headless, fixed-step or rollback session, which experience, where it
@@ -154,15 +155,12 @@ assembly contexts. Character behavior stays in the character domain, world
 behavior in world, combat in combat. If the facade ever grows a leaf system, it
 has become the next monolith and this ADR has failed.
 
-**Two acceptance tests, both mechanical, neither prose.**
-
-* the dependency contract above; and
-* **the blind agent test** — can an agent implement a character, a room and a
-  mechanic with only `docs/sdk/` and `ambition_platformer2d::prelude` in context, never
-  opening a file under `crates/`? It must be run with **no prior context of this
-  repository**, or it measures the agent's memory rather than the API, and the
-  recorded result includes *which engine file it had to open first*. That field
-  names the next leak the way Outlander's comments do.
+**The durable acceptance surface is consumer behavior plus the dependency
+boundary.** The campaign used blind-agent trials as a discovery instrument, but
+those runs are historical evidence rather than a recurring gate. Current API
+work should be driven by real external-consumer friction, focused facade tests,
+and the dependency/module boundary that prevents consumers from reaching back
+into implementation topology. See [`../concepts/api-growth.md`](../concepts/api-growth.md).
 
 **A consumer matrix, not a consumer.** The compatibility surface may not be
 declared complete until each category in
@@ -178,7 +176,7 @@ lifecycle, cutscene playback and boss orchestration alongside actor simulation.
 But the split designed today would fit today's *internal* topology. The API
 campaign exists to find out which boundaries a *consumer* can feel, and those
 are the ones worth paying for. See
-[`../planning/engine/api-growth-method.md`](../planning/engine/api-growth-method.md)
+[`../concepts/api-growth.md`](../concepts/api-growth.md)
 for the condition that authorises the carve.
 
 **A versioning obligation.** A compatibility promise needs a version and a test
@@ -200,7 +198,7 @@ is eight days old and now opens with a SUPERSEDED banner: its reasoning survived
 every status claim rotted within a week. A growth law written after three real
 migrations is a description; written before, it is a prediction. The method for
 deriving it *from* the migrations is
-[`../planning/engine/api-growth-method.md`](../planning/engine/api-growth-method.md).
+[`../concepts/api-growth.md`](../concepts/api-growth.md).
 
 **Keep the namespace mirror and document which modules are "really" public.**
 Rejected: that is a doc marker, and this repository has been burned three times
@@ -222,12 +220,10 @@ erodes at the first deadline.
 - **The facade owns no behavior.** A leaf system added to `crates/ambition_platformer2d`
   belongs in a domain crate; the facade holds assembly contexts and
   re-exported contracts only. If it grows behavior, this ADR has failed.
-- **The blind-agent gate is a series, not a score.** Each run uses the fixed
-  script in `docs/planning/engine/slice-evidence/blind-agent-runs/SCRIPT.md`,
-  a FRESH agent, and `docs/sdk/` only; the record names which engine file was
-  opened first. Reading a crate's rendered rustdoc counts as opening that
-  crate. A new public surface gets a new script series, not an edit to an old
-  one.
+- **Blind-agent runs are archived discovery evidence, not standing process.**
+  Do not create a new blind-agent series merely because the public surface
+  grows. Prefer a real consumer, a focused facade/SDK regression, or an
+  architectural dependency check that represents the actual failure mode.
 - **The SDK reference is guarded both ways.**
   `scripts/tests/test_sdk_api_reference_is_current.py` cross-checks
   `docs/sdk/api-reference.md` against the facade's exports — extend the doc in

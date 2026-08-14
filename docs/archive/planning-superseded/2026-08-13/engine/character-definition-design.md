@@ -125,7 +125,7 @@ a composition without one is NAMED by the audit rather than quietly doing nothin
 Two genuinely unrewound rollback components (`IdentityKit`, `PlayerVisual`) and
 two holes in the coverage instrument that hid them: the sweep never inspected the
 PLAYER (`PlayerBundle` has no `FeatureSimEntity`) and never inspected transients.
-See `docs/planning/triage/rollback-equipment-oracle-divergence.md` — the
+See `docs/archive/planning-superseded/2026-08-13/triage/rollback-equipment-oracle-divergence.md` — the
 equipment oracle is `#[ignore]`d there, narrowed but not fixed, and it is NOT
 caused by this work.
 

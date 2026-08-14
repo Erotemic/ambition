@@ -1,0 +1,2406 @@
+# Immutable content assembly and transactional construction
+
+> **State:** PLANNED (2026-07-17).
+>
+> **Priority:** the next major engine-architecture campaign after the active
+> character action/control migration in [`character-actions.md`](character-actions.md).
+> That migration is a prerequisite but is otherwise out of scope here.
+>
+> **Strategic role:** this plan builds the substrate beneath reusable entity
+> recipes, prefab-like authoring, transactional hot reload, exact reconstruction,
+> saves, rollback, content diagnostics, and a stable external SDK.
+>
+> **Companions:** [`architecture.md`](architecture.md), [`netcode.md`](netcode.md),
+> [`spatial-model.md`](spatial-model.md),
+> [`room-transition-loading.md`](room-transition-loading.md), and
+> [`decisions-2026-07-16.md`](decisions-2026-07-16.md). The room-transition plan
+> is the immediate room-lifecycle customer of this campaign: it composes load
+> coordination, adaptive presentation, asset readiness, and the future
+> construction transaction so ordinary room changes never expose a partial
+> target.
+
+## 0. Product objective: compete with Unity, Unreal, and Godot
+
+Ambition's north star is not merely to become a clean bespoke runtime for one
+platformer. It is to become a **Unity/Godot-class 2D platformer engine, with the
+expressive ceiling and systems ambition associated with Unreal, built the Bevy
+and Rust way**. The canonical product vision is in [`../vision.md`](../vision.md).
+
+That does **not** mean copying those engines' editor-first object models. Ambition
+is Bevy-native, deterministic where it matters, headless-first, provider-driven,
+and willing to use external spatial authoring tools. It should compete on the
+outcomes professional engine users depend on:
+
+- reusable and composable game content without editing engine core;
+- fast, safe iteration with complete validation before destructive changes;
+- inspectable entity construction and actionable source-located diagnostics;
+- stable identity across loading, reset, hot reload, saves, replay, and rollback;
+- deterministic builds and sessions whose content can be fingerprinted and
+  reproduced;
+- extension seams strong enough for another game team to author a platformer
+  through supported engine surfaces;
+- tooling and data models that future visual inspectors, editor backends, and
+  agents can understand rather than opaque imperative spawn code;
+- architectural advantages over editor engines where Ambition's design permits
+  them: exact headless simulation, transactional world replacement, principled
+  rollback, and one shared runtime for humans, brains, RL, and replay.
+
+Unity prefabs and ScriptableObjects, Godot scenes and Resources, Unreal assets and
+object construction, and all three engines' import databases solve important user
+problems even when their implementation models are not appropriate here. Ambition
+needs functional answers to those problems. This campaign addresses the common
+foundation: **what exact content is active, where it came from, what entities it
+will construct, and whether a new world can be proven valid before it replaces the
+old one.**
+
+### The goal outranks this proposed mechanism
+
+Future agents should preserve the competitive outcomes and invariants in this
+document, not blindly preserve its provisional type names, phase boundaries, or
+implementation sketches. A stronger design is welcome when it:
+
+1. moves Ambition more directly toward a professional engine workflow;
+2. retains one authoritative construction and content lifecycle;
+3. remains deterministic, inspectable, headless-testable, and provider-open;
+4. reduces rather than multiplies runtime authorities;
+5. demonstrates the improvement through the acceptance tests defined here.
+
+If the code reveals a better route—such as a Bevy-native facility, an ecosystem
+crate, or a simpler model that satisfies more of the product objective—revise this
+plan and take it. Do not weaken the goal merely because one proposed structure is
+awkward. Conversely, do not import an editor engine's object model by analogy when
+an ECS-native solution is cleaner.
+
+### Competitive outcomes this campaign must unlock
+
+This campaign is successful only if it materially advances several engine-product
+capabilities, not merely if new registries and structs exist.
+
+| Engine-user need | Capability unlocked by this campaign |
+|---|---|
+| Reusable entity/scene authoring | One validated construction model from which public recipes or prefab-like facilities can later emerge |
+| Safe iteration | Candidate content and worlds are prepared off to the side and committed only after validation |
+| Inspector/editor support | Construction intent, provenance, relationships, schemas, and diagnostics are data that tools can inspect |
+| Reliable hot reload | A new immutable content epoch replaces the old one transactionally instead of mutating live registries piecemeal |
+| Saves, replay, and rollback | State is bound to explicit content and schema identity; reconstruction does not depend on naming tricks |
+| External game development | Providers register content through deterministic, documented ownership and conflict rules |
+| Reproducible builds and bugs | Meaningful content fingerprints identify the exact definitions a session used |
+| Agentic development | Headless tools can enumerate planned changes and diagnose invalid content before touching a live world |
+
+A public prefab API is **not** the first milestone. The immediate goal is the
+architecture beneath it, proven by real lifecycle customers.
+
+## 1. Executive summary
+
+The engine currently has several successful but independently evolved mechanisms:
+
+- provider content installation;
+- character and audio catalogs;
+- placement lowering;
+- content-staged actor requests;
+- direct room-specific spawn loops;
+- snapshot registries;
+- dynamic-anchor reconstruction;
+- hot-reload preparation and commit logic.
+
+These mechanisms do not yet share one lifecycle, one conflict policy, one content
+identity, or one construction model. Generalizing the existing projectile restore
+or placement-lowering implementation directly into a public prefab API would risk
+freezing accidental machinery—such as string-derived identity and imperative
+`Commands` mutation—into the engine surface.
+
+The architectural target is:
+
+> **Provider-owned content is collected, validated, assembled, fingerprinted, and
+> frozen into an immutable session content epoch. World mutation is driven by a
+> pure, preflightable construction plan carrying explicit entity provenance.**
+
+The intended flow is:
+
+```text
+provider fragments and authored sources
+    → structured validation and conflict detection
+    → deterministic PreparedContent assembly
+    → ContentFingerprint + immutable ContentEpoch
+    → pure ConstructionPlan
+    → transactional execution or discard
+    → active session/world
+```
+
+Normal room activation, reset, transition, hot reload, save loading, and snapshot
+reconstruction may supply different source requests, but they should converge on
+that one preparation and construction seam.
+
+## 2. Why this is the next architectural keystone
+
+Several desired architecture projects share this prerequisite:
+
+```text
+Normalize registration + content assembly
+            │
+            ├──► typed authoring schemas and diagnostics
+            ├──► stable external SDK
+            ├──► content fingerprints and epochs
+            └──► construction registry
+                         │
+Explicit identity/provenance ─┤
+                         │
+                         ▼
+              pure ConstructionPlan
+                         │
+             ┌───────────┼─────────────┐
+             ▼           ▼             ▼
+       entity recipes  hot reload   snapshot rebuild
+                                       │
+                                       ▼
+                         transactional exact restore
+                                       │
+                                       ▼
+                              rollback driver
+```
+
+Without this campaign:
+
+- a recipe registry must invent another duplicate/conflict/finalization policy;
+- hot reload can change definitions beneath an active session;
+- snapshots may accept provider names while the underlying content differs;
+- reconstruction continues inferring origin or family from `SimId` spelling or
+  selected component rows;
+- visual authoring and inspection have no pure construction representation to
+  query;
+- a public SDK would expose several incompatible extension lifecycles.
+
+The asset dependency graph/cooker is less entangled and may proceed in parallel,
+while sharing source-provenance, hashing, diagnostic, and atomic-publication
+vocabulary where that is genuinely useful.
+
+## 3. Relationship to existing canonical decisions
+
+This campaign extends rather than forks the current architecture:
+
+- **M24 remains binding:** activation, reset, transition, and restore use one
+  App-installed placement-lowering authority. The construction planner becomes
+  the pure/preflightable form of that authority; it does not introduce a second
+  placement interpreter or let restore invent a parallel lowering path.
+- **The world IR remains authoring-backend neutral:** LDtk is the active spatial
+  backend, while the planned construction model consumes canonical authored
+  records rather than LDtk node/object semantics.
+- **Provider ownership remains explicit:** lower engine crates do not import named
+  game content, and opaque plugin discovery is not introduced.
+- **One body, one path still governs actors:** construction recipes choose and
+  assemble canonical actor data; they do not create player/enemy/boss runtime
+  variants.
+- **Runtime still owns global schedule ordering:** construction planning does not
+  become a new god-system or move domain leaf systems into `ambition_platformer2d_runtime`.
+- **The snapshot contract remains same-build unless deliberately expanded:** a
+  content fingerprint closes same-name/different-definition holes without
+  silently promising cross-version compatibility.
+
+If implementation pressure appears to require a parallel lowering, spawn,
+reconstruction, or hot-reload authority, stop and revise the design instead of
+adding a bridge. The purpose of this push is convergence.
+
+## 4. Goals
+
+### 4.1 Primary goals
+
+1. Establish a consistent lifecycle for extensibility registries.
+2. Assemble session-relevant definitions into immutable `PreparedContent`.
+3. Compute a deterministic content fingerprint and assign a session content
+   epoch.
+4. Stop inferring entity construction semantics from `SimId` string patterns.
+5. Introduce explicit provenance for authored, provider-staged, and
+   runtime-dynamic entities.
+6. Separate construction planning from ECS mutation.
+7. Use the same planning and execution seam for normal spawning and
+   reconstruction.
+8. Migrate room activation, reset, transition, and hot reload toward
+   transactional construction.
+9. Bind snapshots and reconstruction to compatible content and snapshot-schema
+   identities.
+10. Produce the evidence needed to design later public entity-recipe and
+    prefab-like APIs rather than guessing their final shape.
+
+### 4.2 Secondary goals
+
+- Improve diagnostics for provider conflicts and authored-content failures.
+- Make construction behavior inspectable in tests and development tools.
+- Reduce app-specific room orchestration without introducing size-driven crate
+  decomposition.
+- Establish deterministic ordering and ownership conventions across registries.
+- Create data surfaces suitable for future inspectors, editor backends, content
+  browsers, and agent tooling.
+- Make exact world/session reproduction a first-class engine capability.
+
+## 5. Non-goals
+
+This campaign does not:
+
+- implement a general public prefab API;
+- implement prefab inheritance or arbitrary instance overrides;
+- serialize arbitrary ECS component bags;
+- create a universal scene graph;
+- create a custom visual editor;
+- add a scripting language;
+- implement network transport;
+- ship a production rollback driver;
+- migrate every spawn family immediately;
+- require every registry to use one generic Rust container;
+- eliminate all direct `Commands` use throughout the codebase;
+- guarantee cross-version compatibility for all snapshots;
+- abstract away Bevy or make the engine backend-neutral.
+
+Rollback, saves, editor integrations, and a public prefab API are downstream
+customers of this work, not excuses to over-generalize its first implementation.
+
+## 6. Binding principles
+
+These outcomes are binding even if the implementation sketches later change.
+
+### 6.1 Collect, validate, assemble, fingerprint, freeze
+
+Provider installation must not mutate a live session's canonical content
+piecemeal.
+
+```text
+provider fragments
+    → local validation
+    → cross-provider conflict validation
+    → deterministic assembly
+    → content and schema fingerprints
+    → immutable prepared epoch
+    → session activation
+```
+
+Once a session starts, its canonical content epoch is immutable. Hot reload
+constructs a new candidate epoch rather than mutating the active one in place.
+
+### 6.2 Plan before mutation
+
+Construction has two explicit stages:
+
+```text
+prepared content + source request
+    → pure validated ConstructionPlan
+    → mutation executor
+```
+
+Planning must be possible without mutating the ECS world. It must expose enough
+information to verify:
+
+- the expected entity roster;
+- stable identities and collisions;
+- construction recipes;
+- ownership and scope;
+- relationships and unresolved references;
+- dependencies;
+- diagnostics;
+- content epoch compatibility.
+
+### 6.3 Provenance is data
+
+`SimId` remains a stable simulation lookup identity, but its spelling is not the
+authoritative description of how an entity was created or reconstructed.
+Authored, provider-staged, and runtime-dynamic origins are represented explicitly.
+
+### 6.4 One construction seam, multiple callers
+
+Normal room loading, reset, transition, hot reload, save loading, and snapshot
+reconstruction converge on one planning and execution model. They may apply
+different replacement or persistence policies, but they do not maintain separate
+constructors for the same entity family.
+
+### 6.5 Transactional failure
+
+Ordinary content and construction failures occur before destructive mutation.
+When complete preflight is impossible, execution happens in a disposable world or
+staging scope that can be discarded without corrupting the active session.
+
+### 6.6 Internal proof before public commitment
+
+Recipe, registry, provenance, and construction APIs remain internal or explicitly
+experimental until normal activation, hot reload, and reconstruction have all
+proven the same model. Public API design follows evidence from at least two real
+consumers.
+
+### 6.7 Inspectability is part of correctness
+
+A professional engine must explain what it intends to do. Prepared content,
+registrations, fingerprints, construction plans, and diagnostics need stable
+debug representations that tests, command-line tools, future inspectors, and
+agents can consume.
+
+## 7. Current problems this campaign must replace
+
+### 7.1 Construction is coordinated by convention
+
+Room construction currently combines generic placement lowering with direct
+family-specific loops, content-staged actor requests, resource resets,
+relationship publication, and lifecycle events. These paths can be correct
+individually while disagreeing about identity, validation, reconstruction, or
+failure timing.
+
+The placement-lowering registry is an execution registry, not yet a declarative
+construction model: an interpreter receives mutable `Commands` and may make
+construction decisions while mutating deferred ECS state. It cannot independently
+report the complete entity roster or prove that execution will succeed.
+
+`RoomContentStagingRegistry` is a better pure/preflightable precedent, but it is
+actor-specific and does not describe a complete room transaction.
+
+### 7.2 Reconstruction semantics leak through identity spelling
+
+Existing restore work successfully proved projectile reconstruction, but parts of
+reconstruction still recognize authored or dynamic identities through string
+shape and nominated component rows. That is an implementation proof, not a sound
+general public contract.
+
+Before generalized recipes, the engine must represent explicitly:
+
+- the source and owner of an entity;
+- the recipe/family that creates it;
+- the stable source instance or dynamic sequence that identifies it;
+- whether the snapshot is blob-complete or construction data is required;
+- which content epoch makes the recipe meaningful.
+
+### 7.3 Registries disagree about extension semantics
+
+Current registries differ in duplicate policy, override behavior, unknown-key
+handling, deterministic ordering, validation timing, and whether failures panic or
+return structured errors. Mature provider openness requires one lifecycle
+protocol, even if domain-specific registries retain distinct types.
+
+### 7.4 Session identity does not fully identify content
+
+Provider names and room IDs do not distinguish two sessions whose room geometry,
+character definitions, moves, recipes, or other behaviorally meaningful content
+differ. Hot reload, saves, replay, and rollback need an exact prepared-content
+identity, not merely a routing identity.
+
+### 7.5 The rollback state envelope is not yet fully classified
+
+> **Rewritten under ADR 0027 (2026-07-23).** The original subsection described
+> the Ambition-owned snapshot substrate, which is DELETED — GGRS and
+> `bevy_ggrs` are the sole rollback authority. What survives of the original
+> concern is coverage, not machinery.
+
+Under ADR 0027 the restore contract already holds where it is implemented:
+`RollbackSessionContract` binds a session to the exact
+`PreparedContentIdentity` and the versioned, order-independent registration
+fingerprint, and `enforce_session_contract` invalidates the session before
+another GGRS frame can run when either changes
+(`crates/ambition_platformer2d_runtime/src/rollback/session.rs`). Restore itself is
+transactional because `bevy_ggrs` `LoadWorld` is atomic by construction.
+
+The residual problem is the **envelope**: proving that every piece of mutable
+authoritative state is inside it. Entity composition is guarded by a computed
+forcing function (`game/ambition_app/tests/rollback_coverage.rs`), but
+resources are reviewed by hand, demo-content state in `game/` crates
+(`BallDash`, `SanicActState`, `MaryOLevelState`, `FlagSequence`) is
+unregistered because those shells do not run a GGRS host yet, and the track-0
+exit oracle — a sync-test that lands a melee hit, spends armor, flips a
+switch, and breaks a brick across a forced rollback window — has never been
+written. Phase 5 closes exactly this list.
+
+### 7.6 Current evidence map
+
+Re-audited 2026-07-23 against HEAD; the first implementation pass should
+still re-verify rather than trust this list against a later HEAD:
+
+- `crates/ambition_platformer2d_runtime/src/rollback/{mod.rs,registry.rs,session.rs,codecs.rs}`
+  — the registration substrate, schema fingerprint, session contract, and
+  canonical codecs (the deleted `snapshot/` subsystem's replacement);
+- `game/ambition_app/tests/rollback_coverage.rs` — the computed
+  entity-composition forcing function (explicitly blind to resources);
+- `game/ambition_app/tests/desync_canary.rs` — the sync-test scenarios that
+  exist today (rewind/resim proof, cross-instance determinism, dynamic-actor
+  churn, dash/air-jump/position checksum canary);
+- `game/ambition_content/src/bosses/specials/rollback.rs` — the content-side
+  registration-seam precedent a `game/` crate follows;
+- `crates/ambition_persistence/src/save.rs` — the separate persistence
+  boundary (confirmed-frame-gated autosave; deliberately not a second
+  rollback engine);
+- `crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs` and
+  `crates/ambition_platformer2d_actor_monolith/src/features/ecs/spawn/mod.rs` — the construction
+  domain and the assembled room path (every authored family is a plan row as
+  of Phase 4);
+- `game/ambition_app/src/app/dev_runtime.rs` — hot-reload preparation, the
+  GGRS restart barrier, and transactional commit orchestration.
+
+## 8. Provisional core concepts
+
+The following names and shapes are design sketches. Their responsibilities matter
+more than their exact Rust representation.
+
+### 8.1 Provider-owned registration fragments
+
+```rust
+struct RegistrationFragment<T> {
+    provider: ProviderId,
+    source: SourceId,
+    key: RegistrationKey,
+    value: T,
+}
+```
+
+Each registry domain defines:
+
+- key namespace;
+- provider/source ownership;
+- duplicate and idempotency behavior;
+- whether deliberate override is legal;
+- deterministic assembly order;
+- validation rules;
+- fingerprint contribution;
+- mutability/finalization rules.
+
+One universal generic registry is not required. A common lifecycle and diagnostic
+contract is.
+
+### 8.2 Structured content diagnostics
+
+```rust
+struct ContentDiagnostic {
+    severity: DiagnosticSeverity,
+    code: DiagnosticCode,
+    message: String,
+    provider: Option<ProviderId>,
+    source: Option<SourceId>,
+    path: Option<ContentPath>,
+    related: Vec<RelatedDiagnostic>,
+}
+```
+
+Diagnostics remain structured until a log, CLI, inspector, or test formats them.
+The model must support source-located messages such as:
+
+```text
+character_catalog.ron:142:17
+error[AMB-CONTENT-0042]: conflicting recipe `enemy/slime`
+registered by providers `ambition_base` and `demo_maryo`
+```
+
+### 8.3 Prepared content and content epoch
+
+```rust
+struct PreparedContent {
+    epoch: ContentEpoch,
+    fingerprint: ContentFingerprint,
+    provider_set: ProviderSetIdentity,
+
+    rooms: Arc<PreparedRoomCatalog>,
+    characters: Arc<PreparedCharacterCatalog>,
+    moves: Arc<PreparedMoveCatalog>,
+    schemas: Arc<PreparedSchemaRegistry>,
+    construction: Arc<PreparedConstructionRegistry>,
+
+    snapshot_schema: SnapshotSchemaFingerprint,
+}
+```
+
+Not every field must land in the first slice. The required property is that all
+behaviorally relevant session content has one immutable identity.
+
+The fingerprint must be:
+
+- deterministic;
+- insensitive to map insertion or provider discovery order;
+- sensitive to behaviorally meaningful content;
+- based on canonical representations or explicit hash contributions;
+- independent of memory addresses;
+- versioned so fingerprint semantics can evolve deliberately.
+
+The first implementation may remain a same-build contract. It must still
+distinguish sessions with the same provider names but different meaningful
+content.
+
+### 8.4 Explicit spawn provenance
+
+```rust
+enum SpawnOrigin {
+    Authored {
+        source: SourceId,
+        instance: AuthoredInstanceId,
+    },
+    ProviderStaged {
+        provider: ProviderId,
+        recipe: RecipeId,
+        instance: InstanceKey,
+    },
+    Dynamic {
+        recipe: RecipeId,
+        parent: Option<SimId>,
+        sequence: DynamicSequence,
+    },
+}
+```
+
+The final model must answer:
+
+- who requested the entity;
+- which authored declaration or recipe produced it;
+- which stable source instance it represents;
+- which room/session scope owns it;
+- how it can be reconstructed;
+- which content epoch defines its recipe.
+
+`SimId` may be generated from provenance. Restore logic does not recover
+provenance by parsing the generated string.
+
+### 8.5 Construction registry
+
+A construction registry associates stable recipe identities with validation,
+planning, and execution behavior. Conceptually:
+
+```rust
+trait ConstructionRecipe {
+    fn validate(
+        &self,
+        request: &ConstructionRequest,
+        content: &PreparedContent,
+        diagnostics: &mut Vec<ContentDiagnostic>,
+    );
+
+    fn plan(
+        &self,
+        request: &ConstructionRequest,
+        content: &PreparedContent,
+    ) -> Result<Vec<PlannedEntity>, ConstructionError>;
+
+    fn execute(
+        &self,
+        entity: &PlannedEntity,
+        ctx: &mut ConstructionExecCtx,
+    ) -> Result<(), ConstructionError>;
+}
+```
+
+Typed function registration or another Bevy-native representation may be better
+than trait objects. The binding distinction is that planning is pure and
+execution consumes the plan instead of rediscovering authoritative decisions.
+
+### 8.6 Construction plan
+
+```rust
+struct ConstructionPlan {
+    content_epoch: ContentEpoch,
+    scope: ConstructionScope,
+    source: ConstructionSource,
+    entities: Vec<PlannedEntity>,
+    relations: Vec<PlannedRelation>,
+    resource_ops: Vec<PlannedResourceOp>,
+    diagnostics: Vec<ContentDiagnostic>,
+}
+```
+
+```rust
+struct PlannedEntity {
+    sim_id: SimId,
+    recipe: RecipeId,
+    origin: SpawnOrigin,
+    room: Option<RoomId>,
+    parent: Option<SimId>,
+    parameters: PlannedParameters,
+}
+```
+
+The plan describes construction intent, not a second serialized ECS. Recipes
+remain responsible for producing canonical ECS bundles/components. The first
+slice models only enough relationships and resource operations to make its chosen
+lifecycle transaction complete.
+
+## 9. Work plan
+
+### Phase 0 — architecture inventory and ADR
+
+#### Objective
+
+Make the binding decisions and record current mechanisms before adding APIs.
+
+#### Tasks
+
+1. Inventory registries involved in characters, moves, parameter schemas,
+   placement lowering, content staging, audio, snapshots, and dynamic
+   reconstruction.
+2. Record for each registry:
+   - key type and namespace;
+   - provider/source ownership;
+   - duplicate and override policy;
+   - unknown-key policy;
+   - deterministic ordering;
+   - validation timing;
+   - failure behavior;
+   - mutation window;
+   - fingerprint support.
+3. Inventory room/world-construction paths:
+   - normal activation;
+   - reset;
+   - transition;
+   - hot reload;
+   - snapshot cross-room restoration;
+   - direct runtime spawning.
+4. Write one ADR settling:
+   - registration lifecycle;
+   - immutable content epochs;
+   - entity provenance;
+   - construction planning;
+   - transactional execution;
+   - snapshot/content compatibility.
+5. Evaluate relevant Bevy and ecosystem facilities before committing custom
+   infrastructure. Record why adopted facilities are sufficient or why the
+   engine needs narrower custom machinery.
+
+#### Exit
+
+- Registration, assembly, preparation, activation, planning, and execution have
+  non-overlapping definitions.
+- The ADR rejects string parsing as reconstruction authority.
+- The ADR defines when content becomes immutable.
+- The ADR defines what invalidates snapshots, replays, and rollback history.
+- The ADR names the first three vertical-slice entity families.
+- Mechanisms known to be provisional are marked as such.
+
+### Phase 1 — normalize registration ownership and diagnostics — **COMPLETE 2026-07-18**
+
+#### Objective
+
+Create a consistent internal lifecycle before adding another major registry.
+
+#### Tasks
+
+1. Introduce shared provider/source ownership metadata.
+2. Introduce structured `ContentDiagnostic` and content paths.
+3. Define deterministic assembly and canonical hashing helpers.
+4. Migrate a representative set:
+   - one mature transactional registry such as audio;
+   - one permissive registry such as parameter schemas;
+   - one panic-based registry such as placement lowering.
+5. Make duplicate behavior explicit:
+   - identical registration may be idempotent where appropriate;
+   - conflicting registration fails before canonical state mutates;
+   - override is deliberately modeled, never accidental.
+6. Remove last-registration-wins and ordinary-content panics from migrated
+   registries unless the domain explicitly justifies those semantics.
+7. Provide deterministic dumps of assembled registrations and ownership.
+
+#### Exit
+
+- Representative registries emit structured diagnostics.
+- Conflict checks are transactional.
+- Reordered provider input assembles identically.
+- Registry fingerprints remain stable under equivalent insertion orders.
+- No migrated registry uses panic for an expected authored-content error.
+
+### Phase 2 — introduce `PreparedContent` — **COMPLETE 2026-07-18**
+
+#### Objective
+
+Pin one immutable, fingerprinted content definition to every active session.
+
+#### Tasks
+
+1. Add `ContentEpoch`, `ContentFingerprint`, and fingerprint-schema versioning.
+2. Assemble selected registries into `PreparedContent`.
+3. Associate the prepared object with provider/session activation.
+4. Ensure active sessions cannot observe piecemeal canonical-registry mutation.
+5. Make hot reload build a candidate prepared epoch off to the side.
+6. Extend snapshot world identity with:
+   - content fingerprint;
+   - snapshot schema fingerprint.
+7. Reject incompatible restore before world mutation.
+8. Add developer output that identifies active content and explains
+   incompatibilities where practical.
+
+#### Exit
+
+- Meaningfully different definitions produce different fingerprints even when
+  provider names and room IDs are equal.
+- Equivalent provider/fragment insertion orders produce the same fingerprint.
+- The active session is pinned to an immutable prepared epoch.
+- Incompatible snapshots are rejected before mutation.
+- Hot-reload preparation leaves the active epoch untouched.
+
+### Phase 3 — explicit provenance and construction-plan vertical slice — **LANDED 2026-07-22**
+
+`ambition_platformer2d_shared_tangle::construction` is the content-free planner:
+`RecipeId`, `SpawnOrigin`, `ConstructionRequest`/`Plan`/`PlannedEntity`/
+`PlannedRelation`, a registry on the Phase-1 lifecycle, and a canonical dump.
+`ambition_platformer2d_actor_monolith::construction` is the domain that puts three real families
+through it — an authored `GroundItemSpec`, a provider-staged `SpawnActorRequest`,
+and a minion summoned by `Effect::Summon`.
+
+**The load-bearing result is that provenance stopped being a spelling.**
+`heal_projectile_owners` recovered a projectile's firer with
+`id.as_str().rsplit_once('/')`; that was the only parse of a `SimId` in the
+tree, and it is gone. `mint_spawned_sim_ids` now states the parent in
+`SpawnOrigin::Dynamic` at the moment it already has it in hand, and the healer
+reads it. Two consequences that were not obvious before doing it: the derived-
+state justification registered for `ProjectileOwner` was factually wrong (it
+named `ProjectileOwnerId`, which is EMPTY for every player projectile, so it
+could not have carried the owner for the largest pool in the game), and
+`SimId::as_str`'s "never parsed" doc comment was false while it was written.
+Both are corrected.
+
+**Three deviations from §8's sketch, each with a reason:**
+
+1. **`SpawnOrigin` does not carry a `RecipeId`.** The sketch put one in two of
+   the three variants, but the planned row already names the recipe. Storing it
+   twice creates a state where they disagree and nothing says which wins.
+2. **`ConstructionScope` carries no session scope.** Session ownership is a
+   COMMIT-time fact — one prepared room plan is committed by whichever
+   activation requested it — which is why `PlacementLoweringPlan` also takes its
+   `SessionSpawnScope` at `lower_all` rather than at `plan_room`. It lives in the
+   domain's `Services` instead. Putting it in the scope meant writing
+   `UNSCOPED` into a field that was then ignored.
+3. **`ContentEpoch` moved down to `ambition_platformer2d_core`.** The plan states the
+   generation it was prepared against, and construction planning sits far below
+   `ambition_platformer2d_runtime`, which owns content identity. Allocation stayed put; only
+   the stamp moved. Provider activation is the one site holding the exact
+   prepared definition, so it is the one site that states a real epoch rather
+   than defaulting.
+
+**What the slice bought beyond the plumbing** — each family was losing something
+real to the absence of a plan, and each is now a preflight failure:
+
+- an authored ground item naming an unregistered held item used to `return`
+  silently out of `spawn_ground_item`, producing no entity and no diagnostic;
+- a staged duellist's `grudge_against` naming an actor outside its batch was
+  dropped by `wire_staged_grudges`, leaving two fighters who ignored each other;
+- a summoned minion carried a `FeatureId`, so `ensure_sim_id` filed it under the
+  AUTHORED `placement:` namespace — the one namespace it categorically is not
+  in — and two summons reusing an authored id collided outright. It now takes
+  `SimId::spawned` under its summoner.
+
+Provider-staged actors also stopped being deferred: they were written as
+`SpawnActorRequest` MESSAGES and applied a system later, and are now plan rows
+committed with the rest of the room.
+
+**Not migrated — the exact remaining count, surveyed 2026-07-22.** Phase 4 is
+**NOT started** beyond the `ContentBinding` type above. Nine authoritative
+families and one parallel path remain outside the planner:
+
+| # | family | site | state |
+|---|---|---|---|
+| 1 | authored placement → NPC | `spawn/mod.rs` `lower_all` | authoritative (`SimId` via `ensure_sim_id`) |
+| 2 | enemy | `spawn/mod.rs` enemy loop | authoritative; **1 row → 3 entities** for `"giant"` class |
+| 3 | boss | `spawn/mod.rs` boss loop | authoritative |
+| 4 | hazard | placement lowering | has `FeatureId`, **no `SimId`** (no `BodyKinematics`) |
+| 5 | pickup / chest / breakable / switch | placement lowering | same — identified but not in the sim roster |
+| 6 | portal (`cfg(feature="portal")`) | placement lowering | no `FeatureId` at all |
+| 7 | shrine | `spawn/mod.rs` | anonymous, not in `expected_authoritative_ids` |
+| 8 | gravity zone | `spawn/mod.rs` | anonymous |
+| 9 | portal gun pickup (`cfg`) | `spawn/mod.rs` | anonymous |
+| — | `apply_spawn_actor_requests` | registered in `stage.rs` | **parallel unplanned path to `spawn_staged_actor`**, still carries the silent-drop `wire_staged_grudges` |
+
+**Fourth review round (checkpoint 2).** Five substrate repairs, before any
+Phase-4 family migration:
+
+1. **The prepared plan was not actually frozen.** `PlannedEntity` stored only the
+   `RecipeId`; commit called `dispatch` again. `dispatch` is expected to be pure
+   but nothing makes it so, so a plan could validate/dump/fingerprint recipe A
+   and execute constructor B. The resolved `ConstructFn` is now stored on the
+   row and commit runs it. Proven by a toy domain whose `dispatch` flips on an
+   atomic: it fails against the re-dispatch implementation.
+2. **Summon reservation is now one authoritative boundary.** The counter check,
+   the construction, and the advance happen inside a single exclusive-world
+   command. The `max()` recovery path is deleted — there is no longer a window
+   for the value to move. Proven with a real interleaving (auto sync points
+   disabled so a direct-write system lands between queueing and applying); the
+   old shape builds the minion, the new one refuses with nothing built.
+3. **Relations carry canonical schema metadata** (kind, owner, source, schema
+   id), in conflict validation, the dump, and the fingerprint. A relation whose
+   WIRING changes while kind and owner stay put now requires a schema bump to be
+   visible — stated in the ADR.
+4. **`verify_committed_roster` exists**: counts identities rather than
+   set-comparing them, checks root ownership and provenance, flags unplanned
+   authoritative roots and dangling relations, and returns structured
+   `RosterViolation`s. Six adversarial toy recipes prove each case, plus a
+   positive test that presentation-only children are permitted.
+5. Stale claims swept from code, ADR, and this document.
+
+## Substrate checkpoint 3 — verification made real (2026-07-22)
+
+Fourth external review round. The previous checkpoint built a verifier; this one
+makes it something a transaction actually has to pass.
+
+1. **`TransactionBaseline` preserves entity identity and multiplicity.** It was
+   a `BTreeSet<SimId>`, which cannot distinguish an original from a replacement,
+   a survivor from a look-alike, or a clean start from one that already held
+   duplicates. It is now `BTreeMap<SimId, BaselineEntry>` — entity **and**
+   provenance — captured by querying, with a duplicate identity refusing capture
+   outright. Retirement and reconstruction are **declared** on the baseline, never
+   inferred from the plan naming an identity: inferring would mean any plan
+   mentioning an id thereby authorised destroying whatever held it.
+2. **Authoritative scope is read from the world.** `verify_committed_roster` took
+   a caller-supplied `&[(SimId, Entity)]`, which made it exactly as complete as
+   the caller's memory. `AuthoritativeScope::gather` queries instead and
+   classifies by component: this transaction's `TransactionId` stamp, another
+   transaction's, an explicit `PresentationOnly` opt-out, or **no ownership at
+   all**. The opt-out direction is deliberate — an identity-bearing entity is
+   authoritative until something says otherwise, so forgetting to classify is a
+   loud finding rather than a quiet exemption.
+3. **Relations verify their postconditions.** A receipt records that a wiring
+   function was CALLED; a no-op, a write to the wrong entity, a removal, and a
+   later overwrite all produce an identical receipt. `RelationOps` now carries
+   `wire` **and** `verify` together, frozen onto the planned row, and the
+   verifier reads the committed components.
+4. **Function-address equality is gone from registration semantics.**
+   `std::ptr::fn_addr_eq` made a registry contract depend on codegen — the
+   compiler may merge identical functions to one address and emit one function at
+   several. Identity is metadata only; behaviour is governed by `schema_id`.
+5. **A real production path invokes it.** `RoomFeatureConstructionPlan::spawn`
+   queues a baseline capture BEFORE its construction and a verify-and-publish
+   AFTER it. Command queues apply in insertion order, so the sequencing is the
+   mechanism, not a scheduling hope — and the deferred path and the
+   exclusive-world `apply_to_world` path share one publication route rather than
+   growing a second architecture.
+
+⚠ **`RoomLoaded` is no longer written by `spawn`.** It used to be that
+function's last statement, which announced a room whose contents were still
+sitting unapplied in the command queue. Verification writes it now, or nothing
+does.
+
+⚠ **Roster verification DETECTS; it does not PREVENT, and Bevy commands do not
+roll back.** By the time the verifier can run, construction has applied. A
+violation can stop a transaction being published as successful; it cannot undo
+it. There is no staging world, so nothing here should be read as rollback
+atomicity. The structural fix — every authoritative root an explicit plan row —
+is Phase-4 work.
+
+⚠ **`Severity::Unmigrated` is a deliberate, temporary hole.** Nine families
+still build authoritative roots outside the planner, so an identity with no
+ownership stamp is REPORTED rather than fatal — making it fatal today would
+refuse rooms that work exactly as designed. The class empties as families
+migrate; Phase 4's last step deletes the severity split.
+
+⚠ **There is still NO enforced plan-to-world roster parity.** A recipe receives
+raw `Commands` and the root `Entity`, so it can despawn the root, remove or
+overwrite its `SimId`, mutate unrelated entities, or spawn additional entities
+that acquire authoritative identities. `ConstructionRoot` stops a recipe
+NOMINATING a pre-existing entity as a row's root — that and no more. What has
+changed is that all of it is now *detected at a real boundary*; what has not is
+that any of it is *prevented*.
+
+### Phase-4 readiness: what the first relation migration will find
+
+Surveyed before starting, so the migration uses the descriptor machinery above
+rather than provoking another redesign.
+
+**Both target pairs are bidirectional**, which means each needs a `verify` that
+checks *both* sides. A forward-only check passes on a half-wired pair while one
+side of the world lies — the exact class `RelationCheck::ReverseMismatch` was
+added for.
+
+| pair | forward | reverse | raw `Entity`? |
+|---|---|---|---|
+| limbs | `Limb { of }` on each limb | `LimbRig { limbs: Vec<Entity> }` on the host | both |
+| mounts | `RidingOn { mount }` on the rider | `MountSlot { rider: Option<Entity> }` on the mount | both |
+
+**The stable identities already exist for limbs.** `spawn_giant_hand_limbs`
+mints `SimId::spawned(&giant_sim, ordinal)` per hand, with `ordinal` fixed by the
+array literal (left = 0, right = 1), and `giant_hand_feature_id` is a pure
+function of the authored giant id. Nothing needs inventing; the identities are
+there and only the *relation* is unplanned. This is why limbs go first.
+
+**Dependency closure.** A limb's identity is derived from its host's, so the two
+are inseparable: any subset containing one must contain the other, which
+`relation_closure` already produces once the relation is planned. Mounts are the
+looser case — rider and mount are independently authored — so the closure there
+is genuinely two roots joined only by the link.
+
+**Two pre-existing defects the migration should absorb rather than preserve:**
+
+- **`MountSlot` is never inserted at spawn.** `attach_mount_role` inserts
+  `Mountable`/`CanPilot`/`Mass` and no slot; `resolve_pending_mount_links`
+  inserts it only when a link resolves. The post-rollback path in
+  `autonomous_reconcile` then does `world.get_mut::<MountSlot>(..)` — a mutation
+  that silently does nothing when the component is absent — while inserting
+  `RidingOn` unconditionally. A mount reconstructed without a surviving
+  `MountSlot` therefore ends up **one-directionally linked**, and nothing today
+  reports it. Planned-relation wiring writes both ends by construction.
+- **Limbs have no `SimId`-keyed shadow.** Mounts have one —
+  `TemporaryControl::Mounted { mount: SimId }`, with a real `SnapshotState`
+  codec — so a restore can rebuild the mount link from stable ids. There is no
+  `LimbRig` equivalent, no reconcile pass, and no id-keyed representation of the
+  rig at all.
+
+**The snapshot codecs preserve these handles in a way that only works inside a
+GGRS rollback.** All four register `rollback_component_clone` +
+`rollback_map_entities`, i.e. a byte clone of the raw `Entity` plus `LoadWorld`
+remapping. That remap has an old→new table only because the same entities are
+recreated within one `LoadWorld`. Outside that — a room rebuild, a partial
+reconstruction, any path that mints genuinely new entities — a restored giant's
+`LimbRig.limbs` and each hand's `Limb.of` are stale allocator slots. None of the
+four contributes a checksum projection either, since they use plain
+`rollback_component_clone` rather than the `_state` variant the registry
+documents for `Entity`-carrying components.
+
+**There are zero tests in `crates/ambition_platformer2d_runtime/src/rollback/` covering any of
+the four.** Nothing currently pins that a reconstructed rig or mount link comes
+back with correct handles, which is the gap the migration closes.
+
+## Phase 4, step 1 — limbs and mounts are relation kinds (2026-07-22)
+
+`ambition.limb` and `ambition.mount` are registered relation kinds with
+bidirectional wiring and bidirectional postcondition checks.
+
+**Relations gained a typed payload.** `ConstructionDomain::RelationPayload`, on
+the request, frozen onto the planned row, passed to both `wire` and `verify`, and
+rendered into the dump. The reason is specific rather than general: `Limb` holds
+`slot` and `home_offset`, and **both are stated relative to the host** —
+`HandLeft` is meaningless without saying left hand *of what*, and `home_offset`
+is read as `host.pos + gravity_frame(offset)`. They are facts about the pairing.
+Putting them in the limb's construction parameters would place host-relative data
+on a body that does not learn its host until the relation is wired, which is the
+same shape as the duplicated `parent` field this campaign already deleted. A
+domain whose relations are pure adjacency uses `()`; the toy domain does.
+
+The dump gained a payload column, so **`CONSTRUCTION_PLAN_SCHEMA_VERSION` is 3**.
+It is content: two plans whose limbs fill different slots describe different
+worlds, and a dump that rendered them identically would call them the same plan.
+
+**One function writes both ends.** That is the whole point for these two pairs,
+because the way they break is a half-write. The rig case accumulates — a host
+with two hands is two relations, appending in the plan's canonical relation order
+(which sorts by the limb's `SimId`, so the hands' `…/0` and `…/1` come out
+left-then-right). `fan_out_limb_intents` reads the rig positionally, so that
+order is content, not incident.
+
+**Verification checks the reverse side, and that is not redundant:**
+
+- A limb absent from its host's `LimbRig` is **inert** — `fan_out_limb_intents`
+  iterates the rig — while `Limb.of` still names the right host. Every
+  forward-only assertion passes.
+- A mount whose `MountSlot` does not point back stops obeying, because
+  `steer_mount_from_rider` queries `With<MountSlot>`, while every rider-side
+  assertion passes. **This is a defect that exists in the tree today**:
+  `attach_mount_role` never inserts `MountSlot`, and
+  `reconcile_autonomous_actors` re-establishes the link with
+  `world.get_mut::<MountSlot>(..)`, a mutation that silently does nothing when the
+  component is absent, while inserting `RidingOn` unconditionally.
+
+⚠ **No production caller declares either relation yet.** Limbs, riders, and
+mounts are not plan rows — the giant's hands are minted inside
+`spawn_giant_hand_limbs`, and mount links still resolve a frame later through
+`PendingMountLinks` / `resolve_pending_mount_links`. The kinds are registered,
+fingerprinted, and tested against real components, but the migration is not
+complete until those endpoints become plan rows. That is the next commit, and
+until it lands the old paths remain the ones that run.
+
+⚠ **Two facts that make the roster-parity claim narrower than it reads.**
+
+- `spawn_enemy_with_faction_into` spawns **two extra authoritative roots** (giant
+  hand limbs) that mint their own `SimId::spawned`, and it is reachable from
+  *inside* the already-planned staged-actor recipe. A room containing a
+  `"giant"`-class archetype therefore has authoritative identities the plan does
+  not name. The roster-parity tests use non-giant archetypes, so they are true
+  but do not cover this. Making the hands plan rows is Phase 4 work.
+- `Limb`/`LimbRig` and `RidingOn`/`MountSlot` are raw `Entity` relationships
+  wired *inside* spawn helpers rather than declared as plan relations, so they
+  are invisible to `relation_closure` and to the cut-detection above. They are
+  the next relations to migrate, for exactly the stale-handle reason that made
+  the incoming-relation rule wrong.
+
+`apply_spawn_actor_requests` survives because programmatic scene setup (RL
+episode reset, demo crony spawns) legitimately wants a message — but it is a
+second live path to the same helper and should shrink to that use alone.
+
+**Verification.** 20 domain tests (`ambition_platformer2d_actor_monolith::construction`), 25 planner
+tests (`ambition_platformer2d_shared_tangle::construction`), 6 provenance tests
+(`ambition_platformer2d_runtime::rollback::provenance_tests`). The provenance file records
+which of its tests actually DISCRIMINATE between the old and new mechanisms —
+two do, four are behavioural regression protection that passes either way — and
+that was established by running the file against the pre-change implementation
+rather than asserted.
+
+**Review round (same day): five transactional gaps, all closed.** An external
+review of the landed slice found five places where the *claim* was stronger than
+the *mechanism*. None were caught by the tests above, and the pattern is worth
+carrying into Phase 4: every one was a boundary that had been described as
+atomic without anything enforcing it.
+
+1. **`apply_summon_effects` advanced `SimIdCounter` before `prepare` ran**, so a
+   rejected batch permanently consumed dynamic identities no entity was built
+   for — while its error branch said "Nothing has been mutated". Sequence
+   numbers are now taken into a local map and written back only after commit.
+   *"Preparation is pure" has to be true of the caller, not only of `prepare`.*
+2. **Recipe and parameters were chosen independently**, so a valid public request
+   could pair them wrongly and reach the recipe's `unreachable!` mid-commit.
+   Every recipe now registers an `AcceptsFn`, checked during preparation.
+3. **The executor trusted the `Entity` a recipe returned**, so plan-to-world
+   parity was the executor's bookkeeping agreeing with itself. The identity
+   stamp now goes through the world and panics if the entity already holds a
+   `SimId`. The exit-criterion test was rewritten to query live identities.
+4. **`parent` was stored twice** — on the request and in `SpawnOrigin::Dynamic` —
+   validated on one and read on the other. The request field is deleted and
+   `Dynamic::parent` is no longer optional. The dump lost its now-redundant
+   parent column: **plan schema v2**.
+5. **`construct_one` never wired relations**, so rebuilding a duellist alone
+   silently dropped its grudge, and `respawn_authoritative_entity` swallowed the
+   result with `.is_ok()`. There is now ONE executor, `commit_subset`, which
+   refuses before mutating when a rebuilt row's relation leaves the subset.
+
+Deviation 1 below generalises as a result: *no fact about a planned entity is
+stored in two places*, whether that is the recipe or the parent.
+
+**Third review round (2026-07-22, checkpoint 1).** Four narrow repairs, one of
+them correcting a process failure of mine rather than a design flaw:
+
+1. **Four relation tests were silently DELETED by my own previous commit** — an
+   edit that replaced from a marker to end-of-file took the appended block with
+   it, including the poison test that had been verified against `896bfb1`. The
+   commit then reported "25 -> 23 (two deleted, three added)", arithmetic that
+   does not work and that nobody re-derived. Restored and extended to six cases:
+   source-only refusal, target-only refusal, closure in both directions, closure
+   transitivity across `A -> B -> C`, and closure rebuild proving relations point
+   at the NEW generations. The target-only test was **re-verified** against the
+   asymmetric rule and fails there with `Grudge(1v0)` vs `Grudge(1v1)`.
+2. **`recipe_of` and `construct` were two matches that could drift** — a variant
+   could be labelled with one recipe's identity and built by another's code and
+   still compile. Collapsed into one `ConstructionDomain::dispatch` returning a
+   `RecipeDispatch { recipe, construct }`, so both are chosen in the same arm.
+3. **The construction registry was documented as contributing to the
+   prepared-content fingerprint and did not** — `prepare_platformer_content` did
+   not take it at all. It now hashes the canonical dump as the
+   `construction.recipes` section. Verified load-bearing: removing the section
+   makes a recipe-schema change stop moving the fingerprint.
+4. **Summon counter advancement was ordered but unguarded.** Reservations now
+   carry the value planning read; a summoner whose counter is missing or has
+   moved is refused BEFORE anything is built, and a violation discovered after
+   construction is logged loudly and resolved by taking the furthest value
+   rather than silently skipped. ⚠ Ordered commands are not rollback atomicity
+   and the comments now say so.
+
+**Second review round: four of the five repairs above were incomplete, and one
+encoded a new wrong invariant.** Recorded because the pattern repeated — each
+time, the *claim* outran the *mechanism*, and each time the tests could not see
+it.
+
+1. **The relation rule was wrong in the incoming direction.** The first repair
+   refused a subset that cut a relation's SOURCE but explicitly permitted one
+   that cut its TARGET, reasoning that the relation "belongs to" the untouched
+   source. It does — but what the source holds is an `Entity` handle, so
+   rebuilding the target alone left the source pointing at a corpse. Proven, not
+   argued: committing `a --grudge--> b`, despawning `b`, rebuilding `b` alone
+   left `a` on `Grudge(1v0)` while the new `b` was `1v1`. The rule is now
+   symmetric — a relation must be wholly in or wholly out — and
+   `ConstructionPlan::relation_closure` turns a seed set into one that cannot be
+   cut, so the refusal is solvable rather than a dead end.
+2. **The executor still did not own the root.** It ran the recipe and trusted
+   the returned `Entity`, guarded only by a deferred check that the entity held
+   no `SimId`. A pre-existing entity WITHOUT one was commandeered silently, and
+   the guard was a panic at flush rather than a refusal. The executor now
+   allocates the root with `spawn_empty` and hands the recipe a
+   `ConstructionRoot` it cannot forge, so freshness is structural and the check
+   is gone rather than strengthened.
+3. **`AcceptsFn` stored the compatibility fact twice.** It was registered
+   independently of the constructor, so the two could disagree and a wrongly
+   permissive validator still reached the constructor's `unreachable!`
+   mid-commit. Both are deleted: `ConstructionDomain::recipe_of` derives the
+   recipe from the payload (so `ConstructionRequest` has no `recipe` field to
+   mispair) and `ConstructionDomain::construct` is one exhaustive match (so a
+   missing arm is a compile error). The registry keeps its ADR-0026 identity
+   role and loses dispatch entirely.
+4. **The counter advance was not part of the commit.** `plan.commit` only
+   *queues* commands; the counters were written directly afterward, so they
+   advanced ahead of the construction they paid for. They are now queued last,
+   landing after every command the commit produced.
+5. **Epoch zero meant three different things** — "a fixture stated nothing", "a
+   reset states no new generation", and "a summon is not content at all" — so no
+   commit boundary could distinguish a stale content-bound plan from a
+   legitimately generation-free one. `ConstructionScope` now carries a
+   `ContentBinding` that is either `Content(epoch)` or `RuntimeDynamic`.
+
+⚠ **Scope note the review prompted, worth stating plainly:**
+`respawn_authoritative_entity` — the single-entity reconstruction path — has **no
+production callers today**. `RoomConstructionPlan::apply_to_world` rebuilds a
+room by committing the whole plan, and the per-entity wrapper in `stage.rs` is
+reached only from tests. So "ordinary construction and reconstruction share one
+constructor" is proven by construction (there is literally one executor,
+`commit_subset`) and by test, but it is not yet exercised by a shipping code
+path. **Phase 4 is what makes it live.** Until then, treat the refusal semantics
+above as a contract being established rather than one being relied on — and note
+that a change here would ride a fully green suite, which is the same shape of
+gap that let `heal_projectile_owners` sit untested.
+
+#### Original card (retained for the record)
+
+Milestone A landed through ADR 0026. `PreparedContent`, versioned BLAKE3
+fingerprints, App-local epochs, canonical registry/schema dumps, exact snapshot
+compatibility, and transactional LDtk content replacement are now runtime
+authority. Do not reopen those as parallel abstractions; build provenance and
+planning on them.
+
+#### Objective
+
+Prove the model on a narrow set that crosses all important origin categories.
+
+#### Select one family of each kind
+
+1. **Authored placement:** a simple environmental or interactive placement.
+2. **Provider-staged actor:** an enemy or NPC emitted from room content staging.
+3. **Runtime-dynamic family:** preferably a summoned actor/minion whose
+   reconstruction needs authored recipe data; retain projectile reconstruction
+   as a comparison case.
+
+#### Tasks
+
+1. Add explicit `SpawnOrigin` and an internal stable `RecipeId`.
+2. Introduce `ConstructionRequest`, `ConstructionPlan`, and `PlannedEntity`.
+3. Add a prepared construction registry following the Phase-1 lifecycle.
+4. Convert the selected families to validate, plan, and execute.
+5. Use the same recipe for normal spawning and reconstruction.
+6. Remove `SimId` parsing from reconstruction for the selected dynamic family.
+7. Detect identity collisions during planning.
+8. Validate parent and relation references before execution.
+9. Add a deterministic human/tool-readable plan dump.
+10. Prove that execution creates exactly the authoritative roster and
+    relationships declared by the plan.
+
+#### Exit
+
+- The slice has no separate normal-spawn and reconstruction constructor.
+- Planned and committed `SimId` rosters match exactly.
+- Reordered plan input does not change deterministic output.
+- Duplicate identities and unresolved relations fail before mutation.
+- The selected dynamic family does not infer family/provenance from `SimId`
+  delimiters.
+- A failed plan leaves the active world unchanged.
+
+## Substrate checkpoint A — the relation and transaction substrate repaired (2026-07-23)
+
+Fifth external review round. Nine correctness gaps between what the last
+checkpoint *claimed* and what its mechanism *enforced*, all closed before any
+further family migration. Grouped by what each one stops being possible.
+
+**A relation kind can no longer disagree with what it carries.** The request
+held a caller-supplied `RelationKind` beside a separate payload, and nothing
+checked they matched: `kind: ambition.limb` next to a `Grudge` payload passed
+preparation, passed the registry check, and reached `unreachable!` *inside the
+wiring function during commit*, after the outgoing room was retired. The two are
+now one value — `ConstructionDomain::Relation` — and the kind, the wiring, and
+the verifier are all derived from it by one exhaustive `dispatch_relation` match.
+The mismatch is unrepresentable, not checked. `RelationPayload` is gone.
+
+**Relation wiring is engine-owned, so plugin insertion order cannot pick which
+implementation runs.** The registry stored a `RelationOps` and decided
+idempotence on metadata alone, so two registrations with identical
+owner/source/schema and *different* wiring functions were "the same" and the
+first won — under a dump and fingerprint that could not tell them apart. The
+registry now holds no function pointers at all; ops come from `dispatch_relation`.
+There is no table to race for. (An earlier attempt compared `fn_addr_eq`, which a
+registry contract cannot rest on — the compiler may merge or split function
+addresses.)
+
+**Duplicate and contradictory relations are refused before any spawn.** A
+duplicate `(from, kind, to)` would execute twice and receipt once — corruption
+for an accumulating relation. The generic planner refuses it, which also makes
+`(from, kind, to)` a total order so arrival order reaches neither the dump nor
+the execution sequence. The actor domain adds preflight cardinality and
+compatibility rules — one host per limb, one limb per slot, one rider per mount,
+one rider per mount, no self-mount, family legality, and pilot/mount class
+compatibility — each rejecting the room while it is still whole. The last one
+matters most: `resolve_pending_mount_links` *drops* an incompatible link with no
+diagnostic, so an authored typo produced a rider standing next to its mount and
+no explanation.
+
+**An unowned identity is fatal; a legacy family must name itself.** `Unowned`
+used to be `Severity::Unmigrated` — reported, published anyway — which made a
+recipe inventing an authoritative root indistinguishable from a known un-migrated
+family, so the one failure the verifier exists for was the one it tolerated. A
+genuine legacy family now carries `LegacyConstructionRoot { family }`, and only a
+name in the enumerated `KNOWN_LEGACY_FAMILIES` list is warned-and-published;
+anything else — an arbitrary unowned identity, or an unrecognised legacy claim —
+is fatal. The list is the migration ledger as code: it only shrinks, and Phase
+4's last step deletes it with `Severity::Unmigrated`. It currently holds exactly
+one entry, `giant-hand-limb`, which Checkpoint B removes.
+
+**Ownership is verified per planned root, and the ownership key distinguishes
+live sessions.** The executor stamps identity, provenance, AND transaction
+ownership in one insert; verification checked the first two and not the third —
+the one that *drives* scope classification, so an unstamped planned root was
+invisible to the next transaction's gathering forever. It is checked now. And the
+token was `binding + room`, a construction-scope identity, not a transaction
+identity: the shell host runs two sessions in one process, so two sessions
+committing the same room at the same content epoch minted the *same* token and
+each classified the other's roots as its own. The committing `SessionSpawnScope`
+is now part of the key.
+
+**Relation postconditions verify everything the relation installs, and a
+relation the executor never wired is a failure.** The limb check now verifies
+`Limb.of`, the slot on both sides, `home_offset`, rig membership, and no
+duplicate membership; the mount check verifies `RidingOn`, `Mounted`, `MountSlot`
+back-reference, and that both ends still carry the mount capabilities the
+preflight approved. `RelationCheck` gained `PayloadMismatch`, `MissingCapability`,
+and `DuplicateMembership`. And the verifier no longer `continue`s past a planned
+relation absent from the receipt — which had made the postcondition pass vacuous
+for exactly the relations that failed hardest. The owed set is derived from the
+identities actually committed.
+
+**`LimbRig` is keyed by slot.** It was a `Vec<Entity>` "in spawn order", but
+nothing read it positionally — `fan_out_limb_intents` looked up each limb's own
+`Limb::slot`, so the vector supplied membership and the limb supplied meaning,
+two places holding one fact, with a vector able to hold one limb twice or two
+limbs in one slot. A `BTreeMap<LimbSlot, Entity>` makes both unrepresentable and
+makes "the host's rig composition" an exactly checkable value. This deletes the
+"reads the rig positionally, so that order is content" claim from the step-1
+section above — that claim was the misconception.
+
+**The mount-reconciliation half-write is repaired.** `reconcile_autonomous_actors`
+re-established the rider→mount link with `world.get_mut::<MountSlot>(mount)`,
+which silently does nothing when the mount lacks the component — and it easily
+does, because `MountSlot` is installed by the pair wiring, not the mount's
+construction. `RidingOn` was inserted unconditionally, so the rider pointed at a
+mount that did not point back and `steer_mount_from_rider` (which queries
+`With<MountSlot>`) quietly stopped obeying. It now inserts the whole `MountSlot`
+side.
+
+**Publication moved to the outer room transaction boundary.** `RoomFeatureConstructionPlan::spawn`
+bracketed its own work with capture and verify-and-publish, but its caller
+`spawn_contents` queued the moving-platform bodies and the last-commit receipt
+*after* it returned — and command queues apply in insertion order, so `RoomLoaded`
+announced a room with no platforms and no receipt, verified before the room
+stopped being built. The bracket now lives in `spawn_contents` (a new
+`world/rooms/transaction.rs`): `open` first, every participant's work between,
+`close` last. A feature helper no longer publishes. An integration test observes
+the world the instant `RoomLoaded` is delivered and proves the platforms, the
+commit receipt, and the authoritative occupant are already present.
+
+⚠ **Still not rollback.** Withholding publication after mutation is not
+atomicity, and Bevy commands do not roll back. Every repair above is detection or
+structural-impossibility, not undo. A staging world would be needed for real
+rollback, and there isn't one. This is stated wherever the boundary is.
+
+⚠ **`CONSTRUCTION_PLAN_SCHEMA_VERSION` stays 3** — the dump shape did not change
+(the relation payload column was already there). The actor domain's relation
+*behaviour* changed, so its `SCHEMA` id moved to `actor-construction-v2`, which
+is what carries the change into the prepared-content fingerprint.
+
+**Verification.** 48 domain tests (`ambition_platformer2d_actor_monolith::construction`), 68 planner
+tests (`ambition_platformer2d_shared_tangle::construction`), 7 reconcile tests, 6
+provenance tests, 15 provider tests. Discriminating vs regression-only is noted
+per test; the mismatch-is-unrepresentable and registration-order tests are
+compile-shape and end-to-end proofs respectively, not poison tests, and say so.
+
+## Checkpoint B, step 1 — giant hands are explicit plan rows (2026-07-23)
+
+**The last `KNOWN_LEGACY_FAMILIES` entry migrated.** A `"giant"`-class enemy's
+two hand limbs were minted inside `spawn_enemy_with_faction_into`, each with its
+own `SimId::spawned`, as authoritative roots no plan named — the one family that
+carried an owned-but-unstamped identity the boundary verifier could actually see.
+They are construction rows now: `authored_giant_requests(room, roster)` emits one
+`ambition.giant-host` row plus two `ambition.giant-hand` rows per authored giant,
+joined by two `ambition.limb` relations, and the enemy loop skips the hosts it
+plans (`planned_giant_host_ids`) so nothing is built twice.
+
+- The hand identities are **unchanged** — `SimId::spawned(giant, ordinal)`, the
+  feature id a pure function of the giant's authored id — so a snapshot taken
+  before the migration still restores.
+- The geometry that lived inside `spawn_giant_hand_limbs` (hand size, home
+  offsets) is now a pure `giant_hand_plans` computed at plan time.
+- `spawn_giant_hand_limbs` is **deleted**. `spawn_enemy_with_faction_into` no
+  longer spawns hands for anyone; the giant host is `populate_giant_host_into`
+  (the ordinary enemy body plus the host-side `LimbIntents`/`LimbRouteState`),
+  each hand `populate_giant_hand_into`.
+- **Reconstruction is by relation closure.** `respawn_authoritative_entity` now
+  rebuilds `relation_closure({id})` rather than the bare row, so asking for the
+  host or either hand rebuilds all three with fresh generations and a rewired
+  rig. This also changed the duellist case: rebuilding one now rebuilds its
+  grudge partner too, which is the only correct way to bring a related row back.
+- `KNOWN_LEGACY_FAMILIES` is now **empty**. The type and `Severity::Unmigrated`
+  survive because the remaining families will need them when they migrate to
+  eager construction stamping — today they receive their `SimId` from
+  `ensure_sim_id` *after* the verification pass, so they carry no identity at
+  scope-gather time and are not classified at all.
+
+**Authored mount links (Checkpoint B, step 2) — DONE 2026-07-23, see
+"Checkpoint C, step 2" below.** `PendingMountLinks` and its frame-later
+resolver are deleted; every authored link is a planned `ambition.mount`
+relation between plan rows.
+
+### Remaining families after the giant migration (surveyed 2026-07-23)
+
+The count did **not** drop by a whole family — the enemy loop still builds every
+non-giant enemy — but the giant's "1 row → 3 entities" hole is closed and the
+legacy-family list emptied. Still outside the planner:
+
+| # | family | site | state |
+|---|---|---|---|
+| 1 | ~~authored placement → NPC~~ | ~~`spawn/mod.rs` `lower_all`~~ | **MIGRATED 2026-07-23 (Phase 4c)** — every spawning placement is a plan row |
+| 2 | ~~enemy (non-giant)~~ | ~~`spawn/mod.rs` enemy loop~~ | **MIGRATED 2026-07-23 (Phase 4a)** — every enemy is a plan row; loop deleted |
+| 3 | ~~boss~~ | ~~`spawn/mod.rs` boss loop~~ | **MIGRATED 2026-07-23 (Phase 4b)** — every boss is a plan row; loop deleted |
+| 4 | ~~hazard~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
+| 5 | ~~pickup / chest / breakable / switch~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan rows with stamped identity |
+| 6 | ~~portal (`cfg`)~~ | ~~placement lowering~~ | **MIGRATED 2026-07-23 (Phase 4c)** — plan row with stamped identity |
+| 7 | ~~shrine~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row (spec always had an iid) |
+| 8 | ~~gravity zone~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row |
+| 9 | ~~portal gun pickup (`cfg`)~~ | ~~`spawn/mod.rs`~~ | **MIGRATED 2026-07-23 (Phase 4d)** — plan row |
+| — | `apply_spawn_actor_requests` | message applier | **SCOPED 2026-07-23 (Phase 4e)** — the ONE sanctioned out-of-plan path, programmatic scene setup only; never room content |
+
+**Verification.** 52 domain tests (`ambition_platformer2d_actor_monolith::construction`, +4 for the
+giant migration), 908 `ambition_platformer2d_actor_monolith` lib tests. The giant tests are
+discriminating: the row-count/relation-shape test and the committed-rig test both
+fail against the pre-migration helper (which built the hands invisibly).
+
+## Checkpoint C — giant correctness across origins, honest outer artifacts (2026-07-23)
+
+The step-1 migration was correct for authored rooms and incomplete everywhere
+else; this checkpoint closes the review findings on it.
+
+- **Every construction origin either builds a whole giant or refuses one.** The
+  two plan-based origins (authored `enemy_spawns`, provider-staged
+  `SpawnActorRequest`) lower a `"giant"`-class spec through ONE shared helper
+  (`giant_cluster_rows`): host row + two hand rows + two limb relations,
+  whichever door it entered by. The origins that do not pass through the planner
+  (summon effect, runtime minion, encounter wave) **refuse** a giant spec during
+  preparation (`reject_runtime_giant`) instead of silently spawning a handless
+  host. Whether those runtime origins should later lower through the planner and
+  gain hands is deliberately left open; bosses cannot be giants on any path.
+- **The giant host keeps the room's frozen kinematic paths.** Step 1 planned the
+  host with `paths: Vec::new()`; the authored request builder now threads the
+  same frozen path set the ordinary enemy loop passes, resolved at planning.
+- **The outer roster is derived from the plan, not re-enumerated.** The
+  predicted roster is `planned_ids()` (hands included) ∪ an explicit
+  `non_plan_authoritative_ids()` for the families still outside the planner, all
+  in the one `SimId` spelling; the commit receipt unions `committed_ids()` the
+  same way, so the outer predicted-vs-committed assert is a real cross-check
+  instead of a clone compared with itself. The explicit non-plan union is the
+  Phase-4 migration surface and shrinks as families move.
+- **`RoomConstructionPlanId` is the identity of the complete frozen plan.** It
+  now hashes the spec JSON **plus `deterministic_dump()`** — recipe ids, derived
+  rows, relation payloads, content epoch — so a roster change that reshapes the
+  prepared world (a hand's home offset, giant-vs-ordinary expansion, an epoch
+  bump) moves the id even when the authored spec bytes are identical. Session
+  and transaction values stay excluded: they are commit-time, not frozen-plan.
+- **Exact rig composition is verified at the boundary.**
+  `verify_rig_composition` compares each planned row's committed `LimbRig`
+  slot-for-slot against `planned_rig_for_host` (which finally has a caller):
+  every planned slot holds exactly the planned limb's committed entity
+  (generation included), no extra slot, no duplicated limb body, and each
+  occupant's forward `Limb` agrees on host and slot. Faults surface as the new
+  fatal `RosterViolation::RigComposition` through the same
+  `LastConstructionVerification` gate.
+- **Reconstruction can start from a stable identity.**
+  `respawn_authoritative_sim_id` accepts any planned `SimId` — including a
+  hand's `SimId::spawned`, which no authored-id spelling reaches — and commits
+  the relation closure; the authored-id entry point is now a wrapper over it.
+
+### What verification honestly covers (Checkpoint C statement)
+
+Three different claims, deliberately kept separate:
+
+1. **Publication ordering is complete.** `RoomLoaded` is written by the outer
+   transaction close, after features, planned rows, relations, moving platforms,
+   and the commit receipt. No lifecycle path publishes earlier.
+2. **Verification is complete for migrated plan rows.** Baseline preservation,
+   roster occupancy, ownership, provenance, relation postconditions, and rig
+   composition are all checked for every plan row, and any fatal finding
+   withholds publication.
+3. **Visibility is incomplete for the enumerated legacy families.** The
+   families in the table above receive their `SimId` from `ensure_sim_id`
+   *after* the boundary verifier runs, so they are invisible to
+   `AuthoritativeScope::gather` at verification time — the verifier can neither
+   bless nor indict them. They are enumerated and finite
+   (`non_plan_authoritative_ids` names the authoritative ones), an unknown
+   unowned root remains **fatal**, and no check was weakened to accommodate
+   them. Do not read a published room as "fully verified" until the table
+   empties.
+
+## Checkpoint C, step 2 — authored mount links are planned relations (2026-07-23)
+
+**`PendingMountLinks` is deleted.** The frame-later resolver matched authored
+`(rider, mount)` pairs by `FeatureId` after spawn, retried a missing actor
+forever, and dropped an incompatible pair with no diagnostic. Authored mount
+links are construction relations now:
+
+- `attach_authored_mount_links` folds each `RoomSpec.mount_links` pair into the
+  room's request batch: every named actor becomes a plan row — an ordinary
+  rider/mount enemy an `ambition.authored-enemy` row, the `gnu_ton_rider`-style
+  boss rider an `ambition.authored-boss` row — built by the SAME populate
+  functions the family loops call (`spawn_enemy_with_faction_into`,
+  `spawn_boss_with_overrides_into`), so being planned changes who wires the
+  relation, not what the actor is. A link naming a `"giant"`-class enemy rides
+  on the giant host row the giant expansion already planned.
+- The rider row declares `ambition.mount`; the engine-owned `wire_mount`
+  installs BOTH ends at commit (`RidingOn` + `Mounted` on the rider,
+  `MountSlot` on the mount) and `verify_mount` proves it landed — capabilities,
+  class compatibility, and the reverse pointer — before the room publishes.
+  There is no frame on which the room is published with the pair unlinked.
+- The domain preflight rejects a contradictory link set at preparation
+  (self-mount, two mounts per rider, two riders per mount, wrong family,
+  incompatible pilot class), and a link naming nobody is
+  `MountLinkNamesNobody` — the room fails while it is whole.
+- The family loops skip planned ids (`planned_authored_enemy_ids`,
+  `planned_authored_boss_ids`), and the outer roster counts them through
+  `planned_ids()` like every plan row.
+- The relation-substrate invariants re-confirmed before deletion: kind/payload
+  structurally coupled (`ActorRelation::Mount` is a variant), no first-wins
+  registration (relation ops come from `dispatch_relation`), missing receipt
+  entries fatal, the reconcile `MountSlot` half-write repaired, and
+  `relation_closure` keeps rider and mount together under reconstruction.
+- `PendingMountLinks` also left the rollback snapshot registry
+  (`resource.pending_mount_links`) — pre-release, snapshots are not
+  compatibility-frozen, and the resource no longer exists to snapshot.
+
+The boss and enemy FAMILIES are otherwise unmigrated: only mount-link
+participants become plan rows. *(Superseded hours later — see Phase 4a/4b
+below.)*
+
+## Phase 4a/4b — the enemy and boss families are plan rows (2026-07-23)
+
+`authored_actor_requests` emits every authored enemy (ordinary →
+`AuthoredEnemy`, `"giant"`-class → host + two hand rows + limb relations) and
+every authored boss (`AuthoredBoss`). Both family loops in
+`RoomFeatureConstructionPlan::spawn` are DELETED, along with the four
+allocating spawn wrappers (`spawn_enemy`, `spawn_enemy_with_faction`,
+`spawn_boss`, `spawn_boss_with_overrides`) and the enemy/boss respawn
+fallbacks — the planned branch covers every authored id those families own.
+`attach_authored_mount_links` shrank to pure relation attachment. What this
+buys, concretely: enemies and bosses are stamped with identity + provenance +
+transaction ownership AT construction and are therefore inside the boundary
+verifier's gathered scope — rows 2 and 3 of the table above stop being
+"incomplete visibility" families. `non_plan_authoritative_ids` is down to
+authored placements. Identities are unchanged (`SimId::placement(id)`, the
+spelling `ensure_sim_id` used to assign after the fact). 171/171 app
+integration tests pass over the migrated families.
+
+## Phase 4c — authored placements are plan rows (2026-07-23)
+
+The placement family — hazard, interactable/NPC/switch, pickup, chest,
+breakable, portal — lowers through plan rows now:
+
+- `LoweringCtx` gained `root: Entity`: the caller allocates the body an
+  interpreter POPULATES, so the executor's identity/provenance/ownership
+  stamps land on the same entity the interpreter builds. Every engine
+  interpreter converted to a `*_into` populate form; the allocating wrappers
+  are deleted (`spawn_pickup` survives as the public runtime-drop API).
+- `ActorConstructionParams::Placement` carries the `(record, interpreter)`
+  pair the lowering registry froze at preparation — the same freezing
+  `PlacementLoweringPlan` did, promoted to a row. The fn pointer never
+  reaches the canonical dump or the plan id; the summary is
+  `placement <id> <kind>`.
+- Records that spawn NOTHING today (Door interactables, inert Custom
+  payloads, the inner Chest/Pickup/Breakable interaction kinds) are skipped
+  at planning rather than planned into a fatal missing-row verdict —
+  behavior-preserving; upgrading inert Customs to planning errors is
+  deliberate future work.
+- `lower_all` is gone from room spawn; the `lower_one` respawn fallback is
+  gone with it (reconstruction takes the planned branch); the room plan no
+  longer stores the lowering plan at all.
+- **The outer roster is now EXACTLY `planned_ids()`** — the
+  `non_plan_authoritative_ids` union is deleted. Placements carry `SimId` +
+  `SpawnOrigin` + `TransactionId` at the boundary; `TransactionId` joined the
+  rollback snapshot registry (the app-side coverage guardrail caught it the
+  moment placements put it on ordinary simulated entities).
+
+Still outside the planner after 4c: shrines, gravity zones, portal-gun
+pickups, and the deliberate `apply_spawn_actor_requests` programmatic path.
+*(Superseded the same day — see Phase 4d/4e below.)*
+
+## Phase 4d/4e — the last families, and the one sanctioned exception (2026-07-23)
+
+- **Phase 4d:** shrines, gravity zones, and portal-gun pickups are plan rows
+  (`ambition.authored-shrine` / `-gravity-zone` / `-portal-gun`). Their specs
+  always carried stable LDtk iids — "anonymous" was a property of the spawned
+  entities, which now wear identity, provenance, and ownership like every
+  other row. The three family loops are deleted.
+- **Phase 4e:** `apply_spawn_actor_requests` carries the scope ruling in its
+  doc: the ONE sanctioned out-of-plan spawn path, for programmatic scene setup
+  only (RL resets, scenario fixtures, dev commands). Authored room content
+  never routes through it; a body that needs identity, reconstruction, or
+  relations has outgrown it and belongs in the planner.
+
+**With 4a–4e landed, every authored family in a shipped room is an explicit
+construction plan row, the outer roster is exactly `planned_ids()`, and the
+family-migration half of Phase 4 is COMPLETE.** Remaining in Phase 4: the
+lifecycle unification (reset / transition / hot reload / snapshot
+reconstruction as variations of one transaction) and the commit boundary
+(`content_epoch` enforcement, the live identity index, the staging world that
+turns detection into prevention).
+
+## Phase 4f/4g — lifecycle audit and the first commit-boundary enforcement (2026-07-23)
+
+**Phase 4f resolved by audit: all five lifecycle paths already flow through
+`RoomConstructionPlan`.** Activation (`session/setup.rs` →
+`prepare_from_parts` + `spawn_contents`), reset (`session/reset` → the same
+artifact + `retire_outgoing`), transition (`room_transition_loading` →
+prepare with prefetch promotion → `commit_deferred`), hot reload
+(`dev_runtime` → candidate `PreparedContent` AND candidate plan prepared
+before either activates — task 8's shape, already built), and snapshot
+reconstruction (`apply_to_world`). One publication route; no divergent
+lifecycle spawn path survives. The audit's one real finding: **reset stated
+`ContentEpoch::default()`** instead of the session's live generation.
+
+**Phase 4g, slice 1 — content-binding staleness is enforced at the boundary.**
+`ActiveContentBinding` (a `rooms::transaction` resource) is the session's live
+content generation: session setup inserts it from the construction context,
+and a hot-reload commit that allocates a new epoch updates it AFTER its own
+transaction closes (that plan deliberately states the epoch it was validated
+under). `verify_and_publish` refuses publication with the fatal
+`RosterViolation::ContentBindingMismatch` when a plan's binding differs from
+the live one — detection at the boundary because commit cannot yet be
+prevented. Reset now states the live binding, closing its default-sentinel
+lie. Absent the resource (fixtures without a content authority) the check is
+vacuous by design.
+
+**Recorded, still open in 4g:**
+- **The live identity index** — a relation targeting an entity OUTSIDE the
+  plan. No production consumer exists yet (every relation today joins two plan
+  rows); the shape when needed: `prepare` accepts live `SimId`s as relation
+  targets and `ConstructionExecCtx` carries a live `SimId → Entity` index for
+  the wiring functions.
+- **The staging world** — the piece that turns detection into prevention.
+  Real atomicity: build into a disposable `World`, verify there, then migrate
+  entities (with remapping) into the live world. Campaign-scale on its own;
+  everything above narrows what it must protect to recipe-internal defects,
+  since preparation is mutation-free and every family preflights.
+
+### Phase 4 — migrate room lifecycle operations — **LANDED 2026-07-23**
+
+> Delivered across `637797649` (4a/4b enemies+bosses), `58c43e900` (4c
+> placements), `d1e26aa79` (4d/4e statics + the one sanctioned programmatic
+> exception), `37e041810` (4f lifecycle audit + 4g content-binding
+> enforcement); accounts in the Phase 4a–4g sections above. Every exit
+> criterion below is met; task 3's "staging/disposable world **or equivalent
+> commit boundary**" is met by the commit boundary (open/close +
+> `verify_and_publish`) — the staging world itself remains the recorded-open
+> hardening item in 4g.
+
+#### Objective
+
+Make room replacement operations variations of one construction transaction.
+
+#### Migration order
+
+1. Normal room activation.
+2. Room reset.
+3. Room transition.
+4. Hot reload.
+5. Snapshot-driven cross-room reconstruction.
+
+#### Tasks
+
+1. Produce a complete room construction plan.
+2. Separate resource-reset/reseed policy from entity construction while
+   representing transactionally relevant operations explicitly.
+3. Execute destructive replacement in a staging/disposable world or equivalent
+   commit boundary.
+4. Publish `RoomLoaded` only after successful commit.
+5. Resolve mount links and relationships from planned stable identities.
+6. Remove family-specific direct loops once their families are represented in
+   the plan.
+7. Keep unmigrated paths behind explicit, enumerated legacy adapters during the
+   transition; delete each adapter when its family migrates.
+8. Make hot reload construct both candidate `PreparedContent` and candidate room
+   state before activating either.
+
+#### Exit
+
+- Activation, reset, and transition share one planner and executor.
+- Failed preparation cannot partially despawn or replace the active room.
+- `RoomLoaded` cannot fire for a partial room.
+- Hot reload activates a fully prepared epoch/world atomically from the app's
+  perspective.
+- The expected room roster is inspectable before commit.
+- Legacy construction adapters are explicitly enumerated and shrinking.
+
+### Phase 5 — rollback-envelope hardening under ADR 0027
+
+> **Rewritten 2026-07-23.** The original Phase 5 hardened the Ambition-owned
+> snapshot substrate; ADR 0027 deleted that substrate, and most of the
+> original tasks landed as side effects of the GGRS adoption: restore is
+> bound to prepared-content and schema fingerprints (`RollbackSessionContract`
+> enforced pre-frame), restore is atomic (`bevy_ggrs` `LoadWorld`),
+> dynamic-family detection by id-spelling is gone (Phase 3 deleted the one
+> parse site; provenance is a component), and cross-room reconstruction
+> consumes the common construction seam (Phase 4). What remains is proving
+> the ENVELOPE is complete — that no mutable authoritative state sits outside
+> registration — and exercising it with the oracle track 0 promised.
+
+#### Objective
+
+Make the supported rollback state envelope computed, complete, and exercised —
+no hand-reviewed remainder, no latent unregistered authoritative state.
+
+#### Tasks
+
+1. Add a computed **resource-coverage forcing function** beside the
+   entity-composition one: boot the real sim, enumerate live resources, and
+   require each to be registered, structurally derived, presentation-only, or
+   waived with a reason. Kill the "resources still need review by hand" gap.
+2. Register the latent-unregistered engine resources it finds (known:
+   `FactionRelations`, `FriendlyFire` — today written only by `Default`, so
+   the omission is latent-safe; close it before something mutates them).
+3. Route the demo-content authoritative state (`BallDash`, `BallDashInput`,
+   `SanicActState`, `MaryOLevelState`, `FlagSequence`) through the
+   content-side registration seam (`bosses/specials/rollback.rs` is the
+   precedent), so the demo shells are GGRS-ready rather than silently
+   outside the envelope.
+4. Write the **track-0 exit oracle**: one sync-test run that lands a melee
+   hit, spends armor, flips a switch, and breaks a brick across a forced
+   rollback window and stays checksum-identical.
+5. Delete the vestigial `SNAPSHOT_SCHEMA_VERSION` constant
+   (`content_identity.rs`) — the live version authority is
+   `GGRS_ROLLBACK_SCHEMA_VERSION`.
+
+**STATUS — ALL FIVE TASKS DONE (re-verified 2026-07-24).** Tasks 3 + 4 were
+already annotated ✅ MET below; the remaining three are confirmed complete in
+the tree:
+- Task 1 (resource-coverage forcing function): `every_mutable_ambition_resource_is_registered_derived_or_waived`
+  in `game/ambition_app/tests/rollback_coverage.rs`, with a poison test
+  (`the_resource_sweep_actually_catches_an_unregistered_resource`) and anchored
+  waivers (the 2026-07-23 "narrow waivers" refinement). Runs green:
+  `cargo test -p ambition_app --features rl_sim --test app_it -- rollback_coverage`
+  → 8 passed.
+- Task 2 (`FactionRelations` / `FriendlyFire`): both registered at
+  `rollback/mod.rs` (`rollback_resource_clone`), no longer latent.
+- Task 5 (`SNAPSHOT_SCHEMA_VERSION`): deleted — no occurrences remain in the
+  tree; `GGRS_ROLLBACK_SCHEMA_VERSION` is the sole version authority.
+
+#### Exit
+
+- The supported rollback profile is explicit and inspectable — and COMPUTED
+  for both entity composition and resources.
+- Snapshot compatibility includes prepared-content and schema identity
+  (already met; `desync_canary.rs` pins it).
+- Authored, staged, and dynamic examples restore through the common
+  construction seam (met by Phase 4).
+- The exit-oracle sync test passes: combat, equipment, switch, and breakable
+  state all survive a forced rollback window checksum-identically. ✅ MET
+  2026-07-23 (`f5fdbb4b9`) — un-ignored, green, plus the two narrowed repros.
+- No enumerated demo-content state remains unregistered. ✅ MET — and
+  behaviorally proven (`d73391c8a`): each demo shell now has a
+  save→mutate→restore test on the GGRS host, which immediately caught both
+  demo mode owners being REGISTERED but UNANCHORED (bare state-holder
+  entities no engine rollback anchor reached — the registrations never
+  snapshotted anything until `require_rollback` anchored the owners).
+
+#### Phase 5c account — what the exit oracle found (2026-07-23)
+
+Building the oracle (`rollback_exit_oracle.rs`, in `combat_calibration_lab`
+with an authored brick) surfaced real desyncs the per-feature registrations
+could never see, in layers:
+
+1. **The `Collected` latch** — unregistered, so a rewind past a pickup
+   collection could not REMOVE it; the resimulated pickup started
+   already-collected, the magnet skipped it, and its checksummed
+   `CenteredAabb` froze. Fixed (registered clone), plus three more
+   composition gaps the lab's population exposed (`MovesetRanged`,
+   `PickupFeature`, `PlatformerWorldSolidContributor`) — found by extending the
+   coverage sweep to run per-room, since the boot room has no ranged enemy,
+   pickups, or breakables.
+2. **In-flight victim-side hits** — `apply_player_hit_events` runs in
+   `PlayerSimulation`, BEFORE the Combat phase that writes strike
+   `HitEvent`s, so the victim stream is consumed one frame after it is
+   produced. A message buffer cannot carry sim state across a frame boundary
+   under GGRS (cleared on LoadWorld; reader cursors are `Local`s), so a
+   rewind between strike and resolver UN-HIT the player. Fixed with
+   `PendingPlayerHitEvents` — a rollback-registered FIFO staged at the end
+   of Combat (the `SwitchActivationQueue` pattern, deep review §2.2).
+3. **CLOSED 2026-07-23 (`f5fdbb4b9`): the second hit — TWO root causes,
+   found by a bit-exact per-pass probe** (print suspect state every sim
+   tick in the live pass AND every resim pass, diff lines with the same
+   tick; the workflow that finally cracked it after the clock theory
+   proved necessary but insufficient).
+   - **Strike volumes lived outside the rollback envelope.** The moveset
+     spawns each strike's damage volume as a Commands entity
+     (`Hitbox` + `HitboxHits` + `StrikeVolume`) whose hit-once set is
+     dedup TRUTH — and none of it was registered, so a rollback window
+     spanning the volume's spawn/despawn edge resimulated against a
+     fresh empty hit-set and the same swing re-hit the same victim
+     (observed: identical registered state in every pass, yet late
+     resim passes re-staged the striker's hit). Fixed the projectile
+     way: `require_rollback::<Hitbox>` anchors the family and
+     clone+map_entities registrations cover all five components. The
+     per-room sweep could never see this: strike volumes exist only
+     mid-swing, the exact population-dependence gap the sweep account
+     warns about.
+   - **The Combat chain consumed moveset messages one frame late BY
+     CONSTRUCTION.** `spawn_enemy_projectiles_from_brain_actions` (and
+     `ContentSpecials`) ran BEFORE `dispatch_move_events` in the chained
+     Combat tuple, so every moveset-fired `Ranged` shot and boss
+     `Effect{key}` special crossed the frame boundary as an in-flight
+     message — cleared on LoadWorld, so a rollback landing on the
+     boundary silently swallowed the shot (probe: move event fired at
+     frame N, projectile at N+1, the final resim pass of N never
+     re-fired; the sync test's per-advance re-saves then contaminated
+     neighboring snapshots). Fixed by reordering: the moveset runtime
+     (trigger → advance → dispatch) now runs before the EFFECTS
+     consumers, so production and consumption share the frame.
+   - **The clock chain moved to the frame tail** (the originally
+     planned surgery, kept because it is doctrine-correct): the
+     emit→apply→smooth→reset cluster now runs after `ResetProcessing`,
+     downstream of every `ClockScaleRequest`/`ClockResetRequest`
+     producer. Observable timing is unchanged (`refresh_world_time`
+     still snapshots at frame start); no clock message survives a frame
+     edge. The blanket-FIFO shape stays rejected (it turned 7
+     same-frame tests red and was reverted).
+   All three `#[ignore]`s are OFF: the two narrowed repros and the
+   PRINCIPAL exit oracle run green — melee landed, armor spent, brick
+   broken, switch flipped, checksum-identical under continuous forced
+   rollback (the full oracle now stages the player on the arena floor:
+   the authored spawn corner is a parkour tutorial, not this oracle's
+   subject, and the lab's in-place-reviving enemies pinned the old
+   "nearest melee target" walk in the spawn corner forever). Review
+   hardening landed with it (`fd7ddbc0c`): `PendingPlayerHitEvents` is
+   voided at lifecycle boundaries (a staged hit could otherwise survive
+   a covered room transition and land in the next room) and checksummed
+   through an entity-free canonical projection; the one-frame staging
+   lane is the accepted semantics.
+4. **Recorded boundary: sim-triggered room reset inside a rollback window
+   — PARTIALLY CLOSED, re-scoped by reproduce-first 2026-07-23.** The
+   original observation (mid-brawl enemy full-heal, frame ~2147) was the
+   IN-PLACE reset path (`reset_ecs_room_features`, ops 1/2a/3). Written as
+   a reproduction, it corrected the diagnosis: a player-death reset with
+   damaged enemies + in-flight projectiles now survives 2400 sync-test
+   frames clean (`app_it::rollback_lifecycle_reset`) — the intervening
+   lifecycle-boundary hardening (`PendingPlayerHitEvents` voiding
+   `fd7ddbc0c`, strike-volume registration, the Combat chain reorder)
+   closed it, and the new coverage keeps it closed. Track B's remaining
+   target is RECONSTRUCTION (op 2b full reset / op 4 transition / op 5
+   snapshot — despawn+respawn a whole room via Commands), whose
+   divergence is still owed a reproduction; full design in **Track B**.
+
+### Track B — Confirmed-frame lifecycle commitment (transition path LANDED + hardened, 2026-07-23)
+
+> **Status:** the reproduce-first campaign narrowed B to ONE genuinely divergent
+> path — the room TRANSITION — now fixed (RED→GREEN, `app_it::rollback_room_transition`)
+> and PROVED every other lifecycle path already rollback-safe. A GPT 5.6 review of
+> the first cut found the confirmed committer was a REDUCED reimplementation and
+> the rebase had soundness holes; those are now fixed:
+> - The committer is now FAITHFUL to the canonical transition — it resolves the
+>   `ControlledSubject` (not just the primary player), carries a possessed
+>   room-scoped body past the despawn (`apply_to_world` takes `carry_body`),
+>   validates the arrival, preserves edge-exit momentum, refreshes jump/dash/flight,
+>   and applies the combat/safety/blink-camera/dialogue/clock resets
+>   (`commit_room_transition_geometry` + `apply_room_transition_resets`).
+> - The rebase no longer launders a diverged session (refuses to rebase when
+>   `session_health` is Err — poison-tested), is atomic (clears + rebases only on a
+>   successful reconstruction), and is ordered after the external-effect Release so
+>   old-generation confirmed effects aren't dropped.
+>
+> **Honestly still open:** (1) op 5 snapshot reconstruction — see the per-op map
+> below; (2) end-to-end *corrected-input cancellation* — it follows from the intent
+> being rollback state but a `LocalSyncTest` can't mispredict, so it is part of the
+> External/P2P work, not yet proven; (3) an end-to-end *possession → transition →
+> carry* test — the harness DERIVES `ControlledSubject`, so injecting a possession
+> is not cheap; the `carry_body` plumbing + controlled-subject resolution are in
+> place and edge-momentum is pinned, but the full possession orchestration test is
+> owed; (4) the transition's presentation SFX/VFX are deliberately not re-emitted
+> on the confirmed-commit path (presentation-only, not a state divergence); (5) the
+> `External`/Matchbox coordinated-rebase seam (needs a real peer barrier).
+>
+> **The reproduce-first verdict per op (this is the whole map now):**
+> - **op 4 room transition** — DIVERGED eager (checksum mismatch in the LOAD
+>   phase, frames [9-11]) because its MULTI-TICK load machinery
+>   (`RoomTransitionLoadState` / `RoomTransitionContentEpoch` / `LoadCoordinator`)
+>   is not rollback-registered. **FIXED** by confirmed-frame deferral + rebase.
+> - **op 2b full sandbox reset** — SINGLE-TICK Commands reconstruction, no such
+>   machinery. Driven under a forced window (`app_it::rollback_full_reset`,
+>   load-bearing roster-swap) it is **already rollback-safe**; no deferral.
+> - **op 5 snapshot reconstruction** — STILL OPEN (GPT 5.6 correction). The
+>   transition committer now uses `RoomConstructionPlan::apply_to_world`, so that
+>   ONE reconstruction shape runs, but a real cross-room SNAPSHOT operation is not
+>   tested: content/schema compatibility, source-snapshot selection + decoding,
+>   rollback entity identity/remapping, restoration of non-room authoritative
+>   state, and pre-mutation rejection of an incompatible snapshot are all
+>   unexercised, and there is still no production snapshot caller. Do not read the
+>   transition's use of `apply_to_world` as closing op 5.
+> - **ops 1/2a/3 in-place reset (death/manual/replay)** — already rollback-safe to
+>   2400 frames (`app_it::rollback_lifecycle_reset`, load-bearing: a damaged enemy
+>   + broken brick are restored). Left eager; no deferral needed.
+>
+> So the earlier "all five lifecycle ops mutate on speculative frames → all need
+> deferral" framing was too broad: only the multi-tick transition machine actually
+> diverged. B GATES the Matchbox two-peer track. Sequenced: reproduce → B →
+> C/D/E hardening → Matchbox.
+>
+> **Landed pieces (commits `c76497d63`, `9b1f5da98`, `e60089189`):**
+> - `ambition_platformer2d_actor_monolith::session::lifecycle_commit`: `LifecycleIntent` +
+>   `PendingLifecycleCommit` (rollback-registered resource, earliest-sticky slot).
+> - `detect_room_transition_system`: under a rollback host, records a
+>   `Transition{target_room, arrival, edge_exit}` intent instead of firing
+>   `RoomTransitionRequested` (the eager path is unchanged on non-rollback hosts).
+> - `ambition_platformer2d_runtime::lifecycle_commit::commit_confirmed_lifecycle`: exclusive
+>   `PreUpdate.after(RunGgrsSystems)` system — on a confirmed intent it runs
+>   `RoomConstructionPlan::prepare` + `apply_to_world` + body-transit, then
+>   `start_sync_test_session` rebases (generation bump + ring overwrite). Gated to
+>   `LocalSyncTest`; `External` is the documented Matchbox seam.
+
+**The problem (mapped 2026-07-23).** Under the GGRS host `app.sim_schedule()`
+IS `bevy_ggrs::GgrsSchedule` (`ambition_platformer2d_runtime/src/lib.rs:185`), and every
+`Platformer2dSimulationPhaseMonolith` phase registers into it. So **all five room-lifecycle operations
+execute inside the rollback schedule and mutate the authoritative world via
+Commands / direct writes on speculative frames.** No lifecycle path consults
+`ConfirmedFrameBoundary`; the only confirmed-frame deferral today is for
+*external presentation effects* (`external_effects.rs`) and persistence saves
+(`world_state_is_confirmed`). The publication transaction itself documents it
+is "detection, not rollback… commands cannot be undone"
+(`world/rooms/transaction.rs:39-42`).
+
+The five operations (all rollback-schedule, all Commands/direct-write):
+1. **Player-death reset** — `apply_home_reset_policy` (`app/player_tick.rs:40`,
+   `Platformer2dSimulationPhaseMonolith::PlayerSimulation`) reads `PlayerBodyFrameOutput.reset`, runs
+   `reset_sandbox`, writes `ResetRoomFeaturesEvent{PlayerDeath}` →
+   `reset_ecs_room_features` (`features/ecs/reset.rs:11`,
+   `Platformer2dSimulationPhaseMonolith::RoomTransition`): **in-place restore** — despawns transients,
+   `remove::<Collected|Opened|RespawnTimer>`, revives bosses via direct
+   `health.reset()`, resets actors to spawn. (This is the observed divergence:
+   mid-brawl enemy HP snap-back.)
+2. **Manual reset** — (2a) `reset_pressed` → `apply_player_reset_input_system`
+   (`app/sim_systems.rs:56`, `Platformer2dSimulationPhaseMonolith::PlayerInput`) → same in-place restore;
+   (2b) `NewGameResetRequested` (rollback-registered resource) →
+   `process_new_game_reset_request` (`session/reset/mod.rs:112`,
+   `Platformer2dSimulationPhaseMonolith::ResetProcessing`) → **reconstruction** via
+   `RoomConstructionPlan::prepare_from_parts` + `commit_deferred`.
+3. **Room replay** — `RoomReplayRequested` → `apply_room_replay_request_system`
+   (`sandbox_reset.rs:115`, `Platformer2dSimulationPhaseMonolith::PlayerInput`) → in-place restore.
+4. **Room transition** — already a MULTI-TICK readiness state machine:
+   `detect_room_transition_system` → `RoomTransitionRequested` → composer chain
+   (`app/plugins.rs:235-248`, `Platformer2dSimulationPhaseMonolith::RoomTransition`); plan is
+   prepared mutation-free during `AwaitingReadiness`
+   (`room_transition_loading.rs:544`), committed a LATER tick via
+   `commit_ready_room_transition_system` → `commit_room_transition_geometry`
+   (`world/rooms/load.rs:36`) → `commit_deferred` (Commands reconstruction).
+5. **Snapshot reconstruction** — canonical `RoomConstructionPlan` transaction
+   (`world/rooms/stage.rs`): `prepare*` → `spawn_contents`/`commit_deferred`
+   (Commands) or **`apply_to_world(self, world)` (`stage.rs:393`) — exclusive
+   world, `world.flush()`, no production caller today**.
+
+**How the lifecycle signals behave under rollback (corrected 2026-07-23 — the
+earlier "the trigger is already rollback-visible" claim was wrong).** The
+signals split into two registration kinds, and the distinction is load-bearing
+for Piece 1:
+- **Messages CLEARED on rollback** — `ResetRoomFeaturesEvent`,
+  `RoomReplayRequested`, `RoomTransitionRequested`, `SpawnActorRequest` are
+  registered via `clear_message_on_rollback` (`rollback/mod.rs`), which adds
+  `clear_message_channel::<T>` to `LoadWorld::Mapping` (`registry.rs:640-660`,
+  "clear abandoned-future message buffer"). Their buffers are WIPED on every
+  snapshot-load; their contents are NOT saved and NOT restored. So the trigger
+  does **not** survive a rewind — during resimulation it must be deterministically
+  REGENERATED by its producing detection system (death detection re-emits the
+  reset; `detect_room_transition` re-emits the transition) out of the rollback
+  state that *is* restored.
+- **A rollback-registered RESOURCE** — only `NewGameResetRequested`
+  (`rollback_resource_canonical`, `rollback/mod.rs:349`) is genuine saved/restored
+  rollback state. `RoomConstructionPlan` is not registered as rollback state at
+  all — it is a transient prepared-plan resource.
+
+So the seam is NOT "the trigger is already rollback-visible." For the
+message-triggered ops it is the OPPOSITE: the message is abandoned-future debris
+cleared on rewind, so `PendingLifecycleCommit` (Piece 1) is the FIRST durable
+rollback-visible representation of the intent. The design must never rely on a
+Bevy message surviving a rewind — it relies on the producing system
+deterministically RE-recording the intent during resim, and on the intent being
+a rollback-registered resource so corrected input removes it with the rewound
+state. (The record-not-execute conversion in T3/T4 therefore lives inside the
+consumer that reads the regenerated message, which is exactly why resim
+reproduces the intent for free.)
+
+**Architectural correction (GPT 5.6).** This is NOT the external-effect
+quarantine mechanism. `ExternalEffectJournal` is explicitly *not* rollback
+state (`external_effects.rs:117-122`) because its consumers live outside the
+sim. Room reconstruction changes the AUTHORITATIVE world, so its intent must
+*be* rollback state, and once a lifecycle op is confirmed and executed, **GGRS
+must never restore a snapshot from before it.** Two pieces:
+
+**Piece 1 — rollback-visible lifecycle intent.** Each consumer above, under a
+rollback host, RECORDS a `PendingLifecycleCommit` (a rollback-REGISTERED
+resource, unlike the effect journal) instead of executing. The intent carries
+stable facts: originating sim frame; `RollbackSessionGeneration`; lifecycle
+kind (DeathReset | ManualReset | Replay | Transition{target zone/room} |
+FullReset); session scope; source/target room; `ActiveContentBinding` +
+plan/transaction identity; reset reason/policy. Because it is rollback state:
+resim reproduces it deterministically; corrected input (death disappears)
+removes it with the rewound state; repeated prediction cannot duplicate the
+eventual commit (it is idempotent STATE, not an accumulating command).
+Non-rollback hosts (no `ConfirmedFrameBoundary`) execute immediately as today —
+the `world_state_is_confirmed`/`resource_exists::<ConfirmedFrameBoundary>`
+gate, exactly like the effect quarantine, so the shipped fixed-tick/render
+hosts are untouched.
+
+**Piece 2 — confirmed authoritative discontinuity.** A host-side system
+(Update/`PreUpdate`, AFTER the host's advances, NOT in `GgrsSchedule`, gated on
+`ConfirmedFrameBoundary`) that, when `boundary.confirmed >= intent.frame`:
+claims the intent exactly once (frame-ordered, like
+`ExternalEffectJournal::take_confirmed`); executes the operation in EXCLUSIVE
+world — the in-place restore path (`reset_ecs_room_features` needs an
+exclusive-world twin) or reconstruction (`apply_to_world`, `stage.rs:393`, the
+existing but unused exclusive primitive); then **rebases the session** —
+`start_sync_test_session`-style (`session.rs:93`) which resets
+`RollbackFrameCount(0)` / `ConfirmedFrameCount(-1)` / `Time<GgrsTime>` and whose
+first frame-zero SaveWorld OVERWRITES every non-negative ring slot
+(`session.rs:97-114`) — bumping `RollbackSessionGeneration` so every
+generation-stamped consumer (`reset_if_new_session`, the trace's
+`pending_oob_session`) discards old-timeline work. The post-lifecycle world is
+the new frame-zero baseline; no earlier frame can restore the pre-op room.
+Merely running the transaction when `frame <= confirmed` is INSUFFICIENT — old
+ring history would still be restorable; the rebase is the load-bearing half.
+For `RollbackSessionOwnership::External` (Matchbox), a unilateral rebase is
+forbidden (`session.rs:73-77`) — the confirmed discontinuity there needs a
+coordinated peer barrier; B defines the `LocalSyncTest` rebase and leaves
+External as a documented seam (`invalidate_session` + coordinated restart, the
+same shape content-reload uses).
+
+**Reproduce FIRST (Jon's rule) — DONE, and it re-scoped B.**
+`app_it::rollback_lifecycle_reset` drove the two IN-PLACE reset levers
+(`AgentAction::reset()` manual; low-HP player-death with damaged enemies) under
+a live sync-test window. BOTH stay clean to 2400 frames — the in-place path
+(ops 1/2a/3) is already rollback-safe (the recorded boundary was closed by the
+`PendingPlayerHitEvents`/strike-volume hardening). Those tests are now kept as
+regression coverage. The reset oracle was also STRENGTHENED (GPT 5.6): the
+manual-reset witness now folds a KNOWN damaged enemy + KNOWN broken brick into
+the rollback baseline and asserts the reset RESTORES them (not merely a clean
+checksum) — the exact "enemy fails to snap back" divergence, pinned as restored.
+
+**The RECONSTRUCTION reproduction is now DONE and it is RED (2026-07-23).**
+`app_it::rollback_room_transition::a_room_transition_survives_the_rollback_window`
+(`#[ignore]`d target-invariant test) walks the controlled body through the
+`combat_calibration_lab` east `EdgeExit` into `first_system_boss` inside a live
+sync-test window. It DIVERGES: `GGRS sync-test checksum mismatch at frames
+[9,10,11]` while `active == combat_calibration_lab` — i.e. in the transition
+LOAD phase, as the body overlaps the exit and the multi-tick transaction engages,
+BEFORE the room even flips. The same room brawled 2400 frames stays clean, so
+this is transition-caused. **Root cause (confirmed against the code map): the
+transition transaction machinery — `RoomTransitionLoadState`,
+`RoomTransitionContentEpoch`, `LoadCoordinator` (installed as plain resources in
+`app/plugins.rs:75-76`) — is NOT rollback-registered, while the entity/room state
+it drives IS. So a rollback straddling the transaction's tick span rewinds the
+world but not the transaction phase/barrier, and the eager reconstruction on a
+speculative frame cannot resimulate identically.** This is the gate GPT set:
+a reconstruction path IS actually red, so B's confirmed-frame deferral is
+warranted (not speculative architecture). The in-place work (T3) is a
+no-op-to-verify; the load-bearing work is T4/T5 (reconstruction + rebase).
+
+Note the divergence appears in the LOAD phase (before the Commands
+despawn/respawn commit), which sharpens the fix target: Piece 1 must intercept at
+DETECTION — record the `PendingLifecycleCommit` instead of letting
+`begin_room_transition_load_system` engage the unregistered load-state on a
+speculative frame — so the entire transaction (load + commit) is deferred to the
+confirmed frame as one unit. **Still owed: focused reproductions (or a shared-
+boundary argument) for op 2b full sandbox reset (`NewGameResetRequested`) and op 5
+snapshot — a RED transition does not by itself prove those differently-scheduled
+paths, per GPT.**
+
+**Required principal oracle (the whole timeline contract, GPT 5.6):** predict a
+death → assert a pending intent but NO reconstruction → correct the input so
+death disappears → assert intent + reset gone → predict death again → confirm
+the frame → assert reconstruction happens EXACTLY once → assert
+`RollbackSessionGeneration` advanced → continue forced rollback with matching
+checksums → assert no stale pre-reset snapshot can restore the old population.
+Then smaller tests for manual reset and room transition through the same
+mechanism.
+
+**Task sequence:** (T1) reproduce the divergence; (T2) `PendingLifecycleCommit`
+type + rollback registration + the `ConfirmedFrameBoundary` gate; (T3) convert
+the in-place reset consumers (ops 1/2a/3) to record-not-execute + exclusive-world
+commit; (T4) same for reconstruction (ops 2b/4) reusing `apply_to_world`; (T5)
+the confirmed rebase + generation bump + old-generation discard; (T6) principal
+oracle + manual-reset/transition tests. Determinism-sacred throughout; no
+`Entity`/fn-pointer/iteration-order into any intent field.
+
+### Phase 6 — external provider-composition proof — **FIRST SLICE LANDED 2026-07-23**
+
+> **Account.** `fixtures/external_consumer` ("Outlander", `e9bb2499a`) is a
+> consumer game excluded from the workspace — own `[workspace]`, own
+> lockfile — depending on `ambition_platformer2d` + `bevy` only. It authors one room
+> (`RoomSpec` in code), one character (catalog RON), one enemy (roster
+> fragment + content-staging stager, lowered by Phase 4 as a REAL
+> construction plan row through `ambition.staged-actor` — task 5's "consume,
+> don't define"), and one transition (a `transit_body` ridge gate wired
+> through `SimScheduleExt`, never a literal schedule). `outlander_headless`
+> runs 120 ticks through the public surface; `outlander_dump` prints the
+> rollback schema fingerprint and registry dumps through public
+> `deterministic_dump()` alone.
+>
+> **Recorded API leaks (task 3 evidence, also inline in the fixture):**
+> 1. cross-room `LoadingZone` wiring is app-local in `ambition_app` — an
+>    external game only gets in-room transit;
+> 2. construction recipe BEHAVIOR is a closed enum (`ActorConstructionParams`)
+>    — identity is registrable, behavior is not;
+> 3. consumer-owned art has no asset-root home (the fixture reuses an engine
+>    spritesheet); no umbrella API layers a consumer asset directory;
+> 4. no engine-side dump CLI exists — the consumer hosts its own binary
+>    (which proves the library surface suffices);
+> 5. `[patch.crates-io]` does not cross workspaces — every consumer must
+>    replicate the `bevy_ggrs` fork entry until HACK(ggrs-accumulator)
+>    retires.
+> 6. a consumer sharing the engine's cargo target dir (which the repo's
+>    `.cargo/config.toml` silently imposes on anything under the tree) gets
+>    poisoned artifacts from interleaved workspace builds — the fixture now
+>    carries its own `target-dir` override, and a real out-of-tree consumer
+>    is immune by construction;
+> 7. preparation validation REFUSES a provider that registered no explicit
+>    audio fragment — deliberate silence must be DECLARED (an empty
+>    `AudioCatalogFragment`), which no umbrella doc says anywhere.
+>
+> **SECOND SLICE (2026-07-23, `50ea3efbe`): Outlander actually LAUNCHES.**
+> The first slice's headless binary was updating an empty un-routed host —
+> `ShellHostConfiguration::default()` is `spec: None`, so nothing was ever
+> prepared (GPT 5.6 review). The fixture now wires the shell like the
+> in-repo standalone demos (launcher home route + initial gameplay route)
+> and shares one acceptance walk between the binary and its own
+> integration test: session ACTIVE in 2 ticks (room set publishes
+> `outlander_ridge`), exactly one primary player plus the staged sentry
+> verified, then 177 ticks of held-right input until the ridge gate
+> `transit_body`s the player onto the upper ledge. `run_tests.py` gained
+> the `external consumer: outlander` job (`cargo test --manifest-path`
+> into the fixture's independent workspace) — the only gate that can see
+> an umbrella break that workspace feature unification hides in-repo.
+>
+> **Error-quality finding (task 7) — ENGINE ANSWER LANDED 2026-07-24.** The
+> audio-fragment refusal is a well-worded `LoadFailure` ("provider registered
+> no explicit audio fragment") that a headless host surfaced NOWHERE — the
+> route just sat pending forever, because the router extracted only
+> `snapshot.readiness` and discarded `snapshot.failures`, so
+> `ShellCommandRejection::LoadFailed` carried a bare `Failed` with no cause.
+> Fixed in `ambition_game_shell`: `LoadFailed` now carries
+> `failures: Vec<LoadFailure>` (both `advance_pending` and the ready-barrier
+> `start_route` path propagate them from the coordinator snapshot), and a
+> host-agnostic `log_shell_routing_failures` system in the shell plugin's
+> `Cleanup` set emits every terminal rejection + `ExperienceFailed` through
+> `tracing` (retryable → `warn!`, terminal → `error!`, benign
+> supersession/stale-activation → `debug!`). A headless host now names the
+> cause wherever a subscriber is installed, and can also read the reason
+> straight off the event. Regression:
+> `a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed`.
+> Still open as SDK polish: a queryable readiness/last-failure probe on the
+> umbrella (the router state is already `pub`, so this is convenience, not a
+> gap) and the walkthrough's timeout diagnostics dumping the router state.
+>
+> **Visible half:** `outlander_visible` (feature `visible` =
+> `ambition_platformer2d/visible` + `basic_shell_presentation` + `ambition_platformer2d/input`) shares
+> `compose_outlander_shell` with the headless binary — one provider, one
+> route table, two host faces. It compiles and links the full render chain
+> through the umbrella; the interactive run needs a display (this VM has
+> none). Two more recorded findings: the AssetServer root must be pointed at
+> the engine tree via `actors_desktop_asset_root()` (leak #3 made concrete),
+> and the standalone asset-resource install (`Platformer2dAssetCatalog` +
+> `GameAssets`) is app-local boilerplate no umbrella helper offers — the
+> binary ships without it and honestly draws colored primitives (leak #8).
+>
+> **BOTH CLOSED 2026-07-27, and neither was a missing capability.** Leak #8 is
+> `ambition_platformer2d::game_assets::PlatformerAssetsPlugin` — the ~90 lines each in-repo
+> demo hand-rolled, which both now call, so the helper an external consumer
+> depends on is exercised by the real games. Leak #3 is
+> `ambition_asset_manager::consumer_source::layered_asset_source`: the two-root
+> `game://` reader that lets Ambition's content crate own a world tree, lifted
+> out of `ambition_app`'s CLI module (111 lines deleted there) into a crate a
+> consumer can name. The fixture has an assets tree of its own and registers the
+> source before `AssetPlugin` builds.
+>
+> ⚠ **The shape both leaks shared is worth more than either fix: a capability
+> with no address.** Neither was absent; both were unreachable from outside the
+> shell. A repo grep for "can the engine do this" answered yes the whole time,
+> which is exactly why an SDK audit has to be run FROM the consumer rather than
+> over the engine.
+>
+> Remaining Phase-6 work: an interactive visible run on a machine with a
+> display, and the task-7 workflow measurements beyond the qualitative ones
+> above.
+
+#### Objective
+
+Use the architecture from outside the monorepo's internal assumptions without
+prematurely freezing a public prefab contract.
+
+#### Tasks
+
+1. Create an out-of-workspace consumer fixture.
+2. Author one room, one character, one enemy, one construction recipe, and one
+   transition through the umbrella engine surface where possible.
+3. Record every internal API the fixture must import.
+4. Expose only narrow facade additions justified by the fixture.
+5. Keep construction APIs experimental until at least two real consumers prove
+   them.
+6. Ship developer-readable dumps for prepared content, ownership, construction
+   plans, fingerprints, and validation failures.
+7. Measure the workflow against the product objective:
+   - engine-core edits required;
+   - undocumented imports required;
+   - time and commands to first playable room;
+   - quality of deliberate-error diagnostics;
+   - ability to run visibly and headlessly from the same content.
+
+#### Exit
+
+- The fixture uses supported public surfaces; any reusable gap it discovers is
+  recorded as engine work rather than patched with provider-local infrastructure
+  or a game-named core branch.
+- It does not reconstruct entities through a separate path.
+- Internal API leaks are documented as evidence for SDK design.
+- No final public prefab API has been guessed prematurely.
+- The architecture is inspectable through useful headless tooling.
+
+## 10. Testing strategy
+
+### 10.1 Determinism
+
+Equivalent inputs must yield identical:
+
+- assembled registry order;
+- content and schema fingerprints;
+- construction plans;
+- stable identities;
+- relationship ordering;
+- snapshot hashes within the supported same-build contract.
+
+Tests should deliberately randomize insertion order.
+
+### 10.2 Transactionality
+
+Inject failures at:
+
+- duplicate registration;
+- invalid parameter hydration;
+- missing recipe;
+- identity collision;
+- unresolved parent/relation;
+- execution failure;
+- snapshot codec failure.
+
+The active prepared epoch and active world must remain unchanged.
+
+### 10.3 Plan-to-world parity
+
+After executing a plan, compare the committed roster against the plan's identity,
+recipe, provenance, scope, and relationship declarations. Unexpected
+authoritative entities are failures unless the plan explicitly declares a child
+production rule.
+
+### 10.4 Content compatibility
+
+Verify that:
+
+- identical provider IDs with changed room/content definitions are incompatible;
+- changed recipe definitions are incompatible;
+- insertion-order changes alone remain compatible;
+- presentation-only changes may remain compatible only when deliberately
+  excluded by policy;
+- snapshot-schema changes are detected independently from content changes.
+
+### 10.5 Lifecycle coverage
+
+Exercise:
+
+- initial activation;
+- reset;
+- transition;
+- hot-reload success and failure;
+- cross-room restore;
+- dynamic reconstruction;
+- session teardown and restart.
+
+### 10.6 Headless-first acceptance
+
+All architecture behavior must be verifiable without rendering. Visual tools may
+later present the same prepared data and plans; they are not the source of truth.
+
+## 11. Risks and countermeasures
+
+### Risk: accidental universal abstraction
+
+A plan can become an opaque “everything operation” containing arbitrary closures
+and uninspectable mutation.
+
+**Countermeasure:** keep the first plan narrow; require stable identity,
+provenance, deterministic data, and plan-to-world parity. Add capabilities only
+when a demonstrated family needs them.
+
+### Risk: duplicating ECS state in plan structures
+
+A construction plan can become a second serialized ECS.
+
+**Countermeasure:** plans describe construction intent, identity, provenance,
+relationships, and recipe parameters. Recipes produce runtime components.
+
+### Risk: brittle or expensive fingerprints
+
+Hashing runtime structures can depend on insertion order or implementation detail.
+
+**Countermeasure:** fingerprint canonical prepared representations, use ordered
+collections, version hash semantics, and test reordered inputs.
+
+### Risk: hot-reload scope explosion
+
+Content epochs may create pressure to migrate arbitrary live state between
+revisions.
+
+**Countermeasure:** the first valid policy may reconstruct the affected session and
+invalidate incompatible snapshots/replays. Live migration is explicit future work.
+
+### Risk: migrating every spawn path at once
+
+Many specialized families make a big-bang conversion dangerous and hard to
+review.
+
+**Countermeasure:** prove one three-origin vertical slice, use explicit temporary
+adapters, and migrate lifecycle paths incrementally while deleting each old path.
+
+### Risk: freezing public APIs too early
+
+Recipe/provenance types will evolve as activation, hot reload, and restore converge.
+
+**Countermeasure:** keep APIs internal or experimental until multiple real
+consumers use the same path.
+
+### Risk: recreating editor-engine object graphs
+
+Competitive comparison may tempt the project to copy Unity/Godot/Unreal concepts
+rather than solve their user problems cleanly.
+
+**Countermeasure:** compare workflow outcomes, not class hierarchies. Preserve
+Bevy-native ECS ownership and the provider/content architecture.
+
+### Risk: infrastructure without user-visible engine leverage
+
+The campaign could produce technically elegant registries without improving the
+experience of building a game.
+
+**Countermeasure:** every milestone includes a lifecycle or external-authoring
+customer, diagnostic output, and measurable competitive outcome.
+
+## 12. Milestones
+
+### Milestone A — deterministic content assembly — **COMPLETE 2026-07-18**
+
+- The foundation ADR is accepted.
+- Representative registries use provider/source ownership and structured
+  diagnostics.
+- `PreparedContent` exists.
+- content fingerprints are deterministic.
+- sessions pin one immutable epoch.
+
+### Milestone B — planned construction vertical slice — **COMPLETE 2026-07-22**
+
+- ✅ explicit provenance exists — `SpawnOrigin` is a snapshot-registered
+  component, not a fact recovered from an id's spelling;
+- ✅ authored, staged, and dynamic families produce plans;
+- ✅ planned and committed rosters match;
+- ✅ normal spawning and reconstruction use the same recipes;
+- ✅ the selected dynamic family no longer depends on `SimId` parsing — the one
+  parse site in the tree is deleted.
+
+See Phase 3 below for the account, including the three deviations from this
+document's sketch and what each one bought.
+
+### Milestone C — transactional room lifecycle
+
+- activation, reset, and transition consume construction plans;
+- failed preparation leaves the active room intact;
+- hot reload prepares a new content epoch and room off to the side;
+- successful replacement is atomic from the application perspective.
+
+### Milestone D — restore-ready construction substrate (under ADR 0027)
+
+- ✅ snapshot compatibility checks content and schema fingerprints — the
+  session contract invalidates on either changing, before the next frame;
+- ✅ restore uses explicit provenance — `SpawnOrigin` is a component,
+  reconstruction commits `relation_closure` through the plan;
+- ✅ supported restore is transactional — `bevy_ggrs` `LoadWorld` is atomic;
+- ✅ cross-room restore consumes the common construction seam (Phase 4);
+- the supported rollback state envelope is classified **and computed** —
+  entity composition today, resources once Phase 5 task 1 lands, exercised
+  by the exit-oracle sync test.
+
+### Milestone E — external engine-workflow proof
+
+- ✅ an external fixture authors and runs content without engine-core edits
+  (`fixtures/external_consumer`, out-of-workspace, umbrella + bevy only);
+- ✅ it uses prepared content and construction APIs (its staged enemy is a
+  plan row through `ambition.staged-actor`; catalogs flow through the
+  provider preparation lifecycle);
+- ✅ deliberate authoring failures produce actionable diagnostics — and it is
+  CHECKED from outside the workspace now
+  (`authoring_mistakes_name_the_thing_the_author_must_fix`), not asserted.
+  Rejecting malformed content is the easy half; the half that decides whether
+  somebody can build a game here is whether the rejection names the fragment, the
+  id and the kind of failure. It does: a mistyped default character reports
+  "character catalog fragment 'outlander' names missing default character
+  'wandrer_typo'". The test asserts on the message a consumer actually sees,
+  through both public authoring seams;
+- ✅ the same content runs visibly and headlessly from the same content: the
+  visible binary composes the umbrella asset install
+  (`ambition_platformer2d::game_assets::PlatformerAssetsPlugin`) and registers its OWN
+  `game://` source layered over the engine tree
+  (`ambition_asset_manager::consumer_source`), which closes recorded leak #3;
+- ✅ evidence exists to design a public recipe/prefab API — the five
+  recorded leaks in the Phase 6 account ARE that evidence.
+
+## 13. Recommended execution sequence
+
+```text
+1. ~~Architecture inventory and foundation ADR~~ — ADR 0026 landed
+2. ~~Shared source/ownership diagnostics~~ — landed for prepared content
+3. ~~Registration ownership and deterministic assembly~~ — representative proof landed
+4. ~~PreparedContent, ContentEpoch, and fingerprints~~ — landed
+5. ~~Early snapshot content/schema compatibility checks~~ — landed
+6. **SpawnOrigin and internal RecipeId**
+7. **Pure ConstructionPlan**
+8. **Three-origin vertical slice**
+9. Normal room activation
+10. Room reset and transition
+11. Transactional hot reload
+12. Cross-room snapshot reconstruction
+13. Rollback-state classification and restore hardening
+14. External consumer fixture
+15. Public recipe/prefab design from evidence
+```
+
+The content/schema compatibility check should land soon after prepared epochs,
+even before construction migration is complete, because it closes an existing
+correctness hole independently.
+
+## 14. Parallel and downstream work
+
+### May proceed in parallel
+
+- asset dependency graph/cooker work, sharing source provenance, diagnostics,
+  hashes, and atomic publication where useful;
+- an external SDK consumer **probe** that records internal leaks without
+  promising stability;
+- source-located schema vocabulary once registration ownership is established.
+
+### Depends on this campaign
+
+- generalized public entity recipes or prefab-like authoring;
+- transactional content hot reload as a supported engine feature;
+- save/load reconstruction across content families;
+- full rollback driver promotion;
+- stable public construction APIs;
+- visual inspectors and editor integrations that need authoritative construction
+  data.
+
+### Depends primarily on action/control P3 instead
+
+- local-N control and observer architecture;
+- semantic animation/action presentation;
+- remappable control authoring and replay input.
+
+## 15. Final decision and review rule
+
+Approve the next architecture push under the working title:
+
+> **Immutable Content Assembly and Transactional Construction**
+
+The push is successful not when a prefab type exists, but when:
+
+- content is assembled and frozen deterministically;
+- every active session has a meaningful exact content identity;
+- entity origins and reconstruction requirements are explicit;
+- construction can be inspected and validated before mutation;
+- normal loading and reconstruction share construction semantics;
+- destructive world replacement is transactional;
+- another game can begin consuming the architecture without engine-core edits;
+- the later public authoring API can be designed from evidence.
+
+At every phase review, ask two questions:
+
+1. **Does this make Ambition more capable and usable as an alternative to Unity,
+   Unreal, and Godot for its target games?**
+2. **Has the implementation revealed a cleaner path to that goal than this plan
+   anticipated?**
+
+A “no” to the first question means the campaign is drifting into infrastructure
+for its own sake. A “yes” to the second means the plan should be revised rather
+than defended.

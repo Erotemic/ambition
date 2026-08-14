@@ -13,10 +13,10 @@ At HEAD `43373f72ddc2` on 2026-08-07:
 - the generated `.agent` packet reports **42 root modules**, **176 registered
   systems**, **47 resources**, and **28 normal internal `ambition_*`
   dependencies**;
-- [`../test-iteration-cost-2026-08-02.md`](../test-iteration-cost-2026-08-02.md)
-  records that Cargo incremental compilation is disabled for this repository, so
-  the crate is the recompilation unit, and the measured suite compiled the actor
-  monolith 16 times;
+- [`../../recipes/cheapest-sufficient-check.md`](../../recipes/cheapest-sufficient-check.md)
+  records the durable focused-validation rule; the archived 2026-08-02 campaign
+  measured the actor monolith as a costly recompilation unit with repository
+  incremental compilation disabled;
 - the public-API campaign's movement-only consumer still inherited 15 capability
   crates it did not request because the actor monolith brought them into the
   resolved graph: audio, cutscene, dialog, encounter, items, LDtk, menu,
@@ -432,14 +432,13 @@ minimal_game → ambition_platformer2d → …_actor_monolith
 non-optional dependency of the monolith and every one of its own dependencies
 stays in a movement-only game's resolved graph. The footprint stays at 15.
 
-⭐ **So the carve is a COMPILE-ISOLATION win, and the footprint win needs a
-separate decision**: whether a game may compose the engine WITHOUT dialogue,
-i.e. whether the monolith's dependency on the conversation crate is `optional =
-true` behind a `dialogue` feature. ⚠ that is not the established pattern here —
-`ambition_causal` is the only optional `ambition_*` dep the monolith has, which
-is exactly why the unasked-for footprint is fifteen crates. **It is a product
-decision about engine composability and belongs to the maintainer**, not to a
-slice in flight.
+⭐ **The carve is a COMPILE-ISOLATION win; capability shedding is a separate
+architecture obligation.** The maintainer has since answered the product
+question decisively: **a game may compose the engine without a capability**
+(`maintainer-decisions.md`, 2026-08-08). That does not make a `dialogue` feature
+sprinkled across the monolith/runtime a good design. Optionality must follow a
+coherent capability boundary with no hidden runtime/rollback edge and no
+conceptual overhead. Measure the consumer graph after each candidate boundary.
 
 ⚠ **the generalisable rule, now paid for twice**: a carve's payoff is measured on
 the CONSUMER's resolved graph, never on which files name a crate. Run
@@ -675,13 +674,14 @@ which is that the runtime still names every gameplay domain one directory down.
   `features`, `menu/map`, `persistence/settings`, `session/setup`. The monolith
   genuinely uses LDtk; there is no slice here, and **no footprint win is
   available from this plan as written.**
-- **Everything else needs the same maintainer answer** filed for dialogue in
-  `awaiting-maintainer-decision.md`: may a game compose the engine without a
-  capability? Only optional dependencies move this number, and they would have to
-  be optional in the runtime as much as in the monolith.
+- **The maintainer answer is settled: capabilities are optional.** The open
+  work is architectural: identify coherent capability boundaries and make them
+  optional through the runtime as well as the monolith, rather than scattering
+  conditional compilation through unrelated systems. See
+  [`../maintainer-decisions.md`](../maintainer-decisions.md).
 
 ⚠ **the baseline's own split is stale**:
-`slice-evidence/capability-footprint-baseline.json` lists all fifteen under
+`scripts/baselines/capability-footprint-baseline.json` lists all fifteen under
 `reachable_via_ambition_platformer2d_actor_monolith_alone`. Only one is. Left
 unchanged here because the ratchet's live invariant (the SET may not grow) is
 still enforced correctly and rewriting the annotation is a separate, careful
@@ -715,15 +715,15 @@ declare its own schema, the way `ambition_content` already declares
   supply a monomorphised `fn(&mut App)` — whose body names `bevy_ggrs`, which
   puts the dependency back on the domain.
 
-**So the honest options are the same two the capability question already has**:
-put a rollback backend below the domains and make every consumer link it, or
-make the domains optional. C7 is therefore **not independently answerable** — it
-collapses into
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)'s
-"may a game compose this engine without a given capability".
+**So rollback inversion is not a free file move.** The maintainer has already
+settled that capabilities should be optional; the remaining design problem is to
+place declaration/installation seams so domain crates do not acquire the
+rollback backend merely to declare participation, while the runtime does not
+regain knowledge of every optional domain. Treat that as its own architecture
+problem rather than re-opening the product decision.
 
-⚠ recorded so the inversion is not attempted as a slice. It looks like a free
-architectural win from the dependency table and it is not one.
+⚠ recorded so the naive inversion is not attempted as a slice. It looks like a
+free dependency win from the table and it is not one.
 
 ## Candidate extraction waves
 

@@ -95,7 +95,7 @@ must lean on recorded as a named API leak.
   engine contracts with no parallel private engine paths; the Ambition game
   can host each demo in-world (§5).
 - The collision doctrine of
-  [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) holds: every
+  [`../concepts/movement-collision.md`](../concepts/movement-collision.md) holds: every
   mover and every trigger is swept (no discrete sampling anywhere), the OOB
   bug class is structurally dead, non-axis-aligned geometry is a first-class
   surface, and portals may MOVE.

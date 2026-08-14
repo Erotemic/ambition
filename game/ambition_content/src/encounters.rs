@@ -5,7 +5,7 @@
 //! Flip the chamber's gravity through all four kernel faces and the encounter
 //! completes — every symmetry visited, every conservation law honored.
 //!
-//! The exit bar this module proves (encounter-orchestration.md E13): content
+//! The generic encounter contract this module proves (docs/systems/boss-encounter-architecture.md): content
 //! adds rules WITHOUT adding another lifecycle, objective evaluator, cleanup
 //! path, or presentation authority. Everything here is either generic
 //! vocabulary (the authority components at spawn), a command EMITTER (room

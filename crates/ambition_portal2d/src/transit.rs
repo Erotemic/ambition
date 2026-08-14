@@ -337,7 +337,7 @@ pub fn portal_transit(
                 exit_pos,
             } => {
                 kin.pos = pos;
-                // Class-B transit authority (`collision-and-ccd.md` §3.2),
+                // Class-B transit authority (`docs/concepts/movement-collision.md`),
                 // recorded at the moment the position is written — not when the
                 // crossing is detected. The CC3 oracle reads this to tell a
                 // legal aperture warp from a clip through solid geometry.

@@ -23,7 +23,7 @@
 //!
 //! Every one was a line a third party had to write in the right place, and four
 //! of them failed SILENTLY — which [the growth
-//! method](../../../docs/planning/engine/api-growth-method.md) §3a prices at
+//! method](../../../docs/concepts/api-growth.md) §3a prices at
 //! triple, because a leak that panics teaches and a leak that falls back
 //! quietly does not.
 //!

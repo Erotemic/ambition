@@ -402,7 +402,7 @@ RESOLVED_GRAPH_MEANING = (
     "'what is actually linked'. ⚠ still workspace-wide: a specific "
     "consumer's closure is a different question, measured per-consumer with "
     "`cargo tree --edges normal` in that consumer's own workspace (see "
-    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json)."
+    "scripts/baselines/capability-footprint-baseline.json)."
 )
 
 

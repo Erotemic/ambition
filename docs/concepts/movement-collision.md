@@ -3,7 +3,7 @@ id: movement-collision
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-07-18
+last_verified: 2026-08-13
 implemented_by:
   - crates/ambition_platformer2d_core/src/movement
   - crates/ambition_geometry/src/geometry.rs
@@ -14,6 +14,7 @@ related_docs:
   - docs/mechanics/expressibility-checklist.md
   - docs/mechanics/body-modes.md
   - docs/planning/engine/collision-and-ccd.md
+  - docs/archive/planning-superseded/2026-08-13/engine/collision-and-ccd.md
 ---
 
 # Movement and collision
@@ -43,6 +44,27 @@ geometry or outcomes.
 - Moving geometry and attached bodies use explicit reference-frame semantics.
 - Out-of-bounds behavior is a world/lifecycle contract, not an ad hoc player
   clamp.
+
+## Current collision vocabulary
+
+The settled implementation uses a small set of shared authorities rather than
+per-feature collision derivations:
+
+- `SweepSample` is the simulation phase's canonical travelled segment. Movement
+  writes it; path-dependent readers consume it. Teleports and transfers outside
+  that phase are not retroactively turned into travelled collision paths.
+- `cast::aabb_path_contacts` is the shared body-vs-static-volume swept trigger
+  primitive. Loading zones already use it.
+- water and climb volumes are state regions rather than first-TOI triggers;
+  `World::thin_region_warnings` rejects authoring thin enough to be tunnelled.
+- `GeoId` / `GeoFaceRef` identify authored/composed geometry without relying on
+  iteration position.
+- `PortalFrame` / `PortalAperture` and explicit map conventions own portal frame
+  geometry and velocity mapping.
+
+The remaining source-confirmed CCD gap is tracked in
+`docs/planning/engine/collision-and-ccd.md`: the common hazard gate still uses
+endpoint overlap instead of the canonical sweep sample.
 
 ## Edit protocol
 

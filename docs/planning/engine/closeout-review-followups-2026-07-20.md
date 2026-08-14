@@ -1,51 +1,15 @@
-# Closeout review follow-ups — ownership, shipping, and measured scale
+# Closeout followups — remaining work
 
-> **State (2026-07-20): OPEN gap ledger.** This file records the important
-> source-backed follow-ups from the July 19–20 holistic review that were not
-> already owned by a canonical subsystem plan. It is intentionally small:
-> participant input belongs to [`participant-action-system.md`](participant-action-system.md),
-> confirmed external effects to [`../tracks.md`](../tracks.md) Track 1,
-> provider construction to
-> [`immutable-content-and-transactional-construction.md`](immutable-content-and-transactional-construction.md),
-> falling sand to [`falling-sand.md`](falling-sand.md), and cutscene authority
-> to the design-before-code card in [`../tracks.md`](../tracks.md).
->
-> **Executor:** Opus-level implementation unless a card says measure/decide.
-> Land one deletion-producing vertical slice at a time. Do not create a generic
-> registry, resource census, profiling framework, or compatibility facade.
+**Status:** residual work only, re-verified against HEAD on 2026-08-13.
 
-## 1. Session retirement completeness — LANDED in closeout overlay
+The completed session-retirement repair and the original review evidence are
+archived at
+[`../../archive/planning-superseded/2026-08-13/engine/closeout-review-followups-2026-07-20.md`](../../archive/planning-superseded/2026-08-13/engine/closeout-review-followups-2026-07-20.md).
 
-### Evidence
+The live file keeps only work that still has a concrete source-backed gap or an
+explicit future consumer trigger.
 
-`crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs::SessionScopedResources` resets
-an explicit list of eight process-global live-session mirrors. At least two
-other resources contain session-live mutable state and are not in that list:
-
-- `SlotInteractionState`: buffered/double-tap/interaction gesture state keyed by
-  participant slot. Simulation sleeps while the launcher owns input, so stale
-  gestures can survive a retired session unless cleared explicitly.
-- `SwitchActivationQueue`: a deliberately one-frame-late FIFO and registered
-  rollback resource. A retirement between production and consumption can carry
-  an activation into the next session.
-
-The existing teardown test can only poison resources already named in the
-`SystemParam`; it does not prove the list is complete.
-
-### Landed fix
-
-The closeout overlay adds both resources to the existing teardown authority and
-extends the targeted poison fixture. A sequential provider/session switch can
-no longer observe gestures or pending switch activations from the retired
-scope.
-
-### Remaining rule
-
-Audit the same-session reset path only when gameplay semantics require it. For
-future session-live state, prefer session-root components or scoped entities
-over another process-global mirror. Do not build a global resource census.
-
-## 2. Portal mapping convention is session authority, not a process global
+## 1. Portal mapping convention is session authority, not a process global
 
 ### Evidence
 
@@ -76,7 +40,7 @@ Two independent Apps/providers can use different portal conventions in one
 process, and identical synchronized session rules produce identical portal
 mapping regardless of local settings.
 
-## 3. Honest shipping and fresh-clone configurations
+## 2. Honest shipping and fresh-clone configurations
 
 ### Evidence
 
@@ -119,12 +83,12 @@ and builds/plays the game without installing the full authoring stack. A
 shipping-like desktop build excludes inspector/editor machinery by actual
 dependency shape, not merely by feature name.
 
-## 4. Measured runtime-scale pass
+## 3. Measured runtime-scale pass
 
 These are observed avoidable costs, but their runtime rank is unmeasured. Do
 small unconditional wins first; measure before architectural optimization.
 
-### 4.1 Cheap bounded fixes
+### 3.1 Cheap bounded fixes
 
 - Cache `SnapshotSchemaFingerprint` when `RollbackRegistry` registrations
   change instead of cloning/string-dumping/hashing the full registry every
@@ -139,7 +103,7 @@ small unconditional wins first; measure before architectural optimization.
 Each item already has a source-backed smell entry in
 `dev/journals/code_smells.md`; this card supplies ordering and exit discipline.
 
-### 4.2 Collision composition measurement
+### 3.2 Collision composition measurement
 
 `world_with_sandbox_solids` clones/composes authored geometry, moving
 platforms, overlay solids, gates/liquids/subtractions, and portal carving. It
@@ -167,7 +131,7 @@ Every retained optimization has before/after measurements from representative
 authored rooms and preserves deterministic collision behavior. Temporary probes
 are removed unless repeated use justifies a small maintained diagnostic seam.
 
-## 5. Delete the dormant `GravityFlipSwitch` cluster or give it a real owner
+## 4. Delete the dormant `GravityFlipSwitch` cluster or give it a real owner
 
 ### Evidence
 
@@ -201,7 +165,7 @@ The repository has one live gravity-switch mechanism. If an overlap plate is
 needed later, implement it as an authored feature through the normal placement
 and action authorities.
 
-## 6. Deferred provider-boundary slices: persistence and items
+## 5. Deferred provider-boundary slices: persistence and items
 
 These are strategically important but wait until K2 provider ownership and the
 single activation lifecycle are stable.
@@ -235,7 +199,7 @@ editing Ambition content enums, and the slice deletes the corresponding direct
 engine dependency. No generic persistence framework is built ahead of a real
 consumer.
 
-## 7. Execution order
+## 6. Execution order
 
 These cards are not a new overriding wave. Apply them when adjacent work makes
 them cheap:

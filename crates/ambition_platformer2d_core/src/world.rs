@@ -75,7 +75,7 @@ impl BlockKind {
 /// One piece of generated room geometry.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Block {
-    /// Durable geometry identity (collision-and-ccd.md §3.6). `name` stays the
+    /// Durable geometry identity (docs/concepts/movement-collision.md). `name` stays the
     /// human label; `id` is what `WorldDelta` ops / the CC6 portal host ref /
     /// traces name. Fixture constructors default to `GeoSource::Anon`; the IR
     /// emission paths assign real sources.
@@ -897,7 +897,7 @@ pub struct SweepHit<'a> {
 
 /// A resolved host-face anchor: where an identified face IS this frame.
 /// The world-frame triple a host-attached aperture re-derives from
-/// (collision-and-ccd.md §5-P2).
+/// (docs/concepts/movement-collision.md).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FaceAnchor {
     /// World point on the face at the reference's (clamped) `along`.

@@ -8,7 +8,7 @@
 //! ~100 foreign impls in one 2688-line file, there because it was the only
 //! place they could compile.
 //!
-//! Carved under api-growth-method.md §4, which authorises an internal carve
+//! Carved under the API growth doctrine in `docs/concepts/api-growth.md`, which authorises an internal carve
 //! when a leak cannot be closed without moving code between crates — and
 //! authorises exactly the boundary the leak names.
 //!

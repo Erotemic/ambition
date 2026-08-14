@@ -400,6 +400,12 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(ambition_platformer2d::render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
     app.add_plugins(ambition_platformer2d::sprite_sheet::SheetRegistryPlugin);
+    // ⭐ **THE HALF THE SHEET CRATE CANNOT DO** (ledger D36). It records every
+    // target a later manifest took from an earlier one with a different frame
+    // grid, and reports the count once; deciding which of those MATTER needs to
+    // know which targets something resolves art by, and that is a catalog fact.
+    // This is the caller that owns both, so the filter lives here.
+    app.add_systems(bevy::prelude::Startup, report_shadowed_character_sheets);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     // No UI-widget-framework plugin is installed here, and there is no
@@ -909,5 +915,37 @@ pub struct AmbitionGamePresentationPlugin;
 impl Plugin for AmbitionGamePresentationPlugin {
     fn build(&self, app: &mut App) {
         add_presentation_plugins(app);
+    }
+}
+
+/// **Warn only for a shadowed sheet target that is a CHARACTER, because only
+/// those are resolved by target** — ledger D36.
+///
+/// ⛔ **the sheet crate cannot make this call and must not learn to.** Its
+/// collision check fired ~30 times per Android boot because 17 characters share
+/// the rig target `toon`, 18 share `robot` and 9 share `goblin`, all
+/// legitimately and with genuinely different frame sizes — and nothing looks art
+/// up by a rig name. What DOES get looked up by target is a character id, and
+/// that is the case that cost a day: a stale May manifest won
+/// `pirate_heavy_broadside_bess`, so she loaded the right image and cropped it
+/// with a dead grid.
+///
+/// ⚠ **`Option` on both, and that is not defensive padding.** A composition may
+/// legitimately reach here with neither — a headless tool, a demo that mounts no
+/// Ambition cast — and the correct behaviour there is to say nothing rather than
+/// to report every rig target as suspicious.
+fn report_shadowed_character_sheets(
+    registry: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SheetRegistry>>,
+    catalog: Option<
+        bevy::prelude::Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    >,
+) {
+    let (Some(registry), Some(catalog)) = (registry, catalog) else {
+        return;
+    };
+    for shadowed in registry.shadowed_targets() {
+        if catalog.get(&shadowed.target).is_some() {
+            bevy::log::warn!("SheetRegistry: {shadowed}");
+        }
     }
 }

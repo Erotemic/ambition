@@ -695,32 +695,128 @@ mod tests {
         report.panic_if_errors();
     }
 
-    /// **⛔ THE PATROL CHECK MUST HAVE SOMETHING TO CHECK.**
+    /// **⛔ THE PATROL CHECK MUST HAVE SOMETHING TO CHECK** — proved against a
+    /// fixture it owns, not against the shipped game.
     ///
-    /// `validate_patrol_brain_paths` is an ERROR now, and an error that no
-    /// authored entity can trigger is a check that cannot fail — it would go on
-    /// passing after the last patrol was deleted, and the next one authored
-    /// would land unguarded. Measured 2026-08-14: two distinct patrol brains
-    /// (`enemy_patrol_path_a`, `lab_patrol_line`), both resolving.
+    /// `validate_patrol_brain_paths` is an ERROR now, and an error no entity can
+    /// trigger is a check that cannot fail. This used to establish that by
+    /// counting `Patrol:` brains in the embedded project — which made the
+    /// validator's own credibility depend on Ambition continuing to author at
+    /// least one patrolling enemy forever. That is a content-design choice, and
+    /// nothing should stop a designer from making a different one.
     ///
-    /// ⭐ this is the non-vacuity half, not a count to maintain: it asserts
-    /// SOMETHING patrols, which is what makes the green above mean anything.
+    /// So the non-vacuity proof is a synthetic level carrying all three cases at
+    /// once: one patrol that resolves, one that names a path nobody authored,
+    /// and one bare `Patrol:`. `embedded_content_graph_validates` above
+    /// separately proves the shipped game is clean.
     #[test]
-    fn the_patrol_path_check_has_live_subjects() {
-        let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
-            .expect("embedded LDtk loads");
-        let patrols = project
-            .levels
-            .iter()
-            .flat_map(|level| level.all_entity_instances())
-            .filter(|entity| entity.identifier == "EnemySpawn")
-            .filter_map(|entity| field_string(entity, "brain"))
-            .filter(|brain| brain.starts_with("Patrol:"))
-            .count();
+    fn the_patrol_check_errors_on_a_broken_reference_and_stays_quiet_on_a_good_one() {
+        use ambition_platformer2d_ldtk::{
+            LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel,
+        };
+
+        fn field(identifier: &str, value: &str) -> LdtkFieldInstance {
+            LdtkFieldInstance {
+                identifier: identifier.to_string(),
+                value: serde_json::Value::String(value.to_string()),
+                real_editor_values: Vec::new(),
+            }
+        }
+        fn entity(
+            iid: &str,
+            identifier: &str,
+            fields: Vec<LdtkFieldInstance>,
+        ) -> LdtkEntityInstance {
+            LdtkEntityInstance {
+                iid: iid.to_string(),
+                identifier: identifier.to_string(),
+                pivot: Vec::new(),
+                px: [0, 0],
+                width: 16,
+                height: 16,
+                field_instances: fields,
+            }
+        }
+
+        let project = LdtkProject {
+            json_version: "1.5.3".to_string(),
+            levels: vec![LdtkLevel {
+                identifier: "patrol_fixture".to_string(),
+                iid: "level-iid".to_string(),
+                world_x: 0,
+                world_y: 0,
+                px_wid: 640,
+                px_hei: 480,
+                field_instances: Vec::new(),
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".to_string(),
+                    layer_type: "Entities".to_string(),
+                    c_wid: 40,
+                    c_hei: 30,
+                    grid_size: 16,
+                    entity_instances: vec![
+                        // The path everyone below is judged against. Named, not
+                        // id'd, so the slug rule is exercised too.
+                        entity(
+                            "path",
+                            "KinematicPath",
+                            vec![field("name", "Lab Patrol Line")],
+                        ),
+                        entity(
+                            "good",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:lab_patrol_line")],
+                        ),
+                        entity(
+                            "missing",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:nobody_authored_this")],
+                        ),
+                        entity("bare", "EnemySpawn", vec![field("brain", "Patrol:")]),
+                        // Not a patrol at all: must not be judged by this check.
+                        entity("passive", "EnemySpawn", vec![field("brain", "Passive")]),
+                    ],
+                    int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
+                }],
+            }],
+        };
+
+        let mut report = ContentValidationReport::default();
+        validate_patrol_brain_paths(&project, &mut report);
+
+        assert_eq!(
+            report.errors.len(),
+            2,
+            "exactly the broken reference and the bare prefix must error: {:?}",
+            report.errors,
+        );
         assert!(
-            patrols > 0,
-            "no authored EnemySpawn uses a 'Patrol:' brain, so the path-resolution \
-             error above can never fire — it is passing over an empty set"
+            report
+                .errors
+                .iter()
+                .any(|e| e.contains("nobody_authored_this")),
+            "a patrol naming a path nobody authored must be an error: {:?}",
+            report.errors,
+        );
+        assert!(
+            report.errors.iter().any(|e| e.contains("bare brain")),
+            "a bare 'Patrol:' must be an error: {:?}",
+            report.errors,
+        );
+        // ⚠ by SUBJECT, not by path id: the missing-reference message lists the
+        // level's resolved ids, so a naive `contains("lab_patrol_line")` matches
+        // the error about a DIFFERENT entity.
+        assert!(
+            !report.errors.iter().any(|e| e.contains("'good'")),
+            "the patrol that RESOLVES must not be reported — a check that fails \
+             on everything is as useless as one that fails on nothing: {:?}",
+            report.errors,
+        );
+        assert!(
+            !report.errors.iter().any(|e| e.contains("'passive'")),
+            "a non-patrol brain is not this check's business: {:?}",
+            report.errors,
         );
     }
 

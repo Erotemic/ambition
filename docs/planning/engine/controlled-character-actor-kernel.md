@@ -53,7 +53,12 @@ anything but time integration.
   comes from the crowding signal, which reads positions and a ground/aerial kind
   and has no anchor at all. If a crowd board is wanted as a feature, it is a
   product decision and needs a real reader first.
-- ◐ **parameter pressure is fixed; semantic decomposition is not.**
+- ◐ → ⏸ **parameter pressure is fixed; semantic decomposition reached a
+  deliberate resting point** (see the ⇒ at the end of this bullet — read it
+  before acting on the first paragraph, which describes the state BEFORE the
+  three cuts). The 72h ledger row was reconciled to this verdict on 2026-08-14;
+  it had been calling D117 the top executable priority while this said resting,
+  and agents were skipping it rather than resolving the contradiction.
   `tick_actor_brains` went from sixteen parameters packed in a tuple to ten named
   ones. Deleting the dead slot board and adopting `CollisionWorld` were both good
   changes, and `PerceivedWorld` names a real observation concept. But the system

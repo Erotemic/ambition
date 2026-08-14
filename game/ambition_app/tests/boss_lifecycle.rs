@@ -484,3 +484,128 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
         "a script-killed boss flows through the same death→Cleared pipeline"
     );
 }
+
+/// **⭐⭐ THE ACCEPTANCE TEST for the same-room replay** — and it deliberately
+/// compares BEHAVIOUR rather than components.
+///
+/// Jon, 2026-08-14: after "press reset and start again", the Smirking Behemoth
+/// comes back and stands inert; *leaving the room and re-entering restores its
+/// movement*. That second half is the important half. A room transition
+/// reconstructs the room through `RoomConstructionPlan`; the same-room replay
+/// instead mutates the surviving entities back toward a presumed spawn state in
+/// `reset_ecs_room_features`. So the replay has become a SECOND, incomplete
+/// room constructor, and every "which component did we forget?" answer makes
+/// its ledger longer.
+///
+/// ⛔ this test must therefore never enumerate components. It measures what a
+/// player sees — does the boss wake, and does it move — on a freshly
+/// constructed boss, and demands the replayed one match. Whatever the two
+/// constructors disagree about, this fails until they are ONE.
+#[test]
+fn a_replayed_boss_behaves_like_a_freshly_constructed_one() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let (px, py) = player_pos(sim.world_mut());
+    // A contact-chase boss, placed far enough away that "does it move" has an
+    // unambiguous answer: it closes distance until the bodies touch.
+    // Placed with a clear approach lane and clear of the floor: this room has a
+    // blink wall further right that a 208px-wide body reads as a front wall,
+    // which would legitimately hold it still and prove nothing.
+    sim.spawn_boss_at(
+        "behemoth",
+        "smirking_behemoth_boss",
+        (px + 150.0, py - 140.0),
+        (104.0, 133.0),
+        BossBrain::PhaseScript {
+            script_id: "smirking_behemoth_boss".to_string(),
+        },
+    );
+
+    let fresh = observe_boss(&mut sim, "behemoth");
+    assert!(
+        fresh.woke,
+        "precondition: a freshly constructed boss wakes out of Dormant",
+    );
+    assert!(
+        fresh.displacement > 8.0,
+        "precondition: a freshly constructed contact boss closes distance \
+         (it ended {} px from its spawn)",
+        fresh.displacement,
+    );
+
+    force_kill_boss(&mut sim, "behemoth");
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    assert!(
+        boss_cleared(&sim, "behemoth"),
+        "precondition: the boss was defeated and recorded cleared",
+    );
+
+    // The replay exactly as content asks for it: ONE generic message. The
+    // content half (clearing the persisted attempt record) and the host half
+    // (resetting the player + the room's features) both hang off it.
+    sim.world_mut()
+        .write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+
+    let replayed = observe_boss(&mut sim, "behemoth");
+    assert_eq!(
+        boss_alive(sim.world_mut(), "behemoth"),
+        Some(true),
+        "the replayed boss must be alive",
+    );
+    assert!(
+        replayed.woke,
+        "a replayed boss must wake like a fresh one; it stayed Dormant",
+    );
+    assert!(
+        replayed.displacement > 8.0,
+        "a replayed boss must act like a fresh one. The fresh one ended {} px \
+         from its spawn; the replayed one ended {} px — it came back inert.",
+        fresh.displacement,
+        replayed.displacement,
+    );
+}
+
+/// What a player can see of a boss over one observation window: whether it woke
+/// out of `Dormant`, and how far it ended up from the spawn it was placed at.
+///
+/// ⚠ DISPLACEMENT from spawn, not distance travelled per frame. A contact boss
+/// closes its gap and then holds, so a per-frame sum only sees motion when the
+/// window happens to straddle the approach — which made this measure the
+/// fixture's timing rather than the boss's behaviour.
+struct BossBehaviour {
+    woke: bool,
+    displacement: f32,
+}
+
+fn observe_boss(sim: &mut Platformer2dSimHarness, placement_id: &str) -> BossBehaviour {
+    let mut woke = false;
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        woke |= !matches!(
+            boss_phase(sim.world_mut(), placement_id),
+            Some(BossEncounterPhase::Dormant) | None,
+        );
+    }
+    let spawn = boss_spawn(sim.world_mut(), placement_id).expect("the boss exists");
+    let now = boss_pos(sim.world_mut(), placement_id).expect("the boss exists");
+    BossBehaviour {
+        woke,
+        displacement: now.distance(spawn),
+    }
+}
+
+fn boss_spawn(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2> {
+    let mut q = world.query::<&BossConfig>();
+    q.iter(world)
+        .find(|config| config.id == placement_id)
+        .map(|config| bevy::prelude::Vec2::new(config.spawn.x, config.spawn.y))
+}
+
+fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2> {
+    let mut q = world.query::<(&BossConfig, &BodyKinematics)>();
+    q.iter(world)
+        .find(|(config, _)| config.id == placement_id)
+        .map(|(_, kin)| bevy::prelude::Vec2::new(kin.pos.x, kin.pos.y))
+}

@@ -183,11 +183,20 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
 ///
 /// R3: the boss's live state is entity-local, so the actual reset happens when
-/// the caller's `ResetRoomFeaturesEvent` despawns + respawns the boss (a fresh
-/// boss re-seeds clean Dormant state via `update_boss_encounters`). This helper
-/// only clears the *persisted* "cleared" record (so the respawned boss isn't
-/// pre-marked defeated), re-hides the victory NPC, and restores the intro music
-/// from the read-only profile catalog.
+/// the caller's `ResetRoomFeaturesEvent` reaches `reset_ecs_room_features`. This
+/// helper only clears the *persisted* "cleared" record (so the revived boss
+/// isn't pre-marked defeated), re-hides the victory NPC, and restores the intro
+/// music from the read-only profile catalog.
+///
+/// ⛔ **that event does NOT despawn and respawn the boss**, which this comment
+/// claimed for a long time and which made the replay look like ordinary
+/// construction. `reset_ecs_room_features` MUTATES the surviving entity back
+/// toward a presumed spawn state — a hand-kept reconstruction ledger, and a
+/// second constructor beside the canonical `RoomConstructionPlan` that a real
+/// room transition runs. The two have already been measured disagreeing (the
+/// boss came back unable to fly; see
+/// `docs/planning/engine/same-room-replay-is-a-second-constructor.md`), so do
+/// not reason about a replay as though it rebuilt anything.
 ///
 /// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
 /// passes the cut-rope boss placement ids currently in the room to clear.

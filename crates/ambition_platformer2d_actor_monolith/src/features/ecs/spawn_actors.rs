@@ -894,9 +894,22 @@ fn boss_actor_cluster(
     let caps = crate::combat::CombatCapabilities::default();
     let movement_kit = ae::AbilitySet {
         fly: true,
-        // See `enemies::movement_kit` — `NONE` leaves this false, which means
-        // permanent flight rather than the toggled kind a boss has always had.
-        fly_toggle: true,
+        // ⛔⛔ **PERMANENT flight, and the toggle was a lie that cost a boss its
+        // legs.** This said `fly_toggle: true` — "the toggled kind a boss has
+        // always had" — but nothing ever toggles a boss: it spawns flying
+        // (`ActorTuning::is_aerial` → `flight.fly_enabled`) and must stay
+        // flying, because its `BossPattern` brain steers ONLY by commanding an
+        // exact velocity, which only the flight limb reads.
+        //
+        // The two constructors then disagreed. Construction sets
+        // `fly_enabled = is_aerial`; `reset_body_clusters` DERIVES it as
+        // `fly && !fly_toggle`, which for a declared toggler means OFF. So a
+        // same-room reset grounded the boss: its brain kept commanding
+        // `velocity_target = -141.75`, the grounded spine ignored it, and the
+        // body stood perfectly still — Jon's "it reappears but stands inert,
+        // and leaving the room fixes it", because leaving the room runs the
+        // OTHER constructor. Declaring the truth makes both agree.
+        fly_toggle: false,
         ..ae::AbilitySet::NONE
     };
     // Body-contact is now the SHARED `apply_actor_contact_damage` path (fable AD2):

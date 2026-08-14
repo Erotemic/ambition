@@ -56,15 +56,15 @@ pub fn portal_input_adapter_system(
     controlled: Option<Res<ControlledSubject>>,
     // The controller's slot frame (the sanctioned per-slot input source).
     slots: Res<SlotControls>,
-    // The controlled body: its brain (→ slot), position, held gun (if any), and
-    // its brain-resolved control frame — which this system CONSUMES the Attack
-    // press from when the gun answers it. See the note at the fire branch.
-    mut holders: Query<(
-        &Brain,
-        &BodyKinematics,
-        Option<&PortalGun>,
-        &mut ambition_characters::brain::ActorControl,
-    )>,
+    // The controlled body: its brain (→ slot), position and held gun (if any).
+    //
+    // ⭐⭐ **READ-ONLY with respect to `ActorControl`, and that is the fix.**
+    // This system used to carry `&mut ActorControl` and spend the Attack press
+    // itself. A producer cannot know whether the action it names will be
+    // ACCEPTED — the drop is refused for a body holding a throwable, the fire is
+    // refused for an inactive gun — so spending the press here spent it for
+    // actions that never happened. See the drop branch below.
+    holders: Query<(&Brain, &BodyKinematics, Option<&PortalGun>)>,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
     mut fire: MessageWriter<FirePortalGun>,
@@ -78,7 +78,7 @@ pub fn portal_input_adapter_system(
     else {
         return;
     };
-    let Ok((brain, kin, gun, mut actor_control)) = holders.get_mut(subject) else {
+    let Ok((brain, kin, gun)) = holders.get(subject) else {
         return;
     };
     let slot = brain.player_slot().unwrap_or(PlayerSlot::PRIMARY);
@@ -106,36 +106,54 @@ pub fn portal_input_adapter_system(
 
     if control.attack_pressed {
         if control.shield_held {
-            // Shield+Attack is the drop gesture (held-gun only; core/inventory
-            // adapter no-ops if not holding).
+            // Shield+Attack is the drop gesture — an INTENT, not a claim on the
+            // press.
+            //
+            // ⛔⛔ **THIS USED TO CLEAR `melee_pressed` RIGHT HERE, AND IT BROKE
+            // THROWING.** `drop_portal_gun_system` deliberately answers the
+            // intent only for `(With<PortalGun>, Without<HeldItem>)` — a
+            // throwable in hand takes precedence, which its own comment says. So
+            // a body holding a laser sword pressed Shield+Attack, this spent the
+            // press, the drop refused the intent, and
+            // `throw_held_item_system` — whose Shield+Attack throw is the
+            // correct answer — found `melee_pressed == false` and did nothing.
+            // The item could not be thrown at all.
+            //
+            // ⇒ the press is spent where the action COMMITS. That also removes
+            // an ordering question rather than answering it: the drop and the
+            // throw are mutually exclusive by `Without<HeldItem>`, so whichever
+            // runs first, only the one that actually acts consumes the edge.
             drop.write(DropPortalGun);
-            actor_control.0.melee_pressed = false;
         } else if holding_gun {
             // Plain Attack while holding the gun fires it.
             fire.write(FirePortalGun {
                 aim: pick_aim(control, kin.facing),
             });
-            // ⭐⭐ **AND THE PRESS IS SPENT HERE** (queue D60). A weapon in hand
-            // owns the Attack press, and `trigger_moveset_moves` arbitrates that
-            // from `HeldItem` — which the portal gun is not, and must not become
-            // (187 references; its own component is the right shape). So the
-            // arbiter cannot see this gun, and the wearer's jab answered the very
-            // same press: two mechanisms, one button, exactly D51's bug.
+            // ⭐ **the press IS spent for a fire (queue D60) — but at the seam
+            // that accepts it.** A weapon in hand owns the Attack press, and
+            // `trigger_moveset_moves` arbitrates that from `HeldItem` — which
+            // the portal gun is not, and must not become (its own component is
+            // the right shape). So the arbiter cannot see this gun, and the
+            // wearer's jab would answer the very same press: two mechanisms, one
+            // button, exactly D51's bug.
             //
-            // ⛔ **consumed here rather than special-cased in the arbiter.** A
-            // third branch in `trigger_moveset_moves` naming `PortalGun` would
-            // add a path to the one place whose entire job is having a single
-            // one. Marking the press spent where it is spent is the mechanism
-            // the pickup and the throw already use, and it crosses the phase
-            // boundary for free: this runs in `PlayerSimulation`, the trigger
-            // looks in `Combat`.
+            // ⛔ **but not HERE.** `resolve_portal_fire_intent` refuses a gun
+            // that is not `active`, so spending the press in this branch spent it
+            // for fires that never happened, exactly as the drop branch above
+            // did. It is consumed there, after the gun has actually answered.
+            //
+            // ⛔ still not special-cased in the arbiter: a third branch in
+            // `trigger_moveset_moves` naming `PortalGun` would add a path to the
+            // one place whose entire job is having a single one. Marking the
+            // press spent where it is spent is the mechanism the pickup and the
+            // throw already use, and it crosses the phase boundary for free —
+            // both run in `PlayerSimulation`, the trigger looks in `Combat`.
             //
             // ⚠ **no verb is revoked, and that is deliberate.** D51's lesson is
             // that taking the wearer's `attack` away also takes the on-screen
             // Attack button, because `touch_action_available` draws it only
             // while the scheme carries an Attack label. The gun stays tappable
             // on a phone because the slot is untouched.
-            actor_control.0.melee_pressed = false;
         } else {
             // Plain Attack while NOT holding the gun is a pickup attempt
             // (consumed only if overlapping an armed pickup).
@@ -179,11 +197,27 @@ mod tests {
             control,
         ));
         if holding {
-            body.insert(PortalGun::default());
+            body.insert(PortalGun {
+                active: true,
+                ..PortalGun::default()
+            });
         }
         let body = body.id();
         app.insert_resource(ControlledSubject(Some(body)));
-        app.add_systems(Update, portal_input_adapter_system);
+        // ⭐ **the COMPOSED path, not the adapter alone.** The adapter is a
+        // read-only intent producer now; the press is spent by whichever system
+        // ACCEPTS the action. A fixture that ran only the adapter could no
+        // longer see whether a press was answered at all — and testing the
+        // producer in isolation is exactly how the drop regression survived.
+        app.add_message::<ambition_portal2d::PortalFireIntent>();
+        app.add_systems(
+            Update,
+            (
+                portal_input_adapter_system,
+                super::super::fire_adapter::resolve_portal_fire_intent,
+            )
+                .chain(),
+        );
         (app, body)
     }
 
@@ -201,6 +235,11 @@ mod tests {
     /// the portal gun is its own component — so the arbiter cannot see it and
     /// the wearer's jab answered the same press. Two mechanisms, one button:
     /// D51's bug in a second place.
+    ///
+    /// ⚠ **this now runs the adapter AND the resolver**, because the press is
+    /// spent where the fire is accepted rather than where it is requested. The
+    /// outcome is identical for a real fire; what changed is that a REFUSED
+    /// action can no longer eat the press.
     #[test]
     fn firing_the_gun_spends_the_attack_press() {
         let (mut app, body) = app_with_holder(true);

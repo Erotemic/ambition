@@ -22,6 +22,9 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             },
             PortalGun::default(),
             ActionSet::default(),
+            // Production bodies carry an intent frame; the drop spends the
+            // Attack press on it when it commits.
+            ambition_characters::brain::ActorControl::default(),
         ))
         .id()
 }

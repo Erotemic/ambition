@@ -230,22 +230,37 @@ impl Plugin for RoomReplaySchedulePlugin {
                 // so being before it is being before all of Device.
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device),
         );
-        // Content dialogue-followup emitters (e.g. cut-rope "try again") run
-        // before the consumer that drains their requests the same frame;
-        // content's replay-reset systems run before it too, so a named boss's
-        // per-attempt state is cleared the same frame the room replays.
+        // **The replay transaction, in the order its meaning requires:**
+        //
+        //   emit the request  →  clear the per-attempt state it invalidates
+        //                     →  rebuild the room
+        //
+        // ⛔⛔ **THESE TWO SETS USED TO BE A BARE TUPLE, WHICH IS NO EDGE AT
+        // ALL.** The comment here already claimed *"content's replay-reset
+        // systems run before it too, so a named boss's per-attempt state is
+        // cleared the same frame the room replays"* — true of the consumer, and
+        // silent about each other. So `ContentRoomReplayResetSet` could run
+        // FIRST, read no request (the dialogue followup had not written it yet),
+        // and do nothing; the followup then emitted; and the generic consumer,
+        // correctly after both, rebuilt the room from state that was still
+        // persisted as cleared. The reset sees the message on a later frame,
+        // when the reconstruction it was supposed to precede has already
+        // happened.
+        //
+        // ⇒ the Smirking Behemoth's "press reset and start again" rebuilt the
+        // room with the boss still recorded defeated. `.chain()` is the whole
+        // fix; the sets were always the right vocabulary.
         //
         // `ContentDialogueFollowupSet` gets its PHASE home from
-        // `PlayerSchedulePlugin`; this adds the consumer-relative edge. Now
-        // that the consumer is engine-side, the engine owns both edges — the
-        // host used to supply this one because the consumer was the host's.
+        // `PlayerSchedulePlugin`; this owns the semantic order between the three.
         app.configure_sets(
             sim,
             (
                 ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet,
                 ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet,
+                RoomReplayApplied,
             )
-                .before(apply_room_replay_request_system),
+                .chain(),
         );
     }
 }

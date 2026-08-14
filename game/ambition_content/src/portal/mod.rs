@@ -48,3 +48,5 @@ pub use transit_body_adapter::{
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod throw_precedence_tests;

@@ -136,3 +136,72 @@ fn the_hosted_app_drains_a_replay_request_exactly_once() {
          and a leftover local one both ran"
     );
 }
+
+/// **⛔⛔ THE REPLAY IS A TRANSACTION, AND ITS THREE STEPS HAVE AN ORDER.**
+///
+/// ```text
+/// ContentDialogueFollowupSet   emit the request
+/// ContentRoomReplayResetSet    clear the per-attempt state it invalidates
+/// RoomReplayApplied            rebuild the room
+/// ```
+///
+/// The first two used to be a bare tuple — `(A, B).before(consumer)` — which
+/// constrains both against the consumer and says NOTHING about each other. So
+/// the reset could run first, read no request (the followup had not written it
+/// yet) and do nothing, while the consumer, correctly after both, rebuilt the
+/// room from state still persisted as cleared. That is the Smirking Behemoth's
+/// "press reset and start again" bringing back an already-defeated boss.
+///
+/// ⚠ **this asserts the ORDER rather than the boss**, deliberately. The failure
+/// is a schedule relation, and pinning it through one content encounter would
+/// test the encounter; every content emitter/reset pair rides these same two
+/// sets, and the next one will not come with its own regression. The probes are
+/// ordinary systems placed in the real sets of the real app.
+#[test]
+fn the_replay_reset_runs_after_the_dialogue_followup_that_requests_it() {
+    use ambition_platformer2d::actors::session::reset::{
+        ContentDialogueFollowupSet, ContentRoomReplayResetSet,
+    };
+    use ambition_platformer2d::runtime::RoomReplayApplied;
+
+    #[derive(Resource, Default)]
+    struct RunOrder(Vec<&'static str>);
+
+    let mut sim = fixed_60hz_sim();
+    sim.app_mut().init_resource::<RunOrder>();
+    // Bevy runs the sim on a fixed schedule here; place the probes in the same
+    // schedule the sets are configured in, which is the one the harness steps.
+    use ambition_platformer2d::platformer::schedule::SimScheduleExt as _;
+    let schedule = sim.app_mut().sim_schedule();
+    sim.app_mut().add_systems(
+        schedule,
+        (
+            (|mut order: ResMut<RunOrder>| order.0.push("followup"))
+                .in_set(ContentDialogueFollowupSet),
+            (|mut order: ResMut<RunOrder>| order.0.push("reset")).in_set(ContentRoomReplayResetSet),
+            (|mut order: ResMut<RunOrder>| order.0.push("applied")).in_set(RoomReplayApplied),
+        ),
+    );
+
+    sim.step(base());
+
+    let order = sim.world().resource::<RunOrder>().0.clone();
+    let position = |label: &str| {
+        order
+            .iter()
+            .position(|seen| *seen == label)
+            .unwrap_or_else(|| panic!("the {label} probe never ran: {order:?}"))
+    };
+    assert!(
+        position("followup") < position("reset"),
+        "the replay RESET ran before the dialogue followup that emits the \
+         request it exists to answer, so it reads no request and clears nothing \
+         — the room then rebuilds from state that is still persisted as \
+         cleared. Order was {order:?}"
+    );
+    assert!(
+        position("reset") < position("applied"),
+        "the room was rebuilt before the per-attempt state was cleared, so the \
+         rebuild used the stale record. Order was {order:?}"
+    );
+}

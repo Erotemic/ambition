@@ -25,7 +25,15 @@ use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 pub fn resolve_portal_fire_intent(
     mut fires: MessageReader<FirePortalGun>,
     controlled: Option<Res<ControlledSubject>>,
-    holders: Query<(&BodyKinematics, &PortalGun)>,
+    // ⭐ `&mut ActorControl`: this is where a fire is ACCEPTED, so this is where
+    // the Attack press is spent. The input adapter used to spend it on the way
+    // in, for a gun this system then refused as inactive — a press eaten by an
+    // action that did not happen.
+    mut holders: Query<(
+        &BodyKinematics,
+        &PortalGun,
+        &mut ambition_characters::brain::ActorControl,
+    )>,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     mut intents: MessageWriter<PortalFireIntent>,
 ) {
@@ -38,7 +46,7 @@ pub fn resolve_portal_fire_intent(
     else {
         return;
     };
-    let Ok((kin, gun)) = holders.get(subject) else {
+    let Ok((kin, gun, mut actor_control)) = holders.get_mut(subject) else {
         return;
     };
     if !gun.active {
@@ -49,6 +57,8 @@ pub fn resolve_portal_fire_intent(
         dir: fire.aim,
         channel: gun.next_color.channel(),
     });
+    // The gun answered the press, so the wearer's jab must not answer it too.
+    actor_control.0.melee_pressed = false;
 }
 
 #[cfg(test)]
@@ -110,6 +120,9 @@ mod tests {
                     active: true,
                     ..PortalGun::default()
                 },
+                // Every production body carries an intent frame, and this system
+                // spends the Attack press on it when the gun answers.
+                ambition_characters::brain::ActorControl::default(),
             ))
             .id();
         app.world_mut()
@@ -128,6 +141,65 @@ mod tests {
         assert_eq!(
             origin, holder_pos,
             "portal fires from the holding controlled body, not the home avatar",
+        );
+    }
+
+    /// **⭐ THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.**
+    ///
+    /// The input adapter used to spend it on the way in. That was wrong for the
+    /// same reason the drop was: this system refuses a gun that is not `active`,
+    /// so a press spent upstream was spent for a fire that did not happen and
+    /// the wearer's jab lost it too.
+    #[test]
+    fn an_accepted_fire_spends_the_press_and_a_refused_one_does_not() {
+        use ambition_characters::brain::ActorControl;
+
+        let press_survived = |active: bool| -> bool {
+            let mut app = App::new();
+            app.add_message::<FirePortalGun>();
+            app.add_message::<PortalFireIntent>();
+            app.add_systems(Update, resolve_portal_fire_intent);
+            let mut control = ActorControl::default();
+            control.0.melee_pressed = true;
+            let holder = app
+                .world_mut()
+                .spawn((
+                    BodyKinematics {
+                        pos: Vec2::ZERO,
+                        vel: Vec2::ZERO,
+                        size: Vec2::new(24.0, 40.0),
+                        facing: 1.0,
+                    },
+                    PortalGun {
+                        active,
+                        ..PortalGun::default()
+                    },
+                    control,
+                ))
+                .id();
+            app.world_mut()
+                .insert_resource(ControlledSubject(Some(holder)));
+            app.world_mut().write_message(FirePortalGun {
+                aim: Vec2::new(1.0, 0.0),
+            });
+            app.update();
+            app.world()
+                .entity(holder)
+                .get::<ActorControl>()
+                .unwrap()
+                .0
+                .melee_pressed
+        };
+
+        assert!(
+            !press_survived(true),
+            "⛔ the press survived a fire the gun accepted, so the wearer's jab \
+             answers it too"
+        );
+        assert!(
+            press_survived(false),
+            "⛔ an INACTIVE gun refused the fire and the press was spent anyway — \
+             that is the whole defect, one system further along"
         );
     }
 }

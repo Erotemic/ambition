@@ -49,8 +49,18 @@ pub fn drop_portal_gun_system(
     controlled: Option<Res<ControlledSubject>>,
     // The body HOLDING the gun (the controlled subject); no drop if it isn't
     // holding one, or is holding a throwable (that throw takes precedence).
+    // ⭐ `&mut ActorControl`: the drop is ACCEPTED here or nowhere, so the
+    // Attack press is spent here. The input adapter used to spend it when it
+    // merely emitted the intent — and this query's `Without<HeldItem>` is
+    // exactly the case it could not predict, so a body holding a throwable had
+    // its throw silently eaten by a drop that was refused.
     mut holders: Query<
-        (&BodyKinematics, &mut ActionSet, Option<&StashedActionSet>),
+        (
+            &BodyKinematics,
+            &mut ActionSet,
+            Option<&StashedActionSet>,
+            &mut ambition_characters::brain::ActorControl,
+        ),
         (With<PortalGun>, Without<HeldItem>),
     >,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -65,9 +75,11 @@ pub fn drop_portal_gun_system(
     else {
         return;
     };
-    let Ok((kin, mut action_set, stashed)) = holders.get_mut(player) else {
+    let Ok((kin, mut action_set, stashed, mut actor_control)) = holders.get_mut(player) else {
         return;
     };
+    // Committed: this body IS dropping its gun, so the press is answered.
+    actor_control.0.melee_pressed = false;
     commands.entity(player).remove::<PortalGun>();
     // Restore the swing the gun replaced (same path the held items use).
     if let Some(stash) = stashed {

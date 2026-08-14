@@ -85,6 +85,10 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             },
             PortalGun::default(),
             ActionSet::default(),
+            // Every production body carries an intent frame, and
+            // `resolve_portal_fire_intent` spends the Attack press on it when
+            // the gun accepts a fire.
+            ambition_characters::brain::ActorControl::default(),
             // Opt the player into the generic transit core with the player
             // policy (re-orient + carry velocity), as the Ambition tagging
             // adapter does in the real app.

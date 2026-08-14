@@ -1,153 +1,105 @@
-# THE VISION — Ambition on a Godot/Unity-class 2D engine, the Bevy way
+# THE VISION — systemic 2D worlds on a Godot/Unity-class Bevy engine
 
 Ambition is the flagship game. The engine exists to make Ambition unusually
 expressive, robust and pleasant to build while turning the capabilities Ambition
-proves into a reusable 2D game-engine surface on top of Bevy.
+proves into reusable Bevy-native engine surfaces.
 
-The project is therefore pursuing two outcomes at once:
+The distinguishing product thesis is stronger than "a large Metroidvania":
 
-1. **Ambition becomes an excellent game with ambitious mechanics and content.**
-2. **The engine underneath it becomes credible competition for Godot/Unity-class
-   2D development in architecture, runtime capability, authoring ergonomics,
-   deterministic/headless execution and extensibility.**
+> **Build a 2D platforming world with RPG-scale systemic depth — persistent
+> actors and objects, embodied capability progression, open-world traversal,
+> reactive characters, multiplayer residency and LLM-native authoring.**
 
-Neither goal is served by making Ambition a thin demo for an abstract framework.
-Ambition is the deepest customer and primary product driver. Reuse matters
-because it keeps the flagship from accumulating one-off machinery and makes the
-successful engine usable by other games.
+The world should have meaningful simulation truth before story is required to
+make it feel alive.
 
-## The design oracle
+## Product order
 
-> Can Ambition use this capability deeply while another substantial game can opt
-> into the same capability through supported composition seams without editing
+1. **Ambition becomes an excellent, ambitious open-world 2D game.**
+2. **The engine becomes credible competition for Godot/Unity-class 2D
+   development through reusable Bevy plugins/crates, deterministic/headless
+   simulation, semantic authoring and a strong SDK.**
+3. **Secondary games stress capabilities Ambition does not yet pressure enough.**
+
+The design oracle remains:
+
+> Can Ambition use this deeply while another substantial game can opt into the
+> same capability through supported engine/provider/plugin seams without editing
 > Ambition-specific engine code?
 
-This judges the end state rather than each commit. Named game policy and content
-belong to the game/provider. Reusable world, simulation, input, combat,
-presentation, authoring and service capability belongs to the engine.
+## World-first game thesis
 
-## Product pillars
+The controlled robot should be able to explore a substantial connected world,
+change bodies, acquire capabilities/items, alter physical world state, interact
+with persistent and spawned actors, leave objects behind, save/reload and return
+to coherent consequences.
 
-### 1. Ambition — flagship game
+Progression should usually answer "why can I go there now?" with a simulation
+fact: body capability, physical property, item/tool, world mechanism, danger or
+social cooperation. Explicit story-stage gates remain available when sequence
+itself is the design, but they are not the default world model.
 
-*Every upgrade a theorem, every boss a failed objective function, every biome a
-mathematical world model.* Ambition's world, characters, story and unusual
-mechanics are not delayed until an abstract engine is complete. They drive the
-engine programs by presenting real product requirements.
+The simulation determines what is true. AI/dialogue can decide what characters
+believe, say and try to do about that truth.
 
-Ambition should eventually support local and online multiplayer, including
-shared-screen, fixed split-screen and adaptive share/split play, with participants
-able to occupy different rooms when the rules allow independent exploration.
-See [`game/multiplayer.md`](game/multiplayer.md).
+See [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
+[`game/systemic-progression.md`](game/systemic-progression.md), and
+[`game/reactive-characters-and-dialogue.md`](game/reactive-characters-and-dialogue.md).
 
-### 2. Engine 1.0
+## Engine 1.0
 
-The engine is a set of coherent crates/plugins and public semantic APIs rather
-than an exposed historical crate graph. The post-D73 successor program is
+The post-D73 program is
 [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
+The immediate priority is the controlled-character actor kernel, followed by
+world/LDtk mechanics, persistent-world semantics and multiplayer pressure.
 
 A credible 1.0 has:
 
-- one body/construction model for controlled bodies, NPCs, bosses, summons and
-  match fighters;
-- explicit simulation authority and deterministic phase structure;
-- local/remote participants independent of control assignment and presentation;
-- indexed local views so one simulation can render shared or split presentation;
-- multi-room residency sufficient for real co-op separation;
-- strong LDtk/world authoring, preparation diagnostics and intent-level tools;
-- ordinary kinematic/dynamic world geometry such as moving platforms;
-- honest optional capabilities and narrow runtime composition;
-- a public SDK expressed in game concepts rather than internal topology;
-- headless execution as a supported product surface;
-- desktop/mobile quality, asset residency and iteration budgets that are measured
-  as engine ergonomics.
+- one ordinary actor/body/control model for controlled bodies, NPCs, bosses,
+  summons and fighters;
+- explicit deterministic simulation authority;
+- persistent-world residency independent of what is visible;
+- definition/instance/provenance/lifetime semantics for actors/items/world data;
+- explicit item custody/accounting and capability-driven progression;
+- platformer reachability/navigation that understands bodies and world mechanics;
+- local/remote participants independent of control assignment/view layout;
+- shared, split and adaptive presentation over one simulation;
+- agent-native authoring, preparation diagnostics and introspection;
+- honest optional capabilities and semantic public APIs;
+- reusable domain crates/plugins that can mature into Bevy ecosystem components.
 
-### 3. Serious secondary games and acceptance customers
+## Agent-native authoring
 
-Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite and TwinTrack force the
-engine to prove capabilities Ambition alone might not stress soon enough. They
-are persistent customers rather than disposable test fixtures.
+We do not need to win by cloning a monolithic visual editor first. The existing
+sprite/music/SFX/LDtk toolchains already make agent-operated content production a
+strength. Engine work should unify discovery, inspection, semantic mutation,
+validation, provenance and concise review artifacts across these surfaces.
 
-A customer may later **graduate into a first-class game**. Super Smash Siblings
-is an obvious candidate if it becomes compelling enough. Graduation increases
-product investment; it does not move Ambition out of the flagship role or create
-private engine semantics.
+Human visual editors remain useful optional frontends when manual editing matters.
 
-TwinTrack is especially important for multi-view work because two participants
-can require different observer/reference-frame presentations over one shared
-simulation.
+## Secondary customers
 
-### 4. Intelligence and headless simulation
+Super Smash Siblings, TwinTrack, Sanic, Super Mary-O and Hollow Lite remain
+serious customers. Smash may eventually become a first-class game, but Ambition
+remains the flagship.
 
-Headless/RL-first simulation is not merely a testing convenience. Fighter AI,
-boss authoring/evaluation, deterministic replays and future training hooks should
-consume the same authoritative simulation used by visible hosts.
+TwinTrack is particularly important for independent observer/reference-frame
+views. Smash stresses N-participant combat. Sanic stresses high-speed movement.
+Mary-O stresses classic level authoring. Hollow Lite stresses encounters/bosses.
 
-## The authoring position
+## Bevy-native decomposition
 
-We do not need to win by building another monolithic editor executable. Bevy and
-Rust let the runtime remain composable while best-in-class external tools author
-validated content.
+The engine should increasingly feel like a set of coherent Bevy domains rather
+than one historical workspace graph. Registration moves with the domain plugin;
+composition roots compose plugins rather than importing private systems.
 
-**LDtk is Ambition's preferred spatial editor today and should receive serious
-investment.** If a real Ambition room needs a concept LDtk cannot express
-pleasantly, improve the LDtk schema/tooling/compiler rather than normalizing a
-parallel hard-coded world path.
+Use [`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
+Publish reusable pieces only when they have genuinely general APIs and another
+Bevy game can consume them through ordinary plugin/system composition.
 
-The world IR remains backend-neutral so other spatial importers are possible in
-the future. That does not make today's LDtk experience second-class.
+## Execution
 
-Character/content authoring may be RON, Rust values, generated data, SVG/sprite
-metadata or other provider-owned source formats where each is appropriate. The
-important property is declarative/transactional composition into validated
-prepared content, not one universal syntax.
-
-## Acceptance/customer matrix
-
-| Customer | Primary architectural pressure |
-|---|---|
-| **Ambition** | deep world/content authoring, portals, possession, persistence, multiplayer, multi-room residency, adaptive split-screen, long-term ergonomics |
-| **Super Smash Siblings** | N participants, body-generic combat, fighter AI, match rules, stage authoring; possible future first-class game |
-| **TwinTrack** | independent observer/reference-frame views, split-screen and unusual presentation derived from one simulation |
-| **Sanic** | high-speed movement, collision, momentum and host/provider composition |
-| **Super Mary-O** | classic platforming, level authoring, equipment/powerups and sequencing |
-| **Hollow Lite** | exploration/combat, boss/encounter authoring and quality evaluation |
-
-Additional small games should be added when they expose a capability family the
-existing customers do not adequately pressure. We are not optimizing for a high
-demo count.
-
-## What "done enough for 1.0" means
-
-The common path should be coherent enough that a competent developer can build a
-substantially different 2D game without learning Ambition's migration history or
-editing Ambition-specific machinery.
-
-That means, among other things:
-
-- the actor monolith and shared high-fan-in foundations no longer function as
-  accidental composition roots;
-- rollback participation is declared by owning domains rather than censused by a
-  generic runtime;
-- simulation behavior does not change because unrelated Bevy systems perturb
-  implicit schedule topology;
-- a game can select capabilities without silently inheriting unrelated domains;
-- participant/control/view/world-residency concepts support solo through mixed
-  local+network multiplayer;
-- split-screen is a normal presentation configuration, not a second simulation;
-- moving platforms and future kinematic world objects are authored and validated
-  like ordinary world content;
-- public APIs and diagnostics let an external game author work in game concepts;
-- Ambition itself uses those same supported surfaces rather than privileged
-  internal shortcuts.
-
-## Execution model
-
-[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is intentionally
-self-replenishing and owns immediate work order. [`tracks.md`](tracks.md) is the
-standing reservoir. Focused plans own technical design. Completed migration
-narratives move to `docs/archive` so future agents see the current architecture
-first.
-
-The roadmap is [`roadmap.md`](roadmap.md). Explicit maintainer rulings remain in
-[`maintainer-decisions.md`](maintainer-decisions.md).
+[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) remains intentionally
+self-replenishing. [`tracks.md`](tracks.md) is the standing reservoir. Focused
+plans own design and explicitly record ambiguities rather than making future
+agents guess which details were settled.

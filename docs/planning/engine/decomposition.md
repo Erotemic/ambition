@@ -17,6 +17,19 @@ Prefer internal modules when code truly shares runtime authority, schedule
 ordering, private invariants, and nearly all consumers. Do not replace one large
 crate with a chain of forwarding facades or abstract service traits.
 
+## Bevy plugin / reusable crate test
+
+A durable reusable domain should increasingly look like an idiomatic Bevy plugin:
+it owns its components/resources/messages/system sets, and its registration moves
+with the domain. Composition roots compose plugins instead of reaching into private
+systems.
+
+Use [`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy.md)
+for every serious new crate boundary. A workspace carve is not automatically a
+publishable Bevy crate; independent publication requires an Ambition-independent
+API, a minimal consumer/example, honest dependency closure, and a realistic
+Bevy-version compatibility policy.
+
 ## Active ruling: incrementally decompose `ambition_platformer2d_actor_monolith`
 
 The July-era "no further carve owed" ruling is retired. The condition it was

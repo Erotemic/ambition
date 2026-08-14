@@ -1,85 +1,88 @@
-# Game vision
+# Game vision — Ambition
 
-Ambition the *game* is the **flagship and primary product driver**. It is built
-on the reusable engine rather than privileged engine shortcuts, but the engine
-program is judged partly by whether Ambition becomes better to author, extend,
-ship and play. Product needs should expose reusable capability; they are not
-subordinate to an abstract framework.
-
----
+Ambition is the flagship game: a 2D platformer aiming for the systemic depth,
+world persistence and character reactivity usually associated with much larger
+RPGs.
 
 ## North star
 
-> Every upgrade a theorem, every boss a failed objective function, every biome a math
-> world model.
+> Every upgrade a theorem, every boss a failed objective function, every biome a
+> mathematical world model.
 
-The player is a small embodied **AI** without a clear purpose. Its abilities are
-**mathematical theorems**; the world's pressure is **uncertainty**, not a tidy moral.
+The controlled body begins as a small embodied AI without a clear purpose. The
+world's pressure is uncertainty rather than a tidy moral binary.
 
-> The player is not told they are special. The player is only told to move.
+## World-first development direction
 
-> Do not let the player being an AI solve ethics. The world should treat uncertainty
-> as the central pressure.
+The previous planning emphasis on building a linear intro/story spine first is
+retired as an **implementation order**. Those story beats remain desired content,
+but the near-term game goal is:
 
-## The spine (intro arc)
+> Put the robot into a substantial persistent world with the real movement,
+> possession, item, ability and interaction vocabulary. Make exploration and
+> world state feel coherent before relying on story gates to carry progression.
 
-Wake in a basement lab → escape a "wrong-list" raid through maintenance tunnels →
-learn that humans travel through **stable gates** while AIs exploit **ripples** →
-enter **The Kernel**, a transit hub where rooms are *both* gameplay tests *and* lore
-evidence. The first emotional arc is the **Alice / Bob** cryptography questline —
-about trust and communication.
+Use [`open-world-roadmap.md`](open-world-roadmap.md) and
+[`systemic-progression.md`](systemic-progression.md).
 
-**One beat = one room, one verb, one lore fact, one state change.** Build the spine as
-a chain of such rooms; defer everything not on it.
+### World state should explain progression
 
-> Every lore reveal should correspond to a new movement route, quest state, room
-> transform, boss unlock, or dialogue consequence.
+Prefer:
 
-## The three pillars, made concrete
+- body capability/property;
+- theorem ability;
+- held/equipped/physical item;
+- repaired/powered/opened world mechanism;
+- environmental danger;
+- social cooperation or knowledge;
 
-- **Upgrade = theorem.** Cryptographic protocols become *traversal*: a Blink Key, a
-  Public-Key Door, a Commit-Reveal Platform, challenge-response movement. Learning the
-  protocol *is* the unlock.
-- **Boss = failed objective function.** A boss is a flawed optimizer the player
-  exploits and out-learns — the Mockingbird (mimics/steals your moves), the Clockwork
-  Warden (reads your patterns), the Perfect Cell-ular Automaton. See
-  [`bosses.md`](bosses.md).
-- **Biome = math world model.** The Kernel basement is *diegetic debug* — a
-  maintenance layer where mechanics are inspectable; faction spaces teach different
-  world models; the Gate Stack contrasts legal vs illegal routes.
+before an invisible "quest stage N permits this door" check.
 
-## Strong ideas (the kept backlog)
+Explicit story gates remain valid where authored sequence is genuinely important.
 
-Triaged from the idea index — each hooks to existing engine primitives (LDtk rooms,
-quest steps, save flags, NPCs, portals), so they're content, not new systems:
+## Story layers we still want
 
-- **Handshake quest** — Alice → Bob → verify (quest steps + NPC flags).
-- **Eve observes / Mallory modifies** — interceptor contacts and route choices alter
-  dialogue and message integrity (verification vs speed).
-- **Ripple** — a small, AI-only portal distinct from stable gates, with its own
-  audio/visual signature.
-- **The hub as a playable table of contents** — doors invite experimentation; quest
-  gates arrive later.
-- **Courier chains across incompatible routes** — message integrity under different
-  world models.
-- **Commit-Reveal platform**, **Public/Private-Key doors** — crypto-as-traversal.
+The basement/lab escape, Kernel, Fia arc, Alice/Bob cryptography material,
+Eve/Mallory, theorem upgrades, factions and boss arcs remain product intent. They
+should increasingly **react to and explain a world that already has systemic
+truth**, rather than being the only thing that gives the world state.
 
-**Defer the faction bloat** (pirates, ninjas, GNU-ton, tech-bros, military tower):
-commit to the Alice/Bob handshake + Eve/Mallory + the Kernel hub first. Add a new idea
-here when it's still rough but should be findable; archive one only when it's
-misleading or superseded.
+The simulation decides what exists, where actors/items are and what changed.
+Dialogue/AI may interpret those facts and may be incomplete or mistaken.
 
+See [`reactive-characters-and-dialogue.md`](reactive-characters-and-dialogue.md).
 
 ## Multiplayer direction
 
-Ambition should eventually support solo, local couch co-op, online co-op and
-mixed local+remote parties through one body/control architecture. Presentation
-may be shared-screen, fixed split-screen or adaptively split when participants
-separate and merged when they regroup. When the game mode allows independent
-exploration, participants may occupy different rooms rather than being forced
-into one globally active room.
+Ambition should support solo, local couch co-op, online co-op and mixed
+local+remote parties through one body/control architecture. Presentation may be
+shared, fixed split or adaptively split/rejoined. When the rules allow independent
+exploration, participants may occupy different rooms/regions.
 
-Story/dialogue/save/join policy remains Ambition product design; participant,
-transport, world-residency and view-index machinery belongs to the reusable
-engine. See [`multiplayer.md`](multiplayer.md) and
-[`../engine/multiplayer-and-multiview.md`](../engine/multiplayer-and-multiview.md).
+See [`multiplayer.md`](multiplayer.md).
+
+## Strong content ideas kept alive
+
+- theorem-as-ability progression;
+- failed-objective-function bosses;
+- mathematical-world-model biomes;
+- cryptography-as-traversal ideas such as challenge/response, public/private key
+  doors and commit/reveal mechanisms;
+- stable gates versus AI-exploited ripples;
+- courier/message-integrity situations;
+- killable/persistent characters and world consequences;
+- the Hall/cast as ordinary world/content rather than engine-special ontology.
+
+These are product ideas, not mandatory engine abstractions.
+
+## Open game-design questions — deliberately unresolved
+
+- How large should the first systemic region be before we layer serious story?
+- Which theorem abilities are the best early progression vocabulary?
+- How much sequence breaking and capability asymmetry is desirable?
+- Which characters need persistent off-room existence early?
+- How much authored dialogue versus reactive/agentic dialogue produces the right
+  tone?
+- How harsh should persistent item/actor consequences be?
+
+Do not answer these by encoding engine-level quest gates prematurely.

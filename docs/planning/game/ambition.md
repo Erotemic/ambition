@@ -1,41 +1,40 @@
-# Ambition on the engine — the first customer, and the demo host
+# Ambition on the engine — flagship customer
 
-**Authored by fable, 2026-07-05.** How Ambition-the-game relates to the
-engine and the demo suite. Story/pillars: [`vision.md`](vision.md);
-bosses: [`bosses.md`](bosses.md); cast/Hall doctrine: [`../../concepts/hall-of-characters-is-not-special.md`](../../concepts/hall-of-characters-is-not-special.md).
+Ambition is the primary product driver and deepest customer of the reusable
+engine. It is not a thin demo that waits for a "finished engine" before game
+production begins. The game and engine co-evolve: real Ambition world pressure
+reveals missing reusable capability, and the resulting capability returns to the
+game through supported engine surfaces.
 
-## The relationship
+Story/pillars: [`vision.md`](vision.md). Open-world build order:
+[`open-world-roadmap.md`](open-world-roadmap.md). Systemic progression:
+[`systemic-progression.md`](systemic-progression.md). Multiplayer:
+[`multiplayer.md`](multiplayer.md).
 
-Ambition is `ambition_content` + the host choices in `ambition_app` —
-structurally identical to a demo, just bigger. Every engine capability
-lands with Ambition as its first consumer (the integrated game host is the
-first proving ground); the full game build-out (story beats, biomes, the theorem-upgrade
-arc) happens on the FINISHED engine, per the north star ordering.
+## Structural rule
 
-## The Ambition host composes the demo suite
+Named Ambition content and product policy live in game/provider crates. Reusable
+actor, world, persistence, navigation, item, view, authoring and service semantics
+belong in engine domains when another game could plausibly consume them with the
+same meaning.
 
-The composability showcase ([`../vision.md`](../vision.md) §5): the
-Ambition world gains a wing per demo (the Sanic zone, the Mary-O pipe
-room, the Colosseum for Super Smash Siblings, the Hollow Lite well), each
-mounted via the mode-scope pattern
-([`../demos/README.md`](../demos/README.md)) — `ambition_app` depends on
-the demo CONTENT crates; the demo's rules plugin runs `.run_if(in_mode)`
-over its zone's rooms. Possess Sanic in the Hall of Characters, walk
-through the Sanic door, and you are playing the Sanic demo — same
-systems as its standalone app, different chrome. The Hall is therefore
-also the roster surface: whatever body you bring INTO a wing is the body
-the mode seeds (SSB seeds slot 1 from it; Mary-O wears you into Mary-O
-unless you ARE someone).
+The same rule applies to acceptance-game wings and content integrations: they may
+share the engine and even appear inside Ambition, but they do not define a second
+engine ontology.
 
-## Game-side queues (kept, unchanged in priority)
+## Current flagship pressure
 
-- The intro narrative slice (wake → raid → escape → gate stack) and the
-  Alice/Bob arc remain the story spine (game/vision.md).
-- The Noether Chamber, the PCA encounter (PAUSED after S3), Oiler
-  ([`../engine/falling-sand.md`](../engine/falling-sand.md) §2), and the
-  gnuton mounted-boss payoff are the standing set-piece backlog.
-- "Morrowind rules" (killable questline NPCs; the reality-rift
-  consequence line) is Ambition POLICY on the engine's dead-stays-dead
-  default — codified in `docs/storylines/cannon.md` §Story Continuity.
-- The feel queue (BLIND commits ledger in [`../tracks.md`](../tracks.md))
-  is Jon's.
+The most important Ambition-driven engine work is:
+
+1. finish the controlled-character actor kernel;
+2. make LDtk/kinematic world mechanics first-class;
+3. establish persistent world residency and instance/item accounting;
+4. make capability/item/world-state progression queryable;
+5. add platformer reachability/navigation;
+6. support persistent/spawned actor populations;
+7. support local/remote/mixed multiplayer and adaptive multiview;
+8. layer reactive character intelligence/dialogue over authoritative world facts.
+
+The current story arcs remain desired product work, but the world-first roadmap
+outranks the old assumption that a linear narrative slice is the implementation
+spine.

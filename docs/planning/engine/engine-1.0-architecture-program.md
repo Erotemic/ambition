@@ -1,155 +1,197 @@
 # Engine 1.0 architecture program
 
-**State:** OPEN — successor program after D73 authority convergence closed on 2026-08-13.
+**State:** OPEN — Ambition-first successor program after D73.
 
 This is the long-horizon architecture program for turning the engine under
-Ambition into a credible Unity/Godot-class 2D game engine on top of Bevy.
-It is not a second execution queue. The live 72-hour queue chooses slices;
-this document explains what those slices are trying to converge toward.
+Ambition into a credible Godot/Unity-class 2D engine on top of Bevy, with a more
+specific product thesis: **systemic 2D worlds plus agent-native authoring**.
+
+The live 72-hour queue chooses execution slices. This document explains the
+capability fronts those slices are trying to converge toward.
 
 ## Product order
 
-**Ambition is the flagship game and the primary product driver.** Engine work
-should make Ambition better while making the capability reusable. Acceptance
-games exist to force honest reuse and expose missing seams. Super Smash
-Siblings may eventually graduate into a first-class game in its own right, but
-that does not displace Ambition as the main game.
+**Ambition is the flagship game and primary product driver.** The near-term
+product target is not editor parity for its own sake. It is a large, persistent,
+reactive 2D platforming world with embodied capability progression, meaningful
+objects and actors, multiplayer residency, and strong LLM-native authoring.
 
-The governing oracle is stronger than "can the Ambition app do this?":
+The governing oracle is:
 
-> Can Ambition use the capability deeply, while another game can opt into the
-> same capability through supported composition seams without editing
+> Can Ambition use the capability deeply while another game can opt into the
+> same capability through supported Bevy/plugin/provider seams without editing
 > Ambition-specific engine code?
 
-## What D73 bought us
+## Immediate priority — controlled-character actor kernel
 
-D73 closed the most expensive character/body authority split:
+Before starting large new world or multiview implementations, finish the runtime
+actor/control boundary far enough that generic simulation no longer means
+"PrimaryPlayer".
 
-- one authored `CharacterDefinition` model supplies intrinsic body facts;
-- preparation resolves it before construction;
-- NPC/enemy/encounter/summon/match roads converge on ordinary actor bodies;
-- the enemy `ArchetypeSpec` / `CharacterRoster` body authority is deleted;
-- controller, disposition, placement, ruleset and participant facts stay
-  contextual instead of being folded into character identity.
+Use [`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md),
+[`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)
+and [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md).
 
-The full migration evidence is archived under
-`docs/archive/planning-superseded/2026-08-13/`. Do not reopen D73 merely because
-one of its historical documents describes a now-deleted representation.
+This is the highest-leverage prerequisite for multiplayer, persistent actors,
+navigation, possession, item custody and future crate extraction.
 
-## Successor programs
+## Capability programs
 
-The next architecture generation is organized by engine capability rather than
-by migration chronology.
-
-### E1 — Ambition-first agent-native authoring, world tools and kinematic world objects
+### E1 — agent-native authoring, LDtk and kinematic world objects
 
 Use [`authoring-and-tools.md`](authoring-and-tools.md),
 [`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md) and
 [`kinematic-world-objects.md`](kinematic-world-objects.md).
 
-Ambition already has substantial LLM-operable authoring infrastructure: semantic
-LDtk tools plus procedural/declarative sprite, music and SFX submodules. The next
-step is not a conventional editor-first rewrite or another ad-hoc entity
-converter; it is a coherent **agent-native authoring product** with discovery,
-semantic inspection, intent-level mutation, validation/preparation, provenance
-and concise review artifacts. LDtk remains the primary spatial backend and
-manual editor experience remains useful, but agents should not need to operate a
-GUI for ordinary content work.
-Moving platforms are the first vertical slice because they exercise authored
-identity, dynamic geometry, paths, rollback state, presentation and contact
-semantics at once.
+The authoring product is semantic discovery/inspection/mutation/validation for
+agents first. Human graphical frontends can sit over the same source semantics
+later. Moving platforms are the first spatial/dynamic-world vertical slice.
 
 ### E2 — simulation authority and determinism
 
 Use [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md).
 
-Make deterministic behavior emerge from explicit phase and ownership structure,
-not from Bevy topology accidents, tuple-packed god systems, mirrored state, or a
-generic rollback runtime that imports every domain to census its types.
+Make deterministic behavior emerge from explicit ownership and phase structure,
+not schedule-topology accidents, tuple-packed god systems, mirrored authority or
+a generic rollback census of every domain.
 
-### E3 — multiplayer, multi-view presentation and world residency
+### E3 — multiplayer, multiview and room residency
 
 Use [`multiplayer-and-multiview.md`](multiplayer-and-multiview.md) and
 [`../game/multiplayer.md`](../game/multiplayer.md).
 
-Transport, control assignment, world/room residency and presentation layout are
-separate axes. Ambition should ultimately support local couch co-op, online
-co-op, mixed local+remote parties, shared-screen play, fixed split-screen and
-adaptive shared/split presentation. Participants need not be in the same room
-when the game mode permits independent exploration.
+Transport, control assignment, world residency and presentation layout remain
+separate axes. Ambition should support local/remote/mixed participants, shared,
+fixed-split and adaptive split views, and different-room exploration.
 
 ### E4 — capability and runtime composition
 
 Use [`capability-and-runtime-composition.md`](capability-and-runtime-composition.md).
 
-A consumer should be able to ask for the engine capabilities it needs without
-silently inheriting bosses, portals, rollback adapters, persistence, debug UI,
-audio or Ambition-specific machinery. This program drains hidden composition
-roots and turns optionality into an honest dependency property.
+Consumers should opt into coherent capabilities without silently inheriting
+unrelated bosses, portals, persistence, rollback adapters, UI or Ambition policy.
 
 ### E5 — public SDK 1.0
 
 Use [`public-sdk-1.0.md`](public-sdk-1.0.md).
 
-The public surface should describe game concepts rather than crate topology.
-Internal crates remain aggressively refactorable while the engine converges;
-external consumers should see stable semantic seams for games, content,
-characters, actions, worlds, sessions, views, services and diagnostics.
+Expose semantic game concepts rather than historical crate topology.
 
 ### E6 — performance and iteration
 
 Use [`performance-and-iteration.md`](performance-and-iteration.md).
 
-Compile graph, runtime cost, asset residency, quality profiles, mobile budgets,
-headless throughput and authoring iteration are engine-product concerns. Measure
-them as user-facing engine ergonomics rather than as one-off campaign numbers.
+Compile fanout, runtime/mobile budgets, asset residency, multiview cost,
+headless throughput and agent iteration latency are engine ergonomics.
+
+### E7 — persistent systemic open world
+
+Use:
+
+- [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
+- [`instance-lifetime-provenance-and-persistence.md`](instance-lifetime-provenance-and-persistence.md)
+- [`item-custody-and-accounting.md`](item-custody-and-accounting.md)
+- [`capability-progression-and-world-gating.md`](capability-progression-and-world-gating.md)
+- [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)
+- [`persistent-actors-and-population.md`](persistent-actors-and-population.md)
+
+The world should remain coherent when rooms unload, important actors/items move,
+spawned mobs come and go, participants separate, and traversal changes because
+of actual capabilities/items/world mechanisms rather than story-stage switches.
+
+### E8 — world facts and agentic characters
+
+Use [`world-facts-observations-and-memory.md`](world-facts-observations-and-memory.md)
+and [`agentic-character-runtime.md`](agentic-character-runtime.md).
+
+The simulation owns reality. Character AI consumes observations/facts/memory and
+selects typed actions/dialogue without inventing authoritative world state.
+
+### E9 — presentation and observability
+
+Use:
+
+- [`render-animation-and-vfx.md`](render-animation-and-vfx.md)
+- [`ui-localization-and-accessibility.md`](ui-localization-and-accessibility.md)
+- [`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md)
+
+Multiview, HUD/focus, animation/VFX and machine-readable inspection should form
+coherent downstream Bevy plugins rather than another application-shaped tangle.
+
+### E10 — project lifecycle and extension
+
+Use [`project-build-and-distribution.md`](project-build-and-distribution.md),
+[`extension-model.md`](extension-model.md) and
+[`reusable-authored-world-composition.md`](reusable-authored-world-composition.md).
+
+Make the project lifecycle explicit while keeping scripting/prefab-like
+abstractions evidence-driven rather than feature-matrix obligations.
+
+### E11 — Bevy-native plugin and reusable crate decomposition
+
+Use [`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy.md)
+and [`decomposition.md`](decomposition.md).
+
+Reusable components should increasingly look like idiomatic Bevy domains:
+components/resources/messages/schedule sets owned by a domain plugin, with
+registration moving with the crate. Extract or publish independently only after the API is
+actually game-independent and usable through ordinary Bevy plugin/system composition.
 
 ## Cross-program rules
 
-1. **Ambition first, reusable second, neither sacrificed.** The flagship game is
-   where capabilities earn product value; reusable boundaries keep those
-   capabilities from becoming Ambition-only implementation accidents.
-2. **One authoritative representation.** A new abstraction is successful when
-   it removes or makes unreachable the authority it replaces.
-3. **Composition over taxonomy.** Bodies, capabilities, participants, views,
-   world objects and services compose; avoid multiplying special engine types
-   for modes that differ only in policy.
-4. **Agent-native authoring is part of the engine product.** A runtime feature
-   that an agent cannot discover, inspect, author, validate and review through
-   supported semantic surfaces without internal archaeology is not finished.
-   Human visual editors are optional frontends over the same semantics.
-5. **Headless and visible hosts consume the same simulation contracts.** Rendering
-   and local presentation may vary; authoritative game semantics may not.
-6. **Transport is not gameplay ontology.** A local controller and a remote peer
-   can own the same participant/control contract.
-7. **Views are presentation.** Shared, split and adaptive layouts observe one
-   simulation; they do not duplicate worlds merely to render them twice.
-8. **Prefer structural guarantees.** Types, ownership, dependency direction,
-   preparation and behavioral tests beat permanent source scanners.
-9. **Do not pre-generalize without a customer.** Moving platforms may reveal a
-   reusable kinematic-world-object model; that does not authorize a universal
-   "everything moves" DSL before another object needs the same semantics.
+1. **Ambition first, reusable second, neither sacrificed.**
+2. **One authoritative representation.** New abstractions remove or make
+   unreachable the authority they replace.
+3. **World facts precede story interpretation.** Persistent state, custody,
+   capability and actor location are simulation truth; dialogue/AI may interpret
+   them but not invent them.
+4. **Composition over taxonomy.** Bodies, capabilities, participants, views,
+   world objects and services compose.
+5. **Agent-native authoring is part of the engine product.** A capability is not
+   finished if an agent cannot discover, inspect, author/operate and validate it
+   without archaeology.
+6. **Headless and visible hosts share simulation contracts.**
+7. **Transport is not gameplay ontology; views are presentation.**
+8. **Prefer structural guarantees over source-policy ceremony.**
+9. **Do not pre-generalize without multiple real customers.**
+10. **Every focused plan names its uncertainties.** Open questions are allowed;
+    implicit ambiguity that future agents mistake for doctrine is not.
+11. **Crates follow ownership and registration.** A file move is not a Bevy
+    boundary if the old owner still imports/registers the domain.
 
 ## Program-level exit shape
 
-Engine 1.0 does not mean every conceivable feature exists. It means the common
-paths are coherent enough that new games add content and capabilities through
-supported seams rather than learning Ambition's migration history.
+Engine 1.0 does not mean every conceivable feature exists. It means common paths
+are coherent enough that a substantially different 2D game can consume them
+without learning Ambition's migration history.
 
-A credible 1.0 architecture should make these statements unsurprising:
+A credible 1.0 should make these statements unsurprising:
 
-- Ambition is a deep first-class game built on supported engine surfaces.
-- A second substantial game can coexist without private engine forks.
-- local/online participants and one/many views use orthogonal composition.
-- multiple rooms can be resident/simulated when a game needs participants in
-  different places.
-- agent-authored LDtk worlds compile into backend-neutral validated world content without requiring raw JSON surgery or GUI operation.
-- dynamic world geometry such as moving platforms is ordinary engine data.
-- rollback/determinism participation is declared by the owning domain.
-- optional capabilities are reflected in dependencies and runtime composition.
-- public SDK users need not import historical internal crates.
-- profiling/quality/authoring diagnostics support real iteration on desktop and
-  mobile.
+- Ambition is a deep open-world/systemic flagship built on supported surfaces;
+- the controlled protagonist is an ordinary actor body under control authority;
+- persistent actors/items/world changes survive residency transitions coherently;
+- capability/item/world-state progression is queryable and navigation-aware;
+- one/many participants and views can inhabit one simulation, including multiple
+  rooms;
+- agent-authored worlds/content prepare through semantic validated tooling;
+- dynamic world geometry is ordinary authored engine data;
+- optional capabilities and rollback participation follow domain ownership;
+- reusable domains can become standalone Bevy plugins without dragging Ambition
+  policy with them;
+- public SDK, diagnostics and project workflows are usable outside Ambition.
 
-The live queue should continually promote the highest-value slice from these
-programs after verifying that HEAD still contains the named gap.
+## Open design questions — deliberately unresolved
+
+The overall direction is intentional, but several high-level choices remain open:
+
+- how large-world residency/background simulation should be partitioned;
+- the exact instance-ID/persistence model shared across actors/items/world objects;
+- how much capability progression is body-owned versus participant-owned;
+- the navigation representation for dynamic platformer worlds;
+- how much character AI should be deterministic versus model-backed;
+- which presentation/tooling domains deserve independent ecosystem crates;
+- which capabilities should remain internal plugins versus independently consumable
+  Bevy crates.
+
+Focused plans own these questions. Do not resolve them by inference merely to
+make the roadmap look complete.

@@ -87,13 +87,38 @@ pub struct PlayerBrainTick;
 pub fn tick_player_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
-    mut players: Query<(
-        &BodyKinematics,
-        &BodyGroundState,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &mut Brain,
-        &mut ActorControl,
-    )>,
+    // ⛔⛔ **`With<PlayerEntity>` IS LOAD-BEARING, and it was missing.** Every
+    // component in this query is spawned by `AncillaryMovementBundle`, which the
+    // player bundle and `ActorClusterSeed::into_components` BOTH nest — that
+    // shared shape is the unification's whole point. So an unfiltered query
+    // matched every actor body too, and the `player_slot()` check below is not a
+    // filter for the home side: a POSSESSED actor carries `Brain::Player(slot)`
+    // precisely so that it is controlled.
+    //
+    // ⇒ a possessed body had TWO producers writing its `ActorControl` in one
+    // tick, from materially different snapshots: this path passes
+    // `max_run_speed: 0.0` (correct here — the home integration applies the
+    // capability), while `tick_actor_brains` passes the body's real top speed,
+    // and `tick_player_brain` multiplies the stick by exactly that field. The
+    // zeroed frame lost only because `PlayerInput` runs before `WorldPrep`, so
+    // the actor tick overwrote it. Anything reading `ActorControl` BETWEEN the
+    // two phases saw a possessed body intending to stand still — the causal
+    // movement-intent observer is registered `.after(PlayerBrainTick)` and does
+    // exactly that.
+    //
+    // The populations are disjoint now: this owns bodies in the player
+    // population, `tick_actor_brains` owns actor bodies, `tick_boss_brains_system`
+    // owns bosses, and a possessed body is owned by whichever it IS.
+    mut players: Query<
+        (
+            &BodyKinematics,
+            &BodyGroundState,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &mut Brain,
+            &mut ActorControl,
+        ),
+        With<PlayerEntity>,
+    >,
 ) {
     let control_frame_modes = user_settings
         .as_deref()

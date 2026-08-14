@@ -229,6 +229,27 @@ camera implementation to input mutation.
 Make room clamp, camera zones, soft framing, aspect handling and scene capture
 correct for a rotated viewport.
 
+⚠ **C3 ALREADY HAS A LIVE CUSTOMER, AND C4 BLOCKS IT — measured 2026-08-14.**
+This reads as future work for a mode nobody can select yet. It is not: portal
+continuity rolls the view TODAY, `somersault_roll` returns ±π/2 for a
+floor↔wall pair, and at a quarter turn the world-space footprint swaps width for
+height. The clamp does not know. `CameraExtraClamp` looks like the compensation
+and is not — it widens the clamp by an extra CENTER so the portal's target
+position stays reachable, and says nothing about extents. So a floor↔wall
+transit can already show outside the room.
+
+⛔ **and the obvious fix cannot be applied where the bug is.** The resolver
+computes the clamp from axis-aligned `half_view_w`/`half_view_h`; the portal roll
+is written onto the snapshot afterwards, in the renderer. A resolver cannot
+account for a rotation it is never told about. Making the clamp rotation-aware
+therefore requires the roll to be known at resolve time — which is exactly C4's
+composition question, because it means the portal roll and the base observer roll
+must arrive at one place under one rule.
+
+⇒ **do C4 before C3.** The base roll already reaches the resolver (C1/C2); the
+portal roll does not. Until both do, a rotation-aware clamp would be correct for
+the mode nobody selects and still wrong for the one that ships.
+
 ### C4 — presentation composition
 
 Specify and test composition with portal continuity, shake, easing, possession

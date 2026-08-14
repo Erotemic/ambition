@@ -455,10 +455,12 @@ fn print_snapshot(app: &mut App, label: &str) {
     // world in the same viewport, which draws every quad bigger"*
     // (`rendering/actors/mod.rs`). A ring that is 46.6 world px wide is not 46.6
     // px in a photograph unless that scale happens to be 1.
-    if let Some(camera) = app
-        .world()
-        .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(
-    ) {
+    let local_view = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
+    if let Some(camera) =
+        app.world()
+            .entity(local_view)
+            .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+    {
         let snapshot = &camera.snapshot;
         let scale = snapshot.orthographic_scale;
         println!(
@@ -488,7 +490,8 @@ fn print_snapshot(app: &mut App, label: &str) {
     }
     if let Some(viewport) =
         app.world()
-            .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::CameraViewport>()
+            .entity(local_view)
+            .get::<ambition_platformer2d::sim_view::camera_snapshot::CameraViewport>()
     {
         println!(
             "camera viewport = ({:.1}, {:.1}) px",

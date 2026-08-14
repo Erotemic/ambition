@@ -158,16 +158,19 @@ impl HeadlessCameraHarness {
                 world.query_filtered::<&PortalTransit, (With<PlayerEntity>, With<PrimaryPlayer>)>();
             transit.single(world).is_ok()
         };
-        let view = world.resource::<CameraViewState>();
+        let camera_center = world.resource::<CameraViewState>().center_world;
         let camera_roll = world.resource::<PortalCameraContinuityState>().roll_radians;
+        let local_view = ambition_platformer2d::sim_view::the_only_view(world);
         let presented_roll = world
-            .resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+            .entity(local_view)
+            .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+            .expect("the local view's resolved snapshot")
             .snapshot
             .rotation_radians;
         CameraSample {
             player_pos: kin.pos,
             player_vel: kin.vel,
-            camera_center: view.center_world,
+            camera_center,
             active_transit,
             camera_roll,
             presented_roll,
@@ -182,7 +185,11 @@ impl HeadlessCameraHarness {
         kin.pos = pos;
         kin.vel = vel;
         kin.facing = if vel.x >= 0.0 { 1.0 } else { -1.0 };
-        *world.resource_mut::<ambition_platformer2d::platformer::camera_ease::CameraEaseState>() =
+        let view = ambition_platformer2d::sim_view::the_only_view(world);
+        *world
+            .entity_mut(view)
+            .get_mut::<ambition_platformer2d::platformer::camera_ease::CameraEaseState>()
+            .expect("the local view's ease state") =
             ambition_platformer2d::platformer::camera_ease::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();

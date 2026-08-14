@@ -133,7 +133,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>()
             // Portal registry — per-portal lifecycle state machine.
             .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry>()
-            .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState>()
+            // ⛔ `CameraEaseState` is NOT here any more: it is per-VIEW state and
+            // lives on the local view entity, spawned by `CameraObservationPlugin`.
+            // The tuning below stays global — it is authored feel, one game-wide
+            // answer, not something a second observer would disagree about.
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>()

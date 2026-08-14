@@ -67,7 +67,7 @@ pub struct CameraSnapshot2d {
 /// integration are the same simulation facts whichever frame observes them. It
 /// belongs to a VIEW, so when views become indexed this moves with them rather
 /// than becoming a process-global mode.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CameraReferenceFrame {
     /// Screen orientation stays tied to the world frame even when the subject
     /// enters sideways or inverted gravity. Ordinary platformer readability, and
@@ -262,7 +262,7 @@ pub struct CameraBlinkInput {
 /// conditions never enter actor simulation or collision.
 ///
 /// Inactive by default, which is ordinary centering.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct CameraScreenFraming {
     /// Whether soft framing applies at all.
     pub active: bool,
@@ -804,7 +804,7 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
 /// resolver (and any RL reader of [`ResolvedCameraSnapshot`]) works without
 /// a window. Consumed ONLY by the observation resolve below — sim systems
 /// never read it.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
 pub struct CameraViewport {
     /// Physical viewport size, pixels (world-frame-free — a screen fact).
     pub px: ae::Vec2,
@@ -838,7 +838,7 @@ impl Default for CameraViewport {
 /// REPLACED a single-field `CameraExtraClamp` rather than adding a second
 /// resource beside it — which also keeps the resolve system under Bevy's
 /// parameter ceiling without bundling unrelated things to get there.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
 pub struct CameraPresentationInputs {
     /// Optional extra center that should remain inside the clamp bounds.
     pub extra_clamp_center_world: Option<ae::Vec2>,
@@ -856,7 +856,7 @@ pub struct CameraPresentationInputs {
 /// resimulates arbitrarily many times per frame during rollback; the camera
 /// must ease once per thing the participant actually sees, and camera state is
 /// not rollback-registered. See [`CameraObservationPlugin`].
-#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+#[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct ResolvedCameraSnapshot {
     pub snapshot: CameraSnapshot2d,
     /// World-frame position of the followed body (the controlled subject)
@@ -939,16 +939,26 @@ pub fn resolve_camera_observation(
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
-    viewport: bevy::prelude::Res<CameraViewport>,
-    screen_framing: bevy::prelude::Res<CameraScreenFraming>,
-    presentation: bevy::prelude::Res<CameraPresentationInputs>,
     ease_tuning: bevy::prelude::Res<
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning,
     >,
-    mut camera_state: bevy::prelude::ResMut<
-        ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
+    // **EVERY OBSERVER OF THIS SIMULATION, and what each one presents.** Five
+    // process-global resources used to stand here — viewport, screen framing,
+    // presentation inputs, ease state, resolved snapshot — and each of them
+    // silently meant "the" view. They are components on a view entity now, so
+    // reading one requires naming WHICH view, and a second local view is an
+    // extra row rather than an architecture. See `local_view`.
+    mut views: bevy::prelude::Query<
+        (
+            &CameraViewport,
+            &CameraScreenFraming,
+            &CameraPresentationInputs,
+            &CameraReferenceFrame,
+            &mut ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
+            &mut ResolvedCameraSnapshot,
+        ),
+        bevy::prelude::With<crate::local_view::LocalView>,
     >,
-    mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
         (
@@ -1085,9 +1095,6 @@ pub fn resolve_camera_observation(
     let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
     if room_changed {
         *last_camera_room = Some(active_spec.id.clone());
-        // Disjoint LDtk areas: reset target easing so it never interpolates
-        // through unrelated world coordinates.
-        camera_state.target_initialized = false;
     }
     let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
 
@@ -1103,45 +1110,58 @@ pub fn resolve_camera_observation(
         blink_in_duration: blink_cam.blink_in_duration,
         blink_camera_from: blink_cam.blink_camera_from,
     };
-    let snapshot = resolve_follow_camera_snapshot(
-        CameraSnapshotResolveInput {
-            world: &world.0,
-            camera_zones: &active_spec.camera_zones,
-            focus,
-            base_view,
-            viewport_px: viewport.px,
-            aspect_policy: user_settings.video.camera_aspect,
-            framing: user_settings.video.camera_framing,
-            overview_scale,
-            encounter_scale,
-            overview_camera: developer_tools.overview_camera,
-            snap_camera,
-            blink: Some(blink),
-            dt: time.delta_secs(),
-            mode: CameraSnapshotResolveMode::Eased,
-            extra_clamp_center_world: presentation.extra_clamp_center_world,
-            ease_tuning: *ease_tuning,
-            screen_framing: Some(*screen_framing),
-            // ⚠ **the policy is still the world-fixed default, and that is the
-            // whole behaviour of this line today.** What is wired is the DATA:
-            // the subject's resolved down axis now reaches the resolver, so
-            // selecting `SubjectFrame` is a policy change rather than a plumbing
-            // change. Where the selection lives is deliberately still open — the
-            // one thing it must not become is a process-global mode, because a
-            // view is what owns it once views are indexed.
-            reference_frame: Default::default(),
-            subject_down: subject_frames.get(followed).ok().map(|frame| frame.down()),
-            // Written pre-resolve by the portal adapter, exactly like the extra
-            // clamp beside it — so the snapshot states the view's ACTUAL final
-            // orientation instead of one the renderer overwrites afterwards.
-            chart_transit: presentation.chart_transit,
-        },
-        Some(&mut *camera_state),
-    );
-    *resolved = ResolvedCameraSnapshot {
-        snapshot,
-        follow_world: player_body.pos,
-    };
+    let subject_down = subject_frames.get(followed).ok().map(|frame| frame.down());
+    // ⭐ **what to look at is a world question; how to present it is a VIEW
+    // question.** Everything above is resolved once — the followed body, the
+    // room, the framing focus — and everything below is answered per observer.
+    for (viewport, screen_framing, presentation, reference_frame, mut camera_state, mut resolved) in
+        &mut views
+    {
+        if room_changed {
+            // Disjoint LDtk areas: reset target easing so it never interpolates
+            // through unrelated world coordinates. PER VIEW, because each view
+            // eases toward its own target.
+            camera_state.target_initialized = false;
+        }
+        let snapshot = resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world: &world.0,
+                camera_zones: &active_spec.camera_zones,
+                focus,
+                base_view,
+                viewport_px: viewport.px,
+                aspect_policy: user_settings.video.camera_aspect,
+                framing: user_settings.video.camera_framing,
+                overview_scale,
+                encounter_scale,
+                overview_camera: developer_tools.overview_camera,
+                snap_camera,
+                blink: Some(blink),
+                dt: time.delta_secs(),
+                mode: CameraSnapshotResolveMode::Eased,
+                extra_clamp_center_world: presentation.extra_clamp_center_world,
+                ease_tuning: *ease_tuning,
+                screen_framing: Some(*screen_framing),
+                // **THIS VIEW's frame policy**, read off the view that is being
+                // resolved. It defaults to `WorldFixed`, so behaviour is
+                // unchanged until something selects otherwise — but selecting is
+                // now writing a component on a view, which is what D118 C2 said
+                // it must never become a process-global mode to do.
+                reference_frame: *reference_frame,
+                subject_down,
+                // Written pre-resolve by the portal adapter, exactly like the
+                // extra clamp beside it — so the snapshot states the view's
+                // ACTUAL final orientation instead of one the renderer
+                // overwrites afterwards.
+                chart_transit: presentation.chart_transit,
+            },
+            Some(&mut *camera_state),
+        );
+        *resolved = ResolvedCameraSnapshot {
+            snapshot,
+            follow_world: player_body.pos,
+        };
+    }
 }
 
 /// Ordering handle for the camera observation resolve.
@@ -1187,10 +1207,29 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         use bevy::prelude::IntoScheduleConfigs as _;
-        app.init_resource::<CameraViewport>();
-        app.init_resource::<CameraScreenFraming>();
-        app.init_resource::<CameraPresentationInputs>();
-        app.init_resource::<ResolvedCameraSnapshot>();
+        // ⛔⛔ **THE VIEW IS SPAWNED HERE, at plugin BUILD time, and that is not
+        // a detail.** From a startup system there would be one frame with no
+        // view, so every reader would need `single()` + `else { return }` — the
+        // shape that has produced four production defects in this repository,
+        // because a system that silently does nothing looks exactly like one
+        // that ran. A view that exists before any schedule runs cannot produce
+        // that frame.
+        //
+        // ⭐ and the components ARE the registration: five process-global
+        // resources used to be init'd here, each meaning "the" view. Ambition
+        // has one view; that is now a COUNT rather than an assumption.
+        crate::local_view::spawn_local_view(
+            app.world_mut(),
+            crate::local_view::LocalViewId::FIRST,
+            (
+                CameraViewport::default(),
+                CameraScreenFraming::default(),
+                CameraPresentationInputs::default(),
+                CameraReferenceFrame::default(),
+                ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
+                ResolvedCameraSnapshot::default(),
+            ),
+        );
 
         // Declared ONLY when the sim shares this schedule. In fixed-tick and
         // GGRS hosts the sim is in another schedule, where this edge would be

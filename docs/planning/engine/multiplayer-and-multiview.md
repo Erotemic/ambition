@@ -261,6 +261,38 @@ silently does nothing is indistinguishable from one that ran.
 ⇒ deletion payoff: five process-global resources stop existing. Nothing new
 "indexes" anything — the index IS the entity, and M2 adds a second one.
 
+**DONE 2026-08-14.** `local_view.rs` holds `LocalView` + `LocalViewId`; the six
+facts above are components on it; `CameraObservationPlugin` spawns it at plugin
+BUILD time and the resolve iterates views. Every one of the six resources is
+gone — including `CameraEaseState`, which lost its `Resource` derive entirely, so
+"the camera's ease state" is no longer a question that can be asked without
+naming a view.
+
+⭐ **the reference-frame policy has a home, which is what D118 C2 was waiting
+for.** Selecting subject-relative presentation is now writing a component on a
+view. It still defaults to `WorldFixed` everywhere, so nothing moved — but the
+selection is a product decision now rather than a plumbing gap.
+
+⚠ **`the_only_view` exists and is named to be uncomfortable.** Fixtures and
+diagnostics that genuinely assume one view call it and PANIC if that stops being
+true; no production system does. The alternative — `single()` inside each reader
+— is the shape that has silently produced four defects here.
+
+⛔ **and the view carries NO `Name`, which cost a red suite to learn.** `Name` is
+rollback-registered (`entity.name`), and the coverage contract derives its swept
+population from *"an entity carrying even one type the rollback knows about is an
+entity the rollback participates in"* — so a debug label enlisted the whole view
+in the sim sweep. `CameraEaseState` was immediately reported as an unrewound
+desync risk, and `rollback_exit_oracle` went red because the entity was being
+saved and restored across a forced rollback. `LocalViewId` is the identity; the
+label is not worth the enlistment.
+
+⇒ **what M2 needs next**, in the order the code will demand it: a link from a
+CAMERA entity to the view it presents (`camera_follow` uses `Single` today and
+says so), per-view gameplay rectangles from a split layout, and then
+`ControlledSubject` — 49 sites, three times this slice's whole surface, and the
+one that has to answer *which view's subject?*
+
 ### M2 — two local views, one room
 
 Render two independently framed gameplay views over one simulation. Prove local

@@ -84,11 +84,19 @@ fn assert_one_coherent_layout(app: &mut App, display: ae::Vec2, label: &str) {
         .world()
         .resource::<ResolvedGameplayPresentation>()
         .clone();
-    let viewport = app.world().resource::<CameraViewport>().px;
-    let framing = *app.world().resource::<CameraScreenFraming>();
+    // The camera's observer facts belong to a local VIEW, not to the process.
+    let view = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
+    let viewport = app.world().entity(view).get::<CameraViewport>().unwrap().px;
+    let framing = *app
+        .world()
+        .entity(view)
+        .get::<CameraScreenFraming>()
+        .unwrap();
     let snapshot = app
         .world()
-        .resource::<ResolvedCameraSnapshot>()
+        .entity(view)
+        .get::<ResolvedCameraSnapshot>()
+        .unwrap()
         .snapshot
         .clone();
 

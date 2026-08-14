@@ -89,11 +89,19 @@ fn assert_one_coherent_layout(app: &mut App, display: ae::Vec2, label: &str) {
         .world()
         .resource::<ResolvedGameplayPresentation>()
         .clone();
-    let viewport = app.world().resource::<CameraViewport>().px;
-    let framing = *app.world().resource::<CameraScreenFraming>();
+    // The camera's observer facts belong to a local VIEW, not to the process.
+    let view = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
+    let viewport = app.world().entity(view).get::<CameraViewport>().unwrap().px;
+    let framing = *app
+        .world()
+        .entity(view)
+        .get::<CameraScreenFraming>()
+        .unwrap();
     let snapshot = app
         .world()
-        .resource::<ResolvedCameraSnapshot>()
+        .entity(view)
+        .get::<ResolvedCameraSnapshot>()
+        .unwrap()
         .snapshot
         .clone();
 
@@ -177,7 +185,14 @@ fn fixed_tick_sanic_keeps_one_layout_across_a_resize() {
         presentation.soft_framing.is_some(),
         "Sanic declares velocity-aware soft framing on every platform",
     );
-    assert!(app.world().resource::<CameraScreenFraming>().active);
+    let view = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
+    assert!(
+        app.world()
+            .entity(view)
+            .get::<CameraScreenFraming>()
+            .unwrap()
+            .active
+    );
 
     resize(&mut app, RESIZED);
     app.update();

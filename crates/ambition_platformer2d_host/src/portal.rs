@@ -254,7 +254,11 @@ mod host_adapter {
         host_view: Option<Res<PortalCameraContinuityHostView>>,
         world_frame: Option<Res<PortalWorldFrame>>,
         state: Option<ResMut<PortalCameraContinuityState>>,
-        camera_state: Option<ResMut<CameraEaseState>>,
+        // **THE EASING STATE OF EVERY LOCAL VIEW.** A portal maps the world, so
+        // every observer of that world has to carry its own smoothed target
+        // through the same map — this used to be one global ease state, which is
+        // the assumption a second view breaks.
+        mut view_ease: Query<&mut CameraEaseState, With<ambition_sim_view::LocalView>>,
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
         focus: Query<(), With<PortalCameraContinuityFocus>>,
@@ -336,7 +340,7 @@ mod host_adapter {
             gravity.as_deref(),
         );
         let portal_list: Vec<ambition_portal2d::PlacedPortal> = portals.iter().cloned().collect();
-        let mut camera_state = camera_state;
+
         for ev in transited.read() {
             if focus.get(ev.body).is_err() {
                 continue;
@@ -551,7 +555,7 @@ mod host_adapter {
                 );
             }
 
-            if let Some(camera_state) = camera_state.as_deref_mut() {
+            for mut camera_state in &mut view_ease {
                 if camera_state.target_initialized {
                     camera_state.live_target_world = ambition_portal2d::pieces::map_point(
                         camera_state.live_target_world,

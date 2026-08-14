@@ -11,7 +11,10 @@ use bevy::prelude::{Component, Resource};
 /// the encounter registry (or developer overview override) every
 /// frame; this resource holds the smoothed value so transitions feel
 /// like a breath instead of a snap.
-#[derive(Resource, Clone, Copy, Debug)]
+/// ⭐ **a COMPONENT on a local view, not a resource.** A second local view eases
+/// its own zoom toward its own target, so "the camera's ease state" is a
+/// question that has to name a view to mean anything.
+#[derive(Component, Clone, Copy, Debug)]
 pub struct CameraEaseState {
     pub live_scale: f32,
     /// Smoothed world-space camera target. Presentation-only: avoids hard

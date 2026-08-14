@@ -29,6 +29,7 @@ use super::primitives::PlayerVisual;
 use ambition_sim_view::camera_snapshot::{
     CameraChartTransit, CameraPresentationInputs, CameraSnapshot2d, ResolvedCameraSnapshot,
 };
+use ambition_sim_view::LocalView;
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -102,13 +103,14 @@ pub struct PortalCameraContinuityParams<'w> {
 pub fn publish_portal_camera_clamp(
     selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
     state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
-    resolved: Res<ResolvedCameraSnapshot>,
-    mut presentation: ResMut<CameraPresentationInputs>,
+    // One row per local view. Ambition has one; the portal's facts are a fact
+    // about the world's geometry, so every view presenting that world is told.
+    mut views: Query<(&ResolvedCameraSnapshot, &mut CameraPresentationInputs), With<LocalView>>,
 ) {
     let enabled = selection.as_deref().is_some_and(|selection| {
         selection.mode == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
     });
-    presentation.extra_clamp_center_world = enabled
+    let clamp_center = enabled
         .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
         .flatten();
     let crossing = enabled
@@ -119,27 +121,32 @@ pub fn publish_portal_camera_clamp(
                 .map(|s| s.roll_radians)
         })
         .flatten();
-    presentation.chart_transit = crossing.map(|chart_roll_radians| CameraChartTransit {
-        chart_roll_radians,
-        observer_roll_at_entry: match presentation.chart_transit {
-            // Already crossing: keep the roll adopted when it began.
-            Some(active) => active.observer_roll_at_entry,
-            // Rising edge: last frame's resolved roll is the base roll.
-            None => resolved.snapshot.rotation_radians,
-        },
-    });
+    for (resolved, mut presentation) in &mut views {
+        presentation.extra_clamp_center_world = clamp_center;
+        presentation.chart_transit = crossing.map(|chart_roll_radians| CameraChartTransit {
+            chart_roll_radians,
+            observer_roll_at_entry: match presentation.chart_transit {
+                // Already crossing: keep the roll adopted when it began.
+                Some(active) => active.observer_roll_at_entry,
+                // Rising edge: THIS view's last resolved roll is its base roll.
+                None => resolved.snapshot.rotation_radians,
+            },
+        });
+    }
 }
 
 /// Apply the sim-resolved camera snapshot to the main camera, layering the
 /// presentation-only deltas (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
-    resolved: Res<ResolvedCameraSnapshot>,
+    // **THE VIEW whose snapshot this camera presents.** One local view today, so
+    // the single main camera presents it; pairing N views with N cameras is M2's
+    // slice and wants a link component, not a broader query here.
+    view: Single<(&ResolvedCameraSnapshot, &mut CameraPresentationInputs), With<LocalView>>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut view_state: ResMut<CameraViewState>,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
-    mut presentation: ResMut<CameraPresentationInputs>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
@@ -153,6 +160,7 @@ pub fn camera_follow(
         ),
     >,
 ) {
+    let (resolved, mut presentation) = view.into_inner();
     // Presentation deltas apply to a COPY — the sim's resolved snapshot is
     // read-only here.
     #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]

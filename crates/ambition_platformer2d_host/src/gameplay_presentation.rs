@@ -67,10 +67,11 @@ impl Plugin for HostGameplayPresentationPlugin {
             // the pure resolver, so no host->touch dependency appears.
             .init_resource::<ControlFootprints>()
             .insert_resource(resolve_presentation_environment());
-        // Owned by `CameraObservationPlugin`, but this cluster WRITES them, so
-        // it must not depend on plugin ordering to have somewhere to write.
-        app.init_resource::<CameraViewport>()
-            .init_resource::<CameraScreenFraming>();
+        // ⛔ **no `init_resource` here any more, and none is possible.** These
+        // are components on a local view now, spawned by `CameraObservationPlugin`
+        // at plugin build time — so "somewhere to write" is a row in a query, and
+        // a host with no view writes to nobody instead of to a global nobody
+        // reads.
 
         app.add_systems(
             Update,
@@ -409,13 +410,21 @@ pub fn describe_resolved_layout(
 /// consumer of [`CameraViewport`] (orthographic scale, visible-world extent,
 /// clamp half-extents) inherits the gameplay rectangle from here, so nothing
 /// downstream needs to learn that a viewport exists.
+///
+/// ⚠ **one display resolve, N views.** `ResolvedGameplayPresentation` describes
+/// the physical screen; each local view is told the rectangle it presents into.
+/// Ambition has one view and one rectangle, so this writes the same size to
+/// every row — a split layout is what makes them differ, and that is the phase
+/// that gives each view its own rect.
 pub fn publish_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
-    mut viewport: ResMut<CameraViewport>,
+    mut views: Query<&mut CameraViewport, With<ambition_sim_view::LocalView>>,
 ) {
     let size = presentation.gameplay_rect.size().max(ae::Vec2::ONE);
-    if viewport.px != size {
-        viewport.px = size;
+    for mut viewport in &mut views {
+        if viewport.px != size {
+            viewport.px = size;
+        }
     }
 }
 
@@ -424,7 +433,17 @@ pub fn publish_camera_viewport(
 pub fn publish_camera_screen_framing(
     time: Res<Time>,
     presentation: Res<ResolvedGameplayPresentation>,
-    mut framing: ResMut<CameraScreenFraming>,
+    mut views: Query<&mut CameraScreenFraming, With<ambition_sim_view::LocalView>>,
+) {
+    for mut framing in &mut views {
+        publish_one_views_screen_framing(&time, &presentation, &mut framing);
+    }
+}
+
+fn publish_one_views_screen_framing(
+    time: &Time,
+    presentation: &ResolvedGameplayPresentation,
+    framing: &mut CameraScreenFraming,
 ) {
     let Some(profile) = presentation.soft_framing else {
         *framing = CameraScreenFraming::default();

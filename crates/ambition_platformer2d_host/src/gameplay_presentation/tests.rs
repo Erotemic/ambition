@@ -45,7 +45,32 @@ fn host_app(
         PrimaryWindow,
     ));
     app.world_mut().spawn((Camera::default(), MainCamera));
+    // **The local view these publishers write into.** Production spawns it in
+    // `CameraObservationPlugin`; this fixture composes the host presentation
+    // plugin alone, so it states the same fact. Without a view the publishers
+    // would write to nobody and every assertion below would be measuring a
+    // default — the fixture models the production shape instead.
+    ambition_sim_view::spawn_local_view(
+        app.world_mut(),
+        ambition_sim_view::LocalViewId::FIRST,
+        (CameraViewport::default(), CameraScreenFraming::default()),
+    );
     app
+}
+
+/// This app's one local view's viewport.
+fn view_viewport(app: &mut App) -> CameraViewport {
+    let view = ambition_sim_view::the_only_view(app.world_mut());
+    *app.world().entity(view).get::<CameraViewport>().unwrap()
+}
+
+/// This app's one local view's screen framing.
+fn view_framing(app: &mut App) -> CameraScreenFraming {
+    let view = ambition_sim_view::the_only_view(app.world_mut());
+    *app.world()
+        .entity(view)
+        .get::<CameraScreenFraming>()
+        .unwrap()
 }
 
 fn resolved(app: &App) -> &ResolvedGameplayPresentation {
@@ -86,9 +111,9 @@ fn fixed_aspect_publishes_the_gameplay_viewport_not_the_window() {
 
     let gameplay = resolved(&app).gameplay_rect;
     assert_eq!(gameplay.size(), ae::Vec2::new(1440.0, 1080.0));
-    assert_eq!(app.world().resource::<CameraViewport>().px, gameplay.size());
+    assert_eq!(view_viewport(&mut app).px, gameplay.size());
     assert_ne!(
-        app.world().resource::<CameraViewport>().px,
+        view_viewport(&mut app).px,
         ae::Vec2::new(2400.0, 1080.0),
         "publishing the window here would silently stretch the 4:3 view",
     );
@@ -106,10 +131,7 @@ fn full_bleed_publishes_the_whole_window() {
     );
     app.update();
 
-    assert_eq!(
-        app.world().resource::<CameraViewport>().px,
-        ae::Vec2::new(1920.0, 1080.0),
-    );
+    assert_eq!(view_viewport(&mut app).px, ae::Vec2::new(1920.0, 1080.0));
     assert!(
         main_camera_viewport(&mut app).is_none(),
         "full bleed must leave the camera viewport cleared, not set it to the window",
@@ -367,9 +389,9 @@ fn normal_framing_publishes_an_inactive_fact() {
     );
     app.update();
 
-    let framing = app.world().resource::<CameraScreenFraming>();
+    let framing = view_framing(&mut app);
     assert!(!framing.active);
-    assert_eq!(*framing, CameraScreenFraming::default());
+    assert_eq!(framing, CameraScreenFraming::default());
 }
 
 /// Soft framing publishes the resolved region and its tuning.
@@ -384,7 +406,7 @@ fn soft_framing_publishes_the_resolved_region() {
     app.update();
 
     let expected = SoftFramingProfile::high_speed();
-    let framing = app.world().resource::<CameraScreenFraming>();
+    let framing = view_framing(&mut app);
     assert!(framing.active);
     assert_eq!(framing.subject_safe_region, expected.safe_region);
     assert_eq!(framing.look_ahead_seconds, expected.look_ahead_seconds);
@@ -402,10 +424,7 @@ fn a_control_appearing_eases_the_region_instead_of_stepping_it() {
         PresentationEnvironment::TouchPrimary,
     );
     settle(&mut app);
-    let settled = app
-        .world()
-        .resource::<CameraScreenFraming>()
-        .subject_safe_region;
+    let settled = view_framing(&mut app).subject_safe_region;
 
     app.world_mut().spawn(stick_bundle());
     // The occluder is collected at the end of this update and reaches the
@@ -413,10 +432,7 @@ fn a_control_appearing_eases_the_region_instead_of_stepping_it() {
     // target to ease toward.
     app.update();
     app.update();
-    let after_one_frame = app
-        .world()
-        .resource::<CameraScreenFraming>()
-        .subject_safe_region;
+    let after_one_frame = view_framing(&mut app).subject_safe_region;
     let target = resolved(&app).subject_safe_region;
 
     assert_ne!(

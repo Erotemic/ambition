@@ -1975,9 +1975,10 @@ fn two_cpus_can_fight_each_other() {
     // (`FramedCast`), and this asserts the camera is actually pointed at it.
     {
         let world = app.world_mut();
+        let local_view = ambition_platformer2d::sim_view::the_only_view(world);
         let resolved = world
-            .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(
-            )
+            .entity(local_view)
+            .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
             .expect(
                 "no camera snapshot was ever resolved in a live match, so this \
                  composition cannot say what a CPU-versus-CPU match looks like",

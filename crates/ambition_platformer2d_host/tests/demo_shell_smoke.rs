@@ -374,6 +374,13 @@ use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     ResolvedGameplayPresentation,
 };
 use ambition_sim_view::camera_snapshot::CameraViewport;
+
+/// The one local view's viewport. The camera's observer facts belong to a VIEW,
+/// so a fixture asking "what is the viewport" has to say whose.
+fn view_viewport(app: &mut App) -> CameraViewport {
+    let view = ambition_sim_view::the_only_view(app.world_mut());
+    *app.world().entity(view).get::<CameraViewport>().unwrap()
+}
 use bevy::window::{PrimaryWindow, WindowResolution};
 
 /// A 20:9 phone-shaped display, which pillarboxes a 4:3 gameplay rectangle.
@@ -426,7 +433,7 @@ fn a_fixed_aspect_profile_reaches_the_camera_and_the_surround() {
     );
 
     // 1. The sim's observation input is the gameplay rect, not the window.
-    assert_eq!(app.world().resource::<CameraViewport>().px, gameplay.size());
+    assert_eq!(view_viewport(&mut app).px, gameplay.size());
 
     // 2. The main camera carries the physical viewport; the HUD camera does not.
     let main = app
@@ -471,7 +478,7 @@ fn a_fixed_aspect_profile_reaches_the_camera_and_the_surround() {
 fn an_undeclared_profile_leaves_the_host_full_bleed() {
     let mut app = presentation_shell(ActiveGameplayPresentationProfiles::default());
 
-    assert_eq!(app.world().resource::<CameraViewport>().px, DISPLAY);
+    assert_eq!(view_viewport(&mut app).px, DISPLAY);
     assert!(
         app.world_mut()
             .query_filtered::<&Camera, With<MainCamera>>()

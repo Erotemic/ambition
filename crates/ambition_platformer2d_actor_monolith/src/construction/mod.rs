@@ -1265,7 +1265,7 @@ pub fn mount_capabilities_of(
             // disagree about whether a body is rideable — which is the whole
             // point of there being one construction path.
             SpawnActorKind::Enemy { character, .. } => {
-                authored_mount_capabilities(resolve_planned_character(prepared, Some(character)))
+                authored_mount_capabilities(resolve_planned_character(prepared, character))
             }
             // A boss takes `CanPilot` from its behaviour profile and is never
             // itself a mount — `spawn_boss` installs no `Mountable`. Resolved
@@ -1293,7 +1293,7 @@ pub fn mount_capabilities_of(
         // capability; its hands are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. }
         | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
-            resolve_planned_character(prepared, Some(&authored.payload.character_id)),
+            resolve_planned_character(prepared, &authored.payload.character_id),
         ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
         // Same profile resolution as the staged boss arm above — and never a
@@ -1694,8 +1694,7 @@ pub fn staged_actor_requests(
             // This also asked the roster, whose lookup could not fail — so an
             // unresolvable key answered the `combatant` row, which is not a
             // limbed host, so the two agreed by luck rather than by design.
-            if crate::features::is_limbed_host(resolve_planned_character(prepared, Some(character)))
-            {
+            if crate::features::is_limbed_host(resolve_planned_character(prepared, character)) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 // ⛔⛔ **THE HOST ROW USED TO DROP THE CHARACTER.** It was built
                 // from the brain alone, so a staged giant's `character` — the
@@ -1782,7 +1781,7 @@ pub fn authored_actor_requests(
         // and nothing else does.
         if crate::features::is_limbed_host(resolve_planned_character(
             prepared,
-            Some(&enemy.payload.character_id),
+            &enemy.payload.character_id,
         )) {
             let giant_sim = SimId::placement(&enemy.id);
             let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb);
@@ -1930,13 +1929,20 @@ fn giant_cluster_rows(
 /// finished rows and can say which placement named it. ⛔ this used to say that
 /// planning *"falls back to the archetype rather than refusing here"*; planning
 /// refuses, and there is no archetype.
+/// The prepared definition a planned row's character resolves to, if this
+/// composition registered one.
+///
+/// ⚠ **`prepared` stays optional and `character` no longer is.** Those are two
+/// different absences and only one of them survived: a composition that
+/// registers no cast is ordinary, while a planned row that names no character
+/// is now unrepresentable — every caller passed `Some(..)` once
+/// `EnemySpawnSpec::character_id` and `SpawnActorKind::Enemy::character` became
+/// required, so the `Option` here described a state none of them could reach.
 fn resolve_planned_character<'a>(
     prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
-    character: Option<&ambition_entity_catalog::CharacterId>,
+    character: &ambition_entity_catalog::CharacterId,
 ) -> Option<&'a crate::character_runtime::PreparedCharacterDefinition> {
-    prepared
-        .zip(character)
-        .and_then(|(cast, id)| cast.get(id.as_str()))
+    prepared.and_then(|cast| cast.get(character.as_str()))
 }
 
 // ⛔⛔ **`planned_giant_host_ids()` WAS HERE AND IS DELETED (2026-08-13, D73

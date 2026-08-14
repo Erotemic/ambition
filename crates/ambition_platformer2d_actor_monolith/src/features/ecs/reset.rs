@@ -95,7 +95,6 @@ pub fn reset_ecs_room_features(
     // them instead of clearing a Vec. `Entity`-only fetch, so no aliasing with
     // the actor/boss `&mut BodyKinematics` queries above.
     enemy_projectiles: Query<Entity, With<crate::enemy_projectile::EnemyProjectile>>,
-    mut combat_slots: ResMut<crate::combat::slots::CombatSlotsRes>,
     // R5 encounter orchestration from the previous attempt: the encounter entity
     // (+ its finished `EncounterScript`), in-flight falling hazards, and the lure
     // override on a boss. `Entity`-only fetches → no aliasing with the queries above.
@@ -129,7 +128,6 @@ pub fn reset_ecs_room_features(
     for entity in &enemy_projectiles {
         commands.entity(entity).despawn();
     }
-    combat_slots.0.clear_assignments();
 
     for entity in &collected_pickups {
         commands.entity(entity).remove::<Collected>();
@@ -291,7 +289,6 @@ mod reset_tests {
     //! pickups un-collect, opened chests un-open, broken breakables
     //! return to Intact. No event -> no change.
     use super::*;
-    use crate::combat::slots::CombatSlotsRes;
     use crate::enemy_projectile::EnemyProjectileState;
     use ambition_interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};
@@ -299,7 +296,6 @@ mod reset_tests {
     fn app() -> App {
         let mut app = App::new();
         app.insert_resource(EnemyProjectileState::default());
-        app.insert_resource(CombatSlotsRes::default());
         app.add_message::<ResetRoomFeaturesEvent>();
         app.add_systems(Update, reset_ecs_room_features);
         app

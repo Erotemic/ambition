@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "\u26a0 v28 (2026-08-14) REMOVES resource.combat_slot_board, and a removal is the rarer direction for this file. The board it rewound arranged a crowd into numbered approach slots around a target; no production reader consumed the assignment, so peers agreed every tick about a value nothing asked for. Its anchor was PrimaryPlayer-or-lowest-PlayerSlot, which made it the largest player-centric assumption inside generic actor simulation as well. Deleted with the board rather than made target-relative: target-relative arbitration for a mechanism with no consumer is the abstraction, not the fix.",
     "The rollback wire format, frozen. Two keys, one invariant each way: a type",
     "may not join it unseen, and a type that leaves must be PRUNED here in the",
     "same commit. That second half is what makes this a ratchet and not a budget.",
@@ -347,7 +348,6 @@
     "resource.base_gravity",
     "resource.clock_regime_policy",
     "resource.clock_state",
-    "resource.combat_slot_board",
     "resource.encounter_registry",
     "resource.enemy_projectile_state",
     "resource.faction_relations",
@@ -383,7 +383,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 348,
+  "stable_schema_name_count": 347,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

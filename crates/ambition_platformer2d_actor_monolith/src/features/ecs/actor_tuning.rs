@@ -122,12 +122,13 @@ impl Default for ActorTuning {
 }
 
 impl ActorTuning {
-    /// Slot class this actor requests from the combat slot board.
-    pub fn slot_kind(&self) -> crate::combat::slots::SlotKind {
+    /// Where this body contests space when it fights — the one fact the
+    /// crowding signal needs that positions do not carry.
+    pub fn crowd_kind(&self) -> crate::combat::crowd::CrowdKind {
         if self.is_aerial {
-            crate::combat::slots::SlotKind::Aerial
+            crate::combat::crowd::CrowdKind::Aerial
         } else {
-            crate::combat::slots::SlotKind::Melee
+            crate::combat::crowd::CrowdKind::Ground
         }
     }
 

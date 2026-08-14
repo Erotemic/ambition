@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v27
+ggrs-rollback-schema-v28
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -381,7 +381,6 @@ resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canoni
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.combat_slot_board	resource-clone-cursor	CombatSlotsRes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.enemy_projectile_state	resource-canonical	EnemyProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

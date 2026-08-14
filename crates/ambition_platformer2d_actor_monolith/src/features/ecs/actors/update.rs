@@ -144,28 +144,26 @@ pub fn tick_actor_brains(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     // Neighbor index handed to the movement phase (surface-walker steering).
     mut steering: ResMut<ActorSteering>,
-    // The slot-board anchor + per-target liveness read the player's position and
-    // health. Multi-player ready: liveness is keyed per entity. `BodyHealth` is the
-    // liveness authority (NOT `BodyCombat.alive`, an actor-cluster mirror never
-    // synced for the player), consistent with `select_actor_targets`.
+    // **Liveness of the bodies the actor query cannot see.** A fighter's foe is
+    // often a controlled body, and a brain must perceive that its foe has died;
+    // controlled bodies carry no actor cluster, so they are absent from `actors`
+    // below. Keyed per entity, so this is not "the player" — it is every body in
+    // this class, however many a session has. `BodyHealth` is the liveness
+    // authority (NOT `BodyCombat.alive`, an actor-cluster mirror never synced for
+    // a controlled body), consistent with `select_actor_targets`.
+    //
+    // ⭐ this used to read POSITION and `PlayerSlot` as well, to anchor a combat
+    // slot board on "the primary player". That board is gone (see
+    // `ambition_combat::crowd`), and with it the last reason generic brain
+    // ticking needed to know where a player was standing.
     player_query: Query<
         (
             bevy::prelude::Entity,
-            Option<&crate::control::PlayerSlot>,
-            &crate::actor::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
-    >,
-    primary_q: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            bevy::prelude::With<crate::actor::PlayerEntity>,
-            bevy::prelude::With<crate::actor::PrimaryPlayer>,
-        ),
     >,
     mut actors: Query<
         (
@@ -323,49 +321,30 @@ pub fn tick_actor_brains(
         .map_or(ae::ControlFrameModes::default(), |s| {
             s.gameplay.control_frame_modes()
         });
-    // Pick the slot-board anchor: the primary player by default, or
-    // fall back to the lowest available PlayerSlot so combat slot
-    // assignment stays deterministic on a multi-player non-primary build.
-    // AMBITION_REVIEW(determinism): never use raw `Query::iter().next()` as
-    // a player fallback here; Bevy entity iteration order is not the player order.
-    // The slot read is optional so legacy/fixture primary-player entities that
-    // have not yet been stamped with a `PlayerSlot` still anchor enemy brains;
-    // only the non-primary fallback depends on slot ordering.
-    let primary_entity = primary_q.single().ok();
-    let slot_anchor_pos = primary_entity
-        .and_then(|e| player_query.get(e).ok())
-        .or_else(|| {
-            player_query.iter().min_by_key(|(_, slot, _, _)| {
-                slot.copied().unwrap_or(crate::control::PlayerSlot::PRIMARY)
-            })
-        })
-        .map(|(_, _, kin, _)| kin.pos);
-    // ⛔ **NO EARLY RETURN HERE, and this was the statue.**
+    // ⛔⛔ **A SLOT BOARD ANCHORED ON "THE PRIMARY PLAYER" USED TO STAND HERE,
+    // AND IT DROVE NOTHING.**
     //
-    // This read `let Some(player_pos) = slot_anchor_pos else { return; }`, so a
-    // world with NO player body ticked NO actor brains at all — every actor
-    // everywhere, not merely the ones near a player. That was invisible while
-    // every session built a home avatar; the moment a MATCH experience declared
-    // none, two seated fighters stood on a platform with correct factions,
-    // correct targets and zero velocity, and read as a seating bug for hours
-    // (2026-08-06).
+    // It chose an anchor position from `PrimaryPlayer`, or the lowest
+    // `PlayerSlot` when a build had no primary, and handed it to `assign_slots`
+    // to arrange a crowd into numbered approach slots around it. No production
+    // reader ever consumed the assignment — the per-actor position it produced
+    // had been discarded since before the monolith split — so the single
+    // largest player-centric assumption in generic actor simulation existed to
+    // feed a mechanism with no consumer, and was rewound as rollback state on
+    // top of that. Deleted with the board (`ambition_combat::crowd`).
     //
-    // ⚠ **the anchor is only the anti-clump SLOT BOARD's**, which spaces a crowd
-    // around the thing it is fighting. A brain does not need it to decide, and a
-    // match has neither a crowd nor a player. So the absence skips the board and
-    // nothing else — which is what "no early return from a whole system on a
-    // condition that is legitimate" means in practice.
-    //
-    // ⭐ the honest longer-term shape is that the board anchors on the TARGET a
-    // crowd shares rather than on "the player"; that is a bigger change than
-    // this bug deserves, and naming it here is cheaper than pretending the
-    // player-centrism is gone.
+    // ⚠ **a world with no controlled body is ordinary**, and the shape that
+    // proves it is the absence of an early return here. When the anchor was
+    // live this read `let Some(player_pos) = ... else { return; }`, so a session
+    // that declared no home avatar ticked NO actor brains at all — every actor
+    // everywhere, not merely the ones near a player. Two seated fighters stood
+    // on a platform with correct factions, correct targets and zero velocity,
+    // and read as a seating bug for hours (2026-08-06). Nothing in this system
+    // may become conditional on a player existing again.
 
-    // Pass 1: collect slot requests from every live hostile enemy.
-    // The slot board is per-target (player) and arbitrates which
-    // enemies are allowed to commit to an attack this tick; the
-    // others hold at the outer ring. This is the anti-clump layer.
-    let mut requests: Vec<(String, ae::Vec2, crate::combat::slots::SlotKind)> = Vec::new();
+    // Pass 1: collect every live body that is in a fight, with the position and
+    // crowd kind the spacing signals need.
+    let mut requests: Vec<(String, ae::Vec2, crate::combat::crowd::CrowdKind)> = Vec::new();
     // Faction per actor id, so the anti-clump crowding signal counts only
     // same-faction allies (fanning a swarm out) and never a different-faction
     // opponent — the spectator-duel fighters are hostile to each other and must
@@ -374,10 +353,10 @@ pub fn tick_actor_brains(
         String,
         super::super::super::components::ActorFaction,
     > = std::collections::HashMap::new();
-    // Liveness of every potential TARGET (actors + players), keyed by entity, so a
-    // fighter can perceive that its foe has died. A fighter's target is often
-    // another actor (the spectator-duel pair target each other), so this can't come
-    // from `player_query` alone. Defaults to alive when an entity isn't found.
+    // Liveness of every potential TARGET, keyed by entity, so a fighter can
+    // perceive that its foe has died. A fighter's target is often another actor
+    // (the spectator-duel pair target each other), so this can't come from
+    // `player_query` alone. Defaults to alive when an entity isn't found.
     let mut alive_by_entity: std::collections::HashMap<Entity, bool> =
         std::collections::HashMap::new();
     // Entity → actor id, so a fighter's CURRENT TARGET entity (its foe this frame —
@@ -389,7 +368,7 @@ pub fn tick_actor_brains(
         std::collections::HashMap::new();
     let mut target_entity_by_id: std::collections::HashMap<String, Entity> =
         std::collections::HashMap::new();
-    for (entity, _, _, health) in &player_query {
+    for (entity, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
     for (
@@ -422,7 +401,7 @@ pub fn tick_actor_brains(
         if crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage() {
             if let Some(c) = clusters {
                 if c.health.alive() {
-                    requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
+                    requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.crowd_kind()));
                     if let Some(faction) = faction {
                         faction_by_id.insert(c.config.id.clone(), *faction);
                     }
@@ -440,27 +419,14 @@ pub fn tick_actor_brains(
         .iter()
         .filter_map(|(id, foe)| entity_to_id.get(foe).map(|fid| (id.clone(), fid.clone())))
         .collect();
-    // Canonical request order before slot assignment. `assign_slots` sorts by
-    // DISTANCE with a stable sort, so any exact-distance pair is decided by this
-    // slice's order — which, built by iterating a Bevy Query above, is not
-    // stable (and is outright reshuffled by GGRS entity recreation on rollback).
-    // `CombatSlotsRes` is registered rollback state, so an unstable pairing is a
-    // desync, not just a cosmetic wobble. The actor id IS the stable semantic
-    // key here (it is what the slot board itself is keyed on).
+    // ⛔ **CANONICAL ORDER, and it is not cosmetic.** This slice is built by
+    // iterating a Bevy Query, whose order is not stable and is outright
+    // reshuffled by GGRS entity recreation on rollback. Both readers below break
+    // ties over it — `compute_nearest_neighbors` keeps the first-found nearest
+    // among equidistant peers, and the crowding sum is float addition, which is
+    // not associative — so an unstable slice is a desync, not a wobble. The
+    // actor id is the stable semantic key.
     requests.sort_by(|a, b| a.0.cmp(&b.0));
-    let slot_requests: Vec<crate::combat::slots::SlotRequest> = requests
-        .iter()
-        .map(|(id, pos, kind)| crate::combat::slots::SlotRequest {
-            actor_id: id.as_str(),
-            actor_pos: *pos,
-            kind: *kind,
-        })
-        .collect();
-    // Only when there is something for a crowd to arrange itself around. See the
-    // anchor resolution above for why absence is ordinary rather than an error.
-    if let Some(player_pos) = slot_anchor_pos {
-        crate::combat::slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
-    }
 
     // Per-actor nearest-same-kind-neighbor index (see
     // `compute_nearest_neighbors`). Handed to the movement phase via
@@ -1488,7 +1454,7 @@ pub fn apply_actor_contact_damage(
 /// far apart. Returns the position of each actor's nearest same-kind
 /// neighbor; actors with no same-kind peer are absent from the map.
 pub(crate) fn compute_nearest_neighbors(
-    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
+    requests: &[(String, ae::Vec2, crate::combat::crowd::CrowdKind)],
 ) -> std::collections::HashMap<String, ae::Vec2> {
     let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
         std::collections::HashMap::new();
@@ -1510,66 +1476,6 @@ pub(crate) fn compute_nearest_neighbors(
     neighbor_by_id
 }
 
-/// Per-kind holding-position fallback: actors that didn't win a combat
-/// slot are distributed round-robin across the holding positions of all
-/// slots of their kind, ordered stably by actor id so the assignment
-/// doesn't flicker frame to frame. Without this, every unassigned actor
-/// of a kind shared one slot's holding point and visually clumped. Pure
-/// over the board + per-tick requests so it is unit-testable.
-///
-/// NOTE: production no longer consumes this — the per-actor `slot_pos` it fed was
-/// already dead (`let _ = slot_pos`) before the monolith split, so the whole
-/// slot-board *steering* (`assign_slots` → holding-ring) is a latent no-op; the
-/// brain's crowding signal drives spacing now. Kept (test-covered) pending a
-/// decision to rip out slot-board steering entirely — logged in code_smells.
-#[allow(
-    dead_code,
-    reason = "test-covered; slot-board steering is a pending removal"
-)]
-pub(crate) fn compute_holding_positions(
-    board: &crate::combat::slots::CombatSlotBoard,
-    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
-    player_pos: ae::Vec2,
-) -> std::collections::HashMap<String, ae::Vec2> {
-    // BTreeMap, not HashMap: the outer loop below assigns round-robin slot ranks,
-    // so its iteration order is part of the output (N0.3 — no hash order in sim).
-    let mut unassigned_by_kind: std::collections::BTreeMap<
-        crate::combat::slots::SlotKind,
-        Vec<&str>,
-    > = std::collections::BTreeMap::new();
-    for (id, _pos, kind) in requests {
-        if board.slot_for(id).is_none() {
-            unassigned_by_kind
-                .entry(*kind)
-                .or_default()
-                .push(id.as_str());
-        }
-    }
-    let mut holding_pos_by_id: std::collections::HashMap<String, ae::Vec2> =
-        std::collections::HashMap::new();
-    for (kind, mut ids) in unassigned_by_kind {
-        let kind_slots: Vec<usize> = board
-            .slots
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.kind == kind)
-            .map(|(i, _)| i)
-            .collect();
-        if kind_slots.is_empty() {
-            continue;
-        }
-        ids.sort_unstable(); // stable round-robin order
-        for (rank, id) in ids.into_iter().enumerate() {
-            let slot_idx = kind_slots[rank % kind_slots.len()];
-            holding_pos_by_id.insert(
-                id.to_string(),
-                board.slots[slot_idx].holding_pos(player_pos),
-            );
-        }
-    }
-    holding_pos_by_id
-}
-
 /// Per-actor crowding signal (personal-space pressure) consumed by
 /// brains like Smash so clustered actors push apart. Aerial actors use a
 /// wider radius and only count *other aerial* actors (so flyers like
@@ -1577,7 +1483,7 @@ pub(crate) fn compute_holding_positions(
 /// over the per-tick slot requests `(id, pos, kind)` so it is
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
-    requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
+    requests: &[(String, ae::Vec2, crate::combat::crowd::CrowdKind)],
     faction_by_id: &std::collections::HashMap<
         String,
         super::super::super::components::ActorFaction,
@@ -1596,7 +1502,7 @@ pub(crate) fn compute_crowding_by_id(
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
-        let aerial = *kind_a == crate::combat::slots::SlotKind::Aerial;
+        let aerial = *kind_a == crate::combat::crowd::CrowdKind::Aerial;
         let radius = if aerial {
             AERIAL_CROWDING_RADIUS_PX
         } else {
@@ -1617,7 +1523,7 @@ pub(crate) fn compute_crowding_by_id(
             if different_faction || is_my_target {
                 continue;
             }
-            if aerial && *kind_b != crate::combat::slots::SlotKind::Aerial {
+            if aerial && *kind_b != crate::combat::crowd::CrowdKind::Aerial {
                 continue;
             }
             if pos_a.distance_squared(*pos_b) <= radius * radius {

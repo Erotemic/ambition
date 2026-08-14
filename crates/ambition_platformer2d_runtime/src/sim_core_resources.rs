@@ -107,8 +107,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // Enemy projectiles (pirate volleys etc) — separate from player
             // projectiles so faction routing stays explicit.
             .init_resource::<ambition_projectiles::enemy::EnemyProjectileState>()
-            // Anti-clump attack slot arbitration.
-            .init_resource::<ambition_platformer2d_actor_monolith::combat::slots::CombatSlotsRes>()
             .init_resource::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_platformer2d_actor_monolith::encounter::EncounterSwitchIndex>()
             // Victim-side hits staged in Combat, drained by the player resolver

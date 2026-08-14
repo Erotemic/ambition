@@ -119,6 +119,38 @@ inventory already exposes several high-coupling authorities — for example
 and `ControlledSubject` — that must not accidentally acquire two owners during a
 carve.
 
+## Measured carve candidates (2026-08-14)
+
+Ranked the monolith's 28 `ambition_*` dependencies by use sites in its own
+source. Two ends of that ranking are worth recording.
+
+**`ambition_sim_view` — refused, and the reason was already in place.** One use
+site, and it is inside a doc comment. But it is declared under
+`[dev-dependencies]` with a comment saying so: the headless camera example
+resolves its snapshot through it, dev-only, and cyclic dev-deps are fine. Not a
+production edge, nothing to remove.
+
+**`ambition_platformer2d_ldtk` — a DECLARED, UNFINISHED migration.** The
+monolith's `world/ldtk_world/mod.rs` is a blanket `pub use
+ambition_platformer2d_ldtk::*;` whose own doc states the plan: *"W3 moved the
+backend implementation to `ambition_platformer2d_ldtk`; gameplay-core keeps this
+path while app/content callers repoint to the owning crate."* The repointing
+never finished. **~60 sites** still reach LDtk types through
+`actor_monolith::ldtk_world` / `ambition_platformer2d::actors::ldtk_world` —
+across the provider, the runtime, content, the app and its tests.
+
+⚠ **and the gotcha is the Cargo edge, not the call sites.** The facade already
+offers a direct path (`ambition_platformer2d::ldtk_map`, gated on the
+`ambition_platformer2d_ldtk` feature), but the provider, the runtime and content
+declare NO dependency on the LDtk crate — they reach it transitively through the
+monolith. Finishing the repoint means each declares the edge it already has,
+which is the correct direction (depend on what you use) and which the
+dependency-contracts baseline guards. Do that deliberately, in one slice, with
+the baseline updated in the same commit.
+
+⇒ this is closure evidence #5 — a historical compatibility facade deleted — and
+the largest such facade currently measurable in the crate.
+
 ## Slice procedure
 
 For every incremental extraction:

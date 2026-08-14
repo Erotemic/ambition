@@ -63,6 +63,14 @@ described rather than by building it. Check HEAD before starting the next slice.
   from 663; the honest read is that the boundary is now a type rather than a
   place in a long function, and the bulk that remains is the per-body decision
   loop. That loop is the next cut.
+
+  ⚠ **and measure the right thing when sizing it.** Of those 619 lines, 192 are
+  the parameter list with its docs and 429 are the body — and the body splits
+  214 code / 209 comment. So the executable logic is roughly 214 lines across
+  snapshot construction, memory mutation, disposition mutation, brain decision
+  and control publication. That is still multi-responsibility and still worth
+  splitting, but a slice chosen by line count would mostly be moving prose. **Cut
+  by responsibility.**
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and

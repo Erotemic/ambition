@@ -3099,8 +3099,15 @@ mod tests {
     /// than on a picture.
     ///
     /// ⚠ it asserts against the catalog ids, not against a count: a level that
-    /// adds an enemy and forgets the field fails, and so does one that authors an
-    /// id nothing in the demo's roster publishes.
+    /// authors an id nothing in the demo's roster publishes fails.
+    ///
+    /// ⭐ **the "forgot the field" half is GONE, and its deletion is the point.**
+    /// It used to unwrap `character_id` and panic on `None`. `EnemySpawnSpec::
+    /// character_id` became required on 2026-08-14, so an enemy that names no
+    /// character is no longer a value this test could be handed — the LOWERING
+    /// refuses it and the type will not hold it. What survives here is the half a
+    /// type cannot decide: whether the named character is one this demo actually
+    /// publishes a sheet for.
     #[test]
     fn every_authored_enemy_names_the_character_it_wears() {
         for (label, room) in [("1-1", level_1_1()), ("1-2", level_1_2::level_1_2())] {
@@ -3110,19 +3117,7 @@ mod tests {
                  nothing to check"
             );
             for spawn in &room.enemy_spawns {
-                let character_id = spawn
-                    .payload
-                    .character_id
-                    .as_ref()
-                    .map(|id| id.as_str())
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "{label}'s enemy `{}` authors no character_id, so its art \
-                         resolves through its display name — the join this field \
-                         exists to replace",
-                            spawn.id
-                        )
-                    });
+                let character_id = spawn.payload.character_id.as_str();
                 // ⚠ **the list is "what the demo PUBLISHES", and it is four now.**
                 // It read `ai_slop | solid_snake` and the phrase "the two
                 // characters" was baked into the message, so adding the flying

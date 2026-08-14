@@ -1538,10 +1538,6 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // **The PLACEMENT's respawn policy** — the one fact here that is neither
         // the character's nor the controller's (ADR 0022).
         //
-        // ⚠ the fallback is the archetype's, and for a character whose row is
-        // DELETED that means the `combatant` row's. It is the last thread from
-        // this file to a migrated enemy; a placement that authors its own cuts
-        // it.
         // ⛔ **TWO authorities now, and the second is STATED rather than
         // borrowed.** The PLACEMENT owns respawn policy (ADR 0022); a body whose
         // placement says nothing takes the engine's own answer for an undescribed

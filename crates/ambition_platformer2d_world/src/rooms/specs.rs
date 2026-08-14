@@ -245,15 +245,18 @@ impl<T> Authored<T> {
 /// for keying gameplay on one*. `EnemySpawn` was the remaining placement that
 /// takes an identity and does not read one.
 ///
-/// ⚠ **`character_id` is OPTIONAL, and that is not laziness.** Every level in the
-/// tree authors a display name today and resolves through
-/// `CharacterCatalog::id_for_authored_identity`, which tries an id first and a
-/// display name second. Making the field required would break every existing
-/// world file to fix a hazard none of them has hit yet. Both roads must keep
-/// working, so both roads are tested.
+/// ⭐ **the display-name road is GONE (2026-08-14).** This doc used to say the
+/// id was optional because every level resolved through
+/// `CharacterCatalog::id_for_authored_identity` — an id first, a display name
+/// second — and that requiring it would break existing world files. The census
+/// refuted the premise: 184 authored `EnemySpawn` entities, 0 without an id. So
+/// the field is required, the lowering REFUSES a placement that authors none,
+/// and there is no second road left to test.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnemySpawnSpec {
-    /// What it DOES: the roster brain key the archetype is selected by.
+    /// What it DOES: which driver policy plays this placement of the character.
+    /// ⚠ it selects nothing about the BODY — that is [`Self::character_id`]'s
+    /// job, and was the archetype road's confusion.
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
     /// **Which `CharacterDefinition` this spawn instantiates** — the body's
     /// gameplay identity.
@@ -285,8 +288,11 @@ pub struct EnemySpawnSpec {
     /// with the mites' rows deleted, their respawn policy arrives through the
     /// `combatant` FALLBACK, and that is luck rather than authorship.
     ///
-    /// `None` = "this placement did not say", which keeps today's answer: the
-    /// archetype's policy. Every existing level is that.
+    /// `None` = "this placement did not say", and the engine answers with the
+    /// NAMED default `UNDESCRIBED_BODY_RESPAWN` (`OnRoomReenter` today). ⚠ it
+    /// used to say *"the archetype's policy"* — there is no archetype, and the
+    /// lookup that supplied one could not fail, so every body reached it and
+    /// none of them chose it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
     /// **How this body feels about the player when it spawns.**
@@ -295,7 +301,13 @@ pub struct EnemySpawnSpec {
     /// `is_hostile: false`, which made "ambient wildlife that never aggros"
     /// a property of the creature rather than of this placement of it.
     ///
-    /// `None` = the archetype's answer, which is every level authored so far.
+    /// `None` = whatever CHARACTER CONSTRUCTION resolved — the creature's own
+    /// answer, kept. An authored disposition overrules it, which is the only
+    /// thing a placement is entitled to say here. ⚠ it used to say *"the
+    /// archetype's answer"*, and that was the defect: the fallback read the
+    /// generic `combatant` row's `hostile_by_default: true` and handed the giant
+    /// GNU — a mount whose profile states it seeks nobody — its hostility back
+    /// one line after construction had resolved it correctly.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
     /// **WHO DRIVES THIS ONE** — the shared controller policy this placement

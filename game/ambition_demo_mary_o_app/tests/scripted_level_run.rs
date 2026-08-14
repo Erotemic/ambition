@@ -503,7 +503,7 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
                 // neither a character nor a row is a construction ERROR now,
                 // by D102's design. The subject under test is the demo's TAG
                 // pass, and it reads `ActorConfig.brain` either way.
-                character: Some(SNAKE_SHEET_TARGET.into()),
+                character: SNAKE_SHEET_TARGET.into(),
             },
         });
     settle(&mut app);

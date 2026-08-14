@@ -55,8 +55,21 @@ milestone described, not by building it** — check before starting a slice.
   the first was unfiltered, so a possessed body got both — from materially
   different snapshots (`max_run_speed: 0.0` versus the body's real top speed,
   which `tick_player_brain` multiplies the stick by). The populations are
-  disjoint now; **collapsing the two producers is the remaining work**, and it is
-  blocked on the home body having no actor cluster for the actor query to match.
+  disjoint now. **Collapsing the two producers is the remaining work, and the
+  fork is one layer below them**: the two INTEGRATORS differ, so the two
+  producers must. `integrate_home_body` has no flight limb and never reads
+  `velocity_target`, which is why the home path passes `max_run_speed: 0.0` —
+  deliberate and inert, not an oversight. The actor integrator projects
+  `velocity_target` onto its flight axis, so its brain must be handed the body's
+  real top speed. ⇒ **unify the integrators first**; the brain producers collapse
+  behind them, and doing it in the other order would mean choosing which
+  integrator's convention to break.
+
+  ⚠ **no live defect today**: `BodyMode` has no flight variant, so the home
+  avatar cannot reach the case where the zeroed field would matter. This is a
+  structural fork with a latent edge, and the edge arrives the moment a
+  controlled body can fly — which the open-world and possession programs both
+  point at.
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.

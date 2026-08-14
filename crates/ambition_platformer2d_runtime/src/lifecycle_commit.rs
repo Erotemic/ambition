@@ -21,9 +21,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
-use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::world::rooms::RoomConstructionPlan;
-use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
@@ -368,41 +366,31 @@ fn execute_lifecycle_commit(
     }
 }
 
-/// Resolve the EXACT body a deferred transition recorded, or `None`.
+/// Apply an authorized transition on a CONFIRMED frame, from the exclusive
+/// world.
 ///
-/// The recorded [`SimId`] is the body that CROSSED the exit (GPT review #2) —
-/// look it up by exact identity and transit THAT body or nothing. It never
-/// substitutes another entity:
+/// ⭐⭐ **THE APPLICATION ITSELF IS NOT HERE, AND THAT IS THE WHOLE POINT**
+/// (D71, 2026-08-14). This function used to be a second implementation of
+/// `commit_room_transition_geometry` + the cross-domain resets, declaring itself
+/// a mirror *"kept in sync by the line comments below"*. It was not in sync:
+/// measured the day it was replaced, the copy never called `clear_carryover`, so
+/// on the shipped rollback host a door carried every in-flight enemy projectile
+/// into the next room and left a room-modified ambient gravity in force — and it
+/// never recorded the Class-B transit either. Nobody wrote those omissions. They
+/// are what a second implementation becomes.
 ///
-/// * An id that still resolves → that body.
-/// * An id that no longer resolves → `None`. The crossing body is gone (it
-///   died during the confirmation delay). Substituting the home player — as this
-///   once did — teleports a body that never touched the exit into the target
-///   room, silently moving the primary into a room the player never walked to
-///   (GPT review #1). A possessed body now un-room-scopes on possession (it can
-///   navigate rooms as itself), so the only way to reach this arm is genuine
-///   death, and a dead crossing is a VOID crossing, not a licence to move
-///   someone else.
-/// The caller maps `None` to a CANCELLED commit: the intent is dropped and the
-/// source room stays authoritative. Deliberately never the live
-/// `ControlledSubject`, because possession may have changed since the trigger.
-fn resolve_transition_subject(
-    world: &mut World,
-    subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
-) -> Option<Entity> {
-    let mut ids = world.query::<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>();
-    ids.iter(world)
-        .find(|(_, id)| *id == subject)
-        .map(|(entity, _)| entity)
-}
-
-/// Reconstruct the target room synchronously and apply the CANONICAL transition
-/// body semantics to the TRIGGERING body — faithful to
-/// `commit_room_transition_geometry` (`world/rooms/load.rs`) +
-/// `apply_room_transition_resets` (`app/world_flow/room_flow.rs`), which this
-/// mirrors so a deferred transition behaves like an eager one. Kept in sync with
-/// those by the line comments below; a change there without a matching change
-/// here is a regression.
+/// What remains here is the only thing that is genuinely different about a
+/// confirmed commit: it runs OUTSIDE the rewound schedule, so its commands must
+/// be applied synchronously rather than at the frame's flush, and the spawn
+/// requests the plan enqueues must be drained before this returns.
+///
+/// ⚠ **`SystemState`, deliberately, and not a callback or a context bag.** The
+/// eager side is a system with `SystemParam`s and this side is `&mut World`;
+/// `SystemState` is Bevy's bridge between exactly those two, and it keeps the
+/// shared operation a plain `SystemParam` that the eager system can take
+/// directly. A callback would have inverted control to hide a borrow, and a
+/// context bag would have re-listed every param — which is the thing being
+/// deleted.
 fn commit_transition(
     world: &mut World,
     // ⭐⭐ **THE PLAN THE READINESS TRANSACTION AUTHORIZED** (D71, 2026-08-14).
@@ -413,229 +401,83 @@ fn commit_transition(
     // only one whose assets were proven present.
     plan: &RoomConstructionPlan,
     subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
-    _target_room: &str,
+    target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,
     zone_sfx: Option<&str>,
 ) -> CommitOutcome {
-    // Resolve + PREFLIGHT the subject BEFORE any destructive mutation (GPT review
-    // #1/#2): everything that can fail must fail with the world still whole. A
-    // subject that no longer resolves is a VOID crossing — the body that crossed
-    // is gone — so the intent is CANCELLED (dropped), never substituted with
-    // another body and never retried forever.
-    let Some(subject) = resolve_transition_subject(world, subject) else {
+    let Some(target_index) = ({
+        let mut rooms = world.query::<&ambition_platformer2d_actor_monolith::rooms::RoomSet>();
+        rooms
+            .iter(world)
+            .next()
+            .and_then(|set| set.rooms.iter().position(|room| room.id == target_room))
+    }) else {
         error!(
-            "Track B: the recorded transition subject is gone; cancelling the crossing \
-             (no substitute body is transited)"
+            "Track B: the recorded transition names room '{target_room}', which the \
+             session's RoomSet does not contain; cancelling the crossing"
         );
         return CommitOutcome::Cancelled;
     };
-    // The full body-transit contract, checked NOW: the subject must be a live
-    // body carrying the exact components the transit below mutates. A body that
-    // fails this is rejected BEFORE `apply_to_world` retires the old room — never
-    // logged-and-succeeded after the room is already gone (finding 3). It rides
-    // through the reconstruction (carried if room-scoped, otherwise session-
-    // scoped), so passing here means the transit after `apply_to_world` succeeds.
-    {
-        let mut transit = world.query::<(
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d_actor_monolith::features::MotionModel,
-        )>();
-        if transit.get_mut(world, subject).is_err() {
-            error!(
-                "Track B: transition subject fails the body-transit contract; \
-                 cancelling before any reconstruction"
-            );
+
+    // ⛔ **stale spawn requests first.** A speculative frame may have enqueued
+    // `SpawnActorRequest`s that its rollback never un-enqueued, and this path
+    // DRAINS the queue below rather than leaving it to a scheduled system. An
+    // ordinary frame has no such backlog; an exclusive commit after a rewind can.
+    if let Some(mut pending) = world.get_resource_mut::<bevy::ecs::message::Messages<
+        ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
+    >>() {
+        pending.clear();
+    }
+
+    // ⚠ **`SystemState::get_mut` PANICS on a missing resource**, and the shared
+    // application requires a dozen — where this function used to reach each one
+    // through an `Option`-guarded `get_resource_mut`. That escalation is safe for
+    // a reason worth stating rather than trusting: reaching here at all means
+    // `authorized_plan` found a `CommitAuthorized` transaction, which only exists
+    // if `RoomTransitionPlugin` is installed — and that plugin also installs
+    // `commit_ready_room_transition_system`, which has taken the same parameters
+    // as a plain system all along. A host that could panic here could not have
+    // produced the authorization that got here.
+    let mut state: bevy::ecs::system::SystemState<
+        crate::room_transition::RoomTransitionApplication,
+    > = bevy::ecs::system::SystemState::new(world);
+    let outcome = {
+        let mut application = state.get_mut(world);
+        match application.subject_entity(subject) {
+            None => Err(crate::room_transition::RoomTransitionApplyError::SubjectGone),
+            Some(entity) => {
+                application.apply(plan, entity, target_index, arrival, edge_exit, zone_sfx)
+            }
+        }
+    };
+    // ⛔ **unconditionally, before any early return.** `SystemState` holds the
+    // command queue the application wrote into; dropping it without applying
+    // would silently discard a half-built room.
+    state.apply(world);
+
+    match outcome {
+        Ok(_) => {}
+        Err(error) => {
+            // Every variant is raised BEFORE the first destructive mutation, so
+            // the world is still whole and the crossing is simply void.
+            error!("Track B: {error}; cancelling the crossing");
             return CommitOutcome::Cancelled;
         }
     }
-    let carry_body = world
-        .get::<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>(subject)
-        .map(|_| subject);
 
-    // Retire the source roster (exempting the carried body), publish the target
-    // geometry, spawn the target roster — synchronously, with `world.flush()`.
-    // From here nothing may fail: the subject and its transit contract were
-    // validated above.
-    // **The door still makes a sound.** The eager commit plays the zone's cue at
-    // the body's position BEFORE the transit, and this path played nothing at
-    // all — so on the rollback host (the shipped binary) every door and every
-    // portal was silent. Same cue, same instant, same position.
-    //
-    // ⚠ safe to emit directly rather than through the external-effect journal:
-    // this whole function runs only on a CONFIRMED frame, so it can never be
-    // re-run speculatively and cannot double-play.
-    if let Some(cue) = zone_sfx {
-        let pos_before = world
-            .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(subject)
-            .map(|kin| kin.pos)
-            .unwrap_or(arrival);
-        // Ownership + provenance resolved exactly as `SfxWriter::write` does
-        // from the session's emission context — an unowned cue is refused by
-        // playback whenever an owned context is active, so a world-level emit
-        // that skipped this would be silently dropped instead of loud.
-        let (owner, source) = world
-            .get_resource::<ambition_sfx::SfxEmissionContext>()
-            .map(|context| {
-                (
-                    ambition_sfx::SfxEmissionContext::owner(context),
-                    context.source().clone(),
-                )
-            })
-            .unwrap_or_default();
-        if let Some(mut messages) =
-            world.get_resource_mut::<bevy::prelude::Messages<ambition_sfx::OwnedSfxMessage>>()
-        {
-            messages.write(ambition_sfx::OwnedSfxMessage {
-                owner,
-                source,
-                request: ambition_sfx::SfxMessage::Play {
-                    id: ambition_sfx::SfxId::new(cue),
-                    pos: pos_before,
-                },
-            });
-        }
-    }
+    // ── THE EXCLUSIVE-WORLD TAIL ─────────────────────────────────────────────
+    // An eager commit's spawns are applied at the frame's flush and its actor
+    // requests are drained by a scheduled system. This path runs outside that
+    // schedule, so it does both itself, here, synchronously — which is the only
+    // thing about a confirmed commit that is not the shared operation.
+    world.flush();
+    let _ = bevy::ecs::system::RunSystemOnce::run_system_once(
+        &mut *world,
+        ambition_platformer2d_actor_monolith::features::apply_spawn_actor_requests,
+    );
+    world.flush();
 
-    plan.apply_to_world(world, carry_body);
-
-    // Tuning snapshots (primitive copies, so no borrow is held across the body
-    // mutation below).
-    let air_jumps = world
-        .get_resource::<ae::ActiveMovementTuning>()
-        .map(|tuning| tuning.0.air_jumps)
-        .unwrap_or(0);
-    let (edge_cd, door_cd, edge_flash, door_flash) = world
-        .get_resource::<Platformer2dFeelTuningMonolith>()
-        .map(|feel| {
-            (
-                feel.edge_transition_cooldown,
-                feel.door_transition_cooldown,
-                feel.edge_transition_flash,
-                feel.door_transition_flash,
-            )
-        })
-        .unwrap_or((0.0, 0.0, 0.0, 0.0));
-
-    // Validate the authored arrival against the (now target) geometry using the
-    // body's size — the same `validated_spawn` guard the canonical path applies,
-    // so the body is never placed inside a solid or out of bounds.
-    let player_size = world
-        .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(subject)
-        .map(|kin| kin.size)
-        .unwrap_or_else(ae::default_player_body_size);
-    let arrival = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
-        ae::RoomGeometry,
-    >(world)
-    .map(|geometry| {
-        ambition_platformer2d_world::rooms::validated_spawn(&geometry.0, arrival, player_size)
-    })
-    .unwrap_or(arrival);
-
-    // Body transit on the CONTROLLED subject (load.rs:55-80): reset clusters to
-    // the arrival, refresh jump/dash/flight, and preserve edge-exit momentum.
-    {
-        let mut query = world.query::<(
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d_actor_monolith::features::MotionModel,
-        )>();
-        if let Ok((mut cluster_item, mut motion_model)) = query.get_mut(world, subject) {
-            let mut clusters = cluster_item.as_clusters_mut();
-            ae::arrive_body_in_room(
-                &mut motion_model,
-                &mut clusters,
-                arrival,
-                air_jumps,
-                if edge_exit {
-                    ae::ArrivalMomentum::Preserve
-                } else {
-                    ae::ArrivalMomentum::Reset
-                },
-            );
-        } else {
-            // UNREACHABLE after the preflight validated this exact query on this
-            // exact subject. If it ever fires, a carried body lost its transit
-            // components during reconstruction — an invariant violation, not a
-            // normal partial-failure outcome.
-            error!(
-                "Track B: BUG — a preflighted transit subject lost its components \
-                 during reconstruction"
-            );
-        }
-    }
-
-    // Cross-domain per-transition resets (room_flow.rs:46-68), each a separate
-    // borrow so no query aliases. Optional components (safety/blink) are absent
-    // for a possessed non-home body, exactly as the canonical path allows.
-    if let Some(mut combat) = world.get_mut::<ambition_characters::actor::BodyCombat>(subject) {
-        // AC3.3: `reset()` IS this list — every reaction timer a body reset
-        // clears — so a transition asks for it rather than restating it. The
-        // arrival flash is the one thing a transition adds, so it is written
-        // after, not folded in.
-        combat.reset();
-        combat.hit_flash = if edge_exit { edge_flash } else { door_flash };
-    }
-    if let Some(mut safety) =
-        world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(subject)
-    {
-        safety.last_safe_pos = arrival;
-    }
-    if let Some(mut blink) =
-        world.get_mut::<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>(
-            subject,
-        )
-    {
-        blink.blink_in_timer = 0.0;
-        blink.blink_camera_from = arrival;
-        blink.blink_camera_to = arrival;
-        blink.camera_snap_timer = if edge_exit {
-            0.0
-        } else {
-            ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME
-        };
-    }
-
-    // Reset the sim clock (load.rs:81), close any open dialogue (room_flow.rs:68),
-    // flash the dev preset marker (load.rs:90), and set the transition cooldown
-    // (load.rs:85) so detection does not immediately re-fire.
-    if let Some(mut clock) = world.get_resource_mut::<bevy::ecs::message::Messages<
-        ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest,
-    >>() {
-        clock.write(
-            ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest::sim_clock(
-                ambition_platformer2d_actor_monolith::time::time_control::ClockRequester::Engine,
-                "room_transition",
-            ),
-        );
-    }
-    if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
-        dialogue.close();
-    }
-    // ⛔ **and the AUTHORITY, or the room swap only closed the text box.** The
-    // simulation's conversation names two bodies, and a transition despawns the
-    // room they were standing in — leaving a live conversation pointing at
-    // entities that no longer exist, and an NPC holding a `ScriptedControl` it
-    // can never be released from because nothing is left to release it.
-    if let Some(mut conversation) = world
-        .get_resource_mut::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
-        )
-    {
-        conversation.close();
-    }
-    if let Some(mut dev_state) =
-        world.get_resource_mut::<ambition_dev_tools::DeveloperRuntimeState>()
-    {
-        dev_state.preset_flash = 1.0;
-    }
-    if let Some(mut sim_state) = world.get_resource_mut::<RoomTransitionCooldown>() {
-        sim_state.remaining = if edge_exit { edge_cd } else { door_cd };
-    }
-
-    // NOTE (bounded gap): the canonical path also emits the transition Reset
-    // SFX/VFX. Presentation effects on the confirmed-commit host path go through
-    // the external-effect quarantine with different timing, so they are
-    // deliberately NOT emitted here; this is a presentation-only difference, not a
-    // state divergence. Tracked in the campaign doc.
     CommitOutcome::Committed
 }
 
@@ -658,6 +500,13 @@ mod tests {
     /// `Option<SimId>`, so a body without stable identity cannot produce a
     /// deferred intent at all. The type is the proof; there is nothing left to
     /// assert.
+    ///
+    /// ⭐ **asked of the ONE resolver, which is the point** (D71, 2026-08-14).
+    /// This used to call `resolve_transition_subject`, a private twin of
+    /// `TransitBodies::subject_entity` that documented itself as mirroring it.
+    /// Both are gone into `RoomTransitionApplication::subject_entity`, so this
+    /// invariant is now asserted about the resolver BOTH hosts use rather than
+    /// about one host's copy of it.
     #[test]
     fn a_missing_transition_subject_resolves_to_none_never_a_substitute() {
         let mut world = World::new();
@@ -667,13 +516,22 @@ mod tests {
             .id();
         assert_ne!(triggerer, primary);
 
+        // ⚠ `TransitBodies`, not the whole `RoomTransitionApplication`: the
+        // resolver is the only thing under test and it is pure queries, so a
+        // bare `World` can host it. Building the full application here would
+        // demand a dozen unrelated resources — a fixture that models nothing.
+        // `RoomTransitionApplication::subject_entity` delegates straight to this.
+        let mut state: bevy::ecs::system::SystemState<crate::room_transition::TransitBodies> =
+            bevy::ecs::system::SystemState::new(&mut world);
+        let bodies = state.get_mut(&mut world);
+
         assert_eq!(
-            resolve_transition_subject(&mut world, &SimId::placement("triggerer")),
+            bodies.subject_entity(&SimId::placement("triggerer")),
             Some(triggerer),
             "the recorded triggering SimId is transported, not the current primary"
         );
         assert_eq!(
-            resolve_transition_subject(&mut world, &SimId::placement("gone")),
+            bodies.subject_entity(&SimId::placement("gone")),
             None,
             "a recorded body that despawned before commit is a void crossing, \
              not a licence to teleport the home player"

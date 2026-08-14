@@ -236,27 +236,41 @@
 
   **Still owed under this row, and none of it is cosmetic:**
 
-  - ▢ **ONE application operation.** `commit_transition` still hand-rolls the
-    apply that `commit_room_transition_geometry` performs for the eager path, and
-    says so (*"mirrors … kept in sync by the line comments below"*) — a fork
-    declaration. The seam is *"apply this PREPARED transition to this RECORDED
-    subject"*; the obstacle is that the eager side is a system with `SystemParam`s
-    and the confirmed side is `&mut World`, which `SystemState` bridges. ⛔ do not
-    bridge it with a callback or a context bag.
+  - ▣ **ONE application operation.** DONE 2026-08-14.
+    `RoomTransitionApplication` (a `SystemParam` in `room_transition/commit.rs`) is
+    now the only implementation of *"put this RECORDED subject in this PREPARED
+    room"*. The eager system takes it as a parameter; `commit_transition` reaches
+    it through a `SystemState` on `&mut World` — Bevy's own bridge between exactly
+    those two shapes, and ⛔ not a callback (which would invert control to hide a
+    borrow) or a context bag (which would re-list every param, the thing being
+    deleted).
 
-    ⛔⛔ **AND THE FORK HAS ALREADY COST SOMETHING, MEASURED 2026-08-14.** The
-    eager path calls `RoomTransitionCombatReset::clear_carryover` — despawn every
-    in-flight enemy projectile, return `BaseGravity` to its default — and
-    `commit_transition` calls NEITHER. Neither string appears anywhere in
-    `lifecycle_commit.rs`. So on the SHIPPED rollback host, walking through a door
-    carries hostile shots into the next room and leaves a room-modified ambient
-    gravity in force. Two hosts, one game, two rules. That is the argument for
-    the convergence rather than for a third reset list, and it is what the
-    convergence must be tested to fix.
+    **DELETION PAYOFF, all of it load-bearing:**
 
-    ⚠ the mirror runs both ways: `TransitBodies::subject_entity` documents itself
-    as *"Mirrors the confirmed side's `resolve_transition_subject`"*, so the
-    subject resolution is a declared fork too.
+    | deleted | why it existed |
+    |---|---|
+    | `load_room` (24 params) | the eager half of the fork |
+    | `apply_room_transition_resets` | the eager half's cross-domain resets |
+    | `RoomConstructionPlan::apply_to_world` (66 lines) | the confirmed half's world application — now zero callers |
+    | `resolve_transition_subject` | the declared mirror of `TransitBodies::subject_entity` |
+    | ~150 lines of restated body/reset logic in `commit_transition` | the confirmed half |
+
+    `commit_ready_room_transition_system` went from **16 `SystemParam`s at Bevy's
+    ceiling to 2**. What is left in `commit_transition` is the only thing that is
+    genuinely different about a confirmed commit: it runs outside the rewound
+    schedule, so its commands are applied synchronously and the plan's spawn
+    requests are drained before it returns.
+
+    ⭐⭐ **AND THE FORK HAD ALREADY COST SOMETHING — MEASURED, THEN FIXED.** The
+    eager path called `clear_carryover` (despawn every in-flight enemy projectile,
+    return `BaseGravity` to default) and `commit_transition` called neither; it
+    never recorded the Class-B transit either. So on the SHIPPED rollback host a
+    door carried hostile shots into the next room and left a room-modified ambient
+    gravity in force. `a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind`
+    was written RED against that (`left: Vec2(-0.0, -1.0)` vs `Vec2(0.0, 1.0)`) and
+    is green under the convergence. ⛔ nobody wrote those omissions — they are
+    simply what a second implementation becomes, which is the argument for the
+    shape rather than for a third reset list.
   - ▣ **the epoch POISON test.** DONE 2026-08-14:
     `a_transaction_authorized_under_a_stale_content_epoch_never_commits` walks the
     body to `CommitAuthorized`, bumps `RoomTransitionContentEpoch`, and asserts the

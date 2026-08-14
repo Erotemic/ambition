@@ -120,161 +120,345 @@ fn ground_gap_below_feet(
     }
 }
 
-/// Apply the cross-domain per-transition STATE resets that the space IR
-/// (`rooms::commit_room_transition_geometry`) deliberately does not touch: blink-camera snap,
-/// respawn-safety anchor, hit-flash/combat timers, and dialogue close. These live
-/// in the composition tier because they mutate four different domains' state
-/// (player / dialog / combat) — no single domain owns the transition, so the
-/// caller that composes them does (anti-god rule 6). Derived entirely from the
-/// arrival position + edge-exit fact the IR returns, so behavior is byte-identical
-/// to when these writes lived inside the former direct room loader.
-#[allow(clippy::too_many_arguments)]
-fn apply_room_transition_resets(
-    safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
-    dialogue: &mut ambition_dialog::DialogState,
-    conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
-    combat: &mut ambition_characters::actor::BodyCombat,
-    blink_cam: Option<
-        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+/// **THE room-transition application, and there is only one.**
+///
+/// Applying a prepared transition is *"put this RECORDED subject in this
+/// PREPARED room"* — one operation, whatever host asks for it. Two hosts ask:
+/// the eager one from an ordinary system, the rollback one from
+/// `commit_confirmed_lifecycle`'s exclusive world once the frame is confirmed.
+/// They differ in WHEN they are allowed to mutate the world, which is a
+/// scheduling fact, not a different transition.
+///
+/// ⛔⛔ **THEY USED TO BE TWO IMPLEMENTATIONS, AND THE COPIES HAD ALREADY
+/// DIVERGED.** `commit_transition` declared itself a mirror of this path *"kept
+/// in sync by the line comments below"* — a citation, and citations go stale.
+/// Measured 2026-08-14: the confirmed copy never called `clear_carryover`, so on
+/// the SHIPPED rollback host a door carried every in-flight enemy projectile
+/// into the next room and left a room-modified ambient gravity in force. The
+/// same copy never recorded the Class-B transit either. Nobody wrote those
+/// omissions; they are simply what a second implementation becomes.
+///
+/// ⚠ **`Query`, not `Single`, for the session world.** `SystemState::get_mut`
+/// PANICS when a `Single` matches nothing, and the confirmed host reaches this
+/// through a `SystemState` on `&mut World` — a missing session root there must
+/// be a refusal it can report, not a crash inside an exclusive system.
+#[derive(SystemParam)]
+pub struct RoomTransitionApplication<'w, 's> {
+    commands: Commands<'w, 's>,
+    effects: RoomTransitionEffects<'w>,
+    bodies: TransitBodies<'w, 's>,
+    /// Room authority, held on the session root: the geometry the body will
+    /// collide against and the set that names which room is active.
+    session: Query<
+        'w,
+        's,
+        (&'static mut RoomGeometry, &'static mut rooms::RoomSet),
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
-    arrival_pos: ae::Vec2,
-    edge_exit: bool,
-    feel: Platformer2dFeelTuningMonolith,
-) {
-    if let Some(blink_cam) = blink_cam {
-        blink_cam.blink_in_timer = 0.0;
-        blink_cam.blink_camera_from = arrival_pos;
-        blink_cam.blink_camera_to = arrival_pos;
-        blink_cam.camera_snap_timer = if edge_exit {
-            0.0
-        } else {
-            ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME
-        };
-    }
-    // AC3.3: one reset rule, asked for rather than restated. This list and the
-    // twin in `lifecycle_commit` were the only two places `landing_lag_timer`
-    // was cleared correctly, which is precisely why D108's four OTHER lists
-    // could forget it without producing a visible symptom.
-    combat.reset();
-    combat.hit_flash = if edge_exit {
-        feel.edge_transition_flash
-    } else {
-        feel.door_transition_flash
-    };
-    if let Some(safety) = safety {
-        safety.last_safe_pos = arrival_pos;
-    }
-    dialogue.close();
-    // ⛔ **the AUTHORITY too, and it is not the same close.** `DialogState` going
-    // quiet only takes the text box away; the simulation's conversation names
-    // two BODIES, and this transition is about to despawn the room they were
-    // standing in. A conversation that survived would point at dead entities and
-    // hold an NPC that no longer exists.
-    conversation.close();
+    dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
+    clock: RoomClock<'w>,
+    moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
+    dialogue: ResMut<'w, ambition_dialog::DialogState>,
+    conversation:
+        ResMut<'w, ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    room_visuals: Query<
+        'w,
+        's,
+        (Entity, Option<&'static physics::PhysicsRoomEntity>),
+        With<RoomScopedEntity>,
+    >,
+    tuning: Res<'w, ae::ActiveMovementTuning>,
+    feel: Res<'w, Platformer2dFeelTuningMonolith>,
+    carryover: RoomTransitionCombatReset<'w, 's>,
 }
 
-pub fn load_room(
-    commands: &mut Commands,
-    sfx: &mut SfxWriter,
-    vfx: &mut MessageWriter<VfxMessage>,
-    respawn_visuals: &mut MessageWriter<rooms::RespawnRoomVisualsRequested>,
-    motion_model: &mut ae::MotionModel,
-    clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut ambition_dev_tools::DeveloperRuntimeState,
-    sim_state: &mut ambition_platformer2d_actor_monolith::RoomTransitionCooldown,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
-    // Home-only presentation state (None when a possessed actor transits).
-    safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
-    moving_platforms: &mut Vec<ambition_platformer2d_world::platforms::MovingPlatformState>,
-    dialogue: &mut ambition_dialog::DialogState,
-    conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
-    combat: &mut ambition_characters::actor::BodyCombat,
-    blink_cam: Option<
-        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-    >,
-    world: &mut RoomGeometry,
-    room_set: &mut rooms::RoomSet,
-    construction_plan: &rooms::RoomConstructionPlan,
-    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    // The transiting body, exempt from the old-room despawn so it rides along.
-    carry_body: Option<Entity>,
-    target_room: usize,
-    arrival_at: ae::Vec2,
-    edge_exit_crossing: bool,
-    tuning: ae::MovementTuning,
-    feel: Platformer2dFeelTuningMonolith,
-) {
-    // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
-    // feature entities. Lives in the world runtime (`ambition_platformer2d_actor_monolith`) so
-    // the headless sim can load rooms without a render dependency.
-    let rooms::RoomLoadResult {
-        spec: _,
-        arrival_pos,
-        edge_exit,
-    } = rooms::commit_room_transition_geometry(
-        commands,
-        sfx,
-        motion_model,
-        clusters,
-        dev_state,
-        sim_state,
-        clock_resets,
-        moving_platforms,
-        construction_plan,
-        world,
-        room_set,
-        room_visuals,
-        carry_body,
-        target_room,
-        arrival_at,
-        edge_exit_crossing,
-        tuning,
-        feel,
-    );
+/// Why an application refused, with the world still whole.
+///
+/// ⛔ every variant is raised BEFORE the first destructive mutation. A
+/// transition that fails after `retire_outgoing` has despawned the source room
+/// and has nowhere to put the body, which is not a failure a caller can handle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoomTransitionApplyError {
+    /// No session root carries room authority — there is no world to transition.
+    NoSessionWorld,
+    /// The body that crossed no longer exists. A VOID crossing: the transition
+    /// fails rather than substituting whoever happens to be driving now.
+    SubjectGone,
+    /// The subject is not a body this operation can move.
+    SubjectCannotTransit {
+        subject: Entity,
+        missing: &'static str,
+    },
+}
 
-    // The space IR (`commit_room_transition_geometry`) resolved geometry + arrival but does not
-    // name higher-tier player/dialog/combat STATE (W1). The composition tier owns
-    // the cross-domain per-transition reset (anti-god rule 6: split by who
-    // mutates), driven purely by the returned arrival + edge-exit facts.
-    apply_room_transition_resets(
-        safety,
-        dialogue,
-        conversation,
-        combat,
-        blink_cam,
-        arrival_pos,
-        edge_exit,
-        feel,
-    );
+impl std::fmt::Display for RoomTransitionApplyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoSessionWorld => {
+                write!(f, "no session root carries RoomGeometry + RoomSet")
+            }
+            Self::SubjectGone => write!(
+                f,
+                "the body that triggered this room transition no longer exists; \
+                 cancelling the crossing rather than transiting a substitute"
+            ),
+            Self::SubjectCannotTransit { subject, missing } => write!(
+                f,
+                "transiting body {subject:?} has no {missing} at room commit"
+            ),
+        }
+    }
+}
 
-    // Presentation half: ASK, don't draw. A room's static visuals + parallax are
-    // rebuilt by `ambition_render::rendering::respawn_room_visuals_on_request`,
-    // which reads the active room out of `RoomSet` for itself — the same channel
-    // the sandbox reset (`session::reset`, step 7) and the room stager already
-    // use. Calling `spawn_room_visuals` here instead was the lone holdout: it is
-    // what made a room transition name `ambition_platformer2d::render`, and therefore what
-    // kept the whole commit chain app-local and unreachable by a demo host.
-    // A headless build has no consumer and correctly skips the visual respawn.
-    respawn_visuals.write(rooms::RespawnRoomVisualsRequested);
-    if edge_exit {
-        // Edge exits should feel like contiguous room scrolling, not a death-like
-        // teleport. Only show an arrival puff in the new room because `from` was
-        // expressed in the previous room's coordinate space.
-        vfx.write(VfxMessage::Burst {
-            pos: arrival_pos,
-            count: 18,
-            speed: 260.0,
-            color: [0.35, 0.95, 1.0, 0.75],
-            kind: ParticleKind::Dust,
-        });
-    } else {
-        // Door transitions are discrete interactions, so a teleport-like effect
-        // is acceptable; use the destination for both endpoints to avoid mixing
-        // coordinate systems from two rooms.
-        vfx.write(VfxMessage::ResetEffects {
-            from: arrival_pos,
-            to: arrival_pos,
-        });
+/// What a successful application did, for the caller's diagnostics.
+pub struct AppliedRoomTransition {
+    pub subject: Entity,
+    pub arrival_pos: ae::Vec2,
+}
+
+impl RoomTransitionApplication<'_, '_> {
+    /// Read the room authority the transaction's staleness checks compare
+    /// against. `None` when no session root carries it, which
+    /// [`Self::apply`] refuses on for the same reason.
+    pub fn room_set(&self) -> Option<&rooms::RoomSet> {
+        self.session.iter().next().map(|(_, room_set)| room_set)
+    }
+
+    /// Resolve the EXACT body a transition recorded, or `None`.
+    ///
+    /// An id that still resolves gives that body; one that no longer resolves
+    /// gives `None` — never a substitute. The crossing body being gone is a void
+    /// crossing, not a licence to move somebody else into the room the player
+    /// walked to.
+    pub fn subject_entity(
+        &self,
+        subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ) -> Option<Entity> {
+        self.bodies.subject_entity(subject)
+    }
+
+    /// Apply a prepared transition to a resolved subject.
+    ///
+    /// The order is load-bearing and is the same order both hosts always needed:
+    /// **resolve and preflight everything that can fail, then mutate.** Past the
+    /// preflight block nothing here returns `Err`, so the source room is never
+    /// retired for a crossing that then cannot complete.
+    pub fn apply(
+        &mut self,
+        plan: &rooms::RoomConstructionPlan,
+        subject: Entity,
+        target_room: usize,
+        arrival_at: ae::Vec2,
+        edge_exit: bool,
+        zone_sfx: Option<&str>,
+    ) -> Result<AppliedRoomTransition, RoomTransitionApplyError> {
+        // ── PREFLIGHT ────────────────────────────────────────────────────────
+        if self.session.iter().next().is_none() {
+            return Err(RoomTransitionApplyError::NoSessionWorld);
+        }
+        for (missing, present) in [
+            ("MotionModel", self.bodies.motion_models.contains(subject)),
+            (
+                "complete actor cluster",
+                self.bodies.clusters.contains(subject),
+            ),
+            ("BodyCombat", self.bodies.combat.contains(subject)),
+        ] {
+            if !present {
+                return Err(RoomTransitionApplyError::SubjectCannotTransit { subject, missing });
+            }
+        }
+
+        // Read-only facts gathered before the mutable borrows below.
+        let subject_gravity_dir = self
+            .bodies
+            .motion_frames
+            .get(subject)
+            .map(|frame| frame.down())
+            .unwrap_or(ae::Vec2::new(0.0, 1.0));
+        let tuning = self.tuning.0;
+        let feel = *self.feel;
+        // A body carrying home-only presentation state is the primary player,
+        // which is not room-scoped and so is never in the outgoing roster. Any
+        // OTHER body is, and must be exempted from the despawn so it rides along.
+        let is_home_body = self.bodies.presentation.contains(subject);
+        let carry_body = (!is_home_body).then_some(subject);
+
+        // ── MUTATION ─────────────────────────────────────────────────────────
+        // Nothing below may fail.
+
+        // A fresh room inherits neither hostile shots nor the gravity frame of
+        // the one just left.
+        self.carryover.clear_carryover();
+
+        let Ok((mut geometry, mut room_set)) = self.session.single_mut() else {
+            // Unreachable: the preflight above proved exactly one match.
+            return Err(RoomTransitionApplyError::NoSessionWorld);
+        };
+        let Ok(mut motion_model) = self.bodies.motion_models.get_mut(subject) else {
+            return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                subject,
+                missing: "MotionModel",
+            });
+        };
+        let Ok(mut cluster_item) = self.bodies.clusters.get_mut(subject) else {
+            return Err(RoomTransitionApplyError::SubjectCannotTransit {
+                subject,
+                missing: "complete actor cluster",
+            });
+        };
+        let mut clusters = cluster_item.as_clusters_mut();
+
+        // **The door makes a sound**, at the body's position BEFORE the transit.
+        if let Some(cue) = zone_sfx {
+            self.effects.sfx.write(SfxMessage::Play {
+                id: ambition_sfx::SfxId::new(cue),
+                pos: clusters.kinematics.pos,
+            });
+        }
+
+        debug_assert_eq!(plan.target_index(), target_room);
+        let player_size = clusters.kinematics.size;
+        plan.retire_outgoing(
+            &mut self.commands,
+            self.room_visuals
+                .iter()
+                .map(|(entity, physics)| (entity, physics.is_some())),
+            carry_body,
+        );
+        plan.commit_deferred(
+            &mut self.commands,
+            &mut room_set,
+            &mut geometry,
+            &mut self.moving_platforms.0,
+        );
+
+        // The authored arrival, validated against the NOW-target geometry using
+        // the body's own size, so the body is never placed inside a solid or out
+        // of bounds.
+        let arrival = ambition_platformer2d_world::rooms::validated_spawn(
+            &geometry.0,
+            arrival_at,
+            player_size,
+        );
+        ae::arrive_body_in_room(
+            &mut motion_model,
+            &mut clusters,
+            arrival,
+            tuning.air_jumps,
+            if edge_exit {
+                ae::ArrivalMomentum::Preserve
+            } else {
+                ae::ArrivalMomentum::Reset
+            },
+        );
+        let arrival_pos = clusters.kinematics.pos;
+
+        self.clock.clock_resets.write(ClockResetRequest::sim_clock(
+            ambition_platformer2d_actor_monolith::time::time_control::ClockRequester::Engine,
+            "room_transition",
+        ));
+        self.clock.sim_state.remaining = if edge_exit {
+            feel.edge_transition_cooldown
+        } else {
+            feel.door_transition_cooldown
+        };
+        self.dev_state.preset_flash = 1.0;
+
+        // ── CROSS-DOMAIN PER-TRANSITION RESETS ───────────────────────────────
+        // Four different domains' state, so no single domain owns this and the
+        // operation that composes them does (anti-god rule 6). Optional
+        // components are absent for a possessed non-home body, which is allowed.
+        if let Ok(mut combat) = self.bodies.combat.get_mut(subject) {
+            // AC3.3: `reset()` IS the list of every reaction timer a body reset
+            // clears, so a transition ASKS for it rather than restating it —
+            // this list and its former twin were the only two places
+            // `landing_lag_timer` was cleared correctly, which is precisely why
+            // D108's four other lists could forget it without a visible symptom.
+            // The arrival flash is the one thing a transition adds.
+            combat.reset();
+            combat.hit_flash = if edge_exit {
+                feel.edge_transition_flash
+            } else {
+                feel.door_transition_flash
+            };
+        }
+        if let Ok((mut blink_cam, mut safety)) = self.bodies.presentation.get_mut(subject) {
+            blink_cam.blink_in_timer = 0.0;
+            blink_cam.blink_camera_from = arrival_pos;
+            blink_cam.blink_camera_to = arrival_pos;
+            blink_cam.camera_snap_timer = if edge_exit {
+                0.0
+            } else {
+                ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME
+            };
+            safety.last_safe_pos = arrival_pos;
+        }
+        self.dialogue.close();
+        // ⛔ **the AUTHORITY too, and it is not the same close.** `DialogState`
+        // going quiet only takes the text box away; the simulation's conversation
+        // names two BODIES, and this transition just despawned the room they were
+        // standing in. A conversation that survived would point at dead entities
+        // and hold an NPC that no longer exists.
+        self.conversation.close();
+
+        if let Some(log) = self.bodies.class_b.as_mut() {
+            log.record(
+                subject,
+                ambition_platformer2d_shared_tangle::class_b::ClassBRemap::RoomTransition,
+            );
+        }
+
+        // ── PRESENTATION: ASK, DON'T DRAW ────────────────────────────────────
+        // A room's static visuals + parallax are rebuilt by
+        // `ambition_render::rendering::respawn_room_visuals_on_request`, which
+        // reads the active room out of `RoomSet` for itself — the same channel
+        // the sandbox reset and the room stager already use. Calling
+        // `spawn_room_visuals` here instead was what made a room transition name
+        // `ambition_platformer2d::render`, and therefore what kept the whole
+        // commit chain app-local and unreachable by a demo host. A headless build
+        // has no consumer and correctly skips the respawn.
+        self.effects
+            .respawn_room_visuals
+            .write(rooms::RespawnRoomVisualsRequested);
+        if edge_exit {
+            // Edge exits should feel like contiguous room scrolling, not a
+            // death-like teleport. Only an arrival puff in the new room, because
+            // `from` would be expressed in the previous room's coordinate space.
+            self.effects.vfx.write(VfxMessage::Burst {
+                pos: arrival_pos,
+                count: 18,
+                speed: 260.0,
+                color: [0.35, 0.95, 1.0, 0.75],
+                kind: ParticleKind::Dust,
+            });
+        } else {
+            // Door transitions are discrete interactions, so a teleport-like
+            // effect is acceptable; use the destination for both endpoints to
+            // avoid mixing coordinate systems from two rooms.
+            self.effects.vfx.write(VfxMessage::ResetEffects {
+                from: arrival_pos,
+                to: arrival_pos,
+            });
+        }
+        self.effects
+            .sfx
+            .write(SfxMessage::Reset { pos: arrival_pos });
+
+        log_room_transition_landing(
+            target_room,
+            &room_set,
+            arrival_pos,
+            player_size,
+            subject_gravity_dir,
+            &geometry.0,
+            &self.carryover.feature_overlay,
+        );
+
+        Ok(AppliedRoomTransition {
+            subject,
+            arrival_pos,
+        })
     }
 }
 
@@ -341,7 +525,7 @@ impl TransitBodies<'_, '_> {
     /// that no longer resolves gives `None` — never a substitute. The crossing
     /// body being gone is a void crossing, not a licence to move somebody else
     /// into the room the player walked to.
-    fn subject_entity(
+    pub fn subject_entity(
         &self,
         subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
     ) -> Option<Entity> {
@@ -353,21 +537,11 @@ impl TransitBodies<'_, '_> {
 }
 
 pub fn commit_ready_room_transition_system(
-    mut commands: Commands,
-    mut event_writers: RoomTransitionEffects,
-    mut transit: TransitBodies,
-    mut world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomGeometry>,
-    mut room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<rooms::RoomSet>,
-    mut dev_state: ResMut<ambition_dev_tools::DeveloperRuntimeState>,
-    mut room_clock: RoomClock,
-    mut moving_platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    mut dialogue: ResMut<ambition_dialog::DialogState>,
-    mut conversation: ResMut<
-        ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
-    >,
-    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    // ⭐ **THE APPLICATION, not fifteen pieces of it** (D71). What this system
+    // owns is the TRANSACTION — the staleness checks, the barrier, the cover
+    // bookkeeping — and it reaches the world only through the one operation the
+    // confirmed host also calls.
+    mut application: RoomTransitionApplication,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
@@ -388,7 +562,6 @@ pub fn commit_ready_room_transition_system(
             ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
         >,
     ),
-    mut combat_reset: RoomTransitionCombatReset,
 ) {
     let (
         active_session,
@@ -419,6 +592,20 @@ pub fn commit_ready_room_transition_system(
         return;
     };
 
+    // The room authority this transaction was opened against. Absent means the
+    // session world is gone under it, which is exactly as stale as any other
+    // mismatch below.
+    let Some(room_set) = application.room_set() else {
+        super::loading::fail_room_transition_commit_precondition(
+            &mut transition_state,
+            &mut loads,
+            &mut load_events,
+            active.sequence,
+            "no session root carries room authority at commit".to_string(),
+        );
+        return;
+    };
+    let room_set_active = room_set.active;
     let target_still_matches = room_set.rooms.get(active.target_room).is_some_and(|room| {
         room.id == active.target_room_id
             && active
@@ -429,7 +616,7 @@ pub fn commit_ready_room_transition_system(
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     if active.content_epoch != content_epoch.get()
         || active.session_scope != current_session
-        || room_set.active != active.source_room
+        || room_set_active != active.source_room
         || !target_still_matches
     {
         let detail = format!(
@@ -442,7 +629,7 @@ pub fn commit_ready_room_transition_system(
             active.target_room_id,
             content_epoch.get(),
             current_session,
-            room_set.active,
+            room_set_active,
         );
         for event in loads.apply(ambition_load::LoadCommand::Cancel {
             load_id: active.barrier.load_id.clone(),
@@ -506,7 +693,18 @@ pub fn commit_ready_room_transition_system(
     // A subject that no longer resolves is a VOID crossing: the crossing body is
     // gone, so the transition FAILS rather than substituting whoever is driving
     // now. Same rule, same words, as `commit_transition`'s confirmed side.
-    let Some(subject) = transit.subject_entity(&intent.subject) else {
+    // **The body that CROSSED is the body that ARRIVES** — resolved from the
+    // `SimId` the DETECTION recorded, never re-derived here.
+    //
+    // ⛔⛔ this asked `ControlledSubject`, falling back to the primary player,
+    // under a comment claiming *"this is the same subject the detect side
+    // resolves"*. A citation, and a false one across time: readiness takes
+    // several frames, and possession changing hands or a death inside that window
+    // silently transited a different body than the one that walked through the
+    // door. The rollback path never had this bug — `LifecycleIntent::Transition`
+    // has carried its subject since Track B — and D71 makes the richer contract
+    // the only one.
+    let Some(subject) = application.subject_entity(&intent.subject) else {
         super::loading::fail_room_transition_commit_precondition(
             &mut transition_state,
             &mut loads,
@@ -520,60 +718,6 @@ pub fn commit_ready_room_transition_system(
         );
         return;
     };
-    let subject_gravity_dir = transit
-        .motion_frames
-        .get(subject)
-        .map(|frame| frame.down())
-        .unwrap_or(ae::Vec2::new(0.0, 1.0));
-    let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
-        super::loading::fail_room_transition_commit_precondition(
-            &mut transition_state,
-            &mut loads,
-            &mut load_events,
-            active.sequence,
-            format!("controlled body {subject:?} has no MotionModel at room commit"),
-        );
-        return;
-    };
-    let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
-        super::loading::fail_room_transition_commit_precondition(
-            &mut transition_state,
-            &mut loads,
-            &mut load_events,
-            active.sequence,
-            format!("controlled body {subject:?} has no complete actor cluster at room commit"),
-        );
-        return;
-    };
-    let Ok(mut combat) = transit.combat.get_mut(subject) else {
-        super::loading::fail_room_transition_commit_precondition(
-            &mut transition_state,
-            &mut loads,
-            &mut load_events,
-            active.sequence,
-            format!("controlled body {subject:?} has no BodyCombat at room commit"),
-        );
-        return;
-    };
-    let (mut blink_opt, mut safety_opt) = match transit.presentation.get_mut(subject).ok() {
-        Some((blink, safety)) => (Some(blink), Some(safety)),
-        None => (None, None),
-    };
-    let carry_body = if blink_opt.is_some() {
-        None
-    } else {
-        Some(subject)
-    };
-
-    combat_reset.clear_carryover();
-    let mut clusters = cluster_item.as_clusters_mut();
-    let pos_before = clusters.kinematics.pos;
-    if let Some(sfx_id) = &intent.zone_sfx {
-        event_writers.sfx.write(SfxMessage::Play {
-            id: ambition_sfx::SfxId::new(sfx_id.as_str()),
-            pos: pos_before,
-        });
-    }
 
     let target_room = active.target_room;
     // AMBITION_REVIEW(determinism): wall clock, and deliberately so — this
@@ -584,33 +728,27 @@ pub fn commit_ready_room_transition_system(
     // wrong thing: the point is wall-clock cost to the player.
     #[cfg(not(target_arch = "wasm32"))]
     let commit_started = std::time::Instant::now();
-    load_room(
-        &mut commands,
-        &mut event_writers.sfx,
-        &mut event_writers.vfx,
-        &mut event_writers.respawn_room_visuals,
-        &mut motion_model,
-        &mut clusters,
-        &mut dev_state,
-        &mut room_clock.sim_state,
-        &mut room_clock.clock_resets,
-        safety_opt.as_deref_mut(),
-        &mut moving_platforms.0,
-        &mut dialogue,
-        &mut conversation,
-        &mut combat,
-        blink_opt.as_deref_mut(),
-        &mut world,
-        &mut room_set,
+    // ⭐ **THE ONE APPLICATION OPERATION** (D71). Both hosts call this; what the
+    // eager host owns is the TRANSACTION around it — the staleness checks above
+    // and the barrier/cover bookkeeping below — not a second idea of what a room
+    // transition does to the world.
+    if let Err(error) = application.apply(
         construction_plan,
-        &room_visuals,
-        carry_body,
+        subject,
         target_room,
         intent.arrival,
         intent.edge_exit,
-        active_tuning.0,
-        *feel_tuning,
-    );
+        intent.zone_sfx.as_deref(),
+    ) {
+        super::loading::fail_room_transition_commit_precondition(
+            &mut transition_state,
+            &mut loads,
+            &mut load_events,
+            active.sequence,
+            error.to_string(),
+        );
+        return;
+    }
     #[cfg(not(target_arch = "wasm32"))]
     let commit_duration = Some(commit_started.elapsed());
     #[cfg(target_arch = "wasm32")]
@@ -623,22 +761,6 @@ pub fn commit_ready_room_transition_system(
         current.commit_duration = commit_duration;
         current.committed_at = real_time.as_deref().map(|time| time.elapsed());
     }
-
-    if let Some(log) = transit.class_b.as_mut() {
-        log.record(
-            subject,
-            ambition_platformer2d_shared_tangle::class_b::ClassBRemap::RoomTransition,
-        );
-    }
-    log_room_transition_landing(
-        target_room,
-        &room_set,
-        clusters.kinematics.pos,
-        clusters.kinematics.size,
-        subject_gravity_dir,
-        &world.0,
-        &combat_reset.feature_overlay,
-    );
     // The crossing landed, so the intent that described it is spent. ⛔ NOT
     // earlier: every failure path above leaves it pending on purpose, which is
     // what lets Retry re-open the same crossing rather than invent a new one.

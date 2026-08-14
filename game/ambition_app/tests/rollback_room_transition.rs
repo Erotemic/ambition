@@ -525,19 +525,18 @@ fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2>
 /// Two hosts, one game, two rules — which is what a "mirrors X" fork buys, and
 /// what the ONE-application-operation convergence exists to end.
 ///
-/// ⛔⛔ **IGNORED BECAUSE IT IS RED, AND IT IS RED BECAUSE THE GAP IS REAL.**
-/// Measured 2026-08-14: it fails with `left: Vec2(-0.0, -1.0)` — the previous
-/// room's flipped gravity, still in force after the door — against the
-/// `Vec2(0.0, 1.0)` default the eager host resets to. That is a MEASUREMENT, not
-/// a wish, and this test is the gap rather than the fix.
+/// ⭐ **THIS WAS RED, AND IT IS THE CONVERGENCE'S PROOF.** Written 2026-08-14
+/// against the forked implementation, it failed with `left: Vec2(-0.0, -1.0)` —
+/// the previous room's flipped gravity, still in force after the door — against
+/// the `Vec2(0.0, 1.0)` default the eager host resets to. It went green when
+/// `commit_transition` stopped being a second implementation and started calling
+/// `RoomTransitionApplication::apply`, the one operation both hosts share.
 ///
-/// ⛔ **do not delete or weaken it to make a run green, and do not satisfy it by
-/// pasting a third reset list into `commit_transition`.** The fix is the ONE
-/// application operation both hosts call (see
-/// `docs/planning/engine/room-transition-loading.md`); un-ignore it in the same
-/// commit that lands the convergence, and it becomes that slice's proof.
+/// ⛔ **so do not satisfy it in future by pasting a reset into one host.** What
+/// makes it hold is that there is nowhere to paste: one operation, two callers.
+/// A fix that touches only `commit_transition` has re-forked the thing this
+/// test exists to prove is not forked.
 #[test]
-#[ignore = "RED: the shipped rollback host does not clear room carryover — un-ignore with the D71 one-application-operation convergence"]
 fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
     let mut sim = repro_sim();
     sim.step(AgentAction::default());

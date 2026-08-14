@@ -38,7 +38,10 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-pub use commit::{commit_ready_room_transition_system, RoomClock, RoomTransitionEffects};
+pub use commit::{
+    commit_ready_room_transition_system, AppliedRoomTransition, RoomClock,
+    RoomTransitionApplication, RoomTransitionApplyError, RoomTransitionEffects, TransitBodies,
+};
 pub use loading::{
     advance_room_transition_content_epoch_system, authorize_ready_room_transition_system,
     begin_room_transition_load_system, finalize_unpresented_room_transition_failure_system,

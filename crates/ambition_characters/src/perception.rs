@@ -438,6 +438,33 @@ impl WorldView {
     /// the floor's EXTENT and not just the distance to one of its edges (the
     /// fighter brain's rollout walks a shadow body around and has to know when it
     /// has run out of ground).
+    /// **The floor a body would land on, standing or not.**
+    ///
+    /// ⛔ [`Self::supporting_floor`] answers only within about a body-height of
+    /// the feet, because its question is *"what am I standing on"*. An AIRBORNE
+    /// body has no supporting floor by that definition and therefore went blind
+    /// about the platform exactly during recovery — the one moment the platform's
+    /// extent decides whether it lives.
+    ///
+    /// This asks the other question: *"what is under me, if anything."* The
+    /// nearest solid below the body's footprint, at any distance. `None` means
+    /// there is genuinely nothing beneath — which for a fighter over the
+    /// blastzone is the true and useful answer.
+    pub fn floor_below(&self) -> Option<ae::Aabb> {
+        let me = &self.self_view;
+        let feet = me.pos.y + me.half_extent.y;
+        self.terrain
+            .iter()
+            .filter(|solid| matches!(solid.kind, SolidKind::Solid | SolidKind::OneWay))
+            .filter(|solid| {
+                solid.aabb.min.x <= me.pos.x + me.half_extent.x
+                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
+                    && solid.aabb.min.y >= feet - me.half_extent.y
+            })
+            .min_by(|a, b| (a.aabb.min.y - feet).total_cmp(&(b.aabb.min.y - feet)))
+            .map(|solid| solid.aabb)
+    }
+
     pub fn supporting_floor(&self) -> Option<ae::Aabb> {
         let me = &self.self_view;
         let feet = me.pos.y + me.half_extent.y;

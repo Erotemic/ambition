@@ -183,11 +183,34 @@ than a fifth of a second of running.
    TRAJECTORY rather than only achieved KO costs nothing per step and does not
    move the budget.
 
-⚠ **not yet demonstrated**: the arithmetic explains every observation (self-KO at
-every rung, depth 12 six times worse, 0% damage because they die before
-engaging), but no fix has been run. `ladder_probe`'s depth A/B is the instrument
-— depth 0 at 47.8s versus depth 12 at 7.4s is a wide enough gap to read a change
-against.
+**FIXED 2026-08-14, and the measurement moved.** Both changes landed:
+
+```text
+                  before          after
+9 / depth 0     47.8s, 3 stocks   47.8s, 3 stocks   (unchanged, as expected)
+9 / depth 12     7.4s, 3 stocks   43.2s, 1 stock, survived >60s
+```
+
+⭐ **the rollout now HELPS instead of hurting.** Depth 12 went from six times
+worse than depth 0 to losing one stock where depth 0 loses three.
+
+⛔⛔ **and the committed-fall predicate alone did nothing — the first attempt
+measured IDENTICAL numbers.** Pricing an unrecoverable trajectory cannot fire
+when the model has no floor to be unrecoverable from, and
+`ShadowFighter::ground_level` was `view.on_ground.then(…)`: **`None` for an
+airborne body**, which is every body that is falling to its death. The blindness
+the earlier note called "survivable" was the whole mechanism.
+
+⇒ `WorldView::floor_below` was added beside `supporting_floor`. The supporting
+one answers *"what am I standing on"* and is right to give up when nobody is
+standing; a rollout is asking *"what will I land on"*, which has an answer at any
+height. `ShadowState::from_perceived` seeds both `ground_span` and `ground_level`
+from it.
+
+⚠ **the threshold is BELOW the lip, not past it.** Killing a body the moment it
+clears the edge both lies (it can still jump back) and freezes it mid-air, which
+broke the rollout guard that says a body must FALL off a platform. Unrecoverable
+is: out of air jumps, a body-height below the surface it left, still descending.
 
 (The other two suspects are cleared: `started_offstage` resets the moment a body
 re-enters the box, so it cannot suppress a death for a fighter that walks out

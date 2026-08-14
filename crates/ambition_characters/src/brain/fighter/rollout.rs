@@ -402,6 +402,10 @@ pub enum ShadowIntent {
     },
 }
 
+fn down_unit(gravity_down: ae::Vec2) -> ae::Vec2 {
+    gravity_down.normalize_or_zero()
+}
+
 fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
     let down = gravity_down.normalize_or_zero();
     ShadowFighter {
@@ -487,13 +491,24 @@ impl ShadowState {
         // The one place with the terrain to answer "how far does my floor
         // reach", projected into the gravity frame the shadow integrates in.
         let side = ae::AccelerationFrame::new(gravity_down).side;
-        let ground_span = view.supporting_floor().map(|floor| {
+        // ⭐ **`floor_below`, not `supporting_floor`.** The supporting one answers
+        // only while standing, so a recovering body imagined an infinite plane at
+        // exactly the moment the platform's extent decides whether it lives. The
+        // floor a body would LAND on is the question a rollout is asking.
+        let landing = view.floor_below();
+        let ground_span = landing.map(|floor| {
             let a = floor.min.dot(side);
             let b = floor.max.dot(side);
             (a.min(b), a.max(b))
         });
         let mut me = fighter_from_self(&view.self_view, gravity_down);
         me.ground_span = ground_span;
+        // An airborne body has no `ground_level` of its own (it is not standing
+        // on anything), but it does have a surface it is falling toward, and the
+        // committed-fall test needs that height to mean anything.
+        if me.ground_level.is_none() {
+            me.ground_level = landing.map(|floor| floor.min.dot(down_unit(gravity_down)));
+        }
         // ⭐ **who is already out.** A body outside the envelope when the search
         // begins is RECOVERING; the crossing that would have killed it happened
         // before this rollout, and pricing it as a fresh KO makes every option
@@ -636,6 +651,47 @@ pub fn shadow_step(
     //     an immediate KO is what removed the discrimination in the first place.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
         let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
+        // ⛔⛔ **A COMMITTED FALL IS A DEATH THE HORIZON CANNOT REACH.**
+        //
+        // Leaving the box is what this priced, and on a platform stage that
+        // consequence is simply too far away to be seen: from the Smash
+        // platform's top the box floor is 180px — 24 ticks at 2250px/s² — while
+        // the level-9 horizon is 12. Stepping off the ledge scored FREE, so a
+        // deeper search found more ways to leave, every one of them free.
+        // Measured 2026-08-14: rollout depth 12 survived 7.4s against depth 0's
+        // 47.8s, at 0% damage, because the fighters died before engaging.
+        //
+        // ⭐ so price the TRAJECTORY, not only the arrival. A body that is
+        // airborne, past the floor it was standing on, falling, and out of air
+        // jumps has no action left that changes where it lands — which is the
+        // point of no return a human reads instantly and the search could not.
+        // This costs nothing per step and leaves the deterministic budget
+        // (`rollout_k × (1 + depth)`, no early exit) exactly as it was.
+        //
+        // ⚠ **the test for it is BELOW the floor, not past the lip.** A body that
+        // has just cleared the edge is falling and can still jump back; killing
+        // it there both lies and freezes it mid-air, which broke
+        // `a_shadow_body_driven_past_the_platforms_edge_falls_off_it` — the
+        // guard that says the model must let a body FALL. The unrecoverable
+        // state is: out of air jumps, already sunk a body-height below the
+        // surface it left, and still descending.
+        const BELOW_THE_LIP: f32 = 48.0;
+        let doomed = !fighter.koed
+            && !fighter.on_ground
+            && fighter.air_jumps == 0
+            && fighter.vel.dot(down) > 0.0
+            && fighter
+                .ground_span
+                .zip(fighter.ground_level)
+                .is_some_and(|((min, max), level)| {
+                    let lateral = fighter.pos.dot(frame.side);
+                    let depth = fighter.pos.dot(down);
+                    (lateral < min || lateral > max) && depth > level + BELOW_THE_LIP
+                });
+        if doomed {
+            fighter.koed = true;
+            events.push(ShadowEvent::Ko { of_me });
+        }
         if !fighter.koed && outside && !fighter.started_offstage {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });

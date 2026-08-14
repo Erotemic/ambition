@@ -28,8 +28,8 @@ Start here, then route to the smallest relevant doc packet:
 * [`docs/README.md`](docs/README.md) — documentation map and reading router.
 * [`docs/planning/README.md`](docs/planning/README.md) — **the master plan**:
   vision, roadmap, live work queue, and design docs for planned systems.
-* [`docs/planning/tracks.md`](docs/planning/tracks.md) — live execution queue
-  and status ledger.
+* [`docs/planning/tracks.md`](docs/planning/tracks.md) — standing backlog and
+  reservoir that feeds the live execution queue.
 * [`docs/planning/vision.md`](docs/planning/vision.md) — the project vision and
   executor model.
 * [`docs/planning/decision-principles.md`](docs/planning/decision-principles.md)

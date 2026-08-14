@@ -174,6 +174,26 @@ One fact should have one current planning authority. `status.md`, `tracks.md`, a
 focused plan, and the live queue should link to one another rather than each
 maintaining independent copies of the same completion narrative.
 
+## Ambiguity is part of planning
+
+A focused plan does not need to pretend that every design answer is known.
+Instead, every substantial new plan should distinguish:
+
+- **settled direction** — decisions an implementation slice may rely on;
+- **open design questions — deliberately unresolved** — choices where the right
+  answer needs more evidence, prototype pressure, or maintainer judgment;
+- **things we should not pre-generalize** — abstractions that require additional
+  real customers before hardening.
+
+An agent may investigate an open question when execution reaches it. It should
+record the evidence and proposed answer rather than silently treating an
+under-specified paragraph as doctrine.
+
+For reusable engine domains, also state the plausible **Bevy/plugin/crate seam**:
+what the domain would own, how its plugin registers itself, and whether there is
+credible ecosystem value. See
+[`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
+
 ## Binding spine
 
 North star: *every upgrade a theorem, every boss a failed objective function,

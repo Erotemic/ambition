@@ -31,6 +31,41 @@ The umbrella is
 [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
 These cards are capability fronts, not a serial mega-campaign.
 
+- ▢ **Controlled-character actor kernel — current highest-leverage architecture
+  card.** Remove protagonist-special assumptions from generic actor decision,
+  targeting/crowd arbitration and control flow before widening world/multiplayer
+  systems. Use
+  [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
+
+- ▢ **Systemic open-world foundation.** Build compatible semantics for room/region
+  residency, instance provenance/lifetime, item custody/accounting, embodied
+  capability gates, platformer reachability and persistent actor populations.
+  Use [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md),
+  [`engine/instance-lifetime-provenance-and-persistence.md`](engine/instance-lifetime-provenance-and-persistence.md),
+  [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md),
+  [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md),
+  [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
+  and [`engine/persistent-actors-and-population.md`](engine/persistent-actors-and-population.md).
+
+- ▢ **World facts + reactive/agentic characters.** Keep deterministic world truth
+  separate from observations/beliefs, then let character policies/dialogue choose
+  actions against that truth. Use
+  [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md),
+  [`engine/agentic-character-runtime.md`](engine/agentic-character-runtime.md) and
+  [`game/reactive-characters-and-dialogue.md`](game/reactive-characters-and-dialogue.md).
+
+- ▢ **Presentation + observability product surface.** Converge render/animation/VFX,
+  participant/view-aware UI and machine-readable inspection without building a
+  second simulation or monolithic editor. Use
+  [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md),
+  [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md)
+  and [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md).
+
+- ▢ **Bevy-native reusable crate extraction.** For each mature reusable domain,
+  move registration with its plugin, narrow dependencies, prove a minimal
+  consumer, and evaluate independent Bevy-game value before publication. Use
+  [`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
+
 - ▢ **Ambition-first authoring/LDtk + kinematic world objects.** Moving platforms
   already author through LDtk, but their path references, motion-mode shape,
   diagnostics, dynamic-geometry ownership and contact/crush semantics are not
@@ -149,11 +184,13 @@ These cards are capability fronts, not a serial mega-campaign.
 
 ## Game/customer reservoir
 
-- ▢ **Ambition content and story.** Keep building the main game through
+- ▢ **Ambition open-world game production.** Build the main game through
+  [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
+  [`game/systemic-progression.md`](game/systemic-progression.md),
   [`game/vision.md`](game/vision.md), [`game/bosses.md`](game/bosses.md), direct
-  maintainer observations and the new [`game/multiplayer.md`](game/multiplayer.md).
-  Product work should expose reusable engine gaps without becoming subordinate
-  to the acceptance suite.
+  maintainer observations and [`game/multiplayer.md`](game/multiplayer.md).
+  Prove a systemic world before relying on linear story gates; later story work
+  should consume the same persistent facts, actors, items and capabilities.
 
 - ▢ **Super Smash Siblings.** Serious platform-fighter customer and possible
   future first-class game. Use

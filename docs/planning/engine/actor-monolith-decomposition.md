@@ -46,6 +46,16 @@ The public `ambition_platformer2d` facade remains the compatibility boundary.
 Internal crate ownership may change without forcing consumer-facing module paths
 to mirror the historical implementation layout.
 
+The immediate kernel priority is
+[`controlled-character-actor-kernel.md`](controlled-character-actor-kernel.md).
+Do not widen the open-world/multiplayer architecture around protagonist-special
+simulation if the controlled body can first be made ordinary.
+
+Every new carve should also be evaluated with
+[`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy.md):
+registration should move with the domain plugin, and a generic crate should be
+usable in a small Bevy `App` without importing Ambition content or this monolith.
+
 ## Operating rule: subtract one concept at a time
 
 This is a **ratcheted subtraction campaign**, not a flag day.

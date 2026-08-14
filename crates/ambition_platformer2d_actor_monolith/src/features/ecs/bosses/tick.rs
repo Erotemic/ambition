@@ -378,11 +378,8 @@ pub fn drive_boss_animators(
 /// player-brain snapshot because controller input is the point of that path.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    overlay: Res<FeatureEcsWorldOverlay>,
+    // The composed collision read-API rather than its three ingredients.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     // A possessed boss carries `Brain::Player(slot)` and reads its controller
     // frame from here, through the SAME universal-brain path every controlled
     // body uses. Bosses are valid controllable bodies (architecturally); design
@@ -421,11 +418,11 @@ pub fn tick_boss_brains_system(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
+    // A room used to arrive as a `Single`, so no room meant Bevy skipped this
+    // system. Same outcome, now stated: a boss has nothing to decide against.
+    let Some(feature_world) = collision.solids() else {
+        return;
+    };
     for (
         _entity,
         feature,
@@ -536,7 +533,7 @@ pub fn tick_boss_brains_system(
                     encounter_phase: boss.status.encounter_phase,
                     actor_pos: boss.kin.pos,
                     target_pos,
-                    world_size: world.0.size,
+                    world_size: feature_world.size,
                     front_wall_clearance,
                     dt,
                     // BD1's situation buckets + `OnHitTaken`. The brain remembers
@@ -699,11 +696,8 @@ pub fn integrate_boss_bodies(
     // A13: whose cues each boss body emits.
     body_sources: Query<&ambition_sfx::BodyPresentationSource>,
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    overlay: Res<FeatureEcsWorldOverlay>,
+    // The composed collision read-API rather than its three ingredients.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
     steering: Res<super::super::actors::ActorSteering>,
     mut sfx: ambition_sfx::SfxWriter,
@@ -736,11 +730,11 @@ pub fn integrate_boss_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
+    // A room used to arrive as a `Single`, so no room meant Bevy skipped this
+    // system. Same outcome, now stated: a boss has nothing to decide against.
+    let Some(feature_world) = collision.solids() else {
+        return;
+    };
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for (
         entity,

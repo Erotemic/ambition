@@ -68,9 +68,9 @@ pub fn record_actor_oob_frame_system(
     mut buffer: ResMut<ActorTraceBuffer>,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     world_time: Res<ambition_time::WorldTime>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
+    // The composed collision read-API rather than its three ingredients — a
+    // trace must see exactly the world the simulation collided against.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
@@ -83,11 +83,9 @@ pub fn record_actor_oob_frame_system(
         Has<PlayerEntity>,
     )>,
 ) {
-    let augmented_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &feature_ecs_overlay,
-    );
+    let Some(augmented_world) = collision.solids() else {
+        return;
+    };
     // A flight recorder wants wall-clock timing (so a dump reads in real
     // seconds), plus the scaled dt so bullet-time / pause is visible in the
     // trace. `WorldTime` exposes both — no `Res<Time>` discipline exception.

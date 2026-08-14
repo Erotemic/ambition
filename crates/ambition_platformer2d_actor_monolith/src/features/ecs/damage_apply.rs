@@ -17,7 +17,6 @@
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
@@ -31,7 +30,6 @@ use crate::{
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
-use ambition_platformer2d_core::RoomGeometry;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 // `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
@@ -1201,16 +1199,12 @@ pub fn apply_player_hit_events(
     // reaction, so the player keeps the impact debris that used to fire
     // attacker-side.
     (
-        world,
-        moving_platforms,
         mut class_b,
         mut debris_writer,
         mut wallet_shield_spent,
         body_sources,
         heavy_attackers,
     ): (
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
-        Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
         MessageWriter<WalletShieldSpent>,
@@ -1224,7 +1218,10 @@ pub fn apply_player_hit_events(
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
+    // The composed collision read-API, replacing the room + moving-platform set
+    // this tuple used to carry and the overlay beside it. Three params became one,
+    // which is three back under the ceiling the tuple exists to dodge.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut sim_state: ResMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
@@ -1334,11 +1331,17 @@ pub fn apply_player_hit_events(
     // nothing to restore.
     let mut feel = *feel_tuning;
     feel.di_max_angle = combat_rules.di_max_angle;
-    let safe_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &moving_platforms.0,
-        &feature_ecs_overlay,
-    );
+    // The bare authored room, for the death path that must NOT see moving
+    // platforms or overlay solids. `solids()` below proves one is loaded.
+    let Some(room) = collision.base() else {
+        return;
+    };
+    let Some(safe_world) = collision.solids() else {
+        // No room loaded: there is nowhere to place a body, so there is nothing
+        // this system can resolve. Previously the room arrived as a `Single` and
+        // Bevy skipped the system outright; this is that skip, written down.
+        return;
+    };
 
     // Resolve every event to a concrete target entity once: events
     // with `HitTarget::Body(e)` route to that player; events with
@@ -1420,7 +1423,7 @@ pub fn apply_player_hit_events(
             attacker_source.as_ref(),
             victim_source.as_ref(),
             heavy_attacker,
-            &world.0,
+            room,
             &mut sfx_writer,
             &mut vfx_writer,
             &mut debris_writer,

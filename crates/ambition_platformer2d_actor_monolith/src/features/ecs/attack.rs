@@ -21,12 +21,9 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 
 use crate::combat::BodyMelee;
 use crate::combat::{AttackIntent, AttackView};
-use crate::world::overlay::FeatureEcsWorldOverlay;
 
 use crate::physics;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_sfx::SfxMessage;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -216,9 +213,8 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
 /// never enter the block world. Keeping those domains separate preserves body
 /// identity and makes self-pogo through an anonymous body projection impossible.
 pub fn pogo_moveset_off_world_orbs(
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
-    moving_platforms: Res<MovingPlatformSet>,
-    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    // The composed collision read-API rather than its three ingredients.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut hitboxes: Query<(
         Entity,
         &ambition_combat::strike::Hitbox,
@@ -255,11 +251,11 @@ pub fn pogo_moveset_off_world_orbs(
     if pogo.is_empty() {
         return;
     }
-    let assembled = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &moving_platforms.0,
-        &feature_ecs_overlay,
-    );
+    let Some(assembled) = collision.solids() else {
+        // No room loaded, so no surface to pogo off. The room used to arrive as a
+        // `Single`, which made Bevy skip this system; this is that skip, stated.
+        return;
+    };
     for (hb_entity, owner, world_box, rise, cue) in pogo {
         if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
             continue;

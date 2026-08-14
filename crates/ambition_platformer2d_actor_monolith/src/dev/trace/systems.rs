@@ -161,13 +161,16 @@ pub fn record_frame_system(
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
+
     time: Res<Time>,
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
-    feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
+    // The composed collision read-API. ⚠ `platform_set` stays a separate param:
+    // the trace records the platform STATES themselves, which is a different
+    // question from what a body collides against.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -223,11 +226,9 @@ pub fn record_frame_system(
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
-    let augmented_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &feature_ecs_overlay,
-    );
+    let Some(augmented_world) = collision.solids() else {
+        return;
+    };
 
     synthesize_events_from_diff(
         &mut buffer,

@@ -138,12 +138,13 @@ pub fn tick_actor_brains(
         // So the HOST opens the sink around the brain call instead.
         CausalLend<'_>,
     ),
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
-    >,
+    // **The collision read-API, not its three ingredients.** This system used to
+    // carry the room, the moving-platform set and the feature overlay as separate
+    // parameters and compose them itself — the same three lines eight production
+    // systems each wrote out. `CollisionWorld` is the seam that already owned that
+    // composition; the brain tick simply had never adopted it.
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
-    overlay: Res<FeatureEcsWorldOverlay>,
     // Neighbor index handed to the movement phase (surface-walker steering).
     mut steering: ResMut<ActorSteering>,
     // **Liveness of the bodies the actor query cannot see.** A fighter's foe is
@@ -306,11 +307,15 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
+    // ⚠ **no room means no tick, exactly as before.** The room used to arrive as a
+    // `Single`, and a `Single` that matches nothing makes Bevy skip the whole
+    // system; `CollisionWorld` takes it optionally, so the skip has to be written
+    // down. This is the one condition that legitimately ends this system early —
+    // there is no geometry for a body to decide against — and it is not a
+    // condition about whether a player exists.
+    let Some(feature_world) = collision.solids() else {
+        return;
+    };
     // Resolve the live hostility table once (default = all-peaceful) for every
     // brain's world-out view this frame (§A7).
     let relations_fallback = crate::combat::targeting::FactionRelations::default();

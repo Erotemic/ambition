@@ -77,6 +77,25 @@ pub fn the_only_view(world: &mut bevy::prelude::World) -> Entity {
     }
 }
 
+/// **WHICH VIEW THIS CAMERA PRESENTS** — a camera→view link, stated on the
+/// camera.
+///
+/// ⭐ **the first thing M2 demands, and the reason is a `Single`.**
+/// `camera_follow` read the view as `Single<…, With<LocalView>>` and the main
+/// camera as a query over `With<MainCamera>`, pairing them by the coincidence
+/// that there is one of each. That is not a pairing, it is an assumption of
+/// uniqueness at BOTH ends — and the whole point of this module is that the
+/// second view is coming. With the link, a camera says what it presents and a
+/// second camera can say something different; without it, adding a view silently
+/// makes a `Single` panic and adding a camera silently makes two cameras fight
+/// over one snapshot.
+///
+/// ⚠ **bound where the camera is SPAWNED, not resolved per frame.** The binding
+/// is a composition decision (which rig presents which view), so it is data on
+/// the entity rather than a lookup a draw system repeats.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PresentsView(pub Entity);
+
 /// Spawn one local view, with the components a camera resolve needs.
 ///
 /// ⛔ **and it carries no `Name`, deliberately.** A `Name` would be a nice debug

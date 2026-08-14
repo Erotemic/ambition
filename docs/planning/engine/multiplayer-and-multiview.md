@@ -288,9 +288,28 @@ saved and restored across a forced rollback. `LocalViewId` is the identity; the
 label is not worth the enlistment.
 
 ⇒ **what M2 needs next**, in the order the code will demand it: a link from a
-CAMERA entity to the view it presents (`camera_follow` uses `Single` today and
-says so), per-view gameplay rectangles from a split layout, and then
-`ControlledSubject`.
+CAMERA entity to the view it presents, per-view gameplay rectangles from a split
+layout, and then `ControlledSubject`.
+
+**✔ the camera→view link LANDED 2026-08-14.** `PresentsView(Entity)` is a
+component on the camera, bound where the camera is SPAWNED — the binding is a
+composition decision (which rig shows which view), not a lookup a draw system
+repeats. `camera_follow`'s `Single<…, With<LocalView>>` is gone: it resolves the
+view through the link, and a camera that names none takes the only view and
+REFUSES loudly when there are several, rather than picking one.
+
+⚠ **the fallback is why the test asserts the shipped host BINDS it.** Every
+fixture in the tree spawns a bare `MainCamera`, so the unlinked path has to work
+— and that same fallback would hide the production binding being dropped, right
+up until a split layout landed and framed a random view.
+`the_shipped_hosts_main_camera_names_the_view_it_presents` fails if the binding
+goes, PROBED by removing it.
+
+⇒ **the next rectangle is `CameraViewState`**, and it is the same shape M2a
+deleted five of: a process-global `Resource` describing *"the gameplay view"*,
+which with two views cannot answer whose. Five readers (foreground, label layout,
+nameplates, actor draw, debug overlay). It belongs on the VIEW, and every reader
+should reach it through the camera's link.
 
 ### M2a — one body-generic presented pose (LANDED 2026-08-14)
 

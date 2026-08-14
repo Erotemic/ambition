@@ -109,7 +109,14 @@ pub fn publish_portal_camera_clamp(
     state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
     // One row per local view. Ambition has one; the portal's facts are a fact
     // about the world's geometry, so every view presenting that world is told.
-    mut views: Query<(&ResolvedCameraSnapshot, &mut CameraPresentationInputs), With<LocalView>>,
+    mut views: Query<
+        (
+            Entity,
+            &ResolvedCameraSnapshot,
+            &mut CameraPresentationInputs,
+        ),
+        With<LocalView>,
+    >,
 ) {
     let enabled = selection.as_deref().is_some_and(|selection| {
         selection.mode == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
@@ -125,7 +132,7 @@ pub fn publish_portal_camera_clamp(
                 .map(|s| s.roll_radians)
         })
         .flatten();
-    for (resolved, mut presentation) in &mut views {
+    for (_, resolved, mut presentation) in &mut views {
         presentation.extra_clamp_center_world = clamp_center;
         presentation.chart_transit = crossing.map(|chart_roll_radians| CameraChartTransit {
             chart_roll_radians,
@@ -142,10 +149,20 @@ pub fn publish_portal_camera_clamp(
 /// Apply the sim-resolved camera snapshot to the main camera, layering the
 /// presentation-only deltas (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
-    // **THE VIEW whose snapshot this camera presents.** One local view today, so
-    // the single main camera presents it; pairing N views with N cameras is M2's
-    // slice and wants a link component, not a broader query here.
-    view: Single<(&ResolvedCameraSnapshot, &mut CameraPresentationInputs), With<LocalView>>,
+    // **THE VIEWS, read through each camera's own link.** This was a
+    // `Single<…, With<LocalView>>` beside a query for the main camera — two
+    // uniqueness assumptions pretending to be a pairing, which held only because
+    // there happened to be one of each. A camera now NAMES the view it presents
+    // (`PresentsView`), so a second view does not turn this into a panic and a
+    // second camera does not turn it into a fight over one snapshot.
+    mut views: Query<
+        (
+            Entity,
+            &ResolvedCameraSnapshot,
+            &mut CameraPresentationInputs,
+        ),
+        With<LocalView>,
+    >,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
@@ -157,14 +174,46 @@ pub fn camera_follow(
     // capture `Camera2d`s. A broad match would drag every capture to the player
     // and overwrite its `Fixed` ortho scale with the main zoom each frame.
     mut query: Query<
-        (&mut Transform, &mut Projection),
+        (
+            &mut Transform,
+            &mut Projection,
+            Option<&ambition_sim_view::PresentsView>,
+        ),
         (
             With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,
 ) {
-    let (resolved, mut presentation) = view.into_inner();
+    // ⚠ **the link, or the only view.** A camera that NAMES its view presents
+    // that one. A camera that names none is a composition with a single view —
+    // every fixture, and every host until the split lands — and taking the only
+    // view is the honest reading of that. ⛔ it refuses rather than picking when
+    // there are several, so a second view arriving without a second link is loud
+    // instead of arbitrary.
+    let link = query.iter().next().and_then(|(_, _, link)| link.copied());
+    let view_entity = match link {
+        Some(ambition_sim_view::PresentsView(view)) => view,
+        None => {
+            let mut unlinked = views.iter();
+            let Some((only, ..)) = unlinked.next() else {
+                return;
+            };
+            if unlinked.next().is_some() {
+                bevy::log::error_once!(
+                    "more than one local view exists and this camera names none of \
+                     them; give each camera a `PresentsView` naming the view it \
+                     presents"
+                );
+                return;
+            }
+            only
+        }
+    };
+    let Ok((_, resolved, mut presentation)) = views.get_mut(view_entity) else {
+        bevy::log::error_once!("a camera presents view {view_entity:?}, which is not a local view");
+        return;
+    };
     // Presentation deltas apply to a COPY — the sim's resolved snapshot is
     // read-only here.
     #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
@@ -238,7 +287,7 @@ pub fn camera_follow(
     *view_state = CameraViewState::from(&snapshot);
 
     let shake_offset = shake.offset();
-    for (mut transform, mut projection) in &mut query {
+    for (mut transform, mut projection, _) in &mut query {
         if let Projection::Orthographic(orthographic) = &mut *projection {
             orthographic.scale = snapshot.orthographic_scale;
         }

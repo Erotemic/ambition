@@ -51,7 +51,7 @@ pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
-pub use local_view::{spawn_local_view, the_only_view, LocalView, LocalViewId};
+pub use local_view::{spawn_local_view, the_only_view, LocalView, LocalViewId, PresentsView};
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
     ShieldRingsView,

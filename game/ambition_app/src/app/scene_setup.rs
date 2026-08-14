@@ -248,6 +248,26 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         Name::new("Front HUD Camera"),
     ));
 
+    // **The view this rig presents** (D116 M2). The view is spawned at plugin
+    // BUILD time, so it is already here; binding the link at SPAWN makes "which
+    // view does this camera show" a composition decision on the entity rather
+    // than a uniqueness assumption re-derived every frame in `camera_follow`.
+    //
+    // ⚠ deferred, because this helper takes only `Commands` — the view is spawned
+    // at plugin BUILD time so it is already in the world when this runs.
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        let mut views = world.query_filtered::<
+            bevy::prelude::Entity,
+            bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>,
+        >();
+        let Some(view) = views.iter(world).next() else {
+            return;
+        };
+        if let Ok(mut camera) = world.get_entity_mut(main_camera) {
+            camera.insert(ambition_platformer2d::sim_view::PresentsView(view));
+        }
+    });
+
     commands.insert_resource(
         ambition_platformer2d::platformer::camera_layers::MainCameraEntity(main_camera),
     );

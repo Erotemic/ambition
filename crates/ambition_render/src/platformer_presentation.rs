@@ -184,12 +184,24 @@ impl Plugin for PlatformerPresentationPlugin {
 /// layers, so UI renders here regardless of the dedicated layer. This mirrors
 /// the full host's scaffold deliberately: a demo host should not have to
 /// hand-build a camera rig to get correct framing.
-fn spawn_main_camera(mut commands: Commands) {
+fn spawn_main_camera(
+    mut commands: Commands,
+    // **The view this rig presents** (D116 M2). The view is spawned at plugin
+    // BUILD time, so it is already here; binding the link at SPAWN makes "which
+    // view does this camera show" a composition decision on the entity rather
+    // than a uniqueness assumption re-derived every frame in `camera_follow`.
+    views: Query<Entity, With<ambition_sim_view::LocalView>>,
+) {
     let layers = bevy::camera::visibility::RenderLayers::layer(0)
         .with(ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER);
     let camera = commands
         .spawn((Camera2d, MainCamera, layers, Name::new("Main Camera")))
         .id();
+    if let Some(view) = views.iter().next() {
+        commands
+            .entity(camera)
+            .insert(ambition_sim_view::PresentsView(view));
+    }
     commands.insert_resource(MainCameraEntity(camera));
 
     commands.spawn((

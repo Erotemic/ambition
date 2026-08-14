@@ -41,16 +41,20 @@ one of its historical documents describes a now-deleted representation.
 The next architecture generation is organized by engine capability rather than
 by migration chronology.
 
-### E1 — Ambition-first authoring, world tools and kinematic world objects
+### E1 — Ambition-first agent-native authoring, world tools and kinematic world objects
 
 Use [`authoring-and-tools.md`](authoring-and-tools.md),
 [`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md) and
 [`kinematic-world-objects.md`](kinematic-world-objects.md).
 
-LDtk is already Ambition's main spatial editor and moving platforms are already
-partially authored there. The next step is not another ad-hoc entity converter;
-it is a first-class authoring/compiler path with typed references, strong
-validation, useful editor affordances, and a reusable world-domain model.
+Ambition already has substantial LLM-operable authoring infrastructure: semantic
+LDtk tools plus procedural/declarative sprite, music and SFX submodules. The next
+step is not a conventional editor-first rewrite or another ad-hoc entity
+converter; it is a coherent **agent-native authoring product** with discovery,
+semantic inspection, intent-level mutation, validation/preparation, provenance
+and concise review artifacts. LDtk remains the primary spatial backend and
+manual editor experience remains useful, but agents should not need to operate a
+GUI for ordinary content work.
 Moving platforms are the first vertical slice because they exercise authored
 identity, dynamic geometry, paths, rollback state, presentation and contact
 semantics at once.
@@ -110,9 +114,10 @@ them as user-facing engine ergonomics rather than as one-off campaign numbers.
 3. **Composition over taxonomy.** Bodies, capabilities, participants, views,
    world objects and services compose; avoid multiplying special engine types
    for modes that differ only in policy.
-4. **Authoring is part of the engine product.** A runtime feature that cannot be
-   authored, validated, inspected and iterated on without internal knowledge is
-   not finished.
+4. **Agent-native authoring is part of the engine product.** A runtime feature
+   that an agent cannot discover, inspect, author, validate and review through
+   supported semantic surfaces without internal archaeology is not finished.
+   Human visual editors are optional frontends over the same semantics.
 5. **Headless and visible hosts consume the same simulation contracts.** Rendering
    and local presentation may vary; authoritative game semantics may not.
 6. **Transport is not gameplay ontology.** A local controller and a remote peer
@@ -138,7 +143,7 @@ A credible 1.0 architecture should make these statements unsurprising:
 - local/online participants and one/many views use orthogonal composition.
 - multiple rooms can be resident/simulated when a game needs participants in
   different places.
-- LDtk-authored worlds compile into backend-neutral validated world content.
+- agent-authored LDtk worlds compile into backend-neutral validated world content without requiring raw JSON surgery or GUI operation.
 - dynamic world geometry such as moving platforms is ordinary engine data.
 - rollback/determinism participation is declared by the owning domain.
 - optional capabilities are reflected in dependencies and runtime composition.

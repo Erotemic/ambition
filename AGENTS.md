@@ -26,6 +26,25 @@ concept/system/recipe/tool doc or ADR; (7) `dev/journals` and
 Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
 See `docs/recipes/fresh-agent-navigation.md` for the drill-down protocol.
 
+## Authoring submodules are part of the architecture
+
+Ambition has first-class authoring/content submodules even when a source export or
+uninitialized clone leaves their directories empty. **Never infer a missing
+authoring capability from an empty submodule directory.** Check `.gitmodules`, the
+root README's Agent-native authoring toolchain table, and the canonical repositories:
+
+- [sprite renderer](https://github.com/Erotemic/ambition_sprite2d_renderer)
+- [music renderer](https://github.com/Erotemic/ambition_music_renderer)
+- [SFX renderer](https://github.com/Erotemic/ambition_sfx_renderer)
+- [development measurements](https://github.com/Erotemic/ambition_dev_measurements)
+- [LDtk map assets](https://github.com/Erotemic/ambition_map_assets)
+
+The preferred authoring model is agent-native: inspect semantically, mutate through
+supported source formats or intent-level tools, validate/prepare before runtime, and
+generate concise review artifacts. A graphical editor is optional unless the task
+actually calls for manual visual editing. Read
+`docs/concepts/agent-native-authoring.md` before designing a new authoring surface.
+
 ## Generated navigation protocol
 
 `.agent/` holds commit-matched navigation: `.agent/index/catalog.json` for the

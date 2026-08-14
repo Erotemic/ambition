@@ -34,6 +34,7 @@ should survive crate moves. Exact current symbols and files belong in source,
 | [`test-placement.md`](test-placement.md) | deciding where a new test belongs |
 | [`rust-module-boundaries.md`](rust-module-boundaries.md) | splitting modules, changing visibility, moving tests, or creating facades |
 | [`tools-and-generated-content.md`](tools-and-generated-content.md) | adding or using generators, validators, and generated outputs |
+| [`agent-native-authoring.md`](agent-native-authoring.md) | designing or using LLM-facing content discovery, inspection, mutation, validation, provenance, or review workflows |
 | [`generated-assets-audio.md`](generated-assets-audio.md) | changing reproducible music, SFX, sprite, or background generation |
 | [`engineering-memory.md`](engineering-memory.md) | searching or promoting hard-won lessons from `dev/` |
 | [`patch-overlays-and-repo-state.md`](patch-overlays-and-repo-state.md) | preparing overlays or broad file replacements |

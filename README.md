@@ -97,6 +97,49 @@ against the `ambition_platformer2d` umbrella alone. `external consumer: outlande
 `scripts/run_tests.py`, and every engine-internal assumption it is forced to lean
 on is recorded as a named API leak.
 
+## Agent-native authoring toolchain
+
+Ambition is intentionally designed so that **LLM agents can author substantial
+game content without operating a graphical editor**. The project already has
+structured, reproducible authoring systems for worlds, sprites, music, SFX, and
+measurements. Human-facing editors remain useful frontends, but they are not the
+architectural center of the content pipeline.
+
+Several large authoring/content repositories are git submodules. A source archive,
+sparse checkout, or uninitialized clone may therefore show an empty directory.
+**Do not infer that the capability does not exist merely because the submodule is
+not checked out.** Consult `.gitmodules` and the canonical repository links below.
+
+| Capability | Local path | Canonical repository | Agent-facing source/contract |
+|---|---|---|---|
+| Procedural sprites and portraits | `tools/ambition_sprite2d_renderer/` | [ambition_sprite2d_renderer](https://github.com/Erotemic/ambition_sprite2d_renderer) | Python/YAML targets -> deterministic sheets, metadata, portraits, review renders |
+| Music | `tools/ambition_music_renderer/` | [ambition_music_renderer](https://github.com/Erotemic/ambition_music_renderer) | MusicIR YAML -> render/audit/bundle/publish |
+| Sound effects | `tools/ambition_sfx_renderer/` | [ambition_sfx_renderer](https://github.com/Erotemic/ambition_sfx_renderer) | SFXIR YAML -> deterministic render manifests and audio |
+| Engineering measurements | `dev/ambition_dev_measurements/` | [ambition_dev_measurements](https://github.com/Erotemic/ambition_dev_measurements) | retained measurement data kept out of the main repository |
+| LDtk world assets | `game/ambition_map_assets/` | [ambition_map_assets](https://github.com/Erotemic/ambition_map_assets) | canonical LDtk worlds mounted into consuming game crates |
+
+The semantic LDtk mutation/query toolkit itself lives in this repository at
+`tools/ambition_ldtk_tools/`. It supports structured inspection, validation,
+transactional edits, semantic diffs, room summaries/renders, spatial queries,
+and other operations intended specifically to let agents reason about worlds
+without hand-editing LDtk JSON.
+
+For the durable authoring doctrine, read
+[`docs/concepts/agent-native-authoring.md`](docs/concepts/agent-native-authoring.md).
+For tool entry points, read [`docs/tools/index.md`](docs/tools/index.md).
+
+A normal full clone can initialize the submodules with:
+
+```bash
+git submodule update --init --recursive
+```
+
+`./run_developer_setup.sh` also initializes the active authoring submodules and
+creates their tool-local Python environments. If an agent is operating from a
+source export where submodules cannot be fetched, it should explicitly report
+that its audit of those capabilities is partial rather than planning replacements
+for unseen tooling.
+
 ## Durable engine shape
 
 The package list will keep changing. The responsibilities and dependency

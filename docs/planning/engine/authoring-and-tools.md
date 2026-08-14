@@ -1,31 +1,57 @@
-# Authoring and tools — engine product program
+# Agent-native authoring and tools — Engine 1.0 program
 
 **State:** OPEN. Ambition is the primary customer.
 
 ## Goal
 
-Treat authoring as a first-class engine product surface rather than a collection
-of repository-specific scripts surrounding a good runtime.
+Make Ambition unusually easy for LLM agents to author correctly.
 
-A Godot/Unity-class competitor needs a developer to be able to create, inspect,
-validate, preview and revise content without learning internal crate topology or
-reverse-engineering converter assumptions.
+The near-term competitive target is **not** to reproduce the Godot/Unity visual
+editor before the flagship game can be built. The engine should expose enough
+semantic structure that an agent can discover available content vocabulary,
+inspect what already exists, make intent-level changes, validate them before
+runtime, explain what preparation produced, and generate concise artifacts for a
+human to review.
 
-Ambition's real content loop is the primary forcing function. Secondary games
-prove that the tools and preparation seams are reusable.
+Human visual editors remain useful optional frontends, especially when manual
+editing becomes important. They should consume the same authored semantics rather
+than becoming a second authority.
+
+Durable doctrine:
+[`../../concepts/agent-native-authoring.md`](../../concepts/agent-native-authoring.md).
+
+## Existing advantage
+
+This is an extension program, not a greenfield tooling project. The repository
+already has substantial agent-operable authoring surfaces:
+
+- `ambition_ldtk_tools` provides semantic world inspection, validation,
+  transactional edits, spatial queries, semantic diffs, room renders and debug
+  bundles;
+- the sprite-renderer submodule discovers procedural Python/YAML targets and
+  publishes deterministic sheets, metadata, portraits and review products;
+- the music-renderer submodule treats MusicIR YAML as source of truth and emits
+  reproducible audio plus structured diagnostics;
+- the SFX-renderer submodule treats SFXIR YAML as source of truth and emits
+  deterministic render manifests and audio;
+- provider/content preparation already gives the runtime a validated semantic
+  boundary instead of making authoring formats authoritative at runtime.
+
+The root README and `docs/tools/index.md` contain canonical GitHub links for
+submodules so an agent working from a source export does not mistake an absent
+checkout for an absent capability.
 
 ## One preparation model, many authoring frontends
 
-The engine does not need one universal file format. It needs a common semantic
-boundary:
-
 ```text
-LDtk / RON / Rust authored values / sprite metadata / SVG / Yarn / generators
+Python / YAML / RON / Rust values / LDtk / Yarn / SVG / generators
                               |
-                              v
+                        inspect + discover
+                              |
+                     plan / semantic mutation
+                              |
                     validate + resolve + prepare
                               |
-                              v
                   immutable prepared game content
                               |
                   +-----------+-----------+
@@ -36,128 +62,128 @@ LDtk / RON / Rust authored values / sprite metadata / SVG / Yarn / generators
 The frontend may vary by content family. Runtime authority should not.
 
 "Declarative" means authoring produces inert/composable values that are
-validated before installation. A pure Rust `CharacterDefinition` can be
-declarative; an imperative plugin that mutates runtime state while pretending to
-be a content document is not.
+validated before installation. Pure Rust `CharacterDefinition` construction can
+be declarative; a plugin that mutates runtime state while pretending to be a
+content document is not.
 
-## Product surfaces
+## Program requirements
 
-### Spatial world authoring
+### A1 — capability discovery
 
-LDtk is Ambition's preferred spatial editor. Invest in native field types,
-`EntityRef` relationships, semantic validation, previews, room diagnostics,
-intent-level mutation tools and transactional hot reload.
+An agent should be able to discover supported vocabulary without grepping the
+implementation. Existing registries/schemas should increasingly expose
+machine-readable `list`, `describe`, schema, or equivalent surfaces for:
 
-Focused plan:
-[`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md).
+- characters, actions and authored capabilities;
+- LDtk/world entity vocabulary and fields;
+- sprite targets/families and published products;
+- MusicIR constructs/cues;
+- SFXIR layer/recipe capabilities;
+- provider-owned authored extensions.
 
-### Kinematic/dynamic world authoring
+Do not require every tool to use one executable or one serialization format. The
+contract is semantic predictability, not CLI uniformity for its own sake.
 
-Moving platforms are the first vertical slice where editor intent, typed
-references, preparation, dynamic collision, rollback and presentation must all
-agree.
+### A2 — semantic inspection before mutation
 
-Focused plan:
-[`kinematic-world-objects.md`](kinematic-world-objects.md).
+Reading the game is part of authoring. Prefer structured commands that answer
+questions such as:
 
-### Character authoring
+- what is in this room and how is it connected;
+- what body/capabilities does this character prepare;
+- what source owns this sprite/audio/content binding;
+- what references will this authored object resolve;
+- what review products can this target produce.
 
-The post-D73 path should be easy to understand from provider-facing docs and
-tools: authored character inputs resolve into one complete
-`PreparedCharacterDefinition`; placement/controller/session facts remain
-contextual. Character art/writing/gameplay metadata should be inspectable without
-creating parallel identity authorities.
+LDtk's `room describe`, spatial queries and semantic render/bundle commands are
+the model to generalize where useful.
 
-Current docs:
-[`../../systems/actors-brains-and-character-content.md`](../../systems/actors-brains-and-character-content.md)
-and [`../../recipes/adding-a-character.md`](../../recipes/adding-a-character.md).
+### A3 — intent-level mutation for fragile formats
 
-### Sprite / SVG / visual asset authoring
+Simple LLM-friendly sources may be edited directly. Complex external formats
+should receive semantic operations instead of raw-format surgery.
 
-Keep the existing code-authored sprite workflow while improving editable
-component/SVG options, semantic target metadata, editor icons, quality/residency
-variants and concise diagnostic renders. Generated presentation data must remain
-derived from the authoring source rather than becoming a second body authority.
+For LDtk, commands should express intent such as "link this platform to this
+path", "add reciprocal loading zones", or "place this encounter" and preserve
+editor-compatible formatting/identity.
 
-### Dialogue and narrative authoring
+### A4 — unified preparation diagnostics and provenance
 
-Yarn and character writing metadata should receive the same preparation-quality
-principles: stable speaker/listener identity, useful diagnostics, provider-owned
-content, and runtime behavior that consumes resolved facts rather than strings.
+World, character, action, asset and narrative preparation should converge on
+structured diagnostics that tools/external games can consume. A rejected object
+should explain authored location, provider/schema, field/reference, expected
+semantic target, and failure reason.
 
-### Inspection and provenance
+Prepared/runtime facts should increasingly be traceable back to authored source.
 
-Every prepared object should be explainable:
+### A5 — cross-domain content preflight
 
-- where was it authored;
-- which provider/schema owns the field;
-- what references were resolved;
-- what capability consumes it;
-- why was a candidate rejected;
-- what runtime projection will exist.
+Meaningful content units span tools. Add preflights that can report the missing
+pieces of a whole authored unit rather than forcing an agent to discover them one
+runtime failure at a time.
 
-This should grow through structured preparation diagnostics, not a permanent
-source scanner over authoring files.
+Examples:
 
-## Tooling principles
+- character body/kit + sprite/portrait + writing + referenced SFX/actions;
+- room geometry + referenced characters/encounters/portals/paths/audio/dialogue;
+- encounter composition + spawnable prepared characters + world gates/rewards.
 
-1. **Intent-level operations beat raw-format surgery.** A tool command should say
-   "link this platform to this path" or "add this reciprocal door" rather than
-   asking an agent to construct JSON internals.
-2. **Native editor affordances where useful.** Prefer LDtk point arrays,
-   `EntityRef`, layers/tags and editor icons over opaque strings when the editor
-   already models the concept.
-3. **Preparation is the error boundary.** Aggregate useful failures before
-   mutating the live session.
-4. **Semantic previews.** Room renderers, character sheets, collision/hurtbox
-   overlays, path previews and content summaries should expose game meaning, not
-   merely serialized bytes.
-5. **Hot reload uses the same compiler.** A hot-reload candidate is prepared and
-   validated like cold load; it does not create a permissive second path.
-6. **Provider extensibility.** A game/provider should be able to contribute
-   authored vocabulary and diagnostics without editing a closed engine switch in
-   several crates.
-7. **Automation remains reviewable.** Generated edits remain understandable in
-   the native tool and semantic diff/inspection output.
+### A6 — concise review artifacts
 
-## Phases
+Each authoring surface should produce the smallest artifact that lets the
+maintainer make the next subjective decision:
 
-### T1 — make moving-platform LDtk authoring excellent
+- canonical character sheet/portrait/hitbox strip;
+- mastered soundtrack preview plus useful reports;
+- SFX render + manifest/audit;
+- semantic LDtk room summary/render/debug bundle;
+- compact preparation/diff/provenance report.
 
-Execute the LDtk/kinematic vertical slice end to end. This is the immediate
-Ambition need and a good test of schema, references, validation, preview and
-runtime projection.
+Do not default to maximal diagnostic or preview bundles.
 
-### T2 — unify preparation diagnostics
+### A7 — agent-authored Ambition acceptance slice
 
-Give world, character, action and asset preparation a consistent structured
-error/provenance vocabulary that tools and external games can consume.
+Use a real Ambition task as the integration test: an agent should be able to
+inspect an existing region, add or revise a room feature (moving platform is the
+first world vertical slice), connect relevant content, validate it, generate a
+review artifact, and explain the change without asking the maintainer for raw
+coordinates, JSON structure, registry trivia, or migration history.
 
-### T3 — improve character authoring ergonomics
+Secondary games then test that the same authoring seams are provider-extensible.
 
-Make a new character's body/kit, art, writing and placement workflow obvious
-through current docs/tools without resurrecting archetypes or requiring authors
-to understand D73 history.
+### A8 — optional human visual frontends
 
-### T4 — transactional hot reload
+Invest in graphical/manual editing when it solves a real maintainer/content-team
+need. LDtk, sprite rig editors, or future visual tools should sit over the same
+semantic sources, preparation rules and provenance used by agents.
 
-Use the same validation/preparation boundary for LDtk and other content revisions
-where hot reload is valuable.
+Do not create a GUI merely to imitate another engine's product surface.
 
-### T5 — provider tool extension
+## Immediate world-authoring slice
 
-Prove another game can add an authored spatial/content vocabulary plus tooling
-and diagnostics without modifying Ambition-specific tooling internals.
+When this program is selected by the live queue, moving-platform/LDtk authoring
+is the first spatial vertical slice because it exercises typed references,
+paths, preparation diagnostics, dynamic world semantics, rollback and review
+visualization together.
 
-### T6 — authoring product audit
+Focused plans:
 
-For a representative Ambition task (new room + moving platform + character +
-dialogue hook), measure the number of internal concepts/commands an author must
-know and remove avoidable repository archaeology.
+- [`ldtk-authoring-and-world-tools.md`](ldtk-authoring-and-world-tools.md)
+- [`kinematic-world-objects.md`](kinematic-world-objects.md)
 
 ## Acceptance
 
-A competent developer should be able to author a meaningful Ambition room and a
-small external game through supported editor/tool/provider surfaces, receive
-useful errors before runtime, inspect what preparation produced, and iterate
-without understanding the engine's migration history.
+A strong Engine 1.0 authoring surface lets an agent take a natural-language
+Ambition content request and, without repository archaeology:
+
+1. discover the relevant authored vocabulary;
+2. inspect existing semantic context;
+3. choose a supported source/operation;
+4. plan or dry-run the change when mutation is fragile;
+5. apply it transactionally;
+6. validate/prepare all affected references;
+7. explain provenance and semantic diff;
+8. produce a concise human-review artifact;
+9. explicitly publish/install generated products where required.
+
+Manual editor operation is not a prerequisite for this acceptance test.

@@ -4,13 +4,17 @@
 
 ## Goal
 
-Make LDtk authoring feel like a supported engine workflow rather than knowledge
-of JSON field conventions plus converter internals.
+Make LDtk a first-class **agent-operable** spatial authoring backend rather than
+knowledge of JSON field conventions plus converter internals.
 
 LDtk remains one spatial backend over the backend-neutral world model. The goal
-is not to couple engine semantics permanently to LDtk; it is to make the LDtk
-adapter good enough that a game author can discover, author, validate and debug
-engine capabilities without reading Rust implementation details.
+is not to couple engine semantics permanently to LDtk, nor to require an LLM to
+operate the graphical editor. The adapter/tooling should let an agent inspect a
+room semantically, infer spatial intent, author through supported operations,
+validate the result, and produce a concise review render without reading Rust or
+hand-editing LDtk JSON. Native LDtk field types/editor affordances are still
+valuable because they make the authored data clearer and preserve a good manual
+editing path when a human wants one.
 
 ## Current strengths
 
@@ -21,7 +25,7 @@ The repository already has substantial authoring infrastructure:
   entities, resolve `EntityRef`s, render rooms and produce semantic diffs;
 - provider-owned `LdtkVocabulary` extension exists;
 - hot reload validates/prepares candidate worlds before commit;
-- entity-layer rules and editor icons/visual manifests improve human editing;
+- entity-layer rules and editor icons/visual manifests keep authored data legible for both agents and optional human editing;
 - room tooling can describe/render moving platforms and other spatial features.
 
 The next phase should consolidate these into a coherent authoring product.
@@ -57,8 +61,9 @@ supports:
 `start_offset_seconds`.
 
 This is enough to ship content, but it is not the final authoring experience.
-The first phase should make the editor express the relationship directly and
-make invalid combinations impossible or loudly invalid.
+The first phase should make the authored relationship semantically explicit to
+both tools and the optional editor, and make invalid combinations impossible or
+loudly invalid.
 
 ### Desired platform authoring
 
@@ -129,10 +134,19 @@ switch in several places.
 
 ## Acceptance
 
-A competent developer should be able to open the project in LDtk, discover how
-to author a moving platform, connect it to a visible path, validate the room,
-preview the semantic result, hot-reload it, and understand any failure without
-reading the converter implementation.
+Given a natural-language spatial task and the repository, an agent should be able
+to:
 
-That same quality bar should become the standard for every spatial capability we
-consider "supported".
+1. inspect the room/area, collision, entities, gates and relevant references;
+2. infer the intended traversal/world relationship instead of asking for raw
+   coordinates when the map makes the intent clear;
+3. discover the supported moving-platform/path vocabulary;
+4. plan/apply the change through semantic tooling or stable authored fields;
+5. validate all affected references before runtime commit;
+6. produce a semantic summary/render showing the result;
+7. explain what changed and why without hand-editing LDtk JSON or reading the
+   converter implementation.
+
+Opening LDtk manually should remain a good optional review/edit path, not a
+prerequisite for supported authoring. That quality bar should become the standard
+for every spatial capability we consider supported.

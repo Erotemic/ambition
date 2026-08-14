@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-18
+last_verified: 2026-08-13
 ---
 
 # Author-time tools
@@ -18,14 +18,34 @@ runtime architecture and must not become an alternate source of live authority.
 | Packaged assets | [`packaged-asset-guard.md`](packaged-asset-guard.md) | One composed tree plus byte contract for Android and installed desktop builds. |
 | Tool policy | [`tool-authoring-policy.md`](tool-authoring-policy.md) | Requirements for adding/promoting tools. |
 
+## First-class authoring submodules
+
+These repositories are part of the supported project topology. They may be absent
+from source exports or appear as empty directories in an uninitialized clone; in
+that case follow the canonical link rather than concluding that the capability is
+missing.
+
+| Capability | Local checkout | Canonical repository |
+|---|---|---|
+| Sprite/portrait generation | `tools/ambition_sprite2d_renderer/` | [GitHub](https://github.com/Erotemic/ambition_sprite2d_renderer) |
+| MusicIR rendering/auditing | `tools/ambition_music_renderer/` | [GitHub](https://github.com/Erotemic/ambition_music_renderer) |
+| SFXIR rendering/auditing | `tools/ambition_sfx_renderer/` | [GitHub](https://github.com/Erotemic/ambition_sfx_renderer) |
+| Development measurements | `dev/ambition_dev_measurements/` | [GitHub](https://github.com/Erotemic/ambition_dev_measurements) |
+| LDtk world assets | `game/ambition_map_assets/` | [GitHub](https://github.com/Erotemic/ambition_map_assets) |
+
+The semantic LDtk tool package is in-tree at `tools/ambition_ldtk_tools/`. See
+[`../concepts/agent-native-authoring.md`](../concepts/agent-native-authoring.md)
+for the cross-tool contract.
+
 ## Discovery
 
 Prefer supported modal CLIs and root orchestration scripts:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
-(cd tools/ambition_sprite2d_renderer && python -m ambition_sprite2d_renderer --help)
+(cd tools/ambition_sprite2d_renderer && uv run ambition-sprite2d-renderer --help)
 uv run --project tools/ambition_music_renderer python -m ambition_music_renderer --help
+(cd tools/ambition_sfx_renderer && uv run python -m ambition_sfx_renderer --help)
 uv run --script scripts/ecs_inventory.py --help
 ```
 

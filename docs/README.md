@@ -71,6 +71,7 @@ migration ledger, future plan, or dated audit, move it to `archive/` or delete i
 - [`recipes/index.md`](recipes/index.md) — commands and repeatable workflows.
 - [`tools/index.md`](tools/index.md) — author-time generators, validators, and
   reports.
+- [`concepts/agent-native-authoring.md`](concepts/agent-native-authoring.md) — cross-tool contract for LLM-native content discovery, inspection, mutation, validation, provenance, and review.
 - [`mechanics/index.md`](mechanics/index.md) — stable gameplay-mechanic contracts
   and expressibility tests.
 

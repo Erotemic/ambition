@@ -589,67 +589,16 @@ pub fn tick_actor_brains(
                     // `AxisManeuverState` to read, and the default reads as "no
                     // window open, no endlag" — the same reading `motion_facts`
                     // takes for an absent component three lines below.
-                    let axis_motion = match motion_model {
-                        Some(ae::MotionModel::AxisSwept(axis)) => *axis,
-                        _ => ae::AxisSweptMotion::default(),
-                    };
-                    let burst_maneuver = ae::resolve_burst_maneuver(
-                        em.abilities,
-                        em.ground,
-                        em.dodge,
-                        &axis_motion.state,
-                        em.dash,
-                        axis_motion.params,
-                    );
                     let world_view = super::super::perception::build_world_view(
-                        &super::super::perception::PerceptionBody {
-                            pos: em.kin.pos,
-                            vel: em.kin.vel,
-                            facing: em.kin.facing,
-                            // FB1: was `em.kin.size` — the FULL size handed to a HALF
-                            // extent. `WorldView::reachable` swept a box twice the body.
-                            half_extent: em.kin.size * 0.5,
-                            faction: self_faction,
-                            gravity_down: enemy_gravity_dir,
-                            on_ground: em.ground.on_ground,
-                            aerial: em.surface.gravity_scale <= 0.001,
-                            alive: em.health.alive(),
-                            can_fire: action_set.is_some_and(|a| a.ranged.is_some()),
-                            // Movement capability is read off the body's own
-                            // `AbilitySet` — the single authority every body
-                            // shares — not a parallel `CombatCapabilities` mirror.
-                            can_blink: em.abilities.abilities.blink,
-                            // ⛔⛔ **THIS WAS `abilities.dash` / `abilities.dodge`,
-                            // AND A CAPABILITY IS NOT AN AVAILABILITY.** Dodge and
-                            // dash are one button; which maneuver a press produces
-                            // is decided by the body's live state, and `apply_dodge`
-                            // declines on cooldown WITHOUT consuming the buffered
-                            // press so `apply_dash` takes it. A brain reading the
-                            // two flags decided "dodge" and the body dashed. The
-                            // kernel resolves it now and perception carries the
-                            // answer, so there is one rule rather than a driver
-                            // re-deriving the kernel's precedence from outside.
-                            burst: burst_maneuver,
-                            can_shield: em.abilities.abilities.shield,
-                            // The same counter `actor_movement` spends; a brain
-                            // planning a recovery reads the body's real budget,
-                            // not an assumption about what a fighter usually has.
-                            air_jumps_left: em.jump.air_jumps_available,
-                            phase: self_peer.map(|p| p.phase).unwrap_or_default(),
-                            phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
-                            invulnerable: self_peer.is_some_and(|p| p.invulnerable),
-                            damage_taken: em.health.damage_taken(),
-                            health_max: em.health.max(),
-                            // A grudge makes ONE same-faction body a foe (the duel
-                            // mechanism); carry it so this body's `nearest_hostile`
-                            // matches the foe `select_actor_targets` would pick.
-                            grudge: aggression.and_then(|a| a.grudge),
-                            // Read off this body's OWN peer row rather than a
-                            // fresh query, exactly like `phase` above — one
-                            // derivation, so a body cannot disagree with the rest
-                            // of the world about which team it is on.
-                            team: self_peer.and_then(|p| p.team.clone()),
-                        },
+                        &super::super::perception::perception_body_for(
+                            &em,
+                            self_faction,
+                            enemy_gravity_dir,
+                            action_set,
+                            self_peer,
+                            aggression,
+                            motion_model.as_deref(),
+                        ),
                         &view_peers,
                         perceived.projectiles(),
                         &[],

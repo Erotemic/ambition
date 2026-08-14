@@ -71,6 +71,14 @@ described rather than by building it. Check HEAD before starting the next slice.
   and control publication. That is still multi-responsibility and still worth
   splitting, but a slice chosen by line count would mostly be moving prose. **Cut
   by responsibility.**
+
+  **Second cut:** `PerceptionBody` construction — sixty lines of struct literal
+  sitting between a snapshot build and a brain call — moved beside the type it
+  builds, in `perception::perception_body_for`. "What does a body know about
+  itself" is answered by the perception module now, not by reading a decision
+  loop. Body code 214 → 188; the loop's remaining responsibilities are snapshot
+  assembly, the sighted-target override, memory mutation, disposition mutation
+  and control publication.
 - ▢ **controlled and AI bodies on the same contracts.** Movement is genuinely one
   path: `integrate_home_body` and the actor integration both reach
   `ae::step_motion`. **Decision is not.** `tick_player_brains` and

@@ -539,6 +539,91 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
 #[cfg(test)]
 mod tests;
 
+
+/// Project a live actor body into the perception input its own world view is
+/// built from.
+///
+/// ⭐ **the projection belongs beside the type, not inside the tick.** This was
+/// sixty lines of struct literal in the middle of `tick_actor_brains`, between a
+/// snapshot build and a brain call, which is what made "what does a body know
+/// about itself" a question you answered by reading a decision loop. Every field
+/// here is a read of one authority — the body's own clusters, its peer row, its
+/// resolved frame — and the comments on them are the record of which authority
+/// won each argument.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn perception_body_for(
+    body: &super::actor_clusters::ActorMut<'_>,
+    faction: ActorFaction,
+    gravity_down: ae::Vec2,
+    action_set: Option<&ambition_characters::brain::ActionSet>,
+    // This body's OWN row in the shared peer snapshot, so it cannot know itself
+    // more precisely than its opponents know it.
+    self_peer: Option<&PerceptionPeer>,
+    aggression: Option<&crate::features::components::ActorAggression>,
+    motion_model: Option<&ae::MotionModel>,
+) -> PerceptionBody {
+    let axis_motion = match motion_model {
+        Some(ae::MotionModel::AxisSwept(axis)) => *axis,
+        _ => ae::AxisSweptMotion::default(),
+    };
+    let burst_maneuver = ae::resolve_burst_maneuver(
+        body.abilities,
+        body.ground,
+        body.dodge,
+        &axis_motion.state,
+        body.dash,
+        axis_motion.params,
+    );
+    PerceptionBody {
+        pos: body.kin.pos,
+        vel: body.kin.vel,
+        facing: body.kin.facing,
+        // FB1: was `body.kin.size` — the FULL size handed to a HALF
+        // extent. `WorldView::reachable` swept a box twice the body.
+        half_extent: body.kin.size * 0.5,
+        faction,
+        gravity_down,
+        on_ground: body.ground.on_ground,
+        aerial: body.surface.gravity_scale <= 0.001,
+        alive: body.health.alive(),
+        can_fire: action_set.is_some_and(|a| a.ranged.is_some()),
+        // Movement capability is read off the body's own
+        // `AbilitySet` — the single authority every body
+        // shares — not a parallel `CombatCapabilities` mirror.
+        can_blink: body.abilities.abilities.blink,
+        // ⛔⛔ **THIS WAS `abilities.dash` / `abilities.dodge`,
+        // AND A CAPABILITY IS NOT AN AVAILABILITY.** Dodge and
+        // dash are one button; which maneuver a press produces
+        // is decided by the body's live state, and `apply_dodge`
+        // declines on cooldown WITHOUT consuming the buffered
+        // press so `apply_dash` takes it. A brain reading the
+        // two flags decided "dodge" and the body dashed. The
+        // kernel resolves it now and perception carries the
+        // answer, so there is one rule rather than a driver
+        // re-deriving the kernel's precedence from outside.
+        burst: burst_maneuver,
+        can_shield: body.abilities.abilities.shield,
+        // The same counter `actor_movement` spends; a brain
+        // planning a recovery reads the body's real budget,
+        // not an assumption about what a fighter usually has.
+        air_jumps_left: body.jump.air_jumps_available,
+        phase: self_peer.map(|p| p.phase).unwrap_or_default(),
+        phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
+        invulnerable: self_peer.is_some_and(|p| p.invulnerable),
+        damage_taken: body.health.damage_taken(),
+        health_max: body.health.max(),
+        // A grudge makes ONE same-faction body a foe (the duel
+        // mechanism); carry it so this body's `nearest_hostile`
+        // matches the foe `select_actor_targets` would pick.
+        grudge: aggression.and_then(|a| a.grudge),
+        // Read off this body's OWN peer row rather than a
+        // fresh query, exactly like `phase` above — one
+        // derivation, so a body cannot disagree with the rest
+        // of the world about which team it is on.
+        team: self_peer.and_then(|p| p.team.clone()),
+                        }
+}
+
 /// **What a body can perceive this tick, as one parameter.**
 ///
 /// The three channels a brain's world-out view needs are collected by three

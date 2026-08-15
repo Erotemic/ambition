@@ -1153,8 +1153,63 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     registration_paths.extend(
         sorted((root / "crates/ambition_platformer2d_runtime/src/rollback/domains").glob("**/*.rs"))
     )
+    # ⛔⛔ AND IT HAPPENED AGAIN, ONE LEVEL FURTHER OUT (2026-08-15). The two
+    # paragraphs above describe registrations leaving one FILE. They have now
+    # left the runtime CRATE: `RollbackRegistrar` lets a domain register its own
+    # state, so `resource.gate_portal_phases` reported as having left the schema
+    # while it was still very much in the wire format.
+    #
+    # ⭐ so stop hand-listing places and follow the MARKER instead, the same
+    # lesson `encoded_types` learned by following the types. A federated
+    # registration site is exactly a file whose function takes the registrar:
+    # `&mut impl RollbackRegistrar`. Nothing else spells that, the trait's own
+    # definition does not, and a domain that starts registering is picked up
+    # without editing this script — which is the whole point, since a guard that
+    # needs an edit per domain is the census it exists to prevent.
+    # ⚠ the marker is the TRAIT NAME, not one spelling of the bound: the first
+    # federated domain writes `<R>(registrar: &mut R) where R: RollbackRegistrar`,
+    # and a scanner keyed to `&mut impl RollbackRegistrar` matched none of it.
+    #
+    # ⛔ and the DEFINING crate is excluded on purpose — the trait's own doc
+    # examples spell registration names that were never in the wire format, which
+    # is precisely the "swallows noise" failure the paragraph above warns about.
+    registration_paths.extend(
+        sorted(
+            path
+            for path in root.glob("crates/*/src/**/*.rs")
+            if not is_test_path(str(path))
+            # ⛔ the BOUND, not a mention. `RollbackRegistrar` also appears in
+            # imports, prose and a test-only `impl`, and matching those swallowed
+            # `ability.cooldown` and the trait's own doc examples — names that
+            # were never registrations. A federated registration site is a
+            # function generic over the registrar, and nothing else is.
+            and "R: RollbackRegistrar" in path.read_text(errors="replace")
+        )
+    )
+    def _registration_text(path: Path) -> str:
+        """Production registrations only.
+
+        ⛔ `is_test_path` reads the PATH, and a federated domain keeps its
+        registration in an ordinary source file with a `#[cfg(test)] mod tests`
+        inside it — whose fake registrar names (`gate.a`, `gate.alpha`) are not
+        the wire format. Cut the file at its test module.
+        """
+        text = path.read_text(errors="replace")
+        # ⚠ a test MODULE, not any `#[cfg(test)]` — several domain files gate a
+        # helper that way with real registrations after it, and cutting at the
+        # attribute reported `actor.body_mode` and `actor.centered_aabb` as
+        # having left a registry they never left.
+        # ⛔⛔ and it must be an INLINE module (`mod tests {`), never a
+        # declaration (`#[cfg(test)] mod host_invariant_tests;`) — `rollback/mod.rs`
+        # declares two of those at the top, so cutting there deleted the whole of
+        # `register_engine_rollback_state` and reported the entire actor domain as
+        # having left the wire format. A declaration's file is excluded by
+        # `is_test_path` already.
+        match = re.search(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", text)
+        return text if match is None else text[: match.start()]
+
     registration = "\n".join(
-        path.read_text(errors="replace")
+        _registration_text(path)
         for path in registration_paths
         if path.exists() and not is_test_path(str(path))
     )

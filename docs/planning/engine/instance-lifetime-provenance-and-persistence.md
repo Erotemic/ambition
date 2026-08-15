@@ -132,6 +132,44 @@ achievement was that room transition never learned items exist.
 occurrence**, with the storage representation discovered from this one customer.
 ⛔ we still do not need a universal `EverythingInstanceRegistry`.
 
+### ⭐⭐ THREE HORIZONS — the maintainer's decision of 2026-08-15
+
+**The checkpoint is the reset baseline.** Death/retry restores the latest
+*committed* checkpoint; ordinary traversal and unload preserve current state.
+⇒ a key item survives a death because acquiring it **committed a checkpoint**,
+⛔⛔ **not because it is a key item** — an item-kind rule would be a second
+authority that disagrees with the checkpoint the moment content changes.
+
+So the model needs **three** horizons, not two:
+
+```text
+1  current occurrence state          what is true right now
+2  state at the reset/checkpoint     what a death restores to
+3  durable save state                separate, and still later
+```
+
+⚠ **that is the sharp version of the "do not mix derived and authoritative"
+rule**: `AuthoredOccurrences` today mixes a derived live projection with what
+would become authoritative state, and the middle horizon is exactly the piece
+that has nowhere to live.
+
+**Acceptance fixture (the maintainer's own):**
+
+```text
+C0 key on pedestal → pick up → die         → key RETURNS to the pedestal
+pick up again → commit C1 → die            → key stays acquired, pedestal EMPTY
+temporary item picked up after C1 → die    → key stays acquired, temporary RESETS
+```
+
+⭐ **the third line is load-bearing.** A `KeyItem => survives reset` special case
+satisfies the first two and fails it — which is precisely why the rule is
+checkpoint-shaped rather than item-shaped.
+
+⚠ **a sandbox reset is a DIFFERENT road from death/retry** — it rebuilds the start
+room from authored records alone and restores nothing outside room scope. Whether
+the checkpoint baseline should also govern it is an open question, not an
+assumption.
+
 ⚠ **and treat the current residency mechanism as a bridge, not the answer.**
 `InCustodyOf` / `RoomResident` is right for today's **single-active-room** host,
 but `RoomScopedEntity` does not encode *which* room owns an occurrence, so

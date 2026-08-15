@@ -130,6 +130,23 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
 
     // Now the fallible work is done. Reconstruct the room (also atomic: it
     // prepares + preflights before its own infallible `apply_to_world`).
+    //
+    // ⚠ **timed, because this is the expensive half and nothing was measuring
+    // it.** The eager commit records `commit_duration` around its own
+    // application; this route never did, so the one number that describes what a
+    // room change costs on the SHIPPED host did not exist. It is not the same
+    // number as the eager one either: this path flushes and drains the plan's
+    // spawn requests synchronously (see `commit_transition`'s exclusive-world
+    // tail), so the confirmed commit legitimately bills work the eager commit
+    // defers to the frame's flush.
+    //
+    // AMBITION_REVIEW(determinism): wall clock into a write-only diagnostic on
+    // `RoomTransitionLoadState`, which is not rollback-registered and which no
+    // sim decision reads — the same standing exemption `construction_preflight_duration`
+    // carries. ⛔ `bevy::platform::time::Instant` rather than `std`: it is
+    // `web-time` on wasm, and a `#[cfg(not(wasm32))]` clock leaves the one
+    // platform whose numbers would explain a slow transition recording none.
+    let commit_started = bevy::platform::time::Instant::now();
     match execute_lifecycle_commit(world, &kind, authorized) {
         // A transient failure (target room not preparable yet) changed nothing —
         // leave the intent pending to retry on a later confirmed frame and DROP
@@ -185,12 +202,10 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // new world; it does not change whose session it is, and inferring an owner
     // here would quietly hand a match-activation session to the local
     // maintainer.
-    // The transaction this crossing waited on is spent: retire it so the cover
-    // comes down and the next crossing gets a fresh one. ⛔ the eager commit does
-    // the same thing at the same point; a transaction left open here would hold
-    // `GameMode::RoomTransition` forever and the game would never hand control
-    // back.
-    retire_committed_room_transition(world);
+    // The transaction this crossing waited on has done its job: close it out the
+    // way the eager commit closes out its own — which, when a cover is up, means
+    // handing it to the presentation adapter rather than dropping it here.
+    retire_committed_room_transition(world, commit_started.elapsed());
 
     install_rebased_sync_test_session(world, session, settings, owner);
 }
@@ -298,15 +313,84 @@ fn authorized_plan(
 }
 
 /// Close out the readiness transaction a just-committed confirmed transition
-/// used, mirroring the eager commit's own retirement.
-fn retire_committed_room_transition(world: &mut World) {
-    let Some(barrier) = world
+/// used, **exactly as the eager commit closes out its own** — which is not the
+/// same thing as dropping it.
+///
+/// ⛔⛔ **THIS DROPPED THE TRANSACTION UNCONDITIONALLY, AND THAT SILENCED THE
+/// COVER AND THE ONLY LATENCY INSTRUMENT THE GAME HAS** (measured by reading,
+/// 2026-08-15). `RoomTransitionLoadPhase::Committed` has exactly ONE writer (the
+/// eager `commit_ready_room_transition_system`) and exactly ONE reader
+/// (`drive_room_transition_presentation`'s retirement gate). This route never
+/// set it: it nulled `active` here in `PreUpdate`, so the adapter's next `Update`
+/// took its *"no active transition"* teardown branch instead. Three things live
+/// behind the gate it skipped, and every one of them is why slice 2 put the
+/// transaction on the shipped host in the first place:
+///
+/// * the `UnclaimedFeatureViews` SETTLE WAIT — the cover comes down when the
+///   target room has actually been DRAWN, not one frame after it was built. Its
+///   absence is precisely Jon's 2026-07-30 report (*"It flashes squares, which
+///   then flash the placeholder sprite, and then it flashes to the characters"*),
+///   whose 2026-08-09 fix was therefore protecting only the fixed-tick host;
+/// * `minimum_visible`, the floor that stops a loading foreground strobing on a
+///   fast transition;
+/// * `RoomTransitionTelemetry::record` — the ONLY site that computes
+///   `request_to_ready`, `asset_wait`, `commit_to_first_target_frame`,
+///   `prefetch_hit` and the over-budget warning. On the shipped host it produced
+///   zero samples, so *"measure what a transition costs"* had no instrument on
+///   the route players take. ⭐ this is the same class of silence the
+///   unconditional BEGIN log in `loading.rs` was added to break: an instrument
+///   that reports nothing exactly when the interesting thing happens reads as
+///   *"nothing happened"*.
+///
+/// ⇒ so the fork is deleted rather than duplicated. `cover_required` IS
+/// *"a presentation adapter is installed"* — it is set from
+/// `RoomTransitionPresentationAvailable`, the marker that adapter inserts — so
+/// handing the transaction over cannot strand it: the adapter that will retire it
+/// is exactly the one whose presence made a cover required. When no cover is
+/// required there is no adapter, and this route retires it itself, as before.
+///
+/// ⚠ **not rollback state.** `RoomTransitionLoadState` is deliberately not
+/// rollback-registered (that is why readiness moved host-side), and this runs in
+/// `PreUpdate` outside the rewound schedule — the same standing that let the
+/// unconditional drop live here.
+///
+/// ⚠ **`committed_at` is REQUIRED, not telemetry garnish**, and getting it wrong
+/// hangs the cover: the adapter's give-up deadline is
+/// `now - committed_at >= presentation_settle_deadline`, and a `None` there reads
+/// as *zero elapsed* forever, so a room with a genuinely unclaimable feature view
+/// would hold a black screen instead of revealing with the warning.
+fn retire_committed_room_transition(world: &mut World, commit_duration: std::time::Duration) {
+    let Some((barrier, cover_required)) = world
         .get_resource::<crate::room_transition::RoomTransitionLoadState>()
         .and_then(|state| state.active.as_ref())
-        .map(|active| active.barrier.load_id.clone())
+        .map(|active| (active.barrier.load_id.clone(), active.cover_required))
     else {
         return;
     };
+
+    if cover_required {
+        let now = world
+            .get_resource::<bevy::prelude::Time<bevy::prelude::Real>>()
+            .map(|time| time.elapsed());
+        if let Some(mut state) =
+            world.get_resource_mut::<crate::room_transition::RoomTransitionLoadState>()
+        {
+            if let Some(active) = state.active.as_mut() {
+                active.commit_duration = Some(commit_duration);
+                active.committed_at = now;
+                active.phase = crate::room_transition::RoomTransitionLoadPhase::Committed;
+            }
+        }
+        // ⚠ **no `GameMode` restore here, and none is owed.** A rollback host is
+        // the only caller (`commit_confirmed_lifecycle` is installed by
+        // `rollback::session`), and it never entered `GameMode::RoomTransition`:
+        // `begin_room_transition_load_system` guards that request on
+        // `!is_rollback_host` because the mode gates SIM systems and desynced the
+        // checksum. The adapter sets `Playing` at its own retirement, which is
+        // where the eager host's mode genuinely comes back.
+        return;
+    }
+
     if let Some(mut loads) = world.get_resource_mut::<ambition_load::LoadCoordinator>() {
         loads.retire(&barrier);
     }
@@ -640,6 +724,84 @@ mod tests {
             "the cancelled crossing left its authorized transaction resident; the next \
              crossing to the same destination will match it and commit under a plan \
              prepared for a crossing that never happened"
+        );
+    }
+
+    /// ⛔⛔ **A COVERED CONFIRMED COMMIT MUST NOT DROP ITS OWN TRANSACTION.**
+    ///
+    /// The cover, the settle wait and the ONLY latency instrument the game has
+    /// all hang off `drive_room_transition_presentation`'s
+    /// `phase == Committed` gate, and this route used to null `active` in
+    /// `PreUpdate` instead — so on the shipped host the adapter took its
+    /// "no transaction" teardown branch, the cover came down the frame the room
+    /// was built rather than the frame it was DRAWN, and
+    /// `RoomTransitionTelemetry` recorded zero samples.
+    ///
+    /// ⚠ `committed_at` is asserted because it is not decoration: the adapter's
+    /// give-up deadline is measured from it, and a `None` reads as zero elapsed
+    /// forever — a black screen instead of a reveal with a warning.
+    ///
+    /// ⛔ **and the uncovered half is the poison, in the same test.** Without it
+    /// this passes just as happily on a route that never retires anything, which
+    /// would wedge every later crossing on a headless host.
+    #[test]
+    fn a_covered_confirmed_commit_hands_its_transaction_to_the_presentation_adapter() {
+        let mut covered = World::new();
+        covered.insert_resource(ambition_load::LoadCoordinator::default());
+        covered.insert_resource(Time::<Real>::default());
+        let mut state = RoomTransitionLoadState::default();
+        let mut active = authorized_transaction(intent_to("b", SimId::placement("triggerer")));
+        active.cover_required = true;
+        state.active = Some(active);
+        covered.insert_resource(state);
+
+        retire_committed_room_transition(&mut covered, std::time::Duration::from_millis(7));
+
+        let handed_over = covered
+            .resource::<RoomTransitionLoadState>()
+            .active
+            .as_ref()
+            .expect(
+                "the covered confirmed commit dropped its own transaction, so the \
+                 presentation adapter never sees a Committed phase: the cover retires \
+                 by falling off a cliff instead of waiting for the target room to be \
+                 drawn, and no timing sample is ever recorded",
+            );
+        assert_eq!(handed_over.phase, RoomTransitionLoadPhase::Committed);
+        assert!(
+            handed_over.committed_at.is_some(),
+            "the transaction was handed over without a commit stamp, so the adapter's \
+             settle deadline can never expire and an unclaimable feature view holds a \
+             black screen forever"
+        );
+        assert_eq!(
+            handed_over.commit_duration,
+            Some(std::time::Duration::from_millis(7)),
+            "the confirmed commit's own cost — the expensive half, since this route \
+             flushes and drains spawns synchronously — must reach the telemetry sample"
+        );
+
+        // ⛔ THE POISON: no cover means no adapter, so nobody else will ever
+        // retire this and it must retire itself.
+        let mut uncovered = World::new();
+        uncovered.insert_resource(ambition_load::LoadCoordinator::default());
+        let mut state = RoomTransitionLoadState::default();
+        state.active = Some(authorized_transaction(intent_to(
+            "b",
+            SimId::placement("triggerer"),
+        )));
+        uncovered.insert_resource(state);
+
+        retire_committed_room_transition(&mut uncovered, std::time::Duration::ZERO);
+
+        assert!(
+            uncovered
+                .resource::<RoomTransitionLoadState>()
+                .active
+                .is_none(),
+            "an uncovered confirmed commit left its transaction resident with no adapter \
+             to retire it; every later crossing to that destination matches it and \
+             commits under a spent plan"
         );
     }
 

@@ -483,6 +483,33 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "item.ground_item",
     );
+    // ⚠ **CUSTODY IS SIMULATION STATE, not a cache.** It decides on every later
+    // frame whether the item is drawn, stepped by `ground_item_physics`, and
+    // grabbable — so a rewind that restored the wrong value leaves the same axe
+    // both in a hand and on the floor, or makes a carried axe fall out of it.
+    // It replaced a despawn/spawn pair, which GGRS reproduced through the
+    // entity anchor; the state that took over the same job owes the same
+    // coverage.
+    //
+    // `_entity_set` rather than `_entity_ref`: `InWorld` names no body at all,
+    // so the handle is a zero-or-one set. The probe therefore measures WHICH
+    // body is holding it through that body's stable identity — a restore that
+    // hands the item to the wrong holder changes this census and would not
+    // change a presence count.
+    app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::items::pickup::ItemCustody>(
+        OWNER,
+        "item.item_custody",
+        |custody| match custody {
+            ambition_platformer2d_actor_monolith::items::pickup::ItemCustody::InWorld => Vec::new(),
+            ambition_platformer2d_actor_monolith::items::pickup::ItemCustody::Held { holder } => {
+                vec![*holder]
+            }
+        },
+    );
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::items::pickup::ItemCustody>(
+        OWNER,
+        "map.item_custody",
+    );
     // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
     // rewind that recreates a dropped coin has to recreate whether it comes to
     // you. Authored at spawn and never mutated — but "never mutated" is not

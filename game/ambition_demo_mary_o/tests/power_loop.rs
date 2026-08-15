@@ -99,6 +99,13 @@ impl Loop {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
+                // A home avatar carries BOTH markers in production, and this
+                // fixture carried only one. Touch-collection is body-generic
+                // now — the population is "in the player population, or driven
+                // through possession" — so a body that is neither collects
+                // nothing, exactly as an autonomous actor standing on a
+                // mushroom collects nothing.
+                ambition_platformer2d::platformer::markers::PlayerEntity,
                 WornCharacter::new(MARY_O_CHARACTER_ID),
                 BodyBaseSize { base_size: size },
                 ae::BodyKinematics {

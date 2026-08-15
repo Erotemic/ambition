@@ -378,10 +378,14 @@ impl Platformer2dSimHarness {
             &ambition_platformer2d::actors::actor::BodyKinematics,
             &ambition_platformer2d::characters::actor::BodyHealth,
         )>();
-        let mut pickup_query =
-            self.app
-                .world_mut()
-                .query::<&ambition_platformer2d::actors::items::pickup::GroundItem>();
+        // ⚠ IN-WORLD items only. A picked-up item keeps its entity now (it
+        // records custody instead of being despawned), so an unfiltered query
+        // would report the axe in the agent's own hand as an axe lying on the
+        // floor — an instrument agreeing with a state that does not exist.
+        let mut pickup_query = self.app.world_mut().query::<(
+            &ambition_platformer2d::actors::items::pickup::GroundItem,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
 
         let world = self.app.world();
         let gravity_dir = world
@@ -399,7 +403,8 @@ impl Platformer2dSimHarness {
             .collect();
         let pickups: Vec<PickupObs> = pickup_query
             .iter(world)
-            .map(|g| PickupObs {
+            .filter(|(_, custody)| custody.in_world())
+            .map(|(g, _)| PickupObs {
                 pos: (g.pos.x, g.pos.y),
                 id: g.spec.id.clone(),
             })

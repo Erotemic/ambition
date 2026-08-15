@@ -43,6 +43,19 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
     entity
 }
 
+/// How many items are lying IN THE WORLD.
+///
+/// ⚠ not `query::<&GroundItem>().count()`. A picked-up item keeps its entity now
+/// — it records [`ItemCustody::Held`] instead of being despawned — so counting
+/// components answers "how many item objects exist", which was never the
+/// question these tests were asking.
+fn items_in_world(app: &mut App) -> usize {
+    let mut q = app.world_mut().query::<(&GroundItem, &ItemCustody)>();
+    q.iter(app.world())
+        .filter(|(_, custody)| custody.in_world())
+        .count()
+}
+
 /// Stamp the input onto BOTH the actor-local `PlayerInputFrame` (read by
 /// pickup/throw) and the `ActorControl` brain frame (read by the now
 /// subject-generic `fire_held_ranged_system`). In production
@@ -289,12 +302,9 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
             .is_some(),
         "the axe should grant its melee swing"
     );
-    let remaining_ground = {
-        let mut q = app.world_mut().query::<&GroundItem>();
-        q.iter(app.world()).count()
-    };
     assert_eq!(
-        remaining_ground, 0,
+        items_in_world(&mut app),
+        0,
         "the picked-up axe should leave the ground"
     );
 
@@ -313,11 +323,11 @@ fn attack_picks_up_axe_and_grants_its_swing_then_throw_restores() {
             .is_none(),
         "throwing should restore the original (empty) action set"
     );
-    let thrown = {
-        let mut q = app.world_mut().query::<&GroundItem>();
-        q.iter(app.world()).count()
-    };
-    assert_eq!(thrown, 1, "the thrown axe should be back on the ground");
+    assert_eq!(
+        items_in_world(&mut app),
+        1,
+        "the thrown axe should be back on the ground"
+    );
 }
 
 #[test]
@@ -606,11 +616,128 @@ fn javelin_is_thrown_on_plain_attack_use() {
         app.world().get::<HeldItem>(player).is_none(),
         "using the javelin should throw it and empty the hands"
     );
-    let on_ground = {
-        let mut q = app.world_mut().query::<&GroundItem>();
-        q.iter(app.world()).count()
+    assert_eq!(
+        items_in_world(&mut app),
+        1,
+        "the thrown javelin should be on the ground"
+    );
+}
+
+/// ⭐ **THE ITEM YOU THROW IS THE ITEM YOU PICKED UP.**
+///
+/// The invariant: a custody change moves an item between world and hand without
+/// destroying it, so its identity — the `SimId` an authored ground item is
+/// stamped with by the construction executor — survives world → held → world.
+///
+/// ⚠ asserted on the ENTITY and the `SimId` together, because either alone is
+/// weak: an entity id can be recycled, and a `SimId` can be re-minted with the
+/// same spelling. Both surviving means nothing was recreated.
+///
+/// ⚠ and it asserts the item was genuinely OUT of the world in between. Without
+/// that, a "fix" that simply stopped despawning — leaving the axe lying on the
+/// floor while it is also in your hand — passes the identity half and is a
+/// worse bug than the one being fixed.
+///
+/// Falsified by restoring the old pair (despawn at pickup, `spawn_room_scoped`
+/// at throw): the entity lookup fails outright.
+#[test]
+fn a_thrown_item_is_the_same_object_that_was_picked_up() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    // An AUTHORED item: the identity the construction executor gives an LDtk
+    // ground item, which the old despawn-on-pickup destroyed.
+    let authored = SimId::placement("Sandbox:GroundItem-0042");
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            },
+            authored.clone(),
+        ))
+        .id();
+
+    set_control(&mut app, player, true, false);
+    app.update();
+    assert!(
+        app.world().get::<HeldItem>(player).is_some(),
+        "the axe is in hand"
+    );
+    assert_eq!(
+        items_in_world(&mut app),
+        0,
+        "a carried axe is not also lying on the floor"
+    );
+    assert!(
+        app.world()
+            .get::<ItemCustody>(item)
+            .is_some_and(|c| c.held_by(player)),
+        "the SAME entity records who is carrying it"
+    );
+
+    set_control(&mut app, player, true, true);
+    app.update();
+
+    assert!(
+        app.world().get::<HeldItem>(player).is_none(),
+        "the throw empties the hand"
+    );
+    let custody = app
+        .world()
+        .get::<ItemCustody>(item)
+        .expect("the thrown axe is the SAME entity, not a replacement");
+    assert!(custody.in_world(), "and it is back in the world");
+    assert_eq!(
+        app.world().get::<SimId>(item),
+        Some(&authored),
+        "its authored identity survived the round trip"
+    );
+    assert_eq!(
+        items_in_world(&mut app),
+        1,
+        "exactly one axe exists — the throw did not mint a second",
+    );
+}
+
+/// The one case that legitimately MINTS an object: a body holding an item with
+/// no world instance behind it (the inventory menu equips straight out of the
+/// `OwnedItems` count table) throws a fresh instance, and that instance takes a
+/// `SimId::spawned` under its thrower rather than joining the world anonymously.
+///
+/// ⚠ this pins the boundary of the unclosed inventory leg, not a feature: the
+/// mint exists because a quantity has no identity to hand back.
+#[test]
+fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(Update, throw_held_item_system);
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    // Equipped with no `GroundItem` anywhere — the menu's shape.
+    app.world_mut()
+        .entity_mut(player)
+        .insert((HeldItem::new(axe_spec()), SimId::player_slot(0)));
+
+    set_control(&mut app, player, true, true);
+    app.update();
+
+    let minted: Vec<SimId> = {
+        let mut q = app.world_mut().query::<(&GroundItem, &SimId)>();
+        q.iter(app.world()).map(|(_, id)| id.clone()).collect()
     };
-    assert_eq!(on_ground, 1, "the thrown javelin should be on the ground");
+    assert_eq!(
+        minted,
+        vec![SimId::spawned(&SimId::player_slot(0), 0)],
+        "a materialized instance is named under the body that materialized it",
+    );
 }
 
 #[test]

@@ -212,6 +212,7 @@
     "feature.switch_on",
     "gravity.flip_switch",
     "item.ground_item",
+    "item.item_custody",
     "item.motion",
     "item.pickup_magnet",
     "item.world_item",
@@ -227,6 +228,7 @@
     "map.encounter_participants",
     "map.hitbox",
     "map.hitbox_hits",
+    "map.item_custody",
     "map.limb_member",
     "map.limb_rig",
     "map.mount_slot",
@@ -382,7 +384,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 347,
+  "stable_schema_name_count": 349,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

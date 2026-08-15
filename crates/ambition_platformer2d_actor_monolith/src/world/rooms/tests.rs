@@ -436,6 +436,7 @@ fn active_metadata_returns_active_room_metadata() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -449,6 +450,7 @@ fn active_metadata_returns_active_room_metadata() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     let mut set = RoomSet::from_parts(
         "first",
@@ -481,6 +483,7 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
             blast_margin: None,
             side_blast_margin: None,
             ceiling_blast_margin: None,
+            next_room: None,
         }),
     );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -532,6 +535,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     let m_lab = RoomMetadata {
         biome: Some("lab".into()),
@@ -545,6 +549,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     let set = RoomSet::from_parts(
         "hub",
@@ -613,6 +618,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     assert!(!m.is_empty());
 
@@ -643,6 +649,7 @@ fn room_metadata_merge_preserves_existing_values() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        next_room: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -659,6 +666,11 @@ fn room_metadata_merge_preserves_existing_values() {
         blast_margin: None,
         side_blast_margin: None,
         ceiling_blast_margin: None,
+        // takes effect — a.next_room was None. An area spanning several levels
+        // has ONE exit, and it is whichever member level names one first; a
+        // merge that dropped it would turn an authored circuit into a room that
+        // silently loops.
+        next_room: Some("cave_2".into()),
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"));
@@ -672,6 +684,11 @@ fn room_metadata_merge_preserves_existing_values() {
         a.mode.as_deref(),
         Some("sanic"),
         "a member level's mode tag propagates to the merged active area"
+    );
+    assert_eq!(
+        a.next_room.as_deref(),
+        Some("cave_2"),
+        "a member level's exit propagates to the merged active area"
     );
 
     // ...and the first non-empty value still wins, so one level cannot

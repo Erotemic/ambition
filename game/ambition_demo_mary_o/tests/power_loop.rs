@@ -1239,6 +1239,76 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     );
 }
 
+// ── Warp tubes ─────────────────────────────────────────────────────────────
+
+/// **A rules-only shell STANDING IN one authored room.**
+///
+/// ⛔ **the room used to be implicit, and it was always 1-1 (2026-08-15).**
+/// `warp_through_secret_pipe` read a process-global tube list built from
+/// `authored_room(LEVEL_1_1_ROOM_ID)`, so every tube in the game was 1-1's and
+/// this shell needed no session world to exercise one. Tubes are keyed by the
+/// room that authors them now and the reader asks `RoomSet` where the body is
+/// standing, so the room is a parameter — which is what lets the three tests
+/// below be the same test in three rooms.
+///
+/// ⚠ **a shell with NO session world has no pipes at all, and that is correct.**
+/// "Which tubes can she press into" is a question about the room she is in; with
+/// no room there is no answer, and answering 1-1 anyway is exactly the bug this
+/// replaced.
+fn pipe_shell(room_id: &str) -> App {
+    let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_demo_mary_o::provider::mary_o_session_world_entering(room_id).room_set,
+    );
+    app
+}
+
+/// A full-size, controlled body standing at `pos` — the player, as far as every
+/// rule under test can tell.
+fn body_standing_at(app: &mut App, pos: ae::Vec2) -> Entity {
+    let body = app
+        .world_mut()
+        .spawn((
+            PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ae::BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::movement::default_player_body_size(),
+                facing: 1.0,
+            },
+            ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::sandbox_all()),
+            ),
+            ambition_platformer2d::actors::features::MotionModel::default(),
+            ambition_platformer2d::characters::actor::BodyCombat::default(),
+            ActorControl::default(),
+        ))
+        .id();
+    app.insert_resource(ControlledSubject(Some(body)));
+    body
+}
+
+/// Press a direction on the body's locomotion stick: `+1` is toward the feet
+/// (screen-down under Mary-O's gravity), `-1` away from them.
+fn press_locomotion(app: &mut App, body: Entity, y: f32) {
+    app.world_mut()
+        .get_mut::<ActorControl>(body)
+        .unwrap()
+        .0
+        .locomotion
+        .y = y;
+}
+
 /// **A warp is a MOVE, not a teleport.**
 ///
 /// Pressing DOWN on the pipe mouth used to relocate the body in a single frame:
@@ -1251,46 +1321,17 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 #[test]
 fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
-    use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
+    use ambition_demo_mary_o::{pipe_mouth, vault_arrival, LEVEL_1_1_ROOM_ID};
     use ambition_platformer2d::characters::actor::BodyCombat;
-    use ambition_platformer2d::characters::brain::ActorControl;
     use ambition_platformer2d::engine_core::AabbExt;
 
-    let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
-    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
-    app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
+    // ⚠ **standing in 1-1**, because the tube this drives is 1-1's and the
+    // reader now asks the room. It used to ask nothing and get 1-1 regardless.
+    let mut app = pipe_shell(LEVEL_1_1_ROOM_ID);
 
     // A full body standing ON the entry pipe's mouth.
     let mouth = pipe_mouth();
-    let body = app
-        .world_mut()
-        .spawn((
-            PrimaryPlayer,
-            ambition_platformer2d::platformer::markers::PlayerEntity,
-            ae::BodyKinematics {
-                pos: mouth.center(),
-                vel: ae::Vec2::ZERO,
-                size: ae::movement::default_player_body_size(),
-                facing: 1.0,
-            },
-            ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
-                ae::BodyClusterScratch::new_with_abilities(
-                    mouth.center(),
-                    ae::AbilitySet::sandbox_all(),
-                ),
-            ),
-            ambition_platformer2d::actors::features::MotionModel::default(),
-            BodyCombat::default(),
-            ActorControl::default(),
-        ))
-        .id();
-    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(body)));
+    let body = body_standing_at(&mut app, mouth.center());
     // Deliberately NOT adding `run_pipe_transits` by hand: the plugin must wire
     // the slide itself, or a warp starts and never finishes in the real game.
     app.update();
@@ -1299,12 +1340,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
     let started = pos_of(&app);
 
     // Press DOWN — the pipe's own verb.
-    app.world_mut()
-        .get_mut::<ActorControl>(body)
-        .unwrap()
-        .0
-        .locomotion
-        .y = 1.0;
+    press_locomotion(&mut app, body, 1.0);
     app.update();
 
     assert!(
@@ -1378,57 +1414,20 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
 #[test]
 fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
     use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
-    use ambition_demo_mary_o::{pipe_arrival, vault_exit};
-    use ambition_platformer2d::characters::actor::BodyCombat;
-    use ambition_platformer2d::characters::brain::ActorControl;
+    use ambition_demo_mary_o::{pipe_arrival, vault_exit, LEVEL_1_1_ROOM_ID};
     use ambition_platformer2d::engine_core::AabbExt;
 
-    let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
-    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
-    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
-    app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
+    let mut app = pipe_shell(LEVEL_1_1_ROOM_ID);
 
     // A body with its head in the return pipe's mouth, which is where a player
     // standing on the vault floor under it ends up.
     let mouth = vault_exit();
-    let body = app
-        .world_mut()
-        .spawn((
-            PrimaryPlayer,
-            ambition_platformer2d::platformer::markers::PlayerEntity,
-            ae::BodyKinematics {
-                pos: mouth.center(),
-                vel: ae::Vec2::ZERO,
-                size: ae::movement::default_player_body_size(),
-                facing: 1.0,
-            },
-            ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
-                ae::BodyClusterScratch::new_with_abilities(
-                    mouth.center(),
-                    ae::AbilitySet::sandbox_all(),
-                ),
-            ),
-            ambition_platformer2d::actors::features::MotionModel::default(),
-            BodyCombat::default(),
-            ActorControl::default(),
-        ))
-        .id();
-    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(body)));
+    let body = body_standing_at(&mut app, mouth.center());
     app.update();
 
     // Press UP — the verb a down-facing mouth answers, and the one the descent
     // tube's entrance beside it does NOT.
-    app.world_mut()
-        .get_mut::<ActorControl>(body)
-        .unwrap()
-        .0
-        .locomotion
-        .y = -1.0;
+    press_locomotion(&mut app, body, -1.0);
     app.update();
     assert!(
         app.world().get::<PipeTransit>(body).is_some(),
@@ -1447,5 +1446,79 @@ fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
         app.world().get::<ae::BodyKinematics>(body).unwrap().pos,
         pipe_arrival(),
         "and she surfaces exactly on the ascent tube's own exit pipe"
+    );
+}
+
+/// **A tube authored OUTSIDE 1-1 warps her too — where it was drawn.**
+///
+/// ⛔⛔ **this failed before 2026-08-15, and nothing said so.**
+/// `warp_through_secret_pipe` read a process-global tube list built from
+/// `authored_room(LEVEL_1_1_ROOM_ID)`, so **every tube in the game was 1-1's**.
+/// A warp pipe drawn in any other level converted, paired, passed the load-time
+/// Entrance/Exit check, drew its prop art — and did nothing at all. The system's
+/// own comment promised the opposite (*"a third tube Jon draws works with no
+/// line of Rust"*), which was true INSIDE 1-1 and false one room along, and
+/// nothing in the vocabulary, the validator or the entity docs mentioned the
+/// restriction. `mary_o_1_3` shipped with two correct, completely inert pairs.
+///
+/// ⭐ **the room is DERIVED, not named.** This asks the world for the first
+/// authored area other than 1-1 that draws a tube, so it covers whichever level
+/// Jon drags a pipe into next instead of a room id this file must be edited to
+/// learn — which is the same failure, one layer up, that the test would then be.
+#[test]
+fn a_warp_tube_authored_outside_1_1_still_warps_her() {
+    use ambition_demo_mary_o::ldtk_vocabulary::MaryOPipeMouth;
+    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::{authored_area_ids, tubes_for_room, LEVEL_1_1_ROOM_ID};
+    use ambition_platformer2d::engine_core::AabbExt;
+
+    let (room, tube) = authored_area_ids()
+        .into_iter()
+        .filter(|id| id != LEVEL_1_1_ROOM_ID)
+        .find_map(|id| tubes_for_room(&id).first().map(|tube| (id, tube)))
+        .expect(
+            "some authored area other than 1-1 draws a warp tube — with none, \
+             this test is a check that cannot fail, so the level that had one \
+             losing it must fail HERE rather than pass quietly",
+        );
+
+    let mut app = pipe_shell(&room);
+    let body = body_standing_at(&mut app, tube.entrance.mouth_band().center());
+    app.update();
+
+    // Into the mouth: DOWN into a lip you stand on, UP into one overhead. The
+    // authored `mouth` decides, exactly as it does in 1-1.
+    press_locomotion(
+        &mut app,
+        body,
+        match tube.entrance.mouth {
+            MaryOPipeMouth::Up => 1.0,
+            MaryOPipeMouth::Down => -1.0,
+        },
+    );
+    app.update();
+    assert!(
+        app.world().get::<PipeTransit>(body).is_some(),
+        "pressing into room `{room}`'s `{}` tube started nothing. The pipe is \
+         authored, paired and validated — and inert, which is what a tube table \
+         keyed to one room does to every other room's pipes.",
+        tube.link,
+    );
+
+    // The whole authored slide, then the arrival — THIS room's paired exit, not
+    // a coordinate this test carries.
+    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    for _ in 0..ticks {
+        app.update();
+    }
+    assert!(
+        app.world().get::<PipeTransit>(body).is_none(),
+        "the transit ends and gives the body back"
+    );
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(body).unwrap().pos,
+        tube.exit.arrival(),
+        "and she comes out of the exit `{}` is paired with in room `{room}`",
+        tube.link,
     );
 }

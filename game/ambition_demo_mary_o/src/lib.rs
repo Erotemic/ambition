@@ -51,14 +51,13 @@ use ldtk_vocabulary::{MaryOPipeMouth, MaryOPipeRole};
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 
-/// Stable room id for level 1-3, "The Cinder Ferry".
-///
-/// ⚠ **this constant is the LAST thing a new level should need, and it is here
-/// only because [`exit_for_room`] has to name a successor.** Everything else
-/// about 1-3 is authored: it is an area of `mary_o.ldtk`, so
-/// [`authored_levels`] builds it, [`provider::mary_o_room_ids`] lists it and
-/// [`pole_for_room`] finds its pole, all without knowing the id.
-pub const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
+// ⭐ **`LEVEL_1_3_ROOM_ID` IS GONE (2026-08-15), and its own doc asked for
+// that.** It said it was *"the LAST thing a new level should need, and it is
+// here only because `exit_for_room` has to name a successor"* — a successor is
+// an authored `next_room` field now, so nothing in Rust spells 1-3's id and
+// nothing has to. 1-1's id survives because it is the ENTRY: `MaryOEntryRoom`
+// defaults to it, and "which room does a session with no opinion start in" is
+// genuinely a shipped-game decision rather than a level's own property.
 
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
@@ -285,7 +284,11 @@ impl PipeHalf {
     /// you fall, just clear of the face; out of one you stand on you arrive on
     /// top. The two used to be separate hand-written functions
     /// (`vault_arrival`, `pipe_arrival`) that happened to differ by this.
-    fn arrival(&self) -> ae::Vec2 {
+    ///
+    /// ⚠ `pub` since tubes became room-scoped: `vault_arrival` / `pipe_arrival`
+    /// are 1-1's two answers by name, and a caller holding any other room's tube
+    /// has no named function to ask. The whole type is already public data.
+    pub fn arrival(&self) -> ae::Vec2 {
         let x = (self.aabb.min.x + self.aabb.max.x) * 0.5;
         match self.mouth {
             MaryOPipeMouth::Down => ae::Vec2::new(x, self.aabb.max.y + 0.5 * T),
@@ -405,28 +408,66 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
     Ok(tubes)
 }
 
-/// 1-1's warp tubes, read off the embedded file once.
+/// **Every authored area's warp tubes, keyed by the room that authors them.**
+///
+/// ⛔⛔ **this was `authored_tubes()`: ONE flat list, built from 1-1 alone, and
+/// every tube in the game was 1-1's (2026-08-15).** The comment on the system
+/// that reads it promised the opposite — *"a third tube Jon draws works with no
+/// line of Rust"* — which was true INSIDE 1-1 and false one room along. Nothing
+/// in the vocabulary, the validator or the entity docs said so, so a tube
+/// authored in another room was a green box that did nothing, and the only way
+/// to find out was to stand on it. `mary_o_1_3` shipped with two correct,
+/// completely inert tube pairs.
+///
+/// ⚠ **and the flat list made a LINK NAME globally unique by accident.** Two
+/// rooms that both call their tube `descent` would have collided in a
+/// single-keyed table, which is a naming rule no author was ever told. A link
+/// is scoped to the room that authors it, exactly like the pairing check that
+/// validates it.
 ///
 /// ⚠ a process-global `LazyLock` for the same reason `authored_named_blocks`
 /// is one: the input is fixed at COMPILE time, so there is no second value it
 /// could hold. The pairing refusal above becomes a panic here, which is the
-/// same call `authored_room` already makes about this file.
-fn authored_tubes() -> &'static [PipeTube] {
-    static TUBES: std::sync::LazyLock<Vec<PipeTube>> = std::sync::LazyLock::new(|| {
-        pipe_tubes(&authored_room(LEVEL_1_1_ROOM_ID)).unwrap_or_else(|why| panic!("{why}"))
-    });
+/// same call `authored_room` already makes about this file — and it now covers
+/// every area rather than 1-1's four halves.
+fn tubes_by_room() -> &'static std::collections::BTreeMap<String, Vec<PipeTube>> {
+    static TUBES: std::sync::LazyLock<std::collections::BTreeMap<String, Vec<PipeTube>>> =
+        std::sync::LazyLock::new(|| {
+            authored_world()
+                .rooms
+                .into_iter()
+                .map(|room| {
+                    let tubes = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
+                    (room.id.clone(), tubes)
+                })
+                .collect()
+        });
     &TUBES
 }
 
-/// The tube authored with this link id.
-fn authored_tube(link: &str) -> &'static PipeTube {
-    authored_tubes()
+/// **The warp tubes `room_id` authors** — empty for a room that draws none, and
+/// for the fixture course, which is a Rust-built probe room no world file holds.
+///
+/// ⚠ an unknown id yields no tubes rather than a panic, and that is deliberate:
+/// this answers a question about the room a session is STANDING IN, and a room
+/// with no pipes and a room that is not in the file are the same answer to
+/// *"what can she press into here"*.
+pub fn tubes_for_room(room_id: &str) -> &'static [PipeTube] {
+    const NONE: &[PipeTube] = &[];
+    tubes_by_room()
+        .get(room_id)
+        .map_or(NONE, |tubes| tubes.as_slice())
+}
+
+/// The tube `room_id` authors with this link id.
+fn authored_tube(room_id: &str, link: &str) -> &'static PipeTube {
+    tubes_for_room(room_id)
         .iter()
         .find(|tube| tube.link == link)
         .unwrap_or_else(|| {
             panic!(
-                "the level authors a warp tube linked `{link}`; it has {:?}",
-                authored_tubes()
+                "room `{room_id}` authors a warp tube linked `{link}`; it has {:?}",
+                tubes_for_room(room_id)
                     .iter()
                     .map(|tube| tube.link.as_str())
                     .collect::<Vec<_>>()
@@ -434,21 +475,24 @@ fn authored_tube(link: &str) -> &'static PipeTube {
         })
 }
 
-/// The mouth of the descent tube — the open top of the pipe you stand on.
+/// The mouth of 1-1's descent tube — the open top of the pipe you stand on.
 pub fn pipe_mouth() -> ae::Aabb {
-    authored_tube(DESCENT_LINK).entrance.mouth_band()
+    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK)
+        .entrance
+        .mouth_band()
 }
 
-/// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
-/// out of a pipe you can see rather than materializing in open stone.
+/// Where 1-1's descent tube drops you: out of its VAULT half's mouth, so you
+/// fall out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    authored_tube(DESCENT_LINK).exit.arrival()
+    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK).exit.arrival()
 }
 
-/// Where the ascent tube puts you: on top of its SURFACE half, directly above the
-/// vault pipe you entered — twelve tiles further into the level than you went down.
+/// Where 1-1's ascent tube puts you: on top of its SURFACE half, directly above
+/// the vault pipe you entered — twelve tiles further into the level than you
+/// went down.
 pub fn pipe_arrival() -> ae::Vec2 {
-    authored_tube(ASCENT_LINK).exit.arrival()
+    authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit.arrival()
 }
 
 /// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
@@ -461,7 +505,9 @@ pub fn pipe_arrival() -> ae::Vec2 {
 /// floor band feels like when the pipe is overhead. Now the pipe hangs at head
 /// height and you have to be at its lip.
 pub fn vault_exit() -> ae::Aabb {
-    authored_tube(ASCENT_LINK).entrance.mouth_band()
+    authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK)
+        .entrance
+        .mouth_band()
 }
 
 /// **The art identity is AUTHORED now, and this function is gone.**
@@ -516,11 +562,20 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 /// player without passing the build and this crate's tests first. The moment the
 /// world is loaded from disk instead, this has to become a reported refusal.
 fn authored_room(area: &str) -> RoomSpec {
+    authored_area(area).unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
+}
+
+/// The authored area with this id, or `None` when the file has no such area.
+///
+/// ⚠ **`None` is not an error here, and there is exactly one caller that can
+/// see it**: the fixture course is a Rust-built probe room no world file holds,
+/// so "which area is this" has no answer for it. Anything that needs the room
+/// to exist keeps using [`authored_room`], whose panic names the missing id.
+fn authored_area(area: &str) -> Option<RoomSpec> {
     authored_world()
         .rooms
         .into_iter()
         .find(|room| room.id == area)
-        .unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
 }
 
 /// **One authored area, finished into the room the game plays.**
@@ -529,9 +584,12 @@ fn authored_room(area: &str) -> RoomSpec {
 /// COSTING RUST (2026-08-15).** `level_1_1` and `level_1_2` did the same four
 /// things in the same order, differing only in a colour — so a third level was
 /// a fourth copy plus an entry in `MARY_O_ROOM_IDS`, an entry in the provider's
-/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, four of
-/// which the LDtk file already knew. This is the single builder; the roster and
-/// the rooms vec are read off the file (see [`authored_levels`]).
+/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, every one
+/// of which the LDtk file either already knew or can now be told. This is the
+/// single builder; the roster and the rooms vec are read off the file (see
+/// [`authored_levels`]), the pole off the room's own `goal_pole` block, and the
+/// successor off the room's authored `next_room` (see [`exit_for_room`]).
+/// **A new level costs no Rust.**
 ///
 /// ⭐ **the pipe pairing is checked on EVERY level now**, not just 1-1. It was
 /// `level_1_1`'s alone, so a `MaryOPipe` typo in any other room degraded to a
@@ -945,31 +1003,33 @@ pub enum LevelDestination {
 /// decision; whether the world contains the room is a question only the loaded
 /// `RoomSet` can settle.
 ///
-/// ⛔ **THIS CHAIN IS THE LAST THING A NEW LEVEL COSTS IN RUST, and it should
-/// not be Rust at all (2026-08-15).** "Where does finishing this room lead" is
-/// a property OF the room, exactly like its biome or its mode, and every other
-/// such property is an LDtk level field lowered into `RoomMetadata`. Authoring
-/// 1-3 needed no Rust for its geometry, its blocks, its enemies, its pickups,
-/// its ferry, its roster entry or its pole — and one arm here, because a
-/// successor has nowhere authored to live. The fix is a `next_room` level field
-/// beside `mode` and `biome`; it is an engine change to `RoomMetadata`
-/// (`crates/ambition_platformer2d_world/src/rooms/metadata.rs`), not a demo one,
-/// so it is recorded rather than taken.
+/// ⛔ **THIS WAS A HAND-KEPT CHAIN, AND IT WAS THE LAST THING A NEW LEVEL COST
+/// IN RUST (2026-08-15).** It read *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3
+/// → 1-1, else replay"*. "Where does finishing this room lead" is a property OF
+/// the room, exactly like its biome or its mode, and every other such property
+/// is an LDtk level field lowered into `RoomMetadata` — authoring 1-3 needed no
+/// Rust for its geometry, its blocks, its enemies, its pickups, its ferry, its
+/// roster entry or its pole, and one arm here.
+///
+/// ⛔⛔ **and the chain had already cost a test.** `level_circuit.rs` asserted
+/// *"finishing 1-2 returns to 1-1"* — true only while 1-2 was the last level —
+/// so authoring a third level reddened a file that had pinned the SHAPE of the
+/// world instead of the property it claimed. A destination that lives in the
+/// level file cannot be one level behind the level file.
+///
+/// ⭐ **the field is `next_room` on `RoomMetadata`**, authored as an LDtk level
+/// string field beside `mode` and `blast_margin`. There is no room id in this
+/// function: a fourth area drawn in the editor with `next_room` set is reachable
+/// and leads somewhere without a line of Rust, which is the whole claim.
+///
+/// ⚠ **`Replay` is what a room with no `next_room` gets, and it stays a real
+/// answer rather than a failure.** The fixture course is a Rust-built probe room
+/// no world file holds, so it never reaches the metadata at all, and it loops
+/// for the same reason an authored level with a blank field does.
 pub fn exit_for_room(room_id: &str) -> LevelDestination {
-    if room_id == LEVEL_1_1_ROOM_ID {
-        // 1-1 → 1-2: what Jon asked for, and the reason this seam exists.
-        LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string())
-    } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
-        // 1-2 → 1-3, "The Cinder Ferry".
-        LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string())
-    } else if room_id == LEVEL_1_3_ROOM_ID {
-        // ⭐ and 1-3 back to 1-1, which closes the loop into a CIRCUIT rather
-        // than a dead end. Jon: *"The end of 1-2 should transition back to
-        // 1-1."*
-        LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string())
-    } else {
-        // The fixture course, and anything else: loop in place.
-        LevelDestination::Replay
+    match authored_area(room_id).and_then(|room| room.metadata.next_room.clone()) {
+        Some(next) => LevelDestination::Room(next),
+        None => LevelDestination::Replay,
     }
 }
 
@@ -2386,6 +2446,11 @@ fn publish_timeout_death(
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    room_set: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >,
+    >,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -2402,16 +2467,37 @@ fn warp_through_secret_pipe(
     // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
+
+    // ⭐ **THE TUBES OF THE ROOM SHE IS STANDING IN.** This read one flat
+    // process-global list built from 1-1, so every tube in the game was 1-1's
+    // and a pipe authored anywhere else was scenery. `RoomSet` is the same
+    // authority `follow_the_active_room` asks — read live rather than cached,
+    // because a remembered room id is exactly how the goal pole and the level
+    // destination each drifted one room behind (2026-08-05, 2026-08-15).
+    //
+    // ⚠ **no room, no tubes — and the loop still runs.** Returning early here
+    // would leave `PipeEntryLatch` holding last frame's press, so the first
+    // frame after a session appears could fire a warp off a stale edge. An
+    // empty slice enters nothing and clears the latch, which is the same
+    // answer a pipeless room gives.
+    const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
+    let tubes = room_set
+        .as_deref()
+        .map_or(NO_ROOM_NO_TUBES, |set| {
+            tubes_for_room(&set.active_spec().id)
+        });
+
     for (entity, kin, control, mut latch) in &mut bodies {
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
 
-        // ⭐ **every AUTHORED tube, not two hand-named ones.** Each entrance
-        // answers only its own direction — the mouth field says which — so a
-        // third tube Jon draws works with no line of Rust, and the opposite-
-        // direction ends still cannot ping-pong a held press.
-        let entered = tube_entered(body, down, up, authored_tubes());
+        // ⭐ **every AUTHORED tube IN THIS ROOM, not two hand-named ones.** Each
+        // entrance answers only its own direction — the mouth field says which —
+        // so a third tube Jon draws works with no line of Rust, **in whichever
+        // level he draws it in**, and the opposite-direction ends still cannot
+        // ping-pong a held press.
+        let entered = tube_entered(body, down, up, tubes);
         let pressed = entered.is_some();
         let rising_edge = pressed && !latch.pressed;
         latch.pressed = pressed;
@@ -3354,6 +3440,50 @@ mod tests {
     /// world or get stuck. So: assert the arrival is inside the chamber, that the
     /// chamber is under the ground slab, and that both warp ends actually
     /// overlap a body standing where the player would be.
+    /// **A room offers exactly the tubes ITS OWN blocks author.**
+    ///
+    /// ⛔⛔ **every tube in the game used to be 1-1's (2026-08-15).** The reader
+    /// held one flat process-global list built from `authored_room(1-1)`, so a
+    /// warp pipe drawn in any other level was a green box: paired, validated,
+    /// and completely inert. `mary_o_1_3` shipped with two such pairs.
+    ///
+    /// ⛔ **and the obvious wrong repair — one flat list of EVERY room's tubes —
+    /// is worse than the bug, which is why this compares two lists rather than
+    /// counting one.** An area's blocks are LEVEL-LOCAL (`compose_runtime_area`
+    /// takes `min_x`/`min_y` over that area's own levels, and every Mary-O area
+    /// is one level), so every room starts at the same origin and 1-1's pipes
+    /// live at coordinates 1-3 also uses. A flat list would let a body standing
+    /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
+    /// geometry — a warp into stone rather than a warp that does nothing.
+    #[test]
+    fn each_room_offers_exactly_the_tubes_its_own_blocks_author() {
+        let mut offered_anywhere = 0;
+        for id in authored_area_ids() {
+            let authored_here = pipe_tubes(&authored_room(&id))
+                .expect("every authored area's pipes pair, or the room would not build");
+            let links = |tubes: &[PipeTube]| {
+                tubes
+                    .iter()
+                    .map(|tube| tube.link.clone())
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(
+                links(tubes_for_room(&id)),
+                links(&authored_here),
+                "room `{id}` is offered a tube list that is not its own drawing"
+            );
+            offered_anywhere += authored_here.len();
+        }
+        // ⚠ not decoration: it is what stops this being a check that cannot
+        // fail. Both assertions above hold vacuously in a world where NO room
+        // authors a pipe, and the whole subject of this test is a pipe.
+        assert!(
+            offered_anywhere > tubes_for_room(LEVEL_1_1_ROOM_ID).len(),
+            "no level outside 1-1 authors a warp tube, so nothing here is a \
+             claim about room-scoped tubes at all"
+        );
+    }
+
     /// Jon bug #8: the pipe is entered DIRECTIONALLY — DOWN drops in at the entry
     /// mouth, UP surfaces at the return mouth — and a generic press (Interact,
     /// which is neither direction, or the wrong direction) no longer warps you.
@@ -3361,7 +3491,7 @@ mod tests {
     fn the_pipe_only_answers_the_correct_directional_press() {
         use ambition_platformer2d::engine_core::AabbExt;
 
-        let tubes = authored_tubes();
+        let tubes = tubes_for_room(LEVEL_1_1_ROOM_ID);
         // A small body sitting exactly at a mouth. ⚠ built from the AUTHORED
         // mouth rather than from a coordinate, so this asks the level where its
         // pipes are instead of restating it.
@@ -3416,7 +3546,7 @@ mod tests {
         // which is the whole job of the authored `role`: that pipe is the same
         // shape, in the same slab, with the same up-facing mouth as the descent
         // entrance beside it.
-        let ascent_exit = &authored_tube(ASCENT_LINK).exit;
+        let ascent_exit = &authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit;
         assert_eq!(
             entered(at(ascent_exit.mouth_band()), true, false),
             None,
@@ -3510,7 +3640,7 @@ mod tests {
         // Leaving the vault surfaces you standing ON the SURFACE EXIT pipe past pit
         // B — a visible pipe, not mid-air. Read the block's top off the AUTHORED
         // level, never the formula it was built from.
-        let surface_exit = authored_tube(ASCENT_LINK).exit.aabb;
+        let surface_exit = authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit.aabb;
         assert!(
             pipe_arrival().x > surface_exit.min.x
                 && pipe_arrival().x < surface_exit.max.x
@@ -3607,7 +3737,7 @@ mod tests {
         // ⚠ the vault's return pipe is a BLOCK, asked for through the tube table
         // rather than by name — but it is still the block, not a zone, which is
         // the whole point of the assertion below it.
-        let return_pipe = authored_tube(ASCENT_LINK).entrance.aabb;
+        let return_pipe = authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).entrance.aabb;
         // The mouth IS the pipe's open face: exactly its width, straddling its lip.
         // Not a nearby region that happens to be under it — that is the difference
         // between "press up while touching the pipe" and "press up somewhere below
@@ -4168,28 +4298,67 @@ mod tests {
     /// Jon, 2026-08-04: *"we need to build a real world 1-2 that you go to when
     /// you complete world 1-1 … The end of 1-2 should transition back to 1-1."*
     ///
-    /// ⚠ this asserts the WIRING — that each room names the other, and that
+    /// ⚠ this asserts the WIRING — that the exits form a circuit, and that
     /// `Replay` is still what an unnamed room gets — rather than driving a
     /// playthrough. The end-to-end run belongs to the fixture course, and the
     /// course deliberately loops, so the transition case has no route to ride.
+    ///
+    /// ⛔⛔ **THIS TEST USED TO NAME EVERY ROOM IN ORDER, and that is the exact
+    /// defect that reddened `level_circuit.rs` when 1-3 was authored.** Three
+    /// `assert_eq!`s spelling *1-1 → 1-2 → 1-3 → 1-1* pin the LENGTH of the
+    /// world, so a fourth level breaks a test that is not about a fourth level.
+    /// The claim is *"a circuit that visits every authored area and comes back
+    /// to the entry, with no dead end and no short loop"* — walk it and let the
+    /// roster say how long that takes.
     #[test]
     fn the_levels_name_each_other_and_anything_else_still_loops() {
-        assert_eq!(
-            exit_for_room(LEVEL_1_1_ROOM_ID),
-            LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string()),
-            "finishing 1-1 goes to 1-2"
+        let authored = authored_area_ids();
+        assert!(
+            authored.len() >= 2,
+            "a circuit needs at least two levels to be a claim about anything; \
+             the world authors {authored:?}"
+        );
+
+        let mut visited = vec![LEVEL_1_1_ROOM_ID.to_string()];
+        let mut here = LEVEL_1_1_ROOM_ID.to_string();
+        let mut closed = false;
+        // One hop per area plus one: enough for the real circuit, never enough
+        // to hide a broken one.
+        for _ in 0..=authored.len() {
+            let LevelDestination::Room(next) = exit_for_room(&here) else {
+                panic!(
+                    "finishing `{here}` loops in place, so the walk {visited:?} \
+                     is a DEAD END — an authored level with no `next_room` is \
+                     the end of the game, not a level"
+                );
+            };
+            if next == LEVEL_1_1_ROOM_ID {
+                closed = true;
+                break;
+            }
+            assert!(
+                !visited.contains(&next),
+                "finishing `{here}` leads to `{next}`, already on this walk \
+                 ({visited:?}) — a SHORT LOOP that never returns to the entry, \
+                 not a circuit"
+            );
+            visited.push(next.clone());
+            here = next;
+        }
+        assert!(
+            closed,
+            "walked {visited:?} without ever coming back to `{}`; the authored \
+             areas are {authored:?}",
+            LEVEL_1_1_ROOM_ID
         );
         assert_eq!(
-            exit_for_room(level_1_2::LEVEL_1_2_ROOM_ID),
-            LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string()),
-            "and 1-2 on to 1-3"
+            visited.len(),
+            authored.len(),
+            "the circuit closed after visiting {visited:?}, but the world \
+             authors {authored:?} — a level nobody can reach by playing is as \
+             good as unauthored"
         );
-        assert_eq!(
-            exit_for_room(LEVEL_1_3_ROOM_ID),
-            LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string()),
-            "and finishing 1-3 comes back to 1-1, which makes it a circuit \
-             rather than a dead end"
-        );
+
         assert_eq!(
             exit_for_room(test_course::TEST_COURSE_ROOM_ID),
             LevelDestination::Replay,

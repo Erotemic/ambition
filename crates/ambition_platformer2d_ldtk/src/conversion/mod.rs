@@ -1006,6 +1006,62 @@ mod tests {
         assert_eq!(room_set.rooms[0].metadata.blast_margin, None);
     }
 
+    /// **A level authors where finishing it leads.**
+    ///
+    /// ⛔ **this was an if/else chain in a game crate, and it was the LAST Rust
+    /// cost of authoring a level (2026-08-15).** Mary-O's `exit_for_room` read
+    /// *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3 → 1-1, else replay"*: every
+    /// other property of a level — geometry, blocks, enemies, links, goal pole,
+    /// roster entry — came off the LDtk file, and the successor did not. It had
+    /// already cost a test, which had pinned *"finishing 1-2 returns to 1-1"* —
+    /// true only while 1-2 was the last level authored.
+    ///
+    /// ⚠ **the id is NOT resolved here, and that is the design.** A level states
+    /// a name; only the loaded `RoomSet` knows which rooms a session holds, so
+    /// refusing an unknown id at conversion would refuse a room that names a
+    /// sibling living in another world file. The consumer warns.
+    #[test]
+    fn a_level_authors_where_finishing_it_leads() {
+        let mut project = synthetic_level(Vec::new());
+        project.levels[0]
+            .field_instances
+            .push(level_field("next_room", Value::String("cinder_ferry".into())));
+        let room_set = project
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes");
+        assert_eq!(
+            room_set.rooms[0].metadata.next_room.as_deref(),
+            Some("cinder_ferry"),
+            "the level named its successor and the composed room dropped it — \
+             the field is declared and read but never lands, which is the `mode` \
+             bug wearing a new name"
+        );
+    }
+
+    /// A level that names no successor has none — the arcade loop, which is a
+    /// real answer rather than the absence of one. An EMPTY string is the same
+    /// answer as an unset field, because clearing the box in the editor is how
+    /// an author retires an exit.
+    #[test]
+    fn a_level_that_names_no_successor_has_none() {
+        let room_set = synthetic_level(Vec::new())
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes");
+        assert_eq!(room_set.rooms[0].metadata.next_room, None);
+
+        let mut cleared = synthetic_level(Vec::new());
+        cleared.levels[0]
+            .field_instances
+            .push(level_field("next_room", Value::String("   ".into())));
+        let room_set = cleared
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes");
+        assert_eq!(
+            room_set.rooms[0].metadata.next_room, None,
+            "a blank `next_room` is 'no successor', not a room whose id is spaces"
+        );
+    }
+
     /// A negative margin would put the kill line INSIDE the room, so every body
     /// would be out of bounds standing on the floor. Rejected at the reader,
     /// not clamped, because a clamp turns an authoring mistake into a room that

@@ -175,6 +175,29 @@ pub struct RoomMetadata {
     ///
     /// Authored as the LDtk level integer field `ceiling_blast_margin`.
     pub ceiling_blast_margin: Option<i32>,
+    /// **Where finishing this room leads** — the id of the room its goal sends
+    /// the player to. `None` means the room has no successor and loops in
+    /// place, which is the classic arcade answer and a real destination rather
+    /// than the absence of one.
+    ///
+    /// ⛔ **this exists because "where does this level go next" was the LAST
+    /// Rust cost of authoring a level (2026-08-15).** Mary-O's `exit_for_room`
+    /// was an if/else chain over room ids; every other property of a level —
+    /// its geometry, its blocks, its enemies, its links, its goal pole, its
+    /// roster entry — is read off the LDtk file, and a third level still cost
+    /// one arm here. Worse, the chain had already reddened a test that had
+    /// pinned *"finishing 1-2 returns to 1-1"* — true only while 1-2 was last.
+    ///
+    /// ⚠ **the engine does not check that the named room EXISTS.** It cannot:
+    /// a level file states an id and only the loaded `RoomSet` knows which
+    /// rooms a session holds, so a room that names a destination it does not
+    /// have is a WARNING at the consumer, not a load-time refusal. Keeping it
+    /// a bare id rather than a resolved handle is what lets a room name a
+    /// sibling in another world file.
+    ///
+    /// Authored as the LDtk level string field `next_room`, merged
+    /// first-`Some`-wins like every other string field here.
+    pub next_room: Option<String>,
 }
 
 impl RoomMetadata {
@@ -190,6 +213,7 @@ impl RoomMetadata {
             && self.blast_margin.is_none()
             && self.side_blast_margin.is_none()
             && self.ceiling_blast_margin.is_none()
+            && self.next_room.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -219,6 +243,9 @@ impl RoomMetadata {
         }
         if self.ceiling_blast_margin.is_none() {
             self.ceiling_blast_margin = other.ceiling_blast_margin;
+        }
+        if self.next_room.is_none() {
+            self.next_room = other.next_room;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

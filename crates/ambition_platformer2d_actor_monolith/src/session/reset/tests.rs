@@ -132,6 +132,74 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     );
 }
 
+/// **THE ROOM IS ALREADY REBUILT WHEN THIS SYSTEM RUNS, SO IT MAY NOT SWEEP THE
+/// ROOM.**
+///
+/// `process_new_game_reset_request` retires every `RoomScopedEntity` and commits
+/// a fresh start-room plan in the same call, and the `.chain()` between the two
+/// systems carries an auto-inserted `ApplyDeferred` — so every room-scoped
+/// ground item this system can see is one the reset AUTHORED a sync point ago
+/// from the room's own records. A blanket `With<GroundItem>` sweep despawned
+/// exactly those, and a reset taken in a room with an authored pickup rebuilt
+/// that room permanently one pickup short of itself.
+///
+/// Both halves are asserted, because either alone is satisfiable by a broken
+/// system: sparing everything would leave the previous attempt's dropped weapon
+/// lying in the new session (nothing else retires a `spawn_session_scoped`
+/// drop), and sweeping everything is the defect. ROOM scope is the line, and it
+/// is the line precisely because `retire_outgoing` already owns that side.
+#[test]
+fn the_transient_clear_spares_the_rebuilt_rooms_own_items() {
+    let mut app = App::new();
+    app.add_message::<NewGameResetCommitted>();
+    app.add_systems(Update, clear_transient_on_sandbox_reset);
+
+    // What the reset's room plan just authored: room-scoped, exactly as
+    // `spawn_ground_item_resolved_into` builds it (`insert_room_in_session`).
+    let authored = app
+        .world_mut()
+        .spawn((
+            RoomScopedEntity,
+            crate::items::pickup::GroundItem {
+                spec: crate::items::pickup::axe_spec(),
+                pos: ae::Vec2::new(64.0, 0.0),
+                vel: ae::Vec2::ZERO,
+                half_extent: ae::Vec2::splat(18.0),
+            },
+        ))
+        .id();
+    // Residue of the session that is being thrown away: a weapon dropped by a
+    // defeated body is `spawn_session_scoped`, so no room sweep will ever take
+    // it back — this system is its only retirement.
+    let dropped = app
+        .world_mut()
+        .spawn(crate::items::pickup::GroundItem {
+            spec: crate::items::pickup::axe_spec(),
+            pos: ae::Vec2::new(-64.0, 0.0),
+            vel: ae::Vec2::ZERO,
+            half_extent: ae::Vec2::splat(18.0),
+        })
+        .id();
+
+    app.world_mut().write_message(NewGameResetCommitted);
+    app.update();
+
+    assert!(
+        app.world()
+            .get::<crate::items::pickup::GroundItem>(authored)
+            .is_some(),
+        "the reset despawned the pickup it had just authored from the room's \
+         own records, so the rebuilt room came back short of itself"
+    );
+    assert!(
+        app.world()
+            .get::<crate::items::pickup::GroundItem>(dropped)
+            .is_none(),
+        "a session-scoped dropped weapon survived the sandbox reset — nothing \
+         else retires one, so sparing it leaks the old attempt into the new game"
+    );
+}
+
 fn dummy_world() -> ae::World {
     ae::World::new(
         "test",
@@ -382,12 +450,14 @@ fn processor_restores_authored_start_room_platform() {
         let mut platform_set =
             app.world_mut()
                 .resource_mut::<ambition_platformer2d_world::collision::MovingPlatformSet>();
-        platform_set.0 = vec![ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
-            ae::Vec2::new(10.0, 20.0),
-            ae::Vec2::new(32.0, 8.0),
-            64.0,
-            10.0,
-        )];
+        platform_set.0 = vec![
+            ambition_platformer2d_world::platforms::MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            ),
+        ];
     }
     {
         let mut req = app.world_mut().resource_mut::<NewGameResetRequested>();

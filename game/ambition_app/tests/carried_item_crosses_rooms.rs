@@ -589,10 +589,27 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
             .is_none(),
         "the reset that destroyed the object also emptied the hand holding it"
     );
+    // ⭐ **AND THE ROOM CAME BACK WHOLE.** Counted AND identified, because a
+    // count alone is satisfied by a reset that did nothing at all: the object
+    // still in the hand would be the one occurrence, which is exactly how a
+    // sibling assertion in this file once passed vacuously. A do-nothing reset
+    // fails both halves below — the survivor would be `item`, and it would be
+    // `Held` rather than lying in the world.
+    let rebuilt = occurrences(&mut sim, &authored);
     assert_eq!(
-        occurrences(&mut sim, &authored).len(),
+        rebuilt.len(),
         1,
         "and the room is rebuilt from its authored records, with the placement \
          back on the floor exactly once"
+    );
+    assert_ne!(
+        rebuilt[0], item,
+        "the one occurrence is a FRESH one built from the authored record, not \
+         the carried object surviving a reset that did nothing"
+    );
+    assert!(
+        custody(&sim, rebuilt[0]).is_some_and(|custody| custody.in_world()),
+        "the rebuilt placement is lying in the world, the way the record \
+         authors it — not in somebody's hand"
     );
 }

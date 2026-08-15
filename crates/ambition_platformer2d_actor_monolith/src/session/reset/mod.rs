@@ -356,12 +356,26 @@ pub fn process_new_game_reset_request(
     banner.show("SANDBOX RESET", 3.0);
 }
 
-/// On a sandbox reset, despawn the transient world items the registry/room
-/// reset doesn't touch — placed portals + in-flight shots, the portal-gun
-/// pickup, thrown/dropped ground items, and summoned puppy-slug allies — and
-/// strip the player's held state (`HeldItem` / `StashedActionSet` / `PortalGun`),
-/// restoring its base `ActionSet` (Jon: "portals and held items don't reset on
-/// sandbox reset — they should").
+/// On a sandbox reset, despawn the transient world items **the room rebuild
+/// does not own** — placed portals + in-flight shots, a dropped weapon, a
+/// summoned puppy-slug ally — and strip the player's held state (`HeldItem` /
+/// `StashedActionSet` / `PortalGun`), restoring its base `ActionSet` (Jon:
+/// "portals and held items don't reset on sandbox reset — they should").
+///
+/// ⛔ **AND NOTHING THAT IS ROOM-SCOPED, because the room is already rebuilt by
+/// the time this runs.** [`process_new_game_reset_request`] retires every
+/// `RoomScopedEntity` and commits a fresh start-room plan in the same call, and
+/// `.chain()` puts an auto-inserted `ApplyDeferred` between the two systems — so
+/// every room-scoped ground item this query can see is a FRESHLY AUTHORED one,
+/// spawned a sync point ago from the room's own records. A blanket
+/// `With<GroundItem>` sweep despawned exactly those, and a reset taken in a room
+/// with an authored pickup rebuilt that room permanently one pickup short of
+/// itself (Opus 5, 2026-08-15). The room plan owns ROOM scope; this system owns
+/// the residue that outlives a room and has no other retirement — an enemy's
+/// dropped weapon is `spawn_session_scoped` and nothing else takes it back.
+/// Filtering here loses nothing: `retire_outgoing` sweeps `RoomScopedEntity`
+/// unconditionally, so a room-scoped transient (a thrown item, a placed portal)
+/// is destroyed by the stricter of the two sweeps either way.
 ///
 /// Runs AFTER [`process_new_game_reset_request`] and on
 /// [`NewGameResetCommitted`], not on the request. It used to run first and read
@@ -377,20 +391,28 @@ pub fn clear_transient_on_sandbox_reset(
     mut commands: Commands,
     #[cfg(feature = "portal")] transient: Query<
         Entity,
-        Or<(
-            With<ambition_portal2d::PlacedPortal>,
-            With<ambition_portal2d::PortalShot>,
-            With<ambition_portal2d::PortalGunPickup>,
-            With<crate::items::pickup::GroundItem>,
-            With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
-        )>,
+        (
+            Or<(
+                With<ambition_portal2d::PlacedPortal>,
+                With<ambition_portal2d::PortalShot>,
+                With<ambition_portal2d::PortalGunPickup>,
+                With<crate::items::pickup::GroundItem>,
+                With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
+            )>,
+            // ⛔ the rebuilt room's own contents are NOT this system's business.
+            Without<RoomScopedEntity>,
+        ),
     >,
     #[cfg(not(feature = "portal"))] transient: Query<
         Entity,
-        Or<(
-            With<crate::items::pickup::GroundItem>,
-            With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
-        )>,
+        (
+            Or<(
+                With<crate::items::pickup::GroundItem>,
+                With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
+            )>,
+            // ⛔ the rebuilt room's own contents are NOT this system's business.
+            Without<RoomScopedEntity>,
+        ),
     >,
     mut players: Query<
         (

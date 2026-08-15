@@ -734,22 +734,26 @@ mod tests {
     fn a_commanded_burst_finds_a_route_the_buttons_could_not() {
         let world = high_shelf_world();
         let frame = frame_pulling(Vec2::new(0.0, 1.0));
-        // Below the shelf's top face, and to the left of its span.
-        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+        // Below the shelf's top face (y = 300) and well to the left of its
+        // span (x in 300..660), so the climb has to clear the lip BEFORE the
+        // drift carries the body over it. Starting nearer would put the rise
+        // through the block's side.
+        let body = falling_body(drifter(), Vec2::new(150.0, 500.0));
 
         let buttons_only = RecoveryProbe::default();
         let without = probe_recovery(&world, &body, frame, buttons_only);
         assert!(
             !without.regained(),
-            "a body that can only drift cannot climb 200px onto a shelf, but \
+            "a body that can only drift cannot climb 220px onto a shelf, but \
              the probe reported {without:?}"
         );
 
-        // Rise 1200px/s: 1200² / (2 · 2250) = 320px of climb, comfortably over
-        // the 200px to the shelf's face, with the drift carrying it across.
+        // Rise 1400px/s: 1400² / (2 · 2250) = 435px of climb against the ~220px
+        // back up to the shelf's face, so the body is over the lip long before
+        // the drift (capped at 270px/s) carries it into the span.
         let with_burst =
             buttons_only.with_policy(RecoveryPolicy::drift_jump_and_burst(RecoveryBurst {
-                local: Vec2::new(0.0, -1200.0),
+                local: Vec2::new(0.0, -1400.0),
                 at_step: 8,
             }));
         let with = probe_recovery(&world, &body, frame, with_burst);
@@ -769,10 +773,10 @@ mod tests {
     fn a_burst_pointed_at_the_floor_is_not_a_way_home() {
         let world = high_shelf_world();
         let frame = frame_pulling(Vec2::new(0.0, 1.0));
-        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+        let body = falling_body(drifter(), Vec2::new(150.0, 500.0));
         let diving = RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(
             RecoveryBurst {
-                local: Vec2::new(0.0, 1200.0),
+                local: Vec2::new(0.0, 1400.0),
                 at_step: 8,
             },
         ));
@@ -790,9 +794,9 @@ mod tests {
     fn a_negative_names_the_burst_it_spent() {
         let world = high_shelf_world();
         let frame = frame_pulling(Vec2::new(0.0, 1.0));
-        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+        let body = falling_body(drifter(), Vec2::new(150.0, 500.0));
 
-        // Too weak to climb 200px (100²/4500 = 1.1px), so it still fails — and
+        // Too weak to climb 220px (100²/4500 = 1.1px), so it still fails — and
         // the failure is a fact about THIS search.
         let feeble = RecoveryBurst {
             local: Vec2::new(0.0, -100.0),
@@ -818,7 +822,7 @@ mod tests {
         assert_ne!(
             bound.policy,
             RecoveryPolicy::drift_jump_and_burst(RecoveryBurst {
-                local: Vec2::new(0.0, -1200.0),
+                local: Vec2::new(0.0, -1400.0),
                 at_step: 8,
             }),
         );

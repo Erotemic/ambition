@@ -178,7 +178,7 @@ fn a_kit_that_commands_a_rise_is_probed_with_it() {
         move_horizontal: true,
         ..ae::AbilitySet::NONE
     };
-    let start = ae::Vec2::new(300.0, 400.0);
+    let start = ae::Vec2::new(230.0, 400.0);
     let view = shelf_stage(start);
     let at = RecoveryQuery {
         pos: start,
@@ -195,8 +195,11 @@ fn a_kit_that_commands_a_rise_is_probed_with_it() {
          below, but the probe reported {without:?}"
     );
 
-    // 900px/s against gravity is 180px of climb under the engine baseline —
-    // comfortably over the ~84px back up to the shelf's face.
+    // 900px/s against gravity is 180px of climb under the engine baseline, well
+    // over the ~110px back up to the shelf's face — and the start is far enough
+    // LEFT (the shelf spans x 340..460) that the rise clears the lip before the
+    // drift, capped at 270px/s, carries the body into the span. Starting under
+    // the edge would put the climb through the block's side.
     let armed = RecoveryLens::from_view(&view, kit_with_lift(drifter, 900.0, 0.15), DT)
         .expect("the stage is known");
     let with = armed.outlook(at);
@@ -217,7 +220,7 @@ fn an_armed_negative_is_bounded_by_the_armed_search() {
         move_horizontal: true,
         ..ae::AbilitySet::NONE
     };
-    let start = ae::Vec2::new(300.0, 400.0);
+    let start = ae::Vec2::new(230.0, 400.0);
     let view = shelf_stage(start);
     let at = RecoveryQuery {
         pos: start,

@@ -195,3 +195,42 @@ looking careful, so:
 - **Something narrower** — e.g. run them only when `game/ambition_demo_*` or
   `crates/ambition_render` changed, which is the cheap targeted version and needs
   a path rule in `gate_suite.py`.
+
+---
+
+## Camera shake is measured in "px" and behaves as world units
+
+**Found 2026-08-15 while closing D118's C4.** Not a bug report — a feel question
+with two defensible answers, which is why it is yours.
+
+`CameraShakeState::amplitude_px` is added straight to the camera's translation:
+
+```rust
+transform.translation.x = x + shake_offset.x;
+```
+
+That translation is in WORLD units, and the camera's `orthographic_scale` is what
+converts world to screen. So the on-screen displacement is
+`amplitude_px / orthographic_scale` — **the same hit shakes the screen less the
+further the camera is pulled out**, and more when it is zoomed in. Ambition's
+observed gameplay scale is 0.5, so a shake authored at the hub reads at roughly
+double strength there compared with a zoomed-out framing.
+
+`hit_shake_amplitude` is documented in `HIT_SHAKE_GAIN_PX_PER_S`, and the field
+is named `_px`, so the NAME says screen pixels while the behaviour says world
+units. One of the two is wrong and I cannot tell which from the code.
+
+- **Constant on screen** — divide the offset by `orthographic_scale`. A hit feels
+  identical however the camera is framed, which is what "px" promises and what
+  most action games do.
+- **Constant in the world** *(what ships today)* — a shake is a physical
+  displacement of the viewpoint, so a distant camera showing more world naturally
+  registers it as smaller. Defensible, and arguably better for a camera that
+  zooms out during a big fight: the screen does not thrash harder as the stakes
+  rise.
+- **Rename and keep the behaviour** — if world-units is what you want, the field
+  is `amplitude_world` and the constant is not `PX_PER_S`. Cheapest option, and
+  it stops the next reader making my mistake.
+
+⚠ **I did not change it.** The zoom range in the shipped game is narrow enough
+that nobody has reported it, and picking silently would be choosing a feel.

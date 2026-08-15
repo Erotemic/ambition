@@ -314,6 +314,59 @@ resolved roll (that frame had no transit, so its roll is the pure base).
 orientation, so a rotation-aware clamp is expressible where the clamp is
 computed.
 
+#### C4's remainder, measured 2026-08-15: ONE defect and two non-issues
+
+The row said "shake, easing and possession remain". Measured against HEAD, that
+is three names for one problem plus two things that are already right.
+
+**SHAKE is a non-issue, by construction.** `CameraShakeState::offset()` is
+isotropic noise — independent xorshifts for x and y, explicitly so that a naive
+`(s, s)` pair would not produce diagonal-only shake. A rotated isotropic random
+vector is isotropic random, so applying the offset in unrotated Bevy axes under a
+rolled view is indistinguishable from applying it in the view's frame. ⛔ do not
+"fix" it by rotating the offset; there is nothing to fix, and the change would be
+untestable by construction.
+
+⚠ **but shake magnitude IS zoom-dependent, and the field name hides it.**
+`amplitude_px` is added to a camera translation in WORLD units and never divided
+by `orthographic_scale`, so the on-screen displacement scales inversely with
+zoom: the same hit shakes the screen less when the camera is pulled out. Whether
+that is right is a FEEL question — a shake that stays constant in world units is
+a defensible choice — so it is recorded for Jon rather than changed. See
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+
+**EASING and POSSESSION are the same defect, and it is real.**
+`presented_roll_radians` is a pure function of the CURRENT `subject_down`, with
+no history and no continuity:
+
+```rust
+None => observer_roll_radians(frame, subject_down),
+```
+
+So in `SubjectFrame` mode the observer roll SNAPS. Change the view's subject to a
+body standing on a different surface, or flip the subject's gravity, and the
+world rotates instantly — up to a half turn in one frame. That is the same event
+in both cases (`subject_down` changed discontinuously), which is why "easing" and
+"possession" are one item: the fix is continuity on the observer roll, and it
+covers possession, gravity flips, and any future subject change at once.
+
+⭐ **the genre answer is documented, so ship the standard rather than ask**:
+view-rotation on a gravity flip is smoothed over a short interval (VVVVVV,
+Mario Galaxy), not snapped. What needs authoring is the duration dial, not the
+decision.
+
+⛔ **and the state has a home already** — `CameraEaseState` is on the view and
+already smooths the camera TARGET, so roll continuity belongs beside it rather
+than in a new resource. ⚠ presentation-only: the resolved roll must stay out of
+rollback state, and the eased value must be an INPUT to the resolve (the same
+rule `CameraPresentationInputs` follows) rather than a post-hoc adjustment of the
+resolved snapshot.
+
+⚠ **the portal path must keep its exemption.** `observer_roll_at_entry +
+chart_roll_radians` is a deliberate discontinuity — the view is asked to present
+the chart's rotation immediately so the seam lines up — so a transit must bypass
+the easing, not be smoothed through it.
+
 ### C5 — view-index migration
 
 When D116 indexes observer facts by local view, move this policy with the view.

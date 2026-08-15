@@ -606,39 +606,27 @@ fn offset_points(points: Vec<ae::Vec2>, offset: ae::Vec2) -> Vec<ae::Vec2> {
 }
 
 /// The stable lookup id conversion gives a `KinematicPath`: its authored `id`
-/// field, else a compacted slug of its display name, else the LDtk iid.
+/// field, else the slug of its display name, else the LDtk iid.
 ///
 /// Public because a validator reading raw LDtk JSON needs the id conversion
 /// WILL produce, and re-deriving it is how the game-side content validator came
 /// to disagree with the runtime about which paths exist. Ask, do not model.
+///
+/// ⛔ **and this function itself used to be the second modeller.** It slugged
+/// the display name with a private rule that additionally collapsed `_path_`
+/// away, so `enemy patrol path A` minted `enemy_patrol_a` here while
+/// `ambition_platformer2d_world`'s slug — the one every RESOLVER consults —
+/// said `enemy_patrol_path_a`. Nothing referenced the compacted spelling; it
+/// existed only to be bridged back by a third resolution alias, and that bridge
+/// was implemented in three places and got it wrong in two, which is how
+/// sandbox's basement patroller stood still for months while two validators
+/// called it healthy. The rule now has ONE owner and this road asks it.
 pub fn kinematic_path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> String {
     field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
-        .or_else(|| compact_path_name(name))
+        .or_else(|| ambition_platformer2d_world::rooms::kinematic_path_name_slug(name))
         .unwrap_or_else(|| entity.iid.clone())
-}
-
-fn compact_path_name(name: &str) -> Option<String> {
-    let mut slug = String::new();
-    let mut previous_was_sep = false;
-    for ch in name.trim().chars() {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch.to_ascii_lowercase());
-            previous_was_sep = false;
-        } else if !previous_was_sep && !slug.is_empty() {
-            slug.push('_');
-            previous_was_sep = true;
-        }
-    }
-    while slug.ends_with('_') {
-        slug.pop();
-    }
-    if slug.is_empty() {
-        return None;
-    }
-    let slug = slug.replace("_path_", "_");
-    Some(slug.strip_suffix("_path").unwrap_or(&slug).to_string())
 }
 
 fn authored_triple(
@@ -1391,22 +1379,58 @@ mod tests {
         );
     }
 
+    /// **THE INVARIANT: the id conversion MINTS for a path is one the resolvers
+    /// ACCEPT.** Two slug rules used to decide that — this crate's, which
+    /// collapsed `_path_` away, and `ambition_platformer2d_world`'s, which every
+    /// resolution alias is generated from. They disagreed, so conversion minted
+    /// `enemy_patrol_a` for a path nothing referenced by that name, and the gap
+    /// was papered over downstream until sandbox's basement patroller stood
+    /// still for months with two validators calling it healthy.
+    ///
+    /// ⚠ asserted as AGREEMENT rather than against a literal, because a literal
+    /// is exactly what a second copy of the rule would also satisfy. The poison
+    /// is the compacted spelling: the deleted rule's answer must not come back.
     #[test]
-    fn compact_path_name_slugifies_and_strips_path_noise() {
-        assert_eq!(
-            compact_path_name("Moving Platform Path").as_deref(),
-            Some("moving_platform")
+    fn a_derived_path_id_is_a_spelling_the_resolvers_accept() {
+        use crate::project::{LdtkEntityInstance, LdtkFieldInstance};
+
+        let path = |fields: Vec<LdtkFieldInstance>| LdtkEntityInstance {
+            iid: "KinematicPath-0139".into(),
+            identifier: "KinematicPath".into(),
+            pivot: Vec::new(),
+            px: [0, 0],
+            width: 8,
+            height: 8,
+            field_instances: fields,
+        };
+
+        // Sandbox's shipped basement path: no authored `id`, display name
+        // `enemy patrol path A`, referenced as `Patrol:enemy_patrol_path_a`.
+        let name = "enemy patrol path A";
+        let derived = kinematic_path_lookup_id(&path(Vec::new()), name);
+        assert!(
+            ambition_platformer2d_world::rooms::kinematic_path_aliases(&derived, name)
+                .any(|alias| alias == derived),
+            "conversion minted `{derived}`, which the resolvers do not accept — \
+             a path nothing can reference is a patrol that never moves"
         );
-        assert_eq!(compact_path_name("gate-path-a").as_deref(), Some("gate_a"));
-        assert_eq!(compact_path_name("Patrol Path").as_deref(), Some("patrol"));
-        assert_eq!(
-            compact_path_name("Already_Slug").as_deref(),
-            Some("already_slug")
+        assert_ne!(
+            derived, "enemy_patrol_a",
+            "`enemy_patrol_a` is what the DELETED second slug rule minted for \
+             this name; if it is back, so is the second authority"
         );
-        // Collapses runs of separators and trims trailing ones.
-        assert_eq!(compact_path_name("  a -- b  ").as_deref(), Some("a_b"));
-        // No alphanumerics → no usable slug.
-        assert_eq!(compact_path_name("  !! "), None);
-        assert_eq!(compact_path_name(""), None);
+
+        // An authored id still wins outright, and an unnameable one falls back
+        // to the iid rather than to an empty key that collides with everything.
+        let authored = path(vec![LdtkFieldInstance {
+            identifier: "id".into(),
+            value: serde_json::Value::String("lab_patrol_line".into()),
+            real_editor_values: Vec::new(),
+        }]);
+        assert_eq!(kinematic_path_lookup_id(&authored, name), "lab_patrol_line");
+        assert_eq!(
+            kinematic_path_lookup_id(&path(Vec::new()), "  !! "),
+            "KinematicPath-0139"
+        );
     }
 }

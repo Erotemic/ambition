@@ -54,12 +54,10 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     let mut volume = ambition_platformer2d_world::rooms::HazardVolumeSpec::new(
         field_i32(entity, "damage").unwrap_or(1),
     );
-    volume.path_id = field_string(entity, "path_id")
-        .or_else(|| field_string(entity, "patrol_path_id"))
-        .and_then(|value| {
-            let trimmed = value.trim();
-            (!trimmed.is_empty()).then(|| trimmed.to_string())
-        });
+    volume.path_id = field_string(entity, "path_id").and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    });
     let inline_motion = parse_optional_path(entity).map(|mut path| {
         path.points = offset_points(path.points, offset);
         path
@@ -385,8 +383,7 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
             // Optional `patrol_radius` field on NpcSpawn: a lane-radius PARAMETER
             // consumed by a selected patrol brain preset, not a brain selector.
             patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
-            patrol_path_id: field_string(entity, "path_id")
-                .or_else(|| field_string(entity, "patrol_path_id")),
+            patrol_path_id: field_string(entity, "path_id"),
             // Optional explicit initial brain preset override. Absent/empty ->
             // the character's catalog `default_brain`.
             brain_override: field_string(entity, "brain_override"),
@@ -594,9 +591,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let (entity, name, min, size) = ctx.parts();
     let mut brain =
         parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()));
-    if let Some(path_id) =
-        field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
-    {
+    if let Some(path_id) = field_string(entity, "path_id") {
         if !path_id.trim().is_empty() {
             brain = ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some(path_id.trim().to_string()),
@@ -800,8 +795,7 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     let motion = ambition_platformer2d_world::platforms::AuthoredPlatformMotion {
         sweep_dx: field_f32(entity, "sweep_dx"),
         speed: field_f32(entity, "speed"),
-        path_id: field_string(entity, "path_id")
-            .or_else(|| field_string(entity, "patrol_path_id")),
+        path_id: field_string(entity, "path_id"),
         loop_dy: field_f32(entity, "loop_dy"),
         loop_anchor_y: field_f32(entity, "loop_min_y").map(|y| y + ctx.offset.y),
     }

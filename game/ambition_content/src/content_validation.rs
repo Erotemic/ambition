@@ -814,14 +814,20 @@ mod tests {
     /// runtime resolves — no more, and no fewer.**
     ///
     /// ⛔ it did neither, on the very path that shipped. Sandbox's basement
-    /// authors `enemy patrol path A` with no `id`, so conversion derives the
-    /// COMPACTED id `enemy_patrol_a` (its slug rule collapses `_path_`) while
-    /// the placement references the raw slug `enemy_patrol_path_a`. This
+    /// authors `enemy patrol path A` with no `id`, so conversion used to derive
+    /// the COMPACTED id `enemy_patrol_a` (its own slug rule collapsed `_path_`)
+    /// while the placement references the raw slug `enemy_patrol_path_a`. This
     /// validator knew only the raw slug and the binding sweep knew both, so both
     /// oracles passed — and the runtime's own table knew only the compacted id,
     /// so the gallery's patroller stood still. Fewer than the runtime is a hard
     /// startup abort on shippable content; more is a dead demo nobody is told
-    /// about. Both spellings resolve, and a third one does not.
+    /// about.
+    ///
+    /// ⭐ **the compacting slug rule is now DELETED**, so this fixture's path is
+    /// simply `enemy_patrol_path_a` — the spelling the placement always used.
+    /// `enemy_patrol_a` therefore joins the typo as a spelling nothing accepts,
+    /// and that is the assertion guarding the deletion: if it resolves again, a
+    /// second id-minting authority is back.
     #[test]
     fn a_patrol_reference_is_judged_by_the_runtime_alias_set() {
         use ambition_platformer2d_ldtk::{
@@ -868,8 +874,8 @@ mod tests {
                     c_hei: 30,
                     grid_size: 16,
                     entity_instances: vec![
-                        // The shipped shape: named, never id'd, and the name
-                        // slugs two different ways.
+                        // The shipped shape: named, never id'd — so its id is
+                        // derived from the name, by the ONE remaining slug rule.
                         entity(
                             "path",
                             "KinematicPath",
@@ -884,6 +890,11 @@ mod tests {
                             "by_compacted_id",
                             "EnemySpawn",
                             vec![field("brain", "Patrol:enemy_patrol_a")],
+                        ),
+                        entity(
+                            "by_display_name",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:enemy patrol path A")],
                         ),
                         entity(
                             "by_typo",
@@ -909,8 +920,8 @@ mod tests {
             !report
                 .errors
                 .iter()
-                .any(|e| e.contains("'by_compacted_id'")),
-            "the id conversion actually derives must not be reported broken: {:?}",
+                .any(|e| e.contains("'by_display_name'")),
+            "the path's display name is a spelling the runtime resolves: {:?}",
             report.errors,
         );
         // ...and the poison: a spelling NOTHING accepts is still an error, so
@@ -918,6 +929,19 @@ mod tests {
         assert!(
             report.errors.iter().any(|e| e.contains("'by_typo'")),
             "a patrol naming no path at all must still error: {:?}",
+            report.errors,
+        );
+        // ⛔ THE DELETION'S GUARD: `enemy_patrol_a` is what the converter's own
+        // slug rule used to mint for this name. Nothing references it, nothing
+        // should resolve it, and if it starts resolving again then a second
+        // id-minting authority has come back and the alias sets will drift
+        // again — which is the failure that left a patroller standing still.
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.contains("'by_compacted_id'")),
+            "the DELETED slug rule's spelling must resolve for nobody: {:?}",
             report.errors,
         );
     }

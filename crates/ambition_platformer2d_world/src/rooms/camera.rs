@@ -168,14 +168,18 @@ impl KinematicPathSpec {
     /// ⚠ so a claim that some consumer "mirrors" this set is worth nothing;
     /// check that it CALLS it.
     ///
-    /// The slug is accepted because LDtk derives a path's lookup id from its
-    /// name with `_path_` collapsed away (`enemy patrol path A` →
-    /// `enemy_patrol_a`), while authors reference the raw name-slug
-    /// (`enemy_patrol_path_a`). Both spellings are in shipped content. See
-    /// `validate_patrol_brain_paths` in `content_validation.rs`.
+    /// The derived name slug is a spelling in its own right: a spec may carry a
+    /// blank `id` (a room built in Rust rather than converted), and its name is
+    /// then the only thing naming it.
     ///
-    /// The normalized name is owned because it is derived; the authored id and
-    /// display name stay borrowed.
+    /// ⭐ **it used to be a THIRD, DIFFERENT spelling, because LDtk minted ids
+    /// with a slug rule of its own** that collapsed `_path_` away
+    /// (`enemy patrol path A` → `enemy_patrol_a`) where this crate's did not
+    /// (`enemy_patrol_path_a`). That gap is what this alias was really bridging,
+    /// and bridging is what forked twice above. Conversion now mints through
+    /// [`kinematic_path_name_slug`] — the same rule — so a converted path that
+    /// authors no `id` HAS the slug as its id and the two agree by construction
+    /// instead of by a third spelling.
     pub fn resolution_aliases(&self) -> impl Iterator<Item = Cow<'_, str>> {
         kinematic_path_aliases(&self.id, &self.name)
     }
@@ -202,6 +206,25 @@ pub fn kinematic_path_aliases<'a>(
         .chain(name_slug(name).map(Cow::Owned))
 }
 
+/// **The ONE way a kinematic path's display name becomes an id.**
+///
+/// A path that authors no explicit `id` is looked up by the slug of its name,
+/// so this rule decides what every reference to that path must be spelled —
+/// which makes a SECOND copy of it a silent mismatch generator. There was one:
+/// the LDtk converter minted ids with a near-identical rule that additionally
+/// collapsed `_path_` away, so `enemy patrol path A` became `enemy_patrol_a`
+/// here and `enemy_patrol_path_a` there. The gap was papered over with an extra
+/// resolution alias, that alias was then implemented in three places, two of
+/// them got it wrong in opposite directions, and sandbox's basement patroller
+/// stood still for months while two validators called it healthy.
+///
+/// ⛔ so conversion does not mint ids any more, it ASKS. The collapse is gone
+/// with the rule that owned it: a name slugs to exactly its alphanumerics,
+/// lowercased, with every other run of characters becoming one `_`.
+pub fn kinematic_path_name_slug(name: &str) -> Option<String> {
+    name_slug(name)
+}
+
 /// Every `(spelling, path)` pair a room's authored paths answer to — the table
 /// the lowering roads resolve a string reference against.
 ///
@@ -211,15 +234,20 @@ pub fn kinematic_path_aliases<'a>(
 ///
 /// ⛔ it was not, and the disagreement was live in shipped content. The spawn
 /// road built its own table from the authored id and name ONLY, dropping the
-/// normalized name slug that `resolution_aliases` accepts. Sandbox's basement
+/// normalized name slug that `resolution_aliases` accepted. Sandbox's basement
 /// path authors no `id` and is named `enemy patrol path A`, so LDtk derived the
-/// COMPACTED lookup id `enemy_patrol_a` (its slug rule collapses `_path_`) while
-/// the placement references the raw slug `enemy_patrol_path_a`. The binding
-/// sweep resolved it, both content validators passed, and the runtime table —
-/// holding only `enemy_patrol_a` and `enemy patrol path A` — did not, so the
-/// gallery's patroller silently spawned with no motion and stood still. Two
+/// COMPACTED lookup id `enemy_patrol_a` (its own slug rule collapsed `_path_`)
+/// while the placement references the raw slug `enemy_patrol_path_a`. The
+/// binding sweep resolved it, both content validators passed, and the runtime
+/// table — holding only `enemy_patrol_a` and `enemy patrol path A` — did not, so
+/// the gallery's patroller silently spawned with no motion and stood still. Two
 /// green oracles and a dead demo is exactly the failure a binding boundary
 /// exists to make impossible.
+///
+/// ⭐ the SECOND slug rule that made those three spellings necessary is now
+/// deleted (see [`kinematic_path_name_slug`]): that same path's id is
+/// `enemy_patrol_path_a`, which is what the placement already says, so the
+/// reference resolves by the path's own id rather than by an alias.
 ///
 /// First declaration wins, matching the sweep's duplicate reporting: a second
 /// path answering to a spelling already taken is unreachable, not an override.
@@ -281,19 +309,15 @@ mod kinematic_path_lookup_tests {
     /// body rides through this table, and any spelling only one of them knows
     /// is a reference reported healthy that does not move anything.
     ///
-    /// The poison is the shipped shape that broke: no authored `id`, so LDtk
-    /// derives the compacted `enemy_patrol_a`, while the placement references
-    /// the raw name slug `enemy_patrol_path_a`.
+    /// The fixture is the shipped shape that broke: sandbox's basement path
+    /// authors no `id` and is named `enemy patrol path A`, so conversion derives
+    /// its id from the name — and the placement references `enemy_patrol_path_a`.
     #[test]
     fn every_spelling_matches_id_accepts_is_in_the_lookup_table() {
-        let specs = vec![spec("enemy_patrol_a", "enemy patrol path A")];
+        let specs = vec![spec("enemy_patrol_path_a", "enemy patrol path A")];
         let lookup = kinematic_path_lookup(&specs);
 
-        for spelling in [
-            "enemy_patrol_a",
-            "enemy patrol path A",
-            "enemy_patrol_path_a",
-        ] {
+        for spelling in ["enemy_patrol_path_a", "enemy patrol path A"] {
             assert!(
                 specs[0].matches_id(spelling),
                 "matches_id must accept `{spelling}`"
@@ -309,6 +333,13 @@ mod kinematic_path_lookup_tests {
         // is a shared alias set rather than a table that says yes to anything.
         assert!(!specs[0].matches_id("enemy_patrol_b"));
         assert!(!lookup.iter().any(|(alias, _)| alias == "enemy_patrol_b"));
+
+        // ⛔ and the SECOND poison pins the deletion: `enemy_patrol_a` is what
+        // the converter's own slug rule used to mint for this name, collapsing
+        // `_path_` away. That rule is gone, so nothing answers to it any more —
+        // if it comes back, a second id-minting authority came back with it.
+        assert!(!specs[0].matches_id("enemy_patrol_a"));
+        assert!(!lookup.iter().any(|(alias, _)| alias == "enemy_patrol_a"));
     }
 
     /// A bare `Patrol:` reaches lowering as an EMPTY id. It must find nothing —

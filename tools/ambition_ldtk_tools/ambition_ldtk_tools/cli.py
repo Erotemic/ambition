@@ -344,7 +344,7 @@ def cmd_portal(args, rest):
 
 
 def cmd_room(args, rest):
-    if args.room_action in {"describe", "render", "bundle-debug"}:
+    if args.room_action in {"describe", "render", "bundle-debug", "relationships"}:
         # `room.py` owns its argparse surface. The modal parser only captures
         # the action, so normalize `room describe --ldtk FILE ...` into the
         # delegated parser's expected `--ldtk FILE describe ...` shape.
@@ -803,6 +803,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Read-only: create a .tar.gz containing room_describe.txt/json, "
             "a room render, matching specs, and debug trace JSONs. Usage: "
             "room bundle-debug --level <id> --out /tmp/room_debug.tar.gz"
+        ),
+    )
+    room_sub.add_parser(
+        "relationships",
+        help=(
+            "Read-only: print the authored relationship graph — which entities "
+            "point at which, natively (EntityRef) and by string convention. "
+            "Usage: room relationships [--ldtk FILE] [--level <id>] "
+            "[--format text|json] [--out report.txt]"
         ),
     )
     room_sub.add_parser(

@@ -696,6 +696,31 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                   "(`rustup target add wasm32-unknown-unknown`). "
                   "The web build is UNCHECKED in this run.")
 
+    # ⛔⛔ **LINKS IS NOT BOOTS, AND THE BROWSER PROVED IT TWICE.**
+    #
+    # The two jobs above compile and link the browser artifact. Both stayed green
+    # through a week in which the browser showed a blank canvas for THREE
+    # different reasons: `run_web` composed no shell host; then it composed one
+    # and the web feature set had nothing that could draw a route; then
+    # `grid_menu_nav` panicked on its first tick because `RebindCapture` was
+    # initialised behind the Lunex feature while the FLAT backend required it.
+    #
+    # ⭐ **and none of them needed a browser to find.** Every one is a fact about
+    # composing and stepping the app under the web persona's CARGO FEATURES,
+    # which a native host can do. That is what this runs — no wasm toolchain, no
+    # headless Chrome, ~1 minute — and it is the only job here that would have
+    # caught any of the three.
+    #
+    # ⚠ it deliberately uses `visible_web_base` rather than `web_served_assets`:
+    # the latter pulls `web_platform`, whose wasm-bindgen entry points do not
+    # belong in a native run. The features that decide COMPOSITION are all in the
+    # base.
+    if not only and everything:
+        jobs.append(Job(
+            "web persona BOOTS [visible_web_base, native]",
+            [CARGO, "run", "-p", "ambition_app", "--no-default-features",
+             "--features", "visible_web_base", "--example", "web_persona_boot"]))
+
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
     if heavy and not only:

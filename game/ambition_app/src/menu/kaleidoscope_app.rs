@@ -84,6 +84,23 @@ pub fn install_unified_menu_shared(app: &mut App) {
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
         .init_resource::<KaleidoscopeSystemNav>()
+        // ⛔⛔ **BACKEND-NEUTRAL, AND IT USED TO BE CUBE-ONLY.** `RebindCapture`
+        // is read by `SystemMenuParams`, which the FLAT grid backend's
+        // `grid_menu_nav` takes — but it was initialised inside
+        // `install_kaleidoscope_menu_backend`, behind the Lunex feature. So any
+        // build without the cube composed a grid menu whose nav system required a
+        // resource nothing had inserted, and Bevy killed the app on the first
+        // menu tick: `Parameter MenuDispatchParams::system failed validation:
+        // Resource does not exist`.
+        //
+        // ⚠ **that is a BLANK SCREEN, and it is what the browser was showing.**
+        // Startup completes and assets begin loading — which is why the server log
+        // looked healthy — and then the first `Update` panics and the app is dead.
+        // Nothing about it is web-specific; the web persona was simply the only
+        // shipped build with the cube feature off. Found 2026-08-14 by running the
+        // web persona's Cargo features on a NATIVE host (`examples/web_persona_boot`),
+        // where the panic prints a system name instead of painting nothing.
+        .init_resource::<RebindCapture>()
         .init_resource::<VisualQualityConfirmState>()
         .add_plugins(AmbitionInventoryUiPlugin);
     // The System-model cache belongs to the cube — the grid backend builds and
@@ -253,8 +270,10 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
         app.insert_resource(game_kaleidoscope_config());
     }
-    app.init_resource::<RebindCapture>()
-        .init_resource::<KaleidoscopeScroll>()
+    // `RebindCapture` is initialised by `install_unified_menu_shared`: the grid
+    // backend reads it too, and initialising it here left it absent whenever the
+    // cube was compiled out.
+    app.init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Gate only the cube's render sets: closed menus can still open and manage

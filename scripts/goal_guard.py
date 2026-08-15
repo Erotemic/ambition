@@ -192,23 +192,71 @@ That releases ownership AND prints the goal with its open items, so the agent
 knows what it is resuming; this session claims it at the end of the turn.
 `--status` prints the current owner if you need to check.
 
-## The goal file
+## The goal file — per RUN
 
     {
-      "goal": "complete the 24h queue",
+      "goal": "complete the queue",
       "deadline_utc": "2026-07-26T04:51:00Z",
       "max_stalled_blocks": 3,
       "checks": [
-        {"name": "queue has no open items",
-         "cmd": "! grep -q '▢' docs/planning/queue-24h-2026-07-25.md"},
-        {"name": "the app still compiles",
-         "cmd": "cargo check -p ambition_app -q", "timeout": 900}
+        {"name": "the ledger has no open rows",
+         "cmd": "grep -q 'TODO' docs/ledger.md; test $? -eq 1"},
+        {"name": "the project still builds",
+         "cmd": "<your build command>", "timeout": 900}
       ]
     }
 
 `deadline_utc` is what makes "24 hours" mean 24 hours in both directions: the
 guard holds the run open until then, and releases it afterwards rather than
 wedging the session forever.
+
+⛔ **Write a file-scoped check as `grep -q PAT F; test $? -eq 1`, never as
+`! grep -q PAT F`.** `grep` exits 2 when it cannot READ the file, and `!` turns
+that into a pass — so a check whose subject gets renamed or archived reports
+satisfied forever, about a file that no longer exists. Three checks in this repo
+did exactly that for two days. `test $? -eq 1` passes only on "read it, found
+nothing", so a vanished subject goes RED and names itself.
+
+## `.goal-guard.json` — per REPOSITORY
+
+Two things vary by repository rather than by run, and they were constants in
+this file until 2026-08-15, which is what stopped it being portable:
+
+    {
+      "build_processes": ["cargo", "rustc"],
+      "default_check_timeout": 900
+    }
+
+`build_processes` names the processes whose presence means something else is
+competing for the machine while a check is timed; leave it out and the cost
+recorder writes `null` rather than claiming an idle machine it never observed.
+`default_check_timeout` is the per-check ceiling when a check does not set its
+own. Both are optional — a repo with no config file at all is a working install.
+
+It is COMMITTED, unlike `.goal/`, which is gitignored per-run state.
+
+## Porting this to another repository
+
+Copy `goal_guard.py`, its tests, the two hook entries in `.claude/settings.json`,
+and add `.goal/` to `.gitignore`. Then write a `.goal-guard.json`. There is
+nothing else: the file is stdlib-only, `git` is soft-required (an unreadable
+HEAD counts as a stall, never as progress), and the checks are ordinary shell.
+
+Three assumptions come with it, and a new repo should agree to them rather than
+discover them:
+
+* **the progress oracle is a new commit on HEAD.** `max_stalled_blocks` releases
+  a run that has blocked N times without one. That suits a repo where finished
+  work is committed work; a repo with long-lived branches and rare commits would
+  be released for making steady progress;
+* **the guard must sit one directory below the repo root** — `repo_root()` is
+  `__file__.parent.parent` — and the up-walk in the hook command must name that
+  directory;
+* **`/proc` is how contention is sampled.** Elsewhere the cost recorder writes
+  `-1`, which is honest and useless; the rest of the guard is unaffected.
+
+The narrative behind these rules — which incident produced which line — is in
+`docs/tools/goal-guard.md`. Rules travel; stories stay where they happened.
 
 ## Why it does not follow the documented `stop_hook_active` advice
 
@@ -328,20 +376,67 @@ def as_float(value, fallback: float) -> float:
 def repo_root() -> Path:
     """The root of the repository THIS FILE lives in — never the one cwd is in.
 
-    This asked `git rev-parse --show-toplevel`, and its docstring claimed that
-    made the guard work "from any cwd a hook happens to have". It did not. A hook
-    inherits the session's working directory, and this tree contains a NESTED git
-    repository (`tools/ambition_sprite2d_renderer`). One `cd` into it and
-    `--show-toplevel` answered with the sub-repo, where `.goal/active.json` does
+    This asked `git rev-parse --show-toplevel`, and claimed that made the guard
+    work "from any cwd a hook happens to have". It did not: a hook inherits the
+    session's working directory, and one `cd` into a NESTED git repository made
+    `--show-toplevel` answer with the sub-repo, where `.goal/active.json` does
     not exist — so `mode_stop` took its "not armed: ordinary sessions are
-    untouched" path and released a 72-hour run (2026-08-05, 4h12m idle).
+    untouched" path and released a 72-hour run (2026-08-05; see
+    `docs/tools/goal-guard.md`).
 
     `git` was never the right authority for this. The guard is armed relative to
     the repo it is COMMITTED IN, and `__file__` says which one that is without
     asking anybody. A worktree gets its own copy and so resolves to itself, which
     is also correct.
+
+    ⛔ This is why a port must keep the guard exactly one directory below the
+    repo root.
     """
     return Path(__file__).resolve().parent.parent
+
+
+def config_path(root: Path) -> Path:
+    return root / ".goal-guard.json"
+
+
+def guard_config(root: Path) -> dict:
+    """Per-REPOSITORY settings, as opposed to per-RUN settings.
+
+    The goal JSON is already the config layer for a run: what to check, how long
+    to run, when to release. But two things vary by REPOSITORY rather than by
+    run, and they were constants in this file until 2026-08-15 — which is the
+    coupling that stopped it being portable. A Rust repo and a Python repo want
+    different numbers here and neither should have to fork the guard to say so.
+
+    It lives at the repo root and is COMMITTED, unlike `.goal/`, which is
+    gitignored per-run state and would take this with it on a fresh clone.
+
+    Absent or unreadable, the defaults apply and the guard behaves exactly as it
+    did before this existed — a port with no config file is a working port.
+
+        {
+          "build_processes": ["cargo", "rustc"],
+          "default_check_timeout": 120
+        }
+
+    `build_processes` names the processes whose presence means something ELSE is
+    competing for this machine while a check is timed. Empty (the default) makes
+    the recorder write `null` rather than `0`: a repo that never said what a
+    build looks like has not observed an idle machine, and recording that as
+    "zero contention" would be a measurement that cannot fail.
+    """
+    raw = load_json(config_path(root))
+    if not isinstance(raw, dict):
+        raw = {}
+    names = raw.get("build_processes")
+    if not isinstance(names, list):
+        names = []
+    return {
+        "build_processes": [str(n) for n in names if str(n).strip()],
+        "default_check_timeout": as_float(
+            raw.get("default_check_timeout"), DEFAULT_CHECK_TIMEOUT
+        ),
+    }
 
 
 def goal_dir(root: Path) -> Path:
@@ -472,12 +567,25 @@ class CheckResult:
         self.seconds = seconds
 
 
-def _foreign_build_processes() -> int:
-    """How many cargo/rustc processes are running that are not this check.
+def _foreign_build_processes(names: list[str]) -> int | None:
+    """How many of `names` are running — the machine's contention at sample time.
 
     Read from `/proc` rather than shelling out to `pgrep -f`, which MATCHES ITS
     OWN SHELL and so can never report zero (a tighter regex does not fix it).
+
+    The names were `("cargo", "rustc")` in the source until 2026-08-15. That made
+    the recorder silently meaningless in any repo that does not build Rust — it
+    would count zero forever and the row would read as a quiet machine. They come
+    from `.goal-guard.json` now.
+
+    Three distinguishable answers, and keeping them apart is the whole point:
+    a COUNT, `None` for "this repo never said what a build looks like", and `-1`
+    for "`/proc` could not be read" (a Mac, a container). Collapsing any of those
+    into `0` would report an idle machine that was never observed.
     """
+    if not names:
+        return None
+    wanted = set(names)
     count = 0
     try:
         for entry in os.listdir("/proc"):
@@ -488,7 +596,7 @@ def _foreign_build_processes() -> int:
                     comm = handle.read().strip()
             except OSError:
                 continue
-            if comm in ("cargo", "rustc"):
+            if comm in wanted:
                 count += 1
     except OSError:
         return -1
@@ -500,48 +608,48 @@ def record_check_cost(
 ) -> None:
     """Append one row per Stop-hook invocation to `.goal/check_cost.jsonl`.
 
-    ⭐ **Jon, 2026-08-08: measure compile and test time in the context of real
-    work.** This is that loop — the goal guard runs `cargo check -p ambition_app`
-    and the whole `app_it` suite every time a turn ends. It had run **114 times
-    in 11h17m** before anything timed it, while three instruments built the same
-    day measured only synthetic builds staged for measurement.
+    ⭐ **Jon, 2026-08-08: measure compile and test time in the context of REAL
+    work.** This is that loop. A guard that runs the build and the suite at the
+    end of every turn is the heaviest recurring job on the machine, and it had
+    run 114 times in 11h17m before anything timed it — while purpose-built
+    instruments measured only synthetic builds staged for measurement.
 
     ⛔ **it writes under `.goal/`, which the "nothing is left uncommitted" check
     already excludes.** A recorder that dirties the tree would fail the very run
     it measures — the instrument becoming the defect.
 
-    ⛔ **AND THE MOTIVATING NUMBER FOR THIS WAS OVERSTATED — corrected here
-    rather than quietly dropped.** The claim was that the same 688-unit build
-    measured 833.9s and 540.0s "because of this guard". `dev/ambition_dev_measurements/compile_units.jsonl`
-    records contention per build, and the 540.0s run has
-    `build_foreign_cargo_peak: 0` — it was CLEAN. The 833.9s run predates
-    contention stamping, so it has no such field. **The cause of that difference
-    is not established**, and attributing it to the guard was a story that fit.
-    The reason to stamp contention stands on its own: a duration without one
-    cannot be compared to anything.
-
     ⚠ **`foreign_builds` is a POINT-IN-TIME sample and is noisy** — build
-    processes come and go between samples, and a zero here has been verified
-    against `/proc` to be real rather than a broken counter. `load_before` /
-    `load_after` (1-minute averages) are the sturdier contention signal; prefer
-    them when the two disagree.
+    processes come and go between samples. `load_before` / `load_after`
+    (1-minute averages) are the sturdier contention signal; prefer them when the
+    two disagree. `build_processes` records WHAT was counted, because a
+    contention number whose subject is unstated cannot be compared to anything.
 
-    ⚠ **and none of this is decoration.** The same
-    688-unit build measured 833.9s and 540.0s on this machine depending on what
-    else was running, and the biggest contender IS this guard. A duration with no
-    contention stamp records the supervisor's reporting cadence as if it were the
-    code. Never fails the run: recording is best-effort by construction.
+    ⚠ **and none of this is decoration.** A duration with no contention stamp
+    records the supervisor's cadence as if it were the code, and the biggest
+    contender for the machine IS this guard. Recording never fails the run: it is
+    best-effort by construction.
+
+    The measurements that motivated this, including one whose headline number
+    turned out to be overstated, are written up in `docs/tools/goal-guard.md`.
     """
     try:
+        watched = guard_config(root)["build_processes"]
         payload = {
-            "schema": 1,
+            # SCHEMA 2 (2026-08-15): `foreign_builds` may now be `null`, meaning
+            # this repo never declared what a build process looks like, and the
+            # new `build_processes` field says what was actually counted. A
+            # contention number whose subject is unrecorded cannot be compared
+            # across repos, which is the same reason a duration needs a
+            # contention stamp in the first place.
+            "schema": 2,
             "kind": "goal_check",
             "recorded_at": now_utc().isoformat(),
             "head": head_sha(root),
             "total_seconds": round(sum(r.seconds for r in results), 3),
             "load_before": None if load_before is None else round(load_before, 2),
             "load_after": round(os.getloadavg()[0], 2),
-            "foreign_builds": _foreign_build_processes(),
+            "build_processes": watched,
+            "foreign_builds": _foreign_build_processes(watched),
             "checks": [
                 {
                     "name": r.name,
@@ -567,13 +675,14 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
         load_before = os.getloadavg()[0]
     except OSError:
         load_before = None
+    fallback_timeout = guard_config(root)["default_check_timeout"]
     for raw in goal.get("checks", []):
         name = str(raw.get("name") or raw.get("cmd") or "unnamed check")
         cmd = raw.get("cmd")
         if not cmd:
             results.append(CheckResult(name, "", False, "check has no `cmd`"))
             continue
-        timeout = raw.get("timeout", DEFAULT_CHECK_TIMEOUT)
+        timeout = raw.get("timeout", fallback_timeout)
         started = time.monotonic()
         try:
             proc = subprocess.run(
@@ -586,9 +695,21 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
         except subprocess.TimeoutExpired:
             # A timeout is NOT a pass. The whole point of this file is that
             # "we could not tell" never resolves to "done".
+            #
+            # But it is not a FAILURE either, and saying only "timed out after
+            # 120s" let this repo read a green suite as red for days: the check
+            # `cargo test -p ambition_app --test app_it` cannot finish a cold
+            # compile inside the default, so the block reported an integration
+            # suite that was never actually run. The line has to say which of the
+            # two it is and what to do about it, or the next repo loses the same
+            # days to the same sentence.
             results.append(
                 CheckResult(
-                    name, cmd, False, f"timed out after {timeout}s",
+                    name, cmd, False,
+                    f"NOT RUN — timed out after {timeout:g}s. This is the "
+                    "clock, not a failure: give this check its own `timeout` "
+                    "in the goal, or raise `default_check_timeout` in "
+                    ".goal-guard.json",
                     time.monotonic() - started,
                 )
             )
@@ -611,9 +732,14 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
     return results
 
 
-def clear_goal(root: Path, reason: str) -> None:
+def clear_goal(root: Path, reason: str, remove: bool = True) -> None:
     """Archive rather than delete: what a finished run was asked to do is
-    evidence, and the next run's post-mortem wants it."""
+    evidence, and the next run's post-mortem wants it.
+
+    `remove=False` archives the outgoing goal WITHOUT disarming, which is what
+    `--arm` needs: replacing a goal is not clearing one, but the thing being
+    replaced is still evidence and still gone forever if nobody writes it down.
+    """
     active = active_path(root)
     if not active.exists():
         return
@@ -624,6 +750,8 @@ def clear_goal(root: Path, reason: str) -> None:
     payload["_cleared_because"] = reason
     try:
         archive.write_text(json.dumps(payload, indent=2) + "\n")
+        if not remove:
+            return
         active.unlink()
         state_path(root).unlink(missing_ok=True)
         owner_path(root).unlink(missing_ok=True)
@@ -1409,7 +1537,17 @@ def mode_arm(root: Path, source: str) -> int:
             print(f"  - {problem}", file=sys.stderr)
         return 2
     goal_dir(root).mkdir(parents=True, exist_ok=True)
+    # ⛔ ARMING USED TO DESTROY THE GOAL IT REPLACED. This was a bare
+    # `copyfile` over `active.json`, and `.goal/` is gitignored, so on
+    # 2026-08-15 a re-arm erased a live 72-hour goal that existed in no other
+    # place — no archive, no git object, nothing. `clear_goal` had written a
+    # `done-<stamp>.json` on every OTHER exit from a run since the beginning;
+    # replacement was the one door out with no receipt.
+    #
+    # `remove=False` because this is not a release: the outgoing goal is
+    # archived and then immediately overwritten by the incoming one.
     if src.resolve() != active_path(root).resolve():
+        clear_goal(root, "replaced by --arm", remove=False)
         shutil.copyfile(src, active_path(root))
     state_path(root).unlink(missing_ok=True)
     set_owner(root, "")  # A fresh run is unclaimed; its first Stop takes it.

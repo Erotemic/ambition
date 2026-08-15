@@ -580,3 +580,98 @@ def test_a_compact_brings_the_whole_goal_back(repo: Path) -> None:
         {"type": "system", "subtype": "compact_boundary", "timestamp": later},
     )
     assert "THE WHOLE PREAMBLE" in run(repo, stdin={"transcript_path": tp})["reason"]
+
+
+# ── Replacing a goal is not the same as having no receipt for it ──────────────
+
+
+def test_arming_over_a_live_goal_archives_the_one_it_replaces(repo: Path) -> None:
+    """The 2026-08-15 data loss. `--arm` was a bare copy over `active.json`, and
+    `.goal/` is gitignored, so re-arming erased a live 72-hour goal that existed
+    nowhere else. Every OTHER exit from a run had written a receipt for years."""
+    arm(repo, goal="THE GOAL THAT WAS ALREADY RUNNING", checks=[FAIL])
+    replacement = repo / "next.json"
+    replacement.write_text(
+        json.dumps({"goal": "the new one", "checks": [PASS], "deadline_utc": "2099-01-01T00:00:00Z"})
+    )
+    cli(repo, "--arm", str(replacement))
+    archived = [p for p in (repo / ".goal").glob("done-*.json")]
+    assert archived, "the replaced goal must leave a receipt"
+    assert any(
+        "THE GOAL THAT WAS ALREADY RUNNING" in json.loads(p.read_text())["goal"]
+        for p in archived
+    )
+
+
+def test_arming_still_installs_the_new_goal(repo: Path) -> None:
+    """Archiving the outgoing goal must not disarm the incoming one."""
+    arm(repo, goal="the old one", checks=[FAIL])
+    replacement = repo / "next.json"
+    replacement.write_text(
+        json.dumps({"goal": "the new one", "checks": [FAIL], "deadline_utc": "2099-01-01T00:00:00Z"})
+    )
+    # NOT `cli`, which asserts exit 0: `--arm` finishes by printing `--status`,
+    # and status exits 1 while anything is open — which is the whole point of
+    # arming a goal with an open check.
+    subprocess.run(
+        [sys.executable, str(guard_in(repo)), "--arm", str(replacement)],
+        cwd=str(repo), capture_output=True, text=True, timeout=120,
+    )
+    assert json.loads((repo / ".goal" / "active.json").read_text())["goal"] == "the new one"
+    assert run(repo)["decision"] == "block", "and the new goal is live"
+
+
+# ── Repo-specific settings live in the repo, not in the guard ────────────────
+
+
+def test_a_repo_with_no_config_still_works(repo: Path) -> None:
+    """A port with no `.goal-guard.json` is a working port."""
+    assert not (repo / ".goal-guard.json").exists()
+    arm(repo, checks=[FAIL])
+    assert run(repo)["decision"] == "block"
+
+
+def test_the_default_check_timeout_comes_from_the_repo(repo: Path) -> None:
+    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    arm(repo, checks=[{"name": "a slow check", "cmd": "sleep 30"}])
+    reason = run(repo)["reason"]
+    assert "timed out after 1s" in reason, "the repo's number, not the built-in one"
+
+
+def test_a_timeout_says_it_is_the_clock_and_not_a_failure(repo: Path) -> None:
+    """This repo read a green integration suite as red for days, because the
+    block said only "timed out after 120s" and that looks exactly like a red
+    test. A port must not lose the same days to the same sentence."""
+    (repo / ".goal-guard.json").write_text(json.dumps({"default_check_timeout": 1}))
+    arm(repo, checks=[{"name": "the integration suite", "cmd": "sleep 30"}])
+    reason = run(repo)["reason"]
+    assert "NOT RUN" in reason
+    assert "timeout" in reason and ".goal-guard.json" in reason, "and say how to fix it"
+
+
+def test_an_undeclared_build_is_not_a_quiet_machine(repo: Path) -> None:
+    """`foreign_builds: 0` in a repo that never said what a build looks like is a
+    measurement that cannot fail. It records null instead."""
+    arm(repo, checks=[PASS])
+    run(repo)
+    rows = [
+        json.loads(line)
+        for line in (repo / ".goal" / "check_cost.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert rows[-1]["foreign_builds"] is None
+    assert rows[-1]["build_processes"] == []
+
+
+def test_the_cost_row_says_what_it_counted(repo: Path) -> None:
+    """A contention number whose subject is unrecorded cannot be compared."""
+    (repo / ".goal-guard.json").write_text(
+        json.dumps({"build_processes": ["definitely_not_a_real_process"]})
+    )
+    arm(repo, checks=[PASS])
+    run(repo)
+    row = json.loads(
+        (repo / ".goal" / "check_cost.jsonl").read_text().splitlines()[-1]
+    )
+    assert row["build_processes"] == ["definitely_not_a_real_process"]
+    assert row["foreign_builds"] == 0, "declared and genuinely absent IS zero"

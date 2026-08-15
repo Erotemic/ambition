@@ -1,0 +1,165 @@
+# goal_guard — the incidents behind the rules
+
+`scripts/goal_guard.py` holds the rules. This file holds the failures that
+produced them, and exists so the rules can travel to another repository without
+carrying Ambition's history, and without becoming arbitrary once they arrive.
+
+Read this when a rule in that file looks like it could be simplified. Every one
+of them already was simpler, once.
+
+## Why the arbiter is a command and not a model
+
+**2026-07-25.** `/goal` installed a Stop hook whose condition was judged by a
+model reading the conversation. It released a 24-hour run after **84 minutes**:
+the agent wrote a completion-shaped status report — *"A1 done, A2 done, three
+findings…"* — and the judge, reading prose, called the goal met and cleared
+itself. The session then idled for nine hours with nobody to restart it.
+
+The lesson is not "the hook was too weak." It is that the arbiter was the wrong
+*kind*. A judge that reads prose can be persuaded by prose, and a model tired of
+an item is exactly the thing most motivated to write persuasive prose.
+
+This is why the block text names that specific move — *"writing a status report
+does not close an item"* — and why `test_a_transcript_claiming_success_does_not_release_it`
+exists.
+
+## The guard that silently ceased to exist
+
+**2026-08-05, two failures in one day, neither visible in the checks.**
+
+The hook command contained a relative path. A hook inherits the session's
+working directory, so one `cd` into a subdirectory made `python3
+scripts/goal_guard.py` resolve to nothing. The runtime treats a hook script it
+cannot find as **non-blocking**, and says so only in a suggestion-level note — so
+the guard did not fail, it stopped existing. A 72-hour run was released and the
+session idled 4h12m.
+
+Separately, `repo_root()` asked `git rev-parse --show-toplevel`. This tree
+contains a nested git repository at `tools/ambition_sprite2d_renderer`; one `cd`
+into it and `--show-toplevel` answered with the sub-repo, where
+`.goal/active.json` does not exist. `mode_stop` took its "not armed, ordinary
+sessions are untouched" path and released the run.
+
+Hence: the hook command walks *up* from `$CLAUDE_PROJECT_DIR` and emits a block
+of its own if it cannot find the guard, and `repo_root()` is `__file__` rather
+than anything git knows. The only symptom available to a human for either
+failure was `.goal/state.json` going stale while the session worked on.
+
+## The stall counter that reset itself on infrastructure failure
+
+`stalled` counted blocks with no new commit, and read
+`stalled + 1 if sha and sha == last_head else 0`. A failing `git rev-parse` — a
+permission problem, a lock file, a repo the hook could not see — returned `""`
+and reset the counter to **zero on every block**. The one escape hatch from a run
+going nowhere was disabled by exactly the infrastructure failures most likely to
+make a run go nowhere (GPT 5.6, 2026-07-28).
+
+Three cases are named separately now: a new commit is progress and resets; the
+same commit is a stall; and **not knowing is a stall too**, because a guard that
+cannot see progress must not assume it.
+
+## The checks that could not fail
+
+**2026-08-15.** Three of thirteen checks grepped campaign files that had been
+archived when their campaigns closed. `grep` on a missing path exits 2, `!`
+inverted it to 0, so they reported satisfied every turn — about campaigns that
+no longer existed, having observed nothing at all.
+
+Worse, the *load-bearing* check had the same shape. The permanent pin that kept
+the run alive was `! grep -q '▢' <the ledger>`. The day that ledger was archived
+like every dated file before it, the pin would have flipped green and the run
+would have released itself with the queue full.
+
+Hence `grep -q PAT F; test $? -eq 1` everywhere: rc 0 (found) fails, rc 1 (read
+and clean) passes, rc 2 (unreadable) **fails**. A vanished subject reddens and
+names itself. The same day, the ledger lost its date — `queue-72h-2026-08-08.md`
+became `queue.md` — because a dated filename on the one document whose declared
+property is that it never closes is what produced the defect.
+
+## Arming destroyed the goal it replaced
+
+**2026-08-15.** `mode_arm` was a bare `shutil.copyfile` over `active.json`.
+`.goal/` is gitignored, so re-arming erased a live 72-hour goal that existed in
+no other place: no archive, no git object, nothing. `clear_goal` had written a
+`done-<stamp>.json` receipt on every *other* exit from a run since the beginning
+— replacement was the one door out with no receipt.
+
+The goal was reconstructed from a verbatim dump that happened to be in the
+session transcript. That is luck, not a recovery procedure.
+
+## A timeout is not a failure, and saying so matters
+
+The default per-check timeout was 120s, and a timed-out check reported
+`timed out after 120s`. In a block listing open items, that reads exactly like a
+red test. This repo's `cargo test -p ambition_app --test app_it` cannot finish a
+cold compile inside 120s, so the guard reported a failing integration suite for
+days on the strength of a stopwatch.
+
+A timeout now says `NOT RUN — … This is the clock, not a failure` and names the
+two places to raise it. The number itself moved to `.goal-guard.json`, because
+120s is a statement about a repository, not about goal guarding.
+
+## Measuring the guard's own cost
+
+**Jon, 2026-08-08: measure compile and test time in the context of real work.**
+A guard that runs the build and the suite at the end of every turn is the
+heaviest recurring job on the machine. It had run **114 times in 11h17m** before
+anything timed it, while three purpose-built instruments made the same day
+measured only synthetic builds staged for measurement. `check_cost.jsonl` is
+that loop closing.
+
+**The motivating number was overstated, and is corrected here rather than
+quietly dropped.** The claim was that the same 688-unit build measured 833.9s
+and 540.0s *"because of this guard"*.
+`dev/ambition_dev_measurements/compile_units.jsonl` records contention per
+build, and the 540.0s run has `build_foreign_cargo_peak: 0` — it was clean. The
+833.9s run predates contention stamping and has no such field. **The cause of
+that difference is not established.** Attributing it to the guard was a story
+that fit.
+
+The reason to stamp contention survives the correction intact: a duration
+without one cannot be compared to anything.
+
+`foreign_builds` is sampled from `/proc` rather than `pgrep -f`, which matches
+its own shell and so can never report zero — a tighter regex does not fix it.
+
+## Waiting on subagents is not stopping
+
+**2026-08-15, Jon.** A coordinator that spawns subagents and yields the turn to
+wait for them is *ending a turn*, which is the only event a Stop hook can
+observe. The guard blocked that yield and told the agent to resume — every
+yield, each block injecting the whole preamble. That is the guard pushing an
+agent through precisely the behaviour it wanted.
+
+The stand-down reads the transcript for work that went async and never reported
+back. Jon's requirement shaped the heartbeat: *"sometimes something goes in
+flight and gets hung"* — so a wait whose outstanding set has not moved in an hour
+is blocked anyway to ask how the subagents are doing, because from inside a Stop
+hook a hung task and a slow one are indistinguishable.
+
+Two parser bugs, both caught by tests rather than by reading:
+
+- matching `running in background with ID` **without the trailing id** counted a
+  `grep` whose own output quoted the phrase. The guard believed a task was in
+  flight that had never existed — the same prose-versus-thing confusion
+  `check_absence_contracts.py` records three times;
+- keying the compact boundary on the literal `"subtype":"compact_boundary"` saw
+  nothing the moment the JSON separator had a space in it.
+
+⚠ **Still unverified:** the launch/completion pairing is confirmed for
+background `Bash` tasks. Agent-tool subagents are documented to report through
+the same channel and the join key (`tool_use_id`) is not tool-specific, but no
+transcript on this machine has ever contained one — every `isSidechain` count
+was zero. If subagents are not standing the guard down, look here first.
+
+## What this file cannot do
+
+It is not unfoolable. The checks are commands, and the agent can edit the files
+those commands read. The honest claim is narrower: it converts *"convince a
+judge"* into *"falsify a specific artifact"*, which is a much louder thing to do
+and leaves a diff. Write checks that name a test rather than a doc marker and
+the bar goes up again.
+
+And every word of that assumes the guard **ran**. Nothing in the file can
+establish that — a guard that is never invoked is indistinguishable, from
+inside, from a guard whose checks all passed.

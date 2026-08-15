@@ -1,0 +1,18 @@
+{
+  "_comment": [
+    "Per-REPOSITORY settings for scripts/goal_guard.py. The goal JSON in .goal/",
+    "is the per-RUN config (what to check, when to release); this is the part",
+    "that is true of the repository no matter which run is armed.",
+    "",
+    "It is COMMITTED on purpose. .goal/ is gitignored per-run state, so a config",
+    "living there would vanish on a fresh clone and the guard would silently",
+    "revert to defaults that are wrong for this repo.",
+    "",
+    "Both keys are optional; a repo with no .goal-guard.json at all is a working",
+    "install running on the defaults."
+  ],
+
+  "build_processes": ["cargo", "rustc"],
+
+  "default_check_timeout": 900
+}

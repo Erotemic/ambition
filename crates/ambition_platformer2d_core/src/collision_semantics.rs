@@ -198,12 +198,34 @@ pub fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
 /// slack is the more conservative, tuned rule, so it now applies to every actor.
 pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
     if gravity_dir.y.abs() >= gravity_dir.x.abs() {
-        body.right() > surface.left() + EDGE_OVERLAP_SLOP
-            && body.left() < surface.right() - EDGE_OVERLAP_SLOP
+        spans_overlap_for_support(
+            (body.left(), body.right()),
+            (surface.left(), surface.right()),
+        )
     } else {
-        body.bottom() > surface.top() + EDGE_OVERLAP_SLOP
-            && body.top() < surface.bottom() - EDGE_OVERLAP_SLOP
+        spans_overlap_for_support(
+            (body.top(), body.bottom()),
+            (surface.top(), surface.bottom()),
+        )
     }
+}
+
+/// **"Does this body still have floor under it?", as one-dimensional spans.**
+///
+/// The whole of [`perpendicular_overlap`] once the perpendicular axis has been
+/// chosen: two `(min, max)` intervals, overlapping by more than
+/// [`EDGE_OVERLAP_SLOP`] at each end. Both arguments are already projected onto
+/// the axis perpendicular to the body's own gravity, so this is as
+/// gravity-generic as its caller's projection.
+///
+/// ⭐ **exposed so a body that is not an [`Aabb`] can ask the SAME question**,
+/// rather than re-deriving support from a centre. A model that keeps its floor
+/// as a span (`ambition_characters`' fighter-brain shadow rollout keeps exactly
+/// that) had a centre-in-span test, which drops a body a half-extent before the
+/// kernel does — and the two disagreeing at a ledge is the whole of the
+/// disagreement, because a ledge is the only place the answer changes.
+pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool {
+    body.1 > surface.0 + EDGE_OVERLAP_SLOP && body.0 < surface.1 - EDGE_OVERLAP_SLOP
 }
 
 /// Whether a body may LAND on a one-way surface this step: it must be moving

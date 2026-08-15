@@ -1033,3 +1033,138 @@ fn a_decision_taken_through_the_lens_repeats_exactly() {
     };
     assert_eq!(once(), once());
 }
+
+// ── the ledge TRANSITION (the case the fixtures above start past) ────────
+
+/// The lip walk-off, from a body that is genuinely STANDING on the platform —
+/// which is the state every fixture above skips by starting airborne and clear.
+/// The platform ends at `x = 460` and the body's centre starts at `440` with a
+/// 12px half-width, so the centre clears the lip after 20px of walking and the
+/// FOOTPRINT clears it after 31px — the whole disagreement, and both inside the
+/// first ten ticks at the shipped ground speed, far short of `commit_ticks`.
+fn view_standing_at_the_lip() -> WorldView {
+    let mut view = view_on_platform(440.0, 60.0);
+    // Nothing in the air can save this body: the kit below owns no mid-air
+    // jump AND the line has no charge left to spend, so a `Regained` verdict
+    // can only have come from a SURFACE.
+    view.self_view.air_jumps_left = 0;
+    view
+}
+
+/// **THE SHADOW MUST LET GO OF THE FLOOR WHERE THE KERNEL DOES, NOT A
+/// HALF-EXTENT EARLIER.**
+///
+/// `refine_by_rollout` captures `left_the_ground` from this exact transition and
+/// hands the position to the real movement kernel. The kernel's support test is
+/// `perpendicular_overlap` — the body's FOOTPRINT against the surface's span —
+/// so a shadow that let go while the centre passed the lip handed over a
+/// position at which the kernel still found the body standing on the platform,
+/// and reprieved a walk-off by the very floor the body was leaving.
+///
+/// Asserted against the kernel's own predicate rather than a number, so it
+/// cannot drift from `EDGE_OVERLAP_SLOP`, and the failure message prints both
+/// spans — a genuine red names a footprint that still overlaps the platform.
+#[test]
+fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
+    let tuning = ShadowTuning::default();
+    let view = view_standing_at_the_lip();
+    let mut s =
+        ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view");
+    assert!(
+        s.me.on_ground,
+        "the fixture body has to START standing on the platform — that is the \
+         transition under test"
+    );
+
+    let mut ticks = 0;
+    while s.me.on_ground && ticks < 60 {
+        run(&mut s, 1, &ShadowIntent::Drive { lateral: 1.0 }, &tuning);
+        ticks += 1;
+    }
+    assert!(
+        !s.me.on_ground,
+        "one second of walking right never left a platform whose edge is 20px \
+         away; the fixture, not the model, is wrong"
+    );
+
+    let span =
+        s.me.ground_span
+            .expect("the shadow read the platform it stood on");
+    let half = s.me.half_extent.x;
+    let footprint = (s.me.pos.x - half, s.me.pos.x + half);
+    assert!(
+        !ae::collision_semantics::spans_overlap_for_support(footprint, span),
+        "the shadow let go at x={} with its footprint still at {:?} on the \
+         platform {:?} — the real kernel asked at this position stands the body \
+         straight back up, so a recovery probe taken here is reprieved by the \
+         floor the body is walking off",
+        s.me.pos.x,
+        footprint,
+        span
+    );
+}
+
+/// **AND THE VETO SURVIVES THE TRANSITION: a body that walks off the lip with
+/// nothing to get back on is condemned.**
+///
+/// The line is the same walk as above. The kit owns no mid-air jump, no wall
+/// verb and no ledge grab, and the query carries zero unspent air jumps, so once
+/// the body is past the lip and below it there is nothing left — the only thing
+/// that could report `Regained` is the platform it just left, at a position the
+/// shadow reached while still half-standing on it.
+///
+/// ⛔ this is NOT the deleted *"airborne + below the lip + outside the span ⇒
+/// dead"* rule returning: no predicate here says what the body can do. The
+/// second row is the proof — identical body, identical kit, identical walk, one
+/// extra shelf in the flight path, opposite verdict. Only surfaces moved.
+#[test]
+fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
+    let options = crate::brain::fighter::options::OptionSet {
+        attacks: Vec::new(),
+        movement: vec![crate::brain::fighter::options::MoveOption {
+            verb: crate::brain::fighter::options::MovementVerb::Approach,
+            score: 1.0,
+        }],
+    };
+    let approach = vec![crate::brain::fighter::options::MovementVerb::Approach];
+    let refine = |view: &WorldView| {
+        let lens = lens_for(view, ae::AbilitySet::basic());
+        refine_by_rollout(
+            Perceived::cheating(view),
+            Situation::Neutral,
+            &options,
+            &HabitModel::default(),
+            &profile(4, 12, 0.0),
+            &ShadowTuning::default(),
+            60.0,
+            60,
+            Some(&lens),
+        )
+        .expect("rollouts are on and a hostile is in view")
+        .suicidal_movement
+    };
+
+    let off_the_lip = view_standing_at_the_lip();
+    assert_eq!(
+        refine(&off_the_lip),
+        approach,
+        "walking off the lip with no air jump, no wall verb and no ledge grab \
+         drops this body into the void — the kernel must not reprieve it with \
+         the platform it is walking off"
+    );
+
+    // The falsifier: a shelf in the flight path, 104px below the lip and
+    // starting past its edge. `floor_below` cannot see it (it begins at x=455,
+    // right of this body's footprint), so the shadow's line is byte-identical
+    // and only the kernel's world changed.
+    let mut caught = view_standing_at_the_lip();
+    caught.terrain.push(crate::perception::PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(572.5, 436.0), ae::Vec2::new(117.5, 16.0)),
+        kind: crate::perception::SolidKind::Solid,
+    });
+    assert!(
+        refine(&caught).is_empty(),
+        "the SAME walk, with something to land on, is a walk — condemning it \
+         would mean the veto had stopped reading the surfaces"
+    );
+}

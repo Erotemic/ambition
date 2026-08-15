@@ -922,16 +922,34 @@ fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuni
     // height it stood at. A body that started airborne has no known floor
     // and keeps falling — which is exactly the doubt an offstage rollout
     // should carry.
-    // **WALKING OFF THE END OF THE FLOOR.** A grounded body whose lateral
-    // position has left its supporting solid is no longer supported — it falls,
-    // and from the next step gravity has it. Without this a shadow body strolled
-    // off a platform and kept walking at the same height, which is why a rollout
-    // could not see the single commonest way a fighter dies.
+    // **WALKING OFF THE END OF THE FLOOR.** A grounded body whose FOOTPRINT has
+    // left its supporting solid is no longer supported — it falls, and from the
+    // next step gravity has it. Without this a shadow body strolled off a
+    // platform and kept walking at the same height, which is why a rollout could
+    // not see the single commonest way a fighter dies.
+    //
+    // ⭐ **the footprint, and it is the kernel's own predicate, not a copy of
+    // it.** This tested the body's CENTRE against the span, so the shadow let go
+    // of a body a half-extent before `surface_supports_body_at_rest` does. That
+    // gap is invisible in the middle of a platform and decisive at its lip:
+    // `refine_by_rollout` captures `left_the_ground` from this transition and
+    // hands the position to the real kernel, which — still finding the footprint
+    // on the platform — stood the body straight back up and reprieved a walk-off
+    // that was genuinely fatal. `Perceived::supporting_floor` carries the same
+    // correction for the same reason (traced 2026-07-31).
     let frame = ae::AccelerationFrame::new(down);
     let lateral = f.pos.dot(frame.side);
+    // The AABB's own extent along `side`: exact for any frame, cardinal or not.
+    let half_width =
+        (f.half_extent.x * frame.side.x).abs() + (f.half_extent.y * frame.side.y).abs();
     let supported = f
         .ground_span
-        .map(|(min, max)| lateral >= min && lateral <= max)
+        .map(|span| {
+            ae::collision_semantics::spans_overlap_for_support(
+                (lateral - half_width, lateral + half_width),
+                span,
+            )
+        })
         .unwrap_or(true);
     if f.on_ground && !supported {
         f.on_ground = false;
@@ -1431,6 +1449,14 @@ pub fn refine_by_rollout(
             // ⛔ deliberately NOT the death state and NOT the line's final state:
             // a body already past the envelope has nothing left to decide, and
             // probing from there would answer "you are dead" for every line.
+            //
+            // ⭐ **the transition this reads is the KERNEL's, not a second
+            // opinion about it** — `integrate` decides support with the same
+            // `spans_overlap_for_support` the kernel's `perpendicular_overlap`
+            // is built from, so a position captured here is one the kernel also
+            // calls unsupported. It did not always: a centre-in-span test handed
+            // over a body still half-standing on the platform, which the probe
+            // stood straight back up. See `integrate`.
             let mut left_the_ground: Option<super::recovery::RecoveryQuery> = None;
             for tick in 0..horizon {
                 // **THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED

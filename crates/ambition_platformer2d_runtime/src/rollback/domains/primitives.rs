@@ -132,13 +132,20 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.custody_residency",
         "room residency reprojected from ItemCustody every tick",
     );
-    // ⚠ **AND THE DISPOSITION LEDGER IS DERIVED FOR EXACTLY AS LONG AS ITS ONLY
-    // PRODUCER IS CUSTODY.** `AuthoredOccurrences::persisting` is rebuilt every
-    // tick from the live `InCustodyOf` population above — no "already applied"
-    // gate, whole-set republish — so a rewind that restores custody restores the
-    // ledger on the next step. It is not rollback state today.
+    // ⚠ **WHY THE WHEREABOUTS LEDGER IS STILL DERIVED, stated sharply because the
+    // old reason went stale the day it gained a second producer.** It used to say
+    // "custody is the only producer, and custody is republished every tick". That
+    // is no longer true: `Placed { room, at }` rows are stamped by the item domain
+    // and do not self-retract.
     //
-    // ⛔⛔ **the day `OccurrenceDisposition::Consumed` gains a producer this
+    // ⭐ the argument that replaces it, and it is the one written at
+    // `AuthoredOccurrences::rewind_argument`: **every row is republished from live
+    // state while that state is loaded.** The single value that cannot be
+    // recomputed is a `Placed` row whose room is UNLOADED — and a room unloads
+    // only at a CONFIRMED transition, which a rewind never crosses. So the
+    // unrecomputable rows are exactly the ones no rewind can reach.
+    //
+    // ⛔⛔ **the day `OccurrenceWhereabouts::Consumed` gains a producer this
     // declaration becomes a LIE.** That leg accumulates: it records that an
     // occurrence is gone for good, which is precisely a fact no live component
     // still carries, so nothing re-derives it and a rewind past the destruction
@@ -148,7 +155,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.declare_rollback_derived_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>(
         OWNER,
         "derived.placement_continuity",
-        "authored-occurrence dispositions reprojected from InCustodyOf every tick",
+        "authored-occurrence whereabouts; republished from live state while its room is loaded",
     );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,

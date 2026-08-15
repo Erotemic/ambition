@@ -166,9 +166,33 @@ satisfies the first two and fails it — which is precisely why the rule is
 checkpoint-shaped rather than item-shaped.
 
 ⚠ **a sandbox reset is a DIFFERENT road from death/retry** — it rebuilds the start
-room from authored records alone and restores nothing outside room scope. Whether
-the checkpoint baseline should also govern it is an open question, not an
-assumption.
+room from authored records alone and restores nothing outside room scope.
+
+### ✔ How the three horizons actually compose (answered 2026-08-15)
+
+⭐⭐ **the baseline horizon is a COPY of the whereabouts ledger, taken at a commit
+and written back on death.** That is the whole mechanism, and **all three of the
+maintainer's lines fall out of it with ZERO item-kind knowledge** — line 3 works
+because the temporary item's row simply is not in the C1 copy.
+
+⭐ **and a reset is the DEGENERATE CASE — "restore the empty baseline"** — so
+death/retry and reset unify naturally rather than needing to be reconciled. ⚠ they
+are *not* merged in code today, and that is deliberate; the unification is a
+prediction the implementation has not yet had to honour.
+
+⛔⛔ **the boundary, and it is where this stops:** line 2 (*"the key stays
+acquired"*) is an **INVENTORY claim, not a whereabouts claim.** An `InCustody` row
+names a live relationship between an item and a holder; it cannot be restored on
+its own, and `OwnedItems` is a count table with no row per object. ⇒ horizon 2
+needs three things that **do not exist**:
+
+1. a **checkpoint commit** that is a world event rather than a body position;
+2. a **death road that restores** rather than rebuilding;
+3. a **body inventory** — which is exactly the leg D125 has been deferring.
+
+⇒ so the horizons are: **1 built · 2 designed and blocked on the inventory leg ·
+3 still separate.** ⛔ do not fake horizon 2 with an item-kind rule to make the
+fixture pass — that is precisely what the decision forbids.
 
 ⚠ **and treat the current residency mechanism as a bridge, not the answer.**
 `InCustodyOf` / `RoomResident` is right for today's **single-active-room** host,

@@ -862,6 +862,25 @@ impl Plugin for WorldLabelLayoutPlugin {
                 .in_set(WorldLabelLayoutSet)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
+        // **Which camera may DRAW what the pass above placed.** Registered here
+        // because this plugin is what every composition that spawns a per-view
+        // projection already installs — nameplates and room signage both — so the
+        // isolation lands wherever the projections do, instead of being true of
+        // the one composition that remembered it.
+        //
+        // ⚠ `PostUpdate`, before Bevy reads the masks, NOT beside the placement
+        // chain: plates and label copies are spawned through `Commands` in
+        // `Update`, so a pass ordered inside that chain would leave every copy
+        // spawned this frame drawing into both cameras until the next one.
+        //
+        // ⭐ and it is deliberately NOT gated on a session. A composition whose
+        // session ended must still get its retraction pass; the systems above
+        // decline by having nothing to iterate, and so does this one.
+        app.add_systems(
+            PostUpdate,
+            super::view_isolation::isolate_per_view_projections
+                .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
+        );
     }
 }
 

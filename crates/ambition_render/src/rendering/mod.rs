@@ -32,6 +32,10 @@
 //!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
 //! - [`camera`] — player-following camera with eased zoom around
 //!   encounter transitions ([`camera_follow`]).
+//! - [`view_isolation`] — the render-side half of `PresentedForView`: which
+//!   camera may DRAW a given view's projections
+//!   ([`view_isolation::isolate_per_view_projections`]). Per-view transforms
+//!   without per-view visibility is half a projection.
 //! - [`debug_viz`] — the engine-generic F1 debug gizmo layers (world
 //!   blocks, surface chains, read-model body/feature boxes) + the opt-in
 //!   [`debug_viz::DebugVizPlugin`] a game host adds to get them.
@@ -82,6 +86,7 @@ pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
 pub(crate) mod slash_visuals;
 mod unauthored_volumes;
+pub mod view_isolation;
 mod wielded_item_visuals;
 mod world;
 

@@ -53,6 +53,10 @@ wrong, does not mean they should be unified, and emphatically does not license a
 `UniversalRuleVM`. Several of them predate the common doctrine and are perfectly
 good code. They are **customers and evidence**, and M0 exists to find out which.
 
+⭐ **M0 ran on 2026-08-15 and answered that question — see the M0 result below.
+Read it before designing anything.** Its headline: **sequencing must NOT be
+unified, and boss patterns are the template rather than a customer.**
+
 ## The ladder this amends
 
 [`extension-model.md`](extension-model.md) owns the supported extension ladder.
@@ -102,6 +106,17 @@ a presentation consequence where appropriate.
 god crate.** The concrete domains own the actual operations. A new domain
 participating must not require editing a central enum — that requirement is the
 falsifier for whatever contract M1 proposes.
+
+### 2b. Sequencing stays domain-owned  ⭐ added by M0
+
+⛔ **the shared layer does not own a sequencer.** M0 found a monotonic cursor and
+a reversible cycling timer machine in the same tree, plus a subroutine stack with
+interrupts and seeded selection — three execution machines that cannot be one
+without a branch naming the customer.
+
+The shared substrate is **conditions + commands + prepared references +
+preparation + discovery.** A domain that needs a timeline keeps its own, and
+gains nothing it must give up.
 
 ### 3. Domain ownership stays distributed; discovery may be aggregated
 
@@ -232,19 +247,20 @@ customers are ready, or when product work starts repeatedly requiring bespoke
 Rust behavior wiring. Until then this is a named capability with an executable
 first step.
 
-### M0 — inventory and evidence  ⟵ the gate; everything else waits on it
+### M0 — inventory and evidence  ✔ DONE 2026-08-15
 
-Inventory the existing authored/semi-authored behavior systems and classify each
-along: condition model · effect/command model · sequencing · runtime state ·
-reference model · persistence/rollback semantics · preparation model ·
-inspection/tooling support.
+14 systems inspected at HEAD and classified along: condition model ·
+effect/command model · sequencing · runtime state · reference model ·
+persistence/rollback semantics · preparation model · inspection/tooling support.
 
-**Acceptance:**
+**Acceptance — met:** the major customers were inspected at HEAD rather than
+recalled; ⭐ **genuine incompatibilities were found and they narrowed the design**
+(sequencing is out); no universal abstraction was assumed; two proof customers
+are named with their expected deletions. See the M0 result above.
 
-- the major existing customers have actually been inspected at HEAD, not recalled;
-- similarities **and genuine incompatibilities** are both recorded;
-- no universal abstraction has been assumed;
-- ⭐ two concrete proof customers are named with their expected deletions.
+⚠ **M1 is now the next executable step, and it is still not authorized to
+start** — priority rises when the customers are ready or product work starts
+repeatedly demanding bespoke Rust behavior wiring.
 
 ### M1 — vocabulary/provider contract
 
@@ -272,7 +288,13 @@ other independent domain; **neither requires an evaluator branch naming the
 customer**; ⭐ if the abstraction becomes awkward for one customer, **stop and
 revise rather than forcing convergence** — record the awkwardness as evidence.
 
-### M4 — deterministic runtime state
+### M4 — deterministic runtime state  ⚠ NOT deferrable — see M0 Finding 4
+
+⛔ **the milestone number is not the order.** The tree ships three different
+answers to *"is a program counter rollback state?"*, so whichever the shared form
+picks changes at least two shipped systems. Rollback semantics are a **design
+input to M1/M2**, not a cleanup afterwards. ⭐ boss patterns hold the answer to
+copy: snapshot the **resolved** timeline, not the source program.
 
 If the proof needs timers/sequences/latches, give that state explicit rollback
 and lifetime semantics.
@@ -294,23 +316,119 @@ Feed rule references into the project-wide semantic dependency graph owned by
 **Acceptance:** reverse-reference queries include authored rules; rename/delete
 planning reports affected rules before mutation.
 
-## Proof customers
+## M0 result — census of 2026-08-15
 
-⚠ **selected by M0, not here.** The required shape is two materially different
-real Ambition customers — ⛔ toy fixtures do not qualify:
+**14 authored/semi-authored behavior systems inspected at HEAD.** Full inventory
+and per-system classification:
+[`../triage/authored-behavior-inventory-2026-08-15.md`](../triage/authored-behavior-inventory-2026-08-15.md)
+— evidence, with two post-census corrections recorded in its header. The
+decision-relevant findings are reproduced below because they change the design.
 
-- **Customer A — a currently Rust-constructed encounter sequence.** The cut-rope
-  encounter is a likely candidate if HEAD still supports that characterization.
-  The proof is *not* to redesign the encounter engine; it is to show that its
-  authored sequence, conditions and references can be **prepared authored
-  content** rather than manual Rust assembly.
-- **Customer B — an ordinary world mechanism.** A flag chain, flag-gated lock,
-  switch/mechanism, power-state transition or similar small world-state reaction.
-  It must be different enough from an encounter to test whether the common
-  substrate is real.
+### ⛔⛔ Finding 1 — sequencing must NOT be unified
 
-⛔ if those two reveal incompatible semantics, that is a **result** — record it
-here and let the program fail honestly rather than forcing one abstraction.
+Two structural incompatibilities, each fatal to a shared sequencer:
+
+- **monotonic cursor vs reversible timer machine.** `EncounterScript::advance` is
+  `cursor += 1; elapsed = 0.0`. `tick_gate_portal_phase` runs *backwards* and maps
+  its timer symmetrically to preserve visual progress, cycling with no terminal
+  state. Neither form covers the other without a branch naming the customer.
+- **subroutine stack + interrupts + seeded randomness vs flat cursor.**
+  `BossPatternState` has a stance return stack, interrupts that preempt the
+  cursor, and a weighted `Select` carrying `rng_seed` in its snapshot. That is a
+  different execution machine, not another configuration of one.
+
+⇒ **the substrate that survives contact with this tree is: conditions +
+commands + prepared references + preparation + discovery — with sequencing left
+domain-owned.** ⛔ do not put a sequencer in the shared layer. This narrows the
+program significantly and is the most important thing M0 produced.
+
+### ⭐ Finding 2 — the gap is on the CONDITION side, and the effect side already learned this lesson
+
+There is **no shared condition/predicate type anywhere in the workspace.** The
+effect side, by contrast, already has five-plus typed command buses — and a
+monolithic `GameplayEffect` enum **was built and has already been deleted**
+(`features/ecs/effect_bus.rs`). ⇒ non-goal *"no universal `EngineEffect` enum"* is
+not a preference here; it is a repeated experiment with a recorded outcome.
+
+### ⭐ Finding 3 — boss patterns are the TEMPLATE, not a customer
+
+⛔ **correction to this document's first draft, which listed them as likely
+customers.** The boss-pattern family already did the whole job: authored `.ron`
+(nine encounters plus `boss_profiles.ron`, whose header says *"to re-tune a
+fight: edit the row… No Rust changes needed"*), a schema family in the content
+pack, compile-time cross-reference resolution, a design validator with
+data-driven bands, and a cursor that snapshots the **resolved** timeline rather
+than the source program. **Leave them alone and copy them.**
+
+### ⛔ Finding 4 — M4 cannot be deferred behind M2/M3
+
+The tree ships **three different answers** to *"is a program counter rollback
+state?"*: cutscene and `MovePlayback` register the cursor **and the whole
+immutable program**; `EncounterScript` registers nothing and despawns/rebuilds;
+the gate portal waives it as "authored" while gating a room transition. Boss
+patterns are the fourth and correct answer. Any shared form must pick one, and
+picking one changes at least two shipped systems — so **rollback semantics are a
+design input, not a later milestone.** Relatedly there are three occurrence
+models (singleton resource · per-entity component · string-keyed `HashMap`
+resource), and the last is invisible to entity-scoped rollback sweeps.
+
+### Consume, do not reinvent
+
+`AmbitionGameSaveData` (world facts — versioned, migrating, rollback-registered) ·
+`Objective` (the only composable boolean condition tree, deliberately with no
+`Custom(String)` escape hatch) · `SetFlagRequested` / `EncounterCommand` (command
+buses) · `NarrativeInputLedger` (out-of-sim decider → deterministic sim command,
+already solved) · `SimId` (occurrence identity) · `PendingRef` /
+`ResolvedContentRef` + `ContentSchemaHandler` (prepared references and
+validation) · `ConstructionPlan` / `ConstructionReceipt` (transactional spawn and
+wiring) · `ambition_causal` for M5 explanation — ⭐ which **already satisfies
+falsifier 4 by explaining a tick without replay**, but is observer-only by
+contract, so ⛔ conditions may never read it.
+
+### Control-flow backends
+
+**No `bonsai-bt`, and no behavior-tree or state-machine crate of any kind, is in
+`Cargo.lock`.** The only third-party control-flow engine is `bevy_yarnspinner`,
+whose state is opaque and rollback-waived. There is no first-party generic
+sequencer — five hand-rolled ones, plus two duplicate copies of the same path
+stepper. ⇒ combined with Finding 1, **a behavior-tree backend would be a new
+dependency solving the one part of the problem that must stay domain-owned.**
+That lowers the value of the Bonsai spike considerably; it is not refuted, but it
+is no longer near the front.
+
+## Proof customers — selected by M0
+
+- **Customer A (sequenced) — the cut-rope Smirking Behemoth**
+  (`game/ambition_content/src/bosses/cut_rope/`). The fight's whole content is a
+  Rust literal assembled by a system that polls `active_props()` every frame
+  waiting for the anvil and derives tolerance from boss width. Authored source
+  must express two beats, `Gate(name)` triggers, `CommandMoveTo` / `DropHazard` /
+  `ForceKill`, and a **prepared reference to a room prop** resolved at prepare
+  time. ⭐ **deletes** `setup_cut_rope_encounter`, five Rust consts, the content
+  crate's coupling to `BossConfig` query types, and — the real prize — the
+  *"despawn the encounter so the script rebuilds itself"* reset arm, which exists
+  **only** because the script is Rust-built and unrollbackable. ⚠ honest weakness:
+  it is small, two beats.
+- **Customer B (world mechanism) — intro flag chains + flag-gated lock walls**
+  (`game/ambition_content/src/intro/route_state.rs`). Two const tables and two
+  systems; one re-walks every LDtk level matching `LockWall` id strings behind a
+  hand-written cache whose invalidation rule exists purely for a measured ~1.8%
+  profile cost. ⭐ **deletes** both tables and both systems, `IntroLockWallCache`
+  and its invalidation rule entirely (a prepared rule resolves its reference once),
+  and fixes the `Update`-instead-of-sim-schedule defect by construction. ⚠ honest
+  weakness: 4 of 5 chain targets are dead vocabulary with no readers — **the live
+  deletion is the lock-wall half**, and the campaign should say so rather than
+  count the dead rows as value.
+
+⛔ **rejected as a customer: moving-platform gating** — this document's own first
+draft reached for it, and it has **nothing to delete**. It is pure addition, which
+is falsifier 2. ⛔ **also rejected: the Noether symmetry puzzle** — the best
+evidence in the tree and a good M3 stretch, but it is implemented *as* an
+encounter, so it fails "materially different from Customer A".
+
+⛔ if the two selected customers reveal incompatible semantics during M3, that is
+a **result** — record it here and let the program fail honestly rather than
+forcing one abstraction.
 
 ## Relationships to other programs
 
@@ -358,8 +476,11 @@ here and let the program fail honestly rather than forcing one abstraction.
   or is every rule placed?
 - ⚠ **Could an existing deterministic control-flow backend (e.g. `bonsai-bt`)
   serve beneath Ambition-owned semantic conditions, commands, schemas and
-  prepared programs?** The question is *not* "should Ambition become a Bonsai
-  engine". The required shape would be
+  prepared programs?** ⛔ **M0 lowered this considerably**: there is no
+  behavior-tree or state-machine crate in the lockfile at all, so this is a new
+  dependency — and it would solve *sequencing*, which Finding 1 says must stay
+  domain-owned. Not refuted, but no longer near the front. The question is *not*
+  "should Ambition become a Bonsai engine". The required shape would be
   `authored content → prepared Ambition representation → optional execution
   backend → semantic intent → authoritative simulation`.
   ⛔ do not expose any backend's AST as permanent Ambition content ABI without

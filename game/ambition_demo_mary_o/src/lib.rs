@@ -284,7 +284,11 @@ impl PipeHalf {
     /// you fall, just clear of the face; out of one you stand on you arrive on
     /// top. The two used to be separate hand-written functions
     /// (`vault_arrival`, `pipe_arrival`) that happened to differ by this.
-    fn arrival(&self) -> ae::Vec2 {
+    ///
+    /// ⚠ `pub` since tubes became room-scoped: `vault_arrival` / `pipe_arrival`
+    /// are 1-1's two answers by name, and a caller holding any other room's tube
+    /// has no named function to ask. The whole type is already public data.
+    pub fn arrival(&self) -> ae::Vec2 {
         let x = (self.aabb.min.x + self.aabb.max.x) * 0.5;
         match self.mouth {
             MaryOPipeMouth::Down => ae::Vec2::new(x, self.aabb.max.y + 0.5 * T),
@@ -404,28 +408,66 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
     Ok(tubes)
 }
 
-/// 1-1's warp tubes, read off the embedded file once.
+/// **Every authored area's warp tubes, keyed by the room that authors them.**
+///
+/// ⛔⛔ **this was `authored_tubes()`: ONE flat list, built from 1-1 alone, and
+/// every tube in the game was 1-1's (2026-08-15).** The comment on the system
+/// that reads it promised the opposite — *"a third tube Jon draws works with no
+/// line of Rust"* — which was true INSIDE 1-1 and false one room along. Nothing
+/// in the vocabulary, the validator or the entity docs said so, so a tube
+/// authored in another room was a green box that did nothing, and the only way
+/// to find out was to stand on it. `mary_o_1_3` shipped with two correct,
+/// completely inert tube pairs.
+///
+/// ⚠ **and the flat list made a LINK NAME globally unique by accident.** Two
+/// rooms that both call their tube `descent` would have collided in a
+/// single-keyed table, which is a naming rule no author was ever told. A link
+/// is scoped to the room that authors it, exactly like the pairing check that
+/// validates it.
 ///
 /// ⚠ a process-global `LazyLock` for the same reason `authored_named_blocks`
 /// is one: the input is fixed at COMPILE time, so there is no second value it
 /// could hold. The pairing refusal above becomes a panic here, which is the
-/// same call `authored_room` already makes about this file.
-fn authored_tubes() -> &'static [PipeTube] {
-    static TUBES: std::sync::LazyLock<Vec<PipeTube>> = std::sync::LazyLock::new(|| {
-        pipe_tubes(&authored_room(LEVEL_1_1_ROOM_ID)).unwrap_or_else(|why| panic!("{why}"))
-    });
+/// same call `authored_room` already makes about this file — and it now covers
+/// every area rather than 1-1's four halves.
+fn tubes_by_room() -> &'static std::collections::BTreeMap<String, Vec<PipeTube>> {
+    static TUBES: std::sync::LazyLock<std::collections::BTreeMap<String, Vec<PipeTube>>> =
+        std::sync::LazyLock::new(|| {
+            authored_world()
+                .rooms
+                .into_iter()
+                .map(|room| {
+                    let tubes = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
+                    (room.id.clone(), tubes)
+                })
+                .collect()
+        });
     &TUBES
 }
 
-/// The tube authored with this link id.
-fn authored_tube(link: &str) -> &'static PipeTube {
-    authored_tubes()
+/// **The warp tubes `room_id` authors** — empty for a room that draws none, and
+/// for the fixture course, which is a Rust-built probe room no world file holds.
+///
+/// ⚠ an unknown id yields no tubes rather than a panic, and that is deliberate:
+/// this answers a question about the room a session is STANDING IN, and a room
+/// with no pipes and a room that is not in the file are the same answer to
+/// *"what can she press into here"*.
+pub fn tubes_for_room(room_id: &str) -> &'static [PipeTube] {
+    const NONE: &[PipeTube] = &[];
+    tubes_by_room()
+        .get(room_id)
+        .map_or(NONE, |tubes| tubes.as_slice())
+}
+
+/// The tube `room_id` authors with this link id.
+fn authored_tube(room_id: &str, link: &str) -> &'static PipeTube {
+    tubes_for_room(room_id)
         .iter()
         .find(|tube| tube.link == link)
         .unwrap_or_else(|| {
             panic!(
-                "the level authors a warp tube linked `{link}`; it has {:?}",
-                authored_tubes()
+                "room `{room_id}` authors a warp tube linked `{link}`; it has {:?}",
+                tubes_for_room(room_id)
                     .iter()
                     .map(|tube| tube.link.as_str())
                     .collect::<Vec<_>>()
@@ -433,21 +475,24 @@ fn authored_tube(link: &str) -> &'static PipeTube {
         })
 }
 
-/// The mouth of the descent tube — the open top of the pipe you stand on.
+/// The mouth of 1-1's descent tube — the open top of the pipe you stand on.
 pub fn pipe_mouth() -> ae::Aabb {
-    authored_tube(DESCENT_LINK).entrance.mouth_band()
+    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK)
+        .entrance
+        .mouth_band()
 }
 
-/// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
-/// out of a pipe you can see rather than materializing in open stone.
+/// Where 1-1's descent tube drops you: out of its VAULT half's mouth, so you
+/// fall out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    authored_tube(DESCENT_LINK).exit.arrival()
+    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK).exit.arrival()
 }
 
-/// Where the ascent tube puts you: on top of its SURFACE half, directly above the
-/// vault pipe you entered — twelve tiles further into the level than you went down.
+/// Where 1-1's ascent tube puts you: on top of its SURFACE half, directly above
+/// the vault pipe you entered — twelve tiles further into the level than you
+/// went down.
 pub fn pipe_arrival() -> ae::Vec2 {
-    authored_tube(ASCENT_LINK).exit.arrival()
+    authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit.arrival()
 }
 
 /// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
@@ -460,7 +505,9 @@ pub fn pipe_arrival() -> ae::Vec2 {
 /// floor band feels like when the pipe is overhead. Now the pipe hangs at head
 /// height and you have to be at its lip.
 pub fn vault_exit() -> ae::Aabb {
-    authored_tube(ASCENT_LINK).entrance.mouth_band()
+    authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK)
+        .entrance
+        .mouth_band()
 }
 
 /// **The art identity is AUTHORED now, and this function is gone.**
@@ -2399,6 +2446,11 @@ fn publish_timeout_death(
 fn warp_through_secret_pipe(
     mut commands: bevy::prelude::Commands,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    room_set: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >,
+    >,
     mut bodies: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -2415,16 +2467,37 @@ fn warp_through_secret_pipe(
     // Body-local locomotion, `+y` toward the feet (screen-down under Mary-O's
     // normal gravity): press toward the ground to go DOWN a pipe, away to go UP.
     const DIR_DEADZONE: f32 = 0.5;
+
+    // ⭐ **THE TUBES OF THE ROOM SHE IS STANDING IN.** This read one flat
+    // process-global list built from 1-1, so every tube in the game was 1-1's
+    // and a pipe authored anywhere else was scenery. `RoomSet` is the same
+    // authority `follow_the_active_room` asks — read live rather than cached,
+    // because a remembered room id is exactly how the goal pole and the level
+    // destination each drifted one room behind (2026-08-05, 2026-08-15).
+    //
+    // ⚠ **no room, no tubes — and the loop still runs.** Returning early here
+    // would leave `PipeEntryLatch` holding last frame's press, so the first
+    // frame after a session appears could fire a warp off a stale edge. An
+    // empty slice enters nothing and clears the latch, which is the same
+    // answer a pipeless room gives.
+    const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
+    let tubes = room_set
+        .as_deref()
+        .map_or(NO_ROOM_NO_TUBES, |set| {
+            tubes_for_room(&set.active_spec().id)
+        });
+
     for (entity, kin, control, mut latch) in &mut bodies {
         let down = control.0.locomotion.y > DIR_DEADZONE;
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
 
-        // ⭐ **every AUTHORED tube, not two hand-named ones.** Each entrance
-        // answers only its own direction — the mouth field says which — so a
-        // third tube Jon draws works with no line of Rust, and the opposite-
-        // direction ends still cannot ping-pong a held press.
-        let entered = tube_entered(body, down, up, authored_tubes());
+        // ⭐ **every AUTHORED tube IN THIS ROOM, not two hand-named ones.** Each
+        // entrance answers only its own direction — the mouth field says which —
+        // so a third tube Jon draws works with no line of Rust, **in whichever
+        // level he draws it in**, and the opposite-direction ends still cannot
+        // ping-pong a held press.
+        let entered = tube_entered(body, down, up, tubes);
         let pressed = entered.is_some();
         let rising_edge = pressed && !latch.pressed;
         latch.pressed = pressed;
@@ -3367,6 +3440,50 @@ mod tests {
     /// world or get stuck. So: assert the arrival is inside the chamber, that the
     /// chamber is under the ground slab, and that both warp ends actually
     /// overlap a body standing where the player would be.
+    /// **A room offers exactly the tubes ITS OWN blocks author.**
+    ///
+    /// ⛔⛔ **every tube in the game used to be 1-1's (2026-08-15).** The reader
+    /// held one flat process-global list built from `authored_room(1-1)`, so a
+    /// warp pipe drawn in any other level was a green box: paired, validated,
+    /// and completely inert. `mary_o_1_3` shipped with two such pairs.
+    ///
+    /// ⛔ **and the obvious wrong repair — one flat list of EVERY room's tubes —
+    /// is worse than the bug, which is why this compares two lists rather than
+    /// counting one.** An area's blocks are LEVEL-LOCAL (`compose_runtime_area`
+    /// takes `min_x`/`min_y` over that area's own levels, and every Mary-O area
+    /// is one level), so every room starts at the same origin and 1-1's pipes
+    /// live at coordinates 1-3 also uses. A flat list would let a body standing
+    /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
+    /// geometry — a warp into stone rather than a warp that does nothing.
+    #[test]
+    fn each_room_offers_exactly_the_tubes_its_own_blocks_author() {
+        let mut offered_anywhere = 0;
+        for id in authored_area_ids() {
+            let authored_here = pipe_tubes(&authored_room(&id))
+                .expect("every authored area's pipes pair, or the room would not build");
+            let links = |tubes: &[PipeTube]| {
+                tubes
+                    .iter()
+                    .map(|tube| tube.link.clone())
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(
+                links(tubes_for_room(&id)),
+                links(&authored_here),
+                "room `{id}` is offered a tube list that is not its own drawing"
+            );
+            offered_anywhere += authored_here.len();
+        }
+        // ⚠ not decoration: it is what stops this being a check that cannot
+        // fail. Both assertions above hold vacuously in a world where NO room
+        // authors a pipe, and the whole subject of this test is a pipe.
+        assert!(
+            offered_anywhere > tubes_for_room(LEVEL_1_1_ROOM_ID).len(),
+            "no level outside 1-1 authors a warp tube, so nothing here is a \
+             claim about room-scoped tubes at all"
+        );
+    }
+
     /// Jon bug #8: the pipe is entered DIRECTIONALLY — DOWN drops in at the entry
     /// mouth, UP surfaces at the return mouth — and a generic press (Interact,
     /// which is neither direction, or the wrong direction) no longer warps you.
@@ -3374,7 +3491,7 @@ mod tests {
     fn the_pipe_only_answers_the_correct_directional_press() {
         use ambition_platformer2d::engine_core::AabbExt;
 
-        let tubes = authored_tubes();
+        let tubes = tubes_for_room(LEVEL_1_1_ROOM_ID);
         // A small body sitting exactly at a mouth. ⚠ built from the AUTHORED
         // mouth rather than from a coordinate, so this asks the level where its
         // pipes are instead of restating it.
@@ -3429,7 +3546,7 @@ mod tests {
         // which is the whole job of the authored `role`: that pipe is the same
         // shape, in the same slab, with the same up-facing mouth as the descent
         // entrance beside it.
-        let ascent_exit = &authored_tube(ASCENT_LINK).exit;
+        let ascent_exit = &authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit;
         assert_eq!(
             entered(at(ascent_exit.mouth_band()), true, false),
             None,
@@ -3523,7 +3640,7 @@ mod tests {
         // Leaving the vault surfaces you standing ON the SURFACE EXIT pipe past pit
         // B — a visible pipe, not mid-air. Read the block's top off the AUTHORED
         // level, never the formula it was built from.
-        let surface_exit = authored_tube(ASCENT_LINK).exit.aabb;
+        let surface_exit = authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).exit.aabb;
         assert!(
             pipe_arrival().x > surface_exit.min.x
                 && pipe_arrival().x < surface_exit.max.x
@@ -3620,7 +3737,7 @@ mod tests {
         // ⚠ the vault's return pipe is a BLOCK, asked for through the tube table
         // rather than by name — but it is still the block, not a zone, which is
         // the whole point of the assertion below it.
-        let return_pipe = authored_tube(ASCENT_LINK).entrance.aabb;
+        let return_pipe = authored_tube(LEVEL_1_1_ROOM_ID, ASCENT_LINK).entrance.aabb;
         // The mouth IS the pipe's open face: exactly its width, straddling its lip.
         // Not a nearby region that happens to be under it — that is the difference
         // between "press up while touching the pipe" and "press up somewhere below

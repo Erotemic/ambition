@@ -415,6 +415,42 @@ for the same actor bodies, because feature VISUALS join to the sim by string id.
 That is a fork worth closing once a feature visual can name its sim entity — not
 before, and not by giving the read model a second identity type.
 
+## The five `PresentedViewState` consumers, classified 2026-08-15
+
+The interim resolver refuses when several main cameras exist, which is honest and
+is not multiview. Making it multiview means each consumer answering one question:
+**does my result genuinely differ per view?** Measured against HEAD rather than
+assumed, because the answer differs per consumer and one of them turned out not to
+be a consumer at all.
+
+| reader | what it takes | differs per view? |
+| --- | --- | --- |
+| `rendering::foreground` | `visible_view` | **YES** — sizes the foreground quad to the visible rectangle |
+| `rendering::label_layout` | `target_world` | **YES** — lays labels out around what the view looks at |
+| `rendering::nameplates` | `target_world` | **YES** — picks the nearest few to the view's focus |
+| `dev::debug_overlay` | the whole state | yes, but it is a DEV gizmo drawing the camera frame |
+| `rendering::actors` | `orthographic_scale` | ⭐ **NO — it is an INSTRUMENT** |
+
+⭐ **the actor-draw reader is not a presentation consumer.** Its
+`orthographic_scale` feeds exactly one thing: the `[sprite-size] player draw
+scale` diagnostic, which exists because camera scale and entity scale are
+indistinguishable to the eye and only their product is what a player sees. It
+affects no pixel. So "five consumers" was a count of `PresentedViewState`
+parameters, not of things that draw — and a plan that view-keys all five would
+have spent a slice threading view identity into an `eprintln!`.
+
+⇒ **so the real per-view population is THREE draw systems plus a dev overlay**,
+and each of the three has the same shape: it consumes one view's framing to place
+world-space presentation. ⛔ none of them can be finished before a split layout
+exists, because "which view" has exactly one answer until then — which is why
+this is a classification and not yet a migration. What it changes is the size of
+the migration: three systems, one question each.
+
+⚠ **and the instrument still wants an answer under split-screen**, just a
+different one: a line reporting `camera_ortho` without saying whose camera is
+ambiguous rather than wrong. It should name the view when there is more than one,
+which is a logging decision, not a view-keying one.
+
 ## `ControlledSubject`: measured 2026-08-14, and it is NOT a view question
 
 50 non-test reader sites, 32 of them in the actor monolith. The plan expected to

@@ -394,6 +394,60 @@ impl Contact {
     }
 }
 
+/// **NO POSITION ON THIS AXIS SATISFIES EVERY SOLID CLAIMING IT** — the body is
+/// over-constrained (crushed) between two surfaces closing on it.
+///
+/// Penetration repair treats each intersecting solid as a CONSTRAINT on the
+/// body's centre coordinate along one axis: a surface the body is resting on
+/// demands a minimum, a surface pressing on its head demands a maximum. The
+/// feasible set is their intersection — an interval — and the resolved position
+/// is a function of that interval, which is why it cannot depend on the order
+/// the blocks happen to sit in `World::blocks`. When the interval is EMPTY
+/// there is no position to resolve to, and inventing one (obeying the deepest
+/// claim, obeying the last claim, splitting the difference) would be a
+/// deterministic wrong answer that hides a real physical condition. So the
+/// resolver reports this instead, and leaves the body where it is.
+///
+/// ⭐ **the consequence is deliberately NOT decided here, and this is the
+/// engine's standing split** (the same one [`crate::movement::ResetCause`]
+/// states in its own doc): the reusable mechanics layer reports WHAT PHYSICALLY
+/// HAPPENED, game policy decides what it MEANS. Damage, death, a stock, a
+/// respawn, a forced displacement, crush immunity, a rider being squashed by
+/// the platform carrying it, or nothing at all are all Ambition policy
+/// decisions, and none of them belongs in the kernel. **Nothing in this crate
+/// consumes this report** — it rides out on `FrameEvents` for an owner to
+/// interpret, exactly like `ResetCause` does.
+///
+/// ⚠ **a policy that LATCHES this across frames owns new rollback state.** The
+/// report itself is per-step output, rebuilt from world geometry every tick and
+/// never read back by the simulation, so it adds nothing to the rollback
+/// surface. A crush TIMER, a "was crushed" flag, or a death latch derived from
+/// it is simulation state and owes registration + rollback clearing like any
+/// other.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AxisConstraintConflict {
+    /// The world axis whose feasible interval came out empty.
+    pub axis: Axis,
+    /// The LOWEST centre coordinate the +axis-side claimant will accept.
+    pub min_center: f32,
+    /// The HIGHEST centre coordinate the -axis-side claimant will accept.
+    /// `max_center < min_center` — that inversion is the conflict.
+    pub max_center: f32,
+    /// The surface demanding `min_center` (it pushes the body toward +axis).
+    pub min_source: ContactSource,
+    /// The surface demanding `max_center` (it pushes the body toward -axis).
+    pub max_source: ContactSource,
+}
+
+impl AxisConstraintConflict {
+    /// How far apart the two demands are, in pixels: the penetration that NO
+    /// position can remove. Positive by construction, and the natural severity
+    /// for a policy that wants to distinguish a graze from a squash.
+    pub fn overconstraint(&self) -> f32 {
+        self.min_center - self.max_center
+    }
+}
+
 /// Build a [`Contact`] for a body touching an axis-aligned face of `block`.
 /// `normal` is the SURFACE outward normal (cardinal for block faces); `kind`
 /// is the generator's structural classification of the contact's role.

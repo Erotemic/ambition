@@ -1619,6 +1619,36 @@ pub fn preflight_actor_relations(
 
 /// Turn a room's authored ground items into construction requests, resolving
 /// each held item while nothing has been mutated.
+/// **Build this record somewhere other than where it says.**
+///
+/// The world remembers that the occurrence this record minted was carried
+/// across the room and put down; rebuilding the room owes it back at the
+/// position it was left, with the record's own identity. Only the position
+/// moves: the recipe, the identity and the provenance are the record's, which
+/// is what makes the result the SAME occurrence rather than a copy.
+///
+/// ⭐ **answers FALSE for a family that has no position of its own**, rather
+/// than guessing one or silently ignoring the request. A `Placed` row can only
+/// be written by a producer that read a position off a live occurrence, so a
+/// false here means the ledger and the plan disagree about what kind of thing an
+/// identity names — worth a caller's warning, never a silent authoring at the
+/// wrong coordinates.
+///
+/// ⚠ **a free function because `ActorConstructionRequest` is an alias for a
+/// generic in another crate**, so it cannot carry inherent methods here.
+pub fn relocate_request(
+    request: &mut ActorConstructionRequest,
+    at: ambition_platformer2d_core::Vec2,
+) -> bool {
+    match &mut request.parameters {
+        ActorConstructionParams::GroundItem { spec, .. } => {
+            spec.pos = at;
+            true
+        }
+        _ => false,
+    }
+}
+
 pub fn authored_ground_item_requests(
     room: &crate::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {

@@ -823,10 +823,14 @@ pub fn begin_room_transition_load_system(
         // What the world remembers right now, read once: it decides both
         // whether a cached plan still describes this world and what a fresh
         // plan must leave out.
-        let suppressed_occurrences = construction_services
+        // ⚠ **the outlook is ROOM-SCOPED**, so it is derived for the room being
+        // built and for no other: the same ledger answers differently for two
+        // rooms, because an occurrence lying in one of them is reinstated there
+        // and is simply not that other room's business.
+        let occurrence_outlook = construction_services
             .6
             .as_deref()
-            .map(ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::suppressed)
+            .map(|ledger| ledger.outlook_for(&target_spec.id))
             .unwrap_or_default();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
             cache.promote(
@@ -834,7 +838,7 @@ pub fn begin_room_transition_load_system(
                 current_session,
                 &active.source_room_id,
                 target_spec,
-                &suppressed_occurrences,
+                &occurrence_outlook,
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();

@@ -111,6 +111,21 @@ pub struct ResetPlayState<'w> {
         Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
     /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
     committed: MessageWriter<'w, NewGameResetCommitted>,
+    /// **What the world remembers about the occurrences it authored** — cleared
+    /// by the reset, not read by it.
+    ///
+    /// ⭐ **a reset is the EMPTY BASELINE.** A relocated occurrence's row names a
+    /// room and a position in a world this reset is about to destroy; leaving it
+    /// standing would put a moved object back at coordinates from the run that
+    /// just ended, the first time the player walked into that room again. The
+    /// custody leg would have retracted itself — the placement leg cannot,
+    /// because "not in the world" is the ordinary condition of a row whose room
+    /// is unloaded, so nothing but the reset can speak for it.
+    ///
+    /// ⚠ `Option`, like every other reader: a composition without the item
+    /// plugin remembers nothing and has nothing to clear.
+    occurrences:
+        Option<ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -283,6 +298,14 @@ pub fn process_new_game_reset_request(
     *boss_registry = BossEncounterRegistry::default();
     *quest_registry = QuestRegistry::default();
     **music_request = EncounterMusicRequest::default();
+    // ⭐ **AND WHAT THE WORLD REMEMBERED ABOUT ITS OWN OCCURRENCES.** The plan
+    // above was prepared against NO dispositions on purpose; this is the other
+    // half of the same statement, and without it the rooms this reset is not
+    // rebuilding would still be carrying rows that place a moved object at
+    // coordinates from the run that just ended. See the field's own note.
+    if let Some(occurrences) = play_state.occurrences.as_mut() {
+        occurrences.forget_everything();
+    }
 
     // 3-5. Commit the already-prepared canonical start-room construction.
     // Invalid authored content was rejected above, before save or registry

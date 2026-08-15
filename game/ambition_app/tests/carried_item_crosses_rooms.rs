@@ -106,42 +106,7 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity
 /// — because a room with several doors makes "the first one" a coin flip.
 fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     let before = sim.observation().active_room.clone();
-    let door = {
-        let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
-        let room_set = query
-            .iter(world)
-            .next()
-            .expect("the session has an active room set");
-        let mut reachable: Vec<String> = Vec::new();
-        let mut chosen = None;
-        for zone in room_set.active_loading_zones() {
-            if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
-                continue;
-            }
-            // The zone's own box as the body's box: a path of zero length from
-            // the centre of a rectangle is inside that rectangle, so this asks
-            // the resolver about exactly this door.
-            let Some(transition) = room_set.transition_for_player(
-                zone.aabb,
-                ambition_platformer2d::engine_core::Vec2::ZERO,
-                true,
-            ) else {
-                continue;
-            };
-            let Some(destination) = room_set.rooms.get(transition.target_room) else {
-                continue;
-            };
-            reachable.push(destination.id.clone());
-            if destination.id == target {
-                chosen = Some(zone.clone());
-                break;
-            }
-        }
-        chosen.unwrap_or_else(|| {
-            panic!("'{before}' has no Door to '{target}'; its doors reach {reachable:?}")
-        })
-    };
+    let door = door_to(sim, target);
     let center = door.aabb.center();
     sim.teleport_player((center.x, center.y));
     for _ in 0..60 {
@@ -161,6 +126,54 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
          room never changed",
         door.name
     );
+}
+
+/// The authored `Door` zone of the ACTIVE room that leads to `target`.
+///
+/// Split out of [`walk_through_the_door_to`] because a door is also the one
+/// position in a room a test can name without reading its geometry: it is
+/// authored, in-bounds, and stands somewhere the body can be. The relocation
+/// test stands there to put an object down somewhere the room does not author
+/// it.
+fn door_to(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+) -> ambition_platformer2d::world::rooms::LoadingZone {
+    let before = sim.observation().active_room.clone();
+    let world = sim.world_mut();
+    let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+    let room_set = query
+        .iter(world)
+        .next()
+        .expect("the session has an active room set");
+    let mut reachable: Vec<String> = Vec::new();
+    let mut chosen = None;
+    for zone in room_set.active_loading_zones() {
+        if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
+            continue;
+        }
+        // The zone's own box as the body's box: a path of zero length from
+        // the centre of a rectangle is inside that rectangle, so this asks
+        // the resolver about exactly this door.
+        let Some(transition) = room_set.transition_for_player(
+            zone.aabb,
+            ambition_platformer2d::engine_core::Vec2::ZERO,
+            true,
+        ) else {
+            continue;
+        };
+        let Some(destination) = room_set.rooms.get(transition.target_room) else {
+            continue;
+        };
+        reachable.push(destination.id.clone());
+        if destination.id == target {
+            chosen = Some(zone.clone());
+            break;
+        }
+    }
+    chosen.unwrap_or_else(|| {
+        panic!("'{before}' has no Door to '{target}'; its doors reach {reachable:?}")
+    })
 }
 
 /// **THE SANDBOX RESET — the road that rebuilds the room.**
@@ -433,9 +446,9 @@ fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
 /// `SimId::placement(..)`. Two live things behind one identity is precisely the
 /// failure `SimId` exists to make impossible, and nothing detected it.
 ///
-/// ⭐ **the question construction now asks is a DISPOSITION, not a visit count.**
-/// `AuthoredOccurrences` records what became of the occurrence a record minted;
-/// re-entry authors a fresh one only for the records whose last occurrence is
+/// ⭐ **the question construction now asks is WHERE, not a visit count.**
+/// `AuthoredOccurrences` records where the occurrence a record minted actually
+/// is; re-entry authors a fresh one only for the records whose occurrence is
 /// neither alive elsewhere nor deliberately gone. This drives that end to end:
 /// the real pickup, two real transitions, and the real construction commit.
 ///
@@ -498,12 +511,18 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
          resurrects a placement just because it came home"
     );
 
-    // ── AND THE MEMORY IS RETRACTED, NOT LEAKED ─────────────────────────────
+    // ── AND THE MEMORY IS NEITHER LEAKED NOR LOST ───────────────────────────
     // An object put down is a RESIDENT again, so leaving retires it with
-    // everything else on this floor — and the next entry must author it, from
+    // everything else on this floor — and the next entry must produce it, from
     // its record, exactly once. A ledger that retracted by leaking a row would
     // pass every assertion above and produce ZERO here, which is why the count
     // is asserted rather than "no duplicate".
+    //
+    // ⚠ **exactly once, and never zero — this says nothing about WHERE.** Since
+    // the whereabouts ledger, the object comes back where it was left rather
+    // than where the record puts it; that is
+    // [`a_relocated_placement_comes_back_where_it_was_left`]'s claim and it is
+    // asserted there, against a position this test never measures.
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
     assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
     for _ in 0..10 {
@@ -514,13 +533,195 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
         live.len(),
         1,
         "an object dropped in its own room is retired with that room and \
-         authored again on the next entry — exactly once, and never zero"
+         reconstituted on the next entry — exactly once, and never zero"
     );
     assert!(
         sim.world().get_entity(item).is_err(),
         "the dropped occurrence was retired by leaving, so the one live now is \
-         the freshly authored one — the disposition was reset when the object \
-         stopped being carried, not remembered forever"
+         a freshly built one — the ledger remembers WHERE the occurrence is, \
+         and a room unload does not turn that into a second live copy"
+    );
+}
+
+/// **AN OBJECT COMES BACK WHERE YOU LEFT IT.**
+///
+/// The tests above are about an occurrence's EXISTENCE: one, never two, never
+/// zero. This one is about its POSITION, which is the half that makes a
+/// whereabouts ledger a whereabouts ledger rather than a suppression list. Carry
+/// an authored object across the room, put it down somewhere the room does not
+/// author it, leave — which destroys it with everything else on that floor — and
+/// come back. The occurrence that returns must be the same one, at the place it
+/// was left.
+///
+/// ⭐ **run against a do-nothing implementation, this fails on its last
+/// assertion and only there.** Construction that ignores the ledger's `Placed`
+/// row rebuilds the room from the authored record, which puts the object back at
+/// the coordinates LDtk gives it — so the object exists, is unique, is lying in
+/// the world, and is in the WRONG PLACE. The precondition below is what makes
+/// that a failure rather than a coincidence: it refuses to run the claim at all
+/// unless the drop actually moved the object.
+///
+/// ⚠ **the returning occurrence is a DIFFERENT ENTITY, and must be.** The room
+/// unload destroyed the one that was lying there; what identifies it as the same
+/// occurrence is its `SimId`, which is the whole distinction between authored
+/// definition identity and runtime occurrence identity.
+#[test]
+fn a_relocated_placement_comes_back_where_it_was_left() {
+    let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let (item, authored) = authored_item(&mut sim);
+    let authored_pos = item_pos(&sim, item);
+
+    // ── CARRY IT ACROSS THE ROOM AND PUT IT DOWN ────────────────────────────
+    // The door is used as a POSITION here, not as an exit: it is the one spot in
+    // a room a test can name without reading the room's geometry — authored,
+    // in-bounds, and somewhere a body can stand.
+    pick_it_up(&mut sim, item);
+    let door = door_to(&mut sim, TARGET_ROOM);
+    let stand = door.aabb.center();
+    sim.teleport_player((stand.x, stand.y));
+    throw_it_down(&mut sim);
+    assert!(
+        custody(&sim, item).is_some_and(|custody| custody.in_world()),
+        "Shield+Attack puts the object back in the world"
+    );
+    let dropped_pos = item_pos(&sim, item);
+
+    // THE PRECONDITION. Everything below measures "back where it was left"
+    // against "back where it is authored", so a fixture in which those two are
+    // the same place proves nothing at all and must say so loudly rather than
+    // pass.
+    let moved = (dropped_pos.0 - authored_pos.0).abs() + (dropped_pos.1 - authored_pos.1).abs();
+    assert!(
+        moved > 8.0,
+        "this test needs the object to end up somewhere the room does NOT \
+         author it: authored at {authored_pos:?}, dropped at {dropped_pos:?}. \
+         Nothing below can fail while those are the same place"
+    );
+
+    // ── LEAVE (which destroys it) AND COME BACK ─────────────────────────────
+    assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
+    assert!(
+        sim.world().get_entity(item).is_err(),
+        "an object lying on this room's floor is a resident of it and is \
+         retired by leaving — if it survived, the test below would be measuring \
+         a survivor rather than a reconstitution"
+    );
+    assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+
+    // THE CLAIM.
+    let live = occurrences(&mut sim, &authored);
+    assert_eq!(
+        live.len(),
+        1,
+        "the room owes exactly one occurrence of this record — never two, and \
+         never zero"
+    );
+    let back = live[0];
+    assert_ne!(
+        back, item,
+        "the returning occurrence is a fresh entity built from the record: the \
+         one that was lying here died with the room"
+    );
+    assert!(
+        custody(&sim, back).is_some_and(|custody| custody.in_world()),
+        "and it is lying in the world, collectible, not stranded in a hand"
+    );
+    let back_pos = item_pos(&sim, back);
+    let drift = (back_pos.0 - dropped_pos.0).abs() + (back_pos.1 - dropped_pos.1).abs();
+    assert!(
+        drift < 1.0,
+        "an object put down at {dropped_pos:?} must come back THERE, not at the \
+         {authored_pos:?} its record names. It came back at {back_pos:?} — the \
+         room was rebuilt from its authored records and the world's memory of \
+         where the occurrence actually is was not consulted"
+    );
+}
+
+/// **THE CROSS-ROOM FALSIFIER — and the gate it is waiting on.**
+///
+/// ⛔ **`#[ignore]`, deliberately, and it is the specification of the unbuilt
+/// half rather than a test that has gone bad.** Its sibling above proves the
+/// whole mechanism — an authoritative whereabouts row survives a room unload and
+/// reconstruction reinstates the occurrence at it — for a room that AUTHORS the
+/// record. This one drops the object in a room that does NOT author it, and that
+/// last step needs something the engine does not have.
+///
+/// ⭐ **THE GATE, exactly: room construction is a pure function of ONE
+/// `RoomSpec`.** Reinstating an occurrence in `portal_bridge` means building a
+/// record that lives in `blink_run`, and `RoomFeatureConstructionPlan::prepare`
+/// never sees another room's records. The caller has them —
+/// `RoomConstructionPlan::prepare_from_parts` holds the whole `RoomSet` — so
+/// closing it is a plumbing change at that seam: derive the foreign requests
+/// there and hand them to the plan beside the room's own.
+///
+/// ⛔⛔ **and the two halves may not land separately.** Suppressing the record in
+/// `blink_run` without reconstituting the occurrence in `portal_bridge` would
+/// leave the object in NO room, permanently — a deletion bug traded for a
+/// duplication bug. That is why `outlook_for` answers `Authored` for a `Placed`
+/// row naming some other room today: the object comes home, which is the
+/// behaviour this engine had before any of this existed, and is the only safe
+/// answer while the gate is open.
+#[test]
+#[ignore = "cross-room reinstatement: construction cannot read a record whose home room is not the room being built"]
+fn a_placement_dropped_in_another_room_stays_there() {
+    let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let (item, authored) = authored_item(&mut sim);
+
+    // ── CARRY IT NEXT DOOR AND DROP IT THERE ────────────────────────────────
+    pick_it_up(&mut sim, item);
+    assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
+    throw_it_down(&mut sim);
+    assert!(
+        custody(&sim, item).is_some_and(|custody| custody.in_world()),
+        "Shield+Attack puts the object back in the world"
+    );
+    let dropped_pos = item_pos(&sim, item);
+
+    // ── UNLOAD THE ROOM IT IS NOW IN, AND VISIT THE ONE THAT AUTHORS IT ─────
+    assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    assert!(
+        occurrences(&mut sim, &authored).is_empty(),
+        "the room that AUTHORS this placement must not mint it again: the \
+         occurrence it minted is in another room, and re-authoring it here \
+         would put two live things behind one identity the moment the player \
+         walks back"
+    );
+
+    // ── AND BACK NEXT DOOR: THE SAME OCCURRENCE, WHERE IT WAS LEFT ──────────
+    assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let live = occurrences(&mut sim, &authored);
+    assert_eq!(
+        live.len(),
+        1,
+        "the occurrence was left lying in '{TARGET_ROOM}' and must reconstitute \
+         there — exactly once"
+    );
+    let back = live[0];
+    assert!(
+        custody(&sim, back).is_some_and(|custody| custody.in_world()),
+        "lying in the world, the way it was left"
+    );
+    let back_pos = item_pos(&sim, back);
+    let drift = (back_pos.0 - dropped_pos.0).abs() + (back_pos.1 - dropped_pos.1).abs();
+    assert!(
+        drift < 1.0,
+        "it must come back at {dropped_pos:?}, where it was dropped; it came \
+         back at {back_pos:?}"
     );
 }
 

@@ -112,9 +112,10 @@ pub struct RoomFeatureConstructionPlan {
     /// only in whichever consumer shrugged first.
     binding_report: ambition_platformer2d_shared_tangle::binding::BindingReport,
     /// The occurrence dispositions this plan was prepared against — the
-    /// identities it deliberately did NOT plan. See
-    /// [`Self::suppressed_occurrences`].
-    suppressed: BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// identities it deliberately did NOT plan, and the ones it planned
+    /// somewhere other than where the record puts them. See
+    /// [`Self::occurrence_outlook`].
+    outlook: ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
 }
 
 /// What construction planning needs beyond the room's authored content: the
@@ -395,15 +396,42 @@ impl RoomFeatureConstructionPlan {
         // ledger answers both with one call. It is also why the filter is here
         // and not in the room transition: nothing on this road knows that items
         // exist, or that a carried thing is what put a row in the ledger.
-        let suppressed: BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> = construction
+        //
+        // ⭐ **AND THE ANSWER HAS THREE ARMS, NOT TWO.** An occurrence that was
+        // carried across this room and PUT DOWN belongs to this room at
+        // coordinates the record knows nothing about; rebuilding the room owes
+        // the world that occurrence, with its own identity, WHERE IT WAS LEFT.
+        // Reading `Reinstated` as "author it" and dropping the position is how a
+        // relocation silently becomes a teleport back to the authored spot.
+        let outlook = construction
             .occurrences
-            .map(ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::suppressed)
+            .map(|ledger| ledger.outlook_for(&room.id))
             .unwrap_or_default();
-        if let Some(ledger) = construction.occurrences {
-            requests.retain(|request| {
-                ledger
-                    .disposition(&request.sim_id)
-                    .authors_a_fresh_occurrence()
+        let suppressed = outlook.suppressed();
+        if !outlook.is_empty() {
+            requests.retain_mut(|request| {
+                match outlook.disposition(&request.sim_id) {
+                    ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Authored => true,
+                    ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Reinstated { at } => {
+                        // A family with no position to move REFUSES to pretend it
+                        // moved: the request stays exactly as authored and says so,
+                        // rather than being built at the wrong coordinates or
+                        // dropped. Only the families a producer can write a `Placed`
+                        // row for can be reinstated, and today that is one.
+                        if !crate::construction::relocate_request(request, at) {
+                            bevy::log::warn!(
+                                target: "ambition_platformer2d::construction",
+                                "room `{}` remembers `{:?}` at a relocated position, but \
+                                 its construction request has no position to relocate; \
+                                 building it as authored",
+                                room.id,
+                                request.sim_id,
+                            );
+                        }
+                        true
+                    }
+                    ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Suppressed => false,
+                }
             });
         }
         // Authored mount links are planned `ambition.mount` relations between
@@ -483,7 +511,7 @@ impl RoomFeatureConstructionPlan {
             construction: construction_plan,
             expected_authoritative_ids,
             binding_report,
-            suppressed,
+            outlook,
         })
     }
 
@@ -494,10 +522,15 @@ impl RoomFeatureConstructionPlan {
     /// and committing it into a world where the object has since been put down
     /// would leave the room permanently missing it. Stated on the artifact so a
     /// cache can compare rather than guess — see the prefetch promotion check.
-    pub fn suppressed_occurrences(
+    ///
+    /// ⚠ **the whole outlook, not just the suppressed ids.** A plan prepared
+    /// while a relocated object rested at one position is not the plan this
+    /// world wants once it rests at another, and a set of identities cannot tell
+    /// those two apart.
+    pub fn occurrence_outlook(
         &self,
-    ) -> &BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
-        &self.suppressed
+    ) -> &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook {
+        &self.outlook
     }
 
     /// Every reference this room makes and does not keep.

@@ -226,10 +226,15 @@ impl RoomConstructionPlan {
     /// since been put down and destroyed would leave the room permanently
     /// short. Anything that holds a plan across frames compares this before
     /// promoting it.
-    pub fn suppressed_occurrences(
+    ///
+    /// ⚠ **it is the whole outlook, not a set of suppressed identities.** A plan
+    /// that placed a relocated object at one position is not the plan a world
+    /// wants once that object rests at another, and an identity set cannot tell
+    /// those two apart.
+    pub fn occurrence_outlook(
         &self,
-    ) -> &BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
-        self.features.suppressed_occurrences()
+    ) -> &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook {
+        self.features.occurrence_outlook()
     }
 
     pub fn content_staged_names(&self) -> Vec<String> {

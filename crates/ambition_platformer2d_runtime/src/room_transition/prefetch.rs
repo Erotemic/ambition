@@ -11,14 +11,13 @@
 //! so a hot reload, a provider swap, or a session change is a safe MISS rather
 //! than a stale promotion.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use bevy::prelude::Resource;
 
 use ambition_platformer2d_actor_monolith::rooms::{RoomConstructionPlan, RoomSpec};
-use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
-use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use ambition_platformer2d_shared_tangle::lifecycle::{RoomOccurrenceOutlook, SessionScopeId};
 
 /// Prepared construction plans for the rooms adjacent to the one in play.
 #[derive(Resource, Default, Debug)]
@@ -73,26 +72,31 @@ impl RoomConstructionPlanPrefetch {
     /// target spec. A same-id hot reload or a session change is a miss.
     ///
     /// ⭐ **and so is a plan prepared against different DISPOSITIONS.** A room
-    /// build asks what became of the occurrences it minted before, and a plan
-    /// froze that answer: one prepared while an authored object was being
+    /// build asks where the occurrences it minted before actually are, and a
+    /// plan froze that answer: one prepared while an authored object was being
     /// carried deliberately OMITS it, and committing that plan after the object
     /// was put down and destroyed would leave the room permanently short of a
-    /// thing it authors. `suppressed` is what the world remembers NOW; a plan
-    /// that was prepared against anything else is a miss, which costs one
-    /// preparation and is what the miss path is for.
+    /// thing it authors. `outlook` is what the world remembers NOW; a plan that
+    /// was prepared against anything else is a miss, which costs one preparation
+    /// and is what the miss path is for.
+    ///
+    /// ⚠ **the outlook and not a suppressed-identity set, because the answer now
+    /// carries a POSITION.** A plan that reinstated a relocated object where it
+    /// used to lie names the same identity as one that reinstates it where it
+    /// lies now; comparing identities alone would promote the stale one.
     pub fn promote(
         &mut self,
         content_epoch: u64,
         session_scope: Option<SessionScopeId>,
         source_room_id: &str,
         target: &RoomSpec,
-        suppressed: &BTreeSet<SimId>,
+        outlook: &RoomOccurrenceOutlook,
     ) -> Option<Arc<RoomConstructionPlan>> {
         self.reset_for(content_epoch, session_scope, source_room_id);
         let plan = self.plans.get(&target.id)?;
         if !plan.matches_room_spec(target)
             || plan.session_scope().id() != session_scope
-            || plan.suppressed_occurrences() != suppressed
+            || plan.occurrence_outlook() != outlook
         {
             return None;
         }

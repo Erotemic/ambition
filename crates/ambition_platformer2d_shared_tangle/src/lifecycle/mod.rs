@@ -18,12 +18,16 @@
 //! a room and resident in nobody's room — see [`InCustodyOf`] and the
 //! [`RoomResident`] roster a room CHANGE retires.
 //!
-//! ⭐ **and there is a THIRD question, which is what a rebuild asks: what became
-//! of the occurrence this authored record minted last time?** That is a
-//! DISPOSITION, it is durable room state rather than a component on anything,
+//! ⭐ **and there is a THIRD question, which is what a rebuild asks: WHERE is
+//! the occurrence this authored record minted last time?** That is a
+//! WHEREABOUTS, it is durable room state rather than a component on anything,
 //! and it lives in [`AuthoredOccurrences`]. A scope says when an occurrence
-//! dies, residency says whose sweep sees it, and a disposition says whether
-//! reconstruction owes the world a new one.
+//! dies, residency says whose sweep sees it, and a whereabouts says whether
+//! reconstruction owes the world a new one — and, if it does, WHERE.
+//!
+//! ⚠ **the whereabouts ledger owns exactly one of three horizons** (current /
+//! checkpoint baseline / durable save); its module header states which and what
+//! the other two would need.
 //!
 //! ⛔ **there is no marker for "persistent", and that is the design.** Every
 //! sweep culls on the PRESENCE of its own marker, so an entity carrying none
@@ -42,6 +46,7 @@ mod spawn_ext;
 pub use cleanup::despawn_scoped_entity;
 pub use continuity::{
     project_custody_onto_authored_occurrences, AuthoredOccurrences, OccurrenceDisposition,
+    OccurrenceWhereabouts, RoomOccurrenceOutlook,
 };
 pub use markers::{
     FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomResident,

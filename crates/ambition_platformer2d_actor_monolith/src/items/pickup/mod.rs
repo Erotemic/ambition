@@ -115,6 +115,13 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // between the crossing and the commit, which is precisely the
                 // window in which the room sweep reads residency.
                 project_custody_onto_residency,
+                // ⭐ **WHERE A CARRIED OCCURRENCE CAME TO REST.** Strictly
+                // between residency and the custody projection below, and both
+                // edges are load-bearing — see this system's own doc. It turns
+                // the outgoing `InCustody` row of an object that was just put
+                // down into the `Placed` row that survives the room's unload;
+                // the custody projection below then finds nothing to retract.
+                record_placed_ground_items,
                 // ⭐ **AND WHAT THE WORLD REMEMBERS ABOUT IT.** Immediately
                 // after residency, because it reads residency: an occurrence in
                 // somebody's custody is alive and is not the room's to rebuild,
@@ -286,12 +293,16 @@ const THROW_AHEAD: f32 = 48.0;
 /// hands AND a fresh one on the floor, both claiming the same placement id. The
 /// fix is that construction now asks what became of the occurrence a record
 /// minted last time
-/// (`lifecycle::AuthoredOccurrences` / `OccurrenceDisposition`) and mints a new
+/// (`lifecycle::AuthoredOccurrences` / `OccurrenceWhereabouts`) and mints a new
 /// one only for records whose last occurrence is neither alive elsewhere nor
 /// deliberately gone. ⛔ it was NOT fixed by re-destroying carried objects at the
-/// boundary, and it was not fixed here: nothing in this file writes that ledger
-/// — the projection that does reads `InCustodyOf`, which knows nothing about
-/// items.
+/// boundary: the projection that suppresses re-authoring reads `InCustodyOf`,
+/// which knows nothing about items.
+///
+/// ⭐ **and where the object came to REST is this file's business**, because a
+/// position is not generic vocabulary — see [`record_placed_ground_items`]. The
+/// ledger's rows are occurrence-generic; its producers live with the families
+/// that have a position to read.
 ///
 /// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the
@@ -597,6 +608,93 @@ pub fn project_custody_onto_residency(
             (None, None) => {}
         }
     }
+}
+
+/// **WHERE A CARRIED OCCURRENCE CAME TO REST — the second producer of the
+/// whereabouts ledger, and the first one that outlives the thing it describes.**
+///
+/// Custody answers *"in a hand"*, which suppresses re-authoring for exactly as
+/// long as the hand exists. An object PUT DOWN is in nobody's custody, so
+/// custody can say nothing about it — and the room it was dropped in destroys it
+/// on unload, after which the world's only memory of where it was is this row.
+///
+/// ⭐ **it tracks only occurrences the ledger ALREADY remembers.** The condition
+/// is `remembers(sim_id)`, which on the tick a hand empties is still the
+/// outgoing `InCustody` row — so the population is exactly "things somebody
+/// carried", never "every object in the room". A producer that recorded every
+/// authored occurrence's position would be the universal instance registry this
+/// ledger exists to not be, and would rewrite an enemy's row on every step it
+/// took.
+///
+/// ⛔ **ORDER: strictly BEFORE
+/// [`project_custody_onto_authored_occurrences`](ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences),
+/// and strictly after
+/// [`project_custody_onto_residency`].** The custody projection retracts the
+/// `InCustody` row of anything no longer carried; run first, it would erase the
+/// only evidence this system uses to decide that an object is worth tracking,
+/// and a dropped object would be forgotten on the very tick it was dropped.
+///
+/// ⚠ **it re-states the position every tick while the room is loaded**, which is
+/// why a THROWN object records where it landed rather than where it left the
+/// hand: the row is republished through the whole arc and simply stops being
+/// republished when the room unloads. That per-tick republish is also what keeps
+/// the row a re-derivable value inside the rollback window.
+///
+/// ⚠ **item-domain producer, generic vocabulary.** The ledger's rows are
+/// occurrence-generic; a producer must read a POSITION, and there is no generic
+/// position for a simulated occurrence — so the producers live with the families
+/// that have one. Room transition still knows nothing about items.
+pub fn record_placed_ground_items(
+    room_set: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
+    items: Query<
+        (
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            &GroundItem,
+            &ItemCustody,
+        ),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
+    >,
+    occurrences: Option<
+        ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    >,
+) {
+    let (Some(room_set), Some(mut occurrences)) = (room_set, occurrences) else {
+        return;
+    };
+    let room = &room_set.active_spec().id;
+    // ⭐ **BTreeMap, not the query's order.** This value reaches a construction
+    // plan; an archetype-ordered read here is a determinism bug that reproduces
+    // perfectly on one machine.
+    let mut placed: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Vec2,
+    > = std::collections::BTreeMap::new();
+    for (sim_id, ground, custody) in &items {
+        if !custody.in_world() || !occurrences.remembers(sim_id) {
+            continue;
+        }
+        placed.insert(sim_id.clone(), ground.pos);
+    }
+    if placed.is_empty() {
+        return;
+    }
+    // Compared before writing: a resting object would otherwise mark the ledger
+    // changed on every tick of its life.
+    let unchanged = placed.iter().all(|(sim_id, at)| {
+        matches!(
+            occurrences.whereabouts(sim_id),
+            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
+                room: recorded_room,
+                at: recorded_at,
+            }) if recorded_room == room && recorded_at == at
+        )
+    });
+    if unchanged {
+        return;
+    }
+    occurrences.republish_placements(room, placed);
 }
 
 /// The player's pre-pickup `ActionSet`, restored when the held item is thrown.

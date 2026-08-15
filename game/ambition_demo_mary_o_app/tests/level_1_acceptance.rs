@@ -57,6 +57,9 @@ use bevy::prelude::*;
 /// `mary_o_tall`'s id is private to the demo's `powerups` module; the demo's own
 /// `power_loop.rs` hardcodes it the same way.
 const TALL_ID: &str = "mary_o_tall";
+/// The top of the ladder: the sheet the cinder beacon puts her in. Private to
+/// `powerups` for the same reason, and hardcoded in `power_loop.rs` too.
+const FIRE_ID: &str = "mary_o_fire";
 
 /// The scripted stick, republished every frame in `PreUpdate` because Bevy runs
 /// the fixed-timestep loop BEFORE `Update` — intent written any later is not
@@ -88,6 +91,13 @@ struct Body {
 impl Body {
     fn feet(&self) -> f32 {
         self.pos.y + self.size.y * 0.5
+    }
+    /// The top of her head. ⚠ **derived from her SIZE, never from the small
+    /// form's half-height**: a grown Mary-O's head is 8px higher than a small
+    /// one's, and a bonk beat that steers off a hardcoded `pos.y - 24` keeps the
+    /// jump button down for 8px after her head has already reached the block.
+    fn head(&self) -> f32 {
+        self.pos.y - self.size.y * 0.5
     }
     fn right(&self) -> f32 {
         self.pos.x + self.size.x * 0.5
@@ -1207,5 +1217,360 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
         "past the death beat the level restarts and puts her back at spawn; \
          she is at {:?}",
         body(&mut app)
+    );
+}
+
+// ── "No way to get the fire flower" ───────────────────────────────────────
+//
+// Jon reported it and it stayed open for three weeks because nothing in the
+// codebase had ever bonked a ?-block while GROWN. Every proof of the ladder's
+// top rung either drove `bonk_power_blocks` with a hand-built Head contact
+// (`power_loop.rs`) or bonked while SMALL and got the wand again (the run
+// above) — so what the beacon costs, where it waits and whether a played body
+// can reach it were all unmeasured.
+
+/// The ?-blocks that level TOWARD the lantern, left to right.
+///
+/// ⚠ **asked of the CONTENTS, not the look.** 1-1 authors five blocks wearing
+/// the ?-look and two of them hold `AlwaysQuasar`, which is not on the ladder at
+/// all (any form takes a quasar). [`first_power_block`] matches the LOOK, so
+/// which block it names depends on the order the converter emits entities in;
+/// this asks the question the ladder actually cares about.
+fn ladder_blocks() -> Vec<ae::world::Block> {
+    use ambition_demo_mary_o::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
+    let room = ambition_demo_mary_o::level_1_1();
+    let mut blocks: Vec<ae::world::Block> = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| {
+            ambition_demo_mary_o::ldtk_vocabulary::block_of(&b.name).is_some_and(|authored| {
+                authored.contents == MaryOBlockContents::Toward(MaryOPickup::Lantern)
+            })
+        })
+        .cloned()
+        .collect();
+    blocks.sort_by(|a, b| a.aabb.min.x.partial_cmp(&b.aabb.min.x).expect("finite"));
+    blocks
+}
+
+/// Has this block given up its reward? The game's own record, same as the run
+/// above uses — a block is spent by being struck, so this is the honest "did the
+/// bonk land" and not a proxy for it.
+fn is_spent(app: &App, block: &ae::world::Block) -> bool {
+    app.world()
+        .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
+        .is_some_and(|spent| spent.is_spent(&block.id))
+}
+
+/// Where the item wearing this sprite is, if one is in the world.
+fn item_at(app: &mut App, sprite: &str) -> Option<ae::Vec2> {
+    world_items(app)
+        .into_iter()
+        .find(|(id, _)| id.as_str() == sprite)
+        .map(|(_, pos)| pos)
+}
+
+/// **Stand under a block and head-bonk it.**
+///
+/// She jumps only from directly beneath the column and steers nothing while
+/// airborne, which is what makes the strike inevitable rather than tuned: the
+/// block is solid, so a body rising under it stops against its underside
+/// whatever the jump was worth. The hold is released off the MEASUREMENT (her
+/// head against the underside) rather than a frame count, so the beat stays
+/// correct for a body whose height changes — the whole point here, since a grown
+/// Mary-O's head is 8px higher than a small one's.
+///
+/// Returns as soon as the block records the strike, so a failure is a real
+/// failure and not a budget that ran out one frame early.
+fn bonk_from_beneath(app: &mut App, block: &ae::world::Block, frames: usize) -> bool {
+    let centre = block.aabb.center().x;
+    let underside = block.aabb.max.y;
+    for _ in 0..frames {
+        if is_spent(app, block) {
+            return true;
+        }
+        let Some(b) = body(app) else {
+            app.update();
+            continue;
+        };
+        // A live walker in the same stretch comes first, exactly as it does in
+        // the run above: from the side it costs her the form this beat is about.
+        let frame = if b.should_stomp() {
+            with_jump(move_x(1.0, false))
+        } else if b.on_ground && (b.pos.x - centre).abs() < 8.0 {
+            // Under it: straight up. Steering while airborne is what carries her
+            // over the block instead of into its underside.
+            with_jump(move_x(0.0, false))
+        } else if b.on_ground {
+            move_x((centre - b.pos.x).clamp(-1.0, 1.0), false)
+        } else if b.head() > underside {
+            with_jump(move_x(0.0, false))
+        } else {
+            move_x(0.0, false)
+        };
+        step(app, frame);
+    }
+    is_spent(app, block)
+}
+
+/// **Walk into a travelling pickup until it equips.** The wand walks and turns
+/// at walls, so this steers at wherever it has got to — clamped short of
+/// `limit_x`, because the pickup will happily walk into a pit and following it
+/// there is not what is being tested.
+fn chase_until_worn(
+    app: &mut App,
+    sprite: &str,
+    row_id: &str,
+    limit_x: f32,
+    frames: usize,
+) -> bool {
+    for _ in 0..frames {
+        if wears(app, row_id) {
+            return true;
+        }
+        let target = item_at(app, sprite).map(|pos| pos.x).unwrap_or(limit_x);
+        let Some(b) = body(app) else {
+            app.update();
+            continue;
+        };
+        let frame = if b.should_stomp() {
+            with_jump(move_x(1.0, false))
+        } else {
+            let target = target.min(limit_x);
+            move_x(((target - b.pos.x) / 8.0).clamp(-1.0, 1.0), false)
+        };
+        step(app, frame);
+    }
+    wears(app, row_id)
+}
+
+/// **A moving jump onto the block itself.**
+///
+/// `mount` above launches from a STANDSTILL and steers in the air, which is
+/// right for the pipe (a 64px rise onto a 64px-wide mouth) and cannot work here,
+/// and the arithmetic says why. A standing jump leaves the ground at 435 px/s
+/// (band 1 of her phased-gravity law), runs weak gravity until it decays to
+/// `held_phase_min_upward_speed`, and apexes about 145px up — while a ?-block's
+/// top face is 128px over the run she walks. That is 17px of margin: her feet
+/// are above the face for roughly a quarter-second, and neutral air preserves
+/// momentum exactly (`air_coast_decel: 0`), so a jump that started still has
+/// only `air_accel` to cross the gap with and covers about 12px of it.
+///
+/// So she LEAVES the ground moving, the way a player does it, and steers only
+/// once she is clear of the face — the reversal on the far side of the target is
+/// what stops her over a 32-pixel platform rather than past it.
+///
+/// `side` is which side of the block she attempts it from: `-1` left, `+1`
+/// right. `backing` is the first stretch of an attempt, walking out to the
+/// run-up.
+fn hop_onto(b: Body, block: ae::Aabb, launch_gap: f32, side: f32, backing: bool) -> ControlFrame {
+    let centre = block.center().x;
+    // Where she leaves the ground, and where the run-up starts.
+    let mark = centre + side * launch_gap;
+    let start = centre + side * (launch_gap + 48.0);
+    if b.on_ground {
+        if backing {
+            return move_x(((start - b.pos.x) / 8.0).clamp(-1.0, 1.0), false);
+        }
+        // Charging at the block. She leaves the ground the moment she crosses
+        // the mark, so the launch carries her walking speed into the band that
+        // decides how high the jump goes.
+        let past_mark = (b.pos.x - mark) * side < 0.0;
+        let charge = move_x(-side, false);
+        return if past_mark { with_jump(charge) } else { charge };
+    }
+    if b.feet() < block.min.y - 2.0 {
+        // Clear of the face: steer FOR the block. Past it the input flips and
+        // `air_reverse_accel` brings her back over it.
+        with_jump(move_x(((centre - b.pos.x) / 24.0).clamp(-1.0, 1.0), false))
+    } else {
+        // Still beside it: keep the launch momentum, add nothing to it.
+        with_jump(move_x(0.0, false))
+    }
+}
+
+/// **Climb onto the block to take what is sitting on it.** The beacon is
+/// `ItemMotionPlan::still()` — it waits on its block like the classic flower —
+/// so unlike the wand it never comes to her and there is nothing to chase.
+///
+/// The run-up is CYCLED rather than tuned — both its length and which side it
+/// comes from. One launch mark is a number measured against one block standing
+/// on one piece of ground, and the ground beside a block is not free: 1-1's
+/// second ladder block has a warp pipe 32px to its left, so an approach from
+/// that side has no room to build up in. A missed attempt costs her a walk back
+/// and nothing else, and a player retries too.
+///
+/// Returns `false` only after every run-up on both sides has been tried, which
+/// is what makes a failure here a statement about the LEVEL rather than about
+/// one hand-picked number.
+fn mount_until_worn(app: &mut App, block: &ae::world::Block, row_id: &str, frames: usize) -> bool {
+    const ATTEMPTS: [(f32, f32); 8] = [
+        (-1.0, 56.0),
+        (1.0, 56.0),
+        (-1.0, 72.0),
+        (1.0, 72.0),
+        (-1.0, 88.0),
+        (1.0, 88.0),
+        (-1.0, 104.0),
+        (1.0, 104.0),
+    ];
+    const FRAMES_PER_ATTEMPT: usize = 120;
+    // The first stretch of each attempt walks out to the run-up start.
+    const BACKING_FRAMES: usize = 40;
+    for frame_index in 0..frames {
+        if wears(app, row_id) {
+            return true;
+        }
+        let Some(b) = body(app) else {
+            app.update();
+            continue;
+        };
+        let attempt = frame_index / FRAMES_PER_ATTEMPT;
+        let (side, launch_gap) = ATTEMPTS[attempt % ATTEMPTS.len()];
+        let backing = frame_index % FRAMES_PER_ATTEMPT < BACKING_FRAMES;
+        step(app, hop_onto(b, block.aabb, launch_gap, side, backing));
+    }
+    wears(app, row_id)
+}
+
+/// **A GROWN Mary-O bonks a ?-block and ends up wearing the fire flower.**
+///
+/// Jon: *"no way to get the fire flower"*. This is the decision procedure for
+/// that report, and either result closes it: if it passes, the level CAN hand it
+/// over and nothing in the game says so; if it fails, the level cannot.
+///
+/// The three claims it makes, in the order they can fail:
+///
+/// 1. **1-1 authors more than one ladder block.** Nothing pays the beacon to a
+///    small Mary-O, so a level with one ?-block can never produce one however
+///    well it is played.
+/// 2. **A block struck by a GROWN body pays the BEACON, not another wand.** That
+///    is `next_rung_toward` seen from outside — the rung is chosen from what she
+///    wears, and nothing had ever asked it that question through the real
+///    movement kernel.
+/// 3. **She can reach what it paid.** The beacon does not travel; it waits on
+///    the block that produced it, so collecting it is a second platforming act
+///    and the one the report is most likely to have been about.
+///
+/// ⚠ **the beats before those are HARNESS, not verdict**, and they say so when
+/// they fail: getting grown at all means taking the wand off the first block
+/// through the real pickup path and then crossing pit A while grown, and a run
+/// that never arrives grown has measured nothing about the flower.
+#[test]
+fn a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower() {
+    use ambition_demo_mary_o::powerups::{
+        CINDER_BEACON_ID, CINDER_BEACON_SPRITE, STAR_WAND_ID, STAR_WAND_SPRITE,
+    };
+
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    if !scripted_input_reaches_the_sim(&mut app) {
+        eprintln!(
+            "SKIP: a participant pipeline owns `ControlFrame` in this build \
+             (`ambition_platformer2d/input` is on, likely via workspace feature unification), \
+             so scripted input never reaches the sim."
+        );
+        return;
+    }
+
+    let ladder = ladder_blocks();
+    assert!(
+        ladder.len() >= 2,
+        "1-1 must author at least TWO blocks that level toward the lantern, or \
+         the fire form is unreachable in it by construction: a small Mary-O is \
+         paid the wand by the first one, so the beacon needs a second. Authored: \
+         {:?}",
+        ladder.iter().map(|b| b.name.clone()).collect::<Vec<_>>()
+    );
+    let first = ladder[0].clone();
+    let second = ladder[1].clone();
+    let pits = pits();
+    // Chasing the wand stops at the first pit's lip: the pickup walks, and the
+    // pit is not what this run is testing.
+    let safe_x = pits
+        .first()
+        .map(|&(left, _)| left - 24.0)
+        .unwrap_or(f32::MAX);
+    eprintln!(
+        "ladder blocks {:?}; pits {pits:?}",
+        ladder.iter().map(|b| b.aabb).collect::<Vec<_>>()
+    );
+
+    // ── HARNESS: get grown, through the real ladder ───────────────────────
+    let struck_first = bonk_from_beneath(&mut app, &first, 400);
+    assert!(
+        struck_first,
+        "HARNESS: she never struck the first ladder block, so this run has said \
+         nothing about the flower. She is at {:?} and the underside is {:.1}",
+        body(&mut app),
+        first.aabb.max.y
+    );
+    let took_the_wand = chase_until_worn(&mut app, STAR_WAND_SPRITE, STAR_WAND_ID, safe_x, 600);
+    assert!(
+        took_the_wand,
+        "HARNESS: she never caught the wand the first block paid, so she cannot \
+         arrive at the second one grown. She is at {:?}, items are {:?}",
+        body(&mut app),
+        world_items(&mut app)
+    );
+    assert_eq!(
+        worn_form(&mut app).as_deref(),
+        Some(TALL_ID),
+        "HARNESS: the wand is what makes her grown"
+    );
+
+    // ── HARNESS: carry the form to the second block ───────────────────────
+    let reached = run_right_to(&mut app, second.aabb.center().x, &pits, 1200);
+    assert!(
+        reached,
+        "HARNESS: she stalled on the way to the second ladder block at {:?}",
+        body(&mut app)
+    );
+    let still_grown = body(&mut app).expect("she is in the world").is_tall();
+    assert!(
+        still_grown,
+        "HARNESS: something took the wand off her between the two blocks, so the \
+         block she is about to hit will pay a WAND and this run cannot answer the \
+         question. Worn form is {:?}",
+        worn_form(&mut app)
+    );
+
+    // ── THE MEASUREMENT ───────────────────────────────────────────────────
+    let struck_while_grown = bonk_from_beneath(&mut app, &second, 400);
+    assert!(
+        struck_while_grown,
+        "a GROWN Mary-O must be able to strike a ?-block at all — the blocks sit \
+         four tiles over the run she walks, and her head clears the underside by \
+         more when she is tall than when she is small. She is at {:?}",
+        body(&mut app)
+    );
+    let paid = item_at(&mut app, CINDER_BEACON_SPRITE);
+    assert!(
+        paid.is_some(),
+        "the block a GROWN Mary-O struck must pay the BEACON — the rung is chosen \
+         from what she wears, and a second wand here would mean the fire form is \
+         unreachable however well the level is played. Items in the world: {:?}",
+        world_items(&mut app)
+    );
+    eprintln!("the grown bonk paid a beacon at {paid:?}");
+
+    let wore_it = mount_until_worn(&mut app, &second, CINDER_BEACON_ID, 1000);
+    assert!(
+        wore_it,
+        "and she must be able to REACH it: the beacon waits on the block that \
+         paid it, so getting it means climbing onto that block. She is at {:?} \
+         and it is at {paid:?}",
+        body(&mut app)
+    );
+    assert_eq!(
+        worn_form(&mut app).as_deref(),
+        Some(FIRE_ID),
+        "wearing the beacon puts her in the fire form"
+    );
+    assert!(
+        body(&mut app).expect("she is in the world").is_tall(),
+        "and the fire form is the same height as the grown one — the beacon is a \
+         step up the ladder, never a step off it"
     );
 }

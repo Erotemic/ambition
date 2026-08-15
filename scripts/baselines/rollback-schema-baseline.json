@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "⚠ 2026-08-15 ADDS derived.custody_residency, a DECLARED-DERIVED row rather than a registration: InCustodyOf is recomputed unconditionally every tick from the registered item.item_custody, with no 'already applied' gate, so it is not rollback state and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 — no encoding changed. It exists so a held item's RESIDENCY follows its holder: the roster a room change retires is now (With<RoomScopedEntity>, Without<InCustodyOf>), which is how a carried object crosses a room boundary without the transition knowing that items exist. ⛔ deliberately NOT _component_state: its only value is an entity handle, and hashing a raw handle is the hazard item.item_custody's entity-set probe already answers through the holder's SimId.",
     "⚠ v31 (2026-08-15) ADDS resource.gate_portal_phases, and the growth is deliberate: the portal phase was a mutable f32 timer that nothing rewound. The switch driving it lives in AmbitionGameSave and IS registered, so the INPUT rewound while its INTEGRAL did not, leaving the phase permanently ahead by the depth of every rollback taken during the ~38-tick opening window. Its consumer refuses a room crossing unless the phase is On, so peers disagreed about whether the crossing happened. It was previously waived as 'authored' — a true sentence about GatePortalConfig, which really is authored, and which no longer holds the phase at all. Registered with a VALUE projection, not a presence probe: a presence probe would have restored that phases exist, said nothing about elapsed, and passed while reproducing the defect.",
     "⚠ v28 (2026-08-14) REMOVES resource.combat_slot_board, and a removal is the rarer direction for this file. The board it rewound arranged a crowd into numbered approach slots around a target; no production reader consumed the assignment, so peers agreed every tick about a value nothing asked for. Its anchor was PrimaryPlayer-or-lowest-PlayerSlot, which made it the largest player-centric assumption inside generic actor simulation as well. Deleted with the board rather than made target-relative: target-relative arbitration for a mechanism with no consumer is the abstraction, not the fix.",
     "The rollback wire format, frozen. Two keys, one invariant each way: a type",
@@ -151,6 +152,7 @@
     "derived.class_b_remap_log",
     "derived.control_frame",
     "derived.controlled_subject",
+    "derived.custody_residency",
     "derived.encounter_progress",
     "derived.encounter_switch_index",
     "derived.encounter_view",
@@ -386,7 +388,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 349,
+  "stable_schema_name_count": 350,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

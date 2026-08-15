@@ -766,7 +766,8 @@ mod tests {
         // ⛔ **the poison: nothing ELSE in the table advertises a lift.** A table
         // where every move looked like a recovery would satisfy the assertion
         // above and tell a policy layer nothing.
-        let others: Vec<&str> = george_booul_moveset()
+        let table = george_booul_moveset();
+        let others: Vec<&str> = table
             .moves
             .iter()
             .filter(|m| m.id != "excluded_middle" && m.frame_data().lift_speed > 0.0)

@@ -95,11 +95,9 @@ fn main() {
                 // hold, so an unknown `--room` would photograph 1-1 and report
                 // success — a capture tool that silently shoots the wrong subject
                 // is worse than one that cannot shoot it at all.
-                if !ambition_demo_mary_o::provider::MARY_O_ROOM_IDS.contains(&asked.as_str()) {
-                    fail(&format!(
-                        "unknown room '{asked}'; Mary-O has {:?}",
-                        ambition_demo_mary_o::provider::MARY_O_ROOM_IDS
-                    ));
+                let known = ambition_demo_mary_o::provider::mary_o_room_ids();
+                if !known.iter().any(|id| id == &asked) {
+                    fail(&format!("unknown room '{asked}'; Mary-O has {known:?}"));
                 }
                 room = asked;
             }

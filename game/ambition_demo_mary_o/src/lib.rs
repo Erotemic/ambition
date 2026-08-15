@@ -51,6 +51,15 @@ use ldtk_vocabulary::{MaryOPipeMouth, MaryOPipeRole};
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 
+/// Stable room id for level 1-3, "The Cinder Ferry".
+///
+/// ⚠ **this constant is the LAST thing a new level should need, and it is here
+/// only because [`exit_for_room`] has to name a successor.** Everything else
+/// about 1-3 is authored: it is an area of `mary_o.ldtk`, so
+/// [`authored_levels`] builds it, [`provider::mary_o_room_ids`] lists it and
+/// [`pole_for_room`] finds its pole, all without knowing the id.
+pub const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
+
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
 /// Ambition can host this demo alongside its own rooms; [`MaryORulesPlugin`] gates
@@ -480,27 +489,18 @@ const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 // registered — are Mary-O's own registered characters now, and the demo ships
 // no archetype rows at all. Every enemy states its body as a character.
 
+/// World 1-1, which is [`authored_level`] and nothing else.
+///
+/// ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).** They
+/// were built here from `vault_bounds()` and a ground constant — the last
+/// coordinates in 1-1 an editor could not move. A previous attempt to author
+/// them was reverted because the LDtk validator demands that every zone name a
+/// `target_room`/`target_zone` and 1-2 was a Rust room no world file contained.
+/// Both halves of that are fixed: 1-2 is an area in `mary_o.ldtk`, and the
+/// validator understands that the ARRIVAL end of a one-way trip names nothing
+/// (a zone that did would fire on the body that just landed on it).
 pub fn level_1_1() -> RoomSpec {
-    let mut room = authored_room(LEVEL_1_1_ROOM_ID);
-    room.metadata.mode = Some(MARY_O_MODE.to_string());
-    // ⭐ **the pipe pairing is checked HERE, on the room actually being built** —
-    // not on the static table, which a level that never warps would never touch.
-    // A `MaryOPipe` whose `link` is a typo makes building 1-1 fail, loudly,
-    // naming the half that is there and the partner it wants.
-    let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
-    dress_authored_blocks(&mut room);
-    room.props.extend(scenery_for_authored_room(&room));
-
-    // ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).**
-    // They were built here from `vault_bounds()` and a ground constant — the
-    // last coordinates in 1-1 an editor could not move. A previous attempt to
-    // author them was reverted because the LDtk validator demands that every
-    // zone name a `target_room`/`target_zone` and 1-2 was a Rust room no world
-    // file contained. Both halves of that are fixed: 1-2 is an area in
-    // `mary_o.ldtk`, and the validator understands that the ARRIVAL end of a
-    // one-way trip names nothing (a zone that did would fire on the body that
-    // just landed on it).
-    room
+    authored_level(LEVEL_1_1_ROOM_ID)
 }
 
 /// The authored world file. Embedded, so a demo that ships its own binary needs
@@ -521,6 +521,77 @@ fn authored_room(area: &str) -> RoomSpec {
         .into_iter()
         .find(|room| room.id == area)
         .unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
+}
+
+/// **One authored area, finished into the room the game plays.**
+///
+/// ⛔ **there used to be a `level_1_N()` per level, and the cost was a NEW LEVEL
+/// COSTING RUST (2026-08-15).** `level_1_1` and `level_1_2` did the same four
+/// things in the same order, differing only in a colour — so a third level was
+/// a fourth copy plus an entry in `MARY_O_ROOM_IDS`, an entry in the provider's
+/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, four of
+/// which the LDtk file already knew. This is the single builder; the roster and
+/// the rooms vec are read off the file (see [`authored_levels`]).
+///
+/// ⭐ **the pipe pairing is checked on EVERY level now**, not just 1-1. It was
+/// `level_1_1`'s alone, so a `MaryOPipe` typo in any other room degraded to a
+/// green box that had quietly stopped being a pipe — the exact failure the
+/// pairing check exists to refuse. A room with no pipes yields no tubes and no
+/// refusals, so this costs the pipeless levels nothing.
+pub fn authored_level(area: &str) -> RoomSpec {
+    finish_authored_room(authored_room(area))
+}
+
+/// **Every authored area, finished — the room list, read rather than written.**
+///
+/// ⚠ the test course is NOT here on purpose: it is a Rust-built probe room that
+/// no world file contains, and a session running it carries it INSTEAD of the
+/// shipped levels.
+pub fn authored_levels() -> Vec<RoomSpec> {
+    authored_world()
+        .rooms
+        .into_iter()
+        .map(finish_authored_room)
+        .collect()
+}
+
+/// The id of every area `mary_o.ldtk` authors.
+pub fn authored_area_ids() -> Vec<String> {
+    authored_world()
+        .rooms
+        .into_iter()
+        .map(|room| room.id)
+        .collect()
+}
+
+/// The stone an area is cut from — the one thing about a level the LDtk file
+/// cannot say, since a block carries no authored colour.
+///
+/// ⚠ **this is the whole remaining Rust-owned content datum, and it is here
+/// rather than inline so it reads as the exception it is.** The elegant end
+/// state is an authored level field (`palette` is already declared in every
+/// project's `levelFields`) lowered into `RoomMetadata`; that is an engine
+/// change to `RoomMetadata`, not a demo one.
+fn authored_stone(area: &str) -> Option<[f32; 4]> {
+    (area == level_1_2::LEVEL_1_2_ROOM_ID).then_some(level_1_2::UNDERGROUND_STONE)
+}
+
+fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
+    room.metadata.mode = Some(MARY_O_MODE.to_string());
+    // A `MaryOPipe` whose `link` is a typo makes building the room fail, loudly,
+    // naming the half that is there and the partner it wants.
+    let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
+    // A one-stone cavern is painted BEFORE the by-name dressing rather than
+    // instead of it: `dress_authored_blocks` then takes the pole back out again
+    // (its look is the prop laid over it).
+    if let Some(stone) = authored_stone(&room.id) {
+        for block in &mut room.world.blocks {
+            block.art_color = Some(stone);
+        }
+    }
+    dress_authored_blocks(&mut room);
+    room.props.extend(scenery_for_authored_room(&room));
+    room
 }
 
 /// **Every authored area, and the graph between them.**
@@ -827,13 +898,21 @@ pub fn goal_pole() -> flag::FlagPole {
 /// ends. Which room she is in already decides which world she gets
 /// ([`provider::mary_o_session_world_entering`]); it decides the goal by the same
 /// answer here.
+///
+/// ⛔ **AND THE `else` ARM WAS THE SAME SILENT BUG ONE ROOM ALONG (2026-08-15).**
+/// The chain named 1-2 and handed 1-1's pole to everything else, so the first
+/// authored level nobody remembered to add an arm for got a flagpole standing
+/// in another room's coordinates — the same "the level simply never ends" that
+/// the doc above complains about, with the arm that was supposed to prevent it.
+/// [`authored_pole`] reads the pole off the room's own `goal_pole` block, which
+/// every authored area has to have anyway, so there is nothing left to
+/// enumerate: a room with no pole is a loud panic naming the room.
 pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     if room_id == test_course::TEST_COURSE_ROOM_ID {
+        // Not an authored area — a Rust-built probe room, pole included.
         test_course::course_pole()
-    } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
-        level_1_2::goal_pole()
     } else {
-        goal_pole()
+        authored_pole(&authored_room(room_id))
     }
 }
 
@@ -865,12 +944,26 @@ pub enum LevelDestination {
 /// crash** — see `cycle_level_on_flag_tally`. Answering here is a content
 /// decision; whether the world contains the room is a question only the loaded
 /// `RoomSet` can settle.
+///
+/// ⛔ **THIS CHAIN IS THE LAST THING A NEW LEVEL COSTS IN RUST, and it should
+/// not be Rust at all (2026-08-15).** "Where does finishing this room lead" is
+/// a property OF the room, exactly like its biome or its mode, and every other
+/// such property is an LDtk level field lowered into `RoomMetadata`. Authoring
+/// 1-3 needed no Rust for its geometry, its blocks, its enemies, its pickups,
+/// its ferry, its roster entry or its pole — and one arm here, because a
+/// successor has nowhere authored to live. The fix is a `next_room` level field
+/// beside `mode` and `biome`; it is an engine change to `RoomMetadata`
+/// (`crates/ambition_platformer2d_world/src/rooms/metadata.rs`), not a demo one,
+/// so it is recorded rather than taken.
 pub fn exit_for_room(room_id: &str) -> LevelDestination {
     if room_id == LEVEL_1_1_ROOM_ID {
         // 1-1 → 1-2: what Jon asked for, and the reason this seam exists.
         LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string())
     } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
-        // ⭐ and 1-2 back to 1-1, which closes the loop into a CIRCUIT rather
+        // 1-2 → 1-3, "The Cinder Ferry".
+        LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string())
+    } else if room_id == LEVEL_1_3_ROOM_ID {
+        // ⭐ and 1-3 back to 1-1, which closes the loop into a CIRCUIT rather
         // than a dead end. Jon: *"The end of 1-2 should transition back to
         // 1-1."*
         LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string())
@@ -4067,8 +4160,8 @@ mod tests {
         );
     }
 
-    /// **Every level's goal names where it goes, and 1-1 and 1-2 point at each
-    /// other.**
+    /// **Every level's goal names where it goes, and the levels form a
+    /// CIRCUIT.**
     ///
     /// ⛔ **the destination was compiled in**, so a level physically could not
     /// lead anywhere: completion wrote `RoomReplayRequested` unconditionally.
@@ -4080,7 +4173,7 @@ mod tests {
     /// playthrough. The end-to-end run belongs to the fixture course, and the
     /// course deliberately loops, so the transition case has no route to ride.
     #[test]
-    fn the_two_levels_name_each_other_and_anything_else_still_loops() {
+    fn the_levels_name_each_other_and_anything_else_still_loops() {
         assert_eq!(
             exit_for_room(LEVEL_1_1_ROOM_ID),
             LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string()),
@@ -4088,8 +4181,13 @@ mod tests {
         );
         assert_eq!(
             exit_for_room(level_1_2::LEVEL_1_2_ROOM_ID),
+            LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string()),
+            "and 1-2 on to 1-3"
+        );
+        assert_eq!(
+            exit_for_room(LEVEL_1_3_ROOM_ID),
             LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string()),
-            "and finishing 1-2 comes back to 1-1, which makes it a circuit \
+            "and finishing 1-3 comes back to 1-1, which makes it a circuit \
              rather than a dead end"
         );
         assert_eq!(

@@ -10,7 +10,7 @@ use ambition_platformer2d::runtime::demo_fixture::{
 };
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 
-use crate::{level_1_1, MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
+use crate::{MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
 
 pub const MARY_O_EXPERIENCE: &str = "mary_o";
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";
@@ -95,18 +95,29 @@ impl Default for MaryOEntryRoom {
 
 /// **Every room a session can be asked to enter.**
 ///
-/// One list, because three things need the same answer and were each spelling it
-/// out: [`mary_o_session_world_entering`] builds the set, `capture_mary_o`
-/// validates `--room` against it, and the probe that all three ids reach their
-/// own geometry loops over it. ⚠ **that last one is why this is a constant rather
-/// than a doc sentence** — a fourth room added here is a fourth room the probe
-/// immediately demands, instead of one that quietly inherits 1-1's world the way
-/// 1-2 did (queue D65).
-pub const MARY_O_ROOM_IDS: [&str; 3] = [
-    LEVEL_1_1_ROOM_ID,
-    crate::level_1_2::LEVEL_1_2_ROOM_ID,
-    crate::test_course::TEST_COURSE_ROOM_ID,
-];
+/// One answer, because three things need it and were each spelling it out:
+/// [`mary_o_session_world_entering`] builds the set, `capture_mary_o` validates
+/// `--room` against it, and the probe that every id reaches its own geometry
+/// loops over it. ⚠ **that last one is why this is one function rather than a
+/// doc sentence** — a room added here is a room the probe immediately demands,
+/// instead of one that quietly inherits 1-1's world the way 1-2 did (queue D65).
+///
+/// ⛔ **IT WAS `const MARY_O_ROOM_IDS: [&str; 3]`, AND THE `3` WAS THE POINT
+/// (2026-08-15).** A hand-kept list of the rooms an already-authored file
+/// already contains is a second authority: authoring `mary_o_1_3` in LDtk left
+/// it invisible to all three consumers until somebody edited an array length in
+/// Rust, and nothing anywhere said so — `capture_mary_o --room mary_o_1_3`
+/// answered *"unknown room"* about a room that was right there in the world.
+/// The areas are read off the file now.
+///
+/// ⚠ the fixture course is appended rather than read, because it is genuinely
+/// not in the file: a Rust-built probe room a session carries INSTEAD of the
+/// shipped levels.
+pub fn mary_o_room_ids() -> Vec<String> {
+    let mut ids = crate::authored_area_ids();
+    ids.push(crate::test_course::TEST_COURSE_ROOM_ID.to_string());
+    ids
+}
 
 pub fn mary_o_session_world() -> MaryOSessionWorld {
     mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
@@ -154,13 +165,18 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // with its rooms — an edge naming a room the set does not hold is a
     // `from_parts` warning on stderr and nothing else, which is how the course
     // has been printing two of them.
+    //
+    // ⭐ **the ROOMS are read too, since 2026-08-15.** This was
+    // `vec![level_1_1(), level_1_2()]` — a hand-listed pair beside the links it
+    // already reads off the same file — so an area authored in LDtk was not in
+    // the `RoomSet` at all, and `from_parts` silently activates room 0 for an
+    // entry id it does not hold. A new level therefore did not fail to load: it
+    // loaded 1-1 and reported success. Every authored area is a room now, and
+    // the list and the links come from one read of one file.
     let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
         (vec![crate::test_course::test_course()], Vec::new())
     } else {
-        (
-            vec![level_1_1(), crate::level_1_2::level_1_2()],
-            crate::authored_room_links(),
-        )
+        (crate::authored_levels(), crate::authored_room_links())
     };
     let room_set = RoomSet::from_parts(entry, rooms, links);
     let active = room_set.active_spec();
@@ -626,19 +642,23 @@ mod tests {
     use super::*;
 
     /// The room `id` names, built WITHOUT going through the provider — so this
-    /// test's expectation comes from the level modules rather than from the seam
+    /// test's expectation comes from the level builder rather than from the seam
     /// it is checking.
+    ///
+    /// ⛔ **the `else` arm used to be `level_1_1()`**, which made the whole
+    /// probe vacuous for any room nobody had added an arm for: it compared the
+    /// provider's answer against 1-1 and the provider was ALSO serving 1-1, so
+    /// two bugs agreed and the test went green. It names the course and asks
+    /// the builder about everything else now.
     fn room_named(id: &str) -> ambition_platformer2d::world::rooms::RoomSpec {
-        if id == crate::level_1_2::LEVEL_1_2_ROOM_ID {
-            crate::level_1_2::level_1_2()
-        } else if id == crate::test_course::TEST_COURSE_ROOM_ID {
+        if id == crate::test_course::TEST_COURSE_ROOM_ID {
             crate::test_course::test_course()
         } else {
-            level_1_1()
+            crate::authored_level(id)
         }
     }
 
-    /// Enough of a world to tell Mary-O's three rooms apart.
+    /// Enough of a world to tell Mary-O's rooms apart.
     fn shape_of(world: &ae::World) -> (String, [f32; 2], [f32; 2], usize) {
         (
             world.name.clone(),
@@ -665,7 +685,13 @@ mod tests {
     /// the comparison vacuous.
     #[test]
     fn every_room_id_starts_in_its_own_geometry() {
-        let ids = MARY_O_ROOM_IDS;
+        let ids = mary_o_room_ids();
+        // ⚠ the roster is READ from the world file now, so a file that authored
+        // nothing would make every loop below vacuous.
+        assert!(
+            ids.len() >= 2,
+            "the roster came back as {ids:?}; a probe over one room proves nothing"
+        );
 
         // The poison: if two rooms cannot be told apart, every assertion below
         // passes for the wrong reason.
@@ -680,7 +706,7 @@ mod tests {
             }
         }
 
-        for id in ids {
+        for id in ids.iter().map(String::as_str) {
             let session = mary_o_session_world_entering(id);
             let expected = room_named(id);
 

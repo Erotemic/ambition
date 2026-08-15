@@ -55,8 +55,6 @@
 
 use ambition_platformer2d::world::rooms::RoomSpec;
 
-use crate::MARY_O_MODE;
-
 /// The authored area id, and the room id the runtime knows it by.
 pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
@@ -85,7 +83,10 @@ pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 /// The stone the cavern is cut from. The one thing about 1-2 the LDtk file
 /// cannot say, since a block carries no authored colour — the same reason 1-1
 /// paints its vault masonry from Rust.
-const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
+///
+/// ⚠ read by [`crate::authored_level`] rather than applied here, so there is one
+/// room builder and this stays the datum it is.
+pub(crate) const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
 
 /// **1-2's goal.**
 ///
@@ -101,17 +102,7 @@ pub fn goal_pole() -> crate::flag::FlagPole {
 }
 
 pub fn level_1_2() -> RoomSpec {
-    let mut room = crate::authored_room(LEVEL_1_2_ROOM_ID);
-    room.metadata.mode = Some(MARY_O_MODE.to_string());
-    // The cavern is cut from ONE stone, so the colour goes on before the
-    // by-name dressing rather than instead of it: `dress_authored_blocks` then
-    // takes the pole back out again (its look is the prop laid over it).
-    for block in &mut room.world.blocks {
-        block.art_color = Some(UNDERGROUND_STONE);
-    }
-    crate::dress_authored_blocks(&mut room);
-    room.props.extend(crate::scenery_for_authored_room(&room));
-    room
+    crate::authored_level(LEVEL_1_2_ROOM_ID)
 }
 
 #[cfg(test)]

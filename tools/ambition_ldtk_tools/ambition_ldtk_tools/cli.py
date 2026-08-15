@@ -62,6 +62,9 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     intgrid paint    <rect>       Set cells overlapping the rect to --value (1=Solid).
     gates audit       <level>      Read-only: switches/lock walls/triggers/breakables + targets.
 
+    vocabulary list               Read-only: what can be placed + a census of authored values.
+    vocabulary check              Read-only: placements that omit a field their siblings author.
+
     room describe     --level X    Read-only: summarize a room for chat/sandbox design.
     room render       --level X    Render a room to SVG/PNG without launching LDtk/game.
     room bundle-debug --level X    Bundle summary + render + traces/specs for upload.
@@ -343,24 +346,39 @@ def cmd_portal(args, rest):
     return _todo(f"portal {args.portal_action}")
 
 
+def _hoist_before_action(rest: list[str], flag: str, command: str):
+    """Split `rest` into (args before the action, args after it) for `flag`.
+
+    A delegated module that owns `--ldtk` on its TOP-level parser wants
+    `--ldtk FILE <action> ...`, but the modal CLI has already consumed the
+    action, so the user's natural `<action> --ldtk FILE ...` arrives with the
+    flag in the tail. Returns `None` when the flag is given no value.
+    """
+    before: list[str] = []
+    after: list[str] = []
+    it = iter(rest)
+    for item in it:
+        if item == flag:
+            try:
+                value = next(it)
+            except StopIteration:
+                print(f"{command}: {flag} requires a path", file=sys.stderr)
+                return None
+            before.extend([flag, value])
+        else:
+            after.append(item)
+    return before, after
+
+
 def cmd_room(args, rest):
     if args.room_action in {"describe", "render", "bundle-debug", "relationships"}:
         # `room.py` owns its argparse surface. The modal parser only captures
         # the action, so normalize `room describe --ldtk FILE ...` into the
         # delegated parser's expected `--ldtk FILE describe ...` shape.
-        before_action: list[str] = []
-        after_action: list[str] = []
-        it = iter(rest)
-        for item in it:
-            if item == "--ldtk":
-                try:
-                    value = next(it)
-                except StopIteration:
-                    print("room: --ldtk requires a path", file=sys.stderr)
-                    return 64
-                before_action.extend(["--ldtk", value])
-            else:
-                after_action.append(item)
+        split = _hoist_before_action(rest, "--ldtk", "room")
+        if split is None:
+            return 64
+        before_action, after_action = split
         return _delegate(
             "ambition_ldtk_tools.room",
             [*before_action, args.room_action, *after_action],
@@ -368,6 +386,18 @@ def cmd_room(args, rest):
     if args.room_action == "compile-spec":
         return _delegate("ambition_ldtk_tools.edit.room_spec", ["compile", *rest])
     return _todo(f"room {args.room_action}")
+
+
+def cmd_vocabulary(args, rest):
+    # Same shape as `room`: `vocabulary.py` owns `--ldtk` on its top parser.
+    split = _hoist_before_action(rest, "--ldtk", "vocabulary")
+    if split is None:
+        return 64
+    before_action, after_action = split
+    return _delegate(
+        "ambition_ldtk_tools.vocabulary",
+        [*before_action, args.vocabulary_action, *after_action],
+    )
 
 
 # ---- Parser construction ------------------------------------------------------
@@ -821,6 +851,33 @@ def build_parser() -> argparse.ArgumentParser:
             "edits. Usage: room compile-spec specs/foo.json --ldtk sandbox.ldtk --dry-run"
         ),
     )
+
+    # vocabulary {list,check}
+    sp_vocab = sub.add_parser(
+        "vocabulary",
+        help="What can be placed in this world, and what may be said about it",
+    )
+    vocab_sub = sp_vocab.add_subparsers(dest="vocabulary_action", required=True)
+    vocab_sub.add_parser(
+        "list",
+        help=(
+            "Read-only: every placeable entity def, the layers that accept it, "
+            "each field's type/default/enum, and a CENSUS of the values the "
+            "world already authors — which is the only discoverable source of "
+            "truth for the many fields typed `String`. Usage: vocabulary list "
+            "[--ldtk FILE] [--identifier ID] [--docs] [--format text|json]"
+        ),
+    )
+    vocab_sub.add_parser(
+        "check",
+        help=(
+            "Read-only: placements that disagree with their siblings — a field "
+            "every other placement of that type authors and this one leaves "
+            "blank, or an enum value the enum cannot spell. Usage: vocabulary "
+            "check [--ldtk FILE] [--level ID] [--format text|json]"
+        ),
+    )
+    sp_vocab.set_defaults(func=cmd_vocabulary)
     sp_room.set_defaults(func=cmd_room)
 
     return ap

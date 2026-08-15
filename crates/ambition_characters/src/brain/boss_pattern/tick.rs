@@ -520,7 +520,7 @@ fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Ve
         let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
         // For world-arena-lateral bosses, retreat is a
         // fixed-arena-lane desired velocity only. `BossRuntime::integrate_body`
-        // still runs through `step_kinematic`, so solid walls and platforms
+        // still runs through `step_motion`, so solid walls and platforms
         // are the authority that stops the body if this target lies beyond
         // reachable floor.
         let target_x = ctx.actor_pos.x + dir_x * cfg.macro_tuning.retreat_distance.max(60.0);

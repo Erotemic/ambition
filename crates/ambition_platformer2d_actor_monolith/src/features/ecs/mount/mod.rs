@@ -270,7 +270,12 @@ pub fn steer_mount_from_rider(
         mount_frame.locomotion = rider_frame.locomotion;
         mount_frame.velocity_target = rider_frame.velocity_target;
         mount_frame.facing = rider_frame.facing;
-        mount_frame.drop_through = rider_frame.drop_through;
+        // ⭐ **drop-through is NOT hand-copied here, and does not need to be**
+        // (D126.2): the rider's descend intent already rides across in
+        // `locomotion`, and the jump edge is the mount's own to decide. The
+        // dead `drop_through` boolean this line used to forward carried `false`
+        // from every rider on every tick, which is what a hand-kept cross-body
+        // list looks like when the field behind it has no producer.
     }
 }
 

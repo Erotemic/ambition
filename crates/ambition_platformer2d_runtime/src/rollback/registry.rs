@@ -24,6 +24,18 @@ use super::{
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
 ///
+/// ⚠ **v29 (2026-08-15): `ActorControl` encodes one bool fewer.** D126.2 deleted
+/// `ActorControlFrame::drop_through`, a field no brain ever set and
+/// `to_input_state` never mapped — drop-through is a DERIVED gesture
+/// (`descend + jump`, owned by `movement::integration::wants_drop_through`), so
+/// there was no `InputState` slot for the boolean to reach and the declaration
+/// was a refusal written as a capability. The registration SET is unchanged, so
+/// this moves the same two things v27 did and nothing else: this constant, and
+/// `scripts/tests/rollback_codec_shape.txt` (238 → 236 primitives for
+/// `ambition_characters/src/snapshot_impls.rs`, one `put_bool` and one
+/// `r.bool()`). The frozen-name JSON and the descriptor baseline record no field
+/// detail and correctly do not move.
+///
 /// ⚠ **v28 (2026-08-14): `resource.combat_slot_board` is no longer registered.**
 /// Its subject was a crowd-arbitration board that no production reader
 /// consumed, so every peer was agreeing each tick about a value nothing asked
@@ -209,7 +221,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 28;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 29;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

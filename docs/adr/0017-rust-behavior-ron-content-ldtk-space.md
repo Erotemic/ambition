@@ -11,7 +11,7 @@ Each layer owns a single class of concern:
 
 | Layer | Owns | Examples |
 |---|---|---|
-| **Rust (behavior + plumbing)** | Algorithms, ECS systems, physics, brain variants, validators, Bevy plugins, generic schemas/holders | `brain::tick_melee_brute`, `step_kinematic`, `CharacterCatalogPlugin`, `BrainDriverPlugin`, generic boss/enemy registry types |
+| **Rust (behavior + plumbing)** | Algorithms, ECS systems, physics, brain variants, validators, Bevy plugins, generic schemas/holders | `brain::tick_melee_brute`, `step_motion`, `CharacterCatalogPlugin`, `BrainDriverPlugin`, generic boss/enemy registry types |
 | **RON / data files (authored content and tuning)** | Character catalog, brain cfgs, ActionSet specs, boss encounter numeric specs, enemy/boss rosters, dialogue trees, quest defs, tuning, area specs | `game/ambition_content/assets/data/character_catalog.ron`, `game/ambition_content/assets/data/boss_encounters/<id>.ron`, provider-owned encounter/roster/tuning data |
 | **LDtk (space)** | Level geometry, entity placement, world composition | `sandbox.ldtk`, `intro.ldtk`; `NpcSpawn` points at catalog ids |
 

@@ -290,11 +290,18 @@ pub fn supporting_block<'a>(
 //
 // The lingua franca between the world's geometry and a body's interpretation
 // of it: "the world exposes coherent contact information; bodies decide what
-// that contact means." Both sweeps POPULATE contacts (the player sweep into
-// `FrameEvents.contacts`, the kinematic sweep through
-// `step_kinematic_observed`); resolution itself is unchanged — the AABB path
-// still acts on axis faces, and the surface-follower solver consumes the same
+// that contact means." The ONE sweep populates contacts into
+// `FrameEvents.contacts`; resolution itself is unchanged — the AABB path still
+// acts on axis faces, and the surface-follower solver consumes the same
 // vocabulary for chains. Observability first, byte-identical.
+//
+// ⭐ **this said "both sweeps" and named a second one.** A duplicate
+// enemies/NPCs sweep (`step_kinematic` / `step_kinematic_observed`, in
+// `ambition_platformer2d_shared_tangle::kinematic`) really did exist and really
+// did consume this vocabulary — until the actor unification routed every body
+// through `step_motion` and left it with nothing but its own tests calling it.
+// It is deleted (D126.2). This vocabulary is shared between the world and the
+// bodies that read it, not between two resolvers.
 
 /// The SEMANTIC role a resolved contact plays for the body, judged against the
 /// body's CURRENT resolved frame (never world Y) at the moment the contact is

@@ -206,10 +206,22 @@ pub struct ActorControlFrame {
     /// [`Self::locomotion`]. The wrapper is what makes the two fields refuse to
     /// be assigned to each other.
     pub velocity_target: WorldVec2,
-    /// Suppress the OneWay vertical block this tick so the body
-    /// falls through the platform it is standing on. Mirrors the
-    /// player's `drop_through_pressed`.
-    pub drop_through: bool,
+    // ⛔ **THERE IS NO `drop_through` FIELD, AND ITS ABSENCE IS THE DESIGN**
+    // (deleted D126.2, 2026-08-15). It sat here for months documented as
+    // "suppress the OneWay vertical block this tick", and every part of that
+    // sentence was true of the ENGINE and false of this struct: no brain ever
+    // set it, `to_input_state` never mapped it, and the mount hand-off
+    // dutifully copied `false` from rider to mount every tick.
+    //
+    // ⭐ the wire was REFUSED, not forgotten, and the refusal is older than the
+    // field's doc. Drop-through is a DERIVED GESTURE — `descend > 0.35 &&
+    // jump_pressed`, owned by `movement::integration::wants_drop_through` and
+    // computed at the consumer so it is gravity- and input-mode-relative. There
+    // is deliberately no boolean for it on `InputState` either, so this field
+    // had nowhere to be mapped TO. A brain asks for a drop-through exactly the
+    // way a human does: `locomotion.y` toward the feet plus `jump_pressed`.
+    // Adding the boolean back would fork the one gesture rule into two
+    // spellings that agree only by hand.
     /// Desired facing this tick. `+1.0` = right, `-1.0` = left,
     /// `0.0` = leave the actor's existing facing alone.
     pub facing: f32,
@@ -456,8 +468,8 @@ impl ActorControlFrame {
     /// happened once, and a frame cloned forward re-fires every edge on it.
     ///
     /// ⚠ **this said "all" and cleared eight of fifteen** (GPT 5.6, 2026-07-31,
-    /// finding 3). Blink, projectile, pogo, fast-fall, fly-toggle, modifier and
-    /// drop-through were left set, so the fighter brain — which clones its held
+    /// finding 3). Blink, projectile, pogo, fast-fall, fly-toggle and modifier
+    /// were left set, so the fighter brain — which clones its held
     /// frame every tick between decisions — emitted one `Blink` decision as a
     /// press edge on every tick until the next decision overwrote it. Cooldowns
     /// masked some of the consequences; the control stream was still wrong, and
@@ -490,10 +502,6 @@ impl ActorControlFrame {
         self.blink_pressed = false;
         self.blink_released = false;
         self.modifier_pressed = false;
-        // A one-tick REQUEST rather than a state: "let me through this platform
-        // now". Held forward, a fighter that dropped through once keeps asking
-        // on every tick it is standing on anything.
-        self.drop_through = false;
     }
 }
 
@@ -526,12 +534,49 @@ mod tests {
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }
 
+    /// **A brain CAN ask for a drop-through, and this is how** — the two
+    /// ingredients of the engine's derived gesture (`wants_drop_through` =
+    /// descend toward the feet + jump) both survive the brain→engine bridge in
+    /// ONE frame. This is the guard on D126.2's deletion of the dead
+    /// `drop_through` boolean: the field is gone because the capability was
+    /// never missing, only mis-declared, and if a future edit strips the
+    /// locomotion axis or the jump edge on the way through, the gesture stops
+    /// being expressible and THAT is the regression — not the absent bool.
+    ///
+    /// ⚠ deliberately does not restate the 0.35 threshold: that number is the
+    /// kernel's, `wants_drop_through` is kernel-private, and a copy here would
+    /// be a second spelling of the rule this test exists to keep single.
+    #[test]
+    fn a_brain_expresses_drop_through_as_descend_plus_jump() {
+        let mut frame = ActorControlFrame::neutral();
+        // Local `y` points toward the FEET, so a full-magnitude descend is +1.
+        frame.locomotion = LocalAxes::new(0.0, 1.0);
+        frame.jump_pressed = true;
+        let input = frame.to_input_state();
+        assert_eq!(
+            input.axes.y, 1.0,
+            "the descend half of the gesture did not reach the kernel"
+        );
+        assert!(
+            input.jump_pressed(),
+            "the jump half of the gesture did not reach the kernel"
+        );
+
+        // Poison: neither half alone is the gesture, so neither may be
+        // manufactured by the bridge out of the other.
+        let mut descend_only = ActorControlFrame::neutral();
+        descend_only.locomotion = LocalAxes::new(0.0, 1.0);
+        assert!(!descend_only.to_input_state().jump_pressed());
+        let mut jump_only = ActorControlFrame::neutral();
+        jump_only.jump_pressed = true;
+        assert_eq!(jump_only.to_input_state().axes.y, 0.0);
+    }
+
     #[test]
     fn default_frame_is_neutral() {
         let frame = ActorControlFrame::default();
         assert_eq!(frame.locomotion, LocalAxes::ZERO);
         assert_eq!(frame.velocity_target, WorldVec2::ZERO);
-        assert!(!frame.drop_through);
         assert_eq!(frame.facing, 0.0);
         assert!(!frame.melee_pressed);
         assert!(!frame.melee_held);

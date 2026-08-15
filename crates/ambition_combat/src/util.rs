@@ -22,10 +22,11 @@ pub fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
 // and their OneWay handling did not differentiate above-vs-below
 // approaches — a hostile NPC chasing the player could not drop
 // through a one-way platform, breaking the chase. Both paths now
-// route through `ambition_platformer2d_core::step_kinematic`, which mirrors
-// the player's sweep semantics exactly. Don't reintroduce the
-// old helpers; if a new caller needs collision-aware motion, add
-// it through `KinematicBody`.
+// route through `ambition_platformer2d_core::step_motion` — the ONE
+// movement kernel, which is the player's sweep rather than something
+// that mirrors it. Don't reintroduce the old helpers; if a new caller
+// needs collision-aware motion, drive a `BodyKinematics` through
+// `step_motion`.
 
 pub fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     // Pogo-bounce routing matches an engine-reported orb AABB against

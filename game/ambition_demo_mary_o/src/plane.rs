@@ -7,7 +7,7 @@
 //! enemies in this world"*).
 //!
 //! ⭐ **the engine already flies, and it is DATA.** The ledger row claimed a
-//! flying swarm needed a motion authority that is neither `step_kinematic` nor a
+//! flying swarm needed a motion authority that is neither the body sweep nor a
 //! projectile. It needed neither: `CharacterBrainTemplate::Aerial` and
 //! `MoveStyleSpec::Float` have existed the whole time (the comment beside
 //! `Float` names *"aerial bosses, sharks"*), and the catalog rows already say

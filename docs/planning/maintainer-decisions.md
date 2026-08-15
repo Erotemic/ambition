@@ -82,6 +82,47 @@ The fuller multi-agent recon consensus, including accepted campaigns and explici
 non-goals, is in
 [the archived 2026-07-16 recon consensus](../archive/planning-superseded/2026-08-13/engine/decisions-2026-07-16.md).
 
+## 2026-08-15 — item/reset semantics: the CHECKPOINT is the reset baseline
+
+⭐⭐ **Jon's decision, recorded verbatim in substance before any work moved on it:**
+
+> Treat **checkpoint state as the reset baseline**, rather than giving key items a
+> special "always persist" rule.
+>
+> - Ordinary traversal/unload preserves current world occurrence/disposition.
+> - Death/retry restores the latest committed checkpoint baseline.
+> - If an item is picked up after checkpoint C0 and the body dies before another
+>   checkpoint, it returns to its C0 location.
+> - If acquiring the item commits checkpoint C1, subsequent death preserves that
+>   acquisition and the original placement stays empty.
+> - A temporary/disposable item picked up after C1 can still revert to its C1
+>   baseline on death.
+
+⛔⛔ **DO NOT encode this as `KeyItem => survives reset`.** The persistence of a key
+item is a *consequence* of when a checkpoint committed, not a property of the item
+kind. An item-kind rule would be a second authority that disagrees with the
+checkpoint the moment content changes.
+
+⇒ **so D125 must distinguish THREE horizons**, and this is the architectural
+content of the decision:
+
+1. **current occurrence state** — what is true right now;
+2. **state committed at the current reset/checkpoint horizon** — what a death
+   restores to;
+3. **durable save state** — eventually, and still a separate concern.
+
+⭐ **the acceptance fixture Jon named:**
+
+```text
+C0 key on pedestal → pick up → die            → key RETURNS to the pedestal
+pick up again → commit C1 → die               → key stays acquired, pedestal EMPTY
+pick up a temporary item after C1 → die       → key stays acquired, temporary RESETS
+```
+
+⚠ that fixture is doing real work: its third line is what makes the rule
+*checkpoint-shaped* rather than *item-shaped*. A `KeyItem` special case satisfies
+lines one and two and fails line three.
+
 Questions that are WAITING for a decision — scoped far enough that the choice is
 real and the work after it is small — are collected in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). Nothing

@@ -990,9 +990,7 @@ pub fn resolve_camera_observation(
         // off the SAME entity the framing follows, so orientation and framing
         // cannot disagree about whose view this is — and read as an
         // already-resolved fact, never by asking gravity anything.
-        bevy::prelude::Query<
-            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        >,
+        bevy::prelude::Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     ),
 ) {
     let (body_kinematics, presented, subject_frames) = followed_body;
@@ -1212,6 +1210,113 @@ pub struct CameraObservationSet;
 /// advancing before the camera observes it. This preserves the E4-17 invariant
 /// that mattered — ONE writer of [`CameraEaseState`], render only consumes —
 /// and changes only which clock it observes on.
+/// **Live camera diagnostics and feel-lab data — ON THE VIEW.**
+///
+/// Written by `camera_follow` after the presentation deltas are applied. Overlays
+/// and HUD read it so they show the *actual* gameplay view rather than a
+/// recomputed approximation that drifts when aspect or encounter policy changes.
+///
+/// ⛔⛔ **IT WAS A PROCESS-GLOBAL `Resource` NAMED "THE" GAMEPLAY VIEW** (D116
+/// M2, 2026-08-14) — the sixth of exactly that shape, after M2a deleted five.
+/// Five readers took it as `Res`/`Option<Res>`: the foreground, label layout,
+/// nameplates, actor draw, and the debug overlay. With two views a global cannot
+/// answer *whose*, and every one of those readers would have drawn one view's
+/// framing over both.
+///
+/// ⭐ **it lives here rather than in `ambition_render` because it is not render
+/// state.** Every field is a projection of [`CameraSnapshot2d`], which this
+/// module already owns; the only thing render contributed was the `Resource`
+/// derive. Moving it removes a crate dependency from the answer to "where does
+/// the view keep its facts", and lets it be SPAWNED WITH THE VIEW below — so a
+/// reader never sees a frame where the view exists and this does not.
+#[derive(bevy::prelude::Component, Clone, Debug)]
+pub struct CameraViewState {
+    pub base_view: ambition_platformer2d_core::Vec2,
+    pub requested_view: ambition_platformer2d_core::Vec2,
+    pub visible_view: ambition_platformer2d_core::Vec2,
+    pub zoom_multiplier: f32,
+    pub orthographic_scale: f32,
+    pub target_world: ambition_platformer2d_core::Vec2,
+    pub center_world: ambition_platformer2d_core::Vec2,
+    pub active_camera_zones: usize,
+    pub active_camera_zone: Option<String>,
+}
+
+impl Default for CameraViewState {
+    fn default() -> Self {
+        Self::from(&CameraSnapshot2d::default())
+    }
+}
+
+impl From<&CameraSnapshot2d> for CameraViewState {
+    fn from(snapshot: &CameraSnapshot2d) -> Self {
+        Self {
+            base_view: snapshot.base_view,
+            requested_view: snapshot.requested_view,
+            visible_view: snapshot.visible_view,
+            zoom_multiplier: snapshot.zoom_multiplier,
+            orthographic_scale: snapshot.orthographic_scale,
+            target_world: snapshot.target_world,
+            center_world: snapshot.center_world,
+            active_camera_zones: snapshot.active_camera_zones,
+            active_camera_zone: snapshot.active_camera_zone.clone(),
+        }
+    }
+}
+
+/// **The view state a draw system should read: the one the MAIN CAMERA presents.**
+///
+/// ⛔ **one resolver, not five copies of a lookup.** `camera_follow` already had
+/// to answer "which view is this camera for"; the moment the five former `Res`
+/// readers each needed the same answer, spelling it five times would have been
+/// five chances to disagree — and the disagreement would be silent, because each
+/// would still draw *something*.
+///
+/// The rule is the link's: a camera that NAMES its view presents that one; a
+/// camera that names none is a single-view composition (every fixture, and every
+/// host until the split lands) and takes the only view. With several views and no
+/// link it REFUSES rather than picking, so a second view arriving without a
+/// second link is loud instead of arbitrary.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PresentedViewState<'w, 's> {
+    cameras: bevy::prelude::Query<
+        'w,
+        's,
+        Option<&'static crate::local_view::PresentsView>,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
+    >,
+    views: bevy::prelude::Query<
+        'w,
+        's,
+        &'static CameraViewState,
+        bevy::prelude::With<crate::local_view::LocalView>,
+    >,
+}
+
+impl PresentedViewState<'_, '_> {
+    /// The presented view's state, or `None` when there is no view to read (a
+    /// headless or pre-composition host).
+    pub fn get(&self) -> Option<&CameraViewState> {
+        let link = self.cameras.iter().next().flatten().copied();
+        match link {
+            Some(crate::local_view::PresentsView(view)) => self.views.get(view).ok(),
+            None => {
+                let mut unlinked = self.views.iter();
+                let only = unlinked.next()?;
+                if unlinked.next().is_some() {
+                    bevy::log::error_once!(
+                        "a draw system asked for the presented view state while several \
+                         views exist and no camera names one; refusing to guess. Bind \
+                         `PresentsView` where the camera is spawned."
+                    );
+                    return None;
+                }
+                Some(only)
+            }
+        }
+    }
+}
+
 pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
@@ -1239,6 +1344,11 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                 CameraReferenceFrame::default(),
                 ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState::default(),
                 ResolvedCameraSnapshot::default(),
+                // Sixth fact on the view (D116 M2): the live camera diagnostics
+                // the overlays read. Spawned here for the same reason as the
+                // others — a reader must never see a frame where the view exists
+                // and its state does not.
+                CameraViewState::default(),
             ),
         );
 
@@ -1717,7 +1827,10 @@ mod reference_frame_tests {
     #[test]
     fn subject_frame_orients_on_the_subjects_down_axis() {
         let roll = |x: f32, y: f32| {
-            observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(ae::Vec2::new(x, y)))
+            observer_roll_radians(
+                CameraReferenceFrame::SubjectFrame,
+                Some(ae::Vec2::new(x, y)),
+            )
         };
         assert_eq!(roll(0.0, 1.0), 0.0, "ordinary gravity must not tilt a view");
         assert!(

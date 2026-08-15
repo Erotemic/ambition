@@ -292,7 +292,9 @@ pub fn sync_visuals(
     // Watching the drawn size instead of one of its factors is the difference
     // between an instrument that can only confirm a guess and one that can
     // localise.
-    camera_view: Option<Res<super::camera::CameraViewState>>,
+    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
+    // a process-global that with two views could not say whose framing this is.
+    camera_view: ambition_sim_view::PresentedViewState,
     mut last_player_draw_scale: Local<Option<(BVec2, f32)>>,
 ) {
     let player = (primary_player.iter().count() == 1)
@@ -486,7 +488,7 @@ pub fn sync_visuals(
             // the game is constant.
             let entity_scale = BVec2::new(transform.scale.x, transform.scale.y);
             let camera_scale = camera_view
-                .as_deref()
+                .get()
                 .map(|view| view.orthographic_scale)
                 .unwrap_or(1.0);
             let moved = match *last_player_draw_scale {

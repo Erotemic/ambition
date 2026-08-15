@@ -14,13 +14,12 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_sim_view::NameplateIndex;
 use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
+use ambition_sim_view::NameplateIndex;
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
-use super::camera::CameraViewState;
 use super::label_layout::{WorldLabel, WorldLabelFamily};
 use super::primitives::RoomVisual;
 
@@ -205,7 +204,9 @@ pub fn sync_actor_nameplates(
     active_metadata: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
     >,
-    camera: Option<Res<CameraViewState>>,
+    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
+    // a process-global that with two views could not say whose framing this is.
+    camera: ambition_sim_view::PresentedViewState,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
     // liveness / controlled-body facts per actor id. Doors stay render-side
     // sources below.
@@ -235,7 +236,7 @@ pub fn sync_actor_nameplates(
             .map(|active| &active.0.nameplate_policy),
     );
     let focus_world = camera
-        .as_deref()
+        .get()
         .map_or(ae::Vec2::ZERO, |camera| camera.target_world);
     let mut source_ids = HashSet::new();
     let mut candidates = Vec::new();

@@ -20,62 +20,22 @@
 //! display and the active presentation profile, and render does not select
 //! policy.
 
-use ambition_platformer2d_core as ae;
 #[cfg(feature = "portal_render")]
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::primitives::PlayerVisual;
-use ambition_sim_view::camera_snapshot::{
-    CameraPresentationInputs, CameraSnapshot2d, ResolvedCameraSnapshot,
-};
+use ambition_sim_view::camera_snapshot::{CameraPresentationInputs, ResolvedCameraSnapshot};
 // Only the portal publisher mints a chart transit; without that feature the
 // import is dead and `-D warnings` compositions say so.
 #[cfg(feature = "portal_render")]
 use ambition_sim_view::camera_snapshot::CameraChartTransit;
 use ambition_sim_view::LocalView;
 
-/// Live camera diagnostics and feel-lab data.
-///
-/// Updated by [`camera_follow`] after the presentation deltas are applied.
-/// HUD/debug overlays read this so they can show the *actual* gameplay view,
-/// not a recomputed approximation that may drift when aspect or encounter
-/// policy changes.
-#[derive(Resource, Clone, Debug)]
-#[allow(dead_code)] // base_view + orthographic_scale are exposed for HUD/debug overlays.
-pub struct CameraViewState {
-    pub base_view: ae::Vec2,
-    pub requested_view: ae::Vec2,
-    pub visible_view: ae::Vec2,
-    pub zoom_multiplier: f32,
-    pub orthographic_scale: f32,
-    pub target_world: ae::Vec2,
-    pub center_world: ae::Vec2,
-    pub active_camera_zones: usize,
-    pub active_camera_zone: Option<String>,
-}
-
-impl Default for CameraViewState {
-    fn default() -> Self {
-        Self::from(&CameraSnapshot2d::default())
-    }
-}
-
-impl From<&CameraSnapshot2d> for CameraViewState {
-    fn from(snapshot: &CameraSnapshot2d) -> Self {
-        Self {
-            base_view: snapshot.base_view,
-            requested_view: snapshot.requested_view,
-            visible_view: snapshot.visible_view,
-            zoom_multiplier: snapshot.zoom_multiplier,
-            orthographic_scale: snapshot.orthographic_scale,
-            target_world: snapshot.target_world,
-            center_world: snapshot.center_world,
-            active_camera_zones: snapshot.active_camera_zones,
-            active_camera_zone: snapshot.active_camera_zone.clone(),
-        }
-    }
-}
+// `CameraViewState` moved ONTO THE VIEW (D116 M2). It is re-exported from
+// `ambition_sim_view` so the name still resolves here; see that module for why
+// a process-global could not answer "whose view" once there are two.
+pub use ambition_sim_view::CameraViewState;
 
 #[cfg(feature = "portal_render")]
 #[derive(SystemParam)]
@@ -160,13 +120,16 @@ pub fn camera_follow(
             Entity,
             &ResolvedCameraSnapshot,
             &mut CameraPresentationInputs,
+            // ⭐ **written on the VIEW, not into a global** (D116 M2). The
+            // resolve below already knows which view this camera presents; that
+            // is exactly the entity whose diagnostics these are.
+            &mut CameraViewState,
         ),
         With<LocalView>,
     >,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    mut view_state: ResMut<CameraViewState>,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
@@ -210,7 +173,7 @@ pub fn camera_follow(
             only
         }
     };
-    let Ok((_, resolved, mut presentation)) = views.get_mut(view_entity) else {
+    let Ok((_, resolved, mut presentation, mut view_state)) = views.get_mut(view_entity) else {
         bevy::log::error_once!("a camera presents view {view_entity:?}, which is not a local view");
         return;
     };

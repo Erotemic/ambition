@@ -49,6 +49,7 @@ pub use control_prompt::{
 // slot vocabulary without a direct `entity_catalog` dep.
 pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
+pub use camera_snapshot::{CameraViewState, PresentedViewState};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use local_view::{spawn_local_view, the_only_view, LocalView, LocalViewId, PresentsView};

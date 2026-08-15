@@ -433,7 +433,9 @@ pub fn layout_world_labels(
     >,
     settings: Res<WorldLabelLayoutSettings>,
     time: Res<Time>,
-    camera: Option<Res<super::camera::CameraViewState>>,
+    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
+    // a process-global that with two views could not say whose framing this is.
+    camera: ambition_sim_view::PresentedViewState,
     controlled_bodies: Option<Res<ControlledBodiesView>>,
     mut labels: Query<(
         &mut WorldLabel,
@@ -463,7 +465,7 @@ pub fn layout_world_labels(
     }
 
     let focus_bevy = camera
-        .as_deref()
+        .get()
         .map(|camera| ae::config::world_to_bevy(&world.0, camera.target_world, 0.0).truncate())
         .unwrap_or(Vec2::ZERO);
 

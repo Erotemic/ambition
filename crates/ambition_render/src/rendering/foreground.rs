@@ -84,7 +84,9 @@ pub fn sync_foreground_parallax(
     // fixed-aspect presentation profile the main camera covers the gameplay
     // rectangle only, and sizing this art from the window would overscan it by
     // the pillarbox ratio.
-    view_state: Res<super::camera::CameraViewState>,
+    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
+    // a process-global that with two views could not say whose framing this is.
+    view_state: ambition_sim_view::PresentedViewState,
     // `With<MainCamera>`: ignore the #31 cube overlay Camera3d AND the portal
     // view-cone capture `Camera2d`s, so `.single()` still resolves the one main
     // game camera (a broad `With<Camera2d>` now matches the captures too).
@@ -98,6 +100,12 @@ pub fn sync_foreground_parallax(
     mut layers: Query<(&ForegroundParallax, &mut Transform, &mut Sprite)>,
 ) {
     let Ok(camera_transform) = camera.single() else {
+        return;
+    };
+    // No view means nothing to frame the foreground against; skipping is the
+    // honest answer, and it cannot happen in a composed host (the view is spawned
+    // at plugin build time).
+    let Some(view_state) = view_state.get() else {
         return;
     };
     let visible_size = view_state.visible_view * FOREGROUND_OVERSCAN;

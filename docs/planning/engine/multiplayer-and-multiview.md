@@ -305,11 +305,35 @@ up until a split layout landed and framed a random view.
 `the_shipped_hosts_main_camera_names_the_view_it_presents` fails if the binding
 goes, PROBED by removing it.
 
-⇒ **the next rectangle is `CameraViewState`**, and it is the same shape M2a
-deleted five of: a process-global `Resource` describing *"the gameplay view"*,
-which with two views cannot answer whose. Five readers (foreground, label layout,
-nameplates, actor draw, debug overlay). It belongs on the VIEW, and every reader
-should reach it through the camera's link.
+**✔ `CameraViewState` LANDED 2026-08-14 — the sixth global is gone.** It is a
+`Component` on the view, spawned with it by `CameraObservationPlugin` alongside
+the other five facts, and written by `camera_follow` on the view it already
+resolved. All five readers (foreground, label layout, nameplates, actor draw,
+debug overlay) reach it through **one** resolver.
+
+⭐ **it moved to `ambition_sim_view`, not just off the resource table.** Every
+field is a projection of `CameraSnapshot2d`, which that crate already owns; the
+only thing `ambition_render` ever contributed was the `Resource` derive. So the
+answer to *"where does a view keep its facts"* lost a crate dependency, and the
+state could be SPAWNED WITH THE VIEW — no frame where a reader finds the view and
+not its state, which is the shape that produced four defects here.
+
+⛔ **one resolver, not five copies of a lookup.** `PresentedViewState` is a
+`SystemParam` carrying the link's rule — a camera that names its view presents
+that one; a camera that names none takes the only view; several views and no link
+REFUSES rather than guessing. Spelling that five times would have been five
+chances to disagree, and the disagreement would be silent because each reader
+would still draw *something*.
+
+⚠ **the pin's non-vacuity half caught a wrong premise on its first run.**
+`the_presented_view_carries_camera_state_that_is_actually_written` asserts the
+state is not still exactly `Default` after startup — and it failed, because
+`camera_follow` reads the session's `RoomGeometry` and does not run on a launcher
+route at all. A test asserting the component merely EXISTS would have passed
+there and pinned nothing; the test drives the direct-gameplay persona instead.
+
+⇒ **what M2 needs next**: per-view gameplay rectangles from a split layout, and
+then `ControlledSubject` per view.
 
 ### M2a — one body-generic presented pose (LANDED 2026-08-14)
 

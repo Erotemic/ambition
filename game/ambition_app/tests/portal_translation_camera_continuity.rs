@@ -5,6 +5,8 @@
 
 use crate::common::{base, hold_right};
 
+use ambition_app::app::{Platformer2dSimulationPhaseMonolith, StartRoomOverride};
+use ambition_app::AgentAction;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
@@ -15,8 +17,6 @@ use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityState, PortalWorldFrame,
 };
 use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
-use ambition_app::app::{Platformer2dSimulationPhaseMonolith, StartRoomOverride};
-use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -100,11 +100,15 @@ impl HeadlessCameraHarness {
         app.init_resource::<PortalCameraContinuityHostView>();
         // camera_follow is the PRESENTATION half now (E4-17): the sim's
         // CameraObservationPlugin (inside AmbitionGameSimulationPlugin's engine
-        // group) resolves the snapshot as a tail observer after
-        // CoreSimulation; the rig composes the render-side apply after it,
-        // exactly like the real host, and owns the render-side
-        // CameraViewState resource it registers.
-        app.init_resource::<CameraViewState>();
+        // group) resolves the snapshot as a tail observer after CoreSimulation;
+        // the rig composes the render-side apply after it, exactly like the real
+        // host.
+        //
+        // ⭐ **and it registers no `CameraViewState`** (D116 M2): the state is a
+        // COMPONENT on the view, spawned with it by `CameraObservationPlugin`.
+        // The rig used to init a global the production host also init'd, which
+        // meant the fixture modelled the wrong ownership as faithfully as the
+        // code did.
         app.add_systems(
             Update,
             (
@@ -158,9 +162,15 @@ impl HeadlessCameraHarness {
                 world.query_filtered::<&PortalTransit, (With<PlayerEntity>, With<PrimaryPlayer>)>();
             transit.single(world).is_ok()
         };
-        let camera_center = world.resource::<CameraViewState>().center_world;
         let camera_roll = world.resource::<PortalCameraContinuityState>().roll_radians;
         let local_view = ambition_platformer2d::sim_view::the_only_view(world);
+        // Read the framing off the VIEW, the way every production reader now
+        // does — through the view this rig already knows how to name.
+        let camera_center = world
+            .entity(local_view)
+            .get::<CameraViewState>()
+            .expect("the view carries its camera state")
+            .center_world;
         let presented_roll = world
             .entity(local_view)
             .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
@@ -211,7 +221,10 @@ impl HeadlessCameraHarness {
             .expect("authored portal near requested position")
     }
 
-    fn portal_by_channel(&mut self, channel: ambition_platformer2d::portal::PortalChannel) -> PlacedPortal {
+    fn portal_by_channel(
+        &mut self,
+        channel: ambition_platformer2d::portal::PortalChannel,
+    ) -> PlacedPortal {
         let world = self.app.world_mut();
         let mut portals = world.query::<&PlacedPortal>();
         portals
@@ -259,8 +272,11 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
         if jumped {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
-            let body_before =
-                ambition_platformer2d::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
+            let body_before = ambition_platformer2d::portal::pieces::map_point(
+                current.player_pos,
+                &exit_frame,
+                &enter_frame,
+            );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
             assert_near_vec(
@@ -362,8 +378,11 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
         if jumped {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
-            let body_before =
-                ambition_platformer2d::portal::pieces::map_point(current.player_pos, &exit_frame, &enter_frame);
+            let body_before = ambition_platformer2d::portal::pieces::map_point(
+                current.player_pos,
+                &exit_frame,
+                &enter_frame,
+            );
             let screen_before = body_before - previous.camera_center;
             let screen_after = current.player_pos - current.camera_center;
             assert_near_vec(

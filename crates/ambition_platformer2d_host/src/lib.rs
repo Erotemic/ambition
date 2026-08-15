@@ -515,7 +515,9 @@ impl Plugin for HostCameraPlugin {
         // Render-owned camera view state, initialized with the presentation
         // half that reads it (nameplates, HUD, overlays) — the sim never
         // touches it.
-        app.init_resource::<ambition_render::rendering::CameraViewState>();
+        // `CameraViewState` is a COMPONENT on the view now (D116 M2) and is
+        // spawned with it by `CameraObservationPlugin`, so there is no global to
+        // initialise — and no frame where a reader finds the view but not its state.
         // The observer facts (gameplay viewport + subject-safe region) are
         // published by HostGameplayPresentationPlugin, which orders its whole
         // cluster before the sim's observation resolve. `camera_follow` only

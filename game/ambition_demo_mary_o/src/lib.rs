@@ -1683,7 +1683,7 @@ pub struct MaryOLevelState {
     /// contact height; this accumulates them, so the HUD can show a career
     /// total rather than the last banner.
     pub score: u32,
-    /// Lives left. A death spends one; the run restarts at zero.
+    /// Lives left. A death spends one, and nothing happens at zero.
     /// ⭐ **SIGNED, and a run never ends.** Jon: *"When you die you should
     /// restart the level with 1 less life. For now let's allow lives to go
     /// NEGATIVE and the user to play forever, so no game over screen yet."*
@@ -2139,9 +2139,16 @@ fn tick_level_clock(
 /// that is the engine saying "returned to safety", not "died", and Mary-O now
 /// agrees with it. A room replay and a room load cost no life either.
 ///
-/// At zero lives the RUN is over: lives, score, and clock return to their
-/// starting values and the room replays. That is the arcade loop — a game over
-/// is a fresh run, not a stuck screen.
+/// # What happens at zero
+///
+/// ⛔ **NOTHING, and this paragraph used to say the opposite.** It described the
+/// run resetting — lives, score and clock back to their starting values — which
+/// is what the code did until D64 and is a game over in everything but name.
+/// Jon ruled one out in the same sentence that asked for the counter: *"For now
+/// let's allow lives to go negative and the user to play forever, so no game
+/// over screen yet."* The count goes below zero and the level simply comes back,
+/// exactly as it does for the first death. A doc that survived the behaviour it
+/// described is worse than no doc: the next reader restores it.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
@@ -3739,7 +3746,7 @@ mod tests {
     /// [`a_replay_reset_is_not_a_death_so_lives_cannot_drain`], which is the
     /// regression the old oracle could not express.
     #[test]
-    fn a_death_or_a_timeout_spends_a_life_and_zero_lives_restarts_the_run() {
+    fn a_death_or_a_timeout_spends_a_life_and_zero_is_not_a_floor() {
         use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn shell(dt: f32) -> App {
@@ -3820,7 +3827,7 @@ mod tests {
              cannot spend every remaining life on consecutive frames"
         );
 
-        // ── Zero lives restarts the RUN, score included ──────────────────────
+        // ── Spending the LAST life changes nothing ───────────────────────────
         // ⛔ **RUNNING OUT IS NOT A GAME OVER — that is the whole ask.** Jon:
         // *"For now let's allow lives to go negative and the user to play
         // forever, so no game over screen yet."* This block used to assert the

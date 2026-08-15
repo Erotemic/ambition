@@ -416,15 +416,20 @@ pub(super) fn sweep_player_axis_clusters(
 
 /// One solid's CLAIM on the body's centre coordinate along the repaired axis.
 ///
-/// A claim is not a position to write — it is a BOUND. `delta_along` is the
-/// correction that block alone demands (exactly the delta the per-block
-/// resolution produced before D126.1), so its sign says which bound this is: a
+/// A claim is not a position to write — it is a BOUND. `delta` is the
+/// correction that block alone demands, byte-for-byte the one the per-block
+/// resolution produced before D126.1 (⚠ including its perpendicular component,
+/// which is non-zero for a feet snap under an OBLIQUE frame — projecting it
+/// onto the axis here would quietly change that case). `delta_along` is its
+/// component on the repaired axis, and its SIGN says which bound this is: a
 /// positive correction demands `centre >= bound`, a negative one demands
-/// `centre <= bound`. Keeping the delta rather than only the bound is not
-/// bookkeeping: applying `delta_along` reproduces the pre-D126.1 arithmetic
-/// bit-for-bit, where `pos + (centre + delta - centre)` would not for large
-/// coordinates.
+/// `centre <= bound`.
+///
+/// Keeping the delta rather than only the bound is not bookkeeping: applying it
+/// reproduces the old arithmetic exactly, where `pos + (centre + delta - centre)`
+/// would not for large coordinates.
 struct AxisClaim<'a> {
+    delta: Vec2,
     delta_along: f32,
     /// `centre + delta_along` — the coordinate this claim will accept.
     bound: f32,
@@ -461,7 +466,8 @@ struct AxisClaim<'a> {
 /// - Feasible ⇒ move to the interval's binding edge, i.e. obey the DEEPEST
 ///   claim. Order-independent by construction (a max over a set), and where
 ///   only one block claims the axis — every ride, every ledge, every ordinary
-///   collision — the applied delta is that block's own delta, unchanged.
+///   collision — the applied delta is that block's own delta unchanged, written
+///   with the same grounding, velocity-zero and contact push as before.
 /// - Infeasible ⇒ return an [`AxisConstraintConflict`] and DO NOT MOVE. The
 ///   kernel refuses to invent a position no surface agrees with; the contacts
 ///   are still reported and the axis velocity is still zeroed, because both are
@@ -553,6 +559,7 @@ fn resolve_axis_repair(
                 }
                 let delta_along = axis_component(delta, axis);
                 AxisClaim {
+                    delta,
                     delta_along,
                     bound: centre + delta_along,
                     normal,
@@ -578,6 +585,7 @@ fn resolve_axis_repair(
                     continue;
                 };
                 AxisClaim {
+                    delta: axis_vec(axis, d),
                     delta_along: d,
                     bound: centre + d,
                     normal: axis_vec(axis, normal_sign),
@@ -628,7 +636,7 @@ fn resolve_axis_repair(
         // Feasible: at most one direction claimed, so its deepest claim IS the
         // binding edge of the interval.
         if let Some(binding) = toward_pos.as_ref().or(toward_neg.as_ref()) {
-            kinematics.pos += axis_vec(axis, binding.delta_along);
+            kinematics.pos += binding.delta;
         }
     }
     for claim in [toward_pos.as_ref(), toward_neg.as_ref()]

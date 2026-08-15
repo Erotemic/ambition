@@ -30,9 +30,9 @@ pub enum AmbitionLoadWorldSet {
 mod codec;
 mod codecs;
 mod domains;
-pub mod local_session;
 #[cfg(test)]
 mod host_invariant_tests;
+pub mod local_session;
 mod probes;
 #[cfg(test)]
 mod provenance_tests;
@@ -290,9 +290,17 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // registered whole, because the registry is populated from `Update` behind
         // a one-shot flag that does not rewind — snapshotting it would let a rewind
         // erase authored portals that nothing refills.
-        .rollback_resource_clone::<ambition_platformer2d_world::rooms::GatePortalPhases>(
+        //
+        // ⛔⛔ **and it is registered WITH A VALUE PROJECTION, not a presence
+        // probe.** A presence-only probe satisfies coverage while seeing nothing
+        // of the value — which for this resource would restore *that phases
+        // exist* and say nothing about the elapsed timer, i.e. it would pass
+        // while reproducing the exact defect above.
+        .rollback_resource_clone_checksum::<ambition_platformer2d_world::rooms::GatePortalPhases>(
             ENGINE,
             "resource.gate_portal_phases",
+            "bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
+            gate_portal_phases_checksum,
         )
         .rollback_resource_clone::<crate::InputStreamRecorder>(
             ENGINE,
@@ -745,4 +753,43 @@ pub fn register_engine_rollback_state(app: &mut App) {
         ENGINE,
         "message.quest_advance_requested",
     );
+}
+
+/// The value projection behind `resource.gate_portal_phases`.
+///
+/// ⭐ **the elapsed timer is the whole point.** The defect this registration
+/// closes was an integrator running ahead of the input that drove it, so a
+/// checksum that saw only *which zones have a phase* would agree with the bug.
+/// Every field that decides when `Opening` becomes `On` is projected here.
+///
+/// ⛔ **keys are SORTED before hashing.** `phases` is a `HashMap`, and hashing it
+/// in iteration order would make the checksum disagree between two peers holding
+/// identical state — a desync detector that manufactures desyncs.
+fn gate_portal_phases_checksum(
+    phases: &ambition_platformer2d_world::rooms::GatePortalPhases,
+) -> u64 {
+    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
+    use ambition_platformer2d_world::rooms::GatePortalPhase;
+
+    let mut ordered: Vec<(&String, &GatePortalPhase)> = phases.phases.iter().collect();
+    ordered.sort_by(|left, right| left.0.cmp(right.0));
+
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, ordered.len() as u64);
+    for (zone_id, phase) in ordered {
+        put_str(&mut bytes, zone_id);
+        match phase {
+            GatePortalPhase::Off => put_u8(&mut bytes, 0),
+            GatePortalPhase::Opening { elapsed } => {
+                put_u8(&mut bytes, 1);
+                put_f32(&mut bytes, *elapsed);
+            }
+            GatePortalPhase::On => put_u8(&mut bytes, 2),
+            GatePortalPhase::Closing { elapsed } => {
+                put_u8(&mut bytes, 3);
+                put_f32(&mut bytes, *elapsed);
+            }
+        }
+    }
+    checksum_bytes(&bytes)
 }

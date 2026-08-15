@@ -20,6 +20,10 @@ from pathlib import Path
 
 from ambition_ldtk_tools.ldtk.issues import Issue, format_issue_lines, has_errors
 from ambition_ldtk_tools.validate_rules.authoring_hygiene import authoring_hygiene_issues
+from ambition_ldtk_tools.validate_rules.entity_contract import (
+    contract_identifiers,
+    entity_contract_issues,
+)
 from ambition_ldtk_tools.validate_rules.messages import issues_from_messages
 from ambition_ldtk_tools.validate_rules.official_schema import validate_official_schema
 
@@ -27,41 +31,13 @@ PKG_DIR = Path(__file__).resolve().parent
 DEFAULT_SCHEMA_PATH = PKG_DIR.parent / "schemas" / "ldtk" / "JSON_SCHEMA.json"
 OFFICIAL_SCHEMA_URL = "https://ldtk.io/files/JSON_SCHEMA.json"
 
-KNOWN_ENTITIES = {
-    "BlinkWall",
-    "BossSpawn",
-    "BreakablePlatform",
-    "BreakablePogoOrb",
-    "CameraZone",
-    "ChestSpawn",
-    "DamageVolume",
-    "DebugLabel",
-    "EncounterTrigger",
-    "EnemySpawn",
-    "GravityZone",
-    "GroundItem",
-    "HazardBlock",
-    "KinematicPath",
-    "LoadingZone",
-    "LockWall",
-    "MovingPlatform",
-    "NpcSpawn",
-    "OneWayPlatform",
-    "PickupSpawn",
-    "PlayerStart",
-    "PogoOrb",
-    "Portal",
-    "PortalGunSpawn",
-    "Prop",
-    "ReboundPad",
-    "ShrineSpawn",
-    "Solid",
-    "StitchedBoundary",
-    "SurfaceChain",
-    "SurfaceLoop",
-    "Switch",
-    "WaterVolume",
-}
+# ⛔ **this was a hand-typed set, and it had already drifted.** `SurfaceRamp` —
+# the engine's own floor-to-wall fillet, registered in `standard_converters()`
+# since Q27 — was missing from it, so authoring the engine's own entity failed a
+# check whose whole job is to describe the engine. The list now comes from the
+# LDtk authoring contract, which the Rust `contract::prover` pins against the
+# converter registry in both directions.
+KNOWN_ENTITIES = contract_identifiers()
 GRID = 16
 AMBITION_LAYER = "Ambition"
 
@@ -243,21 +219,6 @@ def center(rect_value):
 def player_spawn_rect(position, half_w=14.0, half_h=23.0):
     x, y = position
     return (x - half_w, y - half_h, half_w * 2.0, half_h * 2.0)
-
-
-def parse_points(value):
-    points = []
-    for pair in str(value or "").split(";"):
-        if not pair.strip():
-            continue
-        parts = [part.strip() for part in pair.split(",")]
-        if len(parts) != 2:
-            continue
-        try:
-            points.append((float(parts[0]), float(parts[1])))
-        except ValueError:
-            continue
-    return points
 
 
 
@@ -668,6 +629,7 @@ def validate(
     secondary_worlds: list[Path] | None = None,
     include_authoring_hygiene: bool = True,
     game_entity_manifests: list[Path] | None = None,
+    include_entity_contract: bool = True,
 ):
     errors = []
     warnings = []
@@ -836,11 +798,23 @@ def validate(
         field_def.get("identifier"): field_def.get("uid")
         for field_def in defs.get("levelFields") or []
     }
+    # ⚠ **a WARNING, and it used to be an error.** This asks "can an author place
+    # every engine entity from this file's editor palette", which is ergonomics —
+    # unlike `missing_defs` below, which asks whether an entity this world already
+    # PLACES has a definition, and stays an error because it is a broken file.
+    #
+    # The list stopped being hand-typed the day it came from the authoring
+    # contract, and that changed what a hard error would mean: registering a new
+    # engine converter would instantly fail every world in the repo, which is a
+    # rule that punishes the engine for growing and teaches people to skip the
+    # check. `SurfaceRamp` is exactly that case — a real engine entity since Q27
+    # whose editor defs have never been rolled out to any of the six worlds.
     missing_known_defs = sorted(KNOWN_ENTITIES - entity_defs)
     if missing_known_defs:
-        errors.append(
+        warnings.append(
             "defs.entities is missing editor definitions for supported Ambition entities: "
             + ", ".join(missing_known_defs)
+            + " — run `ambition-ldtk def register-entity` to add them so authors can place them"
         )
     missing_defs = sorted(
         KNOWN_ENTITIES.intersection(
@@ -1077,22 +1051,20 @@ def validate(
                 validate_field_instance_editor_value(
                     errors, f"level {identifier!r} entity {entity_name(entity)}", field
                 )
+            # ⛔ **the per-entity field rules that used to live here are GONE, and
+            # deleting them was the point.** `BlinkWall.tier`, `ReboundPad`'s
+            # impulses, `DebugLabel.text`, `KinematicPath`'s points/speed/mode,
+            # `DamageVolume`'s path fields and both `Breakable*` respawn grammars
+            # were transcriptions of Rust parsers — a second authority, kept by
+            # hand, beside the one that decides. It had drifted in both
+            # directions: it demanded a `DebugLabel.text` the converter is happy
+            # without, and knew nothing of the twelve refusals the converter
+            # really has, which is how six `EnemySpawn`s with no `character_id`
+            # walked past three green checks. They are one table now
+            # (`validate_rules.entity_contract`), and the Rust `contract::prover`
+            # runs every claim in it against the real converters.
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
-            elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {
-                "Soft",
-                "Hard",
-            }:
-                errors.append(f"BlinkWall {entity.get('iid')} has invalid tier")
-            elif ident == "ReboundPad" and (
-                field_value(fields, "impulseX") is None
-                or field_value(fields, "impulseY") is None
-            ):
-                errors.append(
-                    f"ReboundPad {entity.get('iid')} requires impulseX and impulseY"
-                )
-            elif ident == "DebugLabel" and field_value(fields, "text") is None:
-                errors.append(f"DebugLabel {entity.get('iid')} requires text")
             elif ident == "LoadingZone":
                 zone_id = field_value(fields, "id")
                 target_room = field_value(fields, "target_room")
@@ -1158,93 +1130,6 @@ def validate(
                             str(target_room),
                             str(target_zone),
                         )
-                    )
-            elif ident == "KinematicPath":
-                if len(parse_points(field_value(fields, "points", ""))) < 2:
-                    errors.append(
-                        f"KinematicPath {entity.get('iid')} requires at least two points"
-                    )
-                if field_value(fields, "speed") is None:
-                    errors.append(f"KinematicPath {entity.get('iid')} requires speed")
-                if field_value(fields, "mode", "PingPong") not in {
-                    "Once",
-                    "Loop",
-                    "PingPong",
-                }:
-                    errors.append(f"KinematicPath {entity.get('iid')} has invalid mode")
-            elif ident == "DamageVolume":
-                has_any_path = any(
-                    field_value(fields, name) is not None
-                    for name in ("path_points", "path_speed", "path_mode")
-                )
-                if has_any_path:
-                    if len(parse_points(field_value(fields, "path_points", ""))) < 2:
-                        errors.append(
-                            f"DamageVolume {entity.get('iid')} path_points requires at least two points"
-                        )
-                    if field_value(fields, "path_speed") is None:
-                        errors.append(
-                            f"DamageVolume {entity.get('iid')} path requires path_speed"
-                        )
-                    if field_value(fields, "path_mode", "PingPong") not in {
-                        "Once",
-                        "Loop",
-                        "PingPong",
-                    }:
-                        errors.append(
-                            f"DamageVolume {entity.get('iid')} has invalid path_mode"
-                        )
-            elif ident == "BreakablePlatform":
-                collision = field_value(fields, "collision")
-                if collision is not None and collision not in {"Solid", "OneWayUp"}:
-                    errors.append(
-                        f"BreakablePlatform {entity.get('iid')} has invalid collision {collision!r}; "
-                        "must be one of Solid | OneWayUp"
-                    )
-                trigger = str(field_value(fields, "trigger", "OnHit"))
-                if trigger not in {"OnHit", "OnStand", "Either"}:
-                    errors.append(
-                        f"BreakablePlatform {entity.get('iid')} has invalid trigger {trigger!r}; "
-                        "must be one of OnHit | OnStand | Either"
-                    )
-                respawn = str(field_value(fields, "respawn", "Never"))
-                if respawn == "AfterSeconds":
-                    seconds = field_value(fields, "respawn_seconds")
-                    try:
-                        seconds_value = float(seconds) if seconds is not None else 0.0
-                    except (TypeError, ValueError):
-                        seconds_value = 0.0
-                    if seconds_value <= 0.0:
-                        errors.append(
-                            f"BreakablePlatform {entity.get('iid')} respawn=AfterSeconds requires a "
-                            "positive respawn_seconds field"
-                        )
-                elif respawn not in {
-                    "Never",
-                    "OnRoomReload",
-                } and not respawn.startswith("AfterSeconds:"):
-                    errors.append(
-                        f"BreakablePlatform {entity.get('iid')} has invalid respawn value {respawn!r}"
-                    )
-            elif ident == "BreakablePogoOrb":
-                respawn = str(field_value(fields, "respawn", "Never"))
-                if respawn == "AfterSeconds":
-                    seconds = field_value(fields, "respawn_seconds")
-                    try:
-                        seconds_value = float(seconds) if seconds is not None else 0.0
-                    except (TypeError, ValueError):
-                        seconds_value = 0.0
-                    if seconds_value <= 0.0:
-                        errors.append(
-                            f"BreakablePogoOrb {entity.get('iid')} respawn=AfterSeconds requires a "
-                            "positive respawn_seconds field"
-                        )
-                elif respawn not in {
-                    "Never",
-                    "OnRoomReload",
-                } and not respawn.startswith("AfterSeconds:"):
-                    errors.append(
-                        f"BreakablePogoOrb {entity.get('iid')} has invalid respawn value {respawn!r}"
                     )
 
     for source_level, area, zone_id, target_room, target_zone in requested_links:
@@ -1342,6 +1227,20 @@ def validate(
     if include_authoring_hygiene:
         _check_intro_authoring_hygiene(project, warnings)
 
+    # ⭐ **the runtime's own refusals, reachable without a compiler.** `repair` and
+    # `roundtrip` call this string-shaped entry point rather than
+    # `validate_issues`, and it was the three of them agreeing that made
+    # `mary_o_1_3` look finished — so the contract has to land HERE, not only in
+    # the structured adapter. `validate_issues` passes `include_entity_contract=
+    # False` and re-runs the rule itself, keeping the richer Issue codes.
+    if include_entity_contract:
+        for issue in entity_contract_issues(project):
+            where = f"{issue.location}: " if issue.location else ""
+            text = f"{where}{issue.message}"
+            if issue.fix_hint:
+                text = f"{text} — {issue.fix_hint}"
+            (errors if issue.severity == "error" else warnings).append(text)
+
     return errors, warnings
 
 
@@ -1375,6 +1274,7 @@ def validate_issues(
         secondary_worlds=secondary_worlds,
         include_authoring_hygiene=False,
         game_entity_manifests=game_entity_manifests,
+        include_entity_contract=False,
     )
     issues = issues_from_messages(errors, warnings)
     if not errors or path.exists():
@@ -1384,6 +1284,7 @@ def validate_issues(
             project = None
         if project is not None:
             issues.extend(authoring_hygiene_issues(project))
+            issues.extend(entity_contract_issues(project))
     return issues
 
 

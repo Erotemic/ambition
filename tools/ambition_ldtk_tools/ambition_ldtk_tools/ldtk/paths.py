@@ -83,6 +83,23 @@ def game_entity_manifest(game: str, stem: str, anchor: Path | None = None) -> Pa
     return game_worlds_dir(game, anchor) / f"{stem}.entities.json"
 
 
+def default_entity_contract(anchor: Path | None = None) -> Path:
+    """Return the LDtk authoring contract the Rust converters PROVE.
+
+    ⭐ **This is the one file that stops the Python loop reporting green on
+    content the runtime refuses.** It lives beside the crate that enforces it —
+    `crates/ambition_platformer2d_ldtk` — because that crate's `contract::prover`
+    runs every claim in it against the real converters, in both directions. A
+    copy kept here would be a second authority, which is the whole defect.
+    """
+    return (
+        _repo_root(anchor)
+        / "crates"
+        / "ambition_platformer2d_ldtk"
+        / "ldtk_entity_contract.json"
+    )
+
+
 def default_character_catalog(anchor: Path | None = None) -> Path:
     """Return the authoritative character-catalog path."""
     return default_content_assets_dir(anchor) / "data" / "character_catalog.ron"

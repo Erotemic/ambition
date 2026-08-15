@@ -19,7 +19,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::body_clusters::BodyClustersMut;
-use crate::collision_semantics::{Axis, Contact, ContactKind, ContactSource};
+use crate::collision_semantics::{
+    Axis, AxisConstraintConflict, Contact, ContactKind, ContactSource,
+};
 use crate::geometry::AabbExt;
 use crate::world::{Block, BlockKind, World};
 use crate::{Aabb, MotionFrame, Vec2};
@@ -163,6 +165,7 @@ fn wall_pred(b: &Block) -> bool {
 /// While attached it pushes one [`ContactKind::Attachment`] contact per tick —
 /// the crawler's semantic support fact — so the kernel result derives the
 /// published normal from the SAME contact vocabulary every policy speaks.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn step_crawler(
     motion: &mut AdhesiveCrawlerMotion,
     world: &World,
@@ -171,6 +174,7 @@ pub(super) fn step_crawler(
     facing_intent: f32,
     dt: f32,
     contacts: &mut Vec<Contact>,
+    conflicts: &mut Vec<AxisConstraintConflict>,
 ) {
     if facing_intent.abs() > 0.001 {
         clusters.kinematics.facing = facing_intent.signum();
@@ -178,7 +182,7 @@ pub(super) fn step_crawler(
 
     let attachment = match motion.state.attachment() {
         None => {
-            fall_step(motion, world, clusters, frame, dt, contacts);
+            fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
             publish_attachment_contact(motion, world, clusters, contacts);
             return;
         }
@@ -186,7 +190,9 @@ pub(super) fn step_crawler(
     };
     let normal = match attachment {
         CrawlAttachment::Chain { chain, s } => {
-            crawl_chain(motion, world, clusters, frame, dt, contacts, chain, s);
+            crawl_chain(
+                motion, world, clusters, frame, dt, contacts, conflicts, chain, s,
+            );
             return;
         }
         CrawlAttachment::Block { normal } => normal,
@@ -288,7 +294,7 @@ pub(super) fn step_crawler(
     // Nothing to cling to: detach and free-fall under the live frame.
     clusters.kinematics.pos = original_pos;
     motion.detach();
-    fall_step(motion, world, clusters, frame, dt, contacts);
+    fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
     publish_attachment_contact(motion, world, clusters, contacts);
 }
 
@@ -310,13 +316,14 @@ fn crawl_chain(
     frame: MotionFrame,
     dt: f32,
     contacts: &mut Vec<Contact>,
+    conflicts: &mut Vec<AxisConstraintConflict>,
     chain: u32,
     s: f32,
 ) {
     let Some(surface) = world.chains.get(chain as usize) else {
         // The clung geometry is gone (room swap without a transit): fall.
         motion.detach();
-        fall_step(motion, world, clusters, frame, dt, contacts);
+        fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
         return;
     };
     let facing = clusters.kinematics.facing;
@@ -326,7 +333,7 @@ fn crawl_chain(
     if !surface.closed && !(0.0..=total).contains(&next_s) {
         // Crawled off an open end: detach and free-fall under the live frame.
         motion.detach();
-        fall_step(motion, world, clusters, frame, dt, contacts);
+        fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
         return;
     }
     let f = surface.frame_at(next_s);
@@ -416,6 +423,7 @@ fn fall_step(
     frame: MotionFrame,
     dt: f32,
     contacts: &mut Vec<Contact>,
+    conflicts: &mut Vec<AxisConstraintConflict>,
 ) {
     clusters.ground.on_ground = false;
     let g = frame.down();
@@ -442,7 +450,9 @@ fn fall_step(
             Axis::X => clusters.kinematics.vel.x,
             Axis::Y => clusters.kinematics.vel.y,
         } * dt;
-        super::collision::sweep_player_axis_clusters(
+        // Same seam as the axis spine: a crush is REPORTED and left to the
+        // body's owner to interpret.
+        conflicts.extend(super::collision::sweep_player_axis_clusters(
             world,
             clusters.kinematics,
             clusters.ground,
@@ -455,7 +465,7 @@ fn fall_step(
             false,
             g,
             contacts,
-        );
+        ));
     };
     sweep(clusters, side_axis);
     clusters.ground.on_ground = false;

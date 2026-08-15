@@ -2,10 +2,10 @@ use crate::collision_semantics::{
     axis_role, block_face_contact, body_on_support_side, is_contact_range_snap,
     is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
     one_way_landing_from_previous_feet, snap_feet_to_surface, surface_supports_body_at_rest, Axis,
-    AxisRole, Contact, ContactKind,
+    AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource,
 };
 use crate::geometry::{Aabb, AabbExt};
-use crate::world::{BlockKind, World};
+use crate::world::{Block, BlockKind, World};
 use crate::Vec2;
 
 /// Apply a penetration snap/push to the body position only when it is a genuine
@@ -237,7 +237,10 @@ fn resolve_side_penetration(
 ///   gravity).
 ///
 /// Falls back to [`resolve_axis_repair`] for stacked contacts or pre-existing
-/// penetrations.
+/// penetrations — and returns that pass's verdict: `Some` when the solids
+/// claiming this axis this step admit NO position at all (see
+/// [`AxisConstraintConflict`]; the consequence of a crush is the owner's, not
+/// the kernel's).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn sweep_player_axis_clusters(
     world: &World,
@@ -252,11 +255,11 @@ pub(super) fn sweep_player_axis_clusters(
     drop_through: bool,
     gravity_dir: Vec2,
     contacts: &mut Vec<Contact>,
-) {
+) -> Option<AxisConstraintConflict> {
     let role = axis_role(axis, gravity_dir);
     let delta = axis_vec(axis, delta_along);
     if delta_along.abs() <= 1.0e-5 {
-        resolve_axis_repair(
+        return resolve_axis_repair(
             world,
             kinematics,
             ground,
@@ -267,7 +270,6 @@ pub(super) fn sweep_player_axis_clusters(
             gravity_dir,
             contacts,
         );
-        return;
     }
 
     let start_body = kinematics.aabb_oriented(gravity_dir);
@@ -409,7 +411,32 @@ pub(super) fn sweep_player_axis_clusters(
         drop_through,
         gravity_dir,
         contacts,
-    );
+    )
+}
+
+/// One solid's CLAIM on the body's centre coordinate along the repaired axis.
+///
+/// A claim is not a position to write — it is a BOUND. `delta` is the
+/// correction that block alone demands, byte-for-byte the one the per-block
+/// resolution produced before D126.1 (⚠ including its perpendicular component,
+/// which is non-zero for a feet snap under an OBLIQUE frame — projecting it
+/// onto the axis here would quietly change that case). `delta_along` is its
+/// component on the repaired axis, and its SIGN says which bound this is: a
+/// positive correction demands `centre >= bound`, a negative one demands
+/// `centre <= bound`.
+///
+/// Keeping the delta rather than only the bound is not bookkeeping: applying it
+/// reproduces the old arithmetic exactly, where `pos + (centre + delta - centre)`
+/// would not for large coordinates.
+struct AxisClaim<'a> {
+    delta: Vec2,
+    delta_along: f32,
+    /// `centre + delta_along` — the coordinate this claim will accept.
+    bound: f32,
+    normal: Vec2,
+    kind: ContactKind,
+    on_support: bool,
+    block: &'a Block,
 }
 
 /// Positional penetration repair for ONE world axis, role-aware — the merge of
@@ -418,6 +445,42 @@ pub(super) fn sweep_player_axis_clusters(
 /// skip, and grounding, so those semantics vanished whenever gravity rotated
 /// onto X. Support and wall decisions are expressed in controlled-body terms:
 /// feet/head along the gravity axis, side normals along the local side axis.
+///
+/// ⭐ **CONSTRAINTS, not a walk (D126.1).** This used to apply each intersecting
+/// block's correction immediately and re-read the body AABB before the next
+/// block, so where two solids claimed one axis in one frame **the last one in
+/// `World::blocks` wrote the final position** — 16px apart in either order for
+/// the pinned fixture, and that Vec is pure construction order (authored LDtk
+/// emission, then moving platforms, then ECS overlay solids, then gate solids).
+///
+/// So each block now contributes a BOUND on the body's centre instead
+/// ([`AxisClaim`]), and the resolved position is a function of the resulting
+/// feasible INTERVAL:
+///
+/// - Every intersecting block demands a strictly non-zero correction, so a
+///   claim toward +axis puts the interval's floor ABOVE the current centre and
+///   a claim toward -axis puts its ceiling BELOW it. **Claims in one direction
+///   are therefore always feasible, and claims in BOTH directions never are** —
+///   the interval is `[min, max]` with `max < min`, which is exactly the
+///   physical statement "the body does not fit".
+/// - Feasible ⇒ move to the interval's binding edge, i.e. obey the DEEPEST
+///   claim. Order-independent by construction (a max over a set), and where
+///   only one block claims the axis — every ride, every ledge, every ordinary
+///   collision — the applied delta is that block's own delta unchanged, written
+///   with the same grounding, velocity-zero and contact push as before.
+/// - Infeasible ⇒ return an [`AxisConstraintConflict`] and DO NOT MOVE. The
+///   kernel refuses to invent a position no surface agrees with; the contacts
+///   are still reported and the axis velocity is still zeroed, because both are
+///   true (the body IS touching both, and it CANNOT move along this axis). The
+///   perpendicular axis is untouched, so a crushed body can still walk out
+///   sideways under its own power.
+///
+/// ⛔ **the no-artificial-pushout refusal is preserved as a filter on ADMISSION,
+/// not routed around**: a block whose own correction exceeds the body's
+/// half-extent ([`is_contact_range_snap`]) contributes NO claim at all — it does
+/// not move the body, does not report a contact, and cannot manufacture a
+/// conflict either. Because the binding edge is always some admitted claim's own
+/// bound, the delta finally applied is always one that passed the refusal.
 #[allow(clippy::too_many_arguments)]
 fn resolve_axis_repair(
     world: &World,
@@ -429,9 +492,17 @@ fn resolve_axis_repair(
     drop_through: bool,
     gravity_dir: Vec2,
     contacts: &mut Vec<Contact>,
-) {
+) -> Option<AxisConstraintConflict> {
     let role = axis_role(axis, gravity_dir);
-    let mut aabb = kinematics.aabb_oriented(gravity_dir);
+    // ⚠ ONE body AABB for the whole pass. The old loop refreshed it after every
+    // applied correction, which is precisely what made block order decide the
+    // outcome; every claim is now measured against the same entry state.
+    let aabb = kinematics.aabb_oriented(gravity_dir);
+    let centre = axis_component(aabb.center(), axis);
+    // The deepest claim in each direction: `toward_pos` demands the largest
+    // minimum, `toward_neg` the smallest maximum.
+    let mut toward_pos: Option<AxisClaim> = None;
+    let mut toward_neg: Option<AxisClaim> = None;
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) || !aabb.strict_intersects(block.aabb)
         {
@@ -467,7 +538,7 @@ fn resolve_axis_repair(
         {
             continue;
         }
-        match role {
+        let claim = match role {
             AxisRole::Gravity => {
                 let on_support = matches!(block.kind, BlockKind::OneWay)
                     || body_on_support_side(aabb, block.aabb, gravity_dir);
@@ -479,41 +550,115 @@ fn resolve_axis_repair(
                 } else {
                     axis_face_resolution(aabb, block.aabb, axis)
                 };
-                if apply_bounded_resolution(kinematics, gravity_dir, delta) {
-                    if on_support {
-                        ground.on_ground = true;
-                    }
-                    zero_axis_vel(kinematics, axis);
-                    let kind = if on_support {
+                // The no-artificial-pushout refusal, unchanged in meaning and in
+                // effect: `apply_bounded_resolution` asked exactly this of the
+                // same snap against a body whose half-extent does not depend on
+                // where its centre is. A refused block claims nothing.
+                if !is_contact_range_snap(delta, aabb) {
+                    continue;
+                }
+                let delta_along = axis_component(delta, axis);
+                AxisClaim {
+                    delta,
+                    delta_along,
+                    bound: centre + delta_along,
+                    normal,
+                    kind: if on_support {
                         ContactKind::Support
                     } else {
                         ContactKind::Head
-                    };
-                    contacts.push(block_face_contact(aabb, block, normal, 0.0, kind));
+                    },
+                    on_support,
+                    block,
                 }
             }
             AxisRole::Side => {
-                if let Some((d, normal_sign)) = resolve_side_penetration(
+                // `resolve_side_penetration` carries its own refusals (defer to
+                // the gravity pass, never out of the world, never a pushout
+                // teleport); `None` is "this block claims nothing here".
+                let Some((d, normal_sign)) = resolve_side_penetration(
                     aabb,
                     block.aabb,
                     axis,
                     axis_component(world.size, axis),
-                ) {
-                    kinematics.pos += axis_vec(axis, d);
-                    zero_axis_vel(kinematics, axis);
-                    apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
-                    contacts.push(block_face_contact(
-                        aabb,
-                        block,
-                        axis_vec(axis, normal_sign),
-                        0.0,
-                        ContactKind::Side,
-                    ));
+                ) else {
+                    continue;
+                };
+                AxisClaim {
+                    delta: axis_vec(axis, d),
+                    delta_along: d,
+                    bound: centre + d,
+                    normal: axis_vec(axis, normal_sign),
+                    kind: ContactKind::Side,
+                    on_support: false,
+                    block,
                 }
             }
+        };
+        // A correction of exactly zero demands nothing — the face is already
+        // flush — so it never becomes a bound.
+        if claim.delta_along > 0.0 {
+            if toward_pos
+                .as_ref()
+                .is_none_or(|deepest| claim.delta_along > deepest.delta_along)
+            {
+                toward_pos = Some(claim);
+            }
+        } else if claim.delta_along < 0.0
+            && toward_neg
+                .as_ref()
+                .is_none_or(|deepest| claim.delta_along < deepest.delta_along)
+        {
+            toward_neg = Some(claim);
         }
-        aabb = kinematics.aabb_oriented(gravity_dir);
     }
+
+    // Claims in BOTH directions == an empty interval: the +axis claimant's
+    // minimum sits above the -axis claimant's maximum, and no position on this
+    // axis satisfies both. What that MEANS to the body is the owner's call.
+    let conflict = match (&toward_pos, &toward_neg) {
+        (Some(demands_min), Some(demands_max)) => Some(AxisConstraintConflict {
+            axis,
+            min_center: demands_min.bound,
+            max_center: demands_max.bound,
+            min_source: ContactSource::Block {
+                kind: demands_min.block.kind,
+                id: demands_min.block.id.clone(),
+            },
+            max_source: ContactSource::Block {
+                kind: demands_max.block.kind,
+                id: demands_max.block.id.clone(),
+            },
+        }),
+        _ => None,
+    };
+    if conflict.is_none() {
+        // Feasible: at most one direction claimed, so its deepest claim IS the
+        // binding edge of the interval.
+        if let Some(binding) = toward_pos.as_ref().or(toward_neg.as_ref()) {
+            kinematics.pos += binding.delta;
+        }
+    }
+    for claim in [toward_pos.as_ref(), toward_neg.as_ref()]
+        .into_iter()
+        .flatten()
+    {
+        if claim.on_support {
+            ground.on_ground = true;
+        }
+        zero_axis_vel(kinematics, axis);
+        if claim.kind == ContactKind::Side {
+            apply_side_contact(wall, claim.normal, gravity_dir);
+        }
+        contacts.push(block_face_contact(
+            aabb,
+            claim.block,
+            claim.normal,
+            0.0,
+            claim.kind,
+        ));
+    }
+    conflict
 }
 
 /// AABB-only variant of [`standing_on_one_way`]. Cluster-aware

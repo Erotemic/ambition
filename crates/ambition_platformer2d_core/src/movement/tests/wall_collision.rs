@@ -1052,35 +1052,40 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
     }
 }
 
-/// **D126.1 — PINNED REPRODUCTION, EXPECTED RED.** Where a body is claimed by
-/// TWO solids on the same axis in one frame, the resolved position must not
-/// depend on the order those solids happen to sit in `world.blocks`.
+/// **D126.1 — THE IMPOSSIBLE GAP.** Where a body is claimed by TWO solids on
+/// the same axis in one frame, the outcome must not depend on the order those
+/// solids happen to sit in `world.blocks`.
 ///
-/// `resolve_axis_repair` walks `&world.blocks` in Vec order, applies each
-/// intersecting block's correction to the body immediately, and re-reads the
-/// AABB before the next block — so the LAST claimant writes the final position.
-/// The block Vec is pure construction order (LDtk emission order for the
-/// authored base, then moving platforms, then ECS overlay solids, then gate
-/// solids, all appended by `ambition_platformer2d_world::collision`), which
-/// makes the outcome stable per build and silently different when authoring
-/// order changes. `docs/planning/engine/kinematic-world-objects.md` forbids
-/// exactly this: *"The engine must not silently depend on pushout iteration
-/// order."*
+/// ⛔ **and the honest outcome here is NOT a position.** In this fixture the
+/// body physically does not fit: the ceiling demands `centre >= 264` and the
+/// platform demands `centre <= 248`, so the feasible interval is EMPTY and
+/// there is no legal place to put the body. Before D126.1 the resolver walked
+/// `&world.blocks`, applied each intersecting block's correction immediately
+/// and re-read the AABB before the next one, so the LAST claimant wrote the
+/// final position — ceiling-first settled at `y = 248`, platform-first at
+/// `y = 264`, same world, same frame, 16px apart. The block Vec is pure
+/// construction order (LDtk emission for the authored base, then moving
+/// platforms, then ECS overlay solids, then gate solids), which made the
+/// outcome silently different when authoring order changed.
 ///
-/// ⛔ **this is NOT the no-artificial-pushout refusal.** Both corrections here
-/// are 8px and 16px against a body whose half-extent is ~28px, so
-/// `is_contact_range_snap` ACCEPTS both: nothing declines, and the divergence
-/// is iteration order alone. Traced by hand against this fixture:
-/// ceiling-first settles the body at `y = 248` (head 16px inside the ceiling),
-/// platform-first at `y = 264` (feet 16px inside the platform). Same world,
-/// same frame, 16px apart.
+/// ⛔⛔ **sorting the contacts and resolving deepest-first was proposed and
+/// REJECTED, and the reason is the whole point of this test**: it makes the
+/// answer deterministic without making it correct. After obeying one side the
+/// body is still invalid with respect to the other, so a green "both orders
+/// agree" would have concealed the real physical condition. So this test pins
+/// BOTH halves: the two orders agree, AND what they agree on is the refusal —
+/// the body is not moved to a position no surface accepts, and the frame
+/// reports an [`crate::collision_semantics::AxisConstraintConflict`] naming the
+/// two demands. What a crush MEANS (damage, death, a stock, displacement,
+/// immunity) is game policy and deliberately unwired in the kernel.
 ///
-/// Ignored so a red is not mistaken for a broken suite — run it with
-/// `cargo test -p ambition_platformer2d_core -- --ignored closing_solids`.
-/// ⛔ do not weaken this assertion to make it pass; the fix belongs in the
-/// resolver (a deterministic claim ORDER, or a convergence pass), not here.
+/// ⛔ **this is NOT the no-artificial-pushout refusal.** Both corrections are
+/// 8px against a body whose half-extent is ~28px, so `is_contact_range_snap`
+/// accepts both: nothing declines, and the old divergence was iteration order
+/// alone. The existing
+/// `deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity`
+/// is about a body deep inside ONE slab and does not defend this behaviour.
 #[test]
-#[ignore = "D126.1: red by design — pins the order-independence the resolver does not yet have"]
 fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
     // Ceiling spans y 200..240; platform spans y 272..312. The 32px gap is
     // narrower than the 48px body, so the body overlaps BOTH by 8px — the
@@ -1094,6 +1099,18 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
         )
     };
     let start = Vec2::new(400.0, 256.0);
+    let world_with = |blocks: Vec<Block>| World {
+        name: "closing solids".into(),
+        size: Vec2::new(1600.0, 900.0),
+        spawn: start,
+        blocks,
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
+    };
 
     // Gravity magnitude zeroed so the ONLY motion in the frame is penetration
     // repair — the isolation `deeply_embedded_player_is_not_pushout_teleported_
@@ -1108,24 +1125,13 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
     };
 
     let settle = |blocks: Vec<Block>| {
-        let world = World {
-            name: "closing solids".into(),
-            size: Vec2::new(1600.0, 900.0),
-            spawn: start,
-            blocks,
-            water_regions: Vec::new(),
-            climbable_regions: Vec::new(),
-            chains: Vec::new(),
-            blast_margin: World::DEFAULT_BLAST_MARGIN,
-            side_blast_margin: None,
-            ceiling_blast_margin: None,
-        };
+        let world = world_with(blocks);
         let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
         scratch.kinematics.pos = start;
         scratch.kinematics.vel = Vec2::ZERO;
         scratch.ground.on_ground = false;
-        // Several ticks: the divergence is a stable fixed point per order, not a
-        // one-frame transient, and a settled comparison says so.
+        // Several ticks: the divergence was a stable fixed point per order, not
+        // a one-frame transient, and a settled comparison says so.
         for _ in 0..4 {
             update_player_with_tuning_scratch(
                 &world,
@@ -1148,4 +1154,167 @@ fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
          {:.1}px apart",
         (ceiling_first - platform_first).length(),
     );
+    // ⛔ the poison for "make it deterministic and call it fixed": agreeing on
+    // 248 (or on 264, or on the midpoint) would satisfy the assertion above
+    // while placing the body somewhere no surface accepts.
+    assert!(
+        (ceiling_first - start).length() < 1.0e-3,
+        "no position satisfies both solids, so repair must not invent one — \
+         the body was moved from {start:?} to {ceiling_first:?}",
+    );
+
+    // And the frame says WHY, identically either way round.
+    let conflict =
+        |blocks: Vec<Block>| -> Option<crate::collision_semantics::AxisConstraintConflict> {
+            let world = world_with(blocks);
+            let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
+            scratch.kinematics.pos = start;
+            scratch.kinematics.vel = Vec2::ZERO;
+            let gravity_dir = Vec2::new(0.0, 1.0);
+            let prev_feet_coord = scratch
+                .kinematics
+                .aabb_oriented(gravity_dir)
+                .feet_coord(gravity_dir);
+            super::super::collision::sweep_player_axis_clusters(
+                &world,
+                &mut scratch.kinematics,
+                &mut scratch.ground,
+                &mut scratch.wall,
+                &scratch.body_mode,
+                &scratch.env_contact,
+                crate::collision_semantics::Axis::Y,
+                0.0,
+                prev_feet_coord,
+                false,
+                gravity_dir,
+                &mut Vec::new(),
+            )
+        };
+    let from_ceiling_first = conflict(vec![ceiling(), platform()])
+        .expect("a 32px gap cannot hold a 48px body — the axis must report no feasible position");
+    let from_platform_first = conflict(vec![platform(), ceiling()])
+        .expect("a 32px gap cannot hold a 48px body — the axis must report no feasible position");
+    assert_eq!(
+        from_ceiling_first, from_platform_first,
+        "the reported conflict depends on block order",
+    );
+    // The ceiling wants the centre at 264, the platform at 248: 16px of
+    // penetration no position can remove — the same 16px the two orders used to
+    // disagree by.
+    assert!(
+        (from_ceiling_first.overconstraint() - 16.0).abs() < 1.0e-3,
+        "expected 16px of unremovable penetration, got {:?}",
+        from_ceiling_first,
+    );
+}
+
+/// **The other half of D126.1, and the one that proves ORDER-INDEPENDENCE
+/// rather than crush detection.** Two solids claim the gravity axis in the same
+/// frame and the feasible interval is NOT empty — a body landing across a step,
+/// the ordinary shape of tiled world geometry. It must settle in exactly one
+/// place whichever order the blocks are authored in, and it must NOT be
+/// reported as crushed.
+///
+/// ⭐ that second assertion is the poison. A resolver that answered "two solids
+/// claim this axis" with a conflict would make the impossible-gap test above
+/// green while breaking every step, ledge and tile seam in the game.
+#[test]
+fn two_solids_with_a_legal_interval_resolve_the_same_in_either_block_order() {
+    // The body (48 tall, centre y 256 ⇒ feet at 280) is penetrating BOTH: the
+    // wide floor's top face at 276 by 4px, and the step's top face at 268 by
+    // 12px. Both are supports, so both demand a MAXIMUM on the body's centre
+    // (252 and 244) and the interval `(-inf, 244]` is non-empty: the step is
+    // the binding claim and the floor is satisfied for free.
+    let floor = || Block::solid("wide floor", Vec2::new(0.0, 276.0), Vec2::new(1600.0, 40.0));
+    let step = || Block::solid("step", Vec2::new(300.0, 268.0), Vec2::new(200.0, 40.0));
+    let start = Vec2::new(400.0, 256.0);
+    let world_with = |blocks: Vec<Block>| World {
+        name: "step seam".into(),
+        size: Vec2::new(1600.0, 900.0),
+        spawn: start,
+        blocks,
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
+    };
+    // Gravity magnitude zeroed for the same reason as the fixture above: the
+    // only motion in the frame is penetration repair.
+    let tuning = TestTuning {
+        base: MovementTuning {
+            gravity: 0.0,
+            ..DEFAULT_TUNING
+        },
+        ..TEST_TUNING
+    };
+
+    let settle = |blocks: Vec<Block>| {
+        let world = world_with(blocks);
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
+        scratch.kinematics.size = Vec2::new(30.0, 48.0);
+        scratch.base_size.base_size = Vec2::new(30.0, 48.0);
+        scratch.kinematics.pos = start;
+        scratch.kinematics.vel = Vec2::ZERO;
+        scratch.ground.on_ground = false;
+        for _ in 0..4 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        scratch.kinematics.pos
+    };
+
+    let floor_first = settle(vec![floor(), step()]);
+    let step_first = settle(vec![step(), floor()]);
+    assert!(
+        (floor_first - step_first).length() < 1.0e-3,
+        "feasible simultaneous contacts resolved by block order: floor-first \
+         settled at {floor_first:?}, step-first at {step_first:?}",
+    );
+    // The deepest claim binds: feet on the step's 268 face, centre at 244.
+    assert!(
+        (floor_first.y - 244.0).abs() < 1.0e-3,
+        "expected the body to settle on the step's top face (centre y 244), got {floor_first:?}",
+    );
+
+    let conflict =
+        |blocks: Vec<Block>| -> Option<crate::collision_semantics::AxisConstraintConflict> {
+            let world = world_with(blocks);
+            let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
+            scratch.kinematics.size = Vec2::new(30.0, 48.0);
+            scratch.base_size.base_size = Vec2::new(30.0, 48.0);
+            scratch.kinematics.pos = start;
+            scratch.kinematics.vel = Vec2::ZERO;
+            let gravity_dir = Vec2::new(0.0, 1.0);
+            let prev_feet_coord = scratch
+                .kinematics
+                .aabb_oriented(gravity_dir)
+                .feet_coord(gravity_dir);
+            super::super::collision::sweep_player_axis_clusters(
+                &world,
+                &mut scratch.kinematics,
+                &mut scratch.ground,
+                &mut scratch.wall,
+                &scratch.body_mode,
+                &scratch.env_contact,
+                crate::collision_semantics::Axis::Y,
+                0.0,
+                prev_feet_coord,
+                false,
+                gravity_dir,
+                &mut Vec::new(),
+            )
+        };
+    assert_eq!(
+        conflict(vec![floor(), step()]),
+        None,
+        "two supports with a legal interval are not a crush",
+    );
+    assert_eq!(conflict(vec![step(), floor()]), None);
 }

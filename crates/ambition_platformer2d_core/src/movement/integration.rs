@@ -153,34 +153,44 @@ pub(super) fn integrate_velocity_clusters(
     let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed())
         || state.drop_through_timer > 0.0;
 
-    let sweep = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-                 axis: crate::collision_semantics::Axis,
-                 contacts: &mut Vec<crate::collision_semantics::Contact>| {
-        let prev_feet_coord = clusters
-            .kinematics
-            .aabb_oriented(frame.down())
-            .feet_coord(frame.down());
-        let delta_along = match axis {
-            crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
-            crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y,
-        } * dt;
-        super::collision::sweep_player_axis_clusters(
-            world,
-            clusters.kinematics,
-            clusters.ground,
-            clusters.wall,
-            clusters.body_mode,
-            clusters.env_contact,
-            axis,
-            delta_along,
-            prev_feet_coord,
-            drop_through,
-            frame.down(),
-            contacts,
-        );
-    };
+    let sweep =
+        |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+         axis: crate::collision_semantics::Axis,
+         contacts: &mut Vec<crate::collision_semantics::Contact>,
+         conflicts: &mut Vec<crate::collision_semantics::AxisConstraintConflict>| {
+            let prev_feet_coord = clusters
+                .kinematics
+                .aabb_oriented(frame.down())
+                .feet_coord(frame.down());
+            let delta_along = match axis {
+                crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
+                crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y,
+            } * dt;
+            // A crush on this axis rides out on the frame's events for the body's
+            // OWNER to interpret; the kernel has already reported the contacts and
+            // refused to invent a position no surface accepts.
+            conflicts.extend(super::collision::sweep_player_axis_clusters(
+                world,
+                clusters.kinematics,
+                clusters.ground,
+                clusters.wall,
+                clusters.body_mode,
+                clusters.env_contact,
+                axis,
+                delta_along,
+                prev_feet_coord,
+                drop_through,
+                frame.down(),
+                contacts,
+            ));
+        };
 
-    sweep(clusters, side_axis, &mut events.contacts);
+    sweep(
+        clusters,
+        side_axis,
+        &mut events.contacts,
+        &mut events.constraint_conflicts,
+    );
     apply_wall_abilities_clusters(
         clusters.kinematics,
         clusters.ground,
@@ -195,7 +205,12 @@ pub(super) fn integrate_velocity_clusters(
         events,
     );
     clusters.ground.on_ground = false;
-    sweep(clusters, gravity_axis, &mut events.contacts);
+    sweep(
+        clusters,
+        gravity_axis,
+        &mut events.contacts,
+        &mut events.constraint_conflicts,
+    );
 
     // Emergent platform riding, and every body gets it because every body is
     // swept here: a grounded body resting on a MOVING solid is carried

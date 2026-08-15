@@ -94,6 +94,15 @@ pub struct FrameEvents {
     /// Landing pushes a feet contact, a wall push a side contact, and a
     /// grounded frame a rest contact carrying the support's `surface_velocity`.
     pub contacts: Vec<crate::collision_semantics::Contact>,
+    /// Axes on which the solids claiming the body admitted NO position this
+    /// step — the body is over-constrained (crushed) between two surfaces. At
+    /// most one per world axis.
+    ///
+    /// ⭐ **the kernel reports it and decides nothing about it**, the same split
+    /// [`ResetCause`] states: damage, death, a stock, a respawn, a forced
+    /// displacement or crush immunity are the owner's policy. Nothing in the
+    /// engine consumes this yet, deliberately.
+    pub constraint_conflicts: Vec<crate::collision_semantics::AxisConstraintConflict>,
 }
 
 impl FrameEvents {
@@ -128,5 +137,6 @@ impl FrameEvents {
             self.ground_contact = other.ground_contact;
         }
         self.contacts.extend(other.contacts);
+        self.constraint_conflicts.extend(other.constraint_conflicts);
     }
 }

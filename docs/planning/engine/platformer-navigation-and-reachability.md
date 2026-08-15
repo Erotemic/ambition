@@ -33,11 +33,60 @@ Can this NPC patrol between these regions?
 Where would a moving platform create a new route?
 ```
 
+## ⭐ It already has a MEASURED, BLOCKED consumer — start there
+
+**Super Smash Siblings' CPU is failing for exactly the reason this plan exists,
+and the diagnosis is already recorded** (D72 / `engine/fighter-brain.md`,
+2026-08-14): the rollout horizon is ~12 ticks (0.2s) while the fall from a
+platform to the blast floor is ~24 ticks (0.4s), **so a deeper search cannot see
+the cost of a ledge exit and increasingly picks apparently-free self-KO
+trajectories.** Two rigs agree that a duelist loses all three stocks to itself at
+0% damage, and the A/B is stark — depth 0 survives 47.8s, depth 12 survives 7.4s.
+
+⛔ **and the shortcut was already tried and REMOVED, which is the useful part.** A
+terminal value of *"airborne + below the lip + outside the span ⇒ already dead"*
+was implemented, measured, and deleted **because it is not body-generic**: air
+movement, jumps, flight, wall interaction, ledge grab, recovery attacks, impulses,
+portals and grapples each falsify it. ⭐ **that is precisely a reachability
+question wearing a fighting game's clothes** — *can THIS body, with ITS
+capabilities, still get back?* — and the recorded conclusion names this plan as
+where the real answer comes from.
+
+⇒ so the first slice should be shaped by a consumer that exists and is measurably
+broken, not by the general case. **"Is this body's position recoverable under its
+own capabilities?" is a smaller and sharper question than "plan a route",** and it
+is the one already blocking work.
+
 ## Architecture direction
 
 Prefer a derived traversal/reachability representation over hand-authored
 waypoint lore. The representation should reference authoritative world geometry
 and capability requirements rather than duplicate them.
+
+⭐ **and the pieces that make "reference rather than duplicate" concrete now
+exist** — this section used to be a principle with no handles:
+
+- **authoritative geometry** is `CollisionWorld`, which answers exactly four
+  questions (`solids`, `carves_only`, `hostable_surfaces`, `base`) and has no
+  non-adopters left. ⛔ a reachability graph that builds its own block list is the
+  duplication this section forbids.
+- **time-dependent routes** have a handle: a moving solid publishes its
+  displacement on `Block::velocity`, and `MovingPlatformState` carries
+  `previous_aabb()`. ⚠ note the trap that one-way landing already hit — comparing a
+  body's PREVIOUS coordinate against a solid's CURRENT face is a **mixed frame**
+  for geometry that moves.
+- **capability requirements** are the body's own authored kit; the population that
+  could not build a body from its own definition went 14 → 7 → **0**, so there is
+  no fallback path to special-case.
+
+⭐ **the reporting contract is settled and should be copied, not re-litigated:**
+the reusable mechanics layer reports **what physically happened** and game policy
+decides what it means. `FrameEvents` already does this for contacts, and D126
+extended it to *"no legal position exists"* via `AxisConstraintConflict` — with
+nothing reading the conflict, deliberately. ⇒ **reachability should answer
+*"which capability blocks the route"* in the same register: report the blocking
+fact, and let the brain, the authoring validator or the LLM decide what to do
+about it.**
 
 Separate **route existence/planning** from **low-level movement execution**. A
 brain may choose a route while the ordinary body movement kernel still performs

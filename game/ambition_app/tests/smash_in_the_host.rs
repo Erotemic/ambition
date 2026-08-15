@@ -38,13 +38,7 @@ use leafwing_input_manager::prelude::Buttonlike;
 /// from its participants every frame: the select screen's whole complaint list
 /// ("Start does not add a CPU", "there is no start on a keyboard") lived in the
 /// span between a key and that resource, which hand-set frames skip over.
-///
-/// ⚠ **`pub(crate)` because a second module needs this exact composition**
-/// (`the_cpus_put_on_a_show`), and a hand-copied one would be a fork of the
-/// thing under test: the whole value of these fixtures is that they run the
-/// HOST, and two spellings of "the host" drift the first time one gains a
-/// plugin. `app_it` is one binary, so sharing costs nothing.
-pub(crate) fn shell_host_app() -> App {
+fn shell_host_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     // ⛔ **PINNED, because `app.update()` is otherwise a unit of WALL CLOCK.**
@@ -82,13 +76,13 @@ pub(crate) fn shell_host_app() -> App {
     app
 }
 
-pub(crate) fn settle(app: &mut App) {
+fn settle(app: &mut App) {
     for _ in 0..6 {
         app.update();
     }
 }
 
-pub(crate) fn active_route(app: &App) -> Option<String> {
+fn active_route(app: &App) -> Option<String> {
     app.world()
         .resource::<ShellRouter>()
         .active
@@ -99,7 +93,7 @@ pub(crate) fn active_route(app: &App) -> Option<String> {
 /// Move the launcher cursor onto the row labelled `label` and confirm it.
 /// Derived from the catalog rather than an index: a literal silently becomes a
 /// different game the day somebody registers a provider before this one.
-pub(crate) fn launch_row(app: &mut App, label: &str) {
+fn launch_row(app: &mut App, label: &str) {
     let index = app
         .world()
         .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()

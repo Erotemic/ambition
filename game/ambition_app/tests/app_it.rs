@@ -114,7 +114,6 @@ mod smash_roster_movesets;
 mod starting_character_selection;
 mod stocks;
 mod symmetry_attunement;
-mod the_cpus_put_on_a_show;
 mod unified_body_movement;
 mod unified_melee;
 mod update_schedule_census;

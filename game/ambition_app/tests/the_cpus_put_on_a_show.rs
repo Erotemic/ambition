@@ -525,14 +525,28 @@ mod with_the_decision_log {
                 .entry((situation.clone(), action))
                 .or_default() += 1;
             if situation == "Recovery" {
+                // ⚠ **the PROPOSALS ride along with the outcome**, because
+                // `no-route` means two different things — the repertoire offered
+                // nothing, or the kernel declined everything it was offered — and
+                // only the second is a tuning question. `pressed` is what the
+                // decision actually armed, which on the negative branch is the
+                // ranking fallback rather than the search's answer (see the ⛔
+                // note in `decision.rs`); that is the number this histogram
+                // exists to expose.
+                let proposed = text(fact, "recovery_routes").unwrap_or("[]");
+                let pressed = text(fact, "attack").unwrap_or("?");
                 let outcome = match (
                     fact.get("recovery_regained"),
                     text(fact, "recovery_move"),
                     text(fact, "recovery_bounded_by"),
                 ) {
-                    (Some(FactValue::Bool(true)), Some("none"), _) => "home-already".to_string(),
+                    (Some(FactValue::Bool(true)), Some("none"), _) => {
+                        "home-already (pressed nothing)".to_string()
+                    }
                     (Some(FactValue::Bool(true)), Some(id), _) => format!("route:{id}"),
-                    (_, _, Some(bound)) => format!("no-route (searched {bound})"),
+                    (_, _, Some(bound)) => {
+                        format!("no-route from {proposed} (searched {bound}) -> pressed {pressed}")
+                    }
                     _ => "no-search".to_string(),
                 };
                 *recovery_routes

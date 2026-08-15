@@ -518,6 +518,41 @@ fn decide(
             .route
             .and_then(|index| route_moves.get(index))
             .map(|candidate| (candidate.binding, candidate.move_id.clone())),
+        // ⛔⛔ **THE TINY-RISING-AERIAL TRAP IS STILL LIVE ON THIS ARM, and it is
+        // named here because reading the two files apart hides it.**
+        //
+        // This arm covers two very different cases: (a) an ordinary situation, no
+        // recovery search ran, and the ranking below is exactly right; and (b)
+        // `Situation::Recovery`, the search RAN, and nothing it probed regained
+        // support. In case (b) `options.attacks` is `lifting_candidates` sorted
+        // by `lift_speed` descending — so `.first()` is *the move that pushes
+        // hardest against gravity*, which is precisely the static ranking
+        // `RecoveryLens::best_route` was built to replace. `lifting_candidates`'
+        // own doc spells out the consequence: *"If a caller ever takes `.first()`
+        // here as the recovery, the tiny-rising-aerial trap is back."* This is
+        // that caller.
+        //
+        // ⚠ **it is INVISIBLE on a fighter with one lifting move** (George Booul
+        // authors exactly one, so `.first()` is his Up-B and the fallback is
+        // correct for him) and it BITES on a fighter with two: the Pirate
+        // Admiral's `air_up` advertises 360 and his `grapple_line` — the move
+        // that actually gets him home — advertises 300, so a doomed-looking
+        // search makes him throw his juggle aerial at the blastzone.
+        //
+        // ⚠ **and the search's negative is BOUNDED and deliberately pessimistic**
+        // (perceived terrain only, every blast margin zeroed, a 2 s horizon), so
+        // "nothing found" is not a rare branch.
+        //
+        // ⛔ NOT fixed blind. The obvious repair — rank the failures by how dead
+        // they are (`NoSupportFoundBy { reset }`) and press the least dead, the
+        // way `RefinedChoice::least_bad_movement` already does for movement — is
+        // a behaviour change whose falsifier needs a fixture where two routes
+        // fail DIFFERENTLY, and this codebase's own rule is that a reasoned
+        // falsifier is not a falsifier. What landed instead is the measurement:
+        // `recovery_routes` publishes the proposal list beside `recovery_move`,
+        // so the histogram says whether the Admiral is pressing `grapple_line` or
+        // `air_up` when the search comes back empty. See
+        // `dev/journals/code_smells.md`.
         _ => refined
             .as_ref()
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
@@ -562,6 +597,12 @@ fn decide(
                 .and_then(|verdict| verdict.route)
                 .and_then(|index| route_moves.get(index))
                 .map(|candidate| candidate.move_id.as_str()),
+            // ⭐ **the PROPOSALS, in probe order** — without them a reader cannot
+            // tell "the search rejected the grapple" from "the grapple was never
+            // proposed", and those want opposite fixes. A borrow, so an untraced
+            // decision costs nothing: the ids are rendered behind the early
+            // return inside `trace_decision`.
+            proposed_routes: &route_moves,
         },
     );
 }
@@ -573,7 +614,7 @@ fn decide(
 /// is the only consumer, so a field added here is a field the fact carries and
 /// a field the rendered line shows. Splitting them across an argument list is
 /// how the stderr half and the fact half drifted the first time.
-struct DecisionSummary<'a> {
+struct DecisionSummary<'a, 'k> {
     /// L1's answer for this tick — the thing every other field is conditional on.
     situation: Situation,
     /// Movement verbs L3 struck off.
@@ -588,6 +629,12 @@ struct DecisionSummary<'a> {
     /// *"getting back without throwing anything"* — a different fact from a
     /// search that found nothing, which is why both are published.
     recovery_move: Option<&'a str>,
+    /// **Every route the repertoire PROPOSED**, in the order the lens probes
+    /// them ([`super::options::lifting_candidates`]). ⚠ this is what separates
+    /// *"the search rejected the grapple"* from *"the grapple was never
+    /// proposed"*, and those two want opposite fixes. Held as candidates rather
+    /// than strings so a run that is not tracing allocates nothing.
+    proposed_routes: &'a [&'k AttackCandidate],
 }
 
 /// **Press the move the brain chose**, in the ordinary gesture vocabulary.
@@ -670,7 +717,7 @@ fn trace_decision(
     // unattributed fact — honest for a fixture, and useless on a stage with two
     // fighters, which is why the integration layer fills it.
     subject: Option<&str>,
-    summary: DecisionSummary<'_>,
+    summary: DecisionSummary<'_, '_>,
 ) {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("AMBITION_FIGHTER_TRACE").is_ok_and(|value| value != "0")
@@ -694,7 +741,14 @@ fn trace_decision(
         attack,
         recovery,
         recovery_move,
+        proposed_routes,
     } = summary;
+    // Built here rather than at the call site: the early return above means an
+    // untraced decision never allocates it.
+    let proposed: Vec<&str> = proposed_routes
+        .iter()
+        .map(|candidate| candidate.move_id.as_str())
+        .collect();
     // **What the recovery search DID, as three separate answers.** A caller that
     // collapses them loses the interesting one: "already getting home, saved the
     // move" and "searched and found nothing" are both `recovery_move = none`, and
@@ -711,7 +765,7 @@ fn trace_decision(
     // fighters on a stage produced two interleaved streams with nothing to tell
     // them apart, and this trace exists because reasoning about that failed.
     let line = format!(
-        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} attack={} recovery={} bounded_by={} emit_x={:.1}",
+        "[fighter{}] situation={situation:?} x={:.0} vx={:.0} ground={} phase={:?} stage={} [{:.0}..{:.0}] floor_edge={:?} offered={:?} vetoed={:?} chose={:?} attack={} routes={:?} recovery={} bounded_by={} emit_x={:.1}",
         match subject {
             Some(id) => format!(" {id}"),
             None => String::new(),
@@ -728,6 +782,7 @@ fn trace_decision(
         vetoed,
         chosen,
         attack.unwrap_or("none"),
+        proposed,
         match (recovery_searched, recovery_regained, recovery_move) {
             (false, _, _) => "not-searched",
             (true, true, Some(id)) => id,
@@ -782,6 +837,10 @@ fn trace_decision(
             "recovery_bounded_by",
             recovery_bounded_by.unwrap_or("-").to_string(),
         )
+        // ⚠ the PROPOSAL list, so a `recovery_move` of "none" is readable: an
+        // empty list means the repertoire offered nothing, a non-empty one means
+        // the kernel declined everything it was offered.
+        .field("recovery_routes", format!("{proposed:?}"))
         .field("pos_x", me.pos.x)
         .field("vel_x", me.vel.x)
         .field("on_ground", me.on_ground)

@@ -14,6 +14,12 @@ from pathlib import Path
 from ambition_ldtk_tools.area_authoring import load_project
 from ambition_ldtk_tools.room_support.bundle import write_bundle
 from ambition_ldtk_tools.room_support.inspect import DEFAULT_LDTK, REPO_ROOT, format_summary_text, room_summary
+from ambition_ldtk_tools.room_support.relationships import (
+    file_link,
+    format_report_text,
+    relationship_report,
+    write_report,
+)
 from ambition_ldtk_tools.room_support.render import render_room_png, render_room_svg
 
 
@@ -60,6 +66,26 @@ def _cmd_bundle_debug(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_relationships(args: argparse.Namespace) -> int:
+    project = load_project(args.ldtk)
+    report = relationship_report(project, args.level)
+    world = args.ldtk.stem if args.level is None else f"{args.ldtk.stem} / {args.level}"
+    if args.format == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        # A whole world is hundreds of rows; a level is a readable handful.
+        detail = args.detail or args.level is not None
+        print(format_report_text(report, world=world, detail=detail), end="")
+    if args.out is not None:
+        write_report(report, args.out, world=world)
+        # A script that writes an artifact ends its stdout with a clickable
+        # link to the artifact AND its directory (pattern: git_debloat.py).
+        print(f"\nwrote {args.out}")
+        print(f"  artifact:  {file_link(args.out)}")
+        print(f"  directory: {file_link(args.out.parent)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -90,6 +116,16 @@ def build_parser() -> argparse.ArgumentParser:
     bundle.add_argument("--no-debug", action="store_true", help="do not include debug_traces JSON files")
     bundle.add_argument("--validate", action="store_true", help="include validate command output")
     bundle.set_defaults(func=_cmd_bundle_debug)
+
+    rel = sub.add_parser(
+        "relationships",
+        help="Print the authored relationship graph (what points at what)",
+    )
+    rel.add_argument("--level", help="level identifier (default: every level)")
+    rel.add_argument("--format", choices=["text", "json"], default="text")
+    rel.add_argument("--detail", action="store_true", help="print every row, not just the tally")
+    rel.add_argument("--out", type=Path, help="also write the report to a file")
+    rel.set_defaults(func=_cmd_relationships)
     return parser
 
 

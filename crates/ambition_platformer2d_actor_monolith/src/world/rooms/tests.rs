@@ -782,14 +782,18 @@ fn loading_zone_hint_for_edge_exit_skips_prompt() {
 }
 
 #[test]
-fn kinematic_path_spec_matches_id_accepts_compacted_form() {
+fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
     use crate::world::rooms::KinematicPathSpec;
     use ambition_platformer2d_core::KinematicPath;
 
-    // Spec id is the `compact_path_name`-stripped form
-    // (`enemy_patrol_a`); the authored reference uses the raw
-    // snake-of-name (`enemy_patrol_path_a`). matches_id must accept
-    // both.
+    // A spec whose id was NOT derived from its display name is still
+    // reachable by that name's slug — the alias exists for rooms built
+    // in Rust, which may carry any id they like (or none).
+    //
+    // ⚠ `enemy_patrol_a` is a hand-written id here, not a derived one.
+    // Conversion used to mint it from this name via a second slug rule
+    // that collapsed `_path_` away; that rule is deleted, and the id it
+    // produced survives only as this fixture's arbitrary choice.
     let spec = KinematicPathSpec::new(
         "enemy_patrol_a",
         "enemy patrol path A",

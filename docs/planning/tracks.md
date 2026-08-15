@@ -333,9 +333,21 @@ lines, referenced by nothing.** Listing them here makes them reachable. ⛔ **a
 disposition is still owed for each** — promote to a card or retire to the
 archive; being listed here is not a verdict that the work is live.
 
-- `engine_rename_campaign.md` (322)
-- `engine/portable-preparation-and-load-explainability.md` (484)
-- `engine/sprite-renderer.md` (174)
+- ~~`engine/portable-preparation-and-load-explainability.md` (484)~~ ✔ **ROUTED —
+  and this one was the sharpest case.** It is **D124's own plan**, and the D124
+  ledger row did not link it. A live row and its 484-line plan existed without
+  knowing about each other.
+- ~~`engine_rename_campaign.md` (322)~~ ✔ **ROUTED** — the stale `Sandbox*` naming
+  campaign is complete (`check_retired_crate_names.py` reports none). ⚠ the file
+  survives because **architecture/product work was bundled into it**, including
+  couch multiplayer. ⇒ **misfiled, not dead**: its residue should move to the
+  topic plans that own it rather than living under a finished rename's name.
+- ~~`engine/sprite-renderer.md` (174)~~ ✔ **ROUTED as REFERENCE, not a campaign.**
+  Its engine-facing content is one principle — **measure-by-default**: a sprite
+  ships the geometry the gameplay layer needs, so a body and its hitbox cannot
+  silently disagree. ⭐ that principle is load-bearing for any authoring change
+  that touches collision geometry — a stretched sprite moves the collision off
+  the picture.
 - ~~`engine/closeout-review-followups-2026-07-20.md` (212)~~ ✔ **PROMOTED** to a card above
 - ~~`engine/binding-resolution-boundary.md` (55)~~ ✔ **PROMOTED** to a card above
 - ~~`engine/combat-model.md` (60)~~ ✔ **ROUTED** — residual combat work verified
@@ -349,8 +361,20 @@ archive; being listed here is not a verdict that the work is live.
 - ~~`engine/shell-vanity-sequence.md` (44)~~ ✔ **ROUTED** — **VC5 only**, the
   title launcher fade-in. VC1–VC4 and VC6 are implemented. A single small
   presentation item, not a campaign.
-- `triage/ambition-test-support.md` (306)
-- `triage/ambition-registry-core.md` (231)
+- ~~`triage/ambition-test-support.md` (306)~~ ✔ **ROUTED** — TRIAGE, **strong
+  candidate, design decisions pending** (2026-07-22). Ambition's tests repeatedly
+  rebuild Bevy apps, schedules, fixed time, session roots, room state, catalogs
+  and command-flush sequences. ⛔ the dependency boundary and fixture API must be
+  **piloted before promotion** — do not adopt it wholesale. ⚠ and note the live
+  adjacency: this crate's absence is *why* a test hand-lists its own system
+  chain, which is how a fix's test can pass while the system is unregistered.
+- ~~`triage/ambition-registry-core.md` (231)~~ ✔ **ROUTED, and it is more relevant
+  than its date suggests.** TRIAGE, proposed direction (2026-07-22): one
+  dependency-light protocol for the registry pattern repeated across Ambition.
+  ⭐ **read it alongside D127's discovery doctrine** — *a central authoritative
+  census is bad; a derived read-only index is good* — because "one protocol for
+  canonical registries" is exactly the shape that question decides. ⛔ prove it
+  through one or two migrations before broad adoption.
 - ~~`triage/leafwing-clash-scan-patch-2026-07-23.md` (43)~~ ✔ **ROUTED** to the
   deferred/trigger list below, where its entry already existed without a link.
 - ~~`triage/gameplay-presentation-profiles.md` (32)~~ ✔ **ROUTED** — GP1–GP5 are

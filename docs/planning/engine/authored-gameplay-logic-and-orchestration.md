@@ -107,16 +107,23 @@ god crate.** The concrete domains own the actual operations. A new domain
 participating must not require editing a central enum — that requirement is the
 falsifier for whatever contract M1 proposes.
 
-### 2b. Sequencing stays domain-owned  ⭐ added by M0
+### 2b. The substrate does not own a universal sequencer  ⭐ added by M0
 
-⛔ **the shared layer does not own a sequencer.** M0 found a monotonic cursor and
-a reversible cycling timer machine in the same tree, plus a subroutine stack with
-interrupts and seeded selection — three execution machines that cannot be one
-without a branch naming the customer.
+⛔ **the shared layer does not own a sequencer, and the existing domain
+sequencers are not to be forcibly unified.** M0 found a monotonic cursor, a
+reversible cycling timer machine, and a subroutine stack with interrupts and
+seeded selection — three execution machines, and one shared form covering all
+three needs a branch naming its customer.
 
 The shared substrate is **conditions + commands + prepared references +
 preparation + discovery.** A domain that needs a timeline keeps its own, and
-gains nothing it must give up.
+gives up nothing.
+
+⚠ **state this precisely.** The proven claim is about *this* substrate and *these*
+customers. *"Sequencing can never be shared"* is **not** proven and is not
+claimed here — if several genuine customers later want the same control flow, a
+reusable backend becomes a legitimate experiment. See the backend question in the
+open-questions section.
 
 ### 3. Domain ownership stays distributed; discovery may be aggregated
 
@@ -324,7 +331,7 @@ and per-system classification:
 — evidence, with two post-census corrections recorded in its header. The
 decision-relevant findings are reproduced below because they change the design.
 
-### ⛔⛔ Finding 1 — sequencing must NOT be unified
+### ⛔ Finding 1 — the substrate must not own a universal sequencer
 
 Two structural incompatibilities, each fatal to a shared sequencer:
 

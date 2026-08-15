@@ -49,13 +49,15 @@ The highest-value successor fronts are:
    [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
    and [`game/multiplayer.md`](game/multiplayer.md).
 
-   ⏸ **M2 is DONE and D116 RESTS (2026-08-15)** by maintainer instruction. ⚠ it
-   stopped **on a boundary, not at completion**: no production seam spawns a
-   second camera, and `publish_camera_viewport` writes one rectangle to every view
-   **by construction** because it projects the single `ResolvedGameplayPresentation`
-   — a fact about the physical screen. ⇒ distinct gameplay rectangles cannot come
-   out of the shipped schedule today, and that gap belongs to a future split host.
-   ⛔ do not open an M3 without a real product need for a second view.
+   ⏸ **D116 RESTS (2026-08-15), and M2 is only HALF done** — say it in two parts.
+   ✔ **closed:** the presentation/projection sub-slice — per-view association and
+   viewport application are proven by an assembled-host fixture, and both
+   `PresentsView` writers that guessed are fixed. ▢ **deferred:** production
+   two-view composition and layout — production spawns one camera and publishes
+   one screen rectangle to every view **by construction**, and M2's own plan also
+   names HUD ownership and input routing, which this slice did not touch.
+   ⛔ do not expand into networking; the deferred half needs a real product need
+   for a second view.
 3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
    CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
    why it exists and how long it lasts; then item custody as the first demanding

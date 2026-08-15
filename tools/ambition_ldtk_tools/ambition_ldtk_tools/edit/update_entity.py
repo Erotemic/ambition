@@ -116,6 +116,54 @@ def parse_add_field(spec: str) -> tuple[str, str, object | None]:
     return name, human_type, default
 
 
+def parse_add_enum_field(spec: str) -> dict:
+    """`name:EnumName:v1|v2[:default]` -> a manifest-shaped `spec_field`.
+
+    ⭐ **a separate flag rather than a type inside `--add-field`**, for the same
+    reason `--add-entity-ref-field` is separate: an enum carries a NAME and a
+    VALUE SET that a `name:type[:default]` triple has nowhere to put, and
+    smuggling them through a fourth colon-delimited slot would make the common
+    scalar case harder to read to serve the rare one.
+
+    ⚠ **the enum def is shared, not owned by this field.** `ensure_enum_def`
+    reuses an existing enum of the same name and rewrites its value list, so two
+    fields may name one enum — and re-running with different values RETYPES it.
+    That is the same reconciliation `def upsert-entity` performs; it is spelled
+    here so an in-place edit does not have to go through a manifest to get a
+    dropdown.
+    """
+    parts = spec.split(":", 3)
+    if len(parts) < 3:
+        raise SystemExit(
+            "--add-enum-field expects 'name:EnumName:v1|v2[:default]', "
+            f"got {spec!r}"
+        )
+    name, enum_identifier, raw_values = parts[0], parts[1], parts[2]
+    default = parts[3] if len(parts) == 4 and parts[3] != "" else None
+    values = [value for value in raw_values.split("|") if value]
+    if not name:
+        raise SystemExit(f"--add-enum-field name is empty in {spec!r}")
+    if not enum_identifier:
+        raise SystemExit(f"--add-enum-field names no enum in {spec!r}")
+    if not values:
+        raise SystemExit(
+            f"--add-enum-field declares no values in {spec!r}; an enum with no "
+            "values is a field nothing can be set to"
+        )
+    if default is not None and default not in values:
+        raise SystemExit(
+            f"--add-enum-field default {default!r} is not one of {values} in "
+            f"{spec!r} — the editor would offer a value the enum cannot hold"
+        )
+    return {
+        "name": name,
+        "type": "Enum",
+        "enum": enum_identifier,
+        "values": values,
+        "default": default,
+    }
+
+
 def find_entity_def(project: dict, identifier: str) -> dict:
     for ent in project.get("defs", {}).get("entities", []):
         if ent.get("identifier") == identifier:
@@ -143,6 +191,18 @@ def main(argv=None) -> int:
         help=(
             "Add a new field to the entity def. Repeat to add several. "
             "type ∈ {Int, Float, String, Bool}. Empty default = null."
+        ),
+    )
+    parser.add_argument(
+        "--add-enum-field",
+        action="append",
+        default=[],
+        metavar="name:EnumName:v1|v2[:default]",
+        help=(
+            "Add an enum-typed field, minting or reusing the LocalEnum. This is "
+            "what gives the LDtk editor a DROPDOWN instead of free text, so a "
+            "human authors the same closed value set an agent reads from the "
+            "entity contract. Repeat to add several."
         ),
     )
     parser.add_argument(
@@ -196,8 +256,11 @@ def main(argv=None) -> int:
         return _fail("choose --in-place or --output <path>")
     if not args.ldtk.exists():
         return _fail(f"ldtk file not found: {args.ldtk}")
-    if not args.add_field and not args.add_entity_ref_field:
-        return _fail("at least one --add-field or --add-entity-ref-field is required")
+    if not args.add_field and not args.add_entity_ref_field and not args.add_enum_field:
+        return _fail(
+            "at least one --add-field, --add-enum-field or "
+            "--add-entity-ref-field is required"
+        )
 
     project = json.loads(args.ldtk.read_text())
     ent = find_entity_def(project, args.identifier)
@@ -215,6 +278,26 @@ def main(argv=None) -> int:
             continue
         existing_field_ids.add(name)
         added.append(f"{name}:EntityRef->{made['allowedRefs']}")
+
+    # ⭐ enums first, so a `--add-field` that collides with one reports the
+    # collision rather than winning the race and leaving a free-text field where
+    # the author asked for a dropdown.
+    for spec in args.add_enum_field:
+        spec_field = parse_add_enum_field(spec)
+        name = spec_field["name"]
+        if name in existing_field_ids:
+            return _fail(
+                f"entity '{args.identifier}' already has a field '{name}'; use "
+                f"a different name or remove the existing field first."
+            )
+        ent.setdefault("fieldDefs", []).append(
+            _new_field_def(name, "Enum", spec_field["default"], project, spec_field)
+        )
+        existing_field_ids.add(name)
+        added.append(
+            f"{name}:LocalEnum.{spec_field['enum']}"
+            f"{spec_field['values']}={spec_field['default']!r}"
+        )
 
     for spec in args.add_field:
         name, human_type, default = parse_add_field(spec)

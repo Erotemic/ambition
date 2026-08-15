@@ -3456,6 +3456,48 @@ mod tests {
     /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
     /// geometry — a warp into stone rather than a warp that does nothing.
     #[test]
+    /// **EVERY AUTHORED ENEMY STARTS FACING LEFT, AND THE FILE IS WHERE IT SAYS SO.**
+    ///
+    /// ⛔ **the construction test one crate down pins the FUNCTION, not the
+    /// WIRING.** `a_placement_sets_initial_body_facing_on_the_construction_frame`
+    /// proves a spec carrying `Left` builds a body facing left; it says nothing
+    /// about whether Mary-O's world carries `Left` at all. Jon reported enemies
+    /// walking the wrong way while that test was green, because the field had
+    /// never been authored.
+    ///
+    /// ⚠ **and this is exactly what a regenerate silently drops.** The field
+    /// lives only in the `.ldtk`; a tool that rebuilds the world from specs
+    /// that predate it writes a valid file with every enemy back on the `Right`
+    /// default, and every other check passes on it.
+    ///
+    /// ⭐ the count guard is not decoration: both loops below hold vacuously in
+    /// a world with no enemies, and enemies are the subject.
+    #[test]
+    fn every_authored_enemy_starts_facing_left() {
+        let mut enemies = 0;
+        for id in authored_area_ids() {
+            let room = authored_room(&id);
+            for spawn in &room.enemy_spawns {
+                assert_eq!(
+                    spawn.payload.facing,
+                    ambition_platformer2d::world::rooms::SpawnFacing::Left,
+                    "room `{id}` authors an enemy that starts facing right; Mary-O's \
+                     enemies walk toward the player, and the `Right` default is what \
+                     the authored `facing` field exists to override"
+                );
+                enemies += 1;
+            }
+        }
+        assert!(
+            enemies >= 24,
+            "only {enemies} authored enemies across {:?} — this test asserts a \
+             property of enemies, so a world that has lost them passes it while \
+             measuring nothing",
+            authored_area_ids()
+        );
+    }
+
+    #[test]
     fn each_room_offers_exactly_the_tubes_its_own_blocks_author() {
         let mut offered_anywhere = 0;
         for id in authored_area_ids() {

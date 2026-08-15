@@ -614,6 +614,17 @@
           ],
           "on_invalid": "refused",
           "sample": "Hostile"
+        },
+        {
+          "name": "facing",
+          "presence": "optional",
+          "values": [
+            "Left",
+            "Right"
+          ],
+          "on_invalid": "refused",
+          "sample": "Left",
+          "note": "which way this occurrence starts. Facing is PLACEMENT context: the character and its brain are reusable, and two instances of the same pair may enter a room looking opposite ways. Absent or blank keeps the historical Right/+1 default; a misspelling is refused rather than silently changing initial locomotion."
         }
       ]
     },

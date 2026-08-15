@@ -10,7 +10,15 @@
 use ambition_platformer2d_core as ae;
 
 pub mod binding;
-mod load;
+// ⛔ **`mod load` is GONE (2026-08-15).** It held one 60-line public function,
+// `commit_room_transition_geometry` — retire the outgoing room, commit the
+// prepared plan, arrive the body, reset the clock/feel — and NOTHING in the
+// workspace called it. `RoomTransitionApplication::apply` is the live commit and
+// says the same things in the same order. It surfaced while unifying room
+// RESIDENCY: it carried its own `With<RoomScopedEntity>` roster parameter, so it
+// was a second place the "a carried object is not a resident" rule would have
+// had to be applied, and a dead one. A fork you cannot reach is still a fork
+// that lies about how many commits this engine has.
 mod stage;
 mod systems;
 pub(crate) mod transaction;
@@ -22,7 +30,6 @@ mod tests;
 
 pub use ambition_platformer2d_world::rooms::*;
 pub use binding::RoomBindings;
-pub use load::{commit_room_transition_geometry, RoomLoadResult};
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };

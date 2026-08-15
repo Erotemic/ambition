@@ -13,10 +13,24 @@
 //! the answer comes back as an [`ae::movement::recovery::RecoveryOutlook`].
 //!
 //! ⭐ **and it stops there.** The query reports what physically happened; what a
-//! `NoSupportFound` MEANS is the brain's business, and the brain spends it in
+//! `NoSupportFoundBy` MEANS is the brain's business, and the brain spends it in
 //! exactly one place ([`super::rollout::refine_by_rollout`]) as a veto on
 //! movement lines. There is no fighting-game rule in here and no capability list
 //! in the rollout — the split `FrameEvents` already draws for contacts.
+//!
+//! ⛔⛔ **AND THE VETO IS BOUNDED BY A SEARCH POLICY — say it out loud, because it
+//! used to be implicit.** The outcome is `NoSupportFoundBy { search, .. }`, and
+//! this lens probes under the default `RecoveryPolicy::DRIFT_AND_JUMP`, which
+//! presses **only** `side ∈ {0, -1, +1}` plus jump. A body that recovers by
+//! dash, blink, flight, wall verb, ledge grab or a recovery attack is **not**
+//! explored, so a negative here means *"this steering policy found nothing
+//! within this horizon"* — ⛔ never *"this body cannot get back."*
+//!
+//! ⭐ that is sound for the SHIPPED fighter, which owns neither dash nor blink,
+//! and it is the first thing to re-check the day a fighter gains one. Read the
+//! bound off the value with `RecoveryOutlook::bounded_by()` rather than assuming
+//! it; a positive returns `None`, because finding a route proves one exists
+//! while failing to find one is only ever a claim about the searcher.
 //!
 //! ## What the lowering claims, and what it therefore cannot see
 //!

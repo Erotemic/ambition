@@ -111,6 +111,27 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "scope.session",
     );
+    // ⚠ **RESIDENCY IS DERIVED, the SCOPES above are not.** `InCustodyOf` is a
+    // pure projection of `ItemCustody` (registered as `item.item_custody`, with
+    // its holder handle remapped): `project_custody_onto_residency` recomputes
+    // the whole thing every tick from live state, with no "already applied"
+    // gate, so a rewind that restores custody restores residency with it on the
+    // next step. It is declared rather than registered because snapshotting it
+    // would be storing an answer the sim recomputes anyway — and left
+    // undeclared it is exactly the behaviour-gating component the coverage
+    // census exists to catch.
+    //
+    // ⛔ **deliberately NOT `declare_rollback_derived_component_state`**, which
+    // would demand a `SnapshotState` value projection. The only value here is an
+    // entity HANDLE, and hashing a raw handle is the determinism hazard
+    // `item.item_custody` already answers properly — its `_entity_set` probe
+    // measures the same holder through that body's stable `SimId`. A second,
+    // WORSE projection of the same fact is not more coverage.
+    app.declare_rollback_derived_component::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(
+        OWNER,
+        "derived.custody_residency",
+        "room residency reprojected from ItemCustody every tick",
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

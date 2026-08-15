@@ -56,7 +56,7 @@ pub enum LifecycleIntent {
     Replay,
     /// Reconstruction: transition into `target_room` (its authored id), placing
     /// the TRIGGERING body at `arrival`. `edge_exit` selects the transition
-    /// cooldown/feel, mirroring `commit_room_transition_geometry`.
+    /// cooldown/feel, mirroring `RoomTransitionApplication::apply`.
     ///
     /// `subject` is the rollback-stable [`SimId`] of the body that actually
     /// crossed the exit — NOT re-resolved from live control at commit time,
@@ -94,7 +94,7 @@ pub struct RoomTransitionIntent {
     /// Where in it the subject comes out.
     pub arrival: Vec2,
     /// Selects the transition cooldown/feel, mirroring
-    /// `commit_room_transition_geometry`. An `EdgeExit` crossing feels different
+    /// `RoomTransitionApplication::apply`. An `EdgeExit` crossing feels different
     /// from a door, and the zone that knew which is long out of reach by commit.
     pub edge_exit: bool,
     /// The door / portal cue this crossing owes, resolved from the zone's

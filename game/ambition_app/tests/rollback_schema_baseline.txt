@@ -144,6 +144,7 @@ derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity carrying Brain::Player for the active slot
+derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
 derived.encounter_progress	derived	EncounterProgress	recomputed from lifecycle and participant health every tick
 derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature + SwitchOn components each frame
 derived.encounter_view	derived	EncounterView	presentation-intent read model republished each tick

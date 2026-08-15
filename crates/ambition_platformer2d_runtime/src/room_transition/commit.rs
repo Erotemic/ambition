@@ -12,7 +12,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
-use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
 use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest;
@@ -161,12 +161,13 @@ pub struct RoomTransitionApplication<'w, 's> {
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
     conversation:
         ResMut<'w, ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
-    room_visuals: Query<
-        'w,
-        's,
-        (Entity, Option<&'static physics::PhysicsRoomEntity>),
-        With<RoomScopedEntity>,
-    >,
+    // ⭐ **RESIDENTS, not merely room-scoped.** An object a body is carrying is
+    // scoped to a room and resident in none — it crosses with whoever holds it —
+    // so it is not part of what the room being left retires. The distinction is
+    // spelled once, on `RoomResident`; this operation still knows nothing about
+    // items, inventories, or who the player is.
+    room_visuals:
+        Query<'w, 's, (Entity, Option<&'static physics::PhysicsRoomEntity>), RoomResident>,
     tuning: Res<'w, ae::ActiveMovementTuning>,
     feel: Res<'w, Platformer2dFeelTuningMonolith>,
     carryover: RoomTransitionCombatReset<'w, 's>,

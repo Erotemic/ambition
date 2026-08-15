@@ -22,6 +22,45 @@ use bevy::prelude::*;
 #[derive(Component, Default)]
 pub struct RoomScopedEntity;
 
+/// **RESIDENCY, SUSPENDED: this entity is in another entity's CUSTODY.**
+///
+/// A room-scoped entity is normally *resident* in the active room, and a room
+/// CHANGE retires everything resident in the room it is leaving. An object a
+/// body is CARRYING is not in the room — it is in the body, and it crosses the
+/// boundary with whoever carries it. Its residency is therefore its holder's,
+/// which is the whole of what custody means.
+///
+/// ⛔ **the LIFETIME is unchanged, and that is deliberate.** The entity keeps
+/// [`RoomScopedEntity`]; the marker is never taken away, so no query that
+/// requires the scope silently loses sight of it and the sandbox reset — which
+/// destroys the world a resident belongs to *and* empties the hand that holds
+/// this — still sweeps it. What is suspended is RESIDENCY, and only for the
+/// sweep a room CHANGE runs ([`RoomResident`]). Retracting the suspension is a
+/// RESET to the default (resident), never a retraction of the scope itself.
+///
+/// ⭐ **and residency resumes in whatever room is active then.**
+/// [`RoomScopedEntity`] carries no room id — the sweep is presence-driven
+/// against the room being left — so an object released from custody two rooms
+/// later is resident in THAT room, and the next transition out of it retires
+/// the object correctly. Nothing has to remember where it came from.
+///
+/// ⚠ **body-generic, and item-free vocabulary.** `0` is whatever entity took
+/// custody: a couch seat, a possessed actor, an NPC. Nothing that reads this
+/// knows items exist, which is the point — a room transition must not learn
+/// about an inventory entourage in order to stop destroying one.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InCustodyOf(pub Entity);
+
+/// **THE roster a room CHANGE retires**: scoped to the room, and actually
+/// resident in it.
+///
+/// Spelled once, here, because the alternative is each host repeating
+/// `With<RoomScopedEntity>` and only some of them learning about
+/// [`InCustodyOf`] — the classic fork where two sweeps disagree about who lives
+/// in the room. ⛔ the sandbox reset deliberately does NOT use this: a reset
+/// destroys the world its residents live in, hands included.
+pub type RoomResident = (With<RoomScopedEntity>, Without<InCustodyOf>);
+
 /// Marker for a RENDERED room-scoped entity — a visual the presentation layer
 /// draws/syncs for the current room. Presentation systems query `With<RoomVisual>`
 /// to filter to the active room's rendered entities; the required

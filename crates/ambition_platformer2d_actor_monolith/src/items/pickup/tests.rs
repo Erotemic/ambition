@@ -892,3 +892,129 @@ fn held_shot_aim_resolves_screen_input_through_the_controlled_body_frame() {
     assert_eq!(down_frame.to_world(down_local), ae::Vec2::new(0.0, -1.0));
     assert_eq!(left_frame.to_world(left_local), ae::Vec2::new(0.0, -1.0));
 }
+
+// ---------------------------------------------------------------------------
+// RESIDENCY FOLLOWS CUSTODY — see `project_custody_onto_residency`.
+//
+// The behavioural proof (an authored item carried through a REAL room
+// transition) is `game/ambition_app/tests/carried_item_crosses_rooms.rs`. These
+// pin the projection's three answers, including the two the app test cannot
+// reach: a room-fixture holder, and a holder that no longer exists.
+
+/// A ground item, room-scoped exactly as construction spawns one.
+fn room_scoped_item(app: &mut App, pos: Vec2) -> Entity {
+    app.world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos,
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(18.0),
+            },
+            ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity,
+        ))
+        .id()
+}
+
+fn residency_app() -> App {
+    let mut app = App::new();
+    app.add_systems(Update, project_custody_onto_residency);
+    app
+}
+
+fn is_resident(app: &App, item: Entity) -> bool {
+    app.world()
+        .get::<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>(item)
+        .is_none()
+}
+
+/// **The invariant, both terms.** An object in a travelling body's custody is
+/// NOT a resident of the room, and the moment custody returns it to the world it
+/// IS one again — while never losing the room SCOPE that a reset sweeps on.
+///
+/// ⚠ the second half is the poison for "just drop the marker on pickup": an item
+/// that stopped being resident and never came back would pass a test that only
+/// looked at the first half, and would then be immortal.
+#[test]
+fn custody_suspends_and_restores_room_residency() {
+    let mut app = residency_app();
+    // A travelling body: the home avatar carries no room scope (possession
+    // promotes a body it takes over into the same state).
+    let carrier = app.world_mut().spawn_empty().id();
+    let item = room_scoped_item(&mut app, Vec2::ZERO);
+
+    app.update();
+    assert!(
+        is_resident(&app, item),
+        "an item lying in the room is a resident of it"
+    );
+
+    *app.world_mut().get_mut::<ItemCustody>(item).unwrap() = ItemCustody::Held { holder: carrier };
+    app.update();
+    assert!(
+        !is_resident(&app, item),
+        "an object in a travelling body's custody is not resident in the room it \
+         was picked up in — this is what stops the room it leaves from retiring it",
+    );
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>(item)
+            .is_some(),
+        "and it KEEPS the room scope: residency is suspended, the lifetime is not \
+         retracted, so a sandbox reset still destroys it",
+    );
+
+    *app.world_mut().get_mut::<ItemCustody>(item).unwrap() = ItemCustody::InWorld;
+    app.update();
+    assert!(
+        is_resident(&app, item),
+        "dropped back into the world it is a resident again — of whatever room is \
+         active now, because room residency carries no room id",
+    );
+}
+
+/// **A ROOM FIXTURE's hand is still the room.** An unpossessed NPC carries
+/// `RoomScopedEntity`; the object it holds dies with the room exactly as the NPC
+/// does. Nothing here asks whether a holder is the player — it asks where the
+/// holder lives.
+#[test]
+fn an_item_held_by_a_room_fixture_stays_resident() {
+    let mut app = residency_app();
+    let npc = app
+        .world_mut()
+        .spawn(ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity)
+        .id();
+    let item = room_scoped_item(&mut app, Vec2::ZERO);
+    *app.world_mut().get_mut::<ItemCustody>(item).unwrap() = ItemCustody::Held { holder: npc };
+
+    app.update();
+
+    assert!(
+        is_resident(&app, item),
+        "an object in the custody of a body that is itself a fixture of this room \
+         is still the room's to retire",
+    );
+}
+
+/// **A holder that no longer EXISTS confers no residency.** `ItemCustody` keeps
+/// naming a dead body on purpose (the death drop owns that question), and an
+/// orphan that also escaped every room sweep would leak for the rest of the
+/// process — the exact hazard of expressing "not here" by removing a scope.
+#[test]
+fn an_item_whose_holder_is_gone_is_the_rooms_again() {
+    let mut app = residency_app();
+    let carrier = app.world_mut().spawn_empty().id();
+    let item = room_scoped_item(&mut app, Vec2::ZERO);
+    *app.world_mut().get_mut::<ItemCustody>(item).unwrap() = ItemCustody::Held { holder: carrier };
+    app.update();
+    assert!(!is_resident(&app, item), "carried while the holder lives");
+
+    app.world_mut().entity_mut(carrier).despawn();
+    app.update();
+
+    assert!(
+        is_resident(&app, item),
+        "the holder is gone, so the object is a thing in the room again and the \
+         room can retire it — it does not outlive every sweep in the engine",
+    );
+}

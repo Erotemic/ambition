@@ -193,6 +193,33 @@ impl ActorNameplateSettings {
     }
 }
 
+/// **ONE SET OF PLATES PER VIEW.**
+///
+/// ⛔⛔ **WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
+/// ROOM.** The policy ranks every candidate by distance to the camera's focus,
+/// draws the nearest few, fades the next and hides the rest — so two views
+/// looking at opposite ends of one room legitimately want two disjoint sets of
+/// plates, at two different opacities, anchored by two different rankings. One
+/// entity per labelled source could not express that; a second view would have
+/// silently re-ranked the first view's plates out from under it.
+///
+/// ⭐ **so the plates are keyed by view, and a second view is a COUNT.** A
+/// one-view game builds exactly the plates it built before — same candidates,
+/// same ranking, same anchors, same entity per visible source.
+///
+/// ⚠ **what is duplicated is the PLATE, never the thing it names.** The
+/// `NameplateIndex` row and the `DoorNameplateSource` on a room visual stay
+/// singular — one authoritative source, N projections of it. Two views produce
+/// two pictures of one door, never two doors.
+///
+/// ⛔ **AND THE `Vec2::ZERO` FOCUS IS GONE.** The focus used to come from a
+/// lookup that refuses to answer when several main cameras exist, falling back to
+/// the WORLD ORIGIN — so the first composition to add a second camera would have
+/// ranked every plate in the game by its distance to the origin and looked
+/// merely odd. Silently drawing at the origin is strictly worse than declining:
+/// iterating views means every iteration holds a real `CameraViewState`, there is
+/// no branch left in which a focus is invented, and a session with NO view
+/// retires its plates rather than inventing a focus to rank them by.
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
@@ -204,9 +231,11 @@ pub fn sync_actor_nameplates(
     active_metadata: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
     >,
-    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
-    // a process-global that with two views could not say whose framing this is.
-    camera: ambition_sim_view::PresentedViewState,
+    // ⭐ **THE VIEWS THEMSELVES** (D116 M2), not "the presented view". A draw
+    // system owes every view a picture, so it iterates them; `PresentedViewState`
+    // answers the different question of which single view one camera shows, and
+    // refuses when there are several.
+    views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
     // liveness / controlled-body facts per actor id. Doors stay render-side
     // sources below.
@@ -214,7 +243,12 @@ pub fn sync_actor_nameplates(
     ui_fonts: Option<Res<UiFonts>>,
     mut nameplate_queries: ParamSet<(
         Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-        Query<(Entity, &ActorNameplateVisual, &mut WorldLabel)>,
+        Query<(
+            Entity,
+            &ActorNameplateVisual,
+            &ambition_sim_view::PresentedForView,
+            &mut WorldLabel,
+        )>,
     )>,
 ) {
     let Some(session_scope) =
@@ -224,7 +258,7 @@ pub fn sync_actor_nameplates(
     };
     if !settings.enabled {
         let mut nameplates = nameplate_queries.p1();
-        for (_, _, mut label) in nameplates.iter_mut() {
+        for (_, _, _, mut label) in nameplates.iter_mut() {
             label.owner_opacity = 0.0;
         }
         return;
@@ -235,54 +269,79 @@ pub fn sync_actor_nameplates(
             .as_deref()
             .map(|active| &active.0.nameplate_policy),
     );
-    let focus_world = camera
-        .get()
-        .map_or(ae::Vec2::ZERO, |camera| camera.target_world);
+
+    // Every id that HAS a source this frame, across all views. It is what
+    // separates "this plate's owner went away" (despawn it) from "this view
+    // ranked it out" (hide it), and neither of those is a per-view question.
     let mut source_ids = HashSet::new();
-    let mut candidates = Vec::new();
-
     if let Some(index) = nameplate_index.as_deref() {
-        collect_actor_candidates(
-            &settings,
-            index,
-            focus_world,
-            &mut source_ids,
-            &mut candidates,
-        );
+        for (id, _) in index.iter() {
+            source_ids.insert(id.to_string());
+        }
     }
-    {
+    // Doors, snapshotted ONCE: every view needs them, and the `ParamSet` lends
+    // out one of its queries at a time.
+    let doors: Vec<DoorNameplateSource> = {
         let door_sources = nameplate_queries.p0();
-        collect_door_candidates(
-            &settings,
-            focus_world,
-            &door_sources,
-            &mut source_ids,
-            &mut candidates,
+        let mut doors = Vec::new();
+        for (_entity, source, visibility) in door_sources.iter() {
+            source_ids.insert(source.id.clone());
+            if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
+                continue;
+            }
+            if source.label.trim().is_empty() {
+                continue;
+            }
+            doors.push(source.clone());
+        }
+        doors
+    };
+
+    // What each view wants on screen, ranked against ITS OWN focus.
+    let mut wanted: HashMap<Entity, HashMap<String, NameplateCandidate>> = HashMap::new();
+    for (view_entity, view_state) in &views {
+        let focus_world = view_state.target_world;
+        let mut candidates = Vec::new();
+        if let Some(index) = nameplate_index.as_deref() {
+            collect_actor_candidates(&settings, index, focus_world, &mut candidates);
+        }
+        collect_door_candidates(&settings, focus_world, &doors, &mut candidates);
+
+        candidates.sort_by(|a, b| {
+            a.distance_sq
+                .total_cmp(&b.distance_sq)
+                .then_with(|| a.label.cmp(&b.label))
+        });
+        apply_rank_opacity(rank_policy, &mut candidates);
+
+        wanted.insert(
+            view_entity,
+            candidates
+                .into_iter()
+                .take(rank_policy.fade_out_count)
+                .map(|candidate| (candidate.owner_id.clone(), candidate))
+                .collect(),
         );
     }
-
-    candidates.sort_by(|a, b| {
-        a.distance_sq
-            .total_cmp(&b.distance_sq)
-            .then_with(|| a.label.cmp(&b.label))
-    });
-    apply_rank_opacity(rank_policy, &mut candidates);
-
-    let visible_candidates: HashMap<String, NameplateCandidate> = candidates
-        .into_iter()
-        .take(rank_policy.fade_out_count)
-        .map(|candidate| (candidate.owner_id.clone(), candidate))
-        .collect();
 
     // This system publishes each plate's WANTED anchor and opacity; the shared
     // placement pass (`label_layout`) owns the transform, visibility and
     // colour, because a plate has to be ranked against authored signage and
     // door plates too — not only against other actor plates (AC12).
-    let mut existing_visible = HashSet::new();
+    let mut existing_visible: HashSet<(Entity, String)> = HashSet::new();
     {
         let mut nameplates = nameplate_queries.p1();
-        for (entity, plate, mut label) in &mut nameplates {
-            if let Some(candidate) = visible_candidates.get(&plate.owner_id) {
+        for (entity, plate, key, mut label) in &mut nameplates {
+            let Some(view_wanted) = wanted.get(&key.0) else {
+                // ⛔ **THE VIEW IS GONE, SO ITS PLATES GO WITH IT — despawned as
+                // a SET.** Clearing the key instead would leave a plate that
+                // still draws while falling out of every query that selects by
+                // view, and the test asserting the key was gone would agree with
+                // the bug.
+                commands.entity(entity).despawn();
+                continue;
+            };
+            if let Some(candidate) = view_wanted.get(&plate.owner_id) {
                 if plate.label != candidate.label {
                     // Name changes are rare. Rebuild the small text subtree so
                     // the root and outline children stay identical without
@@ -290,7 +349,7 @@ pub fn sync_actor_nameplates(
                     commands.entity(entity).despawn();
                     continue;
                 }
-                existing_visible.insert(plate.owner_id.clone());
+                existing_visible.insert((key.0, plate.owner_id.clone()));
                 label.family = candidate.family;
                 label.anchor = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
                 label.owner_opacity = candidate.opacity;
@@ -305,8 +364,11 @@ pub fn sync_actor_nameplates(
     }
 
     let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
-    for candidate in visible_candidates.values() {
-        if !existing_visible.contains(candidate.owner_id.as_str()) {
+    for (view_entity, view_wanted) in &wanted {
+        for candidate in view_wanted.values() {
+            if existing_visible.contains(&(*view_entity, candidate.owner_id.clone())) {
+                continue;
+            }
             spawn_actor_nameplate(
                 &mut commands,
                 session_scope,
@@ -314,6 +376,7 @@ pub fn sync_actor_nameplates(
                 &settings,
                 &font,
                 candidate,
+                *view_entity,
             );
         }
     }
@@ -323,11 +386,9 @@ fn collect_actor_candidates(
     settings: &ActorNameplateSettings,
     index: &NameplateIndex,
     focus_world: ae::Vec2,
-    source_ids: &mut HashSet<String>,
     candidates: &mut Vec<NameplateCandidate>,
 ) {
     for (id, fact) in index.iter() {
-        source_ids.insert(id.to_string());
         // The controlled subject's own plate is suppressed (the body the
         // local player is driving) — resolved sim-side into the fact.
         if fact.controlled {
@@ -349,19 +410,10 @@ fn collect_actor_candidates(
 fn collect_door_candidates(
     settings: &ActorNameplateSettings,
     focus_world: ae::Vec2,
-    door_sources: &Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-    source_ids: &mut HashSet<String>,
+    doors: &[DoorNameplateSource],
     candidates: &mut Vec<NameplateCandidate>,
 ) {
-    for (_entity, source, visibility) in door_sources.iter() {
-        source_ids.insert(source.id.clone());
-        if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
-            continue;
-        }
-        if source.label.trim().is_empty() {
-            continue;
-        }
-
+    for source in doors {
         push_candidate_if_in_range(
             settings,
             focus_world,
@@ -438,6 +490,17 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
         })
 }
 
+/// Build one plate, for ONE view.
+///
+/// ⛔ **it carries no `Name`, and that is deliberate.** `entity.name` is
+/// registered for rollback, and the coverage contract derives its swept
+/// population from *"an entity carrying even one type the rollback knows about
+/// participates in rollback"* — so a debug label here would enlist every plate of
+/// every view in the sim sweep. That has already happened once to the view entity
+/// itself, where the ease state was immediately reported as an unrewound desync
+/// risk. `ActorNameplateVisual::owner_id` plus `PresentedForView` is the
+/// identity; the label is not worth the enlistment.
+#[allow(clippy::too_many_arguments)]
 fn spawn_actor_nameplate(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -445,6 +508,7 @@ fn spawn_actor_nameplate(
     settings: &ActorNameplateSettings,
     font: &TextFont,
     candidate: &NameplateCandidate,
+    view: Entity,
 ) {
     let text = candidate.label.clone();
     let outline_offsets = outline_offsets(settings.outline_offset_px);
@@ -476,7 +540,7 @@ fn spawn_actor_nameplate(
                     label
                 },
                 RoomVisual,
-                Name::new(format!("Nameplate: {text}")),
+                ambition_sim_view::PresentedForView(view),
             ),
         )
         .with_children(|parent| {
@@ -487,7 +551,6 @@ fn spawn_actor_nameplate(
                     TextColor(outline_color),
                     Transform::from_xyz(offset.x, offset.y, -0.1),
                     ActorNameplateOutlineVisual,
-                    Name::new("Nameplate outline"),
                 ));
             }
         });
@@ -550,5 +613,202 @@ mod tests {
     fn anchor_sits_above_source_in_y_down_world_space() {
         let anchor = nameplate_anchor(ae::Vec2::new(20.0, 100.0), ae::Vec2::new(30.0, 40.0), 10.0);
         assert_eq!(anchor, ae::Vec2::new(20.0, 70.0));
+    }
+
+    /// **TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO SETS OF PLATES.**
+    ///
+    /// ⚠ **the two-view split below is a FIXTURE, not a policy.** It is the
+    /// smallest world that can tell a per-view projection from a shared one. It
+    /// does not say Ambition is split-screen, and it does not choose between the
+    /// shared, fixed-split and adaptive layouts — that is the maintainer's call
+    /// and is open.
+    mod two_views_one_room_tests {
+        use super::*;
+        use ambition_sim_view::{CameraViewState, LocalView, LocalViewId, PresentedForView};
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        const NEAR_FIRST: ae::Vec2 = ae::Vec2::new(100.0, 300.0);
+        const NEAR_SECOND: ae::Vec2 = ae::Vec2::new(700.0, 300.0);
+
+        fn room() -> ae::RoomGeometry {
+            ae::RoomGeometry(ae::World::new(
+                "two views",
+                ae::Vec2::new(800.0, 600.0),
+                ae::Vec2::new(50.0, 50.0),
+                Vec::new(),
+            ))
+        }
+
+        /// ⭐ **ONE door entity per door.** The authoritative object stays
+        /// singular; what the views get is one PROJECTION of it each.
+        fn spawn_door(world: &mut World, id: &str, center: ae::Vec2) {
+            world.spawn(DoorNameplateSource::new(
+                id,
+                id,
+                ae::aabb_from_min_size(center - ae::Vec2::splat(20.0), ae::Vec2::splat(40.0)),
+            ));
+        }
+
+        fn spawn_view(world: &mut World, id: u8, target_world: ae::Vec2) -> Entity {
+            world
+                .spawn((
+                    LocalView,
+                    LocalViewId(id),
+                    CameraViewState {
+                        target_world,
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        }
+
+        /// Run the sync and read back, per view in spawn order, the opacity each
+        /// door's plate was given.
+        fn plate_opacities(first_target: ae::Vec2, second_target: ae::Vec2) -> [[f32; 2]; 2] {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                &mut world,
+                room(),
+            );
+            // One plate at full opacity, the next at exactly zero: the sharpest
+            // ranking this policy can express, so the assertion is on values a
+            // reader can derive rather than on a fade curve.
+            world.insert_resource(ActorNameplateSettings {
+                full_opacity_count: 1,
+                fade_out_count: 2,
+                ..Default::default()
+            });
+            spawn_door(&mut world, "first", NEAR_FIRST);
+            spawn_door(&mut world, "second", NEAR_SECOND);
+            let views = [
+                spawn_view(&mut world, 0, first_target),
+                spawn_view(&mut world, 1, second_target),
+            ];
+
+            world.run_system_once(sync_actor_nameplates).expect(
+                "sync_actor_nameplates should run: the fixture provides the session \
+                 world and the settings it reads",
+            );
+
+            let mut plates =
+                world.query::<(&ActorNameplateVisual, &PresentedForView, &WorldLabel)>();
+            let rows: Vec<(Entity, String, f32)> = plates
+                .iter(&world)
+                .map(|(plate, key, label)| (key.0, plate.owner_id.clone(), label.owner_opacity))
+                .collect();
+            assert_eq!(
+                rows.len(),
+                4,
+                "two views owe two plates each — one projection of each door per \
+                 view. Getting 2 means both views are still sharing one set, which \
+                 is the defect: one entity cannot hold two views' rankings"
+            );
+
+            views.map(|view| {
+                ["first", "second"].map(|id| {
+                    rows.iter()
+                        .find(|(plate_view, owner, _)| *plate_view == view && owner.as_str() == id)
+                        .unwrap_or_else(|| panic!("view {view:?} has no plate for door {id}"))
+                        .2
+                })
+            })
+        }
+
+        /// **⛔⛔ EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.**
+        ///
+        /// The policy draws the nearest few plates and fades the rest, ranked by
+        /// distance to the camera's focus — so two views at opposite ends of one
+        /// room want opposite answers. The focus used to come from a lookup that
+        /// refuses when several main cameras exist and then fell back to
+        /// `Vec2::ZERO`, which would have ranked every plate in the game by its
+        /// distance to the world origin: plausible-looking, and ordered by
+        /// nothing.
+        ///
+        /// ⭐ **the assertion is on VALUES, not on inequality.** "the two views
+        /// differ" would pass for a pair that differ and are both wrong. Each view
+        /// is checked against the opacity the rank policy gives the door it is
+        /// actually looking at.
+        ///
+        /// ⚠ **and the falsifier is inside the test.** The second run swaps only
+        /// the two views' camera targets — same doors, same spawn order, same
+        /// settings — and the two answers must swap with them. A sync that keys
+        /// off view or door iteration order passes the first run and fails this.
+        #[test]
+        fn each_view_ranks_the_room_against_its_own_focus() {
+            let looking_at_first = [1.0, 0.0];
+            let looking_at_second = [0.0, 1.0];
+            assert_ne!(
+                looking_at_first, looking_at_second,
+                "the fixture must give the two views genuinely different rankings, \
+                 or nothing below can tell a per-view sync from a shared one"
+            );
+
+            assert_eq!(
+                plate_opacities(NEAR_FIRST, NEAR_SECOND),
+                [looking_at_first, looking_at_second],
+                "each view must rank the room against ITS OWN focus; one ranking \
+                 written over both views' plates is the process-global this \
+                 milestone deleted"
+            );
+
+            assert_eq!(
+                plate_opacities(NEAR_SECOND, NEAR_FIRST),
+                [looking_at_second, looking_at_first],
+                "swapping only the two camera targets must swap the two rankings. It \
+                 did not, so the ranking follows iteration order and the assertion \
+                 above was passing for the wrong reason"
+            );
+        }
+
+        /// **⛔ A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.**
+        ///
+        /// Retiring the second projection has to be as ordinary as creating it,
+        /// because that is what an adaptive layout does while the room stays
+        /// loaded. Clearing the key instead would leave a `Text2d` the renderer
+        /// still draws while it falls out of every query that selects by view —
+        /// and the test asserting the key was gone would agree with the bug.
+        #[test]
+        fn a_retired_view_takes_its_plates_with_it() {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                &mut world,
+                room(),
+            );
+            world.insert_resource(ActorNameplateSettings {
+                full_opacity_count: 1,
+                fade_out_count: 2,
+                ..Default::default()
+            });
+            spawn_door(&mut world, "first", NEAR_FIRST);
+            spawn_door(&mut world, "second", NEAR_SECOND);
+            let first = spawn_view(&mut world, 0, NEAR_FIRST);
+            let second = spawn_view(&mut world, 1, NEAR_SECOND);
+
+            fn plate_views(world: &mut World) -> Vec<Entity> {
+                let mut query = world.query::<(&ActorNameplateVisual, &PresentedForView)>();
+                let mut found: Vec<Entity> = query.iter(world).map(|(_, key)| key.0).collect();
+                found.sort();
+                found
+            }
+
+            world
+                .run_system_once(sync_actor_nameplates)
+                .expect("the nameplate sync runs");
+            let mut both = vec![first, first, second, second];
+            both.sort();
+            assert_eq!(plate_views(&mut world), both, "each view owes two plates");
+
+            world.despawn(second);
+            world
+                .run_system_once(sync_actor_nameplates)
+                .expect("the nameplate sync runs");
+            assert_eq!(
+                plate_views(&mut world),
+                vec![first, first],
+                "retiring a view must despawn its plates as a SET. A plate whose \
+                 view is gone is drawn by the renderer and reachable by no per-view \
+                 query, so nothing would ever place, fade or retire it again"
+            );
+        }
     }
 }

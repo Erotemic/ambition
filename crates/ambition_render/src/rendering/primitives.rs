@@ -244,6 +244,12 @@ pub(super) fn spawn_world_label(
             RoomVisual,
             super::label_layout::WorldLabel::new(owner_id, family, anchor)
                 .with_colors(WORLD_LABEL_COLOR, None),
+            // Room load has no view in scope — it runs once for a room, not once
+            // per observer — so this label is spawned unkeyed and
+            // `mirror_static_world_labels_per_view` gives it to the lowest-id
+            // view and copies it to the rest. In a one-view game that is exactly
+            // this entity and nothing else.
+            super::label_layout::StaticWorldLabel,
         ),
     );
 }

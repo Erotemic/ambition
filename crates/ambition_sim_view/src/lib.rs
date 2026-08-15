@@ -53,7 +53,8 @@ pub use camera_snapshot::{CameraViewState, PresentedViewState};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use local_view::{
-    spawn_local_view, the_only_view, LocalView, LocalViewId, PresentsView, ViewsOnHand,
+    spawn_local_view, the_only_view, LocalView, LocalViewId, PresentedForView, PresentsView,
+    ViewsOnHand,
 };
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,

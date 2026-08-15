@@ -96,6 +96,63 @@ pub fn the_only_view(world: &mut bevy::prelude::World) -> Entity {
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PresentsView(pub Entity);
 
+/// **WHICH VIEW A DRAWN PRESENTATION ENTITY WAS BUILT FOR** — the other end of
+/// [`PresentsView`].
+///
+/// `PresentsView` is on a CAMERA and names the view it shows. This is on a
+/// world-space entity a draw system BUILDS, and names the view whose framing
+/// produced its transform.
+///
+/// ⛔ **it exists because one entity cannot hold two views' transforms, and no
+/// amount of naming fixes that.** A nameplate is ranked against its view's focus
+/// and faded against the bodies that view is watching; a second view wants a
+/// different rank, a different fade and therefore a different `Transform` for
+/// the same label. There is no value a single shared entity could hold that is
+/// right for both — so each view owns its own copy, and this is the key that
+/// says whose it is.
+///
+/// # ⭐ ONE AUTHORITATIVE SOURCE, N PROJECTIONS OF IT
+///
+/// ```text
+/// actor / world object / authored label   ← SINGULAR, always
+///         ├── projection for view A  → its own entity, transform, layout
+///         └── projection for view B  → its own entity, transform, layout
+/// ```
+///
+/// ⛔⛔ **what is duplicated is the view-dependent PRESENTATION, never the
+/// authoritative object.** The simulation body, the `NameplateIndex` row, the
+/// `DoorNameplateSource` on a room visual and the room's authored label list all
+/// stay singular; two views produce two projections OF them. Duplicating
+/// anything another system treats as the source of truth would be the defect
+/// this shape exists to avoid — two bodies, not two pictures of one body.
+///
+/// # ⛔ IT IS A RELATIONSHIP, NOT AN ISOLATION MECHANISM
+///
+/// This says only *"this presentation belongs to that view"*. **How** the
+/// renderer keeps one view's projections out of another view's picture — render
+/// layers, camera assignment, draw order — is the render side's business and
+/// must stay behind this relationship. In particular [`LocalViewId`] is an
+/// identity ordinal and is **not** a `RenderLayers` bit: binding them would make
+/// a semantic fact ("which observer is this") mean a GPU visibility mask, and
+/// then the number of views a session can have would be a property of the
+/// renderer.
+///
+/// ⚠ **a copy is retracted by DESPAWNING it, never by clearing this key.** An
+/// entity that keeps its `Text2d` and loses its view falls out of every query
+/// that requires the key while still being drawn by the renderer, and a test
+/// asserting the key is absent would agree with the bug. The one exception is a
+/// population's ROOT, which is RE-KEYED onto a surviving view — a reset, not a
+/// removal.
+///
+/// ⛔ **and, like the view itself, it never travels with a `Name`.** `entity.name`
+/// is registered for rollback, and the coverage contract treats an entity
+/// carrying even one type the rollback knows about as participating in rollback.
+/// Labelling these copies would enlist a whole view's presentation set in the sim
+/// sweep, which is how the view entity itself was first reported as a desync
+/// risk.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PresentedForView(pub Entity);
+
 /// **THE CAMERA→VIEW BINDING RULE, WRITTEN ONCE.**
 ///
 /// Three places have to answer *"which view is this camera for"*: the follow
@@ -117,6 +174,13 @@ pub struct PresentsView(pub Entity);
 ///   "the gameplay view" that D116 M2 deleted.
 /// - no views at all is quiet: a headless or pre-composition host has nothing to
 ///   present and nothing to complain about.
+///
+/// ⭐ **and the same rule answers the DRAW side** ([`Self::drawn_for`]): a
+/// world-space presentation entity that names its view belongs to that one, an
+/// unkeyed one in a single-view composition belongs to the only view, and an
+/// unkeyed one with several views is refused. It is the identical question asked
+/// of the other end of the seam, so it is the identical answer — stated once
+/// here rather than re-derived in each draw system.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ViewsOnHand {
     first: Option<Entity>,
@@ -139,23 +203,65 @@ impl ViewsOnHand {
     /// there is no view at all, loudly when the link is missing and the answer
     /// would have to be a guess.
     pub fn presented_by(&self, link: Option<PresentsView>) -> Option<Entity> {
-        match link {
-            Some(PresentsView(view)) => Some(view),
-            None => {
-                let only = self.first?;
-                if self.several {
-                    bevy::log::error_once!(
-                        "several local views exist and a camera names none of them; \
-                         refusing to guess which one it presents. Bind `PresentsView` \
-                         where the camera is spawned."
-                    );
-                    return None;
-                }
-                Some(only)
+        match self.resolve(link.map(|PresentsView(view)| view)) {
+            Ok(view) => view,
+            Err(Ambiguous) => {
+                bevy::log::error_once!(
+                    "several local views exist and a camera names none of them; \
+                     refusing to guess which one it presents. Bind `PresentsView` \
+                     where the camera is spawned."
+                );
+                None
             }
         }
     }
+
+    /// The view a DRAWN world-space presentation entity belongs to — the same
+    /// rule, asked at the other end of the seam.
+    ///
+    /// ⚠ **the single-view branch is what keeps every existing composition
+    /// working.** Labels spawned before per-view keying existed — authored
+    /// signage, and the probes two demo tests spawn by hand — carry no
+    /// [`PresentedForView`], and in a one-view game the only view is the honest
+    /// answer for them, exactly as it is for an unlinked camera. With several
+    /// views it is refused instead, because "draw it for whichever view the
+    /// archetype yielded first" is the process-global this whole module deleted.
+    pub fn drawn_for(&self, key: Option<PresentedForView>) -> Option<Entity> {
+        match self.resolve(key.map(|PresentedForView(view)| view)) {
+            Ok(view) => view,
+            Err(Ambiguous) => {
+                bevy::log::error_once!(
+                    "several local views exist and a world-space presentation entity \
+                     names none of them; refusing to draw it for an arbitrary one. \
+                     Each view needs its own copy, keyed by `PresentedForView`."
+                );
+                None
+            }
+        }
+    }
+
+    /// The rule itself, with the complaint left to the caller so the two
+    /// `error_once!` sites stay distinct — one shared site would silence
+    /// whichever kind of ambiguity happened to occur second.
+    fn resolve(&self, named: Option<Entity>) -> Result<Option<Entity>, Ambiguous> {
+        if let Some(view) = named {
+            return Ok(Some(view));
+        }
+        // No views at all is quiet, and it is checked BEFORE ambiguity: a
+        // composition with nothing to present has nothing to be ambiguous about.
+        let Some(only) = self.first else {
+            return Ok(None);
+        };
+        if self.several {
+            return Err(Ambiguous);
+        }
+        Ok(Some(only))
+    }
 }
+
+/// Several views exist and nothing named one, so the rule has no answer that is
+/// not a guess.
+struct Ambiguous;
 
 /// Spawn one local view, with the components a camera resolve needs.
 ///

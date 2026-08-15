@@ -115,7 +115,18 @@ pub use features::UnclaimedBodyPlaceholder;
 pub use features::UnclaimedFeatureViews;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
-    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
+    layout_world_labels,
+    mirror_static_world_labels_per_view,
+    MirroredWorldLabel,
+    // ⚠ the MARKER is part of the seam, not an internal detail: a game that
+    // spawns its own static world text has to be able to say "one of these per
+    // view, please" — without it the mirror leaves the label as a single shared
+    // entity that a second view would fight over.
+    StaticWorldLabel,
+    WorldLabel,
+    WorldLabelFamily,
+    WorldLabelLayoutPlugin,
+    WorldLabelLayoutSet,
     WorldLabelLayoutSettings,
 };
 pub use nameplates::{

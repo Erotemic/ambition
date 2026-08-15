@@ -163,6 +163,37 @@ fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> S
     );
 }
 
+/// **THE SANDBOX RESET — the road that rebuilds the room.**
+///
+/// ⛔ **not `reset_episode()`, and the difference is the whole reason this helper
+/// exists.** `reset_episode` presses `ControlFrame::reset_pressed`, which
+/// `apply_player_reset_input_system` turns into `reset_sandbox` plus a
+/// `ResetRoomFeaturesEvent`: the body returns to spawn and the room's FEATURE
+/// state is reset IN PLACE (collected pickups un-collected, actors re-posed,
+/// this-attempt loot despawned). It never sweeps `RoomScopedEntity`, never
+/// empties a hand, and never re-runs authored construction. A test that drives it
+/// and then asserts "the room was rebuilt" is measuring a road it did not take.
+///
+/// The reset this file's last test is about is `process_new_game_reset_request`:
+/// it sweeps `With<RoomScopedEntity>` (deliberately NOT `RoomResident`), commits
+/// a fresh start-room plan stating NO dispositions, and its paired
+/// `clear_transient_on_sandbox_reset` strips `HeldItem`. Requesting it by its own
+/// resource is the only way to execute those two.
+fn request_sandbox_reset(sim: &mut Platformer2dSimHarness) {
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::reset::NewGameResetRequested>()
+        .request();
+    // The harness contract for a `world_mut` mutation: a change GGRS input cannot
+    // reproduce may not sit behind the rollback cursor. A no-op when this fixture
+    // runs without rollback, which is the case here — stated anyway so the fixture
+    // can gain a sync-test session without silently going wrong.
+    sim.rebase_rollback_history()
+        .expect("the pending sandbox reset folds into the rollback baseline");
+    // One frame to run `ResetProcessing`, one to flush its deferred commands.
+    sim.step(base());
+    sim.step(base());
+}
+
 /// Pick the one authored ground item up with the pressed pickup, and answer with
 /// the body now holding it.
 fn pick_it_up(sim: &mut Platformer2dSimHarness, item: Entity) -> Entity {
@@ -333,7 +364,13 @@ fn an_item_carried_through_a_door_survives_and_belongs_to_the_room_it_is_dropped
 /// (the home avatar, or any body possession has taken over) carries its objects
 /// with it, and a body that is still a fixture of the room does not. This pins
 /// the half the room-crossing case cannot see — that the carried object is still
-/// room-SCOPED, so nothing has become immortal.
+/// room-SCOPED.
+///
+/// ⚠ **it pins the COMPONENT and stops there.** It used to go on to conclude
+/// that therefore "nothing has become immortal" — a claim about a SWEEP, from a
+/// test that runs no sweep. What actually collects a scoped object is asserted by
+/// executing the reset, in
+/// [`an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it`].
 #[test]
 fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -358,8 +395,10 @@ fn a_carried_object_keeps_the_room_lifetime_it_stopped_being_resident_in() {
             .get::<ambition_platformer2d::platformer::lifecycle::RoomScopedEntity>(item)
             .is_some(),
         "a carried object KEEPS its room scope — residency is suspended, the \
-         lifetime is not retracted, so every sweep that culls on the scope \
-         (the sandbox reset) still sees it",
+         lifetime is not retracted. ⚠ this reads the COMPONENT and infers \
+         nothing further: whether the sandbox reset's `With<RoomScopedEntity>` \
+         sweep actually collects it is a question only running that reset can \
+         answer, and the last test in this file runs it",
     );
     assert!(
         sim.world()
@@ -492,6 +531,13 @@ fn re_entering_a_room_does_not_re_author_a_placement_that_is_still_in_custody() 
 /// it — and a RESET rebuilds the room from its authored records even while
 /// something IS being carried, because a reset destroys the world those
 /// occurrences live in, hands included.
+///
+/// ⛔ **"a reset" here means the SANDBOX reset and only that** — see
+/// [`request_sandbox_reset`]. This test first drove `reset_episode()`, which is a
+/// different product (reset the room's feature state and put the body back at
+/// spawn, in place) and correctly leaves a carried object alone; the failure that
+/// produced was the test naming a road it was not on, not the engine keeping an
+/// object it should have destroyed.
 #[test]
 fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
@@ -516,8 +562,8 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
     // purpose: it wipes the room AND the hand, so remembering "that one is
     // alive elsewhere" would rebuild the room permanently short of it.
     let (item, _) = authored_item(&mut sim);
-    pick_it_up(&mut sim, item);
-    sim.reset_episode();
+    let holder = pick_it_up(&mut sim, item);
+    request_sandbox_reset(&mut sim);
     for _ in 0..10 {
         sim.step(base());
     }
@@ -530,6 +576,18 @@ fn an_untouched_placement_is_authored_on_every_entry_and_a_reset_rebuilds_it() {
         sim.world().get_entity(item).is_err(),
         "a reset destroys a carried object: it never lost its room SCOPE, only \
          its residency"
+    );
+    // ⭐ AND THE HAND WENT WITH IT. Destroying the object while leaving a
+    // `HeldItem` pointing at the hole is the failure the reset's own comment
+    // argues against ("this same function empties the hand a few lines below"),
+    // and it is invisible to a count over `SimId`. Asked of THE carrier rather
+    // than of the world, because a rebuilt room may legitimately author other
+    // bodies with something in hand.
+    assert!(
+        sim.world()
+            .get::<ambition_platformer2d::actors::features::HeldItem>(holder)
+            .is_none(),
+        "the reset that destroyed the object also emptied the hand holding it"
     );
     assert_eq!(
         occurrences(&mut sim, &authored).len(),

@@ -497,6 +497,14 @@ impl Platformer2dSimHarness {
     /// existing reset machinery handles teardown of room transitions /
     /// hazards / encounters cleanly; an RL "episode reset" should
     /// usually go through this path rather than rebuilding the App.
+    ///
+    /// ⛔ **this is the IN-PLACE room reset, not a new game.** The host turns the
+    /// pressed edge into `reset_sandbox` plus a room-feature reset: the body
+    /// returns to spawn and the room's feature state is restored where it stands.
+    /// It does NOT sweep room-scoped entities, empty a hand, wipe the save, or
+    /// re-run authored room construction — that is `NewGameResetRequested`, a
+    /// different product, requested by its own resource. A test that drives this
+    /// and then asserts the room was rebuilt is measuring the wrong road.
     pub fn reset_episode(&mut self) -> AgentObservation {
         self.step(AgentAction::reset());
         self.step(AgentAction::default())

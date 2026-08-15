@@ -3,6 +3,7 @@
 //! Split out of the former 823-line `rooms/mod.rs` (2026-06-15); the
 //! parent re-exports every type so `rooms::*` paths are unchanged.
 
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use bevy_ecs::prelude::Resource;
 
 /// Portal lifecycle phase. A portal's traversal readiness lives in
@@ -189,8 +190,9 @@ impl GatePortalPhases {
 /// match in THIS file rather than in the netcode crate — the same argument
 /// `snapshot_impls` makes for this crate's wire codecs. The encoders are
 /// `ambition_platformer2d_core`'s, which this crate already depends on, so the
-/// move costs no dependency edge and the runtime keeps only the one generic
-/// registration call that names the type.
+/// move costs no dependency edge. ⭐ **and the registration followed it**: see
+/// [`register_gate_portal_rollback_state`] — the runtime no longer names this
+/// type at all.
 pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
     use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
 
@@ -215,6 +217,50 @@ pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
         }
     }
     checksum_bytes(&bytes)
+}
+
+/// The owner label on this domain's rollback registrations — **this crate**,
+/// because this crate now does the registering.
+///
+/// ⚠ `owner` is an organisational label: it is not in `schema_dump` and not
+/// hashed into the schema fingerprint (that is exactly why it left the wire form
+/// in schema v5), so moving the registration down here is a no-op for the
+/// recorded baseline. It IS matched by `missing_required_state`, which is why it
+/// is a named constant a `RequiredRollbackState` declaration can reuse verbatim.
+pub const GATE_PORTAL_ROLLBACK_OWNER: &str = "ambition_platformer2d_world";
+
+/// **Install the gate-portal domain's rollback state.**
+///
+/// ⭐ **this is the domain naming its own type.** It used to be one line in
+/// `ambition_platformer2d_runtime::rollback::register_engine_rollback_state`,
+/// on the argument that `bevy_ggrs` registration is generic over the concrete
+/// type and only the netcode crate may name `bevy_ggrs`. The first half is true
+/// and the second half is a boundary worth keeping — but neither implies the
+/// netcode crate must own the LIST. It takes a [`RollbackRegistrar`] and the
+/// host passes one in; the monomorphisation happens at the host's call
+/// site, and this crate stays `bevy_ggrs`-free (its whole path-dependency
+/// closure is seven crates, none of which names it).
+///
+/// ⛔⛔ **registered with a VALUE projection, not a presence probe.** The whole
+/// defect this closes is an INTEGRATOR running ahead of the input that drove it:
+/// a probe that saw only *which zones have a phase* would restore that phases
+/// exist, say nothing about `elapsed`, and pass while reproducing the bug. See
+/// [`gate_portal_phases_checksum`] for what is folded, and [`GatePortalPhases`]
+/// for why the timer is authoritative rather than a cache.
+///
+/// ⚠ **taken by `&mut impl`, not `&mut dyn`.** The registrar's methods are
+/// generic, so the trait is not object-safe by construction, and must not become
+/// so — see the trait's own note.
+pub fn register_gate_portal_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    registrar.rollback_resource_clone_checksum::<GatePortalPhases>(
+        GATE_PORTAL_ROLLBACK_OWNER,
+        "resource.gate_portal_phases",
+        "key-ordered phase/elapsed checksum projection",
+        gate_portal_phases_checksum,
+    );
 }
 
 /// 8 frames × 80ms = 640ms. Mirrors the `opening` row duration in
@@ -472,6 +518,92 @@ mod tests {
             gate_portal_phases_checksum(&forward),
             gate_portal_phases_checksum(&reversed),
             "the projection must sort its keys, not fold them in iteration order"
+        );
+    }
+
+    /// **A registrar that records what it was handed, and nothing else.**
+    ///
+    /// It has no rollback backend and no `App` — which is the point: the
+    /// registration this domain performs is expressible against the floor
+    /// vocabulary alone, so a test in THIS crate can watch it happen.
+    #[derive(Default)]
+    struct CapturingRegistrar {
+        calls: Vec<(&'static str, &'static str, &'static str, &'static str)>,
+        checksums: Vec<Box<dyn std::any::Any>>,
+    }
+
+    impl RollbackRegistrar for CapturingRegistrar {
+        fn rollback_resource_clone_checksum<T>(
+            &mut self,
+            owner: &'static str,
+            name: &'static str,
+            projection: &'static str,
+            checksum: for<'a> fn(&'a T) -> u64,
+        ) -> &mut Self
+        where
+            T: bevy_ecs::resource::Resource + Clone,
+        {
+            self.calls
+                .push((owner, name, projection, std::any::type_name::<T>()));
+            self.checksums.push(Box::new(checksum));
+            self
+        }
+    }
+
+    /// ⛔⛔ **the registration must hand over the VALUE projection, not a
+    /// presence probe.** `the_phase_projection_sees_the_elapsed_timer_and_the_variant`
+    /// proves the projection is value-sensitive; it says nothing about whether the
+    /// registration actually uses it. This closes that gap from the domain side —
+    /// the function under test is the whole registration, and the checksum it
+    /// registered is pulled back out and fed diverging states.
+    ///
+    /// ⚠ both terms are observed: the call is asserted to have happened at all
+    /// (an empty `calls` fails), AND the registered function is asserted to
+    /// separate two states that differ only in `elapsed`. A registration that
+    /// passed a presence-only projection fails the second assertion while
+    /// satisfying every coverage sweep — which is the exact defect
+    /// `resource.gate_portal_phases` was created to close.
+    #[test]
+    fn the_domain_registers_its_own_phase_state_with_the_value_projection() {
+        let mut registrar = CapturingRegistrar::default();
+        register_gate_portal_rollback_state(&mut registrar);
+
+        assert_eq!(
+            registrar.calls.len(),
+            1,
+            "the gate-portal domain registers exactly one piece of rollback state"
+        );
+        let (owner, name, projection, type_name) = registrar.calls[0];
+        assert_eq!(owner, GATE_PORTAL_ROLLBACK_OWNER);
+        assert_eq!(
+            name, "resource.gate_portal_phases",
+            "the recorded schema name is wire-visible and must not drift when the \
+             registration moves between crates"
+        );
+        assert_eq!(projection, "key-ordered phase/elapsed checksum projection");
+        assert!(
+            type_name.ends_with("GatePortalPhases"),
+            "registered the wrong type: {type_name}"
+        );
+
+        let registered = registrar.checksums[0]
+            .downcast_ref::<for<'a> fn(&'a GatePortalPhases) -> u64>()
+            .copied()
+            .expect("the registered checksum must project `GatePortalPhases` itself");
+
+        let dt = 1.0 / 60.0;
+        let ahead = phases_of(&[("gate.a", GatePortalPhase::Opening { elapsed: 4.0 * dt })]);
+        let behind = phases_of(&[("gate.a", GatePortalPhase::Opening { elapsed: 3.0 * dt })]);
+        assert_eq!(
+            registered(&ahead),
+            gate_portal_phases_checksum(&ahead),
+            "the registration must hand over this domain's own projection"
+        );
+        assert_ne!(
+            registered(&ahead),
+            registered(&behind),
+            "the REGISTERED projection must see the elapsed timer — a presence-only \
+             probe passes coverage while restoring nothing of the value"
         );
     }
 

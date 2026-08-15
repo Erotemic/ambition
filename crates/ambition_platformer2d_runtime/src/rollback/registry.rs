@@ -621,12 +621,70 @@ fn descriptor<T: 'static>(
     kind: RollbackEntryKind,
     detail: &'static str,
 ) -> RollbackRegistrationDescriptor {
+    descriptor_owned::<T>(owner, name, kind, detail.to_string())
+}
+
+/// [`descriptor`] for a detail this crate COMPOSES rather than quotes.
+///
+/// The recorded `detail` is two halves: how the value is stored (the backend's
+/// half — "bevy_ggrs clone snapshot") and what the checksum sees (the domain's
+/// half). A domain that registers its own state through
+/// [`ambition_platformer2d_core::snapshot::RollbackRegistrar`] supplies only the
+/// second half, precisely so a crate with no `bevy_ggrs` dependency never has to
+/// write the word; this joins them back into the exact string the schema baseline
+/// records.
+fn descriptor_owned<T: 'static>(
+    owner: &'static str,
+    name: &'static str,
+    kind: RollbackEntryKind,
+    detail: String,
+) -> RollbackRegistrationDescriptor {
     RollbackRegistrationDescriptor {
         name: name.to_string(),
         owner: owner.to_string(),
         kind,
         type_name: std::any::type_name::<T>().to_string(),
-        detail: detail.to_string(),
+        detail,
+    }
+}
+
+/// **The one install body behind `rollback_resource_clone_checksum`**, shared by
+/// the `App` façade ([`AmbitionRollbackApp`]) and by the domain-facing registrar
+/// in [`super::registrar`].
+///
+/// ⚠ **factored rather than copied on purpose.** The two entry points differ
+/// only in who composes the recorded `detail` string; the snapshot registration,
+/// the GGRS checksum and the localization probe are one behaviour, and a second
+/// copy of them is a place for the probe half to silently go missing — which is
+/// the exact class of defect (`presence accounted, value unrestored`) this
+/// registration exists to close.
+pub(in crate::rollback) fn install_resource_clone_checksum<T>(
+    app: &mut App,
+    owner: &'static str,
+    name: &'static str,
+    detail: String,
+    checksum: for<'a> fn(&'a T) -> u64,
+) where
+    T: Resource + Clone,
+{
+    if register_app_descriptor(
+        app,
+        descriptor_owned::<T>(
+            owner,
+            name,
+            RollbackEntryKind::ResourceCloneCustomChecksum,
+            detail,
+        ),
+    ) == RollbackRegistrationOutcome::Inserted
+    {
+        RollbackApp::rollback_resource_with_clone::<T>(app);
+        RollbackApp::checksum_resource(app, checksum);
+        record_probe(
+            app,
+            crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                crate::rollback::census_resource_with::<T>(world, checksum)
+            }),
+        );
     }
 }
 
@@ -1511,25 +1569,7 @@ impl AmbitionRollbackApp for App {
     where
         T: Resource + Clone,
     {
-        if register_app_descriptor(
-            self,
-            descriptor::<T>(
-                owner,
-                name,
-                RollbackEntryKind::ResourceCloneCustomChecksum,
-                detail,
-            ),
-        ) == RollbackRegistrationOutcome::Inserted
-        {
-            RollbackApp::rollback_resource_with_clone::<T>(self);
-            RollbackApp::checksum_resource(self, checksum);
-            record_probe(
-                self,
-                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
-                    crate::rollback::census_resource_with::<T>(world, checksum)
-                }),
-            );
-        }
+        install_resource_clone_checksum::<T>(self, owner, name, detail.to_string(), checksum);
         self
     }
 

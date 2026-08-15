@@ -33,26 +33,45 @@
 //!   would live in this crate — it is just inertia. `GatePortalPhases`'s
 //!   projection was the last one authored here and has since moved down.
 //! - **the installation** — `RollbackApp::rollback_resource_with_clone::<T>` and
-//!   friends. ⛔ `bevy_ggrs` 0.21 offers NO non-generic path: every registration
+//!   friends. `bevy_ggrs` 0.21 offers no non-generic path: every registration
 //!   (clone, copy, and even the `Reflect` strategy) is generic over the concrete
 //!   type, so SOMETHING must monomorphize it, and that something must be able to
 //!   name `bevy_ggrs`. Only this crate and `ambition_app` may — every other
 //!   workspace crate is `bevy_ggrs`-free, which is a boundary worth more than
 //!   this seam.
 //!
-//! ⇒ a crate ABOVE this one owns its registration outright and needs nothing
-//! from here (`ambition_content::bosses::specials::rollback` does exactly that).
-//! A crate BELOW it cannot, and the deletion gate is a `bevy_ggrs` registration
-//! API keyed on `ComponentId`/`TypeId` rather than a type parameter — upstream's
-//! to open, not ours. ⛔ do not close it with an Ambition-owned type-erased
-//! snapshot layer: that is a second rollback implementation, not a seam.
+//! ⛔⛔ **that second bullet was read as a BLOCKER, and it is not one** (falsified
+//! 2026-08-15, `ambition_platformer2d_world::rooms::GatePortalPhases`). "The
+//! registration API is generic over `T`" says only that a monomorphizing call
+//! site must exist somewhere it can name `bevy_ggrs`. It does NOT say the LIST of
+//! `T`s must live in that crate's source — the call site can be a trait method
+//! the domain invokes. `AmbitionRollbackApp` was already that shape, one crate
+//! too high up.
+//!
+//! ⇒ **the real gate is where the VOCABULARY lives, and that gate is now open.**
+//! `ambition_platformer2d_core::snapshot::RollbackRegistrar` is the
+//! backend-neutral trait (floor, no `bevy_ggrs`, no `bevy_app`);
+//! `super::registrar::GgrsRollbackRegistrar` is the runtime-owned `App` wrapper
+//! that implements it — a wrapper because the orphan rule forbids implementing a
+//! floor trait for foreign `App`. A domain below the runtime now writes
+//! `register_*_rollback_state(&mut impl RollbackRegistrar)` in its own crate; the
+//! composition hands it a registrar. ⭐ **so each module here is now inertia with
+//! a known cure**, not an architectural floor, and the remaining work per domain
+//! is: widen the floor trait with the methods that domain uses, move its
+//! `register` body down, delete the module.
+//!
+//! ⚠ a crate ABOVE this one still owns its registration outright and needs
+//! nothing from here (`ambition_content::bosses::specials::rollback`). ⛔ and do
+//! not close the remaining gap with an Ambition-owned type-erased snapshot layer:
+//! that is a second rollback implementation, not a seam. The registrar trait is
+//! deliberately NOT object-safe for the same reason.
 
 pub(super) mod actors;
 pub(super) mod characters;
 pub(super) mod combat;
+pub(super) mod cutscene;
 pub(super) mod encounter;
 pub(super) mod items;
-pub(super) mod cutscene;
 pub(super) mod lifecycle;
 pub(super) mod portal;
 pub(super) mod primitives;

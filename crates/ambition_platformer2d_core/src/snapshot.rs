@@ -315,7 +315,6 @@ macro_rules! snapshot_marker {
     };
 }
 
-
 /// **What a capability REQUIRES rewound**, declared where it can be read without
 /// linking a rollback host.
 ///
@@ -344,4 +343,55 @@ pub struct RequiredRollbackState {
     /// needs to know whether it is looking at a desync or at an optional extra,
     /// and only the capability knows.
     pub why: &'static str,
+}
+
+/// **The backend-neutral registration vocabulary a domain speaks to install its
+/// own rollback state.**
+///
+/// [`RequiredRollbackState`] lets a domain DECLARE what it needs rewound.
+/// This lets it DO the registering — without naming a rollback backend, and
+/// without a crate above it holding a list of its types.
+///
+/// ⭐ **why this closes the argument that kept the census central.** Every
+/// `bevy_ggrs` registration entry point is generic over the concrete type, so
+/// something must monomorphize it — but the monomorphizing call site can be a
+/// TRAIT METHOD the domain invokes, not a line in the netcode crate. The
+/// implementor supplies the machinery and names `bevy_ggrs`; the domain supplies
+/// `T` and the projection. Generic-over-`T` was never an argument for owning the
+/// list of `T`s: `ambition_platformer2d_runtime::rollback::AmbitionRollbackApp`
+/// already demonstrated the typed façade, one crate too high up.
+///
+/// ⚠ **methods are generic, so this trait is NOT object-safe, and must not
+/// become so.** A domain takes `&mut impl RollbackRegistrar`; monomorphisation
+/// happens where the host constructs the concrete registrar. Type-erasing it
+/// would mean an Ambition-owned snapshot layer — a second rollback
+/// implementation, not a seam.
+///
+/// ⚠ **the FLOOR is the only place it can live.** A domain crate below the
+/// runtime cannot depend on the runtime, and the orphan rule forbids the runtime
+/// implementing a floor trait for foreign `bevy_app::App` — so the implementor
+/// is a runtime-owned WRAPPER around `App`, which is orphan-clean and costs the
+/// floor no Bevy-app dependency at all.
+pub trait RollbackRegistrar {
+    /// Snapshot a resource by `Clone` and fold `checksum` over it every frame.
+    ///
+    /// `projection` describes **what the checksum sees**, in the domain's own
+    /// words (e.g. `"key-ordered phase/elapsed checksum projection"`). ⛔ it
+    /// does NOT describe the storage mechanism — the implementor owns that half
+    /// of the recorded schema detail, which is what keeps this signature free of
+    /// any backend's name.
+    ///
+    /// ⛔⛔ **a value projection, never a presence probe.** The reason a domain
+    /// reaches for this method instead of a plain clone registration is that the
+    /// VALUE decides something — a restore that puts back the right *set* of
+    /// keys with the wrong numbers in them is the defect, not the fix.
+    fn rollback_resource_clone_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: &'static str,
+        checksum: for<'a> fn(&'a T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + Clone;
 }

@@ -36,12 +36,14 @@ pub mod local_session;
 mod probes;
 #[cfg(test)]
 mod provenance_tests;
+pub mod registrar;
 mod registry;
 mod session;
 
 pub use codec::*;
 pub use codecs::{ensure_sim_id, heal_projectile_owners, mint_spawned_sim_ids};
 pub use probes::*;
+pub use registrar::GgrsRollbackRegistrar;
 pub use registry::*;
 pub use session::*;
 
@@ -212,6 +214,31 @@ pub fn register_engine_rollback_state(app: &mut App) {
     domains::cutscene::register(app);
     domains::projectiles::register(app);
     domains::lifecycle::register(app);
+
+    // **DOMAINS THAT REGISTER THEMSELVES.** The adapters above are modules in
+    // THIS crate standing in for domains that cannot reach the registration
+    // vocabulary; the calls below are the real shape — the domain crate names
+    // its own types and its own projections, and this function only hands it a
+    // registrar.
+    //
+    // ⭐ what made the difference is that the vocabulary moved to the floor
+    // (`ambition_platformer2d_core::snapshot::RollbackRegistrar`) and the
+    // `bevy_ggrs` half stayed here behind
+    // [`registrar::GgrsRollbackRegistrar`]. ⛔ `bevy_ggrs` registration being
+    // generic over the concrete type never argued for the LIST living here — it
+    // argued only that SOMETHING must monomorphize, and a trait method the
+    // domain calls does that at the domain's call site.
+    //
+    // ⛔ do not turn this into a table. A `&[fn(&mut App)]` here would be the
+    // same central census with a different syntax; each line is one crate
+    // asserting that it owns rollback state, and a domain that adds state edits
+    // its OWN crate plus this one line.
+    // ⚠ `&mut *app` is an explicit REBORROW: `app` is itself a `&mut App`, and
+    // moving it into the registrar would end this function's use of it.
+    ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(
+        &mut registrar::GgrsRollbackRegistrar::new(&mut *app),
+    );
+
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
@@ -269,42 +296,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.moving_platform_set",
         )
-        // **The gate portals' live phase** (2026-08-15). `tick_portal_phases_system`
-        // integrates each portal's `Opening`/`Closing` timer forward by
-        // `WorldTime::scaled_dt` in THIS schedule, and `detect_room_transition_system`
-        // — same schedule, same frame — refuses a room crossing unless the phase
-        // reads `On`.
-        //
-        // ⛔ **it was waived as "authored gate portals" and it was not authored.**
-        // The waiver named `GatePortalRegistry`, which really did hold the phase
-        // as a field, so a true statement about the switch ids and sprite names
-        // covered a mutable f32 timer that nothing rewound. The switch driving it
-        // lives in `AmbitionGameSave`, registered a few lines above: a rewind put
-        // the INPUT back and left the INTEGRATOR holding the speculative
-        // timeline's elapsed, permanently ahead by the depth of every rollback
-        // taken during the ~38-tick opening window. Peers then promote
-        // `Opening → On` on different frames and disagree about whether the room
-        // changed.
-        //
-        // ⚠ the phase moved to its OWN resource rather than the registry being
-        // registered whole, because the registry is populated from `Update` behind
-        // a one-shot flag that does not rewind — snapshotting it would let a rewind
-        // erase authored portals that nothing refills.
-        //
-        // ⛔⛔ **and it is registered WITH A VALUE PROJECTION, not a presence
-        // probe.** A presence-only probe satisfies coverage while seeing nothing
-        // of the value — which for this resource would restore *that phases
-        // exist* and say nothing about the elapsed timer, i.e. it would pass
-        // while reproducing the exact defect above.
-        .rollback_resource_clone_checksum::<ambition_platformer2d_world::rooms::GatePortalPhases>(
-            ENGINE,
-            "resource.gate_portal_phases",
-            "bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
-            // ⭐ **the projection is the DOMAIN's, and it now lives there.** This
-            // file supplies only the generic registration; the bytes it folds are
-            // decided beside the type, next to the variants they name.
-            ambition_platformer2d_world::rooms::gate_portal_phases_checksum,
-        )
+        // **The gate portals' live phase** is registered too — but NOT here, and
+        // not by this crate. `ambition_platformer2d_world` owns both halves of it
+        // now: `GatePortalPhases` documents why an integrator whose input rewinds
+        // must rewind with it, and `register_gate_portal_rollback_state` (called
+        // with the domain adapters at the top of this function) performs the
+        // registration through the floor's `RollbackRegistrar` vocabulary. ⛔ it
+        // carries a VALUE projection, not a presence probe — see that function.
         .rollback_resource_clone::<crate::InputStreamRecorder>(
             ENGINE,
             "resource.input_stream_recorder",

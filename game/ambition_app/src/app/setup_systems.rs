@@ -6,11 +6,11 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
 use ambition_platformer2d::actors::assets::loading;
-use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::session::{data, setup};
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 

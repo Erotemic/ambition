@@ -2,13 +2,13 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::KeyboardPreset;
+use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::HudText;
 

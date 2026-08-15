@@ -34,13 +34,23 @@ content_pack = [
 # I ask for"; each optional crate edge is an implicit feature named after the
 # crate (`ambition_render`, `ambition_menu`, …), listed in `all_capabilities`.
 #
-# ⚠ Two unwanted edges deliberately did NOT become optional, and the reasons
+# ⚠ Three unwanted edges deliberately did NOT become optional, and the reasons
 # are results, not oversights (slice-g-selection.json, slice_h_result):
 #   - `ambition_audio`: declaring SILENCE is an audio-catalog registration
 #     (`ModuleDraft::no_audio` → `AudioCatalogFragment`), so the composition
 #     path needs the crate even for a game with no sound. It also arrives via
 #     `ambition_platformer2d_actor_monolith` regardless, so gating the facade edge would cut nothing.
-#   - 14 more of the 19 "never asked for" crates arrive through
+#   - `ambition_platformer2d_ldtk`: the SAME argument, and it was the one edge
+#     whose optionality was FICTION. `game_assets` takes a `WorldManifest` —
+#     genuinely LDtk vocabulary — in an UNGATED public signature, and it compiled
+#     only because it reached the type through the monolith's `ldtk_world`
+#     re-export while the monolith's own LDtk dependency is unconditional. So the
+#     facade was laundering an unconditional dependency to keep its own optional.
+#     Declaring it is what let that compat re-export be deleted (2026-08-15); the
+#     resolved graph does not move, because the monolith already pulled the crate
+#     in every composition. ⛔ do not re-add `optional` without first making
+#     `game_assets` stop naming `WorldManifest`.
+#   - 13 more of the 19 "never asked for" crates arrive through
 #     `ambition_platformer2d_actor_monolith` alone; making their facade edges optional would change
 #     no measurement. They wait on the §4 carve, not on this manifest.
 default = ["all_capabilities"]
@@ -53,7 +63,6 @@ all_capabilities = [
     "ambition_encounter",
     "ambition_inventory_ui",
     "ambition_items",
-    "ambition_platformer2d_ldtk",
     "ambition_menu",
     "ambition_persistence",
     "ambition_portal2d",
@@ -147,7 +156,7 @@ ambition_input = { path = "../ambition_input" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui", optional = true }
 ambition_items = { path = "../ambition_items", optional = true }
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional = true }
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk" }
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }

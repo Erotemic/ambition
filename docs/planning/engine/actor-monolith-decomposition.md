@@ -185,6 +185,38 @@ required in practice), or feature-gate `game_assets` so a no-LDtk consumer stops
 getting a world manifest it cannot use. Either makes the compat module deletable
 in the same slice.
 
+### ✔ LANDED 2026-08-15 — the compat module is DELETED
+
+Took the first resolution, and the argument for it was **already written two
+bullets up in the same manifest**: `ambition_audio` did not become optional
+because it *"arrives via `ambition_platformer2d_actor_monolith` regardless, so
+gating the facade edge would cut nothing."* That is word-for-word the LDtk case.
+
+⛔ **and the last consumer count was wrong — it was EIGHT, not one.** The plan
+said one (`game_assets`). The other seven are `ambition_platformer2d::actors::
+ldtk_world` in the app, and the grep that found "one" was `| head`-truncated.
+⚠ *the same footgun the shell-footguns note names: `| head -N` hides presence.*
+All seven were a single import line each, repointed to the idiom `headless.rs`
+already used (`use ambition_platformer2d::ldtk_map as ldtk_world;`), so no app
+manifest changed.
+
+**Deleted:** `world/ldtk_world/mod.rs`, `world/mod.rs`'s `pub mod ldtk_world;`,
+and `ldtk_world` from `lib.rs`'s `pub use world::{…}`. The historical path no
+longer resolves from anywhere — closure evidence #5.
+
+⭐ **no measurement moves, and that was predicted rather than discovered.**
+`fixtures/minimal_game` builds the facade with `default-features = false`, and
+`ambition_platformer2d_ldtk` was already in its measured closure via the
+monolith's unconditional edge — so `closure_size` stays 42 and `never_asked_for`
+stays 15. The baseline needs no edit. What the slice buys is that the facade
+stops *claiming* an optionality it never had.
+
+⚠ two dead policy entries went with it. `engine.portal-core-no-content-roster`
+forbade `…actor_monolith::ldtk_world` and `…actor_monolith::world::ldtk_world`;
+both now name a path that cannot exist, i.e. a check that cannot fail. Replaced
+by the one live name, `ambition_platformer2d_ldtk` (verified: neither portal
+crate names it, so the rule stays green and now guards something).
+
 ⚠ **and note what that decision does NOT buy: the facade's optionality is
 already fictional.** The monolith depends on `ambition_platformer2d_ldtk`
 unconditionally, so LDtk links whatever the facade's feature says — which is why
@@ -547,6 +579,12 @@ own.
    line does this character say"* — a CAST question, not a continuity one.
    Install a small port (a resource holding a fn, or a trait object) that the
    monolith fills; leave the cast lookup behind.
+1b. **⭐ THE PLUGIN, and it was missed until 2026-08-15.** `conversation` owns no
+   registration: `features::FeatureInteractionSchedulePlugin` does all of it and
+   interleaves three of its systems into an anonymous `.chain()` with the
+   switch/chest systems. Give the module a `ConversationPlugin` and name the
+   cross-domain order as SETS first — see the 2026-08-15 section below. Step 2
+   is not reachable before this.
 2. **Move `conversation/` + `dialog.rs`** into `crates/ambition_conversation`.
 3. **`ambition_dialog` becomes a `[dev-dependency]`** of the monolith — the two
    test files still name `DialogState`, and a dev-dependency does not reach a
@@ -817,6 +855,67 @@ problem rather than re-opening the product decision.
 
 ⚠ recorded so the naive inversion is not attempted as a slice. It looks like a
 free dependency win from the table and it is not one.
+
+## ⭐⭐ Measured 2026-08-15: the internal module graph, and the ONE thing an import count cannot see
+
+Re-derived the monolith's 44-root-module graph from source (comments and block
+comments STRIPPED — without that, log-target string literals and doc citations
+score `ambition_platformer2d`, a crate ABOVE the monolith, as a production edge
+from ten modules). Counts are production `crate::…` references, with the crate
+root's `pub use` aliases resolved to their owning module — `save`→`persistence`,
+`shop`→`items`, `trace`→`dev`, `rooms`→`world` — because a sibling reaching a
+module through a re-export is otherwise invisible.
+
+**Every module with ZERO inward production references**, i.e. the leaf set:
+
+| module | prod lines | outward mods | external crates it alone names | reading |
+|---|---:|---:|---|---|
+| `conversation` | 1,836 | **0** | `ambition_dialog` (with `dialog`) | ⭐ the only large module with zero edges in BOTH directions |
+| `affordances` | 1,200 | 4 | — | a BRIDGE (input × body × world); its consumers are outside this crate |
+| `menu` | 748 | 1 | `ambition_menu` | sole namer of `ambition_menu`; also names `ambition_platformer2d_ldtk` for the Map tab |
+| `gravity` | 548 | 5 | — | 36 outward refs into `features`/`world`; a spoke, not a leaf |
+| `snapshot_impls` | 431 | 6 | — | trait impls FOR other modules' types; dissolves, never carves |
+| `action_scheme` | 351 | 4 | — | small; removes no edge |
+| `cutscene` | 214 | 3 | `ambition_cutscene` (with `schedule`) | 214 lines; the runtime names the crate too |
+| `config`, `dialog`, `participant_seat`, `host` | ≤114 | 0 | — | too small to be a slice |
+
+⛔ **and the leaf set is a trap unless you also count REGISTRATIONS.** The
+strongest candidate by every import measure — `conversation`, zero edges out,
+zero in, and its own module header claiming *"the carve is a `Cargo.toml`"* — is
+pinned by the schedule. `features::FeatureInteractionSchedulePlugin` performs
+**all of it**: `init_resource::<ActiveConversation>`,
+`add_message::<ConversationCutBark>`, seven `NarrativeInputPlugin::<T>` installs,
+and six systems — three of which are **interleaved into one anonymous `.chain()`**
+between `interact_ecs_actors_and_switches`, `npcs::speak_conversation_cut_barks`,
+and the chest/breakable systems, with every interleave load-bearing and recorded
+only in prose at the call site.
+
+⇒ **`conversation` has no plugin of its own; its composition root is a plugin
+named after switches and chests.** So the plan's step 2 ("move `conversation/` +
+`dialog.rs` into `crates/ambition_conversation`") is NOT the next action — a
+crate cannot reach `crate::features::ChallengeRequested` to install its own
+`NarrativeInputPlugin`, and it cannot express the chain by adjacency across a
+crate boundary. **Step 1.5 is a `ConversationPlugin` inside the module** that
+owns the registrations and states the cross-domain order as NAMED SETS; the
+per-payload installs whose `T` is a `features` type stay with `features`, which
+is the correct seam rather than a leftover.
+
+⚠ **not attempted this session, and the reason is a constraint rather than a
+judgement**: it is a simulation-ordering change in the actor-update hub, and an
+unordered Bevy reader is deterministically wrong, so it wants a session that can
+run the suite. The measurement is recorded so the next one does not redo it.
+
+⭐ **the durable lesson: a module with zero inward imports can still be pinned by
+the schedule.** The C4e accounting, the module header, and this plan all counted
+paths. Count the registrations too.
+
+⛔ **and the other leaves do not justify a carve on this evidence.** `menu` is the
+sole namer of `ambition_menu`, but `ambition_menu` also arrives through
+`ambition_render` and the host, so criterion 2 stays flat — the same lesson
+`ambition_ui_nav` already paid for. `affordances`, `gravity`, `snapshot_impls`
+and `action_scheme` remove no Cargo edge at all, which this plan's own scorecard
+calls *"not a successful carve"*. **The answer for every leaf except
+`conversation` is NOT YET**, and for `conversation` it is *plugin first*.
 
 ## Candidate extraction waves
 

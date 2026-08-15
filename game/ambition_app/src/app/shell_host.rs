@@ -35,7 +35,7 @@ use ambition_platformer2d::game_shell::{
     ShellRouteCatalog, ShellRouteSpec,
 };
 
-use ambition_platformer2d::actors::ldtk_world;
+use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::lifecycle::SessionScopeSet;
 
 /// The host's home/title route. Providers never name it — `QuitToHome`

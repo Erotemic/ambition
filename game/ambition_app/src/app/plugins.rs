@@ -6,7 +6,6 @@
 // only the exhaustive plan runs — the same way this target sat broken for four
 // days once before.
 use ambition_platformer2d::actors::assets::loading;
-use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 #[cfg(feature = "physics_debris")]
@@ -18,6 +17,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_platformer2d::inventory_ui;
+use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::{
     gameplay_allowed, Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
@@ -170,7 +170,9 @@ fn register_app_local_sim_systems(app: &mut App) {
     // now stated rather than assumed, it happens ONCE rather than on every frame
     // the gate re-fires, and it travels through the same road every other host
     // uses.
-    app.insert_resource(ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0));
+    app.insert_resource(
+        ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+    );
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(
@@ -937,7 +939,9 @@ impl Plugin for AmbitionGamePresentationPlugin {
 fn report_shadowed_character_sheets(
     registry: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SheetRegistry>>,
     catalog: Option<
-        bevy::prelude::Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+        bevy::prelude::Res<
+            ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
+        >,
     >,
 ) {
     let (Some(registry), Some(catalog)) = (registry, catalog) else {

@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
 use ambition_content::content_validation;
-use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::session::data;
 use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::actors::world::physics;
@@ -10,6 +9,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
 use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::ldtk_map as ldtk_world;
 
 use super::cli::cli_start_room_arg;
 

@@ -333,14 +333,34 @@ geometry reaches a collision read-path; "changes" is what varies frame to frame.
 | intro flag-gated lock walls (`sync_intro_flag_gated_lock_walls`) | `gate_solids` | EXISTENCE | authored `LockWall` placement | `ZERO` | derived per frame |
 | falling sand / liquid (`project_particles_to_movement_world`, `falling_sand_sim`) | `gate_solids` + `water_regions` | EXISTENCE per TILE | the particle grid | `ZERO` | grid is sim state, projection derived |
 | breakables + world-pogo targets (`rebuild_feature_ecs_world_overlay`) | `overlay.blocks` | EXISTENCE | authored `CenteredAabb` | `ZERO` | derived per frame |
+| broken bricks / monitors, gnu_ton ladder-floor gate, Mary-O discovered hidden blocks | `removed_block_names` (+ a replacement `Solid`) | EXISTENCE / KIND | authored placement | `ZERO` | derived per frame |
 | portal apertures / gnu_ton climbable carve | `portal_carves` / `climbable_carves` | EXISTENCE (subtraction) | portal placement | n/a | derived per frame |
 | struck-block flinch (`block_nudge`) | none — render only | drawn quad offset | nothing; geometry is static | n/a | explicitly not sim state |
 
-⭐ **`MovingPlatformState` is the ONLY producer of a non-zero `Block::velocity`
-anywhere in the repo** (`platforms/mod.rs`, one line). Every other dynamic-geometry
-feature toggles EXISTENCE at a fixed place. That is not a shortage of instances —
-it is a shortage of KIND, and it is why a second kinematic customer cannot be
-found by looking harder.
+And the things that genuinely MOVE a world-owned box per frame and are **not
+solid**, so none of them wants the moving-solid contract:
+
+| producer | what moves | driver | solid? |
+| --- | --- | --- | --- |
+| patrolling hazard volumes (`update_ecs_hazards`) | `CenteredAabb` centre AND half-size, every frame | `PathMotion` over a `KinematicPath` | no — damage only |
+| the cut-rope falling anvil (`FallingHazard` in `encounter_script`) | a falling world volume | integration | no — damage only |
+| oscillating gravity zones (`oscillate_gravity_zones`) | `zone.aabb` | authored oscillation | no — a field region |
+| hosted portal apertures (`refresh_hosted_portal_frames`) | aperture `pos`, and `vel` from the host's `anchor.velocity / dt` | the host block's authoritative displacement | no — a subtraction |
+
+⚠ **and one solid whose surface moves while its `velocity` is `ZERO`:**
+`SettledSandLedger::blocks()` emits a `Block::one_way` per dense tile whose HEIGHT
+is proportional to fill, so a growing pile's top face rises every frame. It is not
+a mixed frame and not a bug — the rising face is a *differently sized block at the
+same tile*, not one block moving — but it is the sharpest statement of the
+distinction this phase found: **geometry can move without being kinematic.**
+
+⭐ **`MovingPlatformState` is the ONLY site that originates a non-zero
+`Block::velocity` anywhere in the repo** (`platforms/mod.rs`, one line;
+`boundary_chain` and the portal carve only propagate it). Every other dynamic
+SOLID toggles existence or kind at a fixed place, and everything that genuinely
+moves per frame is not solid. That is not a shortage of instances — it is a
+shortage of KIND, and it is why a second kinematic customer cannot be found by
+looking harder.
 
 #### The three candidates the plan named
 
@@ -395,6 +415,33 @@ a body merely hanging off its lip) and be assigned a previous pose it never
 occupied. ⇒ **the day a belt is authored, `velocity` splits into `displacement`
 (defines the previous pose, drives the carrier test) and `surface_drag` (what a
 supported body inherits)** — before any new `BlockKind` or authoring field.
+
+#### ⭐ That is TWO abstractions, and only one lacks a second customer
+
+The census splits the thing this plan has been calling "the kinematic
+representation" at a seam already visible in the content:
+
+- **the motion DRIVER — `KinematicPath` / `PathMotion` — is already proven by
+  three consumers**: moving platforms (`MovingPlatformMotionSpec::Path`), damage
+  volumes (`HazardFeature::new_with_paths` resolves a `path_id` into `PathMotion`),
+  and enemy patrol brains. ⛔ **and its only AUTHORED customer is a brain**: the
+  corpus holds 2 `KinematicPath` entities, both reached from `EnemySpawn.path_ref`;
+  no `MovingPlatform` and no `DamageVolume` authors a path anywhere. So the driver
+  needs no second customer — it needs authored content for the two geometry
+  consumers it already has.
+- **the moving-SOLID contact contract — `Block::velocity` plus everything derived
+  from it (rider carry, ledge carry, previous pose, portal host velocity) — has
+  exactly ONE consumer**, and the census above says there is no candidate in kind,
+  not merely no second instance.
+
+⇒ K6's question was only ever about the second bullet, and the answer is no.
+
+⚠ **also measured, because the plan's pipeline diagram could be read to assume
+it: `WorldDelta` DOES NOT EXIST in code.** Only the reserved
+`GeoSource::Delta { op_index }` variant and aspirational doc references; the
+runtime substitute is the immutable authored base plus per-frame recomposition,
+and nothing anywhere mutates a `Block::aabb` or a `SurfaceChain`'s points after
+room construction. Do not plan against a delta-op road that has no traveller.
 
 #### What K6 actually proved
 

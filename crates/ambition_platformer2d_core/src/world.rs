@@ -93,7 +93,8 @@ pub struct Block {
     /// ⛔⛔ **this field MEANS TWO THINGS AT ONCE, and the only reason that has
     /// never hurt is that its ONE producer cannot tell them apart** (measured
     /// D115 K6, 2026-08-15 — `MovingPlatformState::as_collision_block` is the
-    /// only non-zero writer in the repo). The two quantities are:
+    /// only site that ORIGINATES a non-zero value; [`Self::boundary_chain`] and
+    /// the portal carve merely propagate it). The two quantities are:
     ///
     /// 1. **displacement** — how far this solid moved since last frame. It
     ///    defines the solid's PREVIOUS pose: `ledge_grab::ledge_carry_for_frame`

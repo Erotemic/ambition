@@ -13,6 +13,11 @@
 //! (`despawn_departed_round_entities`), [`SessionScopedEntity`]
 //! (`despawn_retired_session_entities`).
 //!
+//! ⭐ **a scope is a LIFETIME; where an entity lives right now is RESIDENCY, and
+//! they are not the same question.** An object in a body's custody is scoped to
+//! a room and resident in nobody's room — see [`InCustodyOf`] and the
+//! [`RoomResident`] roster a room CHANGE retires.
+//!
 //! ⛔ **there is no marker for "persistent", and that is the design.** Every
 //! sweep culls on the PRESENCE of its own marker, so an entity carrying none
 //! already survives all four boundaries; a `PersistentEntity` tag beside a
@@ -28,8 +33,8 @@ mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use markers::{
-    FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomScopedEntity,
-    RoomVisual,
+    FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomResident,
+    RoomScopedEntity, RoomVisual,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

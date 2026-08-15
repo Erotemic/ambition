@@ -188,9 +188,12 @@
   nothing else. **`RoomTransitionRequested` is DELETED**, with its message
   registration, its `clear_message_on_rollback` entry, its schema-baseline row,
   and the two SYNTHETIC loading zones that existed only because a message could
-  not describe a crossing nobody walked through. `commit_room_transition_geometry`
-  takes `(target_room, arrival, edge_exit)` instead of a `RoomTransition`, because
-  those were the only three things it ever read out of one.
+  not describe a crossing nobody walked through. The commit takes
+  `(target_room, arrival, edge_exit)` instead of a `RoomTransition`, because those
+  were the only three things it ever read out of one. (The function that first
+  carried that signature, `commit_room_transition_geometry`, was itself deleted
+  2026-08-15 — dead since `RoomTransitionApplication::apply` became the one
+  commit.)
 
   **Readiness moved to `Update`; the room change did not.** The four readiness
   systems mutate no sim state and are not rollback-registered, so they run

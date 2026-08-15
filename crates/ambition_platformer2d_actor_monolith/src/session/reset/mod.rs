@@ -162,6 +162,15 @@ pub fn process_new_game_reset_request(
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<crate::features::GameplayBanner>,
+    // ⛔ **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
+    // CHANGE moves the room out from under its residents, so an object in a
+    // body's custody rides across with whoever holds it. A reset DESTROYS the
+    // world those residents live in — and this same function empties the hand a
+    // few lines below (`remove::<HeldItem>`), so an object exempted here would
+    // outlive both its room and the hand it was in, then reappear on the floor of
+    // the rebuilt start room beside the freshly authored copy of itself. The two
+    // sweeps ask different questions; unifying them is not the cleanup it looks
+    // like.
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // E1: the live wave encounters are entities now; despawn them so
     // `populate_encounter_registry` (which the cleared `specs_loaded` flag

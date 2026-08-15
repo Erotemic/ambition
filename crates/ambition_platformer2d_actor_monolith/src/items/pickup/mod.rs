@@ -102,6 +102,13 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 ground_item_physics
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                // ⭐ **RESIDENCY FOLLOWS CUSTODY.** Last in the chain, so it sees
+                // the custody this tick actually settled on — the release derive
+                // above ran first, the pickup and the throw wrote directly. And
+                // deliberately UNGATED: a room transition suspends gameplay
+                // between the crossing and the commit, which is precisely the
+                // window in which the room sweep reads residency.
+                project_custody_onto_residency,
             )
                 .chain()
                 // `ItemPickupSet::CoreHeldItems` is configured
@@ -246,6 +253,24 @@ const THROW_AHEAD: f32 = 48.0;
 /// wearing a **custody** concern's clothes, and closing it needs the body
 /// inventory that does not exist yet. ⛔ do not "fix" it by spending the count on
 /// throw: that trades a duplication bug for a deletion bug.
+///
+/// ⭐ **CUSTODY ALSO DECIDES WHERE THE OBJECT LIVES.** An object in a travelling
+/// body's custody is not resident in any room, so a room change does not retire
+/// it and the identity survives the door as well as the hand. That is a
+/// PROJECTION of this value, not a second fact:
+/// [`project_custody_onto_residency`], which owns the whole story.
+///
+/// ⛔ **AND IT OPENS ONE, which is the durable-ROOM twin of the count-table note
+/// above.** An authored `GroundItem` carries `SimId::placement(..)`, and the room
+/// that authored it rebuilds its whole roster on every load. So carrying an
+/// authored axe out of its room and back in produces the authored axe in your
+/// hands AND a fresh one on the floor, both claiming the same placement id.
+/// Nothing detects it today. It did not arise while the boundary destroyed the
+/// carried object, and it cannot be fixed here: the room's construction plan
+/// would have to know that one of its authored placements is currently in
+/// somebody's custody, which is durable ROOM state and needs the same owner the
+/// unclosed inventory leg needs. ⛔ do not "fix" it by re-destroying carried
+/// objects at the boundary.
 ///
 /// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the
@@ -456,6 +481,100 @@ pub fn return_released_items(
         // "moving" as "thrown", and a bomb stowed from the menu must not arm.
         item.vel = Vec2::ZERO;
         *custody = ItemCustody::InWorld;
+    }
+}
+
+/// **CUSTODY OWNS RESIDENCY — an object in a hand does not live in the room.**
+///
+/// [`ItemCustody`] kept an object's ENTITY and its `SimId` alive across
+/// world → held → world, and that was true only inside one room: an authored
+/// [`GroundItem`] is spawned
+/// [`RoomScopedEntity`](ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity),
+/// it kept that scope while `Held`, and `RoomConstructionPlan::retire_outgoing`
+/// despawns every room-scoped entity except the transiting body. So the axe you
+/// carried through a door was destroyed at the door — the same destroyed
+/// identity `ItemCustody` exists to prevent, reached through the room boundary
+/// instead of through the pickup.
+///
+/// ⛔ **the fix does NOT live in the transition.** Teaching the room commit to
+/// walk a body's held items would make the boundary know that inventories
+/// exist, which is the player-centric composition-root special case this
+/// architecture removes. Custody already NAMES the holder; residency is a
+/// PROJECTION of it, and this is the projection:
+///
+/// * `Held { holder }` by a body that is not itself a room resident ⇒ the
+///   object's residency is that body's, spelled
+///   [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf).
+///   It keeps its room SCOPE (so nothing that requires the scope loses it, and a
+///   sandbox reset — which empties the hand too — still destroys it) and drops
+///   out of the roster a room CHANGE retires;
+/// * `Held { holder }` by a body that IS a fixture of this room (an unpossessed
+///   NPC still carries `RoomScopedEntity`) ⇒ resident. The object dies with the
+///   room exactly as the body holding it does. ⭐ possession promotes a body it
+///   takes over OUT of room scope for precisely this reason, so a possessed
+///   carrier gets the travelling answer without anyone asking who the player is;
+/// * a holder that no longer EXISTS confers nothing, so the object is resident
+///   again. The orphan a dead holder leaves (see [`return_released_items`]) is
+///   still the death-drop resolver's question — but it now dies with its room
+///   instead of escaping every sweep in the engine forever.
+/// * `InWorld` ⇒ resident, in whatever room is active. That is what "dropped in
+///   the destination room" means, and it needs no memory of where the object was
+///   picked up: room residency is presence-driven and carries no room id.
+///
+/// ⚠ **a DERIVE, not a follow-up call at each custody write.** Four sites move
+/// custody (pickup, throw, the release derive above, and the throw's mint), and
+/// the repo's own rule is that the second step belongs inside the first — but
+/// the first step is a bare `*custody = ..` in systems that do not all hold
+/// `Commands` over the object. Re-deriving the whole projection each tick from
+/// the state that already decides it removes the question, exactly as
+/// [`return_released_items`] re-derives custody from the hand. It is a pure
+/// function of [`ItemCustody`] (which IS rollback state) refreshed
+/// unconditionally, so it carries no "already applied" gate of its own and needs
+/// no rollback registration to converge after a rewind.
+///
+/// ⭐ **and it is deliberately NOT gated on `gameplay_allowed`.** A transition
+/// suspends gameplay between the crossing and the commit; residency must be
+/// right on those frames above all others, because that is exactly when the
+/// sweep runs.
+pub fn project_custody_onto_residency(
+    mut commands: Commands,
+    items: Query<
+        (
+            Entity,
+            &ItemCustody,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>,
+        ),
+        With<GroundItem>,
+    >,
+    // Whether a holder is itself a resident of the room. Deliberately unfiltered
+    // — ANY entity can hold something, and a query that required a body cluster
+    // would answer "not room-scoped" for a holder it simply could not see.
+    holders: Query<
+        bevy::prelude::Has<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
+    >,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
+    for (entity, custody, suspended) in &items {
+        let holder = match *custody {
+            ItemCustody::InWorld => None,
+            ItemCustody::Held { holder } => match holders.get(holder) {
+                // A room fixture's hand, or a holder that is gone: resident.
+                Ok(true) | Err(_) => None,
+                Ok(false) => Some(holder),
+            },
+        };
+        match (holder, suspended) {
+            // Already says what it should say. Checked before writing so this
+            // does not queue a command per ground item per tick.
+            (Some(holder), Some(InCustodyOf(current))) if *current == holder => {}
+            (Some(holder), _) => {
+                commands.entity(entity).insert(InCustodyOf(holder));
+            }
+            (None, Some(_)) => {
+                commands.entity(entity).remove::<InCustodyOf>();
+            }
+            (None, None) => {}
+        }
     }
 }
 

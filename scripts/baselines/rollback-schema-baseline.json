@@ -1,6 +1,7 @@
 {
   "_comment": [
-    "\u26a0 v28 (2026-08-14) REMOVES resource.combat_slot_board, and a removal is the rarer direction for this file. The board it rewound arranged a crowd into numbered approach slots around a target; no production reader consumed the assignment, so peers agreed every tick about a value nothing asked for. Its anchor was PrimaryPlayer-or-lowest-PlayerSlot, which made it the largest player-centric assumption inside generic actor simulation as well. Deleted with the board rather than made target-relative: target-relative arbitration for a mechanism with no consumer is the abstraction, not the fix.",
+    "⚠ v31 (2026-08-15) ADDS resource.gate_portal_phases, and the growth is deliberate: the portal phase was a mutable f32 timer that nothing rewound. The switch driving it lives in AmbitionGameSave and IS registered, so the INPUT rewound while its INTEGRAL did not, leaving the phase permanently ahead by the depth of every rollback taken during the ~38-tick opening window. Its consumer refuses a room crossing unless the phase is On, so peers disagreed about whether the crossing happened. It was previously waived as 'authored' — a true sentence about GatePortalConfig, which really is authored, and which no longer holds the phase at all. Registered with a VALUE projection, not a presence probe: a presence probe would have restored that phases exist, said nothing about elapsed, and passed while reproducing the defect.",
+    "⚠ v28 (2026-08-14) REMOVES resource.combat_slot_board, and a removal is the rarer direction for this file. The board it rewound arranged a crowd into numbered approach slots around a target; no production reader consumed the assignment, so peers agreed every tick about a value nothing asked for. Its anchor was PrimaryPlayer-or-lowest-PlayerSlot, which made it the largest player-centric assumption inside generic actor simulation as well. Deleted with the board rather than made target-relative: target-relative arbitration for a mechanism with no consumer is the abstraction, not the fix.",
     "The rollback wire format, frozen. Two keys, one invariant each way: a type",
     "may not join it unseen, and a type that leaves must be PRUNED here in the",
     "same commit. That second half is what makes this a ratchet and not a budget.",
@@ -33,7 +34,7 @@
     "⚠ SCHEMA v21 (2026-08-09) is ADR 0033, and it adds two entries that are a JOIN: actor.out_of_play and actor.death_interlude. Death stopped being an event the world resolves in the frame it happens and became a STATE the ruleset resolves, so 'this participant's attempt is over', 'its window has N seconds left' and 'it still owes the game its consequence' are gameplay truth that must survive a rewind. The debt field is the one that had to be learned twice: the level reset it triggers is a message written in one frame and consumed in the next, so a rewind across that boundary loses the request unless the cause is answerable from state — measured as a sync-test checksum mismatch on a route that was green. ⚠ they REPLACE a game-side registration: Mary-O's content.mary_o_death_sequence carried the same facts for one game and was clone-probed rather than checksummed, so the wire format gained the truth it was already relying on rather than gaining a feature.",
     "⚠ SCHEMA v22 (2026-08-09) makes the resolved body hit the on-hit seam. feature.pogo_target and map.hitbox_on_hit are PRUNED because ordinary combat bodies no longer become anonymous world pogo blocks and HitboxOnHit no longer owns a per-victim entity set; message.landed_body_hit joins as a load-cleared same-frame channel. HitboxOnHit itself also changed encoded fields from EffectRef + victim set to EffectRef + world_fired, so the version bump is required even beyond the descriptor-set movement: a v21 peer would decode different bytes."
   ],
-  "measured_on": "2026-08-09",
+  "measured_on": "2026-08-15",
   "stable_schema_names": [
     "actor.action_set",
     "actor.active_combatant",
@@ -354,6 +355,7 @@
     "resource.faction_relations",
     "resource.friendly_fire",
     "resource.gameplay_elapsed",
+    "resource.gate_portal_phases",
     "resource.gravity_field",
     "resource.input_stream_recorder",
     "resource.inventory_restored",

@@ -510,8 +510,9 @@ fn execute_lifecycle_commit(
 /// world.
 ///
 /// ⭐⭐ **THE APPLICATION ITSELF IS NOT HERE, AND THAT IS THE WHOLE POINT**
-/// (D71, 2026-08-14). This function used to be a second implementation of
-/// `commit_room_transition_geometry` + the cross-domain resets, declaring itself
+/// (D71, 2026-08-14). This function used to be a second implementation of the
+/// room commit (the since-deleted `commit_room_transition_geometry`) + the
+/// cross-domain resets, declaring itself
 /// a mirror *"kept in sync by the line comments below"*. It was not in sync:
 /// measured the day it was replaced, the copy never called `clear_carryover`, so
 /// on the shipped rollback host a door carried every in-flight enemy projectile

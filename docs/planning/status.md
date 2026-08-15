@@ -49,13 +49,15 @@ The highest-value successor fronts are:
    [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
    and [`game/multiplayer.md`](game/multiplayer.md).
 
-   ⏸ **M2 is DONE and D116 RESTS (2026-08-15)** by maintainer instruction. ⚠ it
-   stopped **on a boundary, not at completion**: no production seam spawns a
-   second camera, and `publish_camera_viewport` writes one rectangle to every view
-   **by construction** because it projects the single `ResolvedGameplayPresentation`
-   — a fact about the physical screen. ⇒ distinct gameplay rectangles cannot come
-   out of the shipped schedule today, and that gap belongs to a future split host.
-   ⛔ do not open an M3 without a real product need for a second view.
+   ⏸ **D116 RESTS (2026-08-15), and M2 is only HALF done** — say it in two parts.
+   ✔ **closed:** the presentation/projection sub-slice — per-view association and
+   viewport application are proven by an assembled-host fixture, and both
+   `PresentsView` writers that guessed are fixed. ▢ **deferred:** production
+   two-view composition and layout — production spawns one camera and publishes
+   one screen rectangle to every view **by construction**, and M2's own plan also
+   names HUD ownership and input routing, which this slice did not touch.
+   ⛔ do not expand into networking; the deferred half needs a real product need
+   for a second view.
 3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
    CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
    why it exists and how long it lasts; then item custody as the first demanding
@@ -92,9 +94,11 @@ The highest-value successor fronts are:
    idea to a named capability gap. **Rust extends the engine's vocabulary;
    authored content composes vocabulary that already exists.** See
    [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
-   ⛔ **only M0 (inventory + evidence) is authorized** — it is deliberately behind
-   D125 and reachability, both of which it consumes rather than competes with.
-   ⛔ not scripting, not a rule VM, not a central effect enum.
+   ✔ **M0 is complete** (14 systems inspected); **M1 is parked behind D125 and
+   reachability**, both of which this consumes rather than competes with.
+   ⛔ not scripting, not a rule VM, not a central effect enum. ⭐ M0's headline:
+   **the substrate owns no universal sequencer** — the gap is on the *condition*
+   side, and boss patterns are the **template**, not a customer.
 5. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
@@ -119,6 +123,13 @@ streaming, a generic residency scheduler and byte shaving do not.
 
 - **Ambition:** flagship game. Its real content, authoring, multiplayer,
   persistence and presentation needs have first claim on product value.
+  ⭐ its structural hub is [`game/ambition.md`](game/ambition.md) — the game and
+  engine co-evolve, and it is **not** a thin demo waiting for a finished engine.
+  From there: [`game/vision.md`](game/vision.md),
+  [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
+  [`game/systemic-progression.md`](game/systemic-progression.md),
+  [`game/multiplayer.md`](game/multiplayer.md). ⚠ nothing linked that hub until
+  2026-08-15, which is how the flagship customer's own map went unreachable.
 - **Super Smash Siblings:** serious platform-fighter customer and possible future
   first-class game, but not the project focus. Its remaining body-generic work is
   in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).

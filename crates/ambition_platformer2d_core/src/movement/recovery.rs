@@ -19,16 +19,43 @@
 //! hands it to [`step_motion`], and watches. Every capability the kernel
 //! implements — air jumps, glide, fast fall, wall cling and wall jump, dash,
 //! blink, ledge grab, swim, flight, one-way platforms, moving-platform carry,
-//! hazards, the blast margin — is honoured because the kernel honours it, gated
-//! by the body's own [`AbilitySet`] and its own
+//! hazards, the blast margin — is honoured *to the exact extent the probe's
+//! input policy presses it*, gated by the body's own [`AbilitySet`] and its own
 //! [`AxisSweptParams`](crate::AxisSweptParams). There is no
 //! list of capabilities here to fall out of date, which is precisely the failure
 //! mode the deleted rule had.
 //!
+//! ## ⛔ THE SEARCH IS NOT THE BODY
+//!
+//! Two separable things live in one call, and only one of them is trustworthy in
+//! general:
+//!
+//! * **the ROLLOUT** — the real kernel, driven on a clone of the real body. This
+//!   is the body-generic half and it is why any of this is worth anything.
+//! * **the INPUT POLICY** — [`RecoveryPolicy`], what the probe presses. The
+//!   default ([`RecoveryPolicy::DRIFT_AND_JUMP`]) is a cheap steering heuristic:
+//!   three ordered sides plus a jump re-pressed at the apex. **It presses no
+//!   other verb.** A body whose only way home is a dash, a blink, a flight
+//!   toggle or a fast fall is reported as not recovering — a report that is
+//!   *right about the search and wrong about the body*.
+//!
+//! ⇒ so a negative is [`RecoveryOutlook::NoSupportFoundBy`] and it carries the
+//! [`RecoveryProbe`] that produced it. *"My search did not find a way"* and *"no
+//! way exists"* are different claims and only the first is available here; a
+//! consumer may still act on it, but the value will not let it claim the second.
+//! A caller wanting a stronger claim runs a stronger policy
+//! ([`RecoveryProbe::with_policy`]) and gets a negative bounded by THAT one.
+//!
+//! ⭐ and the two halves can be told apart *after the fact*: `reset` separates
+//! the world ending every effort from the horizon ending them, and re-probing the
+//! identical body and world under a different [`RecoveryPolicy`] separates the
+//! policy from the kernel — which is exactly what
+//! `a_negative_is_a_fact_about_the_search_not_the_body` does.
+//!
 //! ⛔ **and it does not decide what the answer MEANS.** Like `FrameEvents`, this
 //! reports what physically happened; a brain, an authoring validator or an LLM
-//! decides whether "no support found" is a death, a level-design bug, or a
-//! reason to turn around. Nothing in the engine reads it today, deliberately.
+//! decides whether "this search found no support" is a death, a level-design bug,
+//! or a reason to turn around.
 //!
 //! ## What it does NOT cover, and these are gaps of the KERNEL, not assumptions
 //! ## of this query
@@ -39,13 +66,13 @@
 //! into `BodyFlightState::pending_launch` after the probe was taken. Geometry is
 //! whatever `world` contains at the instant of the call — a moving platform is
 //! frozen where it stands, so a route that only exists while the platform is
-//! elsewhere will not be found. State this to a caller in a world that has those
-//! things; do not silently treat [`RecoveryOutlook::NoSupportFound`] as final.
+//! elsewhere will not be found. These are a different limit from the policy one
+//! above: no policy can press its way out of them.
 //!
 //! ## Cost, and rollback
 //!
-//! Three efforts times [`RecoveryProbe::steps`] kernel steps, on a CLONE. It
-//! mutates nothing, caches nothing, and latches nothing across frames, so it is
+//! [`RecoveryPolicy::efforts`] times [`RecoveryProbe::steps`] kernel steps, on a
+//! CLONE. It mutates nothing, caches nothing, and latches nothing across frames, so it is
 //! **not rollback state** and owes no registration — recompute it whenever the
 //! answer is wanted. It is far too expensive to run per body per tick; it is
 //! sized for analysis, authoring validation, and offline reasoning.
@@ -58,7 +85,9 @@ use crate::movement::{
 };
 use crate::{LocalAxes, MotionFrame, World};
 
-/// How long to watch, and at what timestep.
+/// **What the probe is about to try**: the input policy, the horizon, the
+/// timestep. The whole SEARCH, in one value — which is why a negative can carry
+/// it and a consumer can read what was actually covered.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryProbe {
     /// Kernel steps per effort. A probe that stops before the body would have
@@ -68,6 +97,10 @@ pub struct RecoveryProbe {
     /// fall.
     pub steps: usize,
     pub dt: f32,
+    /// ⭐ **the buttons this search presses.** Not a property of the body and
+    /// not a property of the kernel: a heuristic, and the cheapest one, so a
+    /// negative under it is a much weaker claim than it looks.
+    pub policy: RecoveryPolicy,
 }
 
 impl RecoveryProbe {
@@ -75,12 +108,19 @@ impl RecoveryProbe {
     /// 0.65s; terminal velocity crosses any authored room well inside this.
     pub const DEFAULT_STEPS: usize = 240;
 
-    /// Watch for `seconds` at the given fixed timestep.
+    /// Watch for `seconds` at the given fixed timestep, under the default policy.
     pub fn seconds(seconds: f32, dt: f32) -> Self {
         Self {
             steps: (seconds / dt.max(f32::EPSILON)).ceil().max(0.0) as usize,
             dt,
+            policy: RecoveryPolicy::DRIFT_AND_JUMP,
         }
+    }
+
+    /// Search the same horizon with different buttons.
+    pub fn with_policy(mut self, policy: RecoveryPolicy) -> Self {
+        self.policy = policy;
+        self
     }
 }
 
@@ -89,37 +129,160 @@ impl Default for RecoveryProbe {
         Self {
             steps: Self::DEFAULT_STEPS,
             dt: 1.0 / 60.0,
+            policy: RecoveryPolicy::DRIFT_AND_JUMP,
         }
     }
 }
 
-/// The steering efforts tried, in this order.
+/// Where one effort has got to, when the policy is asked what to press.
+///
+/// Deliberately tiny: a policy may react to the body's motion (that is what
+/// makes "press jump at the apex" expressible without a plan) but it may not
+/// read the world, so it cannot smuggle in a rule about level geometry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RecoveryStep {
+    /// Which effort of [`RecoveryPolicy::efforts`] this is, counting from 0.
+    pub effort: usize,
+    /// Kernel steps already taken in THIS effort.
+    pub step: usize,
+    /// Is the body moving against gravity right now?
+    pub rising: bool,
+    /// Does the body have its feet down right now?
+    pub on_ground: bool,
+}
+
+/// **The input policy a [`RecoveryProbe`] searches with — a heuristic, never a
+/// statement about the body.**
+///
+/// ⛔ this exists so that a negative result can name what it tried. It is NOT an
+/// enumeration of what a body can do: the engine ships exactly one policy
+/// ([`Self::DRIFT_AND_JUMP`]) and a caller that wants more supplies its own. A
+/// hand-written list of every verb a body owns would be the deleted *"airborne +
+/// below the lip ⇒ dead"* rule in new clothes.
+///
+/// Determinism (ADR 0023): `input` must be a pure function of its
+/// [`RecoveryStep`] — same step, same buttons — and the efforts are an ordered
+/// range, so two probes of the same body agree and the winner never depends on
+/// iteration luck.
+#[derive(Clone, Copy)]
+pub struct RecoveryPolicy {
+    /// Stable identity, carried into every negative this policy produces.
+    pub name: &'static str,
+    /// How many ordered efforts to run. Effort `i` gets `effort: i`.
+    pub efforts: usize,
+    /// The buttons for one step of one effort.
+    pub input: fn(RecoveryStep) -> InputState,
+}
+
+impl RecoveryPolicy {
+    /// **The cheap default: hold a side, hold jump, re-press jump at the apex.**
+    ///
+    /// ⭐ the press rule is what makes this "full effort" without becoming a
+    /// SEARCH. Pressing every tick would spend a whole air-jump budget in
+    /// consecutive frames and climb less than one jump; pressing at the top of
+    /// the arc is what a human does and what chains the most height out of the
+    /// budget, and it is reactive rather than a plan the caller had to supply.
+    /// Holding the button between presses is load-bearing too: a held jump is
+    /// what opens a cape/glide and what stops a variable-jump law from cutting
+    /// the arc short.
+    ///
+    /// ⛔ **and it presses nothing else** — no dash, no blink, no flight toggle,
+    /// no fast fall. That is the whole reason [`RecoveryOutlook`]'s negative is
+    /// bounded by the policy that produced it.
+    pub const DRIFT_AND_JUMP: Self = Self {
+        name: "drift+jump",
+        efforts: DRIFT_SIDES.len(),
+        input: drift_and_jump,
+    };
+}
+
+impl Default for RecoveryPolicy {
+    fn default() -> Self {
+        Self::DRIFT_AND_JUMP
+    }
+}
+
+impl PartialEq for RecoveryPolicy {
+    /// Identity is the NAME and the effort count. ⛔ never the function pointer:
+    /// comparing fn pointers is unspecified (a linker may merge two identical
+    /// bodies or duplicate one), so a value equality that depended on it would
+    /// not be reproducible.
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.efforts == other.efforts
+    }
+}
+
+impl core::fmt::Debug for RecoveryPolicy {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "RecoveryPolicy({:?}, {} efforts)",
+            self.name, self.efforts
+        )
+    }
+}
+
+/// The steering efforts [`RecoveryPolicy::DRIFT_AND_JUMP`] tries, in this order.
 ///
 /// Body-LOCAL side, so it rotates with gravity. Standing still first, because a
 /// body that already has support should report that without a story about which
-/// way it ran. Fixed and ordered because two efforts can both succeed and the
-/// answer must not depend on iteration luck (ADR 0023).
-const EFFORTS: [f32; 3] = [0.0, -1.0, 1.0];
+/// way it ran.
+const DRIFT_SIDES: [f32; 3] = [0.0, -1.0, 1.0];
+
+/// [`RecoveryPolicy::DRIFT_AND_JUMP`]'s per-step buttons.
+fn drift_and_jump(at: RecoveryStep) -> InputState {
+    let side = DRIFT_SIDES.get(at.effort).copied().unwrap_or(0.0);
+    let jump = Edge {
+        pressed: !at.on_ground && !at.rising,
+        held: true,
+        released: false,
+    };
+    InputState {
+        axes: LocalAxes::new(side, 0.0),
+        movement: ActionEdges::<MovementAction>::EMPTY.with(MovementAction::Jump, jump),
+        ..Default::default()
+    }
+}
 
 /// What the probe saw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RecoveryOutlook {
     /// The body came to rest on, rode, clung to or caught hold of something,
-    /// after `steps` kernel steps while holding `side`.
-    Regained { steps: usize, side: f32 },
-    /// No effort regained support inside the probe's horizon.
+    /// after `steps` kernel steps of effort `effort`.
+    ///
+    /// ⭐ a positive needs no bound. Finding a route by driving the real kernel
+    /// IS proof the route exists; only the failure to find one is a claim about
+    /// the searcher.
+    Regained { steps: usize, effort: usize },
+    /// ⛔ **NOT "this body cannot recover."** `search` regained no support: the
+    /// buttons [`RecoveryProbe::policy`] presses, run for
+    /// [`RecoveryProbe::steps`] steps, reached nothing to stand on. A body that
+    /// gets home only by a verb the policy never presses lands here, and this
+    /// variant is named so a consumer cannot read it as more than it is.
     ///
     /// `reset` is `Some` only when EVERY effort ended in a world reset — the
-    /// world killed the body whichever way it steered, which is a stronger and
-    /// different fact from "still falling when I stopped watching". `None`
-    /// means at least one effort was still going, so the horizon, not the
-    /// world, ended it.
-    NoSupportFound { reset: Option<ResetCause> },
+    /// world killed the body whichever way this policy steered, which is a
+    /// stronger and different fact from "still falling when I stopped watching".
+    /// `None` means at least one effort was still going, so the horizon, not the
+    /// world, ended it. ⚠ **even `Some` is still policy-bounded**: it says every
+    /// effort THIS policy made died, not that every effort would.
+    NoSupportFoundBy {
+        search: RecoveryProbe,
+        reset: Option<ResetCause>,
+    },
 }
 
 impl RecoveryOutlook {
     pub fn regained(self) -> bool {
         matches!(self, Self::Regained { .. })
+    }
+
+    /// The search a negative is a fact about; `None` for a positive.
+    pub fn bounded_by(self) -> Option<RecoveryProbe> {
+        match self {
+            Self::Regained { .. } => None,
+            Self::NoSupportFoundBy { search, .. } => Some(search),
+        }
     }
 }
 
@@ -134,6 +297,11 @@ impl RecoveryOutlook {
 /// `frame` carries gravity's direction AND magnitude, so the answer is
 /// gravity-generic: rotate the world and the body and the verdict rotates with
 /// them.
+///
+/// ⛔ **read the negative as what it is.** A [`RecoveryOutlook::Regained`] is a
+/// fact about the body — the real kernel got it home. A
+/// [`RecoveryOutlook::NoSupportFoundBy`] is a fact about `probe`, which is why it
+/// carries it.
 pub fn probe_recovery(
     world: &World,
     body: &BodyClusterScratch,
@@ -142,14 +310,15 @@ pub fn probe_recovery(
 ) -> RecoveryOutlook {
     let mut every_effort_was_reset = true;
     let mut cause = None;
-    for side in EFFORTS {
-        match run_effort(world, body, frame, probe, side) {
-            EffortOutcome::Regained(steps) => return RecoveryOutlook::Regained { steps, side },
+    for effort in 0..probe.policy.efforts {
+        match run_effort(world, body, frame, probe, effort) {
+            EffortOutcome::Regained(steps) => return RecoveryOutlook::Regained { steps, effort },
             EffortOutcome::Reset(reset) => cause = cause.or(Some(reset)),
             EffortOutcome::StillFalling => every_effort_was_reset = false,
         }
     }
-    RecoveryOutlook::NoSupportFound {
+    RecoveryOutlook::NoSupportFoundBy {
+        search: probe,
         reset: if every_effort_was_reset { cause } else { None },
     }
 }
@@ -169,16 +338,25 @@ const GAP_CANDIDATES: [AbilityGrant; 3] = [
 /// re-probe. `None` when the body already recovers, when nothing in the tried
 /// list changes the answer, or when the grant it needs is not in the list.
 ///
-/// ⚠ **the list is short on purpose.** A grant is tried only when granting it is
-/// completely expressed by the [`AbilitySet`] plus a resource top-up.
+/// ⚠ **the list is short on purpose, and it is bounded TWICE.**
+///
+/// First by expressibility: a grant is tried only when granting it is completely
+/// expressed by the [`AbilitySet`] plus a resource top-up.
 /// [`AbilityGrant::FreeFlight`] and [`AbilityGrant::SandboxAll`] are excluded
 /// because permanent flight is LATCHED into `BodyFlightState` when a body is
 /// built (`fly && !fly_toggle`), not derived from the ability set — granting
 /// `fly` to an already-built body would report a capability that does not
-/// actually fly. [`AbilityGrant::FastFall`] is excluded because falling faster
-/// never puts a surface in reach. Widening it is a real follow-up, not an
-/// oversight; each addition owes the same "granting it is fully expressed here"
-/// argument.
+/// actually fly.
+///
+/// ⛔ and second by the PROBE'S POLICY: a grant can only change the answer if
+/// `probe.policy` presses the verb it grants. Every candidate here is reachable
+/// by [`RecoveryPolicy::DRIFT_AND_JUMP`] (a side, a jump, and a wall the jump
+/// kicks off). [`AbilityGrant::FastFall`] is excluded because falling faster
+/// never puts a surface in reach — but a dash or a blink grant would be excluded
+/// for a *different* reason: the default policy would never press them, so it
+/// would report them as no help when they were the whole answer. Widening this
+/// list therefore owes BOTH arguments, and the second one usually means widening
+/// the policy first.
 pub fn recovery_capability_gap(
     world: &World,
     body: &BodyClusterScratch,
@@ -213,32 +391,31 @@ enum EffortOutcome {
     StillFalling,
 }
 
-/// One effort: hold `side`, hold jump, and re-press jump the moment the body
-/// stops rising.
+/// **The ROLLOUT half: drive the real kernel for one effort and report what
+/// physically happened.**
 ///
-/// ⭐ that press rule is what makes this "full effort" without becoming a
-/// SEARCH. Pressing every tick would spend a whole air-jump budget in
-/// consecutive frames and climb less than one jump; pressing at the top of the
-/// arc is what a human does and what chains the most height out of the budget,
-/// and it is a reactive rule rather than a plan the caller had to supply.
-/// Holding the button between presses is load-bearing too: a held jump is what
-/// opens a cape/glide and what stops a variable-jump law from cutting the arc
-/// short.
+/// ⭐ nothing here decides what to press — `probe.policy` does, and it is the
+/// only thing that would have to change to search harder. Everything below the
+/// input call is body-generic and stays true whatever the policy is.
 fn run_effort(
     world: &World,
     body: &BodyClusterScratch,
     frame: MotionFrame,
     probe: RecoveryProbe,
-    side: f32,
+    effort: usize,
 ) -> EffortOutcome {
     let mut scratch = body.clone();
     for step in 0..probe.steps {
         let rising = scratch.kinematics.vel.dot(frame.down()) < 0.0;
-        let jump = Edge {
-            pressed: !scratch.ground.on_ground && !rising,
-            held: true,
-            released: false,
-        };
+        let input = (probe.policy.input)(RecoveryStep {
+            effort,
+            step,
+            rising,
+            on_ground: scratch.ground.on_ground,
+        });
+        // The effort's own steering IS its facing intent: a body that cannot
+        // turn in the air still points where it is trying to go.
+        let facing_intent = input.local_axis().x;
         let result = {
             let (model, mut clusters) = scratch.parts();
             step_motion(
@@ -246,14 +423,9 @@ fn run_effort(
                 &mut clusters,
                 MotionStepContext {
                     world,
-                    input: InputState {
-                        axes: LocalAxes::new(side, 0.0),
-                        movement: ActionEdges::<MovementAction>::EMPTY
-                            .with(MovementAction::Jump, jump),
-                        ..Default::default()
-                    },
+                    input,
                     frame,
-                    facing_intent: side,
+                    facing_intent,
                     dt: probe.dt,
                 },
             )
@@ -365,6 +537,49 @@ mod tests {
             ..AbilitySet::basic()
         }
     }
+
+    /// A body whose only way home is a BLINK: it can steer and it can blink, and
+    /// [`AbilitySet::NONE`] underneath means nothing else — no jump, no dash, no
+    /// wall verb — can be doing the work.
+    fn blinker() -> AbilitySet {
+        AbilitySet {
+            move_horizontal: true,
+            blink: true,
+            ..AbilitySet::NONE
+        }
+    }
+
+    /// The same three ordered drift efforts, plus a blink press/release
+    /// alternation. Blink completes on RELEASE (`handle_blink_clusters`), so one
+    /// blink costs two kernel steps and the cooldown swallows the presses in
+    /// between. Pure in its [`RecoveryStep`], like any policy must be.
+    fn drift_and_blink(at: RecoveryStep) -> InputState {
+        let side = [0.0_f32, -1.0, 1.0].get(at.effort).copied().unwrap_or(0.0);
+        let blink = if at.step % 2 == 0 {
+            Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            }
+        } else {
+            Edge {
+                pressed: false,
+                held: false,
+                released: true,
+            }
+        };
+        InputState {
+            axes: LocalAxes::new(side, 0.0),
+            movement: ActionEdges::<MovementAction>::EMPTY.with(MovementAction::Blink, blink),
+            ..Default::default()
+        }
+    }
+
+    const DRIFT_AND_BLINK: RecoveryPolicy = RecoveryPolicy {
+        name: "drift+blink (test)",
+        efforts: 3,
+        input: drift_and_blink,
+    };
 
     /// **The verdict comes from the BODY's kit, not from where the body is.**
     ///
@@ -479,6 +694,104 @@ mod tests {
             !stuck_outlook.regained(),
             "and a body that cannot steer must still miss it — got \
              {stuck_outlook:?}"
+        );
+    }
+
+    /// **⛔ A NEGATIVE IS A FACT ABOUT THE SEARCH, NOT ABOUT THE BODY.**
+    ///
+    /// The default policy presses a side and a jump and nothing else, so a body
+    /// that gets home only by blinking is reported as finding no support — a
+    /// verdict that is right about the search and *wrong about the body*. This
+    /// demonstrates the gap rather than asserting it from a doc comment: the
+    /// world, the body, the position, the velocity and the horizon are IDENTICAL
+    /// across the two probes and only the buttons differ, so a difference in the
+    /// verdict can only have come from the policy.
+    ///
+    /// The arithmetic, so a failure can be told from a fixture mistake:
+    /// - centre `(140, 300)`, body 30×48 ⇒ right edge 155, feet 324;
+    /// - the shelf spans `300..660` with its top face at 400, so the body must
+    ///   cross 145px sideways while falling the 76px to that face;
+    /// - 76px of fall is 0.26s and the body's top run speed is 270px/s, so
+    ///   drifting covers at most ~70px — it misses by better than a factor of
+    ///   two whichever way it steers, then leaves the world;
+    /// - one blink is 190px: it puts the body 45px INSIDE the span, still 76px
+    ///   above the face, and gravity does the rest.
+    ///
+    /// ⭐ if the first assertion fails, the default policy grew a verb. If the
+    /// second fails, blink stopped carrying 190px or the shelf moved. If the
+    /// poison fails, the policy is teleporting bodies that cannot blink.
+    #[test]
+    fn a_negative_is_a_fact_about_the_search_not_the_body() {
+        let world = shelf_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        let default_probe = RecoveryProbe::default();
+        let start = Vec2::new(140.0, 300.0);
+        let body = falling_body(blinker(), start);
+
+        let bounded = probe_recovery(&world, &body, frame, default_probe);
+        assert!(
+            !bounded.regained(),
+            "the default policy never presses blink, so it cannot find this \
+             body's only way home — got {bounded:?}"
+        );
+
+        // ⭐ and the negative says WHOSE negative it is. Even the strongest
+        // shape this type can take — every effort ended in a world reset, the
+        // "it died whichever way it steered" case — is still bounded by the
+        // buttons that were pressed and the steps they were pressed for.
+        let RecoveryOutlook::NoSupportFoundBy { search, reset } = bounded else {
+            unreachable!("a non-regained outlook is a NoSupportFoundBy");
+        };
+        assert_eq!(
+            search.policy,
+            RecoveryPolicy::DRIFT_AND_JUMP,
+            "the negative must name the policy that produced it"
+        );
+        assert_eq!(
+            search.steps,
+            RecoveryProbe::DEFAULT_STEPS,
+            "and the horizon it was produced within"
+        );
+        assert!(
+            matches!(reset, Some(ResetCause::LeftTheWorld)),
+            "every drift effort falls out of this room, so the negative wears \
+             its strongest form — got {reset:?}"
+        );
+
+        // Same world, same body, same horizon. ONLY the buttons differ.
+        let searched = probe_recovery(
+            &world,
+            &body,
+            frame,
+            default_probe.with_policy(DRIFT_AND_BLINK),
+        );
+        assert!(
+            searched.regained(),
+            "the identical body in the identical place DOES get back when the \
+             search presses the verb it owns — so the negative above was about \
+             the search. Got {searched:?}"
+        );
+
+        // ⛔ poison: the rescue came from the BODY's verb, through the kernel —
+        // not from the policy. Take blink off the same body, leave everything
+        // else including the policy alone, and it must fail again.
+        let no_blink = falling_body(
+            AbilitySet {
+                move_horizontal: true,
+                ..AbilitySet::NONE
+            },
+            start,
+        );
+        let poisoned = probe_recovery(
+            &world,
+            &no_blink,
+            frame,
+            default_probe.with_policy(DRIFT_AND_BLINK),
+        );
+        assert!(
+            !poisoned.regained(),
+            "poison: pressing blink on a body that cannot blink must change \
+             nothing — got {poisoned:?}"
         );
     }
 }

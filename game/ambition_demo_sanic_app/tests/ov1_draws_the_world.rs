@@ -276,7 +276,7 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 ///
 /// It asserts on `bevy_ui` nodes rather than on named resources, because the
 /// naming test I first wrote was WRONG: `DeveloperRuntimeState` looked app-local and is
-/// in fact ENGINE state (`commit_room_transition_geometry` writes it, and `ambition_platformer2d_runtime`
+/// in fact ENGINE state (the room-transition commit writes it, and `ambition_platformer2d_runtime`
 /// re-exports it as a host seam). A demo carrying it is correct. A demo carrying
 /// Ambition's HUD is not, and a UI node is what a HUD is made of.
 #[test]

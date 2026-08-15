@@ -165,6 +165,28 @@ These cards are capability fronts, not a serial mega-campaign.
 
 ## Authoring and content reservoir
 
+- ▢ **Binding-resolution residual defects.** ⭐ **dispositioned out of the
+  stranded list 2026-08-15 — this is live work with concrete fixes, not spent
+  history.** The campaign's mechanism landed (`Ref<N>`, `Resolver<N>`, `Bound<N>`,
+  structured unresolved diagnostics, construction-time refusal); what remains is
+  (1) per-frame item-art diagnostics passing generic declarers like `"ground
+  item"` instead of provider/source identity, so **two providers with the same
+  unresolved id suppress one another's diagnostic**, and (2) failed-file detection
+  beyond item art where invisibility is real. ⛔ **do not reopen a campaign to
+  wrap every string id** — keep a slice only when it removes a real silent-failure
+  or duplicate-authority path. ⭐ note the adjacency: this machinery is what A9's
+  reverse-reference queries and D127's prepared references would build on. Use
+  [`engine/binding-resolution-boundary.md`](engine/binding-resolution-boundary.md).
+
+- ▢ **Closeout review followups (2026-07-20), residual only.** ⭐ **also
+  dispositioned out of the stranded list**: three items re-verified against HEAD
+  on 2026-08-13 — portal mapping convention as **session authority rather than a
+  process global** (⭐ which is the same class as the multiview process-globals
+  D116 named), honest shipping/fresh-clone configurations, and a measured
+  runtime-scale pass with cheap bounded fixes plus a collision-composition
+  measurement. Each carries its own Evidence/Work/Exit. Use
+  [`engine/closeout-review-followups-2026-07-20.md`](engine/closeout-review-followups-2026-07-20.md).
+
 - ▢ **Project-wide semantic dependency/reference graph.** *"what references
   character:fia?"*, *"what breaks if I delete this?"* — reverse references,
   structured unresolved-reference diagnostics and transactional rename planning
@@ -274,7 +296,15 @@ These cards are capability fronts, not a serial mega-campaign.
 - **Slower Light** — future 3D game; wait for a 3D runtime;
   [`engine/slower-light.md`](engine/slower-light.md).
 - **Leafwing clash-scan optimization** — only when its dependency/version trigger
-  becomes relevant.
+  becomes relevant. ⚠ **Jon does not want to carry a leafwing fork**, and the
+  Ambition side is already landed and inert until the dependency changes; the
+  measured cost is **1–3.1% of frame CPU** in every gameplay chunk. Detail:
+  [`triage/leafwing-clash-scan-patch-2026-07-23.md`](triage/leafwing-clash-scan-patch-2026-07-23.md).
+- **Localization / translation catalog** — trigger-based. No translation catalog
+  or runtime locale system exists; some vocabularies already carry stable ids or
+  reserved i18n keys. Detail:
+  [`engine/presentation-and-shell-audit.md`](engine/presentation-and-shell-audit.md)
+  and [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md).
 - **Broader stable-ID centralization** — do not invent one universal ID framework
   ahead of concrete identity families.
 - **Provider-owned placement families** — open a typed extension seam only when a
@@ -303,19 +333,61 @@ lines, referenced by nothing.** Listing them here makes them reachable. ⛔ **a
 disposition is still owed for each** — promote to a card or retire to the
 archive; being listed here is not a verdict that the work is live.
 
-- `engine_rename_campaign.md` (322)
-- `engine/portable-preparation-and-load-explainability.md` (484)
-- `engine/sprite-renderer.md` (174)
-- `engine/closeout-review-followups-2026-07-20.md` (212) — *residual work only, re-verified against HEAD 2026-08-13*
-- `engine/binding-resolution-boundary.md` (55) — *residual defects only, re-verified against HEAD 2026-08-13*
-- `engine/combat-model.md` (60)
-- `engine/presentation-and-shell-audit.md` (45)
-- `engine/shell-vanity-sequence.md` (44)
-- `triage/ambition-test-support.md` (306)
-- `triage/ambition-registry-core.md` (231)
-- `triage/leafwing-clash-scan-patch-2026-07-23.md` (43)
-- `triage/gameplay-presentation-profiles.md` (32)
-- `game/ambition.md` (40)
+- ~~`engine/portable-preparation-and-load-explainability.md` (484)~~ ✔ **ROUTED —
+  and this one was the sharpest case.** It is **D124's own plan**, and the D124
+  ledger row did not link it. A live row and its 484-line plan existed without
+  knowing about each other.
+- ~~`engine_rename_campaign.md` (322)~~ ✔ **ROUTED** — the stale `Sandbox*` naming
+  campaign is complete (`check_retired_crate_names.py` reports none). ⚠ the file
+  survives because **architecture/product work was bundled into it**, including
+  couch multiplayer. ⇒ **misfiled, not dead**: its residue should move to the
+  topic plans that own it rather than living under a finished rename's name.
+- ~~`engine/sprite-renderer.md` (174)~~ ✔ **ROUTED as REFERENCE, not a campaign.**
+  Its engine-facing content is one principle — **measure-by-default**: a sprite
+  ships the geometry the gameplay layer needs, so a body and its hitbox cannot
+  silently disagree. ⭐ that principle is load-bearing for any authoring change
+  that touches collision geometry — a stretched sprite moves the collision off
+  the picture.
+- ~~`engine/closeout-review-followups-2026-07-20.md` (212)~~ ✔ **PROMOTED** to a card above
+- ~~`engine/binding-resolution-boundary.md` (55)~~ ✔ **PROMOTED** to a card above
+- ~~`engine/combat-model.md` (60)~~ ✔ **ROUTED** — residual combat work verified
+  against `cecd01ca`; CM1–CM5, CM7, CM8 landed. Current body-generic integration
+  is owned by [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md),
+  which is live as **D72**. ⛔ do not schedule the landed items again.
+- ~~`engine/presentation-and-shell-audit.md` (45)~~ ✔ **ROUTED** — the
+  thirteen-domain audit is closed; what remains is forward capability gaps, of
+  which **localization is trigger-based** (no translation catalog or runtime
+  locale system exists). See the deferred/trigger list below.
+- ~~`engine/shell-vanity-sequence.md` (44)~~ ✔ **ROUTED** — **VC5 only**, the
+  title launcher fade-in. VC1–VC4 and VC6 are implemented. A single small
+  presentation item, not a campaign.
+- ~~`triage/ambition-test-support.md` (306)~~ ✔ **ROUTED** — TRIAGE, **strong
+  candidate, design decisions pending** (2026-07-22). Ambition's tests repeatedly
+  rebuild Bevy apps, schedules, fixed time, session roots, room state, catalogs
+  and command-flush sequences. ⛔ the dependency boundary and fixture API must be
+  **piloted before promotion** — do not adopt it wholesale. ⚠ and note the live
+  adjacency: this crate's absence is *why* a test hand-lists its own system
+  chain, which is how a fix's test can pass while the system is unregistered.
+- ~~`triage/ambition-registry-core.md` (231)~~ ✔ **ROUTED, and it is more relevant
+  than its date suggests.** TRIAGE, proposed direction (2026-07-22): one
+  dependency-light protocol for the registry pattern repeated across Ambition.
+  ⭐ **read it alongside D127's discovery doctrine** — *a central authoritative
+  census is bad; a derived read-only index is good* — because "one protocol for
+  canonical registries" is exactly the shape that question decides. ⛔ prove it
+  through one or two migrations before broad adoption.
+- ~~`triage/leafwing-clash-scan-patch-2026-07-23.md` (43)~~ ✔ **ROUTED** to the
+  deferred/trigger list below, where its entry already existed without a link.
+- ~~`triage/gameplay-presentation-profiles.md` (32)~~ ✔ **ROUTED** — GP1–GP5 are
+  implemented (profile resolution, fixed/aspect viewport policy, surround layout,
+  provider profile declaration, occupancy/control regions, touch placement, the
+  HUD's first surround-region consumer). ⭐ **its remainder is adjacent to D116's
+  deferred half** — viewport/layout policy is exactly where a second view's
+  rectangle would have to come from, so read it before reopening that.
+- ~~`game/ambition.md` (40)~~ ✔ **ROUTED from `status.md`** — ⚠ it is not residual
+  work at all but a **structural hub** for the flagship customer (it links
+  `vision.md`, `open-world-roadmap.md`, `systemic-progression.md`,
+  `multiplayer.md`), and nothing pointed at it. That was a pure routing gap, and
+  it is the reason this list exists.
 
 ⚠ **two of these are surprising and should be checked before anyone retires
 them:** `game/ambition.md` describes the flagship game, and

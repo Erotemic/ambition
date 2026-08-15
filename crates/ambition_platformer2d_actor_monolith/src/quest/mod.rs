@@ -1,13 +1,12 @@
 //! Gameplay-core adapter for the generic quest runtime.
 //!
 //! Quest data, events, registry, and save mirroring live in
-//! `ambition_persistence::quest`. The only local piece is the room-specific
-//! producer that translates the active `RoomSet` into a generic
-//! `RoomEntered` quest event.
+//! `ambition_persistence::quest`, and every consumer names that crate
+//! directly. The only piece here is the room-specific producer that
+//! translates the active `RoomSet` into a generic `RoomEntered` quest event —
+//! it lives in this crate because `RoomSet` does.
 
 use bevy::prelude::*;
-
-pub use ambition_persistence::quest::*;
 
 /// Push a `RoomEntered` quest event whenever the active room changes.
 /// Idempotent: only fires the frame the room id flips.

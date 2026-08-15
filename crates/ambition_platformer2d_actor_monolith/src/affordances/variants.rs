@@ -18,25 +18,18 @@ use std::borrow::Cow;
 /// systems, accessibility prompts) can pick the rendering style
 /// independently of the resolver logic.
 ///
-/// `text` is what we render today. `icon` is reserved for the future
-/// symbolic rendering pass (e.g. a sword pointing down for `D-Air`).
-/// `i18n_key` is reserved for future localization; the convention is
-/// `"<verb>.<variant>"` in snake_case so a future locale pack maps
-/// `attack.d_air` -> "Air vers le bas" etc.
+/// `text` is what we render today. `i18n_key` is reserved for future
+/// localization; the convention is `"<verb>.<variant>"` in snake_case so a
+/// future locale pack maps `attack.d_air` -> "Air vers le bas" etc.
+///
+/// There is no `icon` hook: it existed as `fn icon(&self) -> Option<IconId>`
+/// over an uninhabited `enum IconId {}`, so it could only ever return `None`,
+/// and nothing in the workspace ever called it. A symbolic rendering pass will
+/// bring its own icon vocabulary; an empty placeholder bought nothing.
 pub trait VariantLabel {
     fn text(&self) -> &'static str;
-    fn icon(&self) -> Option<IconId> {
-        None
-    }
     fn i18n_key(&self) -> &'static str;
 }
-
-/// Placeholder for the future icon registry. No icon catalog exists
-/// yet; this enum is empty on purpose so `VariantLabel::icon` can
-/// return `Option<IconId>` today without committing to a particular
-/// icon vocabulary.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IconId {}
 
 /// What pressing **Attack** would do right now. Smash-style vocabulary:
 /// grounded reads (`Jab` / tilts / smashes) versus aerial reads

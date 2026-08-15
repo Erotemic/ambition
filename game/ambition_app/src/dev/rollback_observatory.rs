@@ -164,11 +164,17 @@ pub(crate) fn reset_for_content_reload(world: &mut World) {
 #[derive(Component)]
 struct RollbackProofText;
 
+/// ⛔ **`InputLatch` USED TO BE A MEMBER OF THIS SET, AND THAT WAS THE BUG.**
+/// The primary device→tick latch and its accumulator lived here, behind
+/// `dev_tools`, so a persona without developer tooling (the browser) had a live
+/// GGRS session and nothing feeding it — seat zero published neutral input every
+/// tick and the controlled body never moved. Ownership moved to
+/// `HostInputBindingsPlugin`, which is what actually has a device. This
+/// instrument observes rollback; it is not part of the input path.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum RollbackProofUpdateSet {
     Control,
     Session,
-    InputLatch,
     Observe,
     Finish,
     Present,
@@ -191,13 +197,11 @@ impl Plugin for RollbackObservatoryPlugin {
             .init_resource::<RollbackProofSettings>()
             .init_resource::<RollbackObservatoryControl>()
             .init_resource::<RollbackProofState>()
-            .init_resource::<ae::ControlFrameLatch>()
             .configure_sets(
                 Update,
                 (
                     RollbackProofUpdateSet::Control,
                     RollbackProofUpdateSet::Session,
-                    RollbackProofUpdateSet::InputLatch,
                     RollbackProofUpdateSet::Observe,
                     RollbackProofUpdateSet::Finish,
                     RollbackProofUpdateSet::Present,
@@ -223,12 +227,6 @@ impl Plugin for RollbackObservatoryPlugin {
                 request_session_mode
                     .in_set(RollbackProofUpdateSet::Session)
                     .before(rollback::local_session::LocalSessionSet::Maintain),
-            )
-            .add_systems(
-                Update,
-                ae::accumulate_control_frame_latch
-                    .after(ambition_platformer2d::input::InputSet::Route)
-                    .in_set(RollbackProofUpdateSet::InputLatch),
             )
             .add_systems(
                 Update,

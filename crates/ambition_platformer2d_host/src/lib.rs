@@ -165,7 +165,7 @@ impl Plugin for HostInputBindingsPlugin {
             .world()
             .get_resource::<ambition_platformer2d_runtime::SimulationHost>()
             .is_some_and(|host| host.is_ggrs());
-        // THE SEAT LATCHES, for a fixed-tick host AND a rollback one.
+        // BOTH LATCHES, for a fixed-tick host AND a rollback one.
         //
         // `SlotControlLatches` needs no system of its own:
         // `populate_secondary_slot_controls` folds into it whenever the resource
@@ -175,16 +175,26 @@ impl Plugin for HostInputBindingsPlugin {
         // which is where a rollback host asks for input — and publishes each
         // seat into the session.
         //
-        // The PRIMARY latch is deliberately absent from this arm: under GGRS the
-        // rollback observatory already owns `ControlFrameLatch` and its
-        // accumulator, and adding a second registration here is a doubled
-        // system rather than a fix. That is what the seats were missing and the
-        // primary was not (GPT 5.6, 2026-07-28 — their reading was right and
-        // mine was not).
+        // ⛔⛔ **THE PRIMARY LATCH USED TO BE ABSENT FROM THE ROLLBACK ARM, AND
+        // THAT COST JON A GAME THAT COULD NOT BE PLAYED.** The reasoning was
+        // "under GGRS the rollback observatory already owns `ControlFrameLatch`,
+        // so a second registration here is a doubled system rather than a fix".
+        // Every word of that is true about DESKTOP-DEV and none of it is an
+        // ownership boundary: `dev::rollback_observatory` is behind `dev_tools`,
+        // which the web persona does not enable. So the browser composed a live
+        // GGRS session, live leafwing actions, and seat latches — with no
+        // primary latch. `capture_latched_local_input` takes it as `Option` and
+        // leaves `PendingLocalInput` alone when it is missing, so seat zero
+        // published a NEUTRAL frame every tick, forever, in silence. Arrow keys
+        // navigated menus (those never enter the session) and moved nothing.
+        //
+        // ⭐ **A DEVELOPER INSTRUMENT MAY NEVER BE LOAD-BEARING FOR GAMEPLAY.**
+        // The device host owns the frame→tick bridge because the device host is
+        // what HAS a device; removing an observatory from a visible composition
+        // must not be able to remove input. The observatory's copy is deleted,
+        // so this is the only registration and there is nothing to double.
         if app.sim_is_fixed_tick() || rollback_host {
             app.init_resource::<ambition_platformer2d_runtime::host_input::SlotControlLatches>();
-        }
-        if app.sim_is_fixed_tick() {
             app.init_resource::<ambition_platformer2d_core::ControlFrameLatch>();
             app.add_systems(
                 Update,

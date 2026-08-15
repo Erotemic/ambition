@@ -91,6 +91,56 @@ fn main() {
         .map(|active| active.route_id.to_string());
     println!("web-persona-boot: active route = {active:?}");
 
+    // ⛔ **AND A COMPOSITION THAT DRAWS IS NOT A COMPOSITION THAT PLAYS.**
+    //
+    // The browser reached this point — it booted, routed, and painted a menu the
+    // arrow keys navigated — and the controlled body still never moved, because
+    // the primary device→tick latch was installed by the DEV OBSERVATORY and the
+    // web persona has no `dev_tools`. Under GGRS `capture_latched_local_input`
+    // takes the latch as `Option`, so its absence is silent: seat zero publishes
+    // a neutral frame forever and the simulation is genuinely being told the
+    // player is holding nothing.
+    //
+    // Ownership, not presence, is the invariant: a device-driven host owns the
+    // frame→tick bridge, and removing an instrument may never remove input.
+    let host = app
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::SimulationHost>()
+        .copied();
+    let primary_latch = app
+        .world()
+        .get_resource::<ambition_platformer2d::engine_core::ControlFrameLatch>()
+        .copied();
+    println!(
+        "web-persona-boot: simulation host = {host:?}, primary device latch = {primary_latch:?}"
+    );
+    let Some(latch) = primary_latch else {
+        eprintln!(
+            "web-persona-boot: ⛔ the web persona composed a {host:?} host with NO \
+             `ControlFrameLatch` — nothing bridges this frame's device sample to the \
+             next tick, so seat zero's input is neutral every tick and the controlled \
+             body cannot move. Menus still work; they never go through the session."
+        );
+        std::process::exit(1);
+    };
+    // ⛔ **AND INSTALLED IS NOT WIRED.** `capture_latched_local_input` publishes
+    // the latch only while `is_device_authority()` — an untouched latch means
+    // "nothing feeds me", not "the device said nothing", and it declines. So a
+    // latch registered without its frame-clock accumulator reproduces the exact
+    // bug with the resource sitting right there. Startup ran hundreds of frames
+    // above; if `accumulate_control_frame_latch` were scheduled, it has run.
+    if !latch.is_device_authority() {
+        eprintln!(
+            "web-persona-boot: ⛔ the web persona has a `ControlFrameLatch` that NOTHING \
+             HAS FED after {} frames. `capture_latched_local_input` refuses to publish an \
+             unfed latch, so seat zero is still neutral every tick — the same dead \
+             gameplay input, with the resource present. The accumulator was left behind \
+             when the latch moved.",
+            ambition_app::app::shared_host_startup_ticks()
+        );
+        std::process::exit(1);
+    }
+
     // A route that resolved and built NOTHING is the blank screen, reported here
     // rather than left for a browser to demonstrate.
     if ui_nodes == 0 && sprites == 0 {

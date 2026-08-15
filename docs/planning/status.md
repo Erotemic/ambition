@@ -1,6 +1,11 @@
 # HEAD orientation
 
-**Snapshot:** `2115c5180294` (2026-08-14 local project date).
+**Snapshot:** `85e4eab047ab` (2026-08-15 local project date).
+
+⚠ **this SHA goes stale within hours during an active run** — it names the tree
+these paragraphs were measured against, not the tree you have. ⭐ **if it
+disagrees with `git log -1`, trust HEAD and the ledger, and update this line
+rather than reasoning from it.**
 
 This page is a cold-start map, not an execution queue and not a completion
 diary. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the continuing
@@ -43,12 +48,27 @@ The highest-value successor fronts are:
    toward multiple resident rooms when participants separate. See
    [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
    and [`game/multiplayer.md`](game/multiplayer.md).
-3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier** (D125). What a
-   thing IS, which runtime occurrence it is, why it exists and how long it lasts;
-   then item custody as the first demanding consumer, then capability-driven
-   gating and reachability, then residency and persistent populations. Its seven
-   focused plans were all written and reachable only from
-   [`tracks.md`](tracks.md) until 2026-08-14 — the design was never the gap.
+3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
+   CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
+   why it exists and how long it lasts; then item custody as the first demanding
+   consumer, then capability-driven gating and reachability, then residency and
+   persistent populations. Its seven focused plans were all written and reachable
+   only from [`tracks.md`](tracks.md) until 2026-08-14 — the design was never the
+   gap.
+
+   ⭐ **status 2026-08-15: the substrate EXISTS** under names the plans do not use
+   — `WornCharacter` (authored template), **`SimId`** (runtime occurrence),
+   `SpawnOrigin` (provenance) and four ENFORCED lifetime scopes. Custody has landed
+   its first slice (`ItemCustody`, instance vs quantity vs consumable) and
+   reachability its first query (`movement/recovery.rs`, which drives the REAL
+   kernel on a scratch body rather than enumerating capabilities). ⛔ **what is
+   still undesigned is DURABLE PERSISTENCE** — *"has no runtime cleanup scope"*
+   does NOT mean *"correctly saved and restored"* — and the INVENTORY leg, because
+   `OwnedItems` is a process-global count table with no row per object. ⛔ treat
+   `OwnedItems` / held-item synchronisation as a **migration seam**, never as the
+   custody model: physical custody belongs to the body and the item instance, and
+   participant entitlement is a separate fact with a different owner and lifetime.
+   ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 4. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).

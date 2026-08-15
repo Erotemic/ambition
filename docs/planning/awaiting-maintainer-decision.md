@@ -283,3 +283,23 @@ several cameras, label layout and nameplates fall back to a **world-origin**
 focus (`Vec2::ZERO`) rather than declining to draw — silent-wrong where the rest
 of this seam is loud-wrong — and `MainCameraEntity` is a **seventh** process-global
 "the main camera" resource that split-screen will have to answer for.
+
+### 12. The `ambition_map_assets` submodule cannot be pushed from this machine
+
+⚠ **environment, not design — it needs your credentials, not a decision.**
+
+`game/ambition_map_assets` commit `73baab9` ("The two patrollers name their path
+instead of spelling it") is committed locally and **could not be pushed**. Its
+`origin` is a rewritten SSH host (`git@aivm-cred-git-…:Erotemic/ambition_map_assets.git`),
+and both that and the plain `https://github.com/Erotemic/ambition_map_assets.git`
+in `.gitmodules` fail with *"Please make sure you have the correct access rights"*.
+The superproject's own remote pushes fine.
+
+⇒ **consequence:** the superproject gitlink at `c28414a0d` and later points at a
+map-assets commit that exists **only in this working tree**. A fresh clone will
+not resolve it until that submodule commit is pushed. The two migrated worlds
+(`intro.ldtk`, `sandbox.ldtk`) are the content at risk.
+
+⛔ **I did not work around this** — a workaround here means either rewriting a
+remote or vendoring assets out of their submodule, and both are yours to decide.
+Everything else in that slice is pushed and green.

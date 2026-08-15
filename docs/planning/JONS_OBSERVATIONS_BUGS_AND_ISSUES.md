@@ -64,7 +64,7 @@
 
 * In mary-o when you die the level doesn't restart you just stay right where you were. When you die you should restart the level with 1 less life. For now let's allow lives to go negative and the user to play forever, so no game over screen yet.
   * ◐ All three ways to die (a hit, the timeout, a pit or spike) are covered end to end and every one puts her back at spawn — poisoning any of the three reproduces your sentence, so if you still see it, it is a fourth route.
-  * ▢ Lives are untouched; nothing counts them down yet.
+  * ✔ Lives do count down — `spend_lives_on_death` has decremented `MaryOLevelState::lives` off `ActorDiedMessage` since `52e34be60`, on all three death roads; the ▢ here predated it.
 
 * Spent blocks in 1-2 don't look spent. There are is also no tile texture in 1-2.
   * ✔ Spent blocks fixed — every block in the cavern was opted out of art updates, because an authored colour meant "no sprite yet" and nothing could ever repaint it.

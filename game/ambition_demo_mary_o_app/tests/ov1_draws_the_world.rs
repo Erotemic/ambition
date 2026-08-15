@@ -342,3 +342,49 @@ fn visible_mary_o_presentation_retires_and_relaunches_with_the_session() {
         "the declared HUD is session-scoped and must rebuild on relaunch"
     );
 }
+
+/// **A `VfxMessage` this demo writes must be DRAWN by this demo.**
+///
+/// ⛔ the defect this closes, and it is Jon's own report: *"the block flinches
+/// and the cue plays, but nothing draws a coin arcing out."* Every half of the
+/// coin pop was built — `powerups.rs` writes `VfxMessage::CoinPop`,
+/// `fx::spawn_coin_pop` spawns a ballistic `ParticleVisual` for it, the flinch
+/// and the sound both arrive — and the coin still never appeared, because
+/// `fx::vfx_spawn_messages` was registered in `game/ambition_app` and NOWHERE
+/// else. This demo composes `PlatformerEnginePlugins` + `PlatformerHostPlugins`
+/// and no `ambition_app`, so the message went into a queue with no reader.
+///
+/// Exactly the OV1 shape the rest of this file guards, one message channel over:
+/// the code existed in `ambition_render`, and no plugin a demo installs called
+/// it. `ambition_platformer2d_host::HostVfxPresentationPlugin` is the answer.
+///
+/// ⚠ asserted on the ENTITY, not on the plugin list. A test that looked for the
+/// plugin would stay green on a plugin that had stopped working, and the same
+/// assertion covers the brick-break `VfxMessage::Burst` and every impact spark,
+/// which travel the same subscriber.
+#[test]
+fn a_vfx_message_this_demo_writes_is_drawn_by_this_demo() {
+    use ambition_platformer2d::render::fx::ParticleVisual;
+    use ambition_platformer2d::vfx::VfxMessage;
+
+    let mut app = drawn_demo();
+    settle(&mut app);
+
+    let particle_count = |app: &mut App| {
+        let mut q = app.world_mut().query::<&ParticleVisual>();
+        q.iter(app.world()).count()
+    };
+    let before = particle_count(&mut app);
+
+    app.world_mut().write_message(VfxMessage::CoinPop {
+        pos: ambition_platformer2d::engine_core::Vec2::new(64.0, 64.0),
+    });
+    settle(&mut app);
+
+    assert!(
+        particle_count(&mut app) > before,
+        "this composition wrote a `VfxMessage::CoinPop` and drew nothing: \
+         `fx::vfx_spawn_messages` is not scheduled here, which is the whole of \
+         the coin-pop report and not a Mary-O bug"
+    );
+}

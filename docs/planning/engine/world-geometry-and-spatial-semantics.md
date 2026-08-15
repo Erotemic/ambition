@@ -1,8 +1,49 @@
 # World geometry and spatial semantics
 
-**State:** PROPOSED FOR TRIAGE. Planning-only extension of existing Engine 1.0
-programs. This document is not execution authority and does not promote itself
-into `queue.md` or `tracks.md`.
+**State:** ⭐ **TRIAGED 2026-08-15 — HELD as a focused architectural owner, NOT
+promoted.** Planning-only extension of existing Engine 1.0 programs. This document
+is not execution authority and does not promote itself into `queue.md` or
+`tracks.md`.
+
+## ⭐⭐ COORDINATOR TRIAGE 2026-08-15 — the strongest trigger was TESTED and did NOT fire
+
+⭐ **the `BlockKind` diagnosis in Symptom B is CORRECT and was re-measured against
+HEAD** (`crates/ambition_platformer2d_core/src/world.rs:20`). The enum really does
+mix contact law, traversal permission, world consequence and contact affordance on
+one axis, and a closed taxonomy of that shape really does grow `OneWayConveyor` and
+`BlinkWallRebound` as customers arrive. Nothing below is a disagreement with the
+analysis.
+
+⛔⛔ **but this plan's own trigger #1 ran as a real experiment today and came back
+NEGATIVE, and that is the finding.** A worker authored a complete new Mary-O room
+through LDtk end to end — terrain, a bonk row, a hidden block, six enemies, coins,
+a moving platform, a warp-tube pair, spawn and flagpole. It hit **no** surface
+combination `BlockKind` could not express, and asked for **no** new species. Its
+friction was somewhere else entirely: discovery of legal field values,
+hand-kept registration sites, and a silent `Custom(…)` fallthrough on
+`String`-typed fields.
+
+⇒ ⭐ **an untested trigger is a hypothesis; a tested one is evidence.** The
+authoring customer this plan named as its strongest reason to start does not want
+compositional surfaces yet — it wants to *see what it may place*. That is the
+authoring-and-tools program, and it is where the session budget goes.
+
+The other four triggers are also unmet at HEAD: no second surface-motion customer
+(`kinematic-world-objects` is resting), no zone family repeating identity plumbing,
+no inspection feature blocked on a geometry descriptor, no provider game blocked on
+a closed switch.
+
+### ⭐ What is done instead — arm the tripwire, do not run the campaign
+
+⛔ **do not schedule S0–S5.** The cheap, correct action is to put the trigger where
+the person who trips it will be standing: a note at `BlockKind` itself saying that
+adding a **combinatorial** species — a variant that is two existing axes crossed —
+IS trigger #1, and pointing here. ⚠ a plan that fires when someone reaches for
+`OneWayConveyor` is worth more than a campaign that runs before anyone has.
+
+⇒ **re-triage when that note is tripped**, or when any other trigger above is
+measured. ⛔ not because the analysis looks compelling — it already does, and that
+is precisely why it needs a customer rather than an advocate.
 
 ## Goal
 

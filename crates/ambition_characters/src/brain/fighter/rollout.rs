@@ -883,6 +883,36 @@ fn apply_intent(
     }
 }
 
+/// ⛔ **THE DUPLICATE INTEGRATOR, AND ITS DELETION GATE IS NOW NAMED.**
+///
+/// The header on [`ShadowTuning`] concludes *"the fix is not different
+/// constants, it is DERIVATION"*, and derivation for the NUMBERS landed
+/// ([`ShadowTuning::for_body`]). This function is the other half: a second
+/// hand-written physics law, with a one-plane terrain model, beside
+/// `ae::step_motion`.
+///
+/// ⭐ **the seam that replaces it exists**: `ae::movement::recovery` drives the
+/// real kernel over a cloned [`ae::BodyClusterScratch`] against a real
+/// `&ae::World`, so every verb the body owns is honoured by the code that owns
+/// it. ⚠ it is NOT wired here and must not be — it costs three efforts times its
+/// horizon in kernel steps, which is orders of magnitude past a per-decision
+/// budget, and Smash is paused.
+///
+/// **Delete this function when all three hold:**
+/// 1. the brain can obtain a `&ae::World` for the room it is fighting in
+///    (`ambition_characters` already depends on `ae`; what it lacks is the
+///    world, which `CollisionWorld::solids()` hands out as exactly that type —
+///    ⛔ do NOT take a dependency on `ambition_platformer2d_world` to get it,
+///    pass it down the way `Perceived` is passed);
+/// 2. one real kernel step per shadow step is measured against the
+///    `rollout_k × (1 + rollout_depth)` budget and is affordable, OR the rollout
+///    is restructured so the kernel runs at a coarser cadence than the search;
+/// 3. `ladder_rig --scenarios` re-runs green — that suite is the only instrument
+///    that has ever seen a shadow-physics divergence (it caught the 1400/160/420
+///    gap), so a swap without it is a guess.
+///
+/// Until then the divergence is bounded ONLY by `ShadowTuning::for_body`
+/// copying the numbers, and the terrain model here is still one plane.
 fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuning) {
     if f.koed {
         return;

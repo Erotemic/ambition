@@ -37,6 +37,7 @@ pub mod knockdown;
 mod model;
 mod ops;
 mod player;
+pub mod recovery;
 mod simulation;
 pub(crate) mod surface_momentum;
 mod tuning;

@@ -465,12 +465,27 @@ tackon_targets=(
     super_mary_o_flag_pole_body
     super_mary_o_flag_pole_top
     super_mary_o_flag
-    generic_explosions
-    # Reusable action-effect vocabulary (contact hits, surface dust, poofs,
-    # glints, directional release flashes, beam impacts, charge/release).
-    # 18 rows on one sheet, addressed BY ROW NAME — none of them is a
-    # `CharacterAnim`, and none of them should become one.
+    # Reusable hand-authored presentation marks: impacts, dust/poofs, glints,
+    # directional release flashes, and charge/release effects. The generated
+    # authoring sidecar carries placement/orientation/loop intent for the
+    # presentation integration layer.
     generic_action_fx
+    # Complementary generic marks for motion, shields/status, teleport/phase,
+    # water/ambient accents, and elemental electricity/ice. Kept as a separate
+    # sheet so the generic action catalog does not grow past friendly texture
+    # dimensions as the authored VFX vocabulary expands.
+    generic_world_fx
+    # Third reusable catalog: smoke/gas, goo/corrosion, sonic/psychic, time,
+    # ritual magic, mechanical debris, nature/spores, sand, and shadow effects.
+    generic_exotic_fx
+    # Detached character-specific presentation catalogs. These complement the
+    # body-integrated character renderers with world/target/projectile-space
+    # effects while preserving authored timing, anchors, and semantic intent.
+    carl_stargan_vfx
+    noether_vfx
+    patent_clerk_vfx
+    pca_vfx
+    generic_explosions
     smirking_behemoth_boss
     solid_snake
     snakes_on_a_paper_plane

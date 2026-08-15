@@ -397,6 +397,13 @@ pub fn materialize_declared_character_sprite(
     token: &str,
 ) -> SpriteMaterialization {
     let cid = match sprites.sheet_state(token) {
+        // ⭐ **THE RE-ENTRY CACHE, and it is this line.** A character another room
+        // already prepared costs nothing to stage again: no sheet lookup, no
+        // atlas build, no handle request. Pinned by
+        // `re_demanding_a_resident_character_repeats_no_preparation`, which
+        // counts atlas layouts and goes 1 → 2 the moment this returns early no
+        // longer. It is why D124's remaining Hall cost is FIRST-VISIT work and
+        // wants a budget rather than another cache.
         ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
             return SpriteMaterialization::Ready
         }

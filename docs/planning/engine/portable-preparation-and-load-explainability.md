@@ -179,8 +179,20 @@ presentation realization stay separate. Presentation may realize N character
 artifacts across several covered frames; the plan may not become partial.
 
 ⚠ **and establish the EXISTING cache semantics before adding another cache.**
-`CharacterLoadStates` and `PreparedCharacterRegistry` already exist; the question
-is what they already guarantee about re-entry, not what a new layer would.
+
+✔ **ANSWERED 2026-08-15, and the answer is a NEGATIVE result — the useful kind.**
+`materialize_declared_character_sprite` opens with `CharacterSheetState::Ready(_)
+=> return`, before any sheet lookup, atlas build or handle request. A character
+another room already prepared costs nothing to stage again. Pinned by
+`re_demanding_a_resident_character_repeats_no_preparation`, which counts atlas
+layouts rather than wall time (a timing assertion there would be a flaky
+performance test; a layout built twice is the actual work and is countable), and
+falsified against a disabled short-circuit: **1 → 2 layouts.**
+
+⭐ **so the remaining Hall cost is genuinely FIRST-VISIT work, and that changes
+the design.** It wants the first visit BUDGETED, not repeats memoized — opposite
+fixes, and building the cache that already exists would have cost the campaign
+while changing nothing.
 
 ## What was already found on the way in
 

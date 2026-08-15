@@ -1079,4 +1079,67 @@ mod live_quality_apply {
         }
         out
     }
+
+    /// **THE CACHE ALREADY EXISTS, AND THIS IS WHERE THAT IS WRITTEN DOWN.**
+    ///
+    /// D124 asks whether entering a room re-does preparation another room
+    /// already paid for — the Hall stages 129 distinct characters and its
+    /// manifest frame measures 18ms, so a repeat would be 18ms per visit
+    /// forever. The answer is no: `materialize_declared_character_sprite` opens
+    /// with `CharacterSheetState::Ready(_) => return`, before any sheet lookup,
+    /// atlas build or handle request.
+    ///
+    /// ⭐ **so the finding is a NEGATIVE one, and it is the useful kind.** The
+    /// portable-preparation plan says to establish existing cache semantics
+    /// before adding a cache; they are correct, and the remaining Hall cost is
+    /// genuinely FIRST-VISIT work. That points the design at budgeting the first
+    /// visit, not at memoizing repeats — opposite fixes, and picking the wrong
+    /// one costs a campaign.
+    ///
+    /// ⚠ **counted in ATLAS LAYOUTS, not in wall time.** A timing assertion here
+    /// would be a flaky performance test; a layout that gets built twice is the
+    /// actual work, and it is countable. If a future change reintroduces repeat
+    /// preparation this grows and says so.
+    #[test]
+    fn re_demanding_a_resident_character_repeats_no_preparation() {
+        let Some(cid) = a_character_with_a_scaled_variant() else {
+            panic!("no baked sheet variant: this fixture cannot prove anything");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(cid.clone());
+        finalize_and_update(&mut app);
+        let resident = resident_image_path(&app, &cid)
+            .unwrap_or_else(|| panic!("`{cid}` must materialize on first demand"));
+        let layouts_after_first = app
+            .world()
+            .resource::<Assets<bevy::image::TextureAtlasLayout>>()
+            .len();
+
+        // The same character, demanded again exactly as a second room staging it
+        // would — the token, through the ordinary demand seam.
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(cid.clone());
+        finalize_and_update(&mut app);
+
+        let layouts_after_second = app
+            .world()
+            .resource::<Assets<bevy::image::TextureAtlasLayout>>()
+            .len();
+        assert_eq!(
+            layouts_after_second, layouts_after_first,
+            "re-demanding the resident character `{cid}` built another atlas layout, so \
+             every room that stages an already-prepared character pays for it again. The \
+             Hall's 18ms manifest frame would then be 18ms on every visit rather than the \
+             first"
+        );
+        assert_eq!(
+            resident_image_path(&app, &cid).as_deref(),
+            Some(resident.as_str()),
+            "and the second demand must not have replaced the resident realization"
+        );
+    }
 }

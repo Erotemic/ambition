@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 10
+## Open decisions — 11
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -251,3 +251,35 @@ units. One of the two is wrong and I cannot tell which from the code.
 
 ⚠ **I did not change it.** The zoom range in the shipped game is narrow enough
 that nobody has reported it, and picking silently would be choosing a feel.
+
+### 11. Two views need per-view world-space entities, or a policy that picks one
+
+⚠ **noted rather than asked, and D116 M2 proceeds without the answer** — the
+first two items of M2 landed 2026-08-14 and do not depend on this.
+
+Three draw systems are genuinely per-view — foreground/parallax, label layout and
+nameplates — and each builds **one** set of world-space entities: one `Transform`
+per world label, per nameplate, per parallax layer. Naming which view they serve
+is not the blocker. Per-view *correctness* needs one of:
+
+- **duplicate per view** — each view owns its own label/nameplate/parallax
+  entities. The general answer, and what shared / fixed-split / BG3-adaptive all
+  eventually need, since a second view is a count rather than a special case.
+  Costs entities per view.
+- **pick one view** — keep one set, drive it from a designated view. Smaller, but
+  it re-centralises the thing D116 exists to decentralise, and the next slice
+  undoes it.
+- **stop here** — two views are already structurally real (distinct transforms,
+  distinct viewports), and the three systems refuse loudly at two cameras. Return
+  when a product need for split-screen actually arrives.
+
+⇒ **the engineering default, taken unless you say otherwise: duplicate per
+view**, because it is the only option that does not have to be undone. ⚠ what is
+genuinely yours is not this fork but the LAYOUT POLICY above it — shared, fixed
+split, or adaptive-with-hysteresis — and no agent should invent that enum.
+
+⚠ two related shapes found while landing M2's first half, both left alone: with
+several cameras, label layout and nameplates fall back to a **world-origin**
+focus (`Vec2::ZERO`) rather than declining to draw — silent-wrong where the rest
+of this seam is loud-wrong — and `MainCameraEntity` is a **seventh** process-global
+"the main camera" resource that split-screen will have to answer for.

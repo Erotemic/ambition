@@ -417,11 +417,34 @@ pub fn george_booul_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
     );
     side_b.gates = either_posture();
-    // ⚠ **exactly horizontal, and the zero is deliberate.** A charge with a
-    // little lift in it would advertise a `lift_speed` and read to every policy
-    // layer as a second way home — a 140px/s "recovery" worth four pixels of
-    // climb. The affordance is only useful while it means something, so a move
-    // that is not a way home must not claim to be one.
+    // ⚠ **exactly horizontal, and the zero used to be a WORKAROUND.**
+    //
+    // ⛔ the reason recorded here was: *"a charge with a little lift in it would
+    // advertise a `lift_speed` and read to every policy layer as a second way
+    // home — a 140px/s 'recovery' worth four pixels of climb."* That was true and
+    // it is **no longer the reason** (2026-08-15). A route is now a PROPOSAL that
+    // `RecoveryLens::best_route` accepts or declines by driving the real kernel
+    // from where the body is, so a move that advertises a useless lift is simply
+    // a route the search rejects — costing one probe rather than the whole
+    // recovery. The Pirate Admiral's `air_up` is authored with exactly the lift
+    // this comment used to forbid.
+    //
+    // ⚠ **so the zero stays as a CONTENT decision, not an engine one.** George's
+    // side special is a horizontal body-check and George's way home is his Up-B;
+    // giving this move an arbitrary hop would be tuning it to please a reader.
+    //
+    // ⛔⛔ **and the honest consequence is that this move is INVISIBLE to the
+    // search, even though its own doc above calls it "a real horizontal
+    // recovery".** `lifting_candidates` filters on `lift_speed > 0`, and a purely
+    // horizontal `Set` has none — so a George who could get home by charging
+    // sideways is never offered the option. That gap is NAMED and left open on
+    // purpose: closing it means the search proposing every displacing move, not
+    // widening the lift derivation, and it is a decision about search cost rather
+    // than about this table.
+    //
+    // ⚠ the guard `the_ascent_commands_its_rise_and_advertises_it` still asserts
+    // nothing else in George's table lifts. That assertion is now about GEORGE
+    // (one fighter, one way home) rather than about the engine.
     let side_b = impulse(side_b, 0.20, (760.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.74, 0.0);
     moves.push(feel(side_b, Feel::Special));

@@ -279,6 +279,20 @@ const REACH_TOLERANCE: f32 = 2.0;
 /// [`MAX_PROBED_ROUTES`](super::recovery::MAX_PROBED_ROUTES) — a stable prefix,
 /// never a claim.
 ///
+/// ⛔⛔ **A NAMED, OPEN GAP: A PURELY HORIZONTAL DISPLACEMENT IS INVISIBLE HERE.**
+/// The filter is `lift_speed > 0`, and a move that commands `Set (760, 0)` has
+/// none — so a body whose way home is a flat charge is never proposed as having
+/// one. This is not hypothetical: `smash_george_booul`'s `modus_ponens` is
+/// described in its own authoring comment as *"a real horizontal recovery"* and
+/// this function cannot see it.
+///
+/// ⛔ **and the fix is NOT to widen the derivation.** `lift_side` already carries
+/// the number; what is missing is a reason to propose a move with no
+/// against-gravity component at all, which means proposing EVERY displacing move
+/// and paying for the probes. That is a decision about search cost — it belongs
+/// with [`MAX_PROBED_ROUTES`] and wants a measurement, not another predicate.
+/// Recorded rather than half-built.
+///
 /// ⛔ **no character conditional, and no role taxonomy.** There is no list of
 /// which body's special is the Up-B, and there is deliberately no `MoveRole`
 /// enum: the day a second body authors a displacing move it is understood here

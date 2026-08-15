@@ -672,6 +672,162 @@ mod tests {
         assert_eq!(aerial.lift_side, 0.0);
     }
 
+    // -----------------------------------------------------------------------
+    // The authored table, driven through the REAL decision machinery.
+    // -----------------------------------------------------------------------
+
+    use ambition_characters::brain::fighter::options::{
+        lifting_candidates, AttackBinding, AttackCandidate, AttackVerb,
+    };
+    use ambition_characters::brain::fighter::recovery::{
+        BodyKit, RecoveryLens, RecoveryLift, RecoveryQuery,
+    };
+    use ambition_characters::perception::{
+        PerceivedSolid, SelfView, SolidKind, StageView, WorldView,
+    };
+    use ambition_platformer2d::engine_core as ae;
+
+    const DT: f32 = 1.0 / 60.0;
+
+    /// **The admiral's kit as an AIRBORNE body sees it** — the posture filter the
+    /// runtime applies before the brain ever looks, so a grounded-only tilt
+    /// cannot be proposed off the side of a stage.
+    ///
+    /// ⚠ the BINDING is not what this fixture measures (a route is identified by
+    /// its move id), so every candidate carries the same placeholder press.
+    fn airborne_kit() -> Vec<AttackCandidate> {
+        pirate_admiral_moveset()
+            .moves
+            .iter()
+            .filter(|m| m.gates.grounded != Some(true))
+            .map(|m| AttackCandidate {
+                move_id: m.id.clone(),
+                frames: m.frame_data(),
+                binding: AttackBinding {
+                    verb: AttackVerb::Special,
+                    direction: ambition_characters::actor::attack_gesture::AttackDir::Up,
+                },
+            })
+            .collect()
+    }
+
+    /// A 1600x800 stage whose only surface is far off to the right: `x` in
+    /// `650..1450`, top face at `y = 500`. A body high and far to the left is
+    /// ABOVE that face, so its problem is entirely lateral.
+    fn offstage_left() -> WorldView {
+        WorldView {
+            self_view: SelfView {
+                pos: ae::Vec2::new(150.0, 200.0),
+                gravity_down: ae::Vec2::new(0.0, 1.0),
+                half_extent: ae::Vec2::new(12.0, 16.0),
+                alive: true,
+                on_ground: false,
+                health_max: 100,
+                ..Default::default()
+            },
+            stage: StageView {
+                bounds: ae::Aabb::new(ae::Vec2::new(800.0, 400.0), ae::Vec2::new(800.0, 400.0)),
+            },
+            terrain: vec![PerceivedSolid {
+                aabb: ae::Aabb::new(ae::Vec2::new(1050.0, 516.0), ae::Vec2::new(400.0, 16.0)),
+                kind: SolidKind::Solid,
+            }],
+            ..Default::default()
+        }
+    }
+
+    /// ⭐⭐ **THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
+    /// route derivation, and the real movement kernel agree that `grapple_line`
+    /// is the way home — and they do it without anybody naming him.**
+    ///
+    /// Every step is the shipped one. The kit is this file's `MovesetContract`
+    /// posture-filtered the way the runtime filters it; the routes come from
+    /// `lifting_candidates`, which reads nothing but `MoveFrameData`; and the
+    /// verdict comes from `RecoveryLens::best_route`, which clones a body and
+    /// drives `step_motion`. There is no character conditional anywhere in that
+    /// chain and this test would read identically for any fighter.
+    ///
+    /// ⛔ **and the ORDER is asserted first, because the order is the trap.**
+    /// `air_up` sorts above `grapple_line` on the only number a static reader
+    /// has. A layer that took the first candidate would take the juggle aerial.
+    #[test]
+    fn the_search_picks_the_grapple_out_of_the_admirals_own_kit() {
+        let kit = airborne_kit();
+        let routes_by_id: Vec<&str> = lifting_candidates(&kit)
+            .iter()
+            .map(|c| c.move_id.as_str())
+            .collect();
+        assert_eq!(
+            routes_by_id,
+            vec!["air_up", "grapple_line", "grapeshot"],
+            "the scalar order is the trap this fixture exists inside — if it \
+             changes, re-read the comment on `air_up` before touching anything"
+        );
+
+        let view = offstage_left();
+        let routes: Vec<RecoveryLift> = lifting_candidates(&kit)
+            .iter()
+            .map(|c| RecoveryLift {
+                speed: c.frames.lift_speed,
+                side: c.frames.lift_side,
+                after_s: c.frames.lift_at_s,
+            })
+            .collect();
+        let kit_facts = BodyKit {
+            abilities: ae::AbilitySet {
+                double_jump: true,
+                ..ae::AbilitySet::basic()
+            },
+            movement: ae::MovementTuning::default(),
+        };
+        // ⭐ **the double jump is SPENT**, which is the situation the module doc
+        // describes: the admiral buys his height with the body's own verb and
+        // then crosses with the move. A fixture that left the jump unspent would
+        // be measuring a body that has not got into trouble yet.
+        let at = RecoveryQuery {
+            pos: view.self_view.pos,
+            vel: ae::Vec2::ZERO,
+            air_jumps_left: 0,
+        };
+
+        let lens = RecoveryLens::from_view(&view, kit_facts, &routes, DT)
+            .expect("the stage is known and gravity is non-zero");
+        let verdict = lens.best_route(at);
+        assert!(
+            verdict.regained(),
+            "the admiral is 500px from the only surface on the stage and holding \
+             a move built to cross exactly that — got {verdict:?}"
+        );
+        let chosen = verdict.route.expect("a route, not the bare drift");
+        assert_eq!(
+            lifting_candidates(&kit)[chosen].move_id,
+            "grapple_line",
+            "the search endorsed the wrong move; routes were {routes_by_id:?}"
+        );
+
+        // ⛔ poison: without any route at all the identical body from the
+        // identical place must NOT get home, or the lens is answering `Regained`
+        // to everything and the assertion above is worthless.
+        let unarmed =
+            RecoveryLens::from_view(&view, kit_facts, &[], DT).expect("the stage is known");
+        assert!(
+            !unarmed.best_route(at).regained(),
+            "drift alone crossed 500px, so this stage cannot tell a recovery from \
+             a fall"
+        );
+
+        // ⛔ poison: and the juggle aerial ALONE — the move the scalar ranks
+        // first — must not get home either. If it did, the endorsement above
+        // would be a coin flip between two working routes.
+        let juggle_only = RecoveryLens::from_view(&view, kit_facts, &routes[..1], DT)
+            .expect("the stage is known");
+        assert!(
+            !juggle_only.best_route(at).regained(),
+            "the 360px/s juggle aerial reached the stage, which means the trap \
+             this fighter was authored to expose is not present in these numbers"
+        );
+    }
+
     /// **FOUR SPECIALS, FOUR MECHANISMS.**
     ///
     /// ⛔ four rotations of one strike would be a re-skin, so the assertion is

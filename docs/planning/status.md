@@ -69,13 +69,23 @@ The highest-value successor fronts are:
    custody model: physical custody belongs to the body and the item instance, and
    participant entitlement is a separate fact with a different owner and lifetime.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
-4. **Simulation authority and determinism.** Decompose parameter-ceiling systems
+4. **⭐ NEW 2026-08-15 — deterministic authored gameplay logic and orchestration**
+   (D127). Authoring is strong for **nouns** and weak for **verbs and
+   relationships over time**; several independent partial condition → effect
+   systems already exist in tree, which is what promotes this from an abstraction
+   idea to a named capability gap. **Rust extends the engine's vocabulary;
+   authored content composes vocabulary that already exists.** See
+   [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
+   ⛔ **only M0 (inventory + evidence) is authorized** — it is deliberately behind
+   D125 and reachability, both of which it consumes rather than competes with.
+   ⛔ not scripting, not a rule VM, not a central effect enum.
+5. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
-5. **Capability/runtime composition.** Make optional capabilities honest in
+6. **Capability/runtime composition.** Make optional capabilities honest in
    dependency and composition topology. See
    [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
-6. **Public SDK, authoring ergonomics, performance and iteration.** See
+7. **Public SDK, authoring ergonomics, performance and iteration.** See
    [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
    [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 

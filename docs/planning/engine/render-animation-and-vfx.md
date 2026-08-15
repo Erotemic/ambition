@@ -23,6 +23,29 @@ plan is to converge these pieces, not replace them with a new renderer.
 - render extraction/read models that remain downstream of simulation;
 - agent-native visual diagnostics and concise review captures.
 
+## ⛔ Presentation animation is not a gameplay timeline
+
+Two different things are easy to conflate once a general animation capability
+exists:
+
+- **presentation animation** — free to animate presentation properties, curves,
+  transforms, sprite presentation, material parameters, camera effects. It is
+  downstream and non-authoritative.
+- **authoritative deterministic gameplay timelines/orchestration** — owned by
+  [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
+  and by the simulation. Gameplay truth changes through deterministic
+  simulation/domain operations.
+
+⛔⛔ **arbitrary property animation must never become an escape hatch around
+simulation authority.** "The animation sets the value" is how a presentation
+system quietly acquires gameplay authority.
+
+⚠ **and before any bespoke low-level animation runtime is built, investigate
+Bevy's existing animation capabilities** (`bevy_animation`, its curve/clip
+model, animation graph) and record what they do and do not give a 2D sprite-first
+game. This does not need to become an active campaign yet; it needs to happen
+before a large custom runtime is committed to.
+
 ## Candidate crate / Bevy shape
 
 Presentation domains should be ordinary Bevy plugins downstream of read models.

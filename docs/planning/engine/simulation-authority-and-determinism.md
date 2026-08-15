@@ -8,6 +8,14 @@ Make simulation ownership explicit enough that deterministic behavior does not
 depend on incidental Bevy scheduler topology, mirrored read-model state, giant
 systems, or a central runtime census of every domain type.
 
+⚠ **read that last clause precisely — it is about AUTHORITY, not about
+discovery.** The bad shape is a low-level generic runtime that owns an
+authoritative census of every gameplay domain and must be edited whenever a new
+domain participates. A **derived, read-only** index that each domain contributes
+descriptors to is a different thing and is actively wanted; see
+[`inspection-diagnostics-and-workbench.md`](inspection-diagnostics-and-workbench.md).
+⛔ do not cite this goal as an objection to discoverability.
+
 ## Current pressure points
 
 The current tree has already exposed four recurring problems:

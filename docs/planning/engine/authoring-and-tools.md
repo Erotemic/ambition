@@ -159,6 +159,45 @@ semantic sources, preparation rules and provenance used by agents.
 
 Do not create a GUI merely to imitate another engine's product surface.
 
+### A9 — project-wide semantic dependency and reference graph
+
+⚠ **required, despite following the optional item** — the letters are labels, not
+a priority order.
+
+An agent should be able to ask, without source archaeology:
+
+```text
+what references character:fia?
+what uses world_fact:bridge_powered?
+which rooms instantiate composition X?
+which rules invoke command Y?
+which authored objects reference this portal?
+what will break if I rename this mechanism?
+what will break if I delete this definition?
+```
+
+⭐ **this builds on what already exists** — prepared references, the LDtk
+relationship tooling, content schemas, provenance, and eventually authored rule
+references. ⛔ do not create a separate disconnected graph beside them; a second
+index that can disagree with the first is worse than no index.
+
+Measurable milestones:
+
+1. **cross-domain reference enumeration** — every authored reference a domain can
+   express is enumerable through one query surface;
+2. **reverse-reference queries** — "what points at this?" answered for each
+   supported reference kind;
+3. **structured unresolved-reference diagnostics** — an unresolved reference
+   reports what was named, where, and why resolution failed;
+4. **semantic rename planning / dry-run** — a rename reports every affected site
+   before mutating anything, and applies transactionally across relevant
+   authoring backends;
+5. **rule dependency inspection**, once authored rules exist — see M6 of
+   [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).
+
+⛔ this is an extension of existing authoring/inspection work, **not** another
+independent major campaign.
+
 ## Immediate world-authoring slice
 
 When this program is selected by the live queue, moving-platform/LDtk authoring

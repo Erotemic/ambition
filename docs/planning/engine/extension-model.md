@@ -13,12 +13,22 @@ Current preferred ladder:
 data/content source
  -> semantic authoring operations
  -> provider-owned prepared content
+ -> prepared deterministic rules / orchestration programs
+ -> semantic domain commands and observations
  -> Rust Bevy plugin/provider crate
  -> game crate / host composition
  -> engine modification
 ```
 
 This is already powerful and particularly well suited to LLM agents.
+
+⭐ **the orchestration rung is new and is the one identified gap** — authoring is
+strong for nouns and weak for verbs and relationships over time. It is owned by
+[`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md).
+⛔ it is **not** runtime scripting: the doctrine is *Rust extends the engine's
+vocabulary; authored content composes vocabulary that already exists.* That is a
+strictly narrower thing than the Lua/Wasm question below, and adding the rung does
+not answer it.
 
 ## Direction
 

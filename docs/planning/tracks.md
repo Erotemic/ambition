@@ -152,7 +152,26 @@ These cards are capability fronts, not a serial mega-campaign.
   [`engine/participant-action-system.md`](engine/participant-action-system.md)
   and [`triage/stable-identifier-centralization.md`](triage/stable-identifier-centralization.md).
 
+- ▢ **Deterministic authored gameplay logic and orchestration.** ⭐ LIVE as
+  **D127** in the ledger — do not promote a second copy. Authoring is strong for
+  **nouns** and weak for **verbs and relationships over time**; several
+  independent partial condition → effect implementations already exist in tree.
+  Rust extends the engine's vocabulary; authored content composes vocabulary that
+  already exists. ⛔ not scripting, not a god enum, and **M0 (inventory +
+  evidence) is the only authorized step** — the campaign starts when its two
+  proof customers are ready or when product work repeatedly demands bespoke Rust
+  behavior wiring. Use
+  [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
+
 ## Authoring and content reservoir
+
+- ▢ **Project-wide semantic dependency/reference graph.** *"what references
+  character:fia?"*, *"what breaks if I delete this?"* — reverse references,
+  structured unresolved-reference diagnostics and transactional rename planning
+  across authoring backends. ⛔ an extension of existing authoring/inspection
+  work, **not** a new campaign, and ⛔ not a second index that can disagree with
+  prepared references. Use `A9` in
+  [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md).
 
 - ▢ **Provider-defined actions through the full physical/UI seam.** Semantic
   action registration exists. Finish provider-defined actions through physical

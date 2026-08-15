@@ -22,6 +22,28 @@ may consume the same APIs.
 - Why was this authored reference rejected?
 - What facts did this character observe and why did it choose this action?
 - What happened during these simulation ticks?
+- What conditions and commands exist, what are their schemas, and which domain
+  owns each one?
+- **Why did this rule not fire?**
+
+## ⭐ Authority is distributed; discovery is composed
+
+This distinction is load-bearing and has been misread before, so state it here:
+
+- ⛔ **bad:** a low-level generic runtime owns an *authoritative* census of every
+  gameplay domain and must be edited whenever a new domain participates. That is
+  what [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)
+  rejects, and it remains rejected.
+- ⭐ **good:** each domain owns its own semantics and **contributes descriptors to
+  a composed, read-only discovery index.** Nothing is authoritative there; it is
+  derived.
+
+⛔⛔ **do not sacrifice discoverability in the name of avoiding central
+authority.** LLM-native engine development requires exceptional discoverability —
+an agent that must read the implementation to learn the vocabulary is the failure
+this program exists to prevent. This applies to authored rule vocabulary,
+schemas, capabilities, animation bindings, semantic commands, diagnostics and LLM
+tool discovery alike.
 
 ## Program areas
 
@@ -32,7 +54,12 @@ may consume the same APIs.
 - trace/replay/rollback inspection;
 - collision/navigation/world-residency visualization data;
 - profiler/compile/runtime measurements surfaced through stable reports;
-- concise agent review products.
+- concise agent review products;
+- **structured "why not" explanation** — an unsatisfied condition should report
+  the term that blocked it, the object it names and that object's current state,
+  not a log line. This is M5 of
+  [`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
+  and it is a product requirement, not polish.
 
 ## Candidate crate / Bevy ecosystem value
 

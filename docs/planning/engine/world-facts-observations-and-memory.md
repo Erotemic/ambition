@@ -38,6 +38,23 @@ stale or wrong without changing world truth.
 - social/knowledge gating that remains separate from physical capability gates;
 - debugging of "why does this character believe that?".
 
+## Deterministic authored orchestration is both a consumer and a producer
+
+[`authored-gameplay-logic-and-orchestration.md`](authored-gameplay-logic-and-orchestration.md)
+will read world facts and observations as rule **conditions**, and will set or
+clear facts and publish observations as rule **effects** — through explicit
+semantic domain operations.
+
+⭐ that makes it a demanding early customer of whatever fact/observation
+representation this program picks: a fact that cannot be named in an authored
+condition, or whose change cannot be observed, is not usable by a rule.
+
+⛔ the governing rule above is unchanged by this. Authored rules alter
+deterministic world state through semantic operations; **LLM character
+intelligence never becomes the authoritative rule engine.** Simulation determines
+reality; AI determines what characters think, infer, want, say, remember and
+attempt.
+
 ## Candidate crate / Bevy shape
 
 Do not begin with a universal key-value fact database. Prefer typed domain facts

@@ -1538,8 +1538,23 @@ mod tests {
         fields
     }
 
+    /// Where `patrol_project` puts its path. ⚠ `synthetic_level` is 640x480 and
+    /// the converter rejects an out-of-bounds placement before it ever looks at a
+    /// field, so a fixture that overflows the level fails every reference test
+    /// for a reason that has nothing to do with references.
+    const PATROL_PATH_PX: [i32; 2] = [120, 400];
+
+    /// The iid `entity_at` will mint for that path — derived, so moving the
+    /// fixture cannot leave a reference pointing at where it used to be.
+    fn patrol_path_iid() -> String {
+        format!(
+            "KinematicPath-test-{}-{}",
+            PATROL_PATH_PX[0], PATROL_PATH_PX[1]
+        )
+    }
+
     fn patrol_project(path_iid: Option<&str>, brain: Option<&str>) -> LdtkProject {
-        let mut spawn = entity_at("EnemySpawn", [520, 600], [44, 58], &[]);
+        let mut spawn = entity_at("EnemySpawn", [160, 380], [44, 58], &[]);
         spawn.field_instances = patroller(path_iid, brain);
         synthetic_level(vec![
             // Sandbox's shipped basement path: NO authored `id`, so its lookup
@@ -1548,11 +1563,11 @@ mod tests {
             // resolving through the target instead of through a spelling.
             entity_at(
                 "KinematicPath",
-                [480, 600],
+                PATROL_PATH_PX,
                 [360, 12],
                 &[
                     ("name", Value::String("enemy patrol path A".into())),
-                    ("points", Value::String("520,650;820,650".into())),
+                    ("points", Value::String("140,420;460,420".into())),
                     ("speed", Value::from(95.0)),
                 ],
             ),
@@ -1575,7 +1590,7 @@ mod tests {
     /// would also satisfy.
     #[test]
     fn a_native_path_ref_resolves_to_the_id_the_room_built_for_that_path() {
-        let room = &patrol_project(Some("KinematicPath-test-480-600"), None)
+        let room = &patrol_project(Some(&patrol_path_iid()), None)
             .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
@@ -1642,7 +1657,7 @@ mod tests {
             "the refusal must say what to author instead: {errors:?}"
         );
         // And the other half: a placement may not say it twice.
-        let both = patrol_project(Some("KinematicPath-test-480-600"), Some("Guard:96"))
+        let both = patrol_project(Some(&patrol_path_iid()), Some("Guard:96"))
             .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
             .expect_err("`path_ref` beside a brain is two answers to one question");
         assert!(

@@ -54,7 +54,13 @@ supports:
 - stable `id` (falling back to iid);
 - `speed`;
 - `sweep_dx` for the simple horizontal ping-pong form;
-- `path_id` / legacy `patrol_path_id` referencing a `KinematicPath`;
+- `path_id` referencing a `KinematicPath`. ⛔ **the legacy `patrol_path_id`
+  spelling is DELETED (2026-08-14)** — it was declared by no entity definition and
+  authored on no instance. ⚠⚠ **and `path_id` itself is authored on ZERO instances
+  across all six worlds**, so this bullet describes a supported capability with no
+  content: the corpus holds two `KinematicPath` entities and both are reached
+  through `EnemySpawn.brain = "Patrol:<id>"`, a relationship hidden inside an
+  unrelated string field;
 - `loop_dy` and `loop_min_y` for a wrapping vertical elevator/conveyor shaft.
 
 `KinematicPath` currently authors a string `points`, `speed`, `mode`, and

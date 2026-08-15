@@ -197,7 +197,22 @@ fn spawn_main_camera(
     let camera = commands
         .spawn((Camera2d, MainCamera, layers, Name::new("Main Camera")))
         .id();
-    if let Some(view) = views.iter().next() {
+    // ⛔ **this read `views.iter().next()`, which is the take this whole seam
+    // exists to delete.** With one view it is right; with two it silently binds
+    // this rig to whichever view the archetype happened to yield first, and every
+    // downstream resolve then faithfully honours a link that was a coin flip —
+    // the process-global "the gameplay view" restored as a spawn-time guess, and
+    // invisible because a wrong link still draws a picture.
+    //
+    // ⭐ the rule is `ViewsOnHand`'s, the same one `camera_follow`, the viewport
+    // applier and the draw-side lookup share: the only view in a single-view
+    // composition, and a REFUSAL when several exist. This plugin spawns exactly
+    // ONE main camera, so with several views there is no honest answer for it to
+    // give — a composition that wants two rigs binds them itself. Leaving the
+    // link off makes every consumer decline loudly rather than present the wrong
+    // view, which is the standard the rest of this seam already holds.
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter());
+    if let Some(view) = on_hand.presented_by(None) {
         commands
             .entity(camera)
             .insert(ambition_sim_view::PresentsView(view));

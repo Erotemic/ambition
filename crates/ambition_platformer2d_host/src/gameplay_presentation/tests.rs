@@ -899,3 +899,231 @@ fn the_device_diagnostic_labels_are_truthful() {
         line.len()
     );
 }
+
+/// **⭐ THE COMPOSITION PROOF: TWO VIEWS, TWO CAMERAS, TWO SCREEN RECTANGLES.**
+///
+/// Every other two-view test in the tree is a unit: one system, one
+/// `run_system_once`, entities built beside it. Each proves its own system reads
+/// the link. None of them answers the question D116 M2 is actually about —
+/// **whether an assembled host can hold two views at all**, or whether the
+/// second one falls over somewhere in the composition the units never run.
+///
+/// So this composes the real cluster: `HostGameplayPresentationPlugin`, a real
+/// primary window, and `App::update()` driving the shipped schedule
+/// (`resolve_host_gameplay_presentation` → `publish_camera_viewport` →
+/// `apply_gameplay_camera_viewport`). Two views, and both are spawned through
+/// [`ambition_sim_view::spawn_local_view`] — the same seam
+/// `CameraObservationPlugin` calls at plugin build time — because "a second view"
+/// must be a second CALL, not a second code path.
+///
+/// # ⚠ WHAT THIS IS NOT
+///
+/// **A FIXTURE, NOT A POLICY.** It does not say Ambition ships split screen, and
+/// it does not choose a layout: the two rectangles here are stated by the test,
+/// side by side, because they are the simplest pair that are unmistakably
+/// different. Which rectangles a real two-view session would get — shared, fixed
+/// split, adaptive — is a product decision nobody has made, and building an enum
+/// for it here would be answering it by refactor.
+///
+/// # ⛔ AND TWO SEAMS ARE GENUINELY MISSING, WHICH IS THE FINDING
+///
+/// - **Nothing in production spawns a second main camera.** Both camera-spawn
+///   sites (`PlatformerPresentationPlugin::spawn_main_camera` and the app's
+///   `host_presentation_scaffold`) spawn exactly ONE, and as of this commit both
+///   REFUSE to bind it when several views exist rather than taking the first. So
+///   the two cameras below are spawned by the fixture — a `MainCamera` plus a
+///   `PresentsView`, which is precisely what those two sites spawn, and is the
+///   composition decision a split-screen host would own.
+/// - **`publish_camera_viewport` writes ONE rectangle to every view**, by
+///   construction: it projects the single `ResolvedGameplayPresentation`, which
+///   describes the physical screen. So distinct rectangles cannot come out of the
+///   shipped schedule today, and the fixture writes them onto the two views
+///   directly — standing in for exactly the layout policy that does not exist.
+///   The applier is then run for real, unchanged, over that state.
+mod two_views_one_host {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    /// A 1920x1080 desktop full-bleed composition — the shipped default — with
+    /// two views and two cameras. `swap_links` changes NOTHING but which view
+    /// each camera names: same spawn order, same entities, same rectangles.
+    struct TwoViews {
+        app: App,
+        /// The views in spawn order (`LocalViewId` 0 then 1).
+        views: [Entity; 2],
+        /// The cameras in spawn order. Camera 0 names `views[0]` unless swapped.
+        cameras: [Entity; 2],
+    }
+
+    const DISPLAY: ae::Vec2 = ae::Vec2::new(1920.0, 1080.0);
+
+    fn compose(swap_links: bool) -> TwoViews {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(HostGameplayPresentationPlugin);
+        app.insert_resource(ActiveGameplayPresentationProfiles(
+            GameplayPresentationProfiles::default(),
+        ));
+        app.insert_resource(PresentationEnvironment::Desktop);
+
+        let mut resolution = WindowResolution::new(DISPLAY.x as u32, DISPLAY.y as u32);
+        resolution.set_scale_factor(1.0);
+        resolution.set(DISPLAY.x, DISPLAY.y);
+        app.world_mut().spawn((
+            Window {
+                resolution,
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+
+        // ⭐ **two views is two CALLS to the one spawn seam.** `LocalViewId` is an
+        // identity ordinal, not an index and not a render layer — the second view
+        // is `LocalViewId(1)` and nothing about the first one changes.
+        let views = [
+            ambition_sim_view::LocalViewId::FIRST,
+            ambition_sim_view::LocalViewId(1),
+        ]
+        .map(|id| {
+            ambition_sim_view::spawn_local_view(
+                app.world_mut(),
+                id,
+                (CameraViewport::default(), CameraScreenFraming::default()),
+            )
+        });
+
+        let presented = if swap_links {
+            [views[1], views[0]]
+        } else {
+            views
+        };
+        let cameras = presented.map(|view| {
+            app.world_mut()
+                .spawn((
+                    Camera::default(),
+                    MainCamera,
+                    ambition_sim_view::PresentsView(view),
+                ))
+                .id()
+        });
+
+        TwoViews {
+            app,
+            views,
+            cameras,
+        }
+    }
+
+    /// The physical rectangle a camera ended up rendering into, or `None` when it
+    /// was left full-screen.
+    fn physical_viewport(app: &App, camera: Entity) -> Option<(UVec2, UVec2)> {
+        app.world()
+            .entity(camera)
+            .get::<Camera>()
+            .expect("the fixture spawned a camera")
+            .viewport
+            .as_ref()
+            .map(|viewport| (viewport.physical_position, viewport.physical_size))
+    }
+
+    /// Give the two views two different rectangles, in the order they were
+    /// spawned. This is the layout policy's job, and there is no layout policy.
+    fn split_side_by_side(app: &mut App, views: [Entity; 2]) -> [CameraViewport; 2] {
+        let rects = [
+            CameraViewport {
+                px: ae::Vec2::new(960.0, 1080.0),
+                origin_px: ae::Vec2::ZERO,
+            },
+            CameraViewport {
+                px: ae::Vec2::new(960.0, 1080.0),
+                origin_px: ae::Vec2::new(960.0, 0.0),
+            },
+        ];
+        for (view, rect) in views.into_iter().zip(rects) {
+            *app.world_mut()
+                .entity_mut(view)
+                .get_mut::<CameraViewport>()
+                .expect("a view spawned with a viewport") = rect;
+        }
+        rects
+    }
+
+    /// The physical rectangle `apply_gameplay_camera_viewport` owes a view with
+    /// this rectangle, at scale factor 1 — derived, not copied from a run.
+    fn expected(rect: CameraViewport) -> (UVec2, UVec2) {
+        (
+            rect.origin_px.round().as_uvec2(),
+            rect.px.round().as_uvec2(),
+        )
+    }
+
+    /// **⛔⛔ EACH CAMERA RENDERS INTO THE RECTANGLE OF THE VIEW IT NAMES.**
+    ///
+    /// The one invariant: in an assembled host holding two views, the physical
+    /// viewport a main camera receives is resolved through ITS OWN
+    /// `PresentsView`. A composition where one rectangle is applied to every
+    /// camera — which is exactly what this applier did before D116 M2 — cannot
+    /// place two views on one screen no matter what a layout says, and would look
+    /// entirely healthy in every single-view test in this file.
+    ///
+    /// ⚠ **the falsifier is inside the test.** The second composition swaps only
+    /// the two `PresentsView` links and the two cameras must swap with them. An
+    /// applier keyed off camera iteration order, or off view spawn order, passes
+    /// the first half and fails this one.
+    ///
+    /// ⭐ **and the precondition is checked, so a pass cannot be residue.** Before
+    /// the rectangles differ, the shipped schedule runs full-bleed and BOTH
+    /// cameras must be left with no viewport at all — so the distinct rectangles
+    /// below are demonstrably produced by this state, not left over from setup.
+    #[test]
+    fn each_camera_renders_into_the_rectangle_of_the_view_it_names() {
+        for swap_links in [false, true] {
+            let TwoViews {
+                mut app,
+                views,
+                cameras,
+            } = compose(swap_links);
+
+            // The real schedule, with two views in the world. Full bleed, so a
+            // correct applier leaves every camera unclipped.
+            app.update();
+            for camera in cameras {
+                assert_eq!(
+                    physical_viewport(&app, camera),
+                    None,
+                    "a full-bleed composition must leave every main camera's viewport \
+                     cleared; a leftover rectangle here would make the assertion below \
+                     pass without the applier having done anything (swapped={swap_links})",
+                );
+            }
+
+            let rects = split_side_by_side(&mut app, views);
+            assert_ne!(
+                rects[0], rects[1],
+                "the fixture must give the two views genuinely different rectangles, or \
+                 nothing below can tell a per-camera resolve from a shared one",
+            );
+            app.world_mut()
+                .run_system_once(apply_gameplay_camera_viewport)
+                .expect("the applier should run: the fixture provides the window and layout");
+
+            let presented: Vec<Option<(UVec2, UVec2)>> = cameras
+                .iter()
+                .map(|camera| physical_viewport(&app, *camera))
+                .collect();
+            let owed = if swap_links {
+                [expected(rects[1]), expected(rects[0])]
+            } else {
+                [expected(rects[0]), expected(rects[1])]
+            };
+            assert_eq!(
+                presented,
+                vec![Some(owed[0]), Some(owed[1])],
+                "each camera must take the rectangle of the view its `PresentsView` \
+                 names (swapped={swap_links}). Getting the same rectangle twice means \
+                 one view's rect was applied to both cameras — the single global \
+                 gameplay rectangle, which no split layout could ever overcome",
+            );
+        }
+    }
+}

@@ -48,13 +48,10 @@ impl HazardRuntime {
         mut volume: crate::DamageVolume,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
-        if let Some(path_id) = volume
-            .path_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|path_id| !path_id.is_empty())
-        {
-            if let Some((_, path)) = paths.iter().find(|(p_id, _)| p_id == path_id) {
+        // The shared reference rule (trim; empty names nothing). This road used
+        // to spell it itself — correctly — while the NPC road spelled nothing.
+        if let Some(path_id) = volume.path_id.as_deref() {
+            if let Some(path) = ambition_platformer2d_core::resolve_kinematic_path(paths, path_id) {
                 volume.motion = Some(path.clone());
             }
         }

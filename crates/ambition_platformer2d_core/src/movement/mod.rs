@@ -286,6 +286,54 @@ fn update_body_simulation_inner(
     }
     let dt = raw_dt.min(1.0 / 30.0);
 
+    // Ledge carry on moving geometry, BEFORE anything reads the body's pose.
+    //
+    // ⭐ **the same rule as the grounded ride, one step earlier in the frame.** A
+    // body resting on a moving solid is carried by `Block::velocity` down in
+    // `integrate_velocity_clusters`; a body HANGING on one cannot be, because the
+    // active-hang tick below short-circuits the whole simulation phase and
+    // `integrate_velocity_clusters` never runs. So the hang's carry is applied
+    // here — the same position in the frame the old player-only site occupied
+    // (it ran before `step_motion` entirely), which is what keeps the behaviour
+    // identical rather than merely similar.
+    //
+    // ⛔ **this is where a player/actor FORK was deleted.** The carry lived in the
+    // monolith's `integrate_home_body`, fed by a `&[MovingPlatformState]`
+    // parameter `integrate_actor_body` never had — yet `ledge_grab` is kernel
+    // state with no player marker, so an enemy could latch onto a moving
+    // platform and be left behind by it. Nothing about the rule was
+    // player-specific; only its ingredients were, and reading the solid's own
+    // velocity off the collision world removes them.
+    if let Some(grab) = state.ledge_grab {
+        match crate::ledge_grab::ledge_carry_for_frame(
+            world,
+            grab.contact,
+            clusters.kinematics.aabb(),
+            clusters.kinematics.size,
+            frame.down(),
+        ) {
+            crate::ledge_grab::LedgeCarry::Stay => {}
+            crate::ledge_grab::LedgeCarry::KnockOff => {
+                state.ledge_grab = None;
+                clusters.ledge.release_cooldown = clusters
+                    .ledge
+                    .release_cooldown
+                    .max(crate::body_clusters::LEDGE_KNOCK_OFF_COOLDOWN);
+            }
+            crate::ledge_grab::LedgeCarry::Carry(delta) => {
+                // Parent-frame carry (ADR 0024 external-constraint authority):
+                // the solid moves the grabbed body, and the stored contact moves
+                // with it or the next tick re-pins the body to where the ledge
+                // used to be.
+                authority::carry_body(clusters.kinematics, delta);
+                if let Some(grab) = state.ledge_grab.as_mut() {
+                    grab.contact.anchor += delta;
+                    grab.contact.climb_target += delta;
+                }
+            }
+        }
+    }
+
     // Cache water + climbable contact once per tick so movement,
     // jump-buffer, and integration all see the same answer. Also
     // clear a stale ledge grab if the ability is no longer enabled.

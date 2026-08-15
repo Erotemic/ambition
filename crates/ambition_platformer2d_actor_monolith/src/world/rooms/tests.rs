@@ -78,6 +78,9 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     );
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // 2026-08-15; `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     app.init_resource::<ambition_time::WorldTime>();
@@ -196,6 +199,9 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     );
     app.insert_resource(crate::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // 2026-08-15; `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
     // A 60 fps frame; the body crosses the whole zone within it.
@@ -334,6 +340,9 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         );
         app.insert_resource(crate::RoomTransitionCooldown::default());
         app.insert_resource(GatePortalRegistry::default());
+        // The live phase is its own resource (rollback state) since
+        // 2026-08-15; `detect_room_transition_system` reads it.
+        app.init_resource::<GatePortalPhases>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<Captured>();
         app.insert_resource(ambition_time::WorldTime {
@@ -970,5 +979,110 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
             .is_none(),
         "post-collision velocity {post_vel:?} still reaches the zone, so this \
          fixture no longer models the collision that makes the sample necessary"
+    );
+}
+
+/// ⭐ **a rewind must put the portal's PHASE back, not just the switch that
+/// drives it.**
+///
+/// `tick_portal_phases_system` runs in the sim schedule — `GgrsSchedule` under
+/// the shipped rollback host — and integrates a per-portal timer forward by
+/// `WorldTime::scaled_dt`. The switch it reads lives in `AmbitionGameSave`,
+/// which is rollback-registered; until 2026-08-15 the phase it produced was NOT,
+/// because it sat in `GatePortalRegistry` behind a waiver that called the whole
+/// resource "authored". So a rewind restored the input and left the integrator
+/// holding the speculative timeline's elapsed.
+///
+/// This runs the shipped system over a real rollback shape: snapshot the phase
+/// resource at frame 10 (a clone, which is exactly what
+/// `rollback_resource_clone` stores), overshoot to frame 22, then resimulate
+/// frames 11..=16 from the snapshot and compare against a timeline that reached
+/// frame 16 without ever rewinding.
+///
+/// ⚠ frame 16 is chosen to land INSIDE the ~38-tick opening window — the test
+/// asserts that first, because once the portal reaches `On` both timelines
+/// agree again and the fixture would prove nothing.
+#[test]
+fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
+    use bevy::prelude::*;
+
+    const ZONE: &str = "gate";
+    const DT: f32 = 1.0 / 60.0;
+
+    /// A world with one authored portal whose switch is already ON, so every
+    /// tick advances the `Opening` timer.
+    fn portal_app() -> App {
+        let mut app = App::new();
+        let mut registry = GatePortalRegistry::default();
+        registry.register(ZONE, "gate_switch", "portal", "ring");
+        app.insert_resource(registry);
+        app.init_resource::<GatePortalPhases>();
+        let mut save = ambition_persistence::save::AmbitionGameSave::default();
+        save.data_mut().set_switch("gate_switch", true);
+        app.insert_resource(save);
+        app.insert_resource(ambition_time::WorldTime {
+            scaled_dt: DT,
+            ..Default::default()
+        });
+        app.add_systems(Update, tick_portal_phases_system);
+        app
+    }
+
+    fn tick_n(app: &mut App, n: usize) {
+        for _ in 0..n {
+            app.update();
+        }
+    }
+
+    fn phases(app: &App) -> GatePortalPhases {
+        app.world().resource::<GatePortalPhases>().clone()
+    }
+
+    // The confirmed timeline, frame 16.
+    let mut confirmed_app = portal_app();
+    tick_n(&mut confirmed_app, 16);
+    let confirmed = phases(&confirmed_app).phase(ZONE);
+    assert!(
+        matches!(confirmed, GatePortalPhase::Opening { .. }),
+        "frame 16 must still be mid-open or this fixture cannot see a divergence; \
+         got {confirmed:?}"
+    );
+    assert!(
+        !confirmed.allows_traversal(),
+        "a mid-open gate must refuse traversal — that refusal is the decision \
+         this state feeds"
+    );
+
+    // The speculative timeline: frame 10 is saved, then it runs on to frame 22
+    // before a rollback to 10 arrives.
+    let mut speculative_app = portal_app();
+    tick_n(&mut speculative_app, 10);
+    let snapshot_at_frame_10 = phases(&speculative_app);
+    tick_n(&mut speculative_app, 12);
+    let speculative_at_frame_22 = phases(&speculative_app);
+
+    // ⛔ **THE POISON** — the defect's own behaviour: resimulate frames 11..=16
+    // with the phase NOT restored, exactly as an unregistered resource behaves
+    // while everything around it rewinds.
+    let mut unrestored_app = portal_app();
+    unrestored_app.insert_resource(speculative_at_frame_22);
+    tick_n(&mut unrestored_app, 6);
+    assert_ne!(
+        phases(&unrestored_app).phase(ZONE),
+        confirmed,
+        "an UNRESTORED phase reproduced the confirmed frame, so this fixture \
+         cannot distinguish the defect from the fix"
+    );
+
+    // ⭐ the registered behaviour: the phase comes back with the frame, and
+    // resimulation lands where the confirmed timeline stood.
+    let mut restored_app = portal_app();
+    restored_app.insert_resource(snapshot_at_frame_10);
+    tick_n(&mut restored_app, 6);
+    assert_eq!(
+        phases(&restored_app).phase(ZONE),
+        confirmed,
+        "resimulating frames 11..=16 from the restored frame-10 phase must land \
+         on the phase the confirmed timeline had at frame 16"
     );
 }

@@ -50,8 +50,13 @@ impl GatePortalPhase {
     }
 }
 
-/// One portal's configuration + live phase.
-#[derive(Clone, Debug)]
+/// One portal's AUTHORED configuration.
+///
+/// ⛔ **no live phase here.** This value is written once, by the content plugin
+/// that authors the portal, and never again; the phase it used to carry is
+/// integrated every simulated tick and lives in [`GatePortalPhases`]. See that
+/// type for why the two cannot share a resource.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GatePortalConfig {
     /// The switch whose on/off state commands this portal's boot /
     /// shutdown sequence. Read from `save.data().switch(switch_id)`.
@@ -63,21 +68,25 @@ pub struct GatePortalConfig {
     /// LDtk display name of the ring sprite entity. Used by the
     /// ring-spin visual flourish during `Opening`.
     pub ring_sprite_name: String,
-    pub phase: GatePortalPhase,
 }
 
-/// Per-portal registry mapping `LoadingZone.id` → portal lifecycle.
-/// `detect_room_transition_system` consults the registry before
-/// writing a `RoomTransitionRequested`: if the zone is a portal,
-/// traversal is allowed only while `phase == On`. Empty by default
-/// — populated by story-content plugins.
+/// Per-portal AUTHORED registry mapping `LoadingZone.id` → portal
+/// configuration. `detect_room_transition_system` consults it before
+/// recording a crossing: if the zone is a portal, traversal is allowed
+/// only while the zone's phase (in [`GatePortalPhases`]) is `On`. Empty by
+/// default — populated by story-content plugins.
 ///
 /// Replaces the earlier `GatedZoneRegistry` (which only tracked
 /// the switch and treated the zone as a thin switch-gate). The
 /// portal's *own* state is what gates traversal — the switch just
 /// drives the boot/shutdown sequence — so the readiness check lives
-/// here, not in the switch system.
-#[derive(Resource, Default, Debug, Clone)]
+/// beside the portal, not in the switch system.
+///
+/// ⭐ **this resource is genuinely authored, and it was not before 2026-08-15.**
+/// It carried each portal's live `phase` alongside the authored strings, which
+/// made its rollback waiver ("authored gate portals") a wrong answer to the
+/// checker's question — see [`GatePortalPhases`].
+#[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct GatePortalRegistry {
     pub portals: std::collections::HashMap<String, GatePortalConfig>,
 }
@@ -96,28 +105,68 @@ impl GatePortalRegistry {
                 switch_id: switch_id.into(),
                 portal_sprite_name: portal_sprite_name.into(),
                 ring_sprite_name: ring_sprite_name.into(),
-                phase: GatePortalPhase::default(),
             },
         );
-    }
-
-    pub fn phase(&self, zone_id: &str) -> GatePortalPhase {
-        self.portals
-            .get(zone_id)
-            .map(|c| c.phase)
-            // A zone with no recorded portal state is in the default phase.
-            .unwrap_or_default()
     }
 
     pub fn is_portal(&self, zone_id: &str) -> bool {
         self.portals.contains_key(zone_id)
     }
+}
 
+/// **Every registered portal's LIVE phase — rollback state.**
+///
+/// `tick_portal_phases_system` integrates each phase forward by
+/// `WorldTime::scaled_dt` in the SIM schedule (`GgrsSchedule` under the shipped
+/// rollback host), and `detect_room_transition_system` — in the same schedule —
+/// refuses a crossing unless the phase reads `On`. So this is per-frame
+/// authoritative state, and the two facts together are what make it rewindable
+/// state rather than a cache:
+///
+/// - the phase is a TIME INTEGRAL of the switch, not a function of it. The
+///   switch lives in `AmbitionGameSave`, which IS rollback-registered, so a
+///   rewind restores the input and — before this type existed — left the
+///   integrator holding the speculative timeline's elapsed. `Opening` runs
+///   [`PORTAL_OPENING_DURATION_SECS`] ≈ 38 ticks at 60 Hz, which is far wider
+///   than any rollback depth: the window is not a corner case, it is the
+///   ordinary case for a player who just flipped the switch.
+/// - the phase decides a room transition. Two peers whose `elapsed` differ by
+///   the depth of their last rollback promote `Opening → On` on different
+///   frames, so one records a crossing the other refuses. That is a desync, not
+///   a visual difference.
+///
+/// ⚠ **kept separate from [`GatePortalRegistry`] on purpose.** Registering the
+/// merged resource would have put the AUTHORED half under the snapshot too, and
+/// the content plugin that populates it runs in `Update` behind a one-shot
+/// `installed` flag that does NOT rewind — so a rewind to a frame before the
+/// populate would have restored an empty registry that nothing ever refills,
+/// and `is_portal` would then answer `false` for a gate that exists. Authored
+/// content and simulated state are different concerns; only the second one
+/// rewinds.
+#[derive(Resource, Default, Debug, Clone, PartialEq)]
+pub struct GatePortalPhases {
+    pub phases: std::collections::HashMap<String, GatePortalPhase>,
+}
+
+impl GatePortalPhases {
+    /// A zone with no recorded phase is in the default phase (`Off`) — the same
+    /// answer `register` used to seed, so a portal that has not ticked yet is
+    /// shut rather than open.
+    pub fn phase(&self, zone_id: &str) -> GatePortalPhase {
+        self.phases.get(zone_id).copied().unwrap_or_default()
+    }
+
+    /// The phase slot for a zone, created in its default (`Off`) phase on first
+    /// touch. This is the only write seam — the tick system owns it.
+    pub fn phase_mut(&mut self, zone_id: &str) -> &mut GatePortalPhase {
+        self.phases.entry(zone_id.to_owned()).or_default()
+    }
+
+    /// ⛔ **`false` for an unknown zone**, because the caller has already asked
+    /// [`GatePortalRegistry::is_portal`]: a zone that IS a portal and has no
+    /// phase yet has not booted, and an unbooted gate is shut.
     pub fn allows_traversal(&self, zone_id: &str) -> bool {
-        self.portals
-            .get(zone_id)
-            .map(|c| c.phase.allows_traversal())
-            .unwrap_or(true)
+        self.phase(zone_id).allows_traversal()
     }
 }
 
@@ -240,6 +289,69 @@ mod tests {
         assert!(!GatePortalPhase::Opening { elapsed: 0.0 }.allows_traversal());
         assert!(GatePortalPhase::On.allows_traversal());
         assert!(!GatePortalPhase::Closing { elapsed: 0.0 }.allows_traversal());
+    }
+
+    /// ⭐ **the phase is not recoverable from the switch** — which is the whole
+    /// argument for [`GatePortalPhases`] being rollback state.
+    ///
+    /// Two timelines that agree exactly on the switch (on, the entire time) but
+    /// disagree on how many ticks the portal has already been opening give
+    /// DIFFERENT traversal verdicts on the same frame. A rewind that restored
+    /// `AmbitionGameSave` (where the switch lives, and which IS registered) and
+    /// left the phase alone reproduces exactly this disagreement — six ticks of
+    /// divergence is well inside an ordinary rollback depth.
+    ///
+    /// ⚠ both terms are observed: the test fails if the ahead timeline is NOT
+    /// traversable, and fails if the behind timeline IS.
+    #[test]
+    fn the_phase_is_not_a_function_of_the_switch_alone() {
+        let dt = 1.0 / 60.0;
+        let mut ahead = GatePortalPhase::Opening {
+            elapsed: PORTAL_OPENING_DURATION_SECS - 2.0 * dt,
+        };
+        let mut behind = GatePortalPhase::Opening {
+            elapsed: PORTAL_OPENING_DURATION_SECS - 8.0 * dt,
+        };
+        for _ in 0..3 {
+            tick_gate_portal_phase(&mut ahead, true, dt);
+            tick_gate_portal_phase(&mut behind, true, dt);
+        }
+        assert!(
+            ahead.allows_traversal(),
+            "the further-along timeline should have promoted to On; got {ahead:?}"
+        );
+        assert!(
+            !behind.allows_traversal(),
+            "the six-tick-behind timeline should still be Opening; got {behind:?}"
+        );
+    }
+
+    /// The phase machine has no terminal state and reverses through the SAME
+    /// visual progress, so "it will settle anyway" is not a defence: the two
+    /// timelines above stay apart for as long as the switch keeps commanding
+    /// the same thing, and they disagree about traversal the entire time.
+    #[test]
+    fn a_reversed_phase_keeps_the_divergence_rather_than_collapsing_it() {
+        let dt = 1.0 / 60.0;
+        let mut ahead = GatePortalPhase::Opening {
+            elapsed: PORTAL_OPENING_DURATION_SECS * 0.75,
+        };
+        let mut behind = GatePortalPhase::Opening {
+            elapsed: PORTAL_OPENING_DURATION_SECS * 0.25,
+        };
+        // The switch flips off: both reverse, mapping their progress into the
+        // closing timer.
+        tick_gate_portal_phase(&mut ahead, false, 0.0);
+        tick_gate_portal_phase(&mut behind, false, 0.0);
+        let (GatePortalPhase::Closing { elapsed: a }, GatePortalPhase::Closing { elapsed: b }) =
+            (ahead, behind)
+        else {
+            panic!("both should be Closing; got {ahead:?} and {behind:?}");
+        };
+        assert!(
+            (a - b).abs() > 0.1,
+            "the reversal must PRESERVE the divergence, not erase it; got {a} vs {b}"
+        );
     }
 
     #[test]

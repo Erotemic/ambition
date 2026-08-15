@@ -233,7 +233,21 @@ use super::{
 /// ⭐ it REPLACES a despawn/spawn pair rather than adding a fact. What is
 /// genuinely new is that the item now KEEPS its identity across the transfer —
 /// an authored ground item's `SimId::placement(...)` used to die at the pickup.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 30;
+///
+/// ⚠ **v31 (2026-08-15): the GATE PORTAL PHASE joins the wire format.**
+/// `resource.gate_portal_phases` is the `Opening`/`Closing` timer that decides
+/// when a gate becomes traversable, integrated every simulated tick from a
+/// switch that was ALREADY in the wire format (`resource.sandbox_save`). Only the
+/// input rewound; the integral did not. A peer resimulating after a rollback
+/// carried the speculative timeline's elapsed forward, so the frame on which the
+/// gate opened depended on that peer's rollback history — and
+/// `detect_room_transition_system` gates a room crossing on it.
+///
+/// ⭐ it was previously covered by a WAIVER that said "authored gate portals",
+/// which was a true sentence about the switch ids and sprite names sharing the
+/// resource and a false one about the timer. The phase now has its own resource
+/// so the waiver's claim about the remaining one is true.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 31;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

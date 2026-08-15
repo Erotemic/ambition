@@ -269,6 +269,31 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.moving_platform_set",
         )
+        // **The gate portals' live phase** (2026-08-15). `tick_portal_phases_system`
+        // integrates each portal's `Opening`/`Closing` timer forward by
+        // `WorldTime::scaled_dt` in THIS schedule, and `detect_room_transition_system`
+        // — same schedule, same frame — refuses a room crossing unless the phase
+        // reads `On`.
+        //
+        // ⛔ **it was waived as "authored gate portals" and it was not authored.**
+        // The waiver named `GatePortalRegistry`, which really did hold the phase
+        // as a field, so a true statement about the switch ids and sprite names
+        // covered a mutable f32 timer that nothing rewound. The switch driving it
+        // lives in `AmbitionGameSave`, registered a few lines above: a rewind put
+        // the INPUT back and left the INTEGRATOR holding the speculative
+        // timeline's elapsed, permanently ahead by the depth of every rollback
+        // taken during the ~38-tick opening window. Peers then promote
+        // `Opening → On` on different frames and disagree about whether the room
+        // changed.
+        //
+        // ⚠ the phase moved to its OWN resource rather than the registry being
+        // registered whole, because the registry is populated from `Update` behind
+        // a one-shot flag that does not rewind — snapshotting it would let a rewind
+        // erase authored portals that nothing refills.
+        .rollback_resource_clone::<ambition_platformer2d_world::rooms::GatePortalPhases>(
+            ENGINE,
+            "resource.gate_portal_phases",
+        )
         .rollback_resource_clone::<crate::InputStreamRecorder>(
             ENGINE,
             "resource.input_stream_recorder",

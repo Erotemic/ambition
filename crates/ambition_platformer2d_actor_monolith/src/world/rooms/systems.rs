@@ -10,8 +10,8 @@
 use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
 
 use super::{
-    tick_gate_portal_phase, ActiveRoomMetadata, GatePortalRegistry, LoadingZoneActivation,
-    RoomMusicRequest, RoomSet, RoomSfxId,
+    tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhases, GatePortalRegistry,
+    LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomSfxId,
 };
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
@@ -67,10 +67,20 @@ pub fn sync_room_music_request(
 /// its own one-shot Opening / Closing animations between Off and
 /// On, so the traversal check (only `On` allows it) remains stable
 /// even when the switch flickers.
+///
+/// ⚠ **this runs in the SIM schedule** — `GgrsSchedule` under the shipped
+/// rollback host — so every line below executes on speculative frames and is
+/// re-executed on resimulation. The switch it integrates lives in the
+/// rollback-registered `AmbitionGameSave`; the integral it produces lives in the
+/// rollback-registered [`GatePortalPhases`]. Both halves must rewind together or
+/// the portal opens on a different frame for each peer, and
+/// `detect_room_transition_system` below turns that into a room transition one
+/// peer takes and the other refuses.
 pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    mut portals: ResMut<GatePortalRegistry>,
+    portals: Res<GatePortalRegistry>,
+    mut phases: ResMut<GatePortalPhases>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes
     // or slows the portal boot/shutdown sequence so the ring spin
@@ -79,9 +89,13 @@ pub fn tick_portal_phases_system(
     if dt <= 0.0 {
         return;
     }
-    for config in portals.portals.values_mut() {
+    // ⚠ iteration order over the authored map is arbitrary and that is FINE:
+    // each portal's tick reads only its own switch and writes only its own
+    // phase, so no portal can observe another's update. Nothing here folds an
+    // order-dependent accumulator.
+    for (zone_id, config) in &portals.portals {
         let switch_on = save.data().switch(&config.switch_id);
-        tick_gate_portal_phase(&mut config.phase, switch_on, dt);
+        tick_gate_portal_phase(phases.phase_mut(zone_id), switch_on, dt);
     }
 }
 
@@ -102,6 +116,12 @@ pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     sim_state: Res<crate::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
+    // ⭐ **the gate's LIVE phase, read in the same schedule that integrates it.**
+    // Split out of `GatePortalRegistry` on 2026-08-15 so it can be rollback
+    // state without dragging the authored config into the snapshot: this is the
+    // value the refusal below is made from, and before the split it did not
+    // rewind at all.
+    phases: Res<GatePortalPhases>,
     // The transition subject is the CONTROLLED body: if the driven body (home
     // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
     // door restrictions gate on body properties (size/shape/locomotion), never on
@@ -216,7 +236,7 @@ pub fn detect_room_transition_system(
     // The switch only commands the boot/shutdown sequence — the
     // portal itself runs the state machine. Non-portal zones pass
     // through unchanged.
-    if portals.is_portal(&zone.zone.id) && !portals.allows_traversal(&zone.zone.id) {
+    if portals.is_portal(&zone.zone.id) && !phases.allows_traversal(&zone.zone.id) {
         return;
     }
     let zone_sfx = match zone.zone.activation {

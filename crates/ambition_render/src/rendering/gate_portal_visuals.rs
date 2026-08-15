@@ -1,5 +1,6 @@
 //! Gate-portal presentation: sprite visibility / animation row / ring spin
-//! driven by the sim's `GatePortalRegistry` phase (E4 slices 10+20 — these
+//! driven by the sim's `GatePortalPhases` phase, keyed by the zone ids in the
+//! authored `GatePortalRegistry` (E4 slices 10+20 — these
 //! systems used to live INSIDE the sim crate and matched render entities by
 //! a render-inserted sim `FeatureName`; now they are render systems matching
 //! the render-local [`PropVisual::name`]).
@@ -9,7 +10,7 @@ use bevy::prelude::*;
 use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::PresentationTime;
-use ambition_platformer2d_world::rooms::{GatePortalPhase, GatePortalRegistry};
+use ambition_platformer2d_world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
 
 /// Hide the debug door-zone visual that `spawn_loading_zone`
 /// spawns for any LoadingZone that's registered as a portal — the
@@ -35,10 +36,11 @@ pub fn hide_portal_loading_zone_visuals(
 pub fn sync_portal_sprite_visibility(
     mut commands: Commands,
     portals: Res<GatePortalRegistry>,
+    phases: Res<GatePortalPhases>,
     mut sprites: Query<(Entity, &PropVisual, &mut Visibility, Option<&PortalSprite>)>,
 ) {
-    for config in portals.portals.values() {
-        let target_visibility = if config.phase.portal_sprite_visible() {
+    for (zone_id, config) in &portals.portals {
+        let target_visibility = if phases.phase(zone_id).portal_sprite_visible() {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -81,11 +83,12 @@ const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 pub fn sync_portal_sprite_animation(
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
+    phases: Res<GatePortalPhases>,
     mut sprites: Query<(&PropVisual, &mut Sprite, &mut CharacterAnimator)>,
 ) {
     let dt = presentation_time.scaled_dt();
-    for config in portals.portals.values() {
-        let target_anim = match config.phase {
+    for (zone_id, config) in &portals.portals {
+        let target_anim = match phases.phase(zone_id) {
             GatePortalPhase::Off => continue,
             GatePortalPhase::Opening { .. } => CharacterAnim::Idle,
             GatePortalPhase::On => CharacterAnim::Walk,
@@ -112,6 +115,7 @@ pub fn sync_portal_ring_rotation_system(
     mut commands: Commands,
     presentation_time: PresentationTime,
     portals: Res<GatePortalRegistry>,
+    phases: Res<GatePortalPhases>,
     mut rings: Query<(
         Entity,
         &PropVisual,
@@ -124,8 +128,9 @@ pub fn sync_portal_ring_rotation_system(
     // Use scaled dt so the boot-spin slows during bullet time and
     // freezes during pause — same world-clock the phase timer reads.
     let dt = presentation_time.scaled_dt();
-    for config in portals.portals.values() {
-        let spinning = matches!(config.phase, GatePortalPhase::Opening { .. });
+    for (zone_id, config) in &portals.portals {
+        let phase = phases.phase(zone_id);
+        let spinning = matches!(phase, GatePortalPhase::Opening { .. });
         // Sheet mapping (see GATE_RING_SHEET):
         // - Idle = the slow always-on row (8f × 140ms)
         // - Walk = the fast `spin` row used during Opening (12f × 85ms)
@@ -152,7 +157,7 @@ pub fn sync_portal_ring_rotation_system(
             }
             if spinning {
                 tf.rotate_local_z(RING_OPENING_SPIN_RAD_PER_SEC * dt);
-            } else if !matches!(config.phase, GatePortalPhase::Closing { .. }) {
+            } else if !matches!(phase, GatePortalPhase::Closing { .. }) {
                 // Snap back to upright when fully Off or On — the
                 // boot beat is the only time the ring should look
                 // physically rotated. Closing keeps the last

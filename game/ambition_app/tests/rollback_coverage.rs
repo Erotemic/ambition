@@ -1147,7 +1147,27 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::visual::ProjectileVisualCatalog",
         "authored projectile visuals",
     ),
-    ("::gate_portal::GatePortalRegistry", "authored gate portals"),
+    // ⛔ **this waiver was WRONG until 2026-08-15 and said only *"authored gate
+    // portals"*.** The resource carried each portal's live `GatePortalPhase`
+    // alongside the authored switch id and sprite names, and
+    // `tick_portal_phases_system` advanced that phase by `WorldTime::scaled_dt`
+    // in the sim schedule — `GgrsSchedule` on the shipped host. So a sentence
+    // that was true about three `String`s was answering for an f32 timer nobody
+    // rewound, and the string-keyed `HashMap` it lived in is invisible to the
+    // entity-scoped sweeps, which is why no instrument said so.
+    //
+    // The phase now lives in `GatePortalPhases`, registered as
+    // `resource.gate_portal_phases`. What is left here really is authored: it is
+    // written once by the content plugin that authors a portal and never again.
+    // ⚠ and it must NOT be registered — that plugin runs in `Update` behind a
+    // one-shot `installed` flag that is itself waived, so a rewind past the
+    // populate would restore an empty registry nothing ever refills.
+    (
+        "::gate_portal::GatePortalRegistry",
+        "authored portal configuration — switch id and sprite names, written once \
+         by the authoring content plugin. The live phase it used to carry is \
+         rollback state and moved to `GatePortalPhases`",
+    ),
     ("::manifest::WorldManifest", "authored world manifest"),
     (
         "::project::ActiveLdtkProject",

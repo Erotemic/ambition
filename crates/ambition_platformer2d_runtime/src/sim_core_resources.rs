@@ -130,8 +130,12 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<crate::InputStreamRecorder>()
             // Neutral runtime mirror of `WorldTime::sim_dt()`.
             .init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>()
-            // Portal registry — per-portal lifecycle state machine.
+            // Portal registry — the AUTHORED per-portal configuration.
             .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry>()
+            // …and the live phase it drives, which is rollback state (registered
+            // as `resource.gate_portal_phases`). Two resources because only one
+            // of them rewinds.
+            .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalPhases>()
             // ⛔ `CameraEaseState` is NOT here any more: it is per-VIEW state and
             // lives on the local view entity, spawned by `CameraObservationPlugin`.
             // The tuning below stays global — it is authored feel, one game-wide

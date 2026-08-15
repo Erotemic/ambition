@@ -203,6 +203,11 @@ mod production_passes {
         let mut registry = ambition_platformer2d_world::rooms::GatePortalRegistry::default();
         registry.register("zone", "switch", "portal", "ring");
         app.insert_resource(registry);
+        // The live phase is a separate resource since 2026-08-15 (it is rollback
+        // state; the registry above is authored). The pass reads it, so it has
+        // to exist — its default `Off` still reaches the deferred insert, which
+        // is what this probe is about.
+        app.init_resource::<ambition_platformer2d_world::rooms::GatePortalPhases>();
         app.world_mut().spawn((
             PropVisual {
                 id: "p".into(),

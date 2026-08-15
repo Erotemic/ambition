@@ -1322,10 +1322,17 @@ pub struct CameraObservationSet;
 ///
 /// ⛔⛔ **IT WAS A PROCESS-GLOBAL `Resource` NAMED "THE" GAMEPLAY VIEW** (D116
 /// M2, 2026-08-14) — the sixth of exactly that shape, after M2a deleted five.
-/// Five readers took it as `Res`/`Option<Res>`: the foreground, label layout,
-/// nameplates, actor draw, and the debug overlay. With two views a global cannot
-/// answer *whose*, and every one of those readers would have drawn one view's
-/// framing over both.
+/// With two views a global cannot answer *whose*, and every reader would have
+/// drawn one view's framing over both.
+///
+/// ⚠ **the reader count was FOUR, not five.** The census that moved this
+/// component listed a fifth — `rendering/foreground.rs` — which was an orphaned
+/// file: no `mod foreground;` declared it anywhere, so it was never compiled,
+/// and it named three `ambition_sprite_sheet` symbols that do not exist. It was
+/// migrated to the new reader and deleted unbuilt. The four real readers were
+/// label layout, nameplates, the actor draw's `[sprite-size]` `eprintln`, and the
+/// debug overlay; the first two are now keyed by view and read their own view's
+/// state directly, leaving [`PresentedViewState`] to the two diagnostics.
 ///
 /// ⭐ **it lives here rather than in `ambition_render` because it is not render
 /// state.** Every field is a projection of [`CameraSnapshot2d`], which this
@@ -1394,11 +1401,17 @@ impl From<&CameraSnapshot2d> for CameraViewState {
 ///
 /// So the refusal is symmetric: several VIEWS and no link refuses, and several
 /// main CAMERAS refuses, because at that point "the" presented view is not a
-/// question with an answer. Consumers that must survive the split have to be
-/// keyed by view — which is the remaining D116 M2 work — and until each one is,
-/// this returns `None` and says why instead of drawing the wrong view's frame.
-/// Nothing in the tree spawns two `MainCamera`s today; the second one is the
-/// event this is here to be loud about.
+/// question with an answer. Nothing in the tree spawns two `MainCamera`s today;
+/// the second one is the event this is here to be loud about.
+///
+/// ⭐ **AND EVERY REMAINING READER IS A DIAGNOSTIC, WHICH IS THE POINT.** The two
+/// draw systems that once read this — the world-label placement pass and the
+/// nameplate sync — do not any more: a draw system owes EVERY view a picture, so
+/// it iterates views and builds one set of entities per view, keyed by
+/// [`crate::local_view::PresentedForView`]. What is left are the actor draw's
+/// `[sprite-size]` `eprintln` and the debug overlay, and for those "the presented
+/// view" is the honest question — a single-view diagnostic that should go quiet
+/// rather than pick when the answer stops being unique.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct PresentedViewState<'w, 's> {
     cameras: bevy::prelude::Query<

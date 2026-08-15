@@ -57,10 +57,12 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 /// **THE VIEW OWNS ITS FRAMING, AND SOMETHING WRITES IT.**
 ///
 /// `CameraViewState` was a process-global `Resource` describing *"the gameplay
-/// view"* — the sixth of that shape, after D116 M2a deleted five. Five readers
-/// took it as `Res`: the foreground, label layout, nameplates, actor draw, and
-/// the debug overlay. With two views a global cannot answer *whose* framing it
-/// is, so all five would have drawn one view's framing over both.
+/// view"* — the sixth of that shape, after D116 M2a deleted five. Four readers
+/// took it as `Res`: label layout, nameplates, the actor draw's sprite-size
+/// `eprintln`, and the debug overlay. With two views a global cannot answer
+/// *whose* framing it is, so all four would have drawn one view's framing over
+/// both. (A fifth, `rendering/foreground.rs`, was counted by the migration and
+/// turned out to be an orphaned file no `mod` declaration ever compiled.)
 ///
 /// ⚠ **the non-vacuity half is the point.** Asserting the component EXISTS proves
 /// nothing on its own: it is spawned with the view, so it would be present even

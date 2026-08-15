@@ -127,6 +127,153 @@ impl WorldLabel {
     }
 }
 
+/// Marks a world label the ROOM spawned once, whose per-view copies the mirror
+/// below owns.
+///
+/// ⚠ **it exists to keep the mirror off the nameplates.** Actor and door plates
+/// carry [`WorldLabel`] too, and `sync_actor_nameplates` already builds one per
+/// view itself — including an outline-child subtree the mirror has no business
+/// cloning. Static signage and fixture plates are spawned once at room load by
+/// code that has no view in scope, so they are the family that needs mirroring,
+/// and this says which ones those are.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StaticWorldLabel;
+
+/// A mirrored copy of a static world label, naming the label it was copied from.
+///
+/// The link is what makes the copy's life derivative: when the room despawns the
+/// root, the copy goes with it rather than lingering as a label naming nothing.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct MirroredWorldLabel {
+    pub root: Entity,
+}
+
+/// **ONE DRAWN COPY OF EVERY STATIC WORLD LABEL PER LIVE VIEW.**
+///
+/// ⛔ **the reason is that one entity cannot hold two views' transforms.** A sign
+/// is ranked against its view's focus, displaced by whatever else that view is
+/// drawing, and dimmed when that view's controlled body walks under it. Two views
+/// legitimately want the same sign at two positions and two opacities, so naming
+/// which view a single shared entity serves could not have made it correct —
+/// there is no value it could hold that is right for both.
+///
+/// ⭐ **a second view is a COUNT, not a special case, and the single-view case
+/// stays exactly one entity.** The label the room spawned is CLAIMED by the
+/// lowest-id view rather than being demoted to an un-drawn template; a template
+/// would have made the one-view game allocate two entities per sign to draw one.
+/// Views past the first get copies. So a one-view composition spawns, places and
+/// draws precisely what it did before this existed.
+///
+/// ⚠ **the claim is keyed on `LocalViewId`, not on query order.** Which entity is
+/// "the root's view" has to be the same answer on every frame and every run;
+/// archetype iteration is neither.
+///
+/// ⛔ **and a view is retracted by DESPAWNING its copies, never by clearing their
+/// key.** A copy that keeps its `Text2d` and loses its `PresentedForView` is
+/// still drawn by the renderer while dropping out of every query that selects by
+/// view — and a test asserting the key is gone would agree with the bug. The root
+/// is the one exception, and it is RE-KEYED onto the surviving lowest view: a
+/// reset, not a removal.
+pub fn mirror_static_world_labels_per_view(
+    mut commands: Commands,
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    views: Query<(Entity, &ambition_sim_view::LocalViewId), With<ambition_sim_view::LocalView>>,
+    roots: Query<
+        (
+            Entity,
+            &Text2d,
+            &TextFont,
+            &TextColor,
+            &WorldLabel,
+            Option<&ambition_sim_view::PresentedForView>,
+        ),
+        (With<StaticWorldLabel>, Without<MirroredWorldLabel>),
+    >,
+    copies: Query<
+        (
+            Entity,
+            &MirroredWorldLabel,
+            &ambition_sim_view::PresentedForView,
+        ),
+        With<StaticWorldLabel>,
+    >,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt as _;
+
+    let Some(session_scope) =
+        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
+
+    let mut ordered: Vec<(ambition_sim_view::LocalViewId, Entity)> =
+        views.iter().map(|(view, id)| (*id, view)).collect();
+    ordered.sort_by_key(|(id, _)| *id);
+    let Some((_, root_view)) = ordered.first().copied() else {
+        // No observation seam in this composition, so nothing presents and there
+        // is nothing to mirror. `ambition_sim_view::ViewsOnHand` calls the
+        // no-views case quiet for exactly this reason.
+        return;
+    };
+
+    // Retract BEFORE spawning, so a view that went away takes its whole set with
+    // it rather than being counted as still-mirrored below.
+    let live: std::collections::HashSet<Entity> = ordered.iter().map(|(_, view)| *view).collect();
+    let mut mirrored: std::collections::HashSet<(Entity, Entity)> =
+        std::collections::HashSet::new();
+    for (entity, copy, key) in &copies {
+        let root_is_gone = roots.get(copy.root).is_err();
+        // `key.0 == root_view` is the re-key case: the view this copy served has
+        // become the root's own view, so the root already draws it and the copy
+        // is a duplicate.
+        if root_is_gone || !live.contains(&key.0) || key.0 == root_view {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        mirrored.insert((copy.root, key.0));
+    }
+
+    for (root, text, font, color, label, key) in &roots {
+        if key.map(|key| key.0) != Some(root_view) {
+            commands
+                .entity(root)
+                .insert(ambition_sim_view::PresentedForView(root_view));
+        }
+        for (_, view) in ordered.iter().skip(1) {
+            if mirrored.contains(&(root, *view)) {
+                continue;
+            }
+            let mut copied_label = label.clone();
+            // Its own ease state. A copy that appears mid-session fades in like
+            // any other new label instead of inheriting whatever opacity the
+            // root happened to be drawn at for a different view.
+            copied_label.rendered_opacity = 0.0;
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    text.clone(),
+                    font.clone(),
+                    TextColor(color.0),
+                    // From the ANCHOR, never from the root's transform: the
+                    // root's has already been displaced by ITS view's placement.
+                    Transform::from_translation(label.anchor),
+                    copied_label,
+                    StaticWorldLabel,
+                    MirroredWorldLabel { root },
+                    ambition_sim_view::PresentedForView(*view),
+                    super::primitives::RoomVisual,
+                    // ⛔ **no `Name`.** `entity.name` is registered for rollback
+                    // and the coverage contract sweeps any entity carrying a type
+                    // the rollback knows about, so labelling these would enlist a
+                    // whole view's presentation set in the sim sweep.
+                ),
+            );
+        }
+    }
+}
+
 /// Tunables for the placement pass.
 #[derive(Resource, Clone, Debug)]
 pub struct WorldLabelLayoutSettings {
@@ -425,7 +572,22 @@ pub fn apply_world_label_fonts(
     }
 }
 
-/// The pass. Places every [`WorldLabel`] and writes the result.
+/// The pass. Places every [`WorldLabel`] and writes the result — **once per
+/// view, over that view's own labels**.
+///
+/// ⛔⛔ **IT USED TO BE ONE PASS OVER EVERY LABEL, RANKED AGAINST "THE" CAMERA.**
+/// The focus it ranked by came from a lookup that refuses to choose between
+/// several main cameras, and when that lookup declined it fell back to
+/// `Vec2::ZERO` — so with two views every label on screen was ranked by its
+/// distance to the WORLD ORIGIN. Silent-wrong, in a seam whose every other
+/// refusal is loud, and it produced a plausible-looking layout that was ordered
+/// by nothing.
+///
+/// ⭐ **iterating VIEWS deletes that fallback rather than repairing it.** Each
+/// iteration holds a real [`CameraViewState`](ambition_sim_view::CameraViewState)
+/// — the view's own — so there is no branch left in which a focus has to be
+/// invented. A view with no camera draws for nobody and costs a pass; two
+/// cameras on one view share one set, which is correct.
 #[allow(clippy::type_complexity)]
 pub fn layout_world_labels(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -433,9 +595,12 @@ pub fn layout_world_labels(
     >,
     settings: Res<WorldLabelLayoutSettings>,
     time: Res<Time>,
-    // ⭐ **the view this camera presents** (D116 M2). Was `Res<CameraViewState>`,
-    // a process-global that with two views could not say whose framing this is.
-    camera: ambition_sim_view::PresentedViewState,
+    // ⭐ **THE VIEWS THEMSELVES** (D116 M2), not "the presented view". This was
+    // `PresentedViewState`, which resolves the ONE view a single main camera
+    // presents and refuses when there are several — the right answer for a
+    // diagnostic that must name one view, and the wrong shape for a draw system,
+    // which owes every view a picture.
+    views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
     controlled_bodies: Option<Res<ControlledBodiesView>>,
     mut labels: Query<(
         &mut WorldLabel,
@@ -446,12 +611,15 @@ pub fn layout_world_labels(
         &mut Visibility,
         &mut TextColor,
         Option<&Children>,
+        Option<&ambition_sim_view::PresentedForView>,
     )>,
     mut outline_colors: Query<&mut TextColor, Without<WorldLabel>>,
 ) {
     let ease = ease_fraction(settings.opacity_ease_secs, time.delta_secs());
     if !settings.enabled {
-        for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children) in
+        // The policy is DECLINED, not per-view: every label draws at its owner's
+        // anchor and opacity, which is view-independent by construction.
+        for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, _) in
             &mut labels
         {
             transform.translation = label.anchor;
@@ -464,43 +632,112 @@ pub fn layout_world_labels(
         return;
     }
 
-    let focus_bevy = camera
-        .get()
-        .map(|camera| ae::config::world_to_bevy(&world.0, camera.target_world, 0.0).truncate())
-        .unwrap_or(Vec2::ZERO);
-
-    let mut placements: Vec<LabelPlacement> = Vec::new();
-    for (label, text, font, layout, _, _, _, _) in &labels {
-        let anchor = label.anchor.truncate();
-        placements.push(LabelPlacement {
-            owner_id: label.owner_id.clone(),
-            family: label.family,
-            distance_sq: anchor.distance_squared(focus_bevy),
-            anchor,
-            size: label_size(
-                layout.map(|layout| layout.size),
-                text.as_str(),
-                font.font_size,
-                &settings,
-            ),
-            owner_opacity: label.owner_opacity,
-            placed: Some(anchor),
-            opacity: label.owner_opacity,
-        });
+    // ⛔⛔ **NO VIEWS: DECLINE, never substitute.** The focus this pass ranks by
+    // used to fall back to `Vec2::ZERO` whenever it could not be resolved, and in
+    // a genuine multi-view world that is strictly worse than producing nothing: a
+    // layout ordered by distance to the WORLD ORIGIN looks plausible and is
+    // ordered by nothing at all. Producing no projection is the honest answer.
+    // It cannot happen in a composed host — the view is spawned at plugin BUILD
+    // time — so reaching this means the composition has no observation seam and
+    // there is genuinely nobody to lay text out for.
+    if views.is_empty() {
+        return;
     }
 
+    // Which view a given label belongs to is the SAME question as which view a
+    // camera presents, so it is the same answer: `ambition_sim_view::ViewsOnHand`
+    // states it once. A label that names its view is that view's; an unkeyed one
+    // in a single-view composition is the only view's — which is what keeps
+    // hand-spawned probes and any label the mirror has not reached yet drawing
+    // exactly as they did; and an unkeyed one with several views is refused.
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
+
+    // View-independent: whoever is driving is driving in every view.
     let subjects = controlled_body_boxes(controlled_bodies.as_deref(), &world.0);
-    resolve_label_layout(&mut placements, &subjects, &settings);
 
-    // Placements are keyed by owner id, which is unique per label family
-    // member. Look-up by id rather than by index because the resolver sorts.
-    let resolved: std::collections::HashMap<&str, &LabelPlacement> = placements
-        .iter()
-        .map(|placement| (placement.owner_id.as_str(), placement))
-        .collect();
+    for (view_entity, view_state) in &views {
+        let focus_bevy =
+            ae::config::world_to_bevy(&world.0, view_state.target_world, 0.0).truncate();
 
-    for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children) in &mut labels
+        let mut placements: Vec<LabelPlacement> = Vec::new();
+        for (label, text, font, layout, _, _, _, _, key) in &labels {
+            if on_hand.drawn_for(key.copied()) != Some(view_entity) {
+                continue;
+            }
+            let anchor = label.anchor.truncate();
+            placements.push(LabelPlacement {
+                owner_id: label.owner_id.clone(),
+                family: label.family,
+                distance_sq: anchor.distance_squared(focus_bevy),
+                anchor,
+                size: label_size(
+                    layout.map(|layout| layout.size),
+                    text.as_str(),
+                    font.font_size,
+                    &settings,
+                ),
+                owner_opacity: label.owner_opacity,
+                placed: Some(anchor),
+                opacity: label.owner_opacity,
+            });
+        }
+        if placements.is_empty() {
+            continue;
+        }
+
+        resolve_label_layout(&mut placements, &subjects, &settings);
+
+        // Placements are keyed by owner id, which is unique per label family
+        // member WITHIN A VIEW — the same sign in two views is two entities
+        // carrying the same id, which is why this map is rebuilt per view rather
+        // than once for the whole world.
+        let resolved: std::collections::HashMap<&str, &LabelPlacement> = placements
+            .iter()
+            .map(|placement| (placement.owner_id.as_str(), placement))
+            .collect();
+
+        apply_view_layout(
+            view_entity,
+            &on_hand,
+            &resolved,
+            ease,
+            &mut labels,
+            &mut outline_colors,
+        );
+    }
+}
+
+/// Write one view's resolved layout onto that view's labels.
+///
+/// Split out of [`layout_world_labels`] only because the borrow it needs — the
+/// label query, mutably, while a map borrowed from this view's placements is
+/// alive — does not survive being written inline inside the loop that also
+/// iterates the query immutably.
+#[allow(clippy::type_complexity)]
+fn apply_view_layout(
+    view_entity: Entity,
+    on_hand: &ambition_sim_view::ViewsOnHand,
+    resolved: &std::collections::HashMap<&str, &LabelPlacement>,
+    ease: f32,
+    labels: &mut Query<(
+        &mut WorldLabel,
+        &Text2d,
+        &TextFont,
+        Option<&TextLayoutInfo>,
+        &mut Transform,
+        &mut Visibility,
+        &mut TextColor,
+        Option<&Children>,
+        Option<&ambition_sim_view::PresentedForView>,
+    )>,
+    outline_colors: &mut Query<&mut TextColor, Without<WorldLabel>>,
+) {
+    for (mut label, _, _, _, mut transform, mut visibility, mut text_color, children, key) in
+        labels.iter_mut()
     {
+        if on_hand.drawn_for(key.copied()) != Some(view_entity) {
+            continue;
+        }
         let Some(placement) = resolved.get(label.owner_id.as_str()) else {
             continue;
         };
@@ -514,7 +751,7 @@ pub fn layout_world_labels(
             label.rendered_opacity = 0.0;
             *visibility = Visibility::Hidden;
             *text_color = TextColor(with_opacity(label.text_color, 0.0));
-            paint_outlines(&mut outline_colors, children, &label, 0.0);
+            paint_outlines(outline_colors, children, &label, 0.0);
             continue;
         };
         transform.translation = placed.extend(label.anchor.z);
@@ -530,7 +767,7 @@ pub fn layout_world_labels(
         label.rendered_opacity = opacity;
         *visibility = visibility_for(opacity);
         *text_color = TextColor(with_opacity(label.text_color, opacity));
-        paint_outlines(&mut outline_colors, children, &label, opacity);
+        paint_outlines(outline_colors, children, &label, opacity);
     }
 }
 
@@ -608,9 +845,19 @@ impl Plugin for WorldLabelLayoutPlugin {
             return;
         }
         app.insert_resource(WorldLabelLayoutInstalled);
+        // ⚠ **`chain()` is load-bearing here, for its SYNC POINTS.** The mirror
+        // spawns a view's copies and re-keys the roots through `Commands`; the
+        // placement pass immediately after selects labels BY that key. Ordered
+        // without the flush between them, every copy would be placed one frame
+        // after it appeared, and a re-keyed root would spend that frame belonging
+        // to a view that no longer exists.
         app.init_resource::<WorldLabelLayoutSettings>().add_systems(
             Update,
-            (apply_world_label_fonts, layout_world_labels)
+            (
+                apply_world_label_fonts,
+                mirror_static_world_labels_per_view,
+                layout_world_labels,
+            )
                 .chain()
                 .in_set(WorldLabelLayoutSet)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
@@ -865,6 +1112,309 @@ mod tests {
         assert!((one_step - two_half_steps).abs() < 1.0e-6);
         // A zero time constant is a hard cut, not a divide by zero.
         assert_eq!(ease_fraction(0.0, 1.0 / 60.0), 1.0);
+    }
+
+    /// **TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO LAYOUTS.**
+    ///
+    /// The acceptance D116 M2 exists for, at the placement pass. Everything
+    /// below runs against ONE world holding ONE pair of overlapping labels per
+    /// view; the only thing that differs between the two views is where each is
+    /// looking.
+    ///
+    /// ⚠ **the two-view split here is a FIXTURE, not a policy.** It is a fixed,
+    /// deterministic two-view world chosen because it is the smallest thing that
+    /// can tell a per-view projection from a shared one. It does NOT say Ambition
+    /// is a split-screen game, and it does not choose between the shared
+    /// (one view, one set of projections), fixed-split (two views, two sets) and
+    /// adaptive (sets created and RETIRED as layout changes) shapes — that choice
+    /// is the maintainer's and is recorded as open. What these tests pin is only
+    /// that N views produce N correct projections for any N.
+    mod two_views_one_room_tests {
+        use super::*;
+        use ambition_sim_view::{CameraViewState, LocalView, LocalViewId, PresentedForView};
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        /// 800x600, so the world→Bevy flip (`size.y * 0.5 - p.y`) is arithmetic
+        /// anyone can check by hand rather than a number copied from a run.
+        fn room() -> ae::RoomGeometry {
+            ae::RoomGeometry(ae::World::new(
+                "two views",
+                ae::Vec2::new(800.0, 600.0),
+                ae::Vec2::new(50.0, 50.0),
+                Vec::new(),
+            ))
+        }
+
+        /// Bevy-space (0, 0, 40) and (0, 5, 40): close enough that the two
+        /// labels' boxes overlap, so ONE of them must yield and which one is
+        /// decided purely by distance to the view's focus.
+        const ANCHOR_A: Vec3 = Vec3::new(0.0, 0.0, 40.0);
+        const ANCHOR_B: Vec3 = Vec3::new(0.0, 5.0, 40.0);
+
+        /// World-space camera targets that land far BELOW and far ABOVE the two
+        /// anchors once flipped: `300.0 - 1300.0 = -1000` and
+        /// `300.0 - (-700.0) = +1000`.
+        const TARGET_BELOW: ae::Vec2 = ae::Vec2::new(400.0, 1300.0);
+        const TARGET_ABOVE: ae::Vec2 = ae::Vec2::new(400.0, -700.0);
+
+        fn settings() -> WorldLabelLayoutSettings {
+            WorldLabelLayoutSettings {
+                padding_px: 0.0,
+                // 30px steps keep every comparison clear of the `<` boundary in
+                // `LabelBox::overlaps`, so no expectation below sits on a tie.
+                step_px: 30.0,
+                max_steps: 3,
+                ..Default::default()
+            }
+        }
+
+        fn spawn_view(world: &mut World, id: u8, target_world: ae::Vec2) -> Entity {
+            world
+                .spawn((
+                    LocalView,
+                    LocalViewId(id),
+                    CameraViewState {
+                        target_world,
+                        ..Default::default()
+                    },
+                ))
+                .id()
+        }
+
+        /// Ten characters at font size 12 measure 60x15 through the pre-layout
+        /// estimate (`10 * 12 * 0.5`, `1 * 12 * 1.25`), so each box is 30 wide
+        /// and 7.5 tall from centre — the numbers every expectation below is
+        /// derived from.
+        fn spawn_label(world: &mut World, id: &str, anchor: Vec3, view: Entity) -> Entity {
+            world
+                .spawn((
+                    Text2d::new("abcdefghij"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Transform::from_translation(anchor),
+                    Visibility::Visible,
+                    WorldLabel::new(id, WorldLabelFamily::Actor, anchor),
+                    PresentedForView(view),
+                ))
+                .id()
+        }
+
+        /// Run the pass over two views and return each view's `[a_y, b_y]`.
+        fn place(first_target: ae::Vec2, second_target: ae::Vec2) -> [[f32; 2]; 2] {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                &mut world,
+                room(),
+            );
+            world.insert_resource(settings());
+            world.init_resource::<Time>();
+
+            let first = spawn_view(&mut world, 0, first_target);
+            let second = spawn_view(&mut world, 1, second_target);
+            let entities = [first, second].map(|view| {
+                [
+                    spawn_label(&mut world, "a", ANCHOR_A, view),
+                    spawn_label(&mut world, "b", ANCHOR_B, view),
+                ]
+            });
+
+            world.run_system_once(layout_world_labels).expect(
+                "layout_world_labels should run: the fixture provides the session world, \
+                 the settings and the clock it reads",
+            );
+
+            entities.map(|per_view| {
+                per_view.map(|entity| {
+                    world
+                        .entity(entity)
+                        .get::<Transform>()
+                        .expect("a label keeps its transform")
+                        .translation
+                        .y
+                })
+            })
+        }
+
+        /// **⛔⛔ EACH VIEW'S LABELS ARE PLACED BY ITS OWN FRAMING.**
+        ///
+        /// Before this, ONE pass ranked EVERY label by distance to "the"
+        /// presented view — a lookup that refuses to choose between several main
+        /// cameras and then fell back to `Vec2::ZERO`. So a second view did not
+        /// produce a second layout; it produced one layout, ordered by distance
+        /// to the world origin, written over both views' entities.
+        ///
+        /// ⭐ **the assertion is on VALUES, not on inequality.** "the two views
+        /// differ" would pass for a pair that differ and are both wrong. Each
+        /// number below is derived from the box arithmetic: with 60x15 labels at
+        /// y=0 and y=5, the nearer label holds its anchor and the farther one
+        /// steps up by 30 until it clears the 15px sum of half-heights.
+        ///
+        /// ⚠ **and the falsifier is inside the test.** The second run swaps only
+        /// the two views' camera targets — same spawn order, same entities, same
+        /// anchors — and the two layouts must swap with them. A pass that keys
+        /// off label or view iteration order instead of the view's own focus
+        /// passes the first run and fails this one.
+        #[test]
+        fn each_view_lays_out_its_own_labels_against_its_own_focus() {
+            // Looking from below, "a" (y=0) is nearer, so it holds its anchor and
+            // "b" steps from 5 to 35 to clear it.
+            let looking_from_below = [0.0, 35.0];
+            // Looking from above, "b" (y=5) is nearer, so it holds ITS anchor and
+            // "a" steps from 0 to 30.
+            let looking_from_above = [30.0, 5.0];
+            assert_ne!(
+                looking_from_below, looking_from_above,
+                "the fixture must give the two views genuinely different layouts, \
+                 or nothing below can tell a per-view pass from a shared one"
+            );
+
+            assert_eq!(
+                place(TARGET_BELOW, TARGET_ABOVE),
+                [looking_from_below, looking_from_above],
+                "each view must place ITS OWN labels against ITS OWN focus; one \
+                 layout applied to both views' entities is the process-global this \
+                 milestone deleted, restored as a loop invariant"
+            );
+
+            assert_eq!(
+                place(TARGET_ABOVE, TARGET_BELOW),
+                [looking_from_above, looking_from_below],
+                "swapping only the two camera targets must swap the two layouts. It \
+                 did not, so placement is following iteration order and the \
+                 assertion above was passing for the wrong reason"
+            );
+        }
+
+        /// **THE ONE-VIEW GAME IS UNCHANGED, INCLUDING FOR LABELS THAT NAME NO
+        /// VIEW.**
+        ///
+        /// Authored signage is spawned at room load, which has no view in scope,
+        /// and two demo tests spawn bare `WorldLabel` probes by hand. All of them
+        /// arrive unkeyed. `ViewsOnHand`'s rule — the only view is the honest
+        /// answer for anything that names none — is what keeps them drawn, and it
+        /// is the whole of "a second view is a count, not a rewrite".
+        #[test]
+        fn an_unkeyed_label_is_laid_out_by_the_only_view() {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                &mut world,
+                room(),
+            );
+            world.insert_resource(settings());
+            world.init_resource::<Time>();
+
+            let view = spawn_view(&mut world, 0, TARGET_BELOW);
+            let keyed = spawn_label(&mut world, "a", ANCHOR_A, view);
+            // Identical in every respect except that it names no view.
+            let unkeyed = spawn_label(&mut world, "b", ANCHOR_B, view);
+            world.entity_mut(unkeyed).remove::<PresentedForView>();
+
+            world
+                .run_system_once(layout_world_labels)
+                .expect("layout_world_labels should run");
+
+            let at = |world: &World, entity: Entity| {
+                world
+                    .entity(entity)
+                    .get::<Transform>()
+                    .expect("a label keeps its transform")
+                    .translation
+                    .y
+            };
+            assert_eq!(
+                [at(&world, keyed), at(&world, unkeyed)],
+                [0.0, 35.0],
+                "an unkeyed label must be laid out by the only view, exactly as a \
+                 keyed one is. Skipping it would leave every authored sign in the \
+                 game frozen at its spawn transform, drawn but never placed"
+            );
+        }
+
+        /// **⛔⛔ A RETIRED VIEW TAKES ITS PROJECTIONS WITH IT — DESPAWNED AS A
+        /// SET.**
+        ///
+        /// One authored sign is ONE authoritative thing; what is duplicated is
+        /// its per-view PROJECTION, and a projection whose view is gone has
+        /// nothing left to be a projection of.
+        ///
+        /// ⛔ **the trap is the tempting alternative: clear the copy's
+        /// `PresentedForView` and leave the entity.** That entity is still a
+        /// `Text2d` the renderer draws, while dropping out of every query that
+        /// selects by view — so nothing would ever place it, fade it or despawn
+        /// it again, and a test asserting "the key is gone" would agree with the
+        /// bug. Retract by despawning; only the ROOT is re-keyed, which is a
+        /// reset rather than a removal.
+        ///
+        /// ⚠ this is the adaptive shape arriving early on purpose: creating the
+        /// second projection and retiring it have to be equally ordinary, because
+        /// a layout that adapts does both while the room stays loaded.
+        #[test]
+        fn a_retired_view_takes_its_label_projections_with_it() {
+            let mut world = World::new();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+                &mut world,
+                room(),
+            );
+
+            let first = spawn_view(&mut world, 0, TARGET_BELOW);
+            let second = spawn_view(&mut world, 1, TARGET_ABOVE);
+            // ONE authored sign, spawned the way room load spawns it: no view in
+            // scope, so it arrives unkeyed and the mirror decides.
+            let root = world
+                .spawn((
+                    Text2d::new("abcdefghij"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                    Transform::from_translation(ANCHOR_A),
+                    Visibility::Visible,
+                    WorldLabel::new("signage:0", WorldLabelFamily::Signage, ANCHOR_A),
+                    StaticWorldLabel,
+                ))
+                .id();
+
+            fn projections(world: &mut World) -> Vec<Entity> {
+                let mut query = world.query_filtered::<Entity, With<StaticWorldLabel>>();
+                let mut found: Vec<Entity> = query.iter(world).collect();
+                found.sort();
+                found
+            }
+
+            world
+                .run_system_once(mirror_static_world_labels_per_view)
+                .expect("the mirror runs");
+            assert_eq!(
+                projections(&mut world).len(),
+                2,
+                "two views owe two projections of one authored sign — one entity \
+                 cannot hold two views' transforms, which is the whole reason this \
+                 mirror exists"
+            );
+
+            world.despawn(second);
+            world
+                .run_system_once(mirror_static_world_labels_per_view)
+                .expect("the mirror runs");
+            assert_eq!(
+                projections(&mut world),
+                vec![root],
+                "retiring a view must despawn its projections as a SET, leaving \
+                 exactly the root. A surviving copy is an entity the renderer still \
+                 draws and no per-view query can ever reach again"
+            );
+            assert_eq!(
+                world.entity(root).get::<PresentedForView>().copied(),
+                Some(PresentedForView(first)),
+                "the root is RE-KEYED, never un-keyed: stripping its key would drop \
+                 the last projection of an authored sign out of the placement pass \
+                 entirely, and the sign would freeze on screen"
+            );
+        }
     }
 
     #[test]

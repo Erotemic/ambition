@@ -1,10 +1,24 @@
 //! Lifecycle vocabulary for entities spawned by reusable platformer systems.
 //!
-//! The public API is the helper verb (`spawn_room_scoped`, `spawn_run_scoped`,
-//! `spawn_mode_scoped`, `spawn_persistent`) rather than the marker component
-//! convention. Marker components remain public because existing cleanup queries
-//! and tests need to name them, but new spawn sites should prefer
-//! [`SpawnScopedExt`].
+//! The public API is the helper verb (`spawn_room_scoped`, `spawn_mode_scoped`,
+//! and `SessionSpawnScope`/`RoundSpawnScope`'s `apply_to`) rather than the marker
+//! component convention. Marker components remain public because existing
+//! cleanup queries and tests need to name them, but new spawn sites should
+//! prefer [`SpawnScopedExt`].
+//!
+//! **The scopes nest: round ⊂ session, and room and mode cut across both.** Each
+//! one names a boundary and owns the sweep that culls at it —
+//! [`RoomScopedEntity`] (room unload / sandbox reset), [`ModeScopedEntity`]
+//! (`despawn_departed_mode_entities`), [`RoundScopedEntity`]
+//! (`despawn_departed_round_entities`), [`SessionScopedEntity`]
+//! (`despawn_retired_session_entities`).
+//!
+//! ⛔ **there is no marker for "persistent", and that is the design.** Every
+//! sweep culls on the PRESENCE of its own marker, so an entity carrying none
+//! already survives all four boundaries; a `PersistentEntity` tag beside a
+//! `RoomScopedEntity` would have been a claim the room sweep silently overrules.
+//! Spelling it was not free — the `markers` module records what the two
+//! unenforced spellings cost.
 
 mod cleanup;
 mod markers;
@@ -14,8 +28,8 @@ mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use markers::{
-    FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PersistentEntity, PlayerVisual,
-    RoomScopedEntity, RoomVisual, RunScopedEntity,
+    FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomScopedEntity,
+    RoomVisual,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,

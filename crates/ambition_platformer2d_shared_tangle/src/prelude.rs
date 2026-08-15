@@ -7,8 +7,8 @@
 
 pub use crate::kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
 pub use crate::lifecycle::{
-    despawn_scoped_entity, ModeScopedEntity, PersistentEntity, RoomScopedEntity, RunScopedEntity,
-    SessionScopeId, SessionSpawnScope, SpawnScopedExt, SpawnSessionScopedExt,
+    despawn_scoped_entity, ModeScopedEntity, RoomScopedEntity, SessionScopeId, SessionSpawnScope,
+    SpawnScopedExt, SpawnSessionScopedExt,
 };
 pub use crate::projectile::{
     resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileSolidHit,

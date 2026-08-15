@@ -52,8 +52,8 @@ pub use resolvers::{
     PlayerBodyView, WorldView,
 };
 pub use variants::{
-    AttackVariant, DashVariant, IconId, InteractVariant, JumpVariant, ShieldVariant,
-    SpecialVariant, VariantLabel,
+    AttackVariant, DashVariant, InteractVariant, JumpVariant, ShieldVariant, SpecialVariant,
+    VariantLabel,
 };
 
 /// The denormalized "what would each verb do right now" table.

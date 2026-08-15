@@ -1,5 +1,5 @@
 //! Bevy-UI for the map: spawns and syncs the full-screen map panel
-//! (`spawn_map_menu` / `sync_map_menu`, rooted at `MapMenuRoot`) and the corner
+//! (`spawn_map_menu_with_scope` / `sync_map_menu`, rooted at `MapMenuRoot`) and the corner
 //! minimap, drawing visited rooms from `MapMenuState` room geometry. Owns the
 //! panel/minimap layout constants and the `short_room_label` helper.
 
@@ -61,15 +61,12 @@ pub struct MapRoomBox {
 #[derive(Component)]
 pub struct MapRoomLabel;
 
-pub fn spawn_map_menu(mut commands: Commands) {
-    spawn_map_menu_with_scope(&mut commands, SessionSpawnScope::UNSCOPED);
-}
-
 /// Spawn the map and minimap under an explicit gameplay-session owner.
 ///
-/// The process-resident direct-entry host uses [`spawn_map_menu`]. Shell hosts
-/// call this function when an Ambition gameplay session activates so the roots
-/// are absent at the title and are retired by the exact session cleanup.
+/// Every host calls this when an Ambition gameplay session activates, so the
+/// roots are absent at the title and are retired by the exact session cleanup.
+/// There is deliberately no unscoped convenience wrapper: an unowned map root
+/// survives session teardown, and no host ever wanted one.
 pub fn spawn_map_menu_with_scope(commands: &mut Commands, scope: SessionSpawnScope) {
     let mut root_commands = commands.spawn((
         Button,

@@ -189,6 +189,9 @@ impl LdtkProject {
         let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
             Vec::new();
         let mut metadata = ambition_platformer2d_world::rooms::RoomMetadata::default();
+        // Indexed BEFORE any conversion: a `path_ref` may name a path authored
+        // later in the file, or in a sibling level of the same active area.
+        let kinematic_path_ids = kinematic_path_ids_by_iid(levels);
         for level in levels {
             // First-non-empty wins so author intent is predictable when
             // an active area spans multiple levels (e.g. central hub +
@@ -210,7 +213,7 @@ impl LdtkProject {
             // just `"Ambition"`. A side layer like `"AmbitionCameras"`
             // holding only `CameraZone` entities is still picked up.
             for entity in level.all_entity_instances() {
-                match entity_to_runtime(entity, offset, vocabulary) {
+                match entity_to_runtime(entity, offset, vocabulary, &kinematic_path_ids) {
                     Ok(emission) => {
                         if emission.ignored {
                             continue;
@@ -629,6 +632,43 @@ pub fn kinematic_path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> Stri
         .unwrap_or_else(|| entity.iid.clone())
 }
 
+/// An entity's display name: its authored `name`, else the LDtk identifier.
+///
+/// One rule, because two roads need it — the per-entity conversion context and
+/// the pre-pass that indexes an area's `KinematicPath`s by iid. Both feed
+/// [`kinematic_path_lookup_id`], whose answer changes with the name, so a second
+/// spelling of "what is this entity called" would mint a second lookup id.
+fn entity_display_name(entity: &LdtkEntityInstance) -> String {
+    field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone())
+}
+
+/// Every `KinematicPath` in an active area, by LDtk `iid` → the lookup id its
+/// [`KinematicPathSpec`] will carry.
+///
+/// ⭐ **this is what makes a native `EntityRef` to a path resolvable at all.** A
+/// ref stores the target's `iid`; the room's path table is keyed by the lookup
+/// id. Resolving one to the other needs the TARGET entity, which a per-entity
+/// converter does not have, so the area builds the index once and the ref is
+/// resolved at conversion — the same shape the Python `set-field` road uses when
+/// it reads a ref target's containers out of the project instead of trusting a
+/// spec to carry them.
+///
+/// ⚠ scoped to the AREA, matching the runtime lookup table's scope exactly. A
+/// ref pointing at a path in some other area is not in this map, and the
+/// converter refuses it out loud rather than degrading to "no motion".
+fn kinematic_path_ids_by_iid(levels: &[&LdtkLevel]) -> BTreeMap<String, String> {
+    levels
+        .iter()
+        .copied()
+        .flat_map(|level| level.all_entity_instances())
+        .filter(|entity| entity.identifier == "KinematicPath")
+        .map(|entity| {
+            let name = entity_display_name(entity);
+            (entity.iid.clone(), kinematic_path_lookup_id(entity, &name))
+        })
+        .collect()
+}
+
 fn authored_triple(
     entity: &LdtkEntityInstance,
     name: String,
@@ -651,12 +691,43 @@ pub struct LdtkEntityCtx<'a> {
     /// converter parses out of entity fields (e.g. path points) — `min` has
     /// it applied already.
     pub offset: ae::Vec2,
+    /// This active area's `KinematicPath`s, by iid → the lookup id each one's
+    /// spec carries. Read through [`Self::kinematic_path_ref`], never directly.
+    pub kinematic_path_ids: &'a BTreeMap<String, String>,
 }
 
 impl LdtkEntityCtx<'_> {
     /// The `(entity, name, min, size)` tuple most converters consume.
     pub fn parts(&self) -> (&LdtkEntityInstance, String, ae::Vec2, ae::Vec2) {
         (self.entity, self.name.clone(), self.min, self.size)
+    }
+
+    /// Resolve a native `EntityRef` field naming a `KinematicPath` into the
+    /// lookup id every path resolver answers to.
+    ///
+    /// `Ok(None)` = the field is unset, which is authoring nothing. An `Err` is
+    /// a ref that names something this area has no path for — a dangling or
+    /// mistyped link, which is content the author must fix. ⛔ **it is refused
+    /// rather than dropped**: a path reference that silently resolves to nothing
+    /// degrades to "the body does not move", and a level that looks finished
+    /// while an actor stands still is the exact failure this repo has paid for
+    /// on this relationship twice.
+    ///
+    /// ⚠ this re-derives no resolution rule. The id comes from
+    /// [`kinematic_path_lookup_id`] — the same call that mints the spec's own id
+    /// — so the reference and the target agree by construction rather than by a
+    /// spelling convention both sides implement.
+    pub fn kinematic_path_ref(&self, field: &str) -> Result<Option<String>, String> {
+        let Some(target) = field_entity_ref(self.entity, field) else {
+            return Ok(None);
+        };
+        match self.kinematic_path_ids.get(&target) {
+            Some(id) => Ok(Some(id.clone())),
+            None => Err(format!(
+                "`{field}` references entity `{target}`, which is not a \
+                 KinematicPath in this active area"
+            )),
+        }
     }
 }
 
@@ -791,14 +862,16 @@ pub(super) fn entity_to_runtime(
     entity: &LdtkEntityInstance,
     offset: ae::Vec2,
     vocabulary: &LdtkVocabulary,
+    kinematic_path_ids: &BTreeMap<String, String>,
 ) -> Result<RoomEmission, String> {
     let (min, size) = entity_min_size(entity, offset);
     let ctx = LdtkEntityCtx {
         entity,
-        name: field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone()),
+        name: entity_display_name(entity),
         min,
         size,
         offset,
+        kinematic_path_ids,
     };
     let Some(converter) = vocabulary.converter_for(&entity.identifier) else {
         return Err(format!(
@@ -1249,6 +1322,7 @@ mod tests {
             value: serde_json::Value::String(value.into()),
             real_editor_values: Vec::new(),
         };
+        let no_paths = BTreeMap::new();
         let convert = |entity: &LdtkEntityInstance| {
             let ctx = LdtkEntityCtx {
                 entity,
@@ -1256,6 +1330,7 @@ mod tests {
                 min: ae::Vec2::new(64.0, 96.0),
                 size: ae::Vec2::new(96.0, 16.0),
                 offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
             };
             super::entity_converters::convert_moving_platform(&ctx)
                 .expect("a MovingPlatform converts")
@@ -1310,6 +1385,7 @@ mod tests {
             value: serde_json::Value::String(value.into()),
             real_editor_values: Vec::new(),
         };
+        let no_paths = BTreeMap::new();
         let convert = |entity: &LdtkEntityInstance| {
             let ctx = LdtkEntityCtx {
                 entity,
@@ -1317,6 +1393,7 @@ mod tests {
                 min: ae::Vec2::new(32.0, 48.0),
                 size: ae::Vec2::new(16.0, 16.0),
                 offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
             };
             super::entity_converters::convert_enemy_spawn(&ctx)
                 .expect("an EnemySpawn converts")
@@ -1330,6 +1407,7 @@ mod tests {
                 min: ae::Vec2::new(32.0, 48.0),
                 size: ae::Vec2::new(16.0, 16.0),
                 offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
             };
             super::entity_converters::convert_enemy_spawn(&ctx)
                 .expect_err("an EnemySpawn with no character must be refused")
@@ -1431,6 +1509,145 @@ mod tests {
         assert_eq!(
             kinematic_path_lookup_id(&path(Vec::new()), "  !! "),
             "KinematicPath-0139"
+        );
+    }
+
+    /// `EnemySpawn` at `px`, patrolling the `KinematicPath` with the given iid.
+    fn patroller(path_iid: Option<&str>, brain: Option<&str>) -> Vec<LdtkFieldInstance> {
+        let mut fields = vec![LdtkFieldInstance {
+            identifier: "character_id".into(),
+            value: Value::String("goblin".into()),
+            real_editor_values: Vec::new(),
+        }];
+        if let Some(iid) = path_iid {
+            fields.push(LdtkFieldInstance {
+                identifier: "path_ref".into(),
+                // LDtk's canonical EntityRef shape; the other three keys are
+                // the file's business and `field_entity_ref` reads only this one.
+                value: serde_json::json!({ "entityIid": iid }),
+                real_editor_values: Vec::new(),
+            });
+        }
+        if let Some(brain) = brain {
+            fields.push(LdtkFieldInstance {
+                identifier: "brain".into(),
+                value: Value::String(brain.into()),
+                real_editor_values: Vec::new(),
+            });
+        }
+        fields
+    }
+
+    fn patrol_project(path_iid: Option<&str>, brain: Option<&str>) -> LdtkProject {
+        let mut spawn = entity_at("EnemySpawn", [520, 600], [44, 58], &[]);
+        spawn.field_instances = patroller(path_iid, brain);
+        synthetic_level(vec![
+            // Sandbox's shipped basement path: NO authored `id`, so its lookup
+            // id is derived from the display name. The reference must land on
+            // whatever that derivation produced, which is the whole point of
+            // resolving through the target instead of through a spelling.
+            entity_at(
+                "KinematicPath",
+                [480, 600],
+                [360, 12],
+                &[
+                    ("name", Value::String("enemy patrol path A".into())),
+                    ("points", Value::String("520,650;820,650".into())),
+                    ("speed", Value::from(95.0)),
+                ],
+            ),
+            spawn,
+        ])
+    }
+
+    /// **A native `path_ref` names the path the room actually built.**
+    ///
+    /// ⭐ this is the migration's whole claim. The reference used to be a string
+    /// hidden inside `brain` (`Patrol:<id>`), so it named a SPELLING and every
+    /// consumer had to agree on how a path's name became that spelling — three
+    /// did not, and sandbox's basement patroller stood still for months while
+    /// two validators called it healthy. An `EntityRef` names the ENTITY, and
+    /// conversion resolves it through the same `kinematic_path_lookup_id` that
+    /// minted the target's own id, so the two cannot disagree.
+    ///
+    /// ⚠ asserted as AGREEMENT with the room's own path table rather than
+    /// against a literal id — a literal is exactly what a second derivation
+    /// would also satisfy.
+    #[test]
+    fn a_native_path_ref_resolves_to_the_id_the_room_built_for_that_path() {
+        let room = &patrol_project(Some("KinematicPath-test-480-600"), None)
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect("the project composes")
+            .rooms[0];
+
+        let path_spec = room
+            .kinematic_paths
+            .first()
+            .expect("precondition: the room built the KinematicPath");
+        let brain = &room
+            .enemy_spawns
+            .first()
+            .expect("precondition: the room built the EnemySpawn")
+            .payload
+            .brain;
+        let ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id } = brain else {
+            panic!("a `path_ref` IS the patrol brain, and this is {brain:?}");
+        };
+        let path_id = path_id.as_deref().expect("a resolved ref names a path");
+        assert_eq!(
+            path_id, path_spec.id,
+            "the reference resolved to `{path_id}`, and the room built the path \
+             as `{}` — a reference nothing can resolve is a patrol that never moves",
+            path_spec.id
+        );
+        // …and the poison the id must survive: the lookup table lowering builds
+        // is generated from the spec, and THAT is what the body rides.
+        assert!(
+            ambition_platformer2d_world::rooms::kinematic_path_lookup(&room.kinematic_paths)
+                .iter()
+                .any(|(spelling, _)| spelling.as_str() == path_id),
+            "`{path_id}` is not a spelling the runtime lookup table answers to"
+        );
+    }
+
+    /// A ref at something that is not a path in this area is REFUSED, naming the
+    /// target. ⛔ the failure it replaces was silent: an unresolvable patrol fell
+    /// back to passive, so the level looked finished and the enemy just stood
+    /// there. A dangling native ref is the one verdict this road owns outright —
+    /// it is LDtk's own referential integrity, not a re-derived engine rule.
+    #[test]
+    fn a_path_ref_at_something_that_is_not_a_path_is_refused_by_name() {
+        let errors = patrol_project(Some("KinematicPath-nobody-minted-this"), None)
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect_err("a dangling path_ref must not compose");
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("KinematicPath-nobody-minted-this")),
+            "the refusal must name the target an author can search for: {errors:?}"
+        );
+    }
+
+    /// **The retired string spelling is refused, not reinterpreted.** With the
+    /// `Patrol:` branch deleted, an un-migrated placement would otherwise parse
+    /// as `CharacterBrain::Custom("Patrol:…")` and look exactly like a healthy
+    /// one — which is the same silence the migration exists to end.
+    #[test]
+    fn the_retired_patrol_string_is_refused_out_loud() {
+        let errors = patrol_project(None, Some("Patrol:enemy_patrol_path_a"))
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect_err("a `Patrol:` brain must not compose");
+        assert!(
+            errors.iter().any(|error| error.contains("path_ref")),
+            "the refusal must say what to author instead: {errors:?}"
+        );
+        // And the other half: a placement may not say it twice.
+        let both = patrol_project(Some("KinematicPath-test-480-600"), Some("Guard:96"))
+            .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+            .expect_err("`path_ref` beside a brain is two answers to one question");
+        assert!(
+            both.iter().any(|error| error.contains("Guard:96")),
+            "the refusal must name the contradicting brain: {both:?}"
         );
     }
 }

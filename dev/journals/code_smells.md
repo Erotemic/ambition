@@ -1263,12 +1263,15 @@ registered any" into one `None`.
 Two things it did NOT close, both worth their own slice:
 
 1. **`game/ambition_content/src/content_validation.rs` is now partly duplicated.**
-   Its `validate_patrol_brain_paths` is subsumed by the room IR sweep, EXCEPT for
-   the bare-`Patrol:` (empty path_id) warning, which the IR sweep skips because
-   `path_id: None` is a legitimate authored state. Its dialogue-id, quest, and
+   ✔ **CLOSED 2026-08-15 by DELETING `validate_patrol_brain_paths`** — and not
+   by rehoming the bare-`Patrol:` case, which stopped existing. The relationship
+   it validated is a native `EnemySpawn.path_ref` EntityRef now, so LDtk's own
+   referential integrity carries the "does it point at anything" half and
+   `convert_enemy_spawn` refuses a ref that is not a `KinematicPath` in the area,
+   naming the level and the target. A whole validator whose subject moved into
+   the type system is a deletion, not a migration. Its dialogue-id, quest, and
    encounter/boss checks are not duplicated at all — the IR does not carry those
-   references. Deleting the overlap needs the bare-`Patrol:` case rehomed first,
-   so nothing was deleted here. Note also that `push_warning` is still
+   references. Note also that `push_warning` is still
    `#[allow(dead_code)]` ("haven't been wired into startup yet") and
    `panic_if_errors` is dead outside tests: the game-level validator is half
    unwired regardless of the overlap.

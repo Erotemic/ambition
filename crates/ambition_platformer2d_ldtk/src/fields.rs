@@ -173,14 +173,17 @@ pub(super) fn parse_pickup_kind(value: &str) -> ambition_platformer2d_world::roo
     }
 }
 
+/// ⛔ **there is no `Patrol:` prefix here, and its absence is the point.** A
+/// patrol's path was authored as a reference hidden inside this string field —
+/// nothing about the field's name or its `String` type said a reference was in
+/// there, so no tool could see it, three resolvers grew private spellings of it,
+/// and a mismatch degraded to "the enemy stands still". It is a native LDtk
+/// `EntityRef` now (`EnemySpawn.path_ref`), read by
+/// [`LdtkEntityCtx::kinematic_path_ref`](crate::LdtkEntityCtx::kinematic_path_ref).
 pub(super) fn parse_enemy_brain(
     value: &str,
 ) -> ambition_entity_catalog::placements::CharacterBrain {
-    if let Some(path_id) = value.strip_prefix("Patrol:") {
-        ambition_entity_catalog::placements::CharacterBrain::Patrol {
-            path_id: Some(path_id.to_string()),
-        }
-    } else if let Some(radius) = value
+    if let Some(radius) = value
         .strip_prefix("Guard:")
         .and_then(|text| text.parse::<f32>().ok())
     {

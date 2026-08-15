@@ -29,6 +29,22 @@ types match `register-entity`: `Int`, `Float`, `String`, `Bool`.
 A trailing empty default (`name:Type:`) is treated as a null
 default (LDtk renders the field as unset / `null`).
 
+A native reference field has its own flag, because it is a
+RELATIONSHIP rather than a value and carries no default:
+
+```bash
+python -m ambition_ldtk_tools def update-entity EnemySpawn \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
+    --add-entity-ref-field path_ref --in-place
+```
+
+What `path_ref` points at and how the LDtk editor scopes the
+targets it offers are declared once in
+`ambition_ldtk_tools.ldtk.fields.ENTITY_REF_FIELDS`, not on this
+command line — a reference field nobody documented is the string
+convention native refs replaced. Adding one is idempotent, so a
+sync script may run it forever.
+
 The tool:
 
 1. Refuses to add a duplicate field identifier (use a different
@@ -70,6 +86,7 @@ from ambition_ldtk_tools.edit.defs import (  # noqa: E402
     field_def as _new_field_def,
     repair_and_validate,
 )
+from ambition_ldtk_tools.ldtk.fields import ensure_entity_ref_fielddef  # noqa: E402
 
 
 def parse_add_field(spec: str) -> tuple[str, str, object | None]:
@@ -129,6 +146,18 @@ def main(argv=None) -> int:
         ),
     )
     parser.add_argument(
+        "--add-entity-ref-field",
+        action="append",
+        default=[],
+        metavar="name",
+        help=(
+            "Add a native EntityRef field (a relationship, not a value). The "
+            "name must be one `ldtk.fields.ENTITY_REF_FIELDS` documents — what "
+            "it points at and how the editor scopes it live there, not on this "
+            "command line. Repeat to add several."
+        ),
+    )
+    parser.add_argument(
         "--in-place",
         action="store_true",
         help="Write back to the input .ldtk path.",
@@ -167,14 +196,26 @@ def main(argv=None) -> int:
         return _fail("choose --in-place or --output <path>")
     if not args.ldtk.exists():
         return _fail(f"ldtk file not found: {args.ldtk}")
-    if not args.add_field:
-        return _fail("at least one --add-field is required")
+    if not args.add_field and not args.add_entity_ref_field:
+        return _fail("at least one --add-field or --add-entity-ref-field is required")
 
     project = json.loads(args.ldtk.read_text())
     ent = find_entity_def(project, args.identifier)
     existing_field_ids = {f.get("identifier") for f in ent.get("fieldDefs", [])}
 
     added: list[str] = []
+    # ⭐ a REFERENCE field, not a value field: its ~30-key LDtk shape and the
+    # editor scope of what it may point at belong to the relationship, so this
+    # command names the relationship and `ensure_entity_ref_fielddef` writes it.
+    # Idempotent by construction, which is what makes it safe in a sync script.
+    for name in args.add_entity_ref_field:
+        made = ensure_entity_ref_fielddef(project, args.identifier, name)
+        if name in existing_field_ids:
+            print(f"entity '{args.identifier}' already has EntityRef '{name}'; left as is")
+            continue
+        existing_field_ids.add(name)
+        added.append(f"{name}:EntityRef->{made['allowedRefs']}")
+
     for spec in args.add_field:
         name, human_type, default = parse_add_field(spec)
         if name in existing_field_ids:

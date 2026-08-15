@@ -139,13 +139,51 @@ def select_entities(layer: dict, target: dict) -> list[dict]:
     return candidates
 
 
-def resolve_entity_ref(project: dict, target) -> dict | None:
+def _check_allowed_ref(
+    field_def: dict | None, source: dict | None, target_entity: dict
+) -> None:
+    """Enforce the field def's own `allowedRefs` scope.
+
+    ⭐ **the def already SAYS what the field may point at, and nothing read it.**
+    LDtk's editor honours `allowedRefs` when a human draws the link; a ref written
+    through this tool bypassed the editor entirely, so a `path_ref` at a
+    `LoadingZone` or a rider `mounted_on` a `Prop` wrote cleanly and failed at
+    load. This asks the declaration rather than re-deriving what each
+    relationship means — every ref field is covered the moment its def exists.
+    """
+    if not field_def:
+        return
+    scope = field_def.get("allowedRefs")
+    kind = target_entity.get("__identifier")
+    if scope == "OnlySame" and source is not None:
+        if kind != source.get("__identifier"):
+            raise SystemExit(
+                f"'{field_def['identifier']}' declares allowedRefs=OnlySame, so it "
+                f"may only point at another '{source.get('__identifier')}'; "
+                f"'{target_entity.get('iid')}' is a '{kind}'"
+            )
+    elif scope == "OnlySpecificEntity":
+        wanted = field_def.get("allowedRefsEntityUid")
+        if wanted is not None and target_entity.get("defUid") != wanted:
+            raise SystemExit(
+                f"'{field_def['identifier']}' may only point at entity def uid "
+                f"{wanted}; '{target_entity.get('iid')}' is a '{kind}' "
+                f"(defUid {target_entity.get('defUid')})"
+            )
+
+
+def resolve_entity_ref(
+    project: dict, target, *, field_def: dict | None = None, source: dict | None = None
+) -> dict | None:
     """Turn a spec's EntityRef TARGET into LDtk's canonical ref object.
 
     `target` is the referenced entity's `iid` (or `null` to clear the ref). The
     `layerIid` / `levelIid` / `worldIid` come from wherever that iid is found in
     THIS project, so they describe the file as it is now rather than as it was
     when somebody copied a ref out of an older one.
+
+    `field_def` / `source` are the referring field's definition and the entity
+    carrying it; when given, the def's declared `allowedRefs` scope is enforced.
     """
     if target is None or target == "":
         return None
@@ -157,12 +195,12 @@ def resolve_entity_ref(project: dict, target) -> dict | None:
             "EnemySpawn-6806`."
         )
     target = str(target)
-    found: list[tuple[dict, dict]] = []
+    found: list[tuple[dict, dict, dict]] = []
     for level in project.get("levels", []):
         for layer in level.get("layerInstances", []):
             for entity in layer.get("entityInstances", []):
                 if entity.get("iid") == target:
-                    found.append((level, layer))
+                    found.append((level, layer, entity))
     if not found:
         raise SystemExit(
             f"EntityRef target '{target}' is not an entity in this project. A ref "
@@ -170,7 +208,8 @@ def resolve_entity_ref(project: dict, target) -> dict | None:
         )
     if len(found) > 1:
         raise SystemExit(f"EntityRef target '{target}' is not unique in this project")
-    level, layer = found[0]
+    level, layer, target_entity = found[0]
+    _check_allowed_ref(field_def, source, target_entity)
     return {
         "entityIid": target,
         "layerIid": layer.get("iid"),
@@ -196,7 +235,9 @@ def apply_field_edit(project: dict, entity: dict, field_name: str, new_value) ->
     field_def = field_defs[field_name]
     type_str = field_def.get("__type") or field_def.get("type") or "String"
     if type_str == "EntityRef":
-        coerced = resolve_entity_ref(project, new_value)
+        coerced = resolve_entity_ref(
+            project, new_value, field_def=field_def, source=entity
+        )
     else:
         coerced = coerce_field_value(type_str, new_value)
     instance_payload = make_field_instance(field_def, coerced)

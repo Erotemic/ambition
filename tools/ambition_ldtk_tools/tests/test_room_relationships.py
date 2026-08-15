@@ -14,6 +14,9 @@ this fails — and the list would be the very rot the migration is meant to end.
 
 from __future__ import annotations
 
+from unittest import mock
+
+from ambition_ldtk_tools.room_support import relationships as rel
 from ambition_ldtk_tools.room_support.relationships import relationship_report
 
 
@@ -90,3 +93,103 @@ def test_a_dangling_native_reference_names_the_offending_entity():
     # something is. A count is not something an author can act on.
     assert link["source"] == "Gizmo-1"
     assert link["level"] == "fixture_room"
+
+
+# ---------------------------------------------------------------------------
+# A prefix convention is reported with ITS OWN resolver owner.
+#
+# ⛔ this is a real defect, fixed here, not test-the-tests machinery. The report
+# site spelled `KinematicPathSpec::matches_id` for every prefix row, so
+# `BossSpawn.brain = "PhaseScript:<id>"` — a boss phase script, resolved by
+# `parse_boss_brain`, with no relationship to kinematic paths whatsoever — was
+# attributed to the resolver that owns `EnemySpawn`'s `Patrol:` references. The
+# entire value of this half of the diagnostic is telling an author WHICH
+# authority to go read, so naming the wrong one is worse than saying nothing.
+# ---------------------------------------------------------------------------
+
+
+def _entity_with_field(kind: str, iid: str, field: str, value: str) -> dict:
+    return {
+        "defs": {"entities": []},
+        "levels": [
+            {
+                "identifier": "fixture_room",
+                "layerInstances": [
+                    {
+                        "__type": "Entities",
+                        "entityInstances": [
+                            {
+                                "iid": iid,
+                                "__identifier": kind,
+                                "fieldInstances": [
+                                    {"__identifier": field, "__value": value}
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_every_prefix_convention_reports_the_owner_its_own_row_declares():
+    """The invariant: ownership travels with the row, never with the report site.
+
+    Driven off the shipped table rather than a copy of it, so a row that leaves
+    (a relationship migrating to `EntityRef`) takes its assertion with it and a
+    row that arrives is covered the day it lands.
+    """
+    assert rel.PREFIX_CONVENTIONS, "the table under test is empty"
+    for kind, field, prefix, _points_at, owner in rel.PREFIX_CONVENTIONS:
+        report = relationship_report(
+            _entity_with_field(kind, f"{kind}-1", field, f"{prefix}some_target")
+        )
+        rows = [r for r in report["conventional"] if r["source_kind"] == kind]
+        assert len(rows) == 1, f"{kind}.{field} authored `{prefix}` was not reported"
+        assert rows[0]["resolution_owned_by"] == owner, (
+            f"{kind}.{field} `{prefix}` is resolved by `{owner}`, and the report "
+            f"named `{rows[0]['resolution_owned_by']}`"
+        )
+
+
+def test_a_phase_script_reference_is_not_attributed_to_the_patrol_resolver():
+    """The exact bug, named: the string that was wrong must not come back."""
+    report = relationship_report(
+        _entity_with_field("BossSpawn", "BossSpawn-1", "brain", "PhaseScript:act_two")
+    )
+    row = report["conventional"][0]
+    assert row["spelling"] == "act_two", "precondition: the prefix row matched"
+    assert "KinematicPathSpec" not in row["resolution_owned_by"], (
+        "a boss phase script has nothing to do with kinematic paths; this is the "
+        "resolver that owns EnemySpawn's `Patrol:` references"
+    )
+    assert "boss" in row["resolution_owned_by"].lower()
+
+
+def test_two_conventions_do_not_share_one_resolver_name():
+    """The poison: a single owner spelled at the report site cannot pass.
+
+    The shipped table is allowed to shrink to one row (that is the migration
+    working), and a one-row sweep cannot distinguish "read off the row" from
+    "hardcoded, and the hardcode happens to match". Two synthetic rows with
+    distinct owners can, and they exercise the production code path unchanged.
+    """
+    synthetic = (
+        ("AlphaSpawn", "brain", "Alpha:", "an alpha target", "alpha_resolver"),
+        ("BetaSpawn", "brain", "Beta:", "a beta target", "beta_resolver"),
+    )
+    project = _entity_with_field("AlphaSpawn", "AlphaSpawn-1", "brain", "Alpha:one")
+    project["levels"][0]["layerInstances"][0]["entityInstances"].append(
+        {
+            "iid": "BetaSpawn-1",
+            "__identifier": "BetaSpawn",
+            "fieldInstances": [{"__identifier": "brain", "__value": "Beta:two"}],
+        }
+    )
+    with mock.patch.object(rel, "PREFIX_CONVENTIONS", synthetic):
+        report = relationship_report(project)
+    owners = {
+        r["source_kind"]: r["resolution_owned_by"] for r in report["conventional"]
+    }
+    assert owners == {"AlphaSpawn": "alpha_resolver", "BetaSpawn": "beta_resolver"}

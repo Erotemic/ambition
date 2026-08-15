@@ -47,7 +47,11 @@ ROSTER = REPO / "game/ambition_content/assets/data/character_archetypes.ron"
 #: never counted — 11 bosses carry no `character_id` field at all and resolve
 #: through boss profiles instead. A first draft of this list omitted the boss
 #: vocabulary and flagged nine bosses as orphans.
-BUILT_IN_PREFIXES = ("Patrol:", "Guard:", "PhaseScript:")
+#:
+#: ⛔ `Patrol:` is GONE. A patrol's path is a native `path_ref` EntityRef now,
+#: and `convert_enemy_spawn` refuses the retired prefix out loud — so a spec
+#: still spelling it must be reported here, not excused.
+BUILT_IN_PREFIXES = ("Guard:", "PhaseScript:")
 BUILT_IN_EXACT = frozenset({"Passive", "Dormant"})
 
 _BRAIN = re.compile(r'brain"?\s*:\s*"([^"]+)"')

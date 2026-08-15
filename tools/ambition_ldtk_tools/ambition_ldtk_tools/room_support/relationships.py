@@ -42,7 +42,6 @@ from typing import Iterator
 # ---------------------------------------------------------------------------
 STRING_CONVENTIONS: tuple[tuple[str, str, str, str], ...] = (
     ("MovingPlatform", "path_id", "KinematicPath", "AuthoredPlatformMotion::classify + KinematicPathSpec::matches_id"),
-    ("EnemySpawn", "path_id", "KinematicPath", "KinematicPathSpec::matches_id (via CharacterBrain::Patrol)"),
     ("NpcSpawn", "path_id", "KinematicPath", "KinematicPathSpec::matches_id (via InteractionKindSpec::Npc)"),
     ("DamageVolume", "path_id", "KinematicPath", "KinematicPathSpec::matches_id (via HazardVolumeSpec)"),
     ("LoadingZone", "target_room", "a level identifier", "validate_ldtk_room_links"),
@@ -54,9 +53,26 @@ STRING_CONVENTIONS: tuple[tuple[str, str, str, str], ...] = (
 
 # A reference hidden INSIDE another field's value, which is the least visible
 # shape of all: nothing about the field's name or type says it is a reference.
-PREFIX_CONVENTIONS: tuple[tuple[str, str, str, str], ...] = (
-    ("EnemySpawn", "brain", "Patrol:", "KinematicPath"),
-    ("BossSpawn", "brain", "PhaseScript:", "a boss phase script id"),
+#
+# Each row is (entity identifier, field, prefix, what it points at, who owns
+# resolution) — the SAME five facts a string-convention row carries, in the same
+# order, because they are the same kind of row.
+#
+# ⛔ **the owner is DATA here for a reason.** The report site used to spell one
+# resolver for every prefix row, so `BossSpawn.brain = "PhaseScript:<id>"` was
+# reported as resolved by `KinematicPathSpec::matches_id` — the owner of
+# `EnemySpawn`'s patrol references, which has nothing to do with phase scripts.
+# The whole value of this half of the tool is naming the right authority to go
+# read, so a report that names the wrong one is worse than no report. A row that
+# carries its own owner cannot inherit somebody else's by being added.
+PREFIX_CONVENTIONS: tuple[tuple[str, str, str, str, str], ...] = (
+    (
+        "BossSpawn",
+        "brain",
+        "PhaseScript:",
+        "a boss phase script id",
+        "parse_boss_brain -> BossBrain::PhaseScript (boss phase scripts)",
+    ),
 )
 
 
@@ -153,7 +169,7 @@ def relationship_report(project: dict, level_id: str | None = None) -> dict:
                 }
             )
 
-        for conv_kind, field, prefix, points_at in PREFIX_CONVENTIONS:
+        for conv_kind, field, prefix, points_at, authority in PREFIX_CONVENTIONS:
             if conv_kind != ident:
                 continue
             seen_string_fields.add((ident, field))
@@ -168,7 +184,11 @@ def relationship_report(project: dict, level_id: str | None = None) -> dict:
                     "field": field,
                     "spelling": value[len(prefix):],
                     "points_at": points_at,
-                    "resolution_owned_by": "KinematicPathSpec::matches_id",
+                    # ⛔ read off the ROW, never spelled here. One resolver name
+                    # at this site is one resolver name for every prefix row,
+                    # which is how a phase-script reference came to be reported
+                    # as owned by the kinematic-path resolver.
+                    "resolution_owned_by": authority,
                     # ⛔ the least visible shape: the field is called `brain`
                     # and its TYPE is String. Nothing but this table knows a
                     # reference is in there.

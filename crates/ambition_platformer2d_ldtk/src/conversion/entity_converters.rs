@@ -589,15 +589,49 @@ pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
 
 pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let mut brain =
-        parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()));
-    if let Some(path_id) = field_string(entity, "path_id") {
-        if !path_id.trim().is_empty() {
-            brain = ambition_entity_catalog::placements::CharacterBrain::Patrol {
-                path_id: Some(path_id.trim().to_string()),
-            };
-        }
+    let authored_brain = field_string(entity, "brain").unwrap_or_default();
+    let authored_brain = authored_brain.trim();
+    // **THE PATROL PATH IS A NATIVE REFERENCE.** `path_ref` is an LDtk
+    // `EntityRef` at a `KinematicPath`, so the editor draws the link, every tool
+    // discovers it from the project schema alone, and a target that is not there
+    // is caught by LDtk's own referential integrity instead of by a spelling
+    // convention three resolvers each implemented differently.
+    //
+    // ⛔ **the `Patrol:<id>` string it replaces is REFUSED, not tolerated.**
+    // Falling through to `CharacterBrain::Custom` would leave an un-migrated
+    // placement looking exactly like a healthy one — the same silence that let
+    // sandbox's basement patroller stand still for months. Delete this arm once
+    // no `.ldtk` in the repo authors the prefix:
+    //   grep -l '"Patrol:' game/*/assets/worlds/*.ldtk
+    if authored_brain.starts_with("Patrol:") {
+        return Err(format!(
+            "EnemySpawn `{name}` authors brain `{authored_brain}`. The `Patrol:` \
+             prefix is retired: author the patrol path as a `path_ref` EntityRef \
+             pointing at the KinematicPath, and clear `brain`."
+        ));
     }
+    let path_ref = ctx
+        .kinematic_path_ref("path_ref")
+        .map_err(|problem| format!("EnemySpawn `{name}` {problem}"))?;
+    // ⛔ ONE authority per placement. A `path_ref` beside a `Guard:96` is two
+    // answers to "what drives this body", and picking one silently is how an
+    // authored intent disappears.
+    if path_ref.is_some() && !authored_brain.is_empty() {
+        return Err(format!(
+            "EnemySpawn `{name}` authors both `path_ref` and brain \
+             `{authored_brain}`. A placement states what drives it once: a \
+             `path_ref` IS the patrol brain, so clear `brain`."
+        ));
+    }
+    let brain = match path_ref {
+        Some(path_id) => ambition_entity_catalog::placements::CharacterBrain::Patrol {
+            path_id: Some(path_id),
+        },
+        None if authored_brain.is_empty() => {
+            ambition_entity_catalog::placements::CharacterBrain::Passive
+        }
+        None => parse_enemy_brain(authored_brain),
+    };
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     // **The ART identity, authored separately from the label.** `name` is what a
     // level calls this enemy; `character_id` is which catalog character it wears.

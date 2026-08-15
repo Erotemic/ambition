@@ -952,8 +952,8 @@ def apply_field_art(
     it fits a vocabulary the runtime already closes (`kind` is `Question`,
     `Brick` or `Hidden` and anything else is refused at load) and NOT one it
     leaves open. `EnemySpawn.brain` is the counter-example and the reason this
-    is a map rather than a sweep: `parse_enemy_brain` accepts `Patrol:<path>`,
-    `Guard:<radius>` and any custom id, so a dropdown would make most of what
+    is a map rather than a sweep: `parse_enemy_brain` accepts `Guard:<radius>`
+    and any custom id, so a dropdown would make most of what
     the field means unauthorable — a worse trade than a generic icon.
 
     The VALUES belong to the world's vocabulary manifest, which is what creates

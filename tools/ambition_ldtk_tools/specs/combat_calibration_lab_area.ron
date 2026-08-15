@@ -199,11 +199,17 @@
             ],
             fields: (
                 name: "lab_patrol_dummy",
-                brain: "Patrol:lab_patrol_line",
+                // The patrol path is a NATIVE EntityRef at the KinematicPath
+                // below, not a `Patrol:<id>` string hidden inside `brain`.
+                // `brain` is therefore unset: a `path_ref` IS the patrol brain,
+                // and authoring both is refused at conversion.
+                path_ref: "lab_patrol_line_path",
+                character_id: "npc_puppy_slug",
             ),
         ),
         (
             type: "KinematicPath",
+            ref: "lab_patrol_line_path",
             px: [
                 200,
                 716,

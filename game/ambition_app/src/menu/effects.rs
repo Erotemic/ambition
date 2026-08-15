@@ -143,8 +143,21 @@ pub(crate) fn apply_menu_action(
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
                 // Clear whatever weapon is currently held (a held item OR the
                 // portal gun) so we re-stash the true base, then equip the new one.
+                //
+                // ⭐ **the catalog's equipped slot rides along inside these
+                // calls** rather than being set once at the end. `OwnedItems::
+                // equipped` and the body's `HeldItem`/`PortalGun` are one fact
+                // stored twice, and every site that wrote only one of them
+                // drifted. The release clears the slot, the take names the new
+                // one, and the net is the item just equipped.
                 if stashed.is_some() {
-                    unequip_held(commands, player, &mut action_set, stashed);
+                    unequip_held(
+                        commands,
+                        player,
+                        &mut action_set,
+                        stashed,
+                        Some(&mut *owned),
+                    );
                     #[cfg(feature = "portal")]
                     commands
                         .entity(player)
@@ -156,27 +169,38 @@ pub(crate) fn apply_menu_action(
                         commands,
                         player,
                         &mut action_set,
+                        Some(&mut *owned),
                     );
                 } else if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec);
+                    equip_held_spec(commands, player, &mut action_set, spec, Some(&mut *owned));
                 }
                 #[cfg(not(feature = "portal"))]
                 if let Some(spec) = held_spec {
-                    equip_held_spec(commands, player, &mut action_set, spec);
+                    equip_held_spec(commands, player, &mut action_set, spec, Some(&mut *owned));
                 }
-                owned.set_equipped(Some(item));
             }
         }
         MenuAction::Unequip(_item) => {
             if let Ok((player, mut action_set, stashed)) = players.single_mut() {
                 // Detach both possible weapon front-ends (held item + portal gun).
-                unequip_held(commands, player, &mut action_set, stashed);
+                //
+                // ⚠ **the slot now clears INSIDE the `if let Ok`, and that is the
+                // point.** It used to clear unconditionally, so a confirm that
+                // found no player body left the menu reporting nothing equipped
+                // while some body somewhere still held the weapon. Both ends of a
+                // transfer move or neither does.
+                unequip_held(
+                    commands,
+                    player,
+                    &mut action_set,
+                    stashed,
+                    Some(&mut *owned),
+                );
                 #[cfg(feature = "portal")]
                 commands
                     .entity(player)
                     .remove::<ambition_platformer2d::portal::PortalGun>();
             }
-            owned.set_equipped(None);
         }
         MenuAction::UseConsumable(Item::HealthCell) => {
             if owned.take(Item::HealthCell, 1) > 0 {

@@ -312,16 +312,37 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
     }
 }
 
-/// Equip a held-item spec onto the player from a non-pickup source (e.g. the
-/// inventory menu): stash the current action set, overlay the item's verbs, and
-/// attach [`HeldItem`]. Mirrors [`pickup_held_item_system`] minus the ground
-/// entity so the menu and the world pickup share one equip contract.
+/// **TAKE custody of a held item — one operation, both ends.**
+///
+/// Stash the current action set, overlay the item's verbs, attach [`HeldItem`],
+/// and name the catalog slot this body is now holding. Every way a body comes to
+/// hold a weapon calls this: the world pickup ([`pickup_held_item_system`]) and
+/// the inventory menu. There is no second place that writes half of it.
+///
+/// ⭐ **`owned` is a PARAMETER, not a follow-up call.** `OwnedItems::equipped`
+/// and the presence of `HeldItem` on the body are ONE FACT STORED TWICE, and
+/// while the two were maintained at separate sites they drifted — dropping the
+/// portal gun cleared the component and left the menu still claiming the gun was
+/// equipped, because that one release path forgot the second edit. Handing the
+/// catalog to the transfer is what makes the two ends move together or not at
+/// all. `None` means "this body has no catalog behind it" (a headless fixture, a
+/// game with no inventory) — never "skip the bookkeeping".
+///
+/// ⚠ **it does NOT grant.** Entitlement (*do you own an axe*) and custody (*are
+/// you holding one*) are different questions and only the second is this
+/// function's. `grant` stays at the ACQUISITION sites, so equipping something you
+/// already own cannot mint a second one.
 pub fn equip_held_spec(
     commands: &mut Commands,
     player: Entity,
     action_set: &mut ActionSet,
     spec: HeldItemSpec,
+    owned: Option<&mut crate::items::OwnedItems>,
 ) {
+    // Resolved BEFORE either end is written, so the catalog can never be told
+    // about a slot the body did not end up with. An id with no catalog row (the
+    // pirates' `gun_sword_heavy`) equips normally and claims no slot.
+    let slot = crate::items::Item::from_held_item_id(spec.id.as_str());
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
@@ -331,31 +352,49 @@ pub fn equip_held_spec(
     action_set.melee = spec.melee;
     action_set.ranged = spec.ranged;
     commands.entity(player).insert(held);
+    if let (Some(owned), Some(item)) = (owned, slot) {
+        owned.set_equipped(Some(item));
+    }
 }
 
-/// Detach the currently held item and restore the stashed action set. Mirrors
-/// the throw path's restore without dropping a ground item.
+/// **RELEASE custody of a held item — the twin of [`equip_held_spec`].**
+///
+/// Restore the stashed action set, detach [`HeldItem`], and clear the catalog's
+/// equipped slot. Where the item GOES afterwards is the caller's business (the
+/// throw drops a [`GroundItem`]; the menu's unequip drops nothing), but the body
+/// stops holding it here and nowhere else.
 pub fn unequip_held(
     commands: &mut Commands,
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
+    owned: Option<&mut crate::items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }
     commands.entity(player).remove::<HeldItem>();
     commands.entity(player).remove::<StashedActionSet>();
+    if let Some(owned) = owned {
+        owned.set_equipped(None);
+    }
 }
 
-/// Equip the portal gun onto the player from a non-pickup source (the inventory
-/// menu): stash the action set, attach an active [`PortalGun`], and clear the
-/// melee swing so `Attack` fires portals (the same replacement the world pickup
-/// does). Mirrors the pickup grant minus the ground entity — the portal-gun
-/// twin of [`equip_held_spec`], so the menu and the world pickup share one
-/// equip contract.
+/// **TAKE custody of the portal gun** — the portal-gun twin of
+/// [`equip_held_spec`]. Stash the action set, attach an active [`PortalGun`],
+/// clear the melee swing so `Attack` fires portals, and name the catalog slot.
+///
+/// The gun equips through its own component rather than a `HeldItemSpec`, which
+/// is why it needs a twin at all; the catalog slot is spelled out here because
+/// `Item::PortalGun` deliberately carries no `held_item_id` (nothing to look it
+/// up from).
 #[cfg(feature = "portal")]
-pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mut ActionSet) {
+pub fn equip_portal_gun(
+    commands: &mut Commands,
+    player: Entity,
+    action_set: &mut ActionSet,
+    owned: Option<&mut crate::items::OwnedItems>,
+) {
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
@@ -364,22 +403,36 @@ pub fn equip_portal_gun(commands: &mut Commands, player: Entity, action_set: &mu
         ..PortalGun::default()
     });
     action_set.melee = None;
+    if let Some(owned) = owned {
+        owned.set_equipped(Some(crate::items::Item::PortalGun));
+    }
 }
 
-/// Detach the portal gun and restore the stashed action set (inventory
-/// unequip). The portal-gun twin of [`unequip_held`].
+/// **RELEASE custody of the portal gun** — the portal-gun twin of
+/// [`unequip_held`]. Detach [`PortalGun`], restore the stashed action set, and
+/// clear the catalog's equipped slot.
+///
+/// ⛔ **the world DROP used to inline this and omit the last step**, so a player
+/// who threw the gun on the floor kept an inventory screen insisting it was
+/// equipped. The throw path did clear it. Same operation, two hand-written
+/// copies, one of them missing an edit — which is the whole argument for the
+/// slot being this function's business rather than each caller's.
 #[cfg(feature = "portal")]
 pub fn unequip_portal_gun(
     commands: &mut Commands,
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
+    owned: Option<&mut crate::items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }
     commands.entity(player).remove::<PortalGun>();
     commands.entity(player).remove::<StashedActionSet>();
+    if let Some(owned) = owned {
+        owned.set_equipped(None);
+    }
 }
 
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
@@ -436,26 +489,25 @@ pub fn pickup_held_item_system(
         // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
         // ring/coin) would instead route through `cast::aabb_path_contacts`.
         if player_aabb.strict_intersects(ground_aabb) {
-            commands
-                .entity(player)
-                .insert(StashedActionSet(action_set.clone()));
-            // The held item *replaces* the player's attack verbs (not a merge):
-            // the axe sets melee + clears ranged; the gun-sword clears melee +
-            // sets ranged so `Attack` fires the laser instead of swinging. Move
-            // style / special are kept from the player's own set.
-            action_set.melee = ground.spec.melee;
-            action_set.ranged = ground.spec.ranged.clone();
-            commands
-                .entity(player)
-                .insert(HeldItem::new(ground.spec.clone()));
-            // Reflect into the 24-item catalog: picking a held item up grants its
-            // slot and marks it equipped, so the OoT menu shows it as held.
+            // ACQUISITION, which grabbing a weapon off the floor also is: you now
+            // OWN an axe. Deliberately not folded into the transfer below —
+            // equipping something you already own must not mint a second one.
             if let Some(owned) = owned.as_deref_mut() {
                 if let Some(item) = crate::items::Item::from_held_item_id(&ground.spec.id) {
                     owned.grant(item, 1);
-                    owned.set_equipped(Some(item));
                 }
             }
+            // CUSTODY: the ONE take-custody operation, shared with the inventory
+            // menu. This used to be four hand-written edits here and the same
+            // four inside `equip_held_spec`, whose own doc called itself a mirror
+            // of this loop — so the two could only ever agree by remembering to.
+            equip_held_spec(
+                &mut commands,
+                player,
+                &mut action_set,
+                ground.spec.clone(),
+                owned.as_deref_mut(),
+            );
             // The Attack press is *consumed* by the pickup so the same press
             // doesn't also fire the just-equipped item this frame. Clear the
             // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -520,14 +572,6 @@ pub fn throw_held_item_system(
     }
     // The throw IS this press's action — see the note on the signature.
     control.0.melee_pressed = false;
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
-    // Throwing stows the held weapon: clear the equipped slot (the player keeps
-    // catalog ownership and can re-equip from the menu).
-    if let Some(owned) = owned.as_deref_mut() {
-        owned.set_equipped(None);
-    }
     let spec = held.spec.clone();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // The launch is authored in the body's LOCAL frame (x = forward/side,
@@ -537,8 +581,19 @@ pub fn throw_held_item_system(
     // gravity-relative, so the whole toss now flips with the field.
     let frame = ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
     let throw_pos = kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0));
-    commands.entity(player).remove::<HeldItem>();
-    commands.entity(player).remove::<StashedActionSet>();
+    // CUSTODY, one operation: the hand empties and the catalog's equipped slot
+    // clears together. Throwing stows the weapon rather than losing it — the
+    // thrower keeps catalog OWNERSHIP and can re-equip from the menu — so only
+    // the equipped slot moves, never the count.
+    unequip_held(
+        &mut commands,
+        player,
+        &mut action_set,
+        stashed,
+        owned.as_deref_mut(),
+    );
+    // ...and the item reappears in the world. Where it goes is the caller's half
+    // of the transfer; that the body stopped holding it is `unequip_held`'s.
     commands.spawn_room_scoped((
         GroundItem {
             spec,

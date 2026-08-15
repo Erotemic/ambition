@@ -31,10 +31,15 @@ use ambition_portal2d::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
 
-/// Facade: the menu-driven equip/unequip pair moved to
+/// Facade: the equip/unequip pair lives in
 /// [`ambition_platformer2d_actor_monolith::items::pickup`] (their bodies are pure item-equip
-/// machinery, the twins of `equip_held_spec` / `unequip_held`); the
-/// content adapter keeps the roster-policy systems below.
+/// machinery, the twins of `equip_held_spec` / `unequip_held`); the content
+/// adapter keeps the world-side systems below — WHEN a body may take or release
+/// the gun, and what it leaves on the floor.
+///
+/// ⛔ **the two systems below used to import these and inline them anyway**, and
+/// the drop copy was missing the catalog clear. Both call them now, so "release
+/// the gun" has one body and the roster cannot be left behind by one caller.
 pub use ambition_platformer2d_actor_monolith::items::pickup::{equip_portal_gun, unequip_portal_gun};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
@@ -64,6 +69,13 @@ pub fn drop_portal_gun_system(
         (With<PortalGun>, Without<HeldItem>),
     >,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // ⛔ **this system did not have the catalog, and that WAS the bug.** It
+    // cleared the `PortalGun` component and left `OwnedItems::equipped` still
+    // naming the gun, so the inventory screen insisted you were holding a gun
+    // lying on the floor. `throw_held_item_system` cleared its slot; this
+    // hand-written copy of the same release forgot to. Routing both through
+    // `unequip_portal_gun` is what makes forgetting impossible.
+    mut owned: Option<ResMut<OwnedItems>>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     if drops.read().next().is_none() {
@@ -80,12 +92,15 @@ pub fn drop_portal_gun_system(
     };
     // Committed: this body IS dropping its gun, so the press is answered.
     actor_control.0.melee_pressed = false;
-    commands.entity(player).remove::<PortalGun>();
-    // Restore the swing the gun replaced (same path the held items use).
-    if let Some(stash) = stashed {
-        *action_set = stash.0.clone();
-    }
-    commands.entity(player).remove::<StashedActionSet>();
+    // CUSTODY, one operation: detach the gun, restore the swing it replaced, and
+    // clear the catalog slot. The same release the inventory menu performs.
+    unequip_portal_gun(
+        &mut commands,
+        player,
+        &mut action_set,
+        stashed,
+        owned.as_deref_mut(),
+    );
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn_room_scoped((
         PortalGunPickup {
@@ -149,24 +164,20 @@ pub fn pickup_portal_gun_system(
             continue;
         }
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
-            commands.entity(player).insert(PortalGun {
-                active: true,
-                ..PortalGun::default()
-            });
-            // Equipping the portal gun REPLACES the attack: stash the player's
-            // ActionSet and clear the melee swing so Attack fires portals
-            // instead of swinging (same StashedActionSet path the held axe /
-            // gun-sword use — unified held-item attack replacement).
-            commands
-                .entity(player)
-                .insert(StashedActionSet(action_set.clone()));
-            action_set.melee = None;
-            // Reflect the portal gun into the 24-item catalog so the OoT menu
-            // shows it as owned + equipped.
+            // ACQUISITION: the gun does not exist until somebody picks it up, so
+            // grabbing the one world item IS how you come to own it. Separate
+            // from the custody transfer below — owning it and holding it are
+            // different facts, and re-equipping from the menu must not mint a
+            // second gun.
             if let Some(owned) = owned.as_deref_mut() {
                 owned.grant(Item::PortalGun, 1);
-                owned.set_equipped(Some(Item::PortalGun));
             }
+            // CUSTODY: the ONE take-custody operation, shared with the inventory
+            // menu. Equipping the gun REPLACES the attack — it stashes the
+            // ActionSet and clears the melee swing so Attack fires portals — and
+            // this used to be a hand-written second copy of exactly that, in a
+            // file whose own `pub use` already imported the shared one.
+            equip_portal_gun(&mut commands, player, &mut action_set, owned.as_deref_mut());
             commands.entity(entity).despawn();
             equipped.write(PortalGunEquipped { player });
             // Rising sci-fi charge-up as the device wakes.

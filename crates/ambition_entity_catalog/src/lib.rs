@@ -1024,21 +1024,31 @@ impl MoveSpec {
         // speed it produces. A `Set` states one. That distinction is exactly why
         // a jab with a small upward lunge cannot be mistaken here for a recovery
         // special.
-        let (lift_speed, lift_at_s) = self
+        //
+        // ⭐⭐ **AND THE SIDE COMPONENT COMES WITH IT.** The commanded velocity is
+        // a VECTOR and this used to keep only its projection onto the
+        // gravity axis, which is exactly the half a vertical Up-B happens to
+        // consist of. A move that hauls its owner mostly SIDEWAYS — a grapple
+        // line, a boarding charge, a slingshot — was reported as the small rise
+        // left over after the useful half was discarded, and every reader of
+        // this table then planned a route the body would never take. Both
+        // halves are read off the SAME winning event, so `lift_side` is never
+        // some other move's number.
+        let (lift_speed, lift_at_s, lift_side) = self
             .events
             .iter()
             .filter_map(|ev| match &ev.kind {
                 MoveEventKind::Impulse {
                     local,
                     mode: ImpulseMode::Set,
-                } if local.1 < 0.0 => Some((-local.1, ev.at_s)),
+                } if local.1 < 0.0 => Some((-local.1, ev.at_s, local.0)),
                 _ => None,
             })
             // Ties on speed break on the EARLIER moment, so the answer does not
             // depend on declaration order (ADR 0023).
-            .fold((0.0_f32, 0.0_f32), |best, (speed, at)| {
+            .fold((0.0_f32, 0.0_f32, 0.0_f32), |best, (speed, at, side)| {
                 if speed > best.0 || (speed == best.0 && speed > 0.0 && at < best.1) {
-                    (speed, at)
+                    (speed, at, side)
                 } else {
                     best
                 }
@@ -1055,6 +1065,7 @@ impl MoveSpec {
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
             lift_speed,
             lift_at_s,
+            lift_side,
         }
     }
 }
@@ -1116,6 +1127,46 @@ pub struct MoveFrameData {
     /// the windup a body has to survive before the burst fires. `0.0` when there
     /// is no lift.
     pub lift_at_s: f32,
+    /// **The along-facing half of the SAME commanded velocity**, body-local
+    /// (`+x` toward facing, so a move that hauls its owner backwards is
+    /// negative). `0.0` when there is no lift, and `0.0` for a purely vertical
+    /// one.
+    ///
+    /// ⭐⭐ **this exists because [`Self::lift_speed`] is a PROJECTION, and a
+    /// projection is only lossless for the shape it was derived from.** The
+    /// first fighter to author a recovery authored a vertical one, so a scalar
+    /// described it exactly; the second authored a grapple line that trades
+    /// almost all of its energy for lateral distance, and the scalar described
+    /// it as a small hop. Every consumer — the option scorer, the recovery
+    /// probe, an authoring validator — was then reasoning about a move that
+    /// does not exist.
+    ///
+    /// ⭐⭐ **AND THIS IS WHERE THE SCALARS STOP. There is no third one coming,
+    /// and the reason is structural rather than a resolution.** `lift_side` and
+    /// [`Self::lift_speed`] are not two summaries of a recovery: together they
+    /// are the authored [`MoveEventKind::Impulse`]'s own `local` pair, copied
+    /// into this table with its sign convention flipped on one axis. A 2-D
+    /// impulse has exactly two components, so the pair is LOSSLESS for
+    /// velocity-shaped self-motion — it is the datum, not a description of it —
+    /// and a fourth number could only describe something a velocity is not.
+    ///
+    /// ⛔ **so if the next recovery does not fit, the answer is NOT another
+    /// field here.** A teleport is the case that already does not fit: it
+    /// commands a POSITION, not a velocity, and whether the destination is
+    /// standable is a question about the world that no static table can hold.
+    /// The honest response to that move is a new affordance it exposes for
+    /// itself, and a probe that can spend a validated displacement — never a
+    /// `lift_warp_x` beside these two.
+    ///
+    /// ⛔ **and this pair is not "the recovery affordance" even for the moves it
+    /// does describe.** A commanded velocity is a STATIC property; whether
+    /// throwing it from where the body is right now gets it home is a question
+    /// about the current state, and the only thing that can answer it is the
+    /// movement kernel. `RecoveryLens::best_route` uses these numbers to
+    /// PROPOSE routes and lets the kernel dispose of them. Ranking moves by
+    /// [`Self::lift_speed`] and calling the winner "the recovery" is the failure
+    /// this pair exists inside of, not the thing it fixes.
+    pub lift_side: f32,
 }
 
 // ---------------------------------------------------------------------------

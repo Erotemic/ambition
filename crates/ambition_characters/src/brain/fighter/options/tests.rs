@@ -20,8 +20,11 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         max_damage: 1,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),
+        // No self-motion at all. `lifting_candidate` below is what opts a
+        // fixture INTO carrying a route, so the ordinary move stays a move.
         lift_speed: 0.0,
         lift_at_s: 0.0,
+        lift_side: 0.0,
     }
 }
 

@@ -519,13 +519,29 @@ fn run_effort(
         // (drift left) bursts left and effort 2 bursts right; a policy whose
         // burst always pointed one way would search two of its three efforts
         // with a displacement fighting the drift.
+        //
+        // ⛔⛔ **AND AN UNSTEERED EFFORT DOES NOT THROW A SIDE-CARRYING BURST AT
+        // ALL.** `DRIFT_SIDES[0]` is "no steering", so `toward` is zero there —
+        // and multiplying the side component by it used to fire a DE-SIDED
+        // version of the displacement: a grapple that hauls its owner 980px/s
+        // across was searched as a 300px/s hop straight up, which is not a thing
+        // the body can do. That is not conservative, it is WRONG IN BOTH
+        // DIRECTIONS — the hop can land on a shelf the real move would overshoot
+        // (a false positive about a route that does not exist) and it misses
+        // every surface the real move reaches.
+        //
+        // ⭐ so effort 0 is now the honest baseline — buttons only, *"do I even
+        // need this?"* — and efforts 1 and 2 are the move thrown each way. A
+        // burst with no side component (`local.x == 0.0`) is unaffected in every
+        // effort, which is why this changes nothing for a straight-up recovery.
         if let Some(burst) = probe.policy.burst {
-            if step == burst.at_step {
-                let toward = if input.local_axis().x == 0.0 {
-                    0.0
-                } else {
-                    input.local_axis().x.signum()
-                };
+            let toward = if input.local_axis().x == 0.0 {
+                0.0
+            } else {
+                input.local_axis().x.signum()
+            };
+            let expressible = burst.local.x == 0.0 || toward != 0.0;
+            if step == burst.at_step && expressible {
                 scratch.kinematics.vel =
                     frame.side() * (burst.local.x * toward) + frame.down() * burst.local.y;
             }
@@ -781,6 +797,165 @@ mod tests {
             },
         ));
         assert!(!probe_recovery(&world, &body, frame, diving).regained());
+    }
+
+    /// A wide room whose ONLY surface is far off to the right: `x` in
+    /// `900..1300`, top face at `y = 500`. A body starting high and far left is
+    /// ABOVE that face and cannot reach it — the gap is horizontal, not
+    /// vertical, so no amount of climbing helps.
+    fn distant_shelf_world() -> World {
+        World::new(
+            "recovery distant shelf",
+            Vec2::new(1400.0, 900.0),
+            Vec2::new(700.0, 400.0),
+            vec![Block::solid(
+                "shelf",
+                Vec2::new(900.0, 500.0),
+                Vec2::new(400.0, 32.0),
+            )],
+        )
+    }
+
+    /// **THE BURST IS A VECTOR, AND THE SIDE HALF IS THE HALF THAT CROSSES A
+    /// GAP.**
+    ///
+    /// ⭐ [`RecoveryBurst::local`] always had two components; every caller in
+    /// the tree passed zero for the first, so nothing had ever demonstrated that
+    /// the side half does any work. A recovery whose whole job is lateral
+    /// distance — a grapple line, a boarding charge, a slingshot — is
+    /// unrepresentable by the vertical half alone, and a search that kept only
+    /// that half would condemn the exact lines such a move saves.
+    ///
+    /// ⛔ **both terms are observed, and the poison is the SIDE specifically**:
+    /// the identical body, in the identical world, with the identical rise and
+    /// the identical timing, and only the side component removed, must fail. So
+    /// this cannot pass because the burst is strong, or because the probe is
+    /// permissive.
+    #[test]
+    fn the_side_half_of_a_burst_crosses_a_gap_the_rise_alone_cannot() {
+        let world = distant_shelf_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        // Above the shelf's face and 750px to its left, falling from rest. Drift
+        // is capped at 270px/s and the body is airborne for well under a second,
+        // so steering alone covers a third of the gap at best.
+        let body = falling_body(drifter(), Vec2::new(150.0, 430.0));
+
+        let bare = probe_recovery(&world, &body, frame, RecoveryProbe::default());
+        assert!(
+            !bare.regained(),
+            "drift alone cannot cross 750px in the time this fall lasts, but the \
+             probe reported {bare:?}"
+        );
+
+        // Rise 900px/s: 900² / (2 · 2250) = 180px of climb and ~0.85s of
+        // airtime. Drift covers ~230px of the 750 in that time, so the rise on
+        // its OWN buys altitude over an empty room.
+        let rise_only = RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(
+            RecoveryBurst {
+                local: Vec2::new(0.0, -900.0),
+                at_step: 8,
+            },
+        ));
+        let without_side = probe_recovery(&world, &body, frame, rise_only);
+        assert!(
+            !without_side.regained(),
+            "poison: the same rise with no side component still lands nowhere \
+             near the shelf — got {without_side:?}"
+        );
+
+        // The same rise, now carrying the 1000px/s the move actually commands
+        // along the body's facing. `.max(along)` in the air law conserves a
+        // burst above the drift cap while the effort keeps steering that way, so
+        // ~0.85s of airtime covers ~1000px and puts the body over the span.
+        let grapple = RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(
+            RecoveryBurst {
+                local: Vec2::new(1000.0, -900.0),
+                at_step: 8,
+            },
+        ));
+        let with_side = probe_recovery(&world, &body, frame, grapple);
+        assert!(
+            with_side.regained(),
+            "the same body, given the whole displacement it commands, reaches \
+             the shelf — got {with_side:?}"
+        );
+        // And it got there by STEERING into it. Effort 0 does not steer, so a
+        // route found there would be one this move cannot express.
+        assert!(
+            matches!(with_side, RecoveryOutlook::Regained { effort, .. } if effort != 0),
+            "a side-carrying burst can only pay off on a steered effort — got \
+             {with_side:?}"
+        );
+    }
+
+    /// A perch a body can rise THROUGH and land on top of: one-way, `x` in
+    /// `60..400`, face at `y = 300`. The only way onto it is from below, which
+    /// is what makes "did the search delete the side component?" observable.
+    fn one_way_perch_world() -> World {
+        World::new(
+            "recovery one-way perch",
+            Vec2::new(1200.0, 900.0),
+            Vec2::new(600.0, 400.0),
+            vec![Block::one_way(
+                "perch",
+                Vec2::new(60.0, 300.0),
+                Vec2::new(340.0, 32.0),
+            )],
+        )
+    }
+
+    /// **AN UNSTEERED EFFORT DOES NOT THROW A DE-SIDED BURST — because there is
+    /// no such move.**
+    ///
+    /// ⛔⛔ the search multiplied the burst's side component by the effort's
+    /// steering, and `DRIFT_SIDES[0]` is zero: effort 0 therefore fired a
+    /// displacement with its lateral half deleted. That is not a conservative
+    /// approximation, it is a DIFFERENT MOVE — and this world is one where the
+    /// different move is the better one. A body that rises straight up here
+    /// passes through the one-way perch and settles on it; the same body
+    /// throwing the move it actually owns is carried a thousand pixels past it
+    /// and dies.
+    ///
+    /// ⭐ so the two halves are: the de-sided burst really does get home (or the
+    /// world proves nothing), and the real one really does not.
+    #[test]
+    fn an_unsteered_effort_does_not_throw_a_de_sided_burst() {
+        let world = one_way_perch_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        let body = falling_body(drifter(), Vec2::new(150.0, 430.0));
+
+        // 1100px/s is 269px of climb — well over the ~130px back up to the
+        // perch's face, and the body is under its span the whole way.
+        let straight_up = RecoveryProbe::default().with_policy(
+            RecoveryPolicy::drift_jump_and_burst(RecoveryBurst {
+                local: Vec2::new(0.0, -1100.0),
+                at_step: 8,
+            }),
+        );
+        let vertical = probe_recovery(&world, &body, frame, straight_up);
+        assert!(
+            vertical.regained(),
+            "a body that rises straight up here clears the one-way perch and \
+             lands on it — if it does not, this world cannot tell the two \
+             bursts apart. Got {vertical:?}"
+        );
+
+        // The SAME rise, at the SAME step, now carrying the side the move
+        // commands. Steered either way it overshoots the perch entirely, and
+        // unsteered it is not thrown at all.
+        let diagonal = RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(
+            RecoveryBurst {
+                local: Vec2::new(1000.0, -1100.0),
+                at_step: 8,
+            },
+        ));
+        let diagonal_outlook = probe_recovery(&world, &body, frame, diagonal);
+        assert!(
+            !diagonal_outlook.regained(),
+            "the search found a route by deleting half of the displacement — \
+             that route belongs to a move this body does not have. Got \
+             {diagonal_outlook:?}"
+        );
     }
 
     /// **A NEGATIVE STILL NAMES WHAT IT SPENT.**

@@ -65,8 +65,12 @@ fn rig_kit() -> Vec<AttackCandidate> {
         max_damage: damage,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),
+        // The rig's moves displace nobody: it measures the DECIDING, and a
+        // candidate that carried a way home would put a recovery route into
+        // every scenario that has nothing to do with one.
         lift_speed: 0.0,
         lift_at_s: 0.0,
+        lift_side: 0.0,
     };
     // Fast-and-short, slow-and-long, and an aerial — enough that scoring has a
     // trade-off to make. One candidate is not a choice.

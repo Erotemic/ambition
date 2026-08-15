@@ -1119,6 +1119,91 @@ fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
     assert_eq!(tied.frame_data().lift_at_s, 0.20);
 }
 
+/// **A COMMANDED VELOCITY IS A VECTOR, AND BOTH HALVES COME FROM THE SAME
+/// EVENT.**
+///
+/// ⭐ the derivation used to keep only the projection onto the gravity axis,
+/// which is lossless for the shape the first authored recovery happened to have
+/// (straight up) and catastrophic for the next one: a grapple that hauls its
+/// owner 980px/s across and 300px/s up was reported as a 300px/s hop — a move
+/// that gains 20px of altitude and goes nowhere. Every downstream reader then
+/// planned around a move nobody wrote.
+///
+/// ⛔ **both terms are observed.** The vertical half must still be exactly what
+/// it always was (or the fix is a retune wearing a fix's commit), and the side
+/// half must be non-zero (or the field is decorative).
+#[test]
+fn a_diagonal_command_reports_both_of_its_halves() {
+    let grapple = timed_move(
+        "grapple",
+        1.0,
+        vec![MoveEvent {
+            at_s: 0.16,
+            kind: MoveEventKind::Impulse {
+                local: (980.0, -300.0),
+                mode: ImpulseMode::Set,
+            },
+        }],
+    );
+    let frames = grapple.frame_data();
+    assert_eq!(frames.lift_speed, 300.0);
+    assert_eq!(frames.lift_at_s, 0.16);
+    assert_eq!(
+        frames.lift_side, 980.0,
+        "the half that actually crosses the gap must survive the derivation"
+    );
+
+    // ⛔ poison: the side is read off the WINNING event, never off whichever
+    // impulse happens to be first. Here the strong rise carries no side and the
+    // weak one carries a huge one; a derivation that mixed them would report a
+    // move that does not exist.
+    let mixed = timed_move(
+        "mixed",
+        1.4,
+        vec![
+            MoveEvent {
+                at_s: 0.10,
+                kind: MoveEventKind::Impulse {
+                    local: (900.0, -100.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+            MoveEvent {
+                at_s: 0.40,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, -800.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+        ],
+    );
+    let frames = mixed.frame_data();
+    assert_eq!((frames.lift_speed, frames.lift_at_s), (800.0, 0.40));
+    assert_eq!(frames.lift_side, 0.0);
+
+    // A move that commands its owner BACKWARDS says so with a sign rather than
+    // by being invisible — the recoil of firing forwards is a real authored
+    // shape and it must not read as a way home in the wrong direction.
+    let recoil = timed_move(
+        "recoil",
+        0.8,
+        vec![MoveEvent {
+            at_s: 0.12,
+            kind: MoveEventKind::Impulse {
+                local: (-560.0, -120.0),
+                mode: ImpulseMode::Set,
+            },
+        }],
+    );
+    assert_eq!(recoil.frame_data().lift_side, -560.0);
+
+    // The identity case: a move that lifts nobody has no side either.
+    assert_eq!(
+        timed_move("jab", 0.3, Vec::new()).frame_data().lift_side,
+        0.0
+    );
+}
+
 /// **An `Impulse` event round-trips through RON with `mode` omitted**, so an
 /// authored timeline that says only `Impulse(local: (0, -900))` parses as the
 /// additive meaning `start_impulse` always had rather than failing to load.

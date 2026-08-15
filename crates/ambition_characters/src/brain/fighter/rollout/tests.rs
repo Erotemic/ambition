@@ -24,6 +24,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         start_impulse: (0.0, 0.0),
         lift_speed: 0.0,
         lift_at_s: 0.0,
+        lift_side: 0.0,
     }
 }
 

@@ -485,6 +485,24 @@ impl MovingPlatformState {
         }
     }
 
+    /// The collision face this platform presents to the world this frame.
+    ///
+    /// ⚠ **the `kind` below is not authorable, and the reason is a real open
+    /// question rather than an oversight** (measured D126.4, 2026-08-15). Every
+    /// moving platform is a `BlinkWall{Soft}` — solid on both axes — so a moving
+    /// platform cannot be authored ONE-WAY even though `BlockKind::OneWay` is a
+    /// first-class kind the shared sweep already resolves for static geometry.
+    ///
+    /// ⛔ **it is not a `bool` away.** `one_way_landing_from_previous_feet`
+    /// compares the body's PREVIOUS feet coordinate against the block's CURRENT
+    /// anti-gravity face — sound for geometry that does not move, and a MIXED
+    /// FRAME for geometry that does. This type already knows that hazard: it
+    /// carries [`Self::previous_aabb`] precisely because "a ledge grab contact
+    /// stored from the previous tick matches this previous AABB". So a one-way
+    /// moving platform must first DECIDE which face the crossing test reads —
+    /// a rising elevator would otherwise steal a landing by sweeping its face
+    /// past a standing body's stale feet line, and a descending one would refuse
+    /// a landing it should grant. Answer that before adding the field.
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
             // The platform's LDtk iid IS its durable identity (§3.6

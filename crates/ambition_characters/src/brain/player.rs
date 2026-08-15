@@ -158,11 +158,12 @@ pub fn tick_player_brain_from_control(
     out.jump_held = c.jump_held;
     out.jump_released = c.jump_released;
 
-    // Drop-through: the engine derives this from `down + jump_pressed`
-    // inside `engine_input_from_actor_control`. The brain leaves
-    // `drop_through` at its default; the engine's gesture-detection
-    // logic owns the final flag.
-    out.drop_through = false;
+    // Drop-through: nothing to write. The engine derives the gesture from
+    // `descend + jump_pressed` at the consumer (`wants_drop_through`), which is
+    // why it is gravity- and input-mode-relative — and `locomotion` + the jump
+    // edge above are already both of its ingredients. This used to zero a
+    // `drop_through` field on the frame; that field was the same refusal
+    // written as a declaration, and it is deleted (D126.2).
     // Human-controlled bodies do not become passive contact hazards
     // unless a specific mode opts in.
     out.body_contact_damage_enabled = false;

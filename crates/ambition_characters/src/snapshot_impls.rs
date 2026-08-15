@@ -593,7 +593,6 @@ impl SnapshotState for crate::brain::ActorControl {
         let f = &self.0;
         put_vec2(out, f.locomotion.vec());
         put_vec2(out, f.velocity_target.vec());
-        put_bool(out, f.drop_through);
         put_f32(out, f.facing);
         put_bool(out, f.melee_pressed);
         put_bool(out, f.melee_held);
@@ -645,7 +644,6 @@ impl SnapshotState for crate::brain::ActorControl {
         use ambition_platformer2d_core::reference_frame::GameplayFramePolicy;
         let locomotion = ae::LocalAxes::from_vec(r.vec2()?);
         let velocity_target = ae::WorldVec2(r.vec2()?);
-        let drop_through = r.bool()?;
         let facing = r.f32()?;
         let melee_pressed = r.bool()?;
         let melee_held = r.bool()?;
@@ -668,7 +666,6 @@ impl SnapshotState for crate::brain::ActorControl {
         Some(crate::brain::ActorControl(ActorControlFrame {
             locomotion,
             velocity_target,
-            drop_through,
             facing,
             melee_pressed,
             melee_held,

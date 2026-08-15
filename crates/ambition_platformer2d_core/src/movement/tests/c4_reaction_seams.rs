@@ -1,12 +1,11 @@
 //! C4 gravity-rotation conformance for the FULL body tick — the reaction seams.
 //!
-//! The `step_kinematic` primitive has axis-role conformance tests; the app has
-//! `gravity_symmetry_room` for movement verbs. What was missing (fable review
-//! 2026-07-02, `docs/archive/reviews/fable-review-2026-07-02.md` §B) is the same rig at
-//! the `update_player_with_tuning_clusters` level for the *reaction/effect
-//! epilogues* — slash recoil, blink fallback aim, post-blink velocity cleanup,
-//! wall-slide ordering — where a verb correct in its main path historically kept
-//! a screen-frame fallback.
+//! The app has `gravity_symmetry_room` for movement verbs. What was missing
+//! (fable review 2026-07-02, `docs/archive/reviews/fable-review-2026-07-02.md`
+//! §B) is the same rig at the `update_player_with_tuning_clusters` level for
+//! the *reaction/effect epilogues* — slash recoil, blink fallback aim,
+//! post-blink velocity cleanup, wall-slide ordering — where a verb correct in
+//! its main path historically kept a screen-frame fallback.
 //!
 //! Method: author one scenario in the controlled body's LOCAL frame (side = +x,
 //! down/toward-feet = +y), instantiate it under each cardinal gravity by rotating

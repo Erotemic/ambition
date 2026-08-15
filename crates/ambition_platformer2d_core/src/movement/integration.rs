@@ -197,8 +197,8 @@ pub(super) fn integrate_velocity_clusters(
     clusters.ground.on_ground = false;
     sweep(clusters, gravity_axis, &mut events.contacts);
 
-    // Emergent platform riding — the SAME rule the shared `step_kinematic` sweep
-    // applies to enemies/NPCs: a grounded body resting on a MOVING solid is carried
+    // Emergent platform riding, and every body gets it because every body is
+    // swept here: a grounded body resting on a MOVING solid is carried
     // by that solid's gravity-perpendicular velocity (the gravity-axis ride is
     // already handled by gravity + the landing). Static geometry carries `ZERO`, so
     // this is a no-op off moving platforms. This is why the player — and the

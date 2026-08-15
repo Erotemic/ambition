@@ -731,9 +731,9 @@ fn proper_velocity_free_flight_approaches_the_terminal_without_reaching_c() {
 #[test]
 fn the_player_rides_a_horizontally_moving_platform() {
     // A floor carrying a rightward per-frame velocity. The player standing on it is
-    // carried right by the platform — EMERGENT in the movement sweep (the same rule
-    // enemies get from `step_kinematic`), not a player-specific ride path. This is
-    // also why the brain-driven clone rides: it runs this exact movement core.
+    // carried right by the platform — EMERGENT in the movement sweep, which is the
+    // sweep EVERY body runs, not a player-specific ride path. This is also why an
+    // enemy and the brain-driven clone ride: they run this exact movement core.
     use crate::world::{Block, World};
     let mut platform = Block::solid("platform", Vec2::new(0.0, 400.0), Vec2::new(400.0, 40.0));
     platform.velocity = Vec2::new(3.0, 0.0); // 3 px/frame right

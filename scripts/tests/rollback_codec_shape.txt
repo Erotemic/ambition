@@ -1,4 +1,4 @@
-crates/ambition_characters/src/snapshot_impls.rs	238	c71b517a5241aca0
+crates/ambition_characters/src/snapshot_impls.rs	236	33a30898fc8297f8
 crates/ambition_combat/src/snapshot_impls.rs	82	f9eaf220986530a4
 crates/ambition_cutscene/src/lib.rs	36	b2effac55562d960
 crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd

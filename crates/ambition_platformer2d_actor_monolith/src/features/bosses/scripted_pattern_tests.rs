@@ -549,7 +549,7 @@ fn gradient_sentinel_phase1_loop_is_substantial() {
 
 /// Bosses used to write `self.pos` via a bespoke per-axis sweep
 /// against `boss_space_is_free`. With the brain→sim seam they
-/// run through the SAME `step_kinematic` primitive every other
+/// run through the SAME `step_motion` kernel every other
 /// actor uses — so a wall placed in the chase path blocks them
 /// at the wall instead of relying on a parallel-but-different
 /// collision code path. This guards against future regressions

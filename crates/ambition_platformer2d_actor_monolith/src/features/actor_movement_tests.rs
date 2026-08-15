@@ -335,7 +335,7 @@ fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
 /// Aerial enemies (flying shark + rider) used to write `self.pos`
 /// directly from a steering target, which let
 /// them clip straight through solid walls. With the brain→sim
-/// seam (`ActorControlFrame` + uniform `step_kinematic`) the
+/// seam (`ActorControlFrame` + uniform `step_motion`) the
 /// wall blocks them, so the position must stay on the safe side
 /// of the wall after one tick of forced chase.
 #[test]
@@ -398,7 +398,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
 
 /// Path-patrol enemies used to write `self.pos = motion.advance(...)`
 /// directly, bypassing world collision. With the brain→sim seam
-/// the path lookahead becomes a desired velocity that `step_kinematic`
+/// the path lookahead becomes a desired velocity that `step_motion`
 /// blocks against solids — so a wall placed on the patrol curve
 /// stops the body short of the wall instead of letting it clip.
 #[test]

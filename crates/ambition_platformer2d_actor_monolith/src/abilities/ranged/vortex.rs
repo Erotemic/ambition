@@ -7,7 +7,7 @@
 //! Distinct from the gravity grenade too: that spawns a *directional*
 //! `GravityZone` (up-lift); the vortex is a *point* attractor — it lerps each
 //! enemy's position toward the singularity center, clamped by the normal
-//! collision step (`step_kinematic` resolves any wall the pull pushes into).
+//! collision step (`step_motion` resolves any wall the pull pushes into).
 //! Bosses share the unified `BodyKinematics` now, but the faction guard below
 //! (`ActorFaction::Boss != Enemy`) keeps them immune; only grounded/aerial mobs
 //! (and peaceful NPCs, harmlessly) match the `Enemy` faction and get pulled.
@@ -108,7 +108,7 @@ pub fn fire_vortex_system(
 }
 
 /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well
-/// toward its center (a position lerp; the actor's own `step_kinematic` next
+/// toward its center (a position lerp; the actor's own `step_motion` next
 /// tick resolves any wall it's pulled into), then age the wells out. Runs on
 /// `scaled_dt` so bullet-time slows the gather with everything else.
 pub fn update_vortex_wells(

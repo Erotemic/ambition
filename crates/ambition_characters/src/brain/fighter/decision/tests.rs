@@ -518,7 +518,6 @@ fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
     held.fast_fall_pressed = true;
     held.fly_toggle_pressed = true;
     held.modifier_pressed = true;
-    held.drop_through = true;
     held.special_pressed = true;
     held.interact_pressed = true;
     // …and the sustains that must NOT be touched.
@@ -541,7 +540,6 @@ fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
             && !out.fast_fall_pressed
             && !out.fly_toggle_pressed
             && !out.modifier_pressed
-            && !out.drop_through
             && !out.special_pressed
             && !out.interact_pressed,
         "an edge survived the carry and will fire again next tick: {out:?}"

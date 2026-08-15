@@ -1006,7 +1006,7 @@ pub struct BossPatternContext {
     pub target_body_size: ae::Vec2,
     /// World size (px). Used for the soft `desired_vel` clamp so the
     /// brain doesn't ask the boss to walk off the map. Real collision
-    /// is still enforced by `step_kinematic` downstream.
+    /// is still enforced by `step_motion` downstream.
     pub world_size: ae::Vec2,
     /// Distance from the boss body to the first blocking wall tile in
     /// the horizontal direction of the player, if one is in probe range.

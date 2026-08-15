@@ -150,6 +150,18 @@ was added to stop a hub's fan-out stuttering the launch (2026-07-30, from Jon's
 own desktop timeline), and the shape it produced is a cache that covers exactly
 what does not need covering.
 
+✔ **and the prefetch does NOT re-derive itself every frame — measured, after
+predicting that it did.** The refresh condition ORs `room_set.is_changed()`, and
+`RoomSet` is rollback-registered state; that is exactly the shape which made
+`advance_room_transition_content_epoch_system` bump its epoch every frame under a
+rollback host, repaired there by comparing room ids by value. The same reasoning
+predicted the same defect here. `a_settled_neighbourhood_stops_preparing_itself`
+reports **zero preparations across 60 idle frames** on the shipped GGRS host, so
+the analogy was good enough to act on and wrong. It stays as a guard, and the
+counter it needed — `preparations`, because every existing one describes
+PROMOTIONS — is what could tell the difference at all. A prefetch that rebuilt
+its neighbourhood every frame would have a perfect hit rate.
+
 ⚠ **and the hub is the right place to pay.** A player standing in a hub choosing
 a door is idle; the door itself is the one moment they are not. Moving the Hall's
 18ms there is strictly better — *if* it is spread rather than spent at once,

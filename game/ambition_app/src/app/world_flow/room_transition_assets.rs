@@ -96,6 +96,14 @@ pub(crate) struct RoomPreparationPrefetchState {
     pub(crate) hits: u64,
     pub(crate) misses: u64,
     pub(crate) stale_misses: u64,
+    /// **How many room preparations this cache has actually performed.**
+    ///
+    /// ⭐ the other three counters describe PROMOTIONS — what a transition got
+    /// out of the cache. None of them describe what putting things in it cost,
+    /// which is the question D124 asks: a prefetch that re-prepares its
+    /// neighbours every frame is a cache that is pure overhead, and it would
+    /// look identical from the hit rate.
+    pub(crate) preparations: u64,
 }
 
 /// Optional presentation-side resources consumed by the simulation-side room
@@ -998,6 +1006,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         {
             continue;
         }
+        cache.preparations = cache.preparations.saturating_add(1);
         let construction_plan =
             match ambition_platformer2d::actors::rooms::RoomConstructionPlan::prepare_from_parts(
                 &room_set,

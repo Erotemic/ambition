@@ -8,7 +8,7 @@
 //!   neighbor prefetch) — the engine's asset CONTRIBUTOR;
 //! - the [`room_transition_presentation`] submodule (cover-first adaptive UI).
 
-mod room_transition_assets;
+pub(crate) mod room_transition_assets;
 mod room_transition_presentation;
 pub(crate) use room_transition_assets::{
     build_loaded_room_asset_manifest, demand_room_character_sheets, inspect_room_asset_manifest,

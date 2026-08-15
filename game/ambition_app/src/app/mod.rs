@@ -34,20 +34,20 @@ pub mod shell_host;
 mod sim_resources;
 mod sim_systems;
 mod startup_loading;
-pub mod visible_composition;
 pub mod versus;
 pub mod versus_fighters;
 pub mod versus_rules;
+pub mod visible_composition;
 pub(crate) mod world_flow;
 
-pub use ambition_platformer2d::actors::schedule::{
-    BossSteerSlot, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
-    configure_platformer2d_simulation_phases,
-};
 #[cfg(feature = "input")]
 pub use ambition_platformer2d::actors::schedule::{
-    MenuNavConsume, apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
-    populate_menu_control_frame_from_actions,
+    apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
+    populate_menu_control_frame_from_actions, MenuNavConsume,
+};
+pub use ambition_platformer2d::actors::schedule::{
+    configure_platformer2d_simulation_phases, BossSteerSlot, Platformer2dSimulationPhaseMonolith,
+    PresentationSetupSet,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::run_visible;
@@ -55,9 +55,10 @@ pub use cli::run_visible;
 pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::{
-    SHARED_HOST_HEADLESS_TICK_HZ, SharedHostAcceptanceReport, SharedHostHeadlessReport,
-    VisibleRenderMode, build_visible_app, build_visible_app_with,
+    build_visible_app, build_visible_app_with, prefetch_preparations,
     run_shared_host_acceptance_cycle, run_shared_host_headless, shared_host_startup_ticks,
+    SharedHostAcceptanceReport, SharedHostHeadlessReport, VisibleRenderMode,
+    SHARED_HOST_HEADLESS_TICK_HZ,
 };
 pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
 pub use hud::update_quest_panel;
@@ -68,12 +69,12 @@ pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
 pub use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
-    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins,
+    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
 };
 pub use resources::{
-    SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride,
-    StartingCharacterOverride, init_sandbox_resources,
+    init_sandbox_resources, SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride,
+    StartingCharacterOverride,
 };
 pub use sim_systems::apply_player_reset_input_system;
 pub use world_flow::RoomTransitionCoverSet;

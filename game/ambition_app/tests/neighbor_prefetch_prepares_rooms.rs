@@ -94,3 +94,55 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
          missing before."
     );
 }
+
+/// **A WARM PREFETCH MUST COST NOTHING TO KEEP WARM.**
+///
+/// The point of preparing a neighbour is to pay once and hold the result. A
+/// cache that re-derives its whole neighbourhood every frame is not a cache: it
+/// is a per-frame tax whose hit rate looks perfect, because every promotion does
+/// find an entry — one that was rebuilt moments earlier.
+///
+/// ⚠ **written as a suspicion and FALSIFIED by its first run, which is why it
+/// stays.** The refresh condition ORs `room_set.is_changed()`, and `RoomSet` is
+/// rollback-registered state — the exact shape that made
+/// `advance_room_transition_content_epoch_system` bump its epoch every frame
+/// under a rollback host, repaired there by comparing room ids BY VALUE. The
+/// same reasoning predicted this prefetch re-derives its whole neighbourhood
+/// every frame on the shipped GGRS host. It does not: measured at zero
+/// preparations across 60 idle frames, on that host.
+///
+/// ⭐ so this is a guard, not a bug report. The analogy was good enough to act on
+/// and wrong, and the counter it needed (`preparations` — every other one
+/// describes promotions) is what told the difference. If a future change makes
+/// the refresh condition fire on rollback restores, this says so in numbers
+/// instead of the cost hiding behind a perfect hit rate.
+#[test]
+fn a_settled_neighbourhood_stops_preparing_itself() {
+    let mut app = gameplay_after_startup();
+    // Let the neighbourhood finish its first pass, so what follows measures
+    // steady state rather than the legitimate initial preparation.
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let baseline = ambition_app::app::prefetch_preparations(app.world());
+    const FRAMES: usize = 60;
+    for _ in 0..FRAMES {
+        app.update();
+    }
+    let after = ambition_app::app::prefetch_preparations(app.world());
+
+    assert_eq!(
+        after,
+        baseline,
+        "the prefetch performed {} room preparation(s) across {FRAMES} idle frames with \
+         nothing in the world changing — it was zero when this was written. Each one is a \
+         whole `RoomConstructionPlan` plus an asset manifest, thrown away and rebuilt; for \
+         a neighbourhood containing the Hall that is an 18ms manifest EVERY FRAME, and the \
+         hit rate would still look perfect. Suspect the refresh condition: `RoomSet` is \
+         rollback-registered, so `is_changed()` under a rollback host can mean 'a restore \
+         happened' rather than 'the content changed' — compare the room ids by value, as \
+         `advance_room_transition_content_epoch_system` already does",
+        after - baseline,
+    );
+}

@@ -316,6 +316,20 @@ pub fn shared_host_startup_ticks() -> u32 {
     (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
 }
 
+/// **How many room preparations the neighbour prefetch has performed.**
+///
+/// ⭐ an instrument, exposed because the cost of FILLING the cache is the one
+/// thing its own counters never described — `hits`/`misses`/`stale_misses` all
+/// answer "what did a transition get out of it". A prefetch that rebuilds its
+/// neighbourhood every frame has a perfect hit rate and is pure overhead, and
+/// nothing in the app could see the difference (D124).
+pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
+    world
+        .get_resource::<super::world_flow::room_transition_assets::RoomPreparationPrefetchState>()
+        .map(|cache| cache.preparations)
+        .unwrap_or_default()
+}
+
 /// Step the same multi-game host that the windowed binary ships, using Bevy's
 /// no-window/no-backend presentation mode and deterministic frame time.
 ///
@@ -918,49 +932,51 @@ pub fn run_web() {
         "game",
         bevy::asset::io::AssetSourceBuilder::platform_default("assets", None),
     );
-    app.add_plugins(DefaultPlugins
-        .set(bevy::asset::AssetPlugin {
-            // ⛔⛔ **NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.**
-            //
-            // Bevy's default `AssetMetaCheck::Always` asks for `<path>.meta`
-            // before every asset. **This repo contains ZERO `.meta` files** under
-            // either asset root and generates none, so every one of those probes
-            // is a request that cannot succeed — on the desktop a cheap failed
-            // stat, in a browser a full HTTP round trip that 404s.
-            //
-            // That DOUBLES the request count on the one platform where requests
-            // are expensive, and it buried the served-web log so completely that
-            // a maintainer reading it could not tell whether the real assets were
-            // being fetched at all (Jon, 2026-08-14: pages of `.meta` 404s and
-            // not one real GET visible among them). A diagnostic channel nobody
-            // can read is a diagnostic channel that does not exist.
-            //
-            // ⚠ the day this repo starts SHIPPING processed assets with meta
-            // sidecars, this is the line that has to change — and the absence of
-            // any `.meta` file is what makes it safe today, not a preference.
-            meta_check: bevy::asset::AssetMetaCheck::Never,
-            ..default()
-        })
-        .set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Ambition - Tangent Space Sandbox (Web)".into(),
-            // The canvas selector matches `<canvas id="bevy">` in
-            // `game/ambition_app/web/index.html`. Without this Bevy
-            // would mint its own canvas and append it to <body>; pinning
-            // the selector lets the page own layout / sizing / focus.
-            canvas: Some("#bevy".to_string()),
-            // Resize the canvas to follow its CSS-styled parent. The
-            // template wraps the canvas in a full-viewport flexbox parent
-            // so this fills the page without needing a JS resize observer.
-            fit_canvas_to_parent: true,
-            // Don't let the canvas swallow the browser's own keyboard
-            // shortcuts; the page wants the user to be able to refresh /
-            // open devtools without leaving it.
-            prevent_default_event_handling: false,
-            ..default()
-        }),
-        ..default()
-    }));
+    app.add_plugins(
+        DefaultPlugins
+            .set(bevy::asset::AssetPlugin {
+                // ⛔⛔ **NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.**
+                //
+                // Bevy's default `AssetMetaCheck::Always` asks for `<path>.meta`
+                // before every asset. **This repo contains ZERO `.meta` files** under
+                // either asset root and generates none, so every one of those probes
+                // is a request that cannot succeed — on the desktop a cheap failed
+                // stat, in a browser a full HTTP round trip that 404s.
+                //
+                // That DOUBLES the request count on the one platform where requests
+                // are expensive, and it buried the served-web log so completely that
+                // a maintainer reading it could not tell whether the real assets were
+                // being fetched at all (Jon, 2026-08-14: pages of `.meta` 404s and
+                // not one real GET visible among them). A diagnostic channel nobody
+                // can read is a diagnostic channel that does not exist.
+                //
+                // ⚠ the day this repo starts SHIPPING processed assets with meta
+                // sidecars, this is the line that has to change — and the absence of
+                // any `.meta` file is what makes it safe today, not a preference.
+                meta_check: bevy::asset::AssetMetaCheck::Never,
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Ambition - Tangent Space Sandbox (Web)".into(),
+                    // The canvas selector matches `<canvas id="bevy">` in
+                    // `game/ambition_app/web/index.html`. Without this Bevy
+                    // would mint its own canvas and append it to <body>; pinning
+                    // the selector lets the page own layout / sizing / focus.
+                    canvas: Some("#bevy".to_string()),
+                    // Resize the canvas to follow its CSS-styled parent. The
+                    // template wraps the canvas in a full-viewport flexbox parent
+                    // so this fills the page without needing a JS resize observer.
+                    fit_canvas_to_parent: true,
+                    // Don't let the canvas swallow the browser's own keyboard
+                    // shortcuts; the page wants the user to be able to refresh /
+                    // open devtools without leaving it.
+                    prevent_default_event_handling: false,
+                    ..default()
+                }),
+                ..default()
+            }),
+    );
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.

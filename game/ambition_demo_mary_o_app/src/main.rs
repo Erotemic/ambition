@@ -49,10 +49,13 @@ fn main() {
     #[cfg(feature = "visible")]
     if std::env::args().any(|a| a == "--window") {
         // The drawn demo. One plugin more than the sim-only shell below.
-        ambition_demo_mary_o_app::build_windowed_demo_app(
+        let mut app = ambition_demo_mary_o_app::build_windowed_demo_app(
             ambition_demo_mary_o_app::RenderMode::Windowed,
-        )
-        .run();
+        );
+        if let Some(room) = parse_room() {
+            app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(room));
+        }
+        app.run();
         return;
     }
 
@@ -61,6 +64,9 @@ fn main() {
     // The assembly lives in `lib.rs` so the exit-3 regression test builds the
     // SAME app this binary does.
     let mut app = ambition_demo_mary_o_app::build_demo_app();
+    if let Some(room) = parse_room() {
+        app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(room));
+    }
 
     app.update(); // Startup: builds the world, spawns the body. Zero ticks (dt=0).
     for _ in 0..ticks {
@@ -68,6 +74,37 @@ fn main() {
     }
 
     report(&mut app, ticks);
+}
+
+/// **Which room to open in.** Absent means 1-1, the shipped entry.
+///
+/// ⭐ **this exists because an authored room was unreachable to review.** A level
+/// authored in LDtk costs no Rust to describe, and then could only be looked at
+/// by PLAYING 1-1 and 1-2 first — so the cheapest possible review of new content
+/// was the most expensive step in authoring it.
+///
+/// ⛔ **validated here, for the reason `capture_mary_o` already states at its own
+/// `--room`: the seam it feeds does NOT refuse.** `RoomSet::from_parts` activates
+/// room 0 for an id it does not hold, so an unknown room would silently open 1-1
+/// and look like success — and a reviewer who asked for 1-3, got 1-1, and saw
+/// nothing new would conclude the authoring was broken.
+fn parse_room() -> Option<String> {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--room" {
+            let asked = args.next().unwrap_or_else(|| {
+                eprintln!("--room needs a room id");
+                std::process::exit(2);
+            });
+            let known = ambition_demo_mary_o::provider::mary_o_room_ids();
+            if !known.iter().any(|id| id == &asked) {
+                eprintln!("unknown room '{asked}'; Mary-O has {known:?}");
+                std::process::exit(2);
+            }
+            return Some(asked);
+        }
+    }
+    None
 }
 
 fn parse_ticks() -> Option<u32> {

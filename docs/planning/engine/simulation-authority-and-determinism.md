@@ -94,10 +94,22 @@ which is more useful than either a green or a redesign:
   crates in the workspace may: `ambition_platformer2d_runtime` and
   `game/ambition_app`.
 
-⇒ **so the remaining census is a `bevy_ggrs` API shape, not an Ambition design
-failure.** ⛔ giving a world/gameplay crate a netcode dependency to remove it
-would be a **worse** boundary than the census — that is the trade this program's
-paragraph above already forbids, now with a measurement behind it.
+⛔⛔ **THAT CONCLUSION IS REOPENED (2026-08-15) — it does not survive review.**
+*"Registration is generic over `T`"* does **not** imply the generic runtime's
+SOURCE must own the list of `T`s. Monomorphisation has to happen somewhere, but
+that somewhere can be **a trait method the domain calls** rather than a line in a
+central file — and `AmbitionRollbackApp` already demonstrates a generic typed
+façade. ⇒ a bounded falsifier is in flight: a **backend-neutral registrar
+vocabulary**, implemented by a runtime-owned wrapper around `App` using
+`bevy_ggrs`, with the domain naming its own type against it. Acceptance is that
+`ambition_platformer2d_world` gains **no** `bevy_ggrs` dependency and the generic
+runtime stops naming `GatePortalPhases`, with restoration, schema/checksum and
+probes unchanged.
+
+⚠ **the trade below is still real and still forbids the lazy fix:** giving a
+world/gameplay crate a netcode dependency to remove the census would be a worse
+boundary than the census. The open question is whether a vocabulary avoids
+*both*. ⛔ do not close this again on the generic-API argument alone.
 
 ⛔ **and relocating the list is not progress.** Moving the registrations into a
 `domains/rooms.rs` was explicitly rejected: `domains/` is inside the same crate

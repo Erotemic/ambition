@@ -111,3 +111,89 @@ fn the_presented_view_carries_camera_state_that_is_actually_written() {
          merely EXISTS would have passed here."
     );
 }
+
+/// **A SINGLETON THAT MOVED FROM A RESOURCE INTO A LOOKUP IS STILL A SINGLETON.**
+///
+/// Moving `CameraViewState` onto the view deleted the sixth process-global "the
+/// gameplay view" — and the resolver that replaced it opened with
+/// `cameras.iter().next()`. That is fine while one main camera exists and is
+/// exactly wrong the moment split-screen lands: two cameras each correctly
+/// naming a DIFFERENT view do not produce two views, they produce whichever
+/// camera the archetype iteration happened to yield first, handed to all five
+/// presentation consumers. Same defect as the resource, one indirection deeper,
+/// and it would only surface the day the second view arrived (GPT 5.6,
+/// 2026-08-15).
+///
+/// So the interim contract is loudly single-view-only rather than quietly
+/// arbitrary: with several main cameras the resolver REFUSES. The consumers are
+/// not view-keyed yet — that is the rest of D116 M2 — and until they are, `None`
+/// with a reason beats a confidently wrong frame.
+///
+/// ⚠ **this is a poison, and it is built to be one.** The two views carry
+/// deliberately different states, so a resolver that picks either one returns a
+/// value that IS one of them and looks entirely healthy. Only the refusal
+/// distinguishes "keyed by view" from "picked one".
+#[test]
+fn the_presented_view_refuses_to_pick_between_two_cameras_that_name_different_views() {
+    use ambition_platformer2d::sim_view::{CameraViewState, PresentedViewState};
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    let mut world = World::new();
+
+    let framed = |width: f32| CameraViewState {
+        visible_view: ambition_platformer2d::engine_core::Vec2::new(width, width * 0.5),
+        ..default()
+    };
+    let left_view = world.spawn((LocalView, framed(640.0))).id();
+    let right_view = world.spawn((LocalView, framed(320.0))).id();
+    world.spawn((MainCamera, PresentsView(left_view)));
+    world.spawn((MainCamera, PresentsView(right_view)));
+
+    let resolved = world
+        .run_system_once(|presented: PresentedViewState| presented.get().cloned())
+        .expect("the resolver system should run");
+
+    assert!(
+        resolved.is_none(),
+        "two main cameras name two different views and the resolver answered with \
+         one of them ({resolved:?}). Every consumer of `PresentedViewState` would \
+         then draw whichever view iterated first over BOTH — the process-global \
+         'the gameplay view' restored as a lookup. It must refuse until the \
+         consumers are keyed by view."
+    );
+
+    // ⭐ **and the refusal must be about AMBIGUITY, not about the resolver being
+    // broken.** Drop one camera and the same population resolves cleanly to the
+    // view that camera names — so the `None` above is a decision, not a failure.
+    let sole_camera = {
+        let mut cameras = world.query_filtered::<Entity, With<MainCamera>>();
+        let entity = cameras.iter(&world).next().expect("two were spawned");
+        entity
+    };
+    let named = world
+        .entity(sole_camera)
+        .get::<PresentsView>()
+        .copied()
+        .expect("spawned with a link");
+    let others: Vec<Entity> = {
+        let mut cameras = world.query_filtered::<Entity, With<MainCamera>>();
+        cameras
+            .iter(&world)
+            .filter(|candidate| *candidate != sole_camera)
+            .collect()
+    };
+    for other in others {
+        world.despawn(other);
+    }
+
+    let resolved = world
+        .run_system_once(|presented: PresentedViewState| presented.get().cloned())
+        .expect("the resolver system should run");
+    let expected = if named.0 == left_view { 640.0 } else { 320.0 };
+    assert_eq!(
+        resolved.map(|state| state.visible_view.x),
+        Some(expected),
+        "one camera naming one view is unambiguous and must resolve to THAT view's \
+         state; if this fails the refusal above is just a broken resolver"
+    );
+}

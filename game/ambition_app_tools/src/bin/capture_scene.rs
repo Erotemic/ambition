@@ -1000,7 +1000,10 @@ fn apply_capture_snapshot(
     >,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
-    mut view_state: ResMut<CameraViewState>,
+    // `CameraViewState` is a COMPONENT on the local view now, not a process
+    // global — a capture app stages exactly one view, so this writes the one it
+    // staged rather than a resource every consumer shared.
+    mut view_states: Query<&mut CameraViewState, With<ambition_platformer2d::sim_view::LocalView>>,
     // **THE SIM BODY, not the render visual.**
     //
     // This queried `BodyKinematics` `With<PlayerVisual>`, and `PlayerVisual` is a
@@ -1091,7 +1094,9 @@ fn apply_capture_snapshot(
 
     let x = snapshot.center_world.x - world.0.size.x * 0.5;
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
-    *view_state = CameraViewState::from(&snapshot);
+    for mut view_state in &mut view_states {
+        *view_state = CameraViewState::from(&snapshot);
+    }
 
     for (mut transform, mut projection) in &mut cameras {
         if let Projection::Orthographic(orthographic) = &mut *projection {

@@ -1277,6 +1277,24 @@ impl From<&CameraSnapshot2d> for CameraViewState {
 /// host until the split lands) and takes the only view. With several views and no
 /// link it REFUSES rather than picking, so a second view arriving without a
 /// second link is loud instead of arbitrary.
+///
+/// ⛔⛔ **AND THAT IS ONLY HALF THE AMBIGUITY. "THE PRESENTED VIEW" IS A
+/// SINGLE-VIEW CONTRACT, AND IT SAYS SO OUT LOUD.** The first cut of this
+/// resolver read `cameras.iter().next()` — which is fine while one main camera
+/// exists and is exactly wrong the moment split-screen arrives: two cameras each
+/// correctly naming a DIFFERENT view would not produce two views, they would
+/// produce whichever camera the archetype iteration happened to yield first,
+/// handed to every consumer. That is the process-global singleton this component
+/// move was meant to delete, restored as a lookup and harder to see (GPT 5.6,
+/// 2026-08-15).
+///
+/// So the refusal is symmetric: several VIEWS and no link refuses, and several
+/// main CAMERAS refuses, because at that point "the" presented view is not a
+/// question with an answer. Consumers that must survive the split have to be
+/// keyed by view — which is the remaining D116 M2 work — and until each one is,
+/// this returns `None` and says why instead of drawing the wrong view's frame.
+/// Nothing in the tree spawns two `MainCamera`s today; the second one is the
+/// event this is here to be loud about.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct PresentedViewState<'w, 's> {
     cameras: bevy::prelude::Query<
@@ -1297,7 +1315,17 @@ impl PresentedViewState<'_, '_> {
     /// The presented view's state, or `None` when there is no view to read (a
     /// headless or pre-composition host).
     pub fn get(&self) -> Option<&CameraViewState> {
-        let link = self.cameras.iter().next().flatten().copied();
+        let mut presenting = self.cameras.iter();
+        let first = presenting.next();
+        if presenting.next().is_some() {
+            bevy::log::error_once!(
+                "a draw system asked for THE presented view state while several main \
+                 cameras exist; refusing to guess. Each camera presents its own view, \
+                 so this reader has to be keyed by view before split-screen can land."
+            );
+            return None;
+        }
+        let link = first.flatten().copied();
         match link {
             Some(crate::local_view::PresentsView(view)) => self.views.get(view).ok(),
             None => {

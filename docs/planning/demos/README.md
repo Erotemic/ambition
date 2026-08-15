@@ -9,8 +9,24 @@ secondary game may eventually graduate into a **first-class game** if its produc
 quality warrants that investment. Super Smash Siblings is a plausible candidate.
 Ambition remains the main game.
 
-Current customers include Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite
-and TwinTrack.
+Current customers, each with its own plan — **this list is the index, and it is
+load-bearing**:
+
+- [Sanic](sanic.md) — momentum acceptance;
+- [Super Mary-O](super-mary-o.md) — classic axis-swept AABB platforming;
+- [Super Smash Siblings](super-smash-siblings.md) — platform-fighter, and a
+  plausible graduation candidate;
+- [Hollow Lite](hollow-lite.md) — encounters and boss authoring;
+- [TwinTrack](twintrack.md) — independent observers and reference-frame
+  presentation.
+
+⚠ **the links are why this paragraph exists.** Until 2026-08-14 it named these
+games in prose and linked none of them, and `sanic.md` and `super-mary-o.md` were
+consequently referenced by NO document anywhere in the repository. Super Mary-O's
+was the only planning file in the tree that carried open items and was reachable
+from nothing — its two `▢`s, including the still-unanswered *"no way to get the
+fire flower"* report, were invisible to every session that worked the ledger. A
+plan nothing links to is not a plan; it is a file.
 
 ## Ownership rule
 

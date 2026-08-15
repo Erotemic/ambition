@@ -52,6 +52,28 @@ hatches are therefore listed here rather than inferred from the code:
 
 Every one of those says out loud that the goal was NOT met when it fires.
 
+## Pausing for one turn (`--pause`) — the exception that is not an exit
+
+Those four END a run. There is a fifth thing a human wants that none of them
+serves: *"finish that and then wait for me."* Without a way to say it, the only
+lever is `--clear`, which kills a 72-hour run to ask a question — so the run
+gets cleared, or the agent talks itself out of the guard instead. Neither is
+what was asked for.
+
+    python3 scripts/goal_guard.py --pause "Jon asked me to stop and wait"
+
+That arms a ONE-SHOT token. The Stop hook at the end of this turn spends it
+(skipping the checks entirely, since the point is to hand the turn back now) and
+lets the session idle. The token is gone by then, so the NEXT Stop blocks
+normally: the pause costs exactly one turn, and pausing again needs asking
+again. It expires after `PAUSE_TTL_MINUTES` unused, so it cannot be armed early
+and cashed in at 3am, and every spend prints its reason and increments
+`pauses` in `.goal/state.json`, where `--status` shows it.
+
+⛔ **The agent arms this only when the human asks for it in that turn.** The
+guard cannot check intent — it makes the act visible instead, which is the same
+bargain the rest of this file makes.
+
 ## Wiring (`.claude/settings.json`) — and why the command is not one word long
 
 ⛔ **The hook command must not contain a RELATIVE path.** A hook inherits the
@@ -189,6 +211,12 @@ DEFAULT_MAX_RUN_HOURS = 36.0
 # deliberately, because a broken instrument must not read as success — but it
 # cannot do so forever, or a typo in this file wedges every session in the repo.
 MAX_CONSECUTIVE_CRASHES = 3
+# How long a `--pause` token stays valid. A pause is armed DURING a turn and
+# spent when that turn ends, so this only has to cover one turn's work — and it
+# has to expire, because a token that lives forever is a release the agent can
+# arm at hour 2 and cash in at hour 40, long after the human who asked for it
+# has gone to bed.
+PAUSE_TTL_MINUTES = 30.0
 
 
 def as_int(value, fallback: int) -> int:
@@ -557,6 +585,47 @@ def block_reason(goal: dict, results: list[CheckResult], deadline) -> str:
     return "\n".join(parts)
 
 
+def write_state(root: Path, state: dict) -> None:
+    goal_dir(root).mkdir(parents=True, exist_ok=True)
+    try:
+        state_path(root).write_text(json.dumps(state, indent=2) + "\n")
+    except OSError:
+        pass
+
+
+def take_pause(root: Path) -> dict | None:
+    """Spend a pending one-shot pause, if there is a live one.
+
+    Returns the pause record it consumed, or None. Consuming is the whole point:
+    the token is removed from `.goal/state.json` before this returns, so the very
+    next Stop hook — the end of the turn after the human's reply — blocks again.
+    There is no way to pause TWO turns except by asking twice.
+
+    An expired token is dropped rather than honoured. A pause armed at hour 2 and
+    spent at hour 40 is not "waiting for input", it is a release with a delay
+    fuse, and this guard's whole subject is releases that happen for reasons
+    other than the work being done.
+    """
+    state = load_json(state_path(root)) or {}
+    pending = state.get("pause_once")
+    if not isinstance(pending, dict):
+        return None
+
+    state.pop("pause_once", None)
+    expires = parse_deadline(pending.get("expires_at"))
+    if expires and now_utc() >= expires:
+        # Say nothing to the agent: an expired token is not a decision anybody
+        # made, and announcing it invites treating the next one as a release.
+        state["last_pause_expired_at"] = now_utc().isoformat()
+        write_state(root, state)
+        return None
+
+    state["last_pause_at"] = now_utc().isoformat()
+    state["pauses"] = as_int(state.get("pauses"), 0) + 1
+    write_state(root, state)
+    return pending
+
+
 # ── Modes ─────────────────────────────────────────────────────────────────────
 
 
@@ -570,6 +639,26 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # minutes), count a block, or advance the stall counter toward a release
     # somebody else's work would be judged by.
     if not session_owns_goal(root, hook_input, claim=True):
+        return 0
+
+    # A pause the human asked for, spent BEFORE the checks run: the point is to
+    # hand the turn back now, and the checks can take minutes. It is not a
+    # release — the goal stays armed, this consumes the token, and the next Stop
+    # blocks as if nothing happened.
+    paused = take_pause(root)
+    if paused is not None:
+        note = paused.get("reason") or ""
+        emit(
+            {
+                "systemMessage": (
+                    "Goal guard: PAUSED for this turn at the agent's request"
+                    + (f" — {note}" if note else "")
+                    + ". The goal is STILL ARMED and was not checked; it blocks "
+                    "again at the end of the next turn. Goal: "
+                    + goal.get("goal", "")
+                )
+            }
+        )
         return 0
 
     deadline = parse_deadline(goal.get("deadline_utc"))
@@ -632,11 +721,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             "crashes": 0,
         }
     )
-    goal_dir(root).mkdir(parents=True, exist_ok=True)
-    try:
-        state_path(root).write_text(json.dumps(state, indent=2) + "\n")
-    except OSError:
-        pass
+    write_state(root, state)
 
     if max_stalled > 0 and stalled >= max_stalled:
         emit(
@@ -803,6 +888,45 @@ def mode_resume(root: Path) -> int:
     return 0
 
 
+def mode_pause(root: Path, reason: str) -> int:
+    """Arm a ONE-SHOT pause: the current turn may end, the next one may not.
+
+    This is the only sanctioned way for an agent to hand the turn back mid-run,
+    and it exists because the alternative Jon was left with — clearing the goal —
+    ends the run. "Finish up and wait for me" should cost one turn, not the run.
+
+    Three properties make it a pause rather than a hole:
+
+    * it is SPENT by the next Stop hook and gone (`take_pause`), so the goal is
+      live again the moment the human's reply is answered;
+    * it EXPIRES (`PAUSE_TTL_MINUTES`), so it cannot be armed early and cashed
+      in hours later when nobody is watching;
+    * it is LOUD — `.goal/state.json` counts pauses, and spending one prints a
+      `systemMessage` naming the reason into the transcript the human reads.
+
+    None of that stops an agent that wants out from calling it unasked. Nothing
+    in this file can (see the module docstring): the guard converts persuasion
+    into a visible act, and this is one of the visible acts. A pause nobody asked
+    for shows up in the terminal, in the state file, and in `--status`.
+    """
+    if not load_json(active_path(root)):
+        print("no goal armed — nothing to pause")
+        return 0
+    state = load_json(state_path(root)) or {}
+    expires = now_utc() + _dt.timedelta(minutes=PAUSE_TTL_MINUTES)
+    state["pause_once"] = {
+        "armed_at": now_utc().isoformat(),
+        "expires_at": expires.isoformat(),
+        "reason": reason.strip(),
+    }
+    write_state(root, state)
+    print(
+        f"one-shot pause armed — THIS turn may end; the goal blocks again at the "
+        f"end of the next turn. Expires {expires.isoformat()} if unused."
+    )
+    return 0
+
+
 def mode_status(root: Path) -> int:
     goal = load_json(active_path(root))
     if not goal:
@@ -824,6 +948,16 @@ def mode_status(root: Path) -> int:
         detail = f"  ({r.detail})" if r.detail and not r.ok else ""
         print(f"  {mark} {r.name}{detail}")
     state = load_json(state_path(root)) or {}
+    pending = state.get("pause_once")
+    if isinstance(pending, dict):
+        live = "expired" if (parse_deadline(pending.get("expires_at")) or now_utc()) <= now_utc() else "pending"
+        print(
+            f"one-shot pause: {live} (armed {pending.get('armed_at', '?')}"
+            + (f", {pending['reason']}" if pending.get("reason") else "")
+            + ")"
+        )
+    if state.get("pauses"):
+        print(f"pauses spent: {state['pauses']}, last {state.get('last_pause_at', '?')}")
     if state:
         print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
         # The only symptom of a guard that is not running at all. Every other
@@ -938,10 +1072,22 @@ def main() -> int:
         action="store_true",
         help="take over an orphaned goal (after /clear) and print what it is",
     )
+    parser.add_argument(
+        "--pause",
+        nargs="?",
+        const="",
+        metavar="REASON",
+        help=(
+            "let THIS turn end and wait for the human; the goal stays armed and "
+            "blocks again at the end of the next turn. Only when asked."
+        ),
+    )
     args = parser.parse_args()
 
     root = repo_root()
 
+    if args.pause is not None:
+        return mode_pause(root, args.pause)
     if args.own:
         set_owner(root, args.own.strip())
         print(f"goal bound to session {args.own.strip()}")

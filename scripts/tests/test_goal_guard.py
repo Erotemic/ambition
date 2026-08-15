@@ -265,6 +265,79 @@ def test_a_new_commit_resets_the_stall_counter(repo: Path) -> None:
     assert run(repo).get("decision") == "block"
 
 
+# ── The one-shot pause: it must be a pause and not a door ────────────────────
+
+
+def state_of(repo: Path) -> dict:
+    return json.loads((repo / ".goal" / "state.json").read_text())
+
+
+def cli(repo: Path, *args: str) -> str:
+    """The text-printing modes — `run` above parses stdout as hook JSON."""
+    proc = subprocess.run(
+        [sys.executable, str(guard_in(repo)), *args],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
+
+
+def test_a_pause_lets_exactly_this_turn_end(repo: Path) -> None:
+    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    assert run(repo).get("decision") == "block"
+    cli(repo, "--pause", "Jon asked me to wait")
+    out = run(repo)
+    assert out.get("decision") is None, "the paused turn must be allowed to end"
+    assert "PAUSED" in out.get("systemMessage", "")
+    assert "Jon asked me to wait" in out["systemMessage"], "say whose idea it was"
+
+
+def test_the_goal_is_still_armed_after_a_pause(repo: Path) -> None:
+    """THE poison. A pause that quietly behaves like `--clear` is the 2026-07-25
+    bug with better manners: the run ends and nobody is told it ended."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    cli(repo, "--pause")
+    run(repo)  # spends it
+    assert (repo / ".goal" / "active.json").exists(), "a pause must not disarm"
+    assert run(repo).get("decision") == "block", "the very next turn is guarded"
+    assert run(repo).get("decision") == "block"
+
+
+def test_a_pause_is_spent_once_and_cannot_be_re_used(repo: Path) -> None:
+    """One ask, one turn. An agent that could re-spend one token would have an
+    unbounded exit and the run would end whenever it got tired."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    cli(repo, "--pause")
+    assert run(repo).get("decision") is None
+    assert "pause_once" not in state_of(repo), "the token is consumed, not kept"
+    assert state_of(repo)["pauses"] == 1, "and counted where a human can see it"
+    assert run(repo).get("decision") == "block"
+
+
+def test_an_expired_pause_does_not_release_the_turn(repo: Path) -> None:
+    """A token armed at hour 2 and cashed at hour 40 is not "waiting for input",
+    it is a delayed release — exactly the shape this guard exists to refuse."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    cli(repo, "--pause")
+    stale = state_of(repo)
+    past = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=5)
+    stale["pause_once"]["expires_at"] = past.isoformat()
+    (repo / ".goal" / "state.json").write_text(json.dumps(stale))
+
+    assert run(repo).get("decision") == "block"
+    assert "pause_once" not in state_of(repo), "and the dead token is cleared"
+
+
+def test_pausing_an_unarmed_repo_does_nothing(repo: Path) -> None:
+    """No goal, no state file: a pause must not leave a token lying around for
+    the NEXT run to spend before it has done any work."""
+    cli(repo, "--pause")
+    assert not (repo / ".goal" / "state.json").exists()
+
+
 # ── Context injection, the compaction half ───────────────────────────────────
 
 

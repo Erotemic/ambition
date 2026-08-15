@@ -102,6 +102,20 @@ intent ambiguity; otherwise infer and keep going. Until a polish pass, output/fe
 is not a constraint. The gates: it compiles (including `ambition_app`) and
 invariants hold.
 
+**Handing the turn back on an armed run.** Never stop an autonomous run to ask —
+with ONE exception, and only when Jon asks for it in that turn ("finish up and
+wait for me", "stop after this and check with me"). Then:
+
+```bash
+python3 scripts/goal_guard.py --pause "Jon asked me to finish X and wait"
+```
+
+That lets THIS turn end and nothing more: the goal stays armed, the token is
+spent by the Stop hook, and the run is guarded again at the end of the very next
+turn. Do not arm it early, do not arm it because a check is annoying — every
+pause is counted and its reason printed where Jon reads it. Anything else that
+would end the run (`--clear`) is Jon's call, not yours.
+
 ## Verification
 
 * **Drive the real headless sim — don't say "I can't test it."** Step the actual

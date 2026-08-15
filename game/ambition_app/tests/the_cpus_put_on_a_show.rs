@@ -294,6 +294,7 @@ fn seat_a_crossover(
     // cap is generous because a slow step here is not the property under test.
     let mut waited = 0usize;
     let mut re_supplied = 0usize;
+    let countdown = countdown as usize;
     let cap = countdown + 900;
     while waited < cap {
         app.update();

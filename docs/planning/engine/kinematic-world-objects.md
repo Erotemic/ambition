@@ -1,6 +1,8 @@
 # Kinematic world objects
 
-**State:** OPEN — **K5 authoring polish only**; K2/K3/K4/K6 are closed.
+**State:** RESTING — **K2–K6 are all closed** (K5's native `path_ref` landed
+2026-08-15). ⛔ reopen only for a real kinematic customer; ⛔⛔ **and split
+`Block::velocity` into displacement + surface drag BEFORE any conveyor-like one**.
 **Sole kinematic customer: Ambition moving platforms, and that is MEASURED rather
 than assumed** — see K6 for the census that closed the second-customer question.
 

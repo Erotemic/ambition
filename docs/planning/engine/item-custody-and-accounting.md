@@ -184,7 +184,15 @@ small Bevy plugin if its semantics prove useful outside Ambition.
 
 ## Open design questions — deliberately unresolved
 
-- Is persistent inventory owned by a body, participant, party, or some mixture?
+✔ **SETTLED 2026-08-15 (Jon's reviewer), removed from this list: the BODY owns its
+inventory and capabilities.** Participant entitlements and possession-transfer
+policy are separate concerns with different owners and lifetimes. ⇒ `OwnedItems`
+is a **migration/compatibility representation**, not an undecided authority.
+⛔ do not re-open it as an architecture question, and ⛔ do not start the
+`OwnedItems` migration ahead of persistent occurrence continuity, which has the
+stronger product pressure.
+
+
 - Which items are entitlements that can be rematerialized versus physical
   instances that can be lost/stolen?
 - How should possession transfer inventories, equipment and entitlements?

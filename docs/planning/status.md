@@ -35,30 +35,10 @@ The successor umbrella is
 The goal is a credible Godot/Unity-class 2D engine on Bevy while **Ambition
 remains the flagship game and primary product driver**.
 
-The highest-value successor fronts are:
+The highest-value successor fronts are, **in priority order** — ⚠ this list is ORDERED, and it was reordered on 2026-08-15 because the systemic-world
+substrate had overtaken the two fronts printed above it:
 
-1. **Ambition authoring + kinematic world objects.** Treat authoring/tooling as
-   an engine product, improve LDtk as a first-class spatial compiler surface,
-   and use moving platforms as the first vertical slice. See
-   [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md) and
-   [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
-   and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
-2. **Ambition multiplayer + multi-view presentation.** Support local, online and
-   mixed participants independently of shared/fixed/adaptive split-screen; grow
-   toward multiple resident rooms when participants separate. See
-   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
-   and [`game/multiplayer.md`](game/multiplayer.md).
-
-   ⏸ **D116 RESTS (2026-08-15), and M2 is only HALF done** — say it in two parts.
-   ✔ **closed:** the presentation/projection sub-slice — per-view association and
-   viewport application are proven by an assembled-host fixture, and both
-   `PresentsView` writers that guessed are fixed. ▢ **deferred:** production
-   two-view composition and layout — production spawns one camera and publishes
-   one screen rectangle to every view **by construction**, and M2's own plan also
-   names HUD ownership and input routing, which this slice did not touch.
-   ⛔ do not expand into networking; the deferred half needs a real product need
-   for a second view.
-3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
+1. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
    CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
    why it exists and how long it lasts; then item custody as the first demanding
    consumer, then capability-driven gating and reachability, then residency and
@@ -83,11 +63,27 @@ The highest-value successor fronts are:
    slots, **5 of 6 classes are counts forever** (consumables, currency, key items,
    unwired abilities, reserved) and their readers legitimately want a quantity;
    the whole problem is the **nine held weapons/abilities that are an instance and
-   a count at once**. ⛔ so do not give the count table a row per object. ⇒ the
-   blocking unknown is now **"who owns a body inventory?"** — until that exists,
-   the count is doing durable-save duty for an instance and cannot simply be spent.
+   a count at once**. ⛔ so do not give the count table a row per object.
+
+   ✔ **inventory OWNERSHIP is settled (Jon's reviewer, 2026-08-15): the BODY owns
+   its inventory and capabilities.** Participant entitlements and possession-transfer
+   policy are separate concerns with different owners and lifetimes. ⇒ `OwnedItems`
+   is therefore a **migration/compatibility representation**, not an undecided
+   authority — ⛔ and it is no longer an open architecture question anywhere.
+
+   ⭐ **the live frontier is now PERSISTENT OCCURRENCE CONTINUITY**, exposed by the
+   cross-room custody slice: *when authored placement P has produced a runtime
+   occurrence that has since moved, been consumed, been destroyed or entered
+   custody elsewhere, how does world reconstruction know what should happen to P?*
+   That sits underneath persistent items, moved NPCs, opened mechanisms, destroyed
+   objects, relocated quest objects, persistent populations, room streaming and
+   save/load. ⛔ **do not answer it by teaching the room loader to inspect
+   inventories** — that is another composition census.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
-4. **⭐ NEW 2026-08-15 — deterministic authored gameplay logic and orchestration**
+2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
+   by phase/authority and invert rollback declaration ownership. See
+   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
+3. **⭐ NEW 2026-08-15 — deterministic authored gameplay logic and orchestration**
    (D127). Authoring is strong for **nouns** and weak for **verbs and
    relationships over time**; several independent partial condition → effect
    systems already exist in tree, which is what promotes this from an abstraction
@@ -99,9 +95,28 @@ The highest-value successor fronts are:
    ⛔ not scripting, not a rule VM, not a central effect enum. ⭐ M0's headline:
    **the substrate owns no universal sequencer** — the gap is on the *condition*
    side, and boss patterns are the **template**, not a customer.
-5. **Simulation authority and determinism.** Decompose parameter-ceiling systems
-   by phase/authority and invert rollback declaration ownership. See
-   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
+4. ⏸ **Ambition authoring + kinematic world objects — RESTING (D115, K2–K6 all
+   closed).** Treat authoring/tooling as
+   an engine product, improve LDtk as a first-class spatial compiler surface,
+   and use moving platforms as the first vertical slice. See
+   [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md) and
+   [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
+   and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
+5. ⏸ **Ambition multiplayer + multi-view presentation — RESTING (D116).** Support local, online and
+   mixed participants independently of shared/fixed/adaptive split-screen; grow
+   toward multiple resident rooms when participants separate. See
+   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
+   and [`game/multiplayer.md`](game/multiplayer.md).
+
+   ⏸ **D116 RESTS (2026-08-15), and M2 is only HALF done** — say it in two parts.
+   ✔ **closed:** the presentation/projection sub-slice — per-view association and
+   viewport application are proven by an assembled-host fixture, and both
+   `PresentsView` writers that guessed are fixed. ▢ **deferred:** production
+   two-view composition and layout — production spawns one camera and publishes
+   one screen rectangle to every view **by construction**, and M2's own plan also
+   names HUD ownership and input routing, which this slice did not touch.
+   ⛔ do not expand into networking; the deferred half needs a real product need
+   for a second view.
 6. **Capability/runtime composition.** Make optional capabilities honest in
    dependency and composition topology. See
    [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).

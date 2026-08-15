@@ -76,8 +76,12 @@ These cards are capability fronts, not a serial mega-campaign.
   consumer, and evaluate independent Bevy-game value before publication. Use
   [`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
 
-- ◐ **Ambition-first authoring/LDtk + kinematic world objects — LIVE AS LEDGER ROW
-  D115.** ⚠ K2/K3/K4 are CLOSED; K5 and K6 remain. Do not promote again. Card:
+- ⏸ **Ambition-first authoring/LDtk + kinematic world objects — RESTING as ledger
+  row D115.** ✔ **K2–K6 are ALL closed** (2026-08-15). ⛔ do not promote again and
+  ⛔ do not manufacture a K6 customer — the second dynamic-geometry customer turned
+  out to be the **door**, and the door does not move. ⭐ preserve the discovery it
+  left: **geometric displacement ≠ surface drag**, and `Block::velocity` conflates
+  them, so a conveyor-like customer needs that split first. Card:
   Moving platforms
   already author through LDtk, but their path references, motion-mode shape,
   diagnostics, dynamic-geometry ownership and contact/crush semantics are not
@@ -86,8 +90,10 @@ These cards are capability fronts, not a serial mega-campaign.
   [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
   and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
 
-- ◐ **Ambition multiplayer + multi-view presentation — LIVE AS LEDGER ROW D116.**
-  ⚠ M2 is nearly closed (per-view projections landed); do not promote again. Card:
+- ⏸ **Ambition multiplayer + multi-view presentation — RESTING as ledger row
+  D116.** ✔ M2's **presentation/projection** half is closed; ▢ its **production
+  N-view composition/layout, HUD ownership and input routing** remain deferred.
+  ⛔ do not promote again and ⛔ do not expand into networking. Card:
   Build one participant
   model that supports local, online and mixed parties independently of shared,
   fixed-split or adaptive split-screen. Grow toward two resident rooms when

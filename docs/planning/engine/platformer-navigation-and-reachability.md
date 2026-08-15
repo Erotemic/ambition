@@ -78,7 +78,8 @@ nothing asked it anything.
 
 ## ✔ The first slice LANDED, and the query now has a consumer (2026-08-15)
 
-⭐ **`probe_recovery` shipped with ZERO consumers, and that was the defect** — a
+⭐ **`probe_recovery` shipped with ZERO consumers, and that WAS the defect** (it
+has one now — the fighter brain, below) — a
 reusable query with no adopter decays and its claims go stale. It has one now.
 
 `RecoveryLens` (`ambition_characters/src/brain/fighter/recovery.rs`) lowers a

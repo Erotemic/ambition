@@ -1,6 +1,16 @@
-//! Lifetime-scope marker components (room / run / persistent) and the rendered
-//! room-visual markers, all runtime-owned so sim systems can tag entities
-//! without importing presentation.
+//! Lifetime-scope marker components (room / mode) and the rendered room-visual
+//! markers, all runtime-owned so sim systems can tag entities without importing
+//! presentation.
+//!
+//! ⛔ **every scope spelled here has a sweep that enforces it.** The two that did
+//! not — `RunScopedEntity` and `PersistentEntity` — were deleted 2026-08-15 after
+//! the D125 census found zero producers and zero consumers for either. A lifetime
+//! you can declare and nothing enforces is worse than one that does not exist:
+//! `spawn_run_scoped` read as "dies with the run" at a call site and produced an
+//! entity that never died, with no test able to notice. The run lifetime is
+//! [`super::SessionScopedEntity`], which carries a [`super::SessionScopeId`] and
+//! is swept by `despawn_retired_session_entities`; "survives everything" is
+//! spelled by carrying no scope marker, because every sweep is presence-driven.
 
 use bevy::prelude::*;
 
@@ -25,23 +35,16 @@ pub struct RoomScopedEntity;
 #[require(RoomScopedEntity)]
 pub struct RoomVisual;
 
-/// Lifetime-scope marker: despawn when the current gameplay run/session ends,
-/// but survive room transitions.
-///
-/// No cleanup pass consumes this marker yet; it establishes the vocabulary for
-/// the refactor branch that splits sandbox reset, run reset, and room unload.
-#[derive(Component, Default)]
-pub struct RunScopedEntity;
-
 /// Lifetime-scope marker: despawn when the named GAME MODE deactivates.
 ///
 /// A mode is the demo-hosting seam (decomposition D-C): the active room's
 /// `RoomMetadata::mode` names which ruleset owns the room, so a mode-scoped
 /// entity SURVIVES room transitions inside its own mode and dies the moment the
 /// active room's mode is something else. That is a distinct lifetime from
-/// [`RoomScopedEntity`] (dies every room load) and [`RunScopedEntity`] (dies
-/// with the session) — a hosted demo's mode-owner entity carries its rules'
-/// resources across every room in its own zone.
+/// [`RoomScopedEntity`] (dies every room load) and
+/// [`SessionScopedEntity`](super::SessionScopedEntity) (dies with the
+/// activation) — a hosted demo's mode-owner entity carries its rules' resources
+/// across every room in its own zone.
 ///
 /// The marker lives here with its lifetime-scope siblings; the sweep that
 /// consumes it needs the active room's metadata and therefore lives a tier up
@@ -49,13 +52,6 @@ pub struct RunScopedEntity;
 /// lives above this crate.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct ModeScopedEntity(pub String);
-
-/// Explicit marker for entities that intentionally survive room and run resets.
-///
-/// This is mostly documentation in ECS form. Use `spawn_persistent` when a raw
-/// `commands.spawn` would make lifecycle intent unclear.
-#[derive(Component, Default)]
-pub struct PersistentEntity;
 
 /// Marker on the player's rendered sprite entity. Content-free (a tag the renderer
 /// queries + gameplay systems that manipulate the player visual reference); lives

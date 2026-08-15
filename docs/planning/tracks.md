@@ -165,6 +165,28 @@ These cards are capability fronts, not a serial mega-campaign.
 
 ## Authoring and content reservoir
 
+- ▢ **Binding-resolution residual defects.** ⭐ **dispositioned out of the
+  stranded list 2026-08-15 — this is live work with concrete fixes, not spent
+  history.** The campaign's mechanism landed (`Ref<N>`, `Resolver<N>`, `Bound<N>`,
+  structured unresolved diagnostics, construction-time refusal); what remains is
+  (1) per-frame item-art diagnostics passing generic declarers like `"ground
+  item"` instead of provider/source identity, so **two providers with the same
+  unresolved id suppress one another's diagnostic**, and (2) failed-file detection
+  beyond item art where invisibility is real. ⛔ **do not reopen a campaign to
+  wrap every string id** — keep a slice only when it removes a real silent-failure
+  or duplicate-authority path. ⭐ note the adjacency: this machinery is what A9's
+  reverse-reference queries and D127's prepared references would build on. Use
+  [`engine/binding-resolution-boundary.md`](engine/binding-resolution-boundary.md).
+
+- ▢ **Closeout review followups (2026-07-20), residual only.** ⭐ **also
+  dispositioned out of the stranded list**: three items re-verified against HEAD
+  on 2026-08-13 — portal mapping convention as **session authority rather than a
+  process global** (⭐ which is the same class as the multiview process-globals
+  D116 named), honest shipping/fresh-clone configurations, and a measured
+  runtime-scale pass with cheap bounded fixes plus a collision-composition
+  measurement. Each carries its own Evidence/Work/Exit. Use
+  [`engine/closeout-review-followups-2026-07-20.md`](engine/closeout-review-followups-2026-07-20.md).
+
 - ▢ **Project-wide semantic dependency/reference graph.** *"what references
   character:fia?"*, *"what breaks if I delete this?"* — reverse references,
   structured unresolved-reference diagnostics and transactional rename planning
@@ -306,8 +328,8 @@ archive; being listed here is not a verdict that the work is live.
 - `engine_rename_campaign.md` (322)
 - `engine/portable-preparation-and-load-explainability.md` (484)
 - `engine/sprite-renderer.md` (174)
-- `engine/closeout-review-followups-2026-07-20.md` (212) — *residual work only, re-verified against HEAD 2026-08-13*
-- `engine/binding-resolution-boundary.md` (55) — *residual defects only, re-verified against HEAD 2026-08-13*
+- ~~`engine/closeout-review-followups-2026-07-20.md` (212)~~ ✔ **PROMOTED** to a card above
+- ~~`engine/binding-resolution-boundary.md` (55)~~ ✔ **PROMOTED** to a card above
 - `engine/combat-model.md` (60)
 - `engine/presentation-and-shell-audit.md` (45)
 - `engine/shell-vanity-sequence.md` (44)

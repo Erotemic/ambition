@@ -879,22 +879,45 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
 // its own terms.
 // ---------------------------------------------------------------------------
 
-/// The observer's physical viewport in pixels — an OBSERVER FACT the
-/// windowed host publishes each frame (`publish_camera_viewport` in the
-/// render layer). Headless runs keep the default design-window size, so the
-/// resolver (and any RL reader of [`ResolvedCameraSnapshot`]) works without
-/// a window. Consumed ONLY by the observation resolve below — sim systems
-/// never read it.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+/// **THE SCREEN RECTANGLE THIS VIEW OCCUPIES** — an OBSERVER FACT the windowed
+/// host publishes each frame (`publish_camera_viewport`). Headless runs keep the
+/// default design-window rectangle, so the resolver (and any RL reader of
+/// [`ResolvedCameraSnapshot`]) works without a window.
+///
+/// ⭐ **it is a RECTANGLE, not just a size** (D116 M2). It carried only `px` — a
+/// size — which is everything the zoom/clamp maths needs and exactly nothing of
+/// what a second view needs: two views sharing one screen differ by WHERE they
+/// sit, not only by how big they are. With an origin the component states the
+/// whole rectangle, and `apply_gameplay_camera_viewport` can hand each camera
+/// its own view's rectangle instead of one global gameplay rect handed to all of
+/// them.
+///
+/// ⚠ **logical display pixels, both fields** — the space the resolved layout,
+/// window cursors, touches and `bevy_ui` share. `Camera::viewport` is PHYSICAL,
+/// and the scale factor is applied at that one seam
+/// (`apply_gameplay_camera_viewport`) and nowhere else. (The old doc said
+/// "physical"; the applier multiplying by `window.scale_factor()` proves it was
+/// never that.)
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
 pub struct CameraViewport {
-    /// Physical viewport size, pixels (world-frame-free — a screen fact).
+    /// Size of this view's rectangle, logical pixels (world-frame-free — a
+    /// screen fact). Consumed by the observation resolve below for orthographic
+    /// scale, visible-world extent and clamp half-extents.
     pub px: ae::Vec2,
+    /// Top-left of this view's rectangle within the display, logical pixels.
+    ///
+    /// Zero for a view that starts at the display origin, which is every
+    /// single-view composition today. The resolve does not read it — where a
+    /// rectangle sits changes nothing about how much world fits in it — so this
+    /// exists purely so the view can be PLACED.
+    pub origin_px: ae::Vec2,
 }
 
 impl Default for CameraViewport {
     fn default() -> Self {
         Self {
             px: ae::Vec2::new(ae::config::WINDOW_W as f32, ae::config::WINDOW_H as f32),
+            origin_px: ae::Vec2::ZERO,
         }
     }
 }
@@ -1387,7 +1410,7 @@ pub struct PresentedViewState<'w, 's> {
     views: bevy::prelude::Query<
         'w,
         's,
-        &'static CameraViewState,
+        (bevy::prelude::Entity, &'static CameraViewState),
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
 }
@@ -1406,23 +1429,13 @@ impl PresentedViewState<'_, '_> {
             );
             return None;
         }
-        let link = first.flatten().copied();
-        match link {
-            Some(crate::local_view::PresentsView(view)) => self.views.get(view).ok(),
-            None => {
-                let mut unlinked = self.views.iter();
-                let only = unlinked.next()?;
-                if unlinked.next().is_some() {
-                    bevy::log::error_once!(
-                        "a draw system asked for the presented view state while several \
-                         views exist and no camera names one; refusing to guess. Bind \
-                         `PresentsView` where the camera is spawned."
-                    );
-                    return None;
-                }
-                Some(only)
-            }
-        }
+        // The binding rule is stated once, in `local_view` — this reader shares
+        // it with `camera_follow` and the physical viewport applier rather than
+        // keeping a third copy that can drift.
+        let on_hand =
+            crate::local_view::ViewsOnHand::survey(self.views.iter().map(|(view, _)| view));
+        let view = on_hand.presented_by(first.flatten().copied())?;
+        self.views.get(view).ok().map(|(_, state)| state)
     }
 }
 

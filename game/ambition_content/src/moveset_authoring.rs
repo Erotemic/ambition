@@ -14,7 +14,8 @@
 //! game and a platform fighter in another.
 
 use ambition_platformer2d::entity_catalog::{
-    ClipBinding, EffectRef, HitVolume, MoveGates, MoveSpec, MoveWindow, VolumeShape, WindowTag,
+    ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveGates, MoveSpec,
+    MoveWindow, VolumeShape, WindowTag,
 };
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
@@ -31,6 +32,92 @@ pub fn airborne_only() -> MoveGates {
     MoveGates {
         grounded: Some(false),
     }
+}
+
+/// **A move that answers its button from the ground OR the air.** The specials
+/// are the moves that do this: a recovery that could only be pressed with your
+/// feet down is not a recovery.
+pub fn either_posture() -> MoveGates {
+    MoveGates { grounded: None }
+}
+
+fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
+    m.events.push(MoveEvent { at_s, kind });
+    m
+}
+
+/// **A TIMED SELF-DISPLACEMENT.**
+///
+/// ⭐ [`ImpulseMode::Set`] COMMANDS a velocity; [`ImpulseMode::Add`] contributes
+/// to one. The difference is the difference between a recovery and a hop: a body
+/// falling at terminal velocity gets exactly the same result from a `Set` as a
+/// standing one does, and the worst possible result from an `Add`. It is also
+/// what the catalog's `lift_speed` / `lift_side` derivation keys on — an `Add`
+/// states no speed, so no static reader may claim one for it.
+///
+/// `local` is body-local: `+x` toward facing, `+y` toward the feet, so a rise is
+/// a NEGATIVE second component.
+pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> MoveSpec {
+    event(m, at_s, MoveEventKind::Impulse { local, mode })
+}
+
+/// **A CUE AT A MOMENT.** The move's own timeline is where its sound lives, so a
+/// windup you can hear and a swing you can hear are two events and not two
+/// systems.
+pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
+    event(
+        m,
+        at_s,
+        MoveEventKind::Sfx {
+            cue: cue.to_string(),
+        },
+    )
+}
+
+/// **A BURST AT A MOMENT.**
+///
+/// ⚠ `effect` must be one of `ambition_vfx::move_vfx_kind`'s ids —
+/// `MoveSpec::presentation_problems` refuses a typo at startup rather than
+/// playing nothing.
+pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
+    event(
+        m,
+        at_s,
+        MoveEventKind::Vfx {
+            effect: effect.to_string(),
+        },
+    )
+}
+
+/// **WHAT LANDING THIS MOVE SOUNDS LIKE**, applied to every volume it throws.
+/// Contact feedback belongs to the volume because only the volume knows it
+/// connected.
+pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.hit_sfx = Some(cue.to_string());
+    }
+    m
+}
+
+/// **A TAIL THE BODY CANNOT STEER OUT OF.** Extends the move to `to_s` with a
+/// Recovery window whose `motion_scale` damps the owner's steering — the genre's
+/// "you are committed now", authored rather than hardcoded, and enforced
+/// body-side so it binds a CPU and a human identically.
+pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec {
+    let from = m.duration_s;
+    if to_s <= from {
+        return m;
+    }
+    m.windows.push(MoveWindow {
+        start_s: from,
+        end_s: to_s,
+        tag: WindowTag::Recovery,
+        volumes: Vec::new(),
+        motion_scale,
+        sustain_effect: None,
+    });
+    m.duration_s = to_s;
+    m
 }
 
 /// One strike on one timeline: startup, one active window carrying one volume,

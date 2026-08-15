@@ -19,17 +19,72 @@
 //!   admiral   32 px       0.06 s          17
 //! ```
 //!
+//! ## ⭐⭐ THE SECOND FIGHTER IN THE REPO WITH A RECOVERY, AND IT IS NOT A RISE
+//!
+//! The first (`smash_george_booul`) authors a straight-up Up-B: a `Set` of
+//! `(0, -1020)`, the move IS the height, and one scalar described it exactly.
+//! The admiral's `grapple_line` is a boarding line thrown at the stage and
+//! hauled in — `(980, -300)`, almost all of it lateral — and it exists to press
+//! the abstraction from the other direction:
+//!
+//! ```text
+//!                     across    up      what the move supplies
+//!   excluded_middle        0   1020     the whole recovery
+//!   grapple_line         980    300     the distance; the BODY supplies the height
+//! ```
+//!
+//! ⭐ **so the two recoveries divide the work differently, which is what makes
+//! this a second mechanism rather than the first one at an angle.** An admiral
+//! knocked below the lip has to spend his double jump FIRST and grapple second;
+//! one knocked out level can grapple immediately. A vertical Up-B collapses that
+//! decision into one press.
+//!
+//! ⛔ **and it is what found the affordance bug.** `MoveFrameData::lift_speed`
+//! kept only the against-gravity half of a commanded velocity, so this move —
+//! whose useful half is the other one — advertised itself as a 300px/s hop and
+//! ranked BELOW the 360px/s juggle aerial in its own kit. Every policy layer read
+//! the biggest number as "the recovery". See `air_up` below, which is authored as
+//! the poison for exactly that.
+//!
 //! ⛔ **the PISTOL is not in here, and that is the authority split doing its job.**
 //! A ranged verb belongs to the character's `ActionSet` — what this body is
 //! CAPABLE of — while this table is what its swings ARE. Putting a shot in the
 //! move list would give one press two owners, which is the exact double-ownership
 //! `RangedExecution` exists to prevent.
 
-use ambition_platformer2d::entity_catalog::MovesetContract;
+use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
-use crate::moveset_authoring::{airborne_only, grounded_only, strike};
+use crate::moveset_authoring::{
+    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
+    vfx,
+};
 
-/// See the module doc. Eleven moves, the genre's standard verb map.
+/// **How far across the grapple hauls him**, engine units per second along
+/// facing.
+///
+/// ⭐ the number that IS the move. A recovery is usually authored as a rise; this
+/// one spends its whole budget on distance, so the admiral's problem offstage is
+/// never *"can I climb back to the lip"* but *"can I reach the lip at all"*.
+pub(crate) const GRAPPLE_ACROSS: f32 = 980.0;
+
+/// And how far up. Deliberately small — enough to hold him level for the
+/// crossing and nowhere near enough to climb with.
+pub(crate) const GRAPPLE_RISE: f32 = 300.0;
+
+/// When the line catches. The windup you can see coming, and the number a
+/// recovery search plans around.
+pub(crate) const GRAPPLE_AT_S: f32 = 0.16;
+
+/// And when the move lets go. ⛔ **not a feel number.** The rise buys
+/// `GRAPPLE_RISE² / 2g ≈ 20px` of climb and takes `GRAPPLE_RISE / g ≈ 0.13s` to
+/// spend it, so any tail longer than twice that hands the admiral back BELOW
+/// where the move found him — which is what stops a re-pressable recovery from
+/// being flight. The guard `the_grapple_is_a_crossing_and_not_a_flight` holds the
+/// arithmetic.
+pub(crate) const GRAPPLE_ENDS_S: f32 = 0.88;
+
+/// See the module doc. Fifteen moves: the genre's standard verb map plus four
+/// specials.
 pub fn pirate_admiral_moveset() -> MovesetContract {
     let mut moves = Vec::new();
 
@@ -219,6 +274,24 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         None,
     );
     u_air.gates = airborne_only();
+    // ⭐⭐ **THE STALL.** A rising cutlass overhead that takes the admiral up with
+    // it — the genre's juggle aerial, and the reason this table can chain one
+    // hit into the next instead of falling out from under its own combo.
+    //
+    // ⛔⛔ **AND IT IS A DELIBERATE POISON FOR THE RECOVERY AFFORDANCE.** Until
+    // 2026-08-15 a move like this was UNAUTHORABLE: every policy layer read
+    // `lift_speed` as "this is the way home", took the biggest one in the kit,
+    // and searched with that alone. 360px/s beats the grapple's 300, so this
+    // 7-damage juggle would have become the admiral's recovery — thrown at the
+    // blastzone while the line that gets him back sat unexplored. The first
+    // fighter to author a recovery worked around it by putting a lift on nothing
+    // else (see George's `modus_ponens`, whose zero is commented as exactly that
+    // workaround); the search now decides which route is useful from where the
+    // body is, so the workaround is no longer owed and the move can exist.
+    let u_air = impulse(u_air, 0.08, (0.0, -360.0), ImpulseMode::Set);
+    let u_air = sfx(u_air, 0.0, "player.robot.slash.air");
+    let u_air = on_contact(u_air, "player.robot.slash.impact.flesh.light");
+    let u_air = vfx(u_air, 0.08, "burst_round");
     moves.push(u_air);
 
     // ⭐ a real spike: point-down cutlass, straight into the blast zone. ⚠ no
@@ -242,6 +315,156 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     d_air.gates = airborne_only();
     moves.push(d_air);
 
+    // ── the four specials ────────────────────────────────────────────────────
+    //
+    // ⭐ **four MECHANISMS, and none of them is another one rotated.** One fires
+    // forward and shoves its owner backward; one adds to whatever the body was
+    // already doing; one commands a diagonal haul; one commands a full stop. The
+    // shared `strike` gives them all the same timeline shape, so what separates
+    // them is what they do to the ADMIRAL, which is the only axis a table can
+    // differentiate a special on without new engine mechanisms.
+
+    // **NEUTRAL — `grapeshot`.** A pistol at the hip, and the recoil that comes
+    // with firing one from a standing start. The volume is short and wide; the
+    // admiral is thrown BACKWARD out of it, which is a real spacing tool and a
+    // real way to remove yourself from the stage.
+    let mut neutral_b = strike(
+        "grapeshot",
+        "special",
+        0.14,
+        0.06,
+        0.24,
+        (38.0, -4.0),
+        (30.0, 16.0),
+        9,
+        120.0,
+        1.90,
+        Some((0.85, -0.55)),
+        None,
+    );
+    neutral_b.gates = either_posture();
+    // ⭐ **negative side, and that sign is the whole move.** The catalog reads
+    // this as a route with `lift_side < 0` — a displacement that carries its
+    // owner AWAY from whatever it is facing. A recovery search will happily
+    // propose it and the kernel will decline it every time it is thrown toward
+    // the stage, which is the correct outcome and needs no rule anywhere.
+    let neutral_b = impulse(neutral_b, 0.14, (-560.0, -120.0), ImpulseMode::Set);
+    let neutral_b = sfx(neutral_b, 0.0, "player.attack.charge");
+    let neutral_b = sfx(neutral_b, 0.14, "player.slash");
+    let neutral_b = vfx(neutral_b, 0.14, "smoke_burst");
+    let neutral_b = on_contact(neutral_b, "world.rock.hit");
+    moves.push(neutral_b);
+
+    // **SIDE — `boarding_run`.** A shoulder-first charge across the deck.
+    //
+    // ⛔ **`Add`, not `Set`, and that is the character.** It CONTRIBUTES to the
+    // admiral's own momentum, so it is longest out of a run and nearly nothing
+    // from a standstill — the opposite trade from a commanded charge. It
+    // therefore states no speed, so it advertises no route: a static reader
+    // cannot say what an additive impulse produces, and this table does not ask
+    // it to pretend.
+    let mut side_b = strike(
+        "boarding_run",
+        "special",
+        0.16,
+        0.14,
+        0.28,
+        (34.0, 0.0),
+        (26.0, 22.0),
+        13,
+        145.0,
+        2.40,
+        Some((0.9, -0.4)),
+        None,
+    );
+    side_b.gates = either_posture();
+    let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Add);
+    let side_b = committed_tail(side_b, 0.72, 0.15);
+    let side_b = sfx(side_b, 0.0, "player.attack.charge");
+    let side_b = sfx(side_b, 0.16, "player.slash");
+    let side_b = vfx(side_b, 0.16, "shockwave");
+    let side_b = on_contact(side_b, "player.robot.slash.impact.metal.gong");
+    moves.push(side_b);
+
+    // **UP — `grapple_line`. THE RECOVERY, and it is not a rise.**
+    //
+    // ⭐⭐ a boarding line thrown at the stage and hauled in. The commanded
+    // velocity is `(980, -300)`: almost all of the energy goes ACROSS, and the
+    // small against-gravity component exists to keep the admiral level while he
+    // travels rather than to climb.
+    //
+    // ⭐ **the height is the BODY's job and the distance is the MOVE's**, which
+    // is the division of labour that makes this mechanically a different
+    // recovery from a vertical Up-B rather than the same one at an angle. An
+    // admiral knocked below the lip must spend his double jump FIRST and then
+    // grapple; one knocked out level can grapple immediately. A move that
+    // supplied both halves would collapse that decision.
+    //
+    // ⛔ and it is not flight. The tail runs to `GRAPPLE_ENDS_S` with no
+    // `Cancelable` window, so the move cannot be re-pressed until it has handed
+    // back more altitude than its 20px of climb ever bought.
+    let mut up_b = strike(
+        "grapple_line",
+        "special_up",
+        GRAPPLE_AT_S,
+        0.10,
+        0.22,
+        (30.0, -10.0),
+        (28.0, 18.0),
+        8,
+        95.0,
+        1.60,
+        Some((0.7, -0.7)),
+        None,
+    );
+    up_b.gates = either_posture();
+    let up_b = impulse(
+        up_b,
+        GRAPPLE_AT_S,
+        (GRAPPLE_ACROSS, -GRAPPLE_RISE),
+        ImpulseMode::Set,
+    );
+    let up_b = committed_tail(up_b, GRAPPLE_ENDS_S, 0.0);
+    let mut up_b = up_b;
+    // Landing out of it costs, so it is a bad panic button ON the stage.
+    up_b.landing_lag_s = Some(0.18);
+    let up_b = sfx(up_b, 0.0, "player.attack.charge");
+    let up_b = sfx(up_b, GRAPPLE_AT_S, "player.robot.slash.air");
+    // ⭐ a recovery activating gets its own burst: seeing one is how the other
+    // player knows this fighter is not dead yet.
+    let up_b = vfx(up_b, GRAPPLE_AT_S, "classic_burst");
+    let up_b = on_contact(up_b, "player.hit");
+    moves.push(up_b);
+
+    // **DOWN — `heave_to`.** The anchor. It commands a FULL STOP: `(0, 0)`, a
+    // `Set` of zero.
+    //
+    // ⭐ the only move in the repo whose commanded velocity is nothing, and it is
+    // a real one — it kills the drift a launch gave you, which is what turns a
+    // read into a survivable one. ⚠ it advertises NO route (`local.1` is not
+    // negative, so the catalog's lift derivation skips it), which is correct:
+    // stopping dead in mid-air is not a way home from anywhere.
+    let mut down_b = strike(
+        "heave_to",
+        "special_down",
+        0.12,
+        0.10,
+        0.30,
+        (0.0, 22.0),
+        (30.0, 20.0),
+        10,
+        105.0,
+        1.75,
+        Some((0.0, 1.0)),
+        None,
+    );
+    down_b.gates = either_posture();
+    let down_b = impulse(down_b, 0.12, (0.0, 0.0), ImpulseMode::Set);
+    let down_b = sfx(down_b, 0.12, "player.slash");
+    let down_b = vfx(down_b, 0.12, "starburst");
+    let down_b = on_contact(down_b, "player.robot.slash.impact.metal.chink");
+    moves.push(down_b);
+
     let verbs = [
         ("attack", "jab"),
         ("attack_up", "tilt_up"),
@@ -254,6 +477,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
+        ("special", "grapeshot"),
+        ("special_forward", "boarding_run"),
+        ("special_up", "grapple_line"),
+        ("special_down", "heave_to"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -321,7 +548,243 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(moveset.verbs.len(), 11);
+        assert_eq!(moveset.verbs.len(), 15);
+    }
+
+    /// The commanded (`Set`) velocity a move states, if it states one.
+    fn commanded(set: &MovesetContract, id: &str) -> Option<(f32, f32)> {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        find(set, id).events.iter().find_map(|e| match &e.kind {
+            MoveEventKind::Impulse {
+                local,
+                mode: ImpulseMode::Set,
+            } => Some(*local),
+            _ => None,
+        })
+    }
+
+    /// **THE RECOVERY IS A CROSSING, AND THE TABLE SAYS SO IN ITS OWN NUMBERS.**
+    ///
+    /// ⭐ the one claim this fighter exists to make: its way home spends its
+    /// budget on DISTANCE, not on height. Asserting the ratio rather than the
+    /// magnitudes is what keeps this true through a retune — an admiral whose
+    /// grapple climbed more than it crossed would be George with a different
+    /// sprite, and nothing else in the tree would notice.
+    #[test]
+    fn the_grapple_crosses_further_than_it_climbs() {
+        let set = pirate_admiral_moveset();
+        let line = commanded(&set, "grapple_line").expect("the recovery displaces its owner");
+        assert!(
+            line.1 < 0.0,
+            "the burst must have an against-gravity component or no policy layer \
+             can see it at all: {line:?}"
+        );
+        assert!(
+            line.0 > 0.0,
+            "and a lateral one, or this is a vertical Up-B: {line:?}"
+        );
+        assert!(
+            line.0 > 3.0 * -line.1,
+            "the crossing must DOMINATE the climb — {}px/s across against \
+             {}px/s up. Below that ratio this fighter stops pressing the \
+             abstraction from a different direction and becomes a second George",
+            line.0,
+            -line.1
+        );
+    }
+
+    /// **THE GRAPPLE IS A CROSSING AND NOT A FLIGHT — and the arithmetic is the
+    /// reason.**
+    ///
+    /// ⭐ this is what lets the recovery exist with no cooldown, no per-airtime
+    /// counter and no new rollback state. The body cannot re-press while the move
+    /// is playing (no `Cancelable` window), so the only question is whether one
+    /// full cycle gains height. It cannot: the move outlasts its own tiny arc, so
+    /// by the time the admiral may press again he has fallen back through
+    /// everything the rise bought and then some.
+    ///
+    /// ⛔ the failure this forbids is silent and total — shorten the tail and
+    /// spamming the grapple becomes hovering, which ends a platform fighter.
+    #[test]
+    fn the_grapple_is_a_crossing_and_not_a_flight() {
+        let g = ambition_platformer2d::engine_core::DEFAULT_TUNING.gravity;
+        let to_apex = GRAPPLE_RISE / g;
+        let tail = GRAPPLE_ENDS_S - GRAPPLE_AT_S;
+        assert!(
+            tail > 2.0 * to_apex,
+            "the line climbs for {to_apex:.3}s and is handed back {tail:.3}s after \
+             it catches; anything at or under {:.3}s returns the admiral higher \
+             than it found him, every press, which is flight",
+            2.0 * to_apex
+        );
+        // Landing out of it costs, so it is a bad panic button ON the stage.
+        assert!(
+            find(&pirate_admiral_moveset(), "grapple_line")
+                .landing_lag_s
+                .unwrap_or(0.0)
+                > 0.0
+        );
+    }
+
+    /// ⭐⭐ **THE POISON, AUTHORED: A TINY UPWARD ATTACK OUTRANKS THE RECOVERY ON
+    /// THE SCALAR, AND MUST NOT BE THE RECOVERY.**
+    ///
+    /// ⛔⛔ this is the trap the engine used to fall into, reproduced in real
+    /// content rather than in a fixture: `air_up` commands a LARGER
+    /// against-gravity speed than `grapple_line` does, because the grapple spent
+    /// its budget going sideways. A policy layer that ranks a kit by
+    /// `lift_speed` and takes the winner therefore picks a 7-damage juggle
+    /// aerial as the admiral's way home — and the CPU throws it at the blastzone
+    /// while the move that gets him back sits unexplored.
+    ///
+    /// ⭐ **this test asserts the SETUP, not the fix.** The fix lives in
+    /// `RecoveryLens::best_route`, which searches every route instead of ranking
+    /// them, and it is pinned there
+    /// (`a_tiny_lifting_move_does_not_suppress_a_viable_recovery`). What is
+    /// pinned HERE is that the setup is real — that this table genuinely
+    /// contains a kit where the scalar ordering and the useful ordering
+    /// disagree. If a retune ever makes them agree, that fixture stops standing
+    /// for anything and this test says so.
+    #[test]
+    fn the_juggle_aerial_outranks_the_recovery_on_lift_speed() {
+        let set = pirate_admiral_moveset();
+        let aerial = find(&set, "air_up").frame_data();
+        let line = find(&set, "grapple_line").frame_data();
+
+        assert!(
+            aerial.lift_speed > 0.0,
+            "the juggle aerial must really command a rise, or there is no trap here"
+        );
+        assert!(
+            aerial.lift_speed > line.lift_speed,
+            "the trap needs the USELESS move to sort FIRST: {} vs {}",
+            aerial.lift_speed,
+            line.lift_speed
+        );
+        assert!(
+            line.lift_side > aerial.lift_side,
+            "and the recovery's advantage must live entirely in the half the \
+             scalar discards: {} vs {}",
+            line.lift_side,
+            aerial.lift_side
+        );
+        // ⛔ and the aerial is genuinely not a way home: it goes nowhere sideways.
+        assert_eq!(aerial.lift_side, 0.0);
+    }
+
+    /// **FOUR SPECIALS, FOUR MECHANISMS.**
+    ///
+    /// ⛔ four rotations of one strike would be a re-skin, so the assertion is
+    /// about what each does to the ADMIRAL: one commands a retreat, one
+    /// contributes to his own momentum, one commands a diagonal haul, and one
+    /// commands a full stop. No two share a mechanism.
+    ///
+    /// ⭐ and three of the four exercise a different corner of the catalog's
+    /// route derivation — a negative side, an `Add` that states nothing, and a
+    /// `Set` of zero — which is how this table doubles as the derivation's
+    /// content-level falsifier.
+    #[test]
+    fn the_four_specials_are_four_different_mechanisms() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        let set = pirate_admiral_moveset();
+
+        // Neutral: a recoil. Commanded, and it points BACKWARD.
+        let shot = commanded(&set, "grapeshot").expect("the pistol shoves its owner");
+        assert!(shot.0 < 0.0 && shot.1 < 0.0);
+
+        // Side: additive travel, so it commands nothing and advertises no route.
+        assert!(
+            commanded(&set, "boarding_run").is_none(),
+            "the charge must ADD to the admiral's momentum, not replace it"
+        );
+        assert!(
+            find(&set, "boarding_run").events.iter().any(|e| matches!(
+                &e.kind,
+                MoveEventKind::Impulse {
+                    mode: ImpulseMode::Add,
+                    ..
+                }
+            )),
+            "…and it must still displace him"
+        );
+        assert_eq!(find(&set, "boarding_run").frame_data().lift_speed, 0.0);
+        assert!(
+            find(&set, "boarding_run")
+                .windows
+                .iter()
+                .any(|w| matches!(w.tag, WindowTag::Recovery) && w.motion_scale < 1.0),
+            "a charge you can steer freely out of is not a commitment"
+        );
+
+        // Up: the crossing. Both components, and the lateral one dominates.
+        let line = commanded(&set, "grapple_line").expect("the recovery displaces");
+        assert!(line.0 > 0.0 && line.1 < 0.0);
+
+        // Down: a full stop, which is a commanded velocity of nothing.
+        assert_eq!(commanded(&set, "heave_to"), Some((0.0, 0.0)));
+        assert_eq!(
+            find(&set, "heave_to").frame_data().lift_speed,
+            0.0,
+            "stopping dead in mid-air is not a way home from anywhere"
+        );
+    }
+
+    /// **EVERY IMPORTANT MOVE IS HEARD AND SEEN.**
+    ///
+    /// ⚠ **the vfx ids are checked against the ENGINE's vocabulary**, which is
+    /// what `MoveSpec::presentation_problems` does at startup — a typo there is a
+    /// refused load, and a typo here would be a move that plays nothing. So this
+    /// asserts membership rather than spelling.
+    #[test]
+    fn the_specials_and_the_juggle_carry_their_own_feedback() {
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+        let set = pirate_admiral_moveset();
+        for id in [
+            "grapeshot",
+            "boarding_run",
+            "grapple_line",
+            "heave_to",
+            "air_up",
+        ] {
+            let m = find(&set, id);
+            assert!(
+                m.events
+                    .iter()
+                    .any(|e| matches!(&e.kind, MoveEventKind::Sfx { .. })),
+                "`{id}` makes no sound"
+            );
+            assert!(
+                m.events.iter().any(|e| match &e.kind {
+                    MoveEventKind::Vfx { effect } => {
+                        assert!(
+                            ambition_platformer2d::vfx::move_vfx_kind(effect).is_some(),
+                            "`{id}` names vfx `{effect}`, which the engine's \
+                             vocabulary does not contain — this is a refused load"
+                        );
+                        true
+                    }
+                    _ => false,
+                }),
+                "`{id}` shows nothing"
+            );
+            assert!(
+                m.windows
+                    .iter()
+                    .flat_map(|w| w.volumes.iter())
+                    .any(|v| v.hit_sfx.is_some()),
+                "`{id}` lands silently"
+            );
+        }
+
+        // ⛔ poison: the ordinary swings are NOT dressed up. A table where every
+        // move flashed would satisfy the loop above and differentiate nothing.
+        let jab = find(&set, "jab");
+        assert!(
+            !jab.events
+                .iter()
+                .any(|e| matches!(&e.kind, MoveEventKind::Vfx { .. })),
+            "a jab that bursts makes the specials look like nothing"
+        );
     }
 
     /// **Three tables, three fighters, one ORDERING** — and it is checked against

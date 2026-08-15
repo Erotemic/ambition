@@ -21,12 +21,31 @@ symlink, while every other asset still points at the shared copy — and the mai
 checkout never sees it. Directory links would send that write straight into
 main's assets, which is exactly the accident this exists to prevent.
 
+## ⛔ Submodules are NOT gitignored assets, and this used to skip them
+
+A fresh worktree gets EMPTY submodule directories, and one of them is not art:
+`game/ambition_map_assets` holds every `.ldtk` world. The files under
+`game/*/assets/worlds/` are symlinks into it, so an uninitialised submodule makes
+them dangling links and any authoring or validation work dies at minute one on a
+raw `FileNotFoundError` naming a path that visibly exists. That is a worse
+failure than a missing sprite: nothing about the traceback says "submodule".
+
+So this initialises them first. ⚠ **it is not a mirror** — a submodule is real
+version-controlled content with its own commits, and linking a worktree's
+submodule at the main checkout's would put an edit made here into main's index.
+`git submodule update --init` gives the worktree its own checkout, which is what
+a worktree is for.
+
 ## Usage
 
     python scripts/mirror_assets_for_worktree.py              # mirror into cwd's worktree
     python scripts/mirror_assets_for_worktree.py --dry-run
     python scripts/mirror_assets_for_worktree.py --prune      # drop links whose target is gone
     python scripts/mirror_assets_for_worktree.py --force      # re-link even local real files
+    python scripts/mirror_assets_for_worktree.py --no-submodules   # assets only
+
+It takes NO path argument and is run FROM INSIDE the worktree; it finds the
+primary checkout itself.
 
 Local real files are LEFT ALONE without `--force`: a file you generated here
 outranks the shared one, always, and silently reverting it would undo work.
@@ -66,6 +85,70 @@ MIRRORED_TREES = (
     "game/ambition_content/assets/icons",
     "game/ambition_content/assets/manual-art",
 )
+
+
+# Submodules a worktree needs CHECKED OUT rather than mirrored, with the reason
+# a worker will hit if they are not. ⚠ these are ordinary git content, not
+# generated assets: `git submodule update --init` gives the worktree its own
+# checkout, and symlinking them at main's would route an edit made here into
+# main's index.
+REQUIRED_SUBMODULES = (
+    (
+        "game/ambition_map_assets",
+        "every .ldtk world — `game/*/assets/worlds/*.ldtk` are symlinks into it, "
+        "so without this any LDtk read fails with a bare FileNotFoundError on a "
+        "path that looks like it exists",
+    ),
+)
+
+
+def submodule_is_populated(root: Path, rel: str) -> bool:
+    """A submodule directory that git has actually checked out.
+
+    ⚠ the directory always EXISTS in a fresh worktree — it is just empty, which is
+    exactly why the failure is illegible. `.git` (a file, for a submodule) is the
+    thing that only appears once it is initialised.
+    """
+    return (root / rel / ".git").exists()
+
+
+def init_submodules(root: Path, dry_run: bool) -> list[str]:
+    """Check out the submodules a worktree cannot work without.
+
+    Returns human-readable problems; an empty list means everything needed is
+    present. ⛔ **a failure here is REPORTED, never swallowed** — the whole reason
+    this exists is that the downstream symptom (a dangling symlink) says nothing
+    about its cause, and a mirror script that quietly failed to fix it would just
+    move the illegibility one step earlier.
+    """
+    problems: list[str] = []
+    for rel, why in REQUIRED_SUBMODULES:
+        if submodule_is_populated(root, rel):
+            print(f"  {rel}: already checked out")
+            continue
+        if dry_run:
+            print(f"  {rel}: would `git submodule update --init` ({why})")
+            continue
+        print(f"  {rel}: initialising — {why}")
+        result = subprocess.run(
+            ["git", "submodule", "update", "--init", rel],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 or not submodule_is_populated(root, rel):
+            detail = (result.stderr or result.stdout or "").strip().splitlines()
+            problems.append(
+                f"{rel} could not be checked out: {detail[-1] if detail else 'unknown error'}\n"
+                f"      it holds {why}.\n"
+                f"      Fix it by hand from the worktree root:\n"
+                f"        git submodule update --init {rel}\n"
+                f"      If that cannot reach the network, copy it from the primary "
+                f"checkout instead — but do NOT symlink it: a submodule is "
+                f"version-controlled content and a link would send edits made here "
+                f"into the main checkout's index."
+            )
+    return problems
 
 
 def main_checkout(here: Path) -> Path:
@@ -156,6 +239,11 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument(
         "--prune", action="store_true", help="also drop links whose target is gone"
     )
+    parser.add_argument(
+        "--no-submodules",
+        action="store_true",
+        help="skip the submodule checkout and mirror generated assets only",
+    )
     args = parser.parse_args(argv)
 
     here = Path.cwd()
@@ -168,6 +256,13 @@ def main(argv: List[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    # ⭐ **submodules FIRST.** A worker's first LDtk command is what discovers
+    # this gap today, and it discovers it as a traceback rather than as advice.
+    submodule_problems: list[str] = []
+    if not args.no_submodules:
+        print("checking out submodules this worktree needs")
+        submodule_problems = init_submodules(dest, args.dry_run)
 
     print(f"mirroring generated assets\n  from {source}\n  into {dest}")
     total_linked = total_kept = total_replaced = total_pruned = 0
@@ -193,6 +288,16 @@ def main(argv: List[str] | None = None) -> int:
     )
     if total_kept and not args.force:
         print("  (local files outrank the shared copy — pass --force to overwrite)")
+
+    if submodule_problems:
+        print(
+            "\n⛔ this worktree is NOT ready — a submodule it needs is not checked "
+            "out:",
+            file=sys.stderr,
+        )
+        for problem in submodule_problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
     return 0
 
 

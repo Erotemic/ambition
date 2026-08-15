@@ -20,6 +20,11 @@
 //!   caller's [`WorldManifest`] — there is no ambient one.
 //! - `conversion` — LDtk → Ambition runtime conversion
 //!   ([`LdtkProject::to_room_set`], `entity_to_runtime`).
+//! - `contract` — the AUTHORING contract those converters enforce, as one
+//!   data file the Python authoring loop reads too
+//!   ([`contract::contract`], `ldtk_entity_contract.json`). Its `prover`
+//!   asserts every claim against the real converters in both directions, so
+//!   the two languages cannot drift.
 //! - `bevy_runtime` — bevy_ecs_ldtk plugin glue + runtime-spine
 //!   indexing.
 //! - `hot_reload` — file-watch + transactional reload state.
@@ -34,6 +39,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use ambition_platformer2d_core as ae;
 
 pub mod bevy_runtime;
+pub mod contract;
 mod conversion;
 mod fields;
 mod hot_reload;

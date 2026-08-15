@@ -59,9 +59,11 @@ The tool:
    internal constructor, `allowedRefs`, `realEditorValues`, etc.) so
    the resulting file passes both Ambition validation and the
    official LDtk JSON schema.
-4. Adds the identifier to `ambition_ldtk_tools validate`'s
-   `KNOWN_ENTITIES` set on disk so the validator stops complaining
-   about an "unsupported" identifier.
+4. Declares the identifier in the LDtk AUTHORING CONTRACT
+   (`crates/ambition_platformer2d_ldtk/ldtk_entity_contract.json`) so the
+   validator stops calling it "unsupported". Field RULES are not written
+   there — the converter does not exist yet, and the Rust prover would
+   catch any guess.
 5. Adds the identifier to `bevy_runtime.rs`'s
    `AMBITION_LDTK_ENTITY_IDENTIFIERS` so `bevy_ecs_ldtk` registers a
    marker bundle for the new entity.
@@ -78,13 +80,20 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
+from ambition_ldtk_tools.ldtk.paths import (  # noqa: E402
+    default_entity_contract,
+    default_sandbox_ldtk,
+)
 
 # tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/defs.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PKG_DIR = Path(__file__).resolve().parents[1]
 SANDBOX_LDTK = default_sandbox_ldtk()
 VALIDATOR = PKG_DIR / "validate.py"
+# The LDtk authoring contract — the single table the validator reads and the Rust
+# `contract::prover` proves. `default_entity_contract` owns the path so this file
+# does not become the next stale hardcoded consumer (see the note below).
+ENTITY_CONTRACT = default_entity_contract()
 # ⛔ **this path was three renames stale and the tool DIED on it.** It pointed
 # into `ambition_platformer2d_actor_monolith/src/world/ldtk_world/`, a tree that
 # has not existed since the LDtk code moved to its own crate — so
@@ -355,32 +364,43 @@ def build_entity_def(spec: dict, project: dict) -> dict:
 
 
 def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
-    """Add `identifiers` to `ambition_ldtk_tools validate`'s `KNOWN_ENTITIES` set.
+    """Declare `identifiers` in the LDtk AUTHORING CONTRACT.
 
-    Returns the names that were actually added (sorted) so the caller
-    can report.
+    ⛔ **this used to regex a literal `KNOWN_ENTITIES` set inside `validate.py`,
+    and that set was the second authority.** It had already drifted — `SurfaceRamp`
+    was registered in `standard_converters()` and absent there, so the validator
+    called the engine's own fillet unsupported. The validator now reads
+    `crates/ambition_platformer2d_ldtk/ldtk_entity_contract.json`, which the Rust
+    `contract::prover` pins against the converter registry in both directions, so
+    this writes there instead.
+
+    ⚠ **a bare entry declares the identifier and NO field rules**, which is the
+    truthful thing to write: `register-entity` runs before any converter exists,
+    and the tool cannot know what the parser will refuse. Fill the `fields` list in
+    when the converter lands — the prover will tell you the moment a claim there is
+    not true.
+
+    Returns the names that were actually added (sorted) so the caller can report.
     """
-    text = VALIDATOR.read_text()
-    match = re.search(r"KNOWN_ENTITIES = \{\s*([^}]+?)\}", text, flags=re.DOTALL)
-    if not match:
-        raise SystemExit(
-            "could not find KNOWN_ENTITIES in ambition_ldtk_tools validate"
-        )
-    block = match.group(1)
-    existing = set(re.findall(r'"([^"]+)"', block))
-    additions = [name for name in identifiers if name not in existing]
+    document = json.loads(ENTITY_CONTRACT.read_text())
+    existing = {entity["identifier"] for entity in document["entities"]}
+    additions = sorted({name for name in identifiers if name not in existing})
     if not additions:
         return []
-    new_set = sorted(existing | set(additions))
-    rendered = "    " + ",\n    ".join(f'"{name}"' for name in new_set) + ",\n"
-    new_text = (
-        text[: match.start()]
-        + "KNOWN_ENTITIES = {\n"
-        + rendered
-        + "}"
-        + text[match.end() :]
-    )
-    VALIDATOR.write_text(new_text)
+    for name in additions:
+        document["entities"].append(
+            {
+                "identifier": name,
+                "probe_size": [16, 16],
+                "note": (
+                    "declared by `def register-entity`; its field rules are not "
+                    "written yet — add them as the converter grows refusals"
+                ),
+                "fields": [],
+            }
+        )
+    document["entities"].sort(key=lambda entity: entity["identifier"])
+    ENTITY_CONTRACT.write_text(json.dumps(document, indent=2) + "\n")
     return additions
 
 
@@ -500,9 +520,12 @@ def main(argv=None) -> int:
 
     if not args.no_source_patch:
         # ⛔ **A GAME'S NOUN MUST NOT JOIN THE ENGINE'S VOCABULARY.**
-        # `KNOWN_ENTITIES` is checked two ways — every project must define ALL of
-        # it, and no instance may fall outside it — so adding `MaryOBlock` there
-        # forced every OTHER world to define a block only Mary-O has.
+        # The authoring contract is checked two ways — every project is expected
+        # to DEFINE all of it, and no instance may fall outside it — so adding
+        # `MaryOBlock` there would push a block only Mary-O has onto every other
+        # world. It is also the list the Rust prover pins against
+        # `standard_converters()`, so a game entity in it makes the engine claim a
+        # vocabulary it cannot convert.
         # `AMBITION_LDTK_ENTITY_IDENTIFIERS` mirrors `standard_converters()` with
         # a test pinning them equal, so a game entity there makes the engine claim
         # a vocabulary it cannot convert. A game registers its own through

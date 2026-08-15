@@ -84,7 +84,10 @@ lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
   command, run FROM INSIDE the worktree:
   `python3 scripts/mirror_assets_for_worktree.py`** — it symlinks them file by
   file, so a regenerated asset lands as a real file in the worktree instead of
-  writing back into the main checkout. Full rules:
+  writing back into the main checkout, and it checks out
+  `game/ambition_map_assets` first (every `.ldtk` world is a symlink into that
+  submodule, so an uninitialised one turns any authoring command into a bare
+  `FileNotFoundError` on a path that visibly exists). Full rules:
   `docs/recipes/adding-an-asset.md`.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
@@ -329,10 +332,12 @@ the machinery the next section forbids.
 Read
 [`docs/recipes/coordinator-and-worker-sessions.md`](docs/recipes/coordinator-and-worker-sessions.md)
 before spawning workers. ⛔⛔ **most importantly: a fresh worktree has NO
-generated assets, and `scripts/mirror_assets_for_worktree.py` is the fix** — an
-assetless worktree compiles a binary with an empty sheet table and fails ~40
-tests for reasons that have nothing to do with the change under test. Coordinators
-keep rediscovering that the expensive way.
+generated assets and NO submodules, and `scripts/mirror_assets_for_worktree.py`
+is the fix for both** — an assetless worktree compiles a binary with an empty
+sheet table and fails ~40 tests for reasons that have nothing to do with the
+change under test, and an uninitialised `game/ambition_map_assets` makes every
+`.ldtk` path a dangling symlink. Coordinators keep rediscovering that the
+expensive way.
 
 ## Avoid bullshit guardrails
 

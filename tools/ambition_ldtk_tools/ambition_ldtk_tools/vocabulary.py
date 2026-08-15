@@ -55,6 +55,10 @@ from ambition_ldtk_tools.ldtk import (
     load_project,
 )
 from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk
+from ambition_ldtk_tools.validate_rules.entity_contract import (
+    ContractUnavailable,
+    entity_contracts,
+)
 
 # A field whose value is one of these is "not authored". `None` is an absent or
 # nulled field; the empty string is what the editor leaves behind when a value
@@ -185,19 +189,61 @@ def _observed_line(counter: Counter, limit: int = 8) -> str:
 # `vocabulary list`
 
 
+def _contract_index() -> dict[str, dict[str, dict[str, Any]]]:
+    """`{identifier: {field: rule}}` from the engine's authoring contract.
+
+    ⭐ **this is the half the census could never supply.** A census answers "what
+    does this world already say", which is a strong hint and explicitly not a
+    specification. The contract answers "what will the converter accept" — and it
+    is not a restatement of the Rust, it is the table the Rust `contract::prover`
+    runs against the real converters. So `list` can finally print that
+    `EnemySpawn.character_id` is REQUIRED, that `respawn` is a closed set, and
+    that an unrecognised `brain` is a provider extension rather than a typo.
+
+    ⚠ absent contract = the grammar column is simply missing. A game's own nouns
+    (`MaryOBlock`) are not in the engine's contract and never will be.
+    """
+    try:
+        return {
+            identifier: {field["name"]: field for field in entity.get("fields") or []}
+            for identifier, entity in entity_contracts().items()
+        }
+    except ContractUnavailable:
+        return {}
+
+
+def _contract_grammar(rule: dict[str, Any]) -> str | None:
+    """The one line an author needs: what may I write here."""
+    parts = list(rule.get("values") or [])
+    parts.extend(rule.get("patterns") or [])
+    if rule.get("min_points"):
+        parts.append(f"at least {rule['min_points']} `x,y` points")
+    if rule.get("positive"):
+        parts.append("a positive number")
+    if rule.get("nonzero"):
+        parts.append("a non-zero number")
+    if rule.get("entity_ref_target"):
+        scope = "the same active area" if rule.get("entity_ref_scope") == "active_area" else "this world"
+        parts.append(f"an EntityRef at a {rule['entity_ref_target']} in {scope}")
+    return " | ".join(parts) if parts else None
+
+
 def build_listing(project: dict[str, Any], ldtk: Path, identifier: str | None) -> list[dict]:
     docs = _sidecar_docs(ldtk)
     census = _census(project)
+    contracts = _contract_index()
     rows = []
     for entity_def in entity_defs(project):
         ident = entity_def.get("identifier")
         if identifier and ident != identifier:
             continue
         seen = census.get(ident, {"count": 0, "fields": {}, "authored": {}})
+        rules = contracts.get(ident, {})
         fields = []
         for field_def in entity_def.get("fieldDefs", []) or []:
             name = field_def.get("identifier")
             counter = seen["fields"].get(name, Counter())
+            rule = rules.get(name)
             fields.append(
                 {
                     "name": name,
@@ -206,6 +252,10 @@ def build_listing(project: dict[str, Any], ldtk: Path, identifier: str | None) -
                     "enum": _enum_values(project, field_def),
                     "authored_by": seen["authored"].get(name, 0),
                     "observed": dict(counter),
+                    "presence": (rule or {}).get("presence", "optional") if rule else None,
+                    "grammar": _contract_grammar(rule) if rule else None,
+                    "on_invalid": (rule or {}).get("on_invalid") if rule else None,
+                    "contract_note": (rule or {}).get("note") if rule else None,
                 }
             )
         rows.append(
@@ -238,11 +288,35 @@ def format_listing(rows: list[dict], *, verbose_docs: bool) -> str:
                 lines.append(f"    | {para}")
         for field in row["fields"]:
             head = f"    {field['name']:<16} {field['type']}"
+            if field.get("presence") == "required":
+                head += "  REQUIRED"
+            elif field.get("presence") == "recommended":
+                head += "  recommended"
             if field["default"] not in (None, ""):
                 head += f"  default={field['default']!r}"
             lines.append(head)
             if field["enum"]:
                 lines.append(f"        one of: {' | '.join(field['enum'])}")
+            # ⭐ the contract's grammar, which is what the CONVERTER accepts —
+            # the census below it is only what this world happens to say.
+            if field.get("grammar"):
+                lines.append(f"        contract: {field['grammar']}")
+            if field.get("on_invalid") == "silent_default":
+                lines.append(
+                    "        ⚠ anything else is NOT refused — it silently becomes "
+                    "a fixed default, so a typo here is invisible in play"
+                )
+            elif field.get("on_invalid") == "open" and field.get("grammar"):
+                # ⚠ only worth saying when there IS a list to be outside of. A
+                # field with no grammar at all (`Prop.kind`, `character_id`) has
+                # nothing to extend, and printing this there reads as though the
+                # engine knows values it does not.
+                lines.append(
+                    "        ⓘ an unlisted value is an EXTENSION, not an error — "
+                    "providers match on it"
+                )
+            if field.get("contract_note"):
+                lines.append(f"        | {field['contract_note']}")
             if field["observed"]:
                 lines.append(
                     f"        authored by {field['authored_by']}/{row['instances']}: "

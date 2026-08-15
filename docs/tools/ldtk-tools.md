@@ -105,6 +105,55 @@ Both validators enforce this identically: `ambition_ldtk_tools validate` for
 authoring, and `LdtkProject::validate` at load.
 
 
+## ⭐ The authoring contract — what the converter will refuse
+
+`crates/ambition_platformer2d_ldtk/ldtk_entity_contract.json` is the single table
+of every rule the LDtk converters enforce: which fields are REQUIRED, which
+closed sets a value must come from, which fields conflict, and what happens to a
+value nobody recognises. **Both languages read that one file.**
+
+- `contract::prover` (Rust, `cargo test -p ambition_platformer2d_ldtk contract`)
+  builds each entity from the table, runs the real `entity_to_runtime`, and
+  asserts every claim **in both directions**. A required field whose removal does
+  not fail the converter is a test failure; so is an entity that fails to convert
+  when only its declared-required fields are present.
+- `validate_rules/entity_contract.py` enforces the same table with no cargo in
+  sight, which is the point: **an agent without a build lease cannot otherwise
+  discover any of it.** `mary_o_1_3` was authored through `area create` +
+  `repair` + `validate` — three affirmative OKs — with six `EnemySpawn` entities
+  carrying no `character_id`, which the converter refuses.
+
+Adding a required field is one parser change plus one edit in that JSON. ⛔ **do
+not add a second list in Python** — that is the same defect one layer up.
+
+### The three dispositions, and why one makes authoring stricter than the runtime
+
+Each field declares what the RUNTIME does with a value its grammar rejects:
+
+| `on_invalid` | the converter | `validate` |
+| --- | --- | --- |
+| `refused` | returns `Err` | error |
+| `open` | falls through to a real extension point with real consumers (`CharacterBrain::Custom("mary_o_snake")`, a `PropRegistry` id) | **silent** |
+| `silent_default` | accepts it and quietly substitutes a fixed value | **error anyway** |
+
+⛔ `silent_default` is deliberately stricter in authoring than at runtime.
+Nothing consumes the misspelt string, so it can only ever be a typo:
+`activation: "edgeexit"` is a Door, and `currancy:1` is a pickup that vanishes on
+touch and grants nothing because `collect_pickups` has no `Custom` arm. Neither
+is visible in play.
+
+### Discovering the grammar
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools vocabulary \
+  --ldtk game/ambition_content/assets/worlds/sandbox.ldtk list --identifier EnemySpawn
+```
+
+`vocabulary list` now prints the contract's grammar beside the census of what the
+world already authors — `REQUIRED`, the legal set, and whether an unlisted value
+is an extension or an invisible typo.
+
+
 ## World auto-layout
 
 For non-GridVania sandbox worlds, use `world auto-layout` to reduce editor

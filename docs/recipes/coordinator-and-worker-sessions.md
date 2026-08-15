@@ -36,13 +36,13 @@ no-compile workers cheap, and it is the property a worktree gives up.
 `abilities` field"* told a worker its whole route did not exist, hours before its
 handback would have.
 
-## ⛔⛔ A fresh worktree has NO generated assets — mirror them
+## ⛔⛔ A fresh worktree has NO generated assets and NO submodules — one command fixes both
 
 ```sh
 # RUN IT FROM INSIDE THE WORKTREE — it mirrors into the cwd's worktree and
 # finds the primary checkout itself. It takes no path argument.
 python3 scripts/mirror_assets_for_worktree.py
-python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would link
+python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would do
 ```
 
 Generated art/audio/packs are gitignored, so a fresh `git worktree` has none.
@@ -51,6 +51,15 @@ assetless worktree compiles a binary with an EMPTY sheet table** — around fort
 tests then fail for reasons unrelated to the change under test. The script
 symlinks **file by file** on purpose, so a regenerated sprite lands as a real file
 in the worktree instead of writing back into the main checkout.
+
+⚠ **and it now checks out `game/ambition_map_assets` first, which it did not
+before.** That submodule holds every `.ldtk` world, and the files under
+`game/*/assets/worlds/` are symlinks into it — so an uninitialised submodule makes
+them dangling links and any LDtk work dies at minute one on a bare
+`FileNotFoundError` naming a path that visibly exists. Nothing in that traceback
+says "submodule". A submodule is **checked out, never mirrored**: it is
+version-controlled content, and a symlink would route an edit made in the worktree
+into the main checkout's index.
 
 ⇒ **run it, and authored-content work can go to a worktree too.**
 

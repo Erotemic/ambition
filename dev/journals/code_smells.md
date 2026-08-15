@@ -22,6 +22,41 @@ Entry format:
 
 ## Open
 
+## 2026-08-15 Three LDtk fields are AUTHORED and never read, and one action is authored and never handled
+- **Where:** `CameraZone.mode` (54 instances), `EnemySpawn.path_id` (declared, 60
+  nulls), `Switch.action = "ToggleFlag"` (1 instance)
+- **Smell:** measured while building the LDtk authoring contract, by censusing
+  every field value in all six worlds against the converters that read them.
+  `convert_camera_zone` never reads `mode` (the only `take("mode")` is a LEVEL
+  field in `project.rs`); `convert_enemy_spawn` reads `path_ref`, never
+  `path_id`, so the field is a leftover of the retired string convention; and
+  `encounter/systems.rs` handles `ResetEncounter` / `FlipGravity` /
+  `SetGravity{Up,Down,Left,Right}` and nothing else, so the one authored
+  `ToggleFlag` switch is a switch that does nothing. All three are the same shape
+  as the defect the contract was built for — an authored intent with no consumer
+  and no diagnostic — but the contract deliberately describes what the CONVERTER
+  refuses, and "nobody reads this" is a different claim it cannot prove.
+- **Noticed while:** making the Python authoring loop unable to report green on
+  content the Rust converter refuses.
+- **Suggested fix / size:** an `"presence": "ignored"` disposition would need a
+  way to PROVE a field is unread, which a converter probe cannot do (removing it
+  changes nothing, which is exactly the observation). Cheapest honest fix is to
+  delete the three field defs and the dead `ToggleFlag`, or wire the consumer. S
+  each, but each is a content edit across `.ldtk` files in the map-assets
+  submodule.
+
+## 2026-08-15 The `EnemySpawn` entity def's own `doc` still advertises the retired `Patrol:` spelling
+- **Where:** `defs.entities[EnemySpawn].doc` in every world — *"brain examples:
+  Passive, Patrol:<path>, Guard:<radius>"*
+- **Smell:** `convert_enemy_spawn` REFUSES a `Patrol:` brain out loud and tells
+  the author to use `path_ref`. The editor tooltip an author reads first still
+  recommends it. `vocabulary list` prints that doc directly above the contract
+  line that contradicts it.
+- **Noticed while:** wiring the authoring contract into `vocabulary list`.
+- **Suggested fix / size:** S — a `def upsert-entity` pass over the six worlds,
+  but it edits `.ldtk` files in the map-assets submodule and wants the EntityRef
+  count checked before and after.
+
 ## 2026-07-26 `.cargo/config.toml` hardcodes one user's home as the target dir
 - **Where:** `.cargo/config.toml` — `[build] target-dir = "/home/joncrall/ambition-target"`.
 - **Smell:** committed build config names an absolute path inside one specific user's home. Anyone building as a different user gets `error: Permission denied (os error 13) at path "/home/joncrall/ambition-targetXXXXXX"` and cannot compile at all — hit here as the `agent` user, where `/home/joncrall` is `root:root drwxr-xr-x` while the checkout itself is agent-owned. The *reason* for an out-of-tree target dir is sound and well documented in the file (virtiofs share vs local disk; identical path string resolving to distinct filesystems keeps VM and host fingerprints from fragmenting) — it is only the hardcoded username that doesn't travel. Same class as the `/data/audio-tools` paths in the music scores: a machine-shaped constant committed as if it were a project constant.

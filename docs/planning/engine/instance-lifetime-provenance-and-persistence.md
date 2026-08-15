@@ -140,6 +140,46 @@ slice needed no memory of the destination — and exactly what will not survive
 participants occupying different rooms simultaneously, which needs keyed,
 explicit ownership.
 
+### ✔ First leg landed 2026-08-15 — and the shape it chose is the part to keep
+
+A rebuilt room now asks **what became of the occurrence it minted last time**.
+
+⭐⭐ **the question is a DISPOSITION, not a liveness probe.**
+`OccurrenceDisposition::{Authored (default), Persisting, Consumed}` — and
+construction retains only requests whose disposition `authors_a_fresh_occurrence()`.
+⛔ *"is something with this id alive?"* would have been the tempting phrasing and
+the wrong one: it answers today's custody case and has nowhere to put permanent
+destruction, deliberate respawn, or a persistent actor that simply moved.
+
+⭐ **`Consumed` is spelled and read but has NO PRODUCER yet, deliberately.** That
+reserves the honest slot for permanent destruction and makes **ephemeral /
+resettable the DEFAULT** rather than a special case — so the terminal cases named
+above have somewhere to land instead of being retrofitted.
+
+⭐ **the authority is STATED, including stating `None`.** Construction gained
+`occurrences: Option<&AuthoredOccurrences>` under the same contract the cast and
+brain policies already use, so a seventh construction road cannot silently forget
+it. ⛔ **that is the pattern; an implicit default is how the eighth road gets
+missed.**
+
+✔ **deleted with it:** an 84-line `RoomConstructionPlan::prepare(&World, ..)` with
+**zero callers** — itself a road an added authority would have been forgotten on —
+and `RoomConstructionError::MissingService`, its only raiser.
+
+⚠ **two risks carried forward, both recorded rather than fixed:**
+
+- **`SimId::placement(id)` is a GLOBAL namespace whose uniqueness is only checked
+  PER ROOM.** Pre-existing, and now load-bearing: two rooms authoring the same
+  placement id would suppress both.
+- **the ledger is not experience-scoped**, so a suppressed row can survive into a
+  new session. Every consumer treats absence as *"author it"*, so the failure mode
+  is a stale suppression, not a stale spawn.
+
+⚠ **and a defect its own test found:** a **carried object survives a reset**. The
+first test to actually *execute* a reset contradicted a sibling that asserted the
+scope component was present and **inferred** the sweep consequence in prose.
+⛔ an inferred consequence is not a checked one.
+
 ## Candidate crate / Bevy shape
 
 Do not immediately invent one `UniversalInstanceId`. Domain-specific instance IDs

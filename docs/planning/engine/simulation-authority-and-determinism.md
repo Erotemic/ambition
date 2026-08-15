@@ -94,7 +94,50 @@ which is more useful than either a green or a redesign:
   crates in the workspace may: `ambition_platformer2d_runtime` and
   `game/ambition_app`.
 
-⛔⛔ **THAT CONCLUSION IS REOPENED (2026-08-15) — it does not survive review.**
+✔✔ **RESOLVED 2026-08-15: THE SHAPE WORKS, AND THE EARLIER CONCLUSION WAS
+WRONG.** A domain now registers its own rollback state without any netcode
+dependency, and the generic runtime no longer names it.
+
+`RollbackRegistrar` lives in `ambition_platformer2d_core::snapshot` and depends on
+**`bevy_ecs` only** — no `bevy_app`, no `bevy_ggrs`. It is deliberately **not
+object-safe**: domains take `&mut impl RollbackRegistrar`, so monomorphisation
+lands at the host's call site rather than in a central list. ⭐ **that is the
+whole answer to the old argument — a generic API constrains where
+monomorphisation HAPPENS, not where the LIST lives.**
+
+⭐ **the orphan rule still binds, and it is WHY the implementor is a wrapper.**
+`impl RollbackRegistrar for App` inside the runtime is foreign-trait-on-foreign-type
+(`E0117`); `GgrsRollbackRegistrar<'a>(&'a mut App)` is local and clean.
+
+✔ **deleted from the generic runtime:** `GatePortalPhases`,
+`gate_portal_phases_checksum`, and the 28-line rationale block beside them.
+⭐ even the wording splits correctly — the domain supplies *"key-ordered
+phase/elapsed checksum projection"* and the GGRS wrapper prefixes its own half, so
+the recorded `detail` is **composed, not quoted**.
+
+✔ **zero new dependency edges**, verified by *executing* a manifest walk over the
+7 path-deps reachable from `ambition_platformer2d_world` — `grep bevy_ggrs` across
+all 7 manifests is empty. Restoration, schema/checksum and probing are preserved
+because the install body was **factored, not copied**: one
+`install_resource_clone_checksum::<T>` serves both the `App` façade and the
+registrar, so it is literally the same three calls, and the probe stays a **value**
+census. Baselines unchanged — `owner` is not in the dump and left the wire form in
+v5. Schema stays **31**.
+
+⚠ **one honest residue:** `sim_core_resources.rs:138` still names `GatePortalPhases`
+for `init_resource`. The runtime still knows the type exists; it no longer knows
+anything about **rewinding** it, which is the boundary that mattered.
+
+⇒ **the general rule this establishes:** federate *semantics* per domain **and**
+*installation* through a backend-neutral vocabulary. ⛔ the remaining central list
+is now a migration backlog, not an API constraint.
+
+---
+
+**The superseded reasoning, kept because closing this twice would be worse than
+recording it once:**
+
+⛔⛔ **THAT CONCLUSION WAS REOPENED (2026-08-15) — it did not survive review.**
 *"Registration is generic over `T`"* does **not** imply the generic runtime's
 SOURCE must own the list of `T`s. Monomorphisation has to happen somewhere, but
 that somewhere can be **a trait method the domain calls** rather than a line in a

@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `834407e0abf1` (2026-08-14 local project date).
+**Snapshot:** `2115c5180294` (2026-08-14 local project date).
 
 This page is a cold-start map, not an execution queue and not a completion
 diary. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the continuing

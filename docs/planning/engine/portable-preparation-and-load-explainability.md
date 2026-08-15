@@ -310,14 +310,43 @@ Cargo's default — `strip = "none"`, which is why 37.4 MB of name section ships
 "symbols"`, `lto = "fat"`, `opt-level = "s"`, `codegen-units = 1`, and
 `build_for_web.sh --optimize` selects it.
 
-⚠ **so the first question is not "what is too big" but "which build was
-measured".** Until the `web-release` number exists, every conclusion about
-architectural bloat is being drawn from an unoptimized artifact.
+✔ **MEASURED, and it halves the artifact** (`--served --optimize`, 9m02s build):
 
-⚠ **35.1 MB of `data` in the SERVED persona deserves its own look**: this is the
-build whose entire premise is fetching assets over HTTP, and `visible_web_base`
-still pulls `static_map`, so the LDtk worlds are baked in regardless. That is a
-feature-composition question, not a code-size one.
+```text
+                     release      web-release
+wasm (pre-bindgen)    178 MB          89 MB     -50%
+wasm-bindgen out      164 MB          84 MB     -49%
+gzip transfer        26.4 MB        14.3 MB     -46%
+  code               89.6 MB        50.8 MB     -43%
+  custom:name        37.4 MB           GONE    -100%
+  data               35.1 MB        31.6 MB     -10%
+```
+
+⭐ **so half of "the wasm is enormous" was a build-profile choice, not
+architecture** — and the lever was already in the repository, unused. The
+browser's parse-and-compile load halves with it.
+
+⛔ **and the other half is now a real number rather than an excuse.** 50.8 MB of
+code and 31.6 MB of read-only data SURVIVE fat LTO, `opt-level = "s"` and symbol
+stripping. Data barely moved (−10%), which says it is genuine static content —
+type names, format and panic strings, tables — not slack the optimiser can take.
+Any further reduction is a composition question: what this persona links that it
+cannot exercise. That is where a `twiggy`-class breakdown of the surviving code
+would earn its keep.
+
+⚠ `--optimize` costs ~9 minutes against a fast dev cycle, so it should not become
+the default for iteration. `build_for_web.sh` now names the measured trade in its
+own size warning, and stops claiming "no LTO" when the build did use it.
+
+⚠ **35.1 MB of `data` in the SERVED persona looked like embedded assets and is
+mostly not.** `visible_web_base` does pull `static_map`, so all four LDtk worlds
+bake in even though this persona fetches everything else over HTTP — but measured,
+they are **4.2 MB** of it (`sandbox` 2.62, `intro` 0.98, `hall_of_characters`
+0.46, `you_have_to_cut_the_rope` 0.18). The other ~31 MB is ordinary Rust
+read-only data: panic and format strings, type names, static tables. That scales
+with the same monomorphisation bulk as the 89.6 MB code section, which means it
+is the same problem and not a separate one — and `opt-level = "s"` + fat LTO is
+aimed squarely at it.
 
 ✔ **and one hypothesis is already dead: the five demo crates are not bloat.**
 `ambition_demo_{sanic,pocket,mary_o,smash,twintrack}` are non-optional

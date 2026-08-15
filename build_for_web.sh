@@ -308,13 +308,19 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
         # which presents as "the page loads and nothing happens", indistinguishable
         # from a panic. Say the number and the fix, because the symptom does not.
         OUT_WASM_BYTES=$(stat -c%s "$OUT_WASM" 2>/dev/null || echo 0)
-        if [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
+        if [[ "$OUT_WASM_BYTES" -gt 104857600 && "$PROFILE" != "web-release" ]]; then
             warn "the wasm module is $(human_size "$OUT_WASM") — very large for a browser to compile."
-            warn "  This build has no LTO and no wasm-opt pass. If the page sits on"
-            warn "  'starting…' and the console shows no Rust output, this is the first"
-            warn "  suspect, not the composition. Shrink it with a release profile that"
-            warn "  sets lto = \"fat\", codegen-units = 1, opt-level = \"s\", strip = \"symbols\","
-            warn "  and/or install wasm-opt (binaryen) and run it over $OUT_WASM."
+            warn "  If the page sits on 'starting…' and the console shows no Rust output,"
+            warn "  this is the first suspect, not the composition."
+            warn "  ⭐ RUN --optimize. It is not a suggestion, it is measured (2026-08-15,"
+            warn "  --served at HEAD): 164M -> 84M wasm, 26.4M -> 14.3M gzipped, and the"
+            warn "  37M debug-symbol name section disappears entirely. Costs ~9 minutes."
+            warn "  The default \`release\` profile has strip = \"none\", which is where a"
+            warn "  fifth of this module comes from."
+        elif [[ "$OUT_WASM_BYTES" -gt 104857600 ]]; then
+            warn "the wasm module is $(human_size "$OUT_WASM") even under web-release."
+            warn "  The profile levers are spent; what is left is genuine code and data."
+            warn "  See docs/planning/engine/portable-preparation-and-load-explainability.md."
         fi
     else
         warn "wasm-bindgen finished but expected $OUT_WASM was not produced"

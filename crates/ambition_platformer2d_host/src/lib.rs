@@ -57,7 +57,8 @@ impl PluginGroup for PlatformerHostPlugins {
         let builder = PluginGroupBuilder::start::<Self>()
             .add(ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyPlugin)
             .add(HostCameraPlugin)
-            .add(HostProjectileVisualsPlugin);
+            .add(HostProjectileVisualsPlugin)
+            .add(HostVfxPresentationPlugin);
         #[cfg(feature = "input")]
         let builder = builder.add(HostInputBindingsPlugin);
         builder
@@ -505,6 +506,95 @@ impl Plugin for HostProjectileVisualsPlugin {
                 // it belongs to by a frame of motion.
                 .after(ambition_sim_view::PresentedPoseSet)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
+    }
+}
+
+/// **A `VfxMessage` that is written is a `VfxMessage` that is drawn.**
+///
+/// ⚠ **This lived in `game/ambition_app` until 2026-08-15** — the same shape,
+/// and the same class, as [`HostProjectileVisualsPlugin`] above. `VfxMessage`
+/// has TWO presentation consumers and only ONE of them was engine-installed:
+/// `ambition_render::rendering::slash_visuals::spawn_slash_effects` is
+/// registered by `ambition_render`'s own plugin and reaches every composition,
+/// while `fx::vfx_spawn_messages` — the subscriber that draws `Burst` / `Dust`
+/// / `Impact` / `CoinPop` / `Explosion` / `BlinkEffects` / `ResetEffects` /
+/// `SpeechBubble` — was registered nowhere but the shipped app. So every demo
+/// binary wrote those messages into a queue nobody read.
+///
+/// ⭐ **Jon's coin-pop report is this bug.**
+/// `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` says of the Mary-O
+/// multi-coin block: *"the block flinches and the cue plays, but nothing draws
+/// a coin arcing out."* All three halves were built. The flinch
+/// (`flinch_struck_blocks`) is registered by `ambition_render`; the cue is
+/// audio; the coin (`VfxMessage::CoinPop` → `fx::spawn_coin_pop`) was the one
+/// of the three that needed this plugin. Mary-O's brick-break
+/// `VfxMessage::Burst` was swallowed the same way, and so was every impact
+/// spark in `ambition_demo_smash_app` — the proving ground the campaign
+/// measures hit feel by.
+///
+/// It lives in the HOST rather than in `PlatformerPresentationPlugin` for the
+/// same layering reason `HostProjectileVisualsPlugin` gives: the ordering edge
+/// names `Platformer2dSimulationPhaseMonolith::CoreSimulation`, and
+/// `ambition_render` depends on neither the schedule nor the runtime.
+///
+/// ⚠ **`update_blink_preview` is deliberately NOT here.** It reads leafwing
+/// action state to know the blink button is held, so it stays behind the app's
+/// `input` persona with the rest of the input-driven presentation.
+pub struct HostVfxPresentationPlugin;
+
+impl Plugin for HostVfxPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
+        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+
+        // ⛔ **spelled out on purpose — a short path is INVISIBLE to
+        // `scripts/check_engine_systems_are_engine_installed.py`.** That checker
+        // only recognises a registration whose FIRST path segment is an engine
+        // crate name, and the app registered these as `fx::update_particles` /
+        // bare `vfx_spawn_messages`. Measured 2026-08-15: it reported them as
+        // neither app-registered nor engine-registered, so the guard built for
+        // exactly this defect could not see the largest instance of it. The
+        // blind spot is already written down for `setup_capture_target` in that
+        // file's own waiver list; do not re-shorten these paths.
+        app.add_systems(
+            Update,
+            // Reusable cue REQUESTS fan out into the typed visual/audio
+            // messages, so they must land before the subscriber reads them.
+            (
+                ambition_render::fx::process_fireworks_requests,
+                ambition_render::fx::tick_firework_sequences,
+                ambition_render::fx::process_explosion_requests,
+            )
+                .chain()
+                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                .before(ambition_render::fx::vfx_spawn_messages)
+                .run_if(session_world_exists),
+        )
+        .add_systems(
+            Update,
+            ambition_render::fx::vfx_spawn_messages
+                .after(ambition_render::fx::process_explosion_requests)
+                .run_if(session_world_exists),
+        )
+        .add_systems(
+            Update,
+            // Age / integrate / despawn. Without these a spawned particle is a
+            // sprite that never moves and never leaves — so moving the spawner
+            // alone would have been the worse half of the fix.
+            //
+            // ⚠ the app chained these `.after(debug_overlay::draw_debug_overlay)`.
+            // That edge did not survive the move and could not: the overlay is
+            // `ambition_app`'s own dev system. Nothing here reads what it writes.
+            (
+                ambition_render::fx::update_particles,
+                ambition_render::fx::update_explosions,
+                ambition_render::fx::update_impacts,
+                ambition_render::fx::update_speech_bubbles,
+                ambition_render::fx::update_speech_bubble_outlines,
+            )
+                .chain()
+                .run_if(session_world_exists),
         );
     }
 }

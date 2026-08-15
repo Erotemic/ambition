@@ -259,3 +259,92 @@ fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
     assert_eq!(spec.row_at(3).frame_count, 5, "slot 3 is the 5-frame smash");
     assert_eq!(spec.flat_index_at(3, 2), spec.flat_index_at(3, 0) + 2);
 }
+
+/// **A trimmed sheet's CLIP must be sized and anchored by the CLIP's row.**
+///
+/// ⛔ the falsifier this pins: `CharacterAnimator::current_render` used to read
+/// `frame_trim(self.current, …)` unconditionally, so while an authored clip was
+/// playing it drew the clip's atlas cell at the SEMANTIC pose's trim. Both
+/// lookups clamp their row and frame, so the failure was a silently misplaced,
+/// mis-sized sprite rather than an error — and 122 of the 185 shipped sheets are
+/// trimmed.
+///
+/// The two rows here are deliberately far apart in trim AND the clip row's name
+/// is one `CharacterAnim::from_name` does NOT know, which is the case that
+/// matters: a reusable effect sheet (`generic_action_fx`'s `hit_hard`,
+/// `poof_small`, `release_ring`, …) is addressable ONLY by row name. Requiring
+/// it to be addressable by pose would mean aliasing 18 effect rows onto a
+/// body-state enum, which is what the clip path exists to avoid.
+#[test]
+fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
+    // `trimmed_render` / `FrameTrim` / `CharacterSpriteAsset` arrive through
+    // `use super::*` (this module re-exports them).
+    use crate::character::{CharacterAnimator, CharacterSpritePage};
+
+    let ron_text = r#"
+        (
+            target: "synthetic_fx",
+            image: "synthetic_fx.png",
+            label_width: 0,
+            frame_width: 128,
+            frame_height: 128,
+            rows: [
+                (animation: "idle", row_index: 0, frame_count: 2, duration_ms: 100, duration_secs: 0.1,
+                 rects: [
+                    (x: 0, y: 0, w: 10, h: 10, off: (59, 59)),
+                    (x: 16, y: 0, w: 10, h: 10, off: (59, 59)),
+                 ]),
+                (animation: "hit_hard", row_index: 1, frame_count: 2, duration_ms: 40, duration_secs: 0.04,
+                 rects: [
+                    (x: 0, y: 32, w: 88, h: 80, off: (20, 24)),
+                    (x: 96, y: 32, w: 88, h: 80, off: (20, 24)),
+                 ]),
+            ],
+        )
+    "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
+    let spec = spec_from_record(&record, &SheetTuning::new(1.0, 1));
+
+    // Both terms of the comparison are OBSERVED, so this cannot pass vacuously.
+    assert!(spec.is_trimmed(), "the fixture must actually be trimmed");
+    let clip_slot = spec
+        .clip_slot(["hit_hard"])
+        .expect("a row the pose enum does not name must still be reachable by NAME");
+    let clip_trim = spec.frame_trim_at(clip_slot, 0);
+    let pose_trim = spec.frame_trim(CharacterAnim::Idle, 0);
+    assert_ne!(
+        clip_trim, pose_trim,
+        "fixture is useless unless the two rows disagree about trim"
+    );
+
+    let asset = CharacterSpriteAsset {
+        texture: Default::default(),
+        layout: Default::default(),
+        spec: spec.clone(),
+        pages: vec![CharacterSpritePage {
+            texture: Default::default(),
+            layout: Default::default(),
+        }],
+        requested_tier: Default::default(),
+        resolved_tier: Default::default(),
+    };
+    let mut animator = CharacterAnimator::new(&asset);
+    let base_size = Vec2::new(128.0, 128.0);
+    let base_anchor = Vec2::new(0.0, -0.4);
+    animator.ensure_render_basis(base_size, base_anchor);
+
+    animator.request_clip(["hit_hard"], CharacterAnim::Idle);
+    assert_eq!(
+        animator.current_render(),
+        Some(trimmed_render(&clip_trim, base_size, base_anchor)),
+        "a playing clip must be measured by its OWN row, not by `current`"
+    );
+
+    // And the pose path is unchanged: dropping the clip returns to the pose's trim.
+    animator.request(CharacterAnim::Idle);
+    assert_eq!(
+        animator.current_render(),
+        Some(trimmed_render(&pose_trim, base_size, base_anchor)),
+        "with no clip playing the semantic pose still measures the frame"
+    );
+}

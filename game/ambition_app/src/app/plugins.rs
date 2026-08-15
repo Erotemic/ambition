@@ -21,7 +21,11 @@ use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::{
     gameplay_allowed, Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
-use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
+// The rest of `fx` moved to `HostVfxPresentationPlugin` (see
+// `install_projectile_and_vfx_systems`); the blink preview ring is the one
+// pass still registered here, and only under the `input` persona.
+#[cfg(feature = "input")]
+use ambition_platformer2d::render::fx;
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
 use ambition_platformer2d::render::ui_fonts;
 use bevy::prelude::*;
@@ -597,20 +601,13 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
+    // ⚠ the VFX tick cluster (`update_particles` / `update_explosions` /
+    // `update_impacts` / the two speech-bubble passes) left this file on
+    // 2026-08-15, together with `vfx_spawn_messages` below:
+    // `ambition_platformer2d_host::HostVfxPresentationPlugin` registers them for
+    // every composition. Until then this app was the only one that DREW a
+    // `VfxMessage` it had written — which is why Mary-O's coin never popped.
     app.add_systems(
-        Update,
-        (
-            fx::update_particles,
-            fx::update_explosions,
-            fx::update_impacts,
-            fx::update_speech_bubbles,
-            fx::update_speech_bubble_outlines,
-        )
-            .chain()
-            .after(debug_overlay::draw_debug_overlay)
-            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-    )
-    .add_systems(
         Update,
         (
             update_hud,
@@ -770,33 +767,19 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // `ambition_platformer2d_host::HostProjectileVisualsPlugin` registers them, with their
     // two ordering edges intact, for every composition. Until then this app was
     // the only one that DREW a projectile it had fired.
-    app
-        // VFX + debris subscribe on the visible binary only. Audio's
-        // subscriber lives in `add_audio_plugins` so the entire kira
-        // chain stays behind the `audio` feature. Headless builds omit
-        // these so the message queues drain without entity spawns or
-        // audio playback.
-        .add_systems(
-            Update,
-            (
-                fx::process_fireworks_requests,
-                fx::tick_firework_sequences,
-                fx::process_explosion_requests,
-            )
-                .chain()
-                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
-                .before(vfx_spawn_messages)
-                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-        )
-        .add_systems(
-            Update,
-            vfx_spawn_messages
-                .after(fx::process_explosion_requests)
-                .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
-        );
+    //
+    // ⚠ **and the VFX subscriber followed on 2026-08-15, for the same reason and
+    // with the same symptom.** `fx::process_*_requests` + `vfx_spawn_messages`
+    // now live in `ambition_platformer2d_host::HostVfxPresentationPlugin`. This
+    // app was the only composition that drew a `VfxMessage` it had written, so
+    // the Mary-O demo's coin pop, its brick-break burst and every impact spark
+    // in the smash demo were spawned into nothing.
+    //
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.
+    #[cfg(not(feature = "input"))]
+    let _ = app;
     #[cfg(feature = "input")]
     app.add_systems(
         Update,

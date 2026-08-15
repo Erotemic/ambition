@@ -93,12 +93,23 @@ impl CharacterAnimator {
     /// Per-frame `(custom_size, anchor)` for the CURRENT frame, or `None` when
     /// the sheet is untrimmed (or no basis is set) — callers then keep the
     /// fixed spawn-time size/anchor, so untrimmed sheets are unaffected.
+    /// ⛔ **an authored CLIP is keyed by ROW here too.** This used to read
+    /// `frame_trim(self.current, …)` unconditionally, so a body playing a clip
+    /// drew the clip's atlas cell at the trim of whatever semantic pose
+    /// `current` happened to still hold — a wrong per-frame size and anchor on
+    /// any trimmed sheet, and 122 of 185 shipped sheets are trimmed. Both
+    /// lookups clamp their row/frame, so nothing failed; the art just sat in
+    /// the wrong place. Same rule as [`Self::tick`]: if a clip is playing, the
+    /// slot decides.
     pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
         if !self.spec.is_trimmed() {
             return None;
         }
         let basis = self.render_basis.as_ref()?;
-        let trim = self.spec.frame_trim(self.current, self.frame);
+        let trim = match self.clip_slot {
+            Some(slot) => self.spec.frame_trim_at(slot, self.frame),
+            None => self.spec.frame_trim(self.current, self.frame),
+        };
         Some(trimmed_render(&trim, basis.render_size, basis.feet_anchor))
     }
 
@@ -112,7 +123,14 @@ impl CharacterAnimator {
     /// The page image index the current frame draws from (per-frame, since a
     /// packed animation can span pages).
     pub fn current_page(&self) -> u32 {
-        self.spec.page_of(self.current, self.frame)
+        match self.clip_slot {
+            // Same rule as `current_render`: a packed clip row can live on a
+            // different page than the semantic pose, and swapping to the pose's
+            // page draws the clip's flat index out of a texture that does not
+            // contain it.
+            Some(slot) => self.spec.page_of_at(slot, self.frame),
+            None => self.spec.page_of(self.current, self.frame),
+        }
     }
 
     pub fn request(&mut self, anim: CharacterAnim) {

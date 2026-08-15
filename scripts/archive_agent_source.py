@@ -140,9 +140,13 @@ CONFIG = {
     # can be slower and require extra local cargo plugins.
     'run_ecs_inventory': True,
     'ecs_inventory_command': [
-        # `sys.executable`, matching every sibling command above: a bare
-        # 'python' is absent on stock Debian/Ubuntu and would fail this step.
-        sys.executable,
+        # This script carries PEP 723 inline dependency metadata for the native
+        # tree-sitter bindings. Always honor that environment contract instead
+        # of inheriting whichever tree-sitter ABI happens to be installed in
+        # the Python environment that launched the archiver.
+        'uv',
+        'run',
+        '--script',
         'scripts/ecs_inventory.py',
         '--workspace',
         '--out-dir',
@@ -1139,11 +1143,37 @@ def run_agent_index(archive_root: Path, log: Log) -> None:
 
 
 def run_ecs_inventory(archive_root: Path, log: Log) -> None:
-    """Generate neutral ECS inventory shards inside the staged archive tree."""
+    """Generate neutral ECS inventory shards inside the staged archive tree.
+
+    ``ecs_inventory.py`` uses native tree-sitter bindings and declares their
+    compatible versions through PEP 723 inline script metadata. Running it with
+    ``sys.executable`` bypasses that metadata and can load an ABI-incompatible
+    tree-sitter / grammar pair from the caller's environment. That failure mode
+    is especially unpleasant because it may present as a native SIGSEGV rather
+    than a Python import error.
+
+    Keep the archive boundary deterministic: resolve ``uv`` explicitly and let
+    ``uv run --script`` construct the environment declared by the staged script.
+    """
     if not CONFIG['run_ecs_inventory']:
         log('[archive-agent-source] skipping ECS inventory generation')
         return
     cmd = [str(part) for part in CONFIG['ecs_inventory_command']]
+    if cmd[:3] != ['uv', 'run', '--script']:
+        raise CommandError(
+            'ECS inventory command must use `uv run --script` so the native '
+            'tree-sitter dependency versions declared by scripts/ecs_inventory.py '
+            'are honored'
+        )
+    uv_exe = shutil.which('uv')
+    if uv_exe is None:
+        raise CommandError(
+            'ECS inventory generation requires `uv` because '
+            'scripts/ecs_inventory.py declares native tree-sitter dependencies '
+            'through PEP 723 inline metadata. Install uv or rerun the archiver '
+            'with --skip-ecs-inventory.'
+        )
+    cmd[0] = uv_exe
     log('[archive-agent-source] running ECS inventory: ' + ' '.join(shell_quote(p) for p in cmd))
     env = os.environ.copy()
     env.setdefault('PYTHONUNBUFFERED', '1')

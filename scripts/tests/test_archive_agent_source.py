@@ -579,3 +579,48 @@ def test_dependency_graph_step_fails_loudly_without_graphviz(monkeypatch, tmp_pa
     # ...and it is silent, not fatal, when the step was never requested.
     monkeypatch.setitem(archiver.CONFIG, "run_dependency_graph", False)
     archiver.run_dependency_graph(tmp_path, lambda *a, **k: None)
+
+
+def test_ecs_inventory_command_honors_inline_dependency_metadata():
+    assert archiver.CONFIG["ecs_inventory_command"][:4] == [
+        "uv",
+        "run",
+        "--script",
+        "scripts/ecs_inventory.py",
+    ]
+    assert sys.executable not in archiver.CONFIG["ecs_inventory_command"]
+
+
+def test_run_ecs_inventory_resolves_uv_and_runs_script(monkeypatch, tmp_path: Path):
+    captured = {}
+
+    monkeypatch.setattr(
+        archiver.shutil,
+        "which",
+        lambda name: "/opt/bin/uv" if name == "uv" else None,
+    )
+
+    def fake_run(args, **kwargs):
+        captured["args"] = list(args)
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(archiver, "run", fake_run)
+    archiver.run_ecs_inventory(tmp_path, archiver.Log(0))
+
+    assert captured["args"][:4] == [
+        "/opt/bin/uv",
+        "run",
+        "--script",
+        "scripts/ecs_inventory.py",
+    ]
+    assert captured["kwargs"]["cwd"] == tmp_path
+    assert captured["kwargs"]["check"] is True
+
+
+def test_run_ecs_inventory_fails_cleanly_without_uv(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(archiver.shutil, "which", lambda _name: None)
+
+    with pytest.raises(archiver.CommandError, match="requires `uv`"):
+        archiver.run_ecs_inventory(tmp_path, archiver.Log(0))
+

@@ -68,4 +68,37 @@ fn main() {
         .and_then(|config| config.spec.as_ref())
         .map(|spec| spec.initial_route.to_string());
     println!("web-persona-boot: SURVIVED startup. initial route = {route:?}");
+
+    // ⛔ **SURVIVING IS NOT SHOWING.** The panic this example was written to catch
+    // killed the app on its first menu tick; fixing that proves the app RUNS, and
+    // proves nothing about whether anything reached the screen. A `NoWindow` host
+    // draws no pixels by construction — but the entities a route builds are
+    // ordinary world state, and their ABSENCE is exactly what a blank canvas is.
+    let world = app.world_mut();
+    let ui_nodes = world.query::<&bevy::ui::Node>().iter(world).count();
+    let sprites = world.query::<&bevy::sprite::Sprite>().iter(world).count();
+    let texts = world.query::<&bevy::ui::widget::Text>().iter(world).count();
+    let cameras = world.query::<&bevy::prelude::Camera>().iter(world).count();
+    println!(
+        "web-persona-boot: presentation population — {ui_nodes} UI nodes, {texts} UI texts, \
+         {sprites} sprites, {cameras} cameras"
+    );
+
+    let active = app
+        .world()
+        .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
+        .and_then(|router| router.active.as_ref())
+        .map(|active| active.route_id.to_string());
+    println!("web-persona-boot: active route = {active:?}");
+
+    // A route that resolved and built NOTHING is the blank screen, reported here
+    // rather than left for a browser to demonstrate.
+    if ui_nodes == 0 && sprites == 0 {
+        eprintln!(
+            "web-persona-boot: ⛔ the web persona composed, routed, and produced NO \
+             drawable entities at all — no UI node and no sprite. Whatever a browser \
+             would show, it is not this game."
+        );
+        std::process::exit(1);
+    }
 }

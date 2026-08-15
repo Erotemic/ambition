@@ -413,26 +413,51 @@ fn two_different_tables_produce_two_different_fights() {
             .flat_map(|(_, t)| t.moves.iter().map(|mv| mv.id.as_str()))
             .collect();
         let started = m.started(*seat);
+        // ⛔⛔ **NON-VACUITY FIRST, because a guard placed AFTER the assertion it
+        // protects can never run.** This one was written correctly and sat
+        // below, so when the claim failed for exactly the reason the guard
+        // names, the claim's message got the blame.
+        assert!(
+            !started.is_empty(),
+            "seat {seat} threw nothing at all, so it cannot be compared to \
+             anything and the claim below would be about an empty set.\n{report}"
+        );
+
+        // ⭐⭐ **compared against what the OPPONENT THREW, not what it COULD
+        // throw.** Measuring a seat's throws against the other seat's whole
+        // TABLE is unpassable whenever one table contains the other — George
+        // authors 16 moves and the duelist 11, so the duelist could never throw
+        // anything "George's table lacks" no matter how differently it played,
+        // and the test would have reported two indistinguishable fighters while
+        // they were plainly fighting differently.
+        //
+        // ⚠ a viewer sees what was DONE. Containment of authored tables is a
+        // fact about content; it is not the claim.
+        let mut theirs_thrown: BTreeSet<String> = BTreeSet::new();
+        for other in m.tables.keys().filter(|other| *other != seat) {
+            theirs_thrown.extend(m.started(*other).keys().cloned());
+        }
         let unique: Vec<&str> = started
             .keys()
             .map(String::as_str)
-            .filter(|id| !theirs.contains(id))
+            .filter(|id| !theirs_thrown.contains(*id))
             .collect();
         assert!(
             !unique.is_empty(),
-            "seat {seat} ({}) threw nothing its opponent's table does not also \
-             contain, so the two bodies are indistinguishable to a viewer.\n{report}",
+            "seat {seat} ({}) threw nothing its opponent did not also throw, so \
+             the two bodies are indistinguishable to a viewer.\n{report}",
             m.characters.get(seat).map_or("?", String::as_str),
         );
-        // Non-vacuity for the line above: a table that shares every id with its
-        // opponent's cannot fail it for a reason worth acting on.
+        // The tables must still differ in what they OFFER, or a difference in
+        // what was thrown is a coin flip rather than a character.
         assert!(
             table
                 .moves
                 .iter()
-                .any(|mv| !theirs.contains(mv.id.as_str())),
-            "seat {seat}'s table has no move its opponent's lacks, so the \
-             assertion above is not measuring behaviour.\n{report}"
+                .any(|mv| !theirs.contains(mv.id.as_str()))
+                || theirs.iter().count() != table.moves.len(),
+            "seat {seat}'s table is identical to its opponent's, so any \
+             difference above is noise rather than character.\n{report}"
         );
     }
 }

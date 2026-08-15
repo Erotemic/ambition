@@ -75,6 +75,12 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // fall inside a room transition or a loading frame, which is
                 // exactly when gameplay is suspended.
                 crate::shrine::restore_checkpoint_on_session_start,
+                // ⭐ **BEFORE the pickup, and that placement is load-bearing** —
+                // see [`return_released_items`]. It reads a hand that has already
+                // settled, so it can never mistake an item the pickup below took
+                // this very tick for one nobody is holding.
+                return_released_items
+                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 pickup_held_item_system
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 // Pickups that MOVE, stepped before the collect below so a
@@ -228,6 +234,19 @@ const THROW_AHEAD: f32 = 48.0;
 /// fills. `equip_held_spec`/`unequip_held` keep the two current ends coherent —
 /// they are a migration seam, not the model.
 ///
+/// ⛔⛔ **and MEASURED (2026-08-15): one entitlement can manifest UNBOUNDEDLY
+/// MANY objects.** `pickup_held_item_system` grants a catalog count for an item
+/// that is ALSO a live instance, and the throw deliberately keeps that count
+/// ("the thrower keeps catalog OWNERSHIP"). So after throwing an axe the world
+/// holds an axe AND the menu still offers one; equipping from the menu fills the
+/// hand with nothing, and the throw's mint arm materializes a SECOND axe. Repeat
+/// for a third. The count is not wrong to survive the throw — it is the only
+/// thing that survives the ROOM-SCOPED despawn of a dropped weapon, which is why
+/// removing it would lose the axe instead — so this is a **durable-save** concern
+/// wearing a **custody** concern's clothes, and closing it needs the body
+/// inventory that does not exist yet. ⛔ do not "fix" it by spending the count on
+/// throw: that trades a duplication bug for a deletion bug.
+///
 /// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the
 /// wrong custody would leave an axe both in a hand and on the floor. Registered
@@ -357,6 +376,89 @@ pub fn ground_item_physics(
     }
 }
 
+/// **AN OBJECT ITS HOLDER LET GO OF IS BACK IN THE WORLD, NOT NOWHERE.**
+///
+/// [`ItemCustody::Held`] names a body, and it is only TRUE while that body is
+/// actually holding the thing. Two production paths empty a hand without ever
+/// touching the object behind it, and neither can: the inventory menu's Stow,
+/// and the menu's equip-swap (which releases the old weapon before taking the
+/// new one). Each one used to leave the item recording a custody that had
+/// stopped being true — a state that is in NEITHER arm of what the enum MEANS:
+/// not in the world, so [`ground_item_physics`] skips it,
+/// [`pickup_held_item_system`] skips it, and the drawn view skips it; and not in
+/// anyone's hand, so [`throw_held_item_system`] cannot find it either. The
+/// authored axe carrying `SimId::placement(..)` simply stopped existing — which
+/// is exactly the outcome [`ItemCustody`] was introduced to prevent, reached
+/// through the inventory menu instead of through a despawn.
+///
+/// ⛔ **retract by RESETTING, never by removing.** The object is not despawned
+/// and its identity is never re-minted; its custody returns to
+/// [`ItemCustody::InWorld`] at the holder's last position, which is where a body
+/// that stops holding something leaves it. Picking it back up is the ordinary
+/// pickup, so the authored identity survives a stow the same way it survives a
+/// throw.
+///
+/// ⭐ **it runs FIRST in the item chain.** [`pickup_held_item_system`] writes
+/// `Held { holder }` DIRECTLY but attaches [`HeldItem`] through `Commands`, so a
+/// release check running after it in the same tick would be reading a hand that
+/// has not been filled yet and would drop the item the pickup just took. Reading
+/// last tick's settled state removes the question rather than depending on where
+/// a sync point lands.
+///
+/// ⚠ **this is a DERIVE, not a follow-up call.** The repo's rule is that a second
+/// step belongs inside the first, and it is not available here: every release
+/// site that orphans an object lives in the inventory menu, which runs in
+/// `Update`, in another crate, holding no item query. What a caller cannot be
+/// given, a caller cannot be trusted to remember — so custody is re-derived from
+/// the hand each tick instead. The write is idempotent (once `InWorld`, the first
+/// guard below skips it forever), which is what makes it safe under rollback's
+/// re-simulation of the same tick.
+///
+/// ⚠ **body-generic.** `holder` is whatever entity took the item — a couch seat,
+/// a possessed actor, an NPC. Nothing here asks whether it is a player.
+///
+/// ⛔ **a holder that DESPAWNED is deliberately NOT released here, and that is a
+/// known remaining orphan.** "What happens to a body's inventory when the body
+/// dies" already has an owner — `caps.drops_held_item` in the actor death
+/// resolver, which MINTS a fresh `GroundItem` from the corpse's `HeldItem` spec.
+/// Releasing the carried object here as well would put two axes on the floor
+/// where the design says one. Answering it properly means the death drop handing
+/// BACK the object it has custody of instead of manufacturing a copy, which is
+/// the same unclosed inventory leg described on [`ItemCustody`] — not this
+/// function's to decide.
+pub fn return_released_items(
+    // The hand, and where the body is standing. `Option<&HeldItem>` rather than
+    // `Has<..>`: an equip-SWAP leaves the body holding a DIFFERENT item, so
+    // "there is a hand" is not the question — "is this object the thing in it"
+    // is, and only the spec id can answer that.
+    holders: Query<(&BodyKinematics, Option<&HeldItem>)>,
+    mut carried: Query<(&mut GroundItem, &mut ItemCustody)>,
+) {
+    for (mut item, mut custody) in &mut carried {
+        let ItemCustody::Held { holder } = *custody else {
+            continue;
+        };
+        // A holder that no longer exists is the death-drop resolver's question,
+        // not this one's — see the ⛔ above.
+        let Ok((kin, held)) = holders.get(holder) else {
+            continue;
+        };
+        // Still the object in that hand — nothing to do. Compared by SPEC ID
+        // rather than by "is there a hand at all", because an equip-SWAP leaves
+        // the body holding a DIFFERENT item and orphans the old one just as
+        // thoroughly as a Stow does.
+        if held.is_some_and(|held| held.id() == item.spec.id.as_str()) {
+            continue;
+        }
+        // The body let go: the object lands where that body is standing.
+        item.pos = kin.pos;
+        // A released object is at rest, not mid-throw: `arm_thrown_bombs` reads
+        // "moving" as "thrown", and a bomb stowed from the menu must not arm.
+        item.vel = Vec2::ZERO;
+        *custody = ItemCustody::InWorld;
+    }
+}
+
 /// The player's pre-pickup `ActionSet`, restored when the held item is thrown.
 #[derive(Component, Clone)]
 pub struct StashedActionSet(pub ActionSet);
@@ -463,9 +565,16 @@ pub fn equip_held_spec(
 /// **RELEASE custody of a held item — the twin of [`equip_held_spec`].**
 ///
 /// Restore the stashed action set, detach [`HeldItem`], and clear the catalog's
-/// equipped slot. Where the item GOES afterwards is the caller's business (the
-/// throw drops a [`GroundItem`]; the menu's unequip drops nothing), but the body
-/// stops holding it here and nowhere else.
+/// equipped slot. The body stops holding it here and nowhere else.
+///
+/// ⛔ **the OBJECT's end is NOT this function's, and it used to be nobody's.** The
+/// throw writes the launch onto the object itself; the inventory menu writes
+/// nothing at all, and for a picked-up instance that left the object recording
+/// `ItemCustody::Held` by a body with an empty hand — invisible, unpickable and
+/// unthrowable for the rest of its life. Nothing here has an item query to fix
+/// that with (the menu calls this from `Update`, in another crate), so custody is
+/// re-derived from the hand instead: see [`return_released_items`]. A caller that
+/// simply lets go can no longer destroy an authored object.
 pub fn unequip_held(
     commands: &mut Commands,
     player: Entity,

@@ -740,6 +740,136 @@ fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
     );
 }
 
+/// **THE INVENTORY MENU'S STOW USED TO DESTROY THE OBJECT.**
+///
+/// `unequip_held` is what the menu's Stow (and its equip-SWAP) calls to empty a
+/// hand. It removes `HeldItem` and touches nothing else — so a picked-up axe was
+/// left recording `ItemCustody::Held` by a body with an empty hand: not in the
+/// world (physics, pickup and the drawn view all skip it) and not in any hand
+/// (the throw cannot find it). An authored axe carrying `SimId::placement(..)`
+/// silently ceased to exist, through the menu, which is the exact loss
+/// `ItemCustody` was introduced to prevent at the despawn.
+///
+/// ⭐ **the assertion that matters is the second half — the axe is RECOVERABLE.**
+/// A test that only checked the custody value would be a restatement of the fix;
+/// what the bug actually cost was the ability to pick the thing back up, with the
+/// identity it was authored with. So this walks the whole round trip: take it,
+/// stow it, take it again, and demand it is the SAME object.
+///
+/// Falsified by dropping `return_released_items` from the schedule below: the
+/// stowed axe stays `Held` by an empty hand, `items_in_world` reports 0, and the
+/// second Attack finds nothing to grab.
+#[test]
+fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// The menu's Stow, reduced to the one production call it makes. Driven off a
+    /// flag so the test can place it on a specific tick.
+    #[derive(Resource, Default)]
+    struct StowRequested(bool);
+
+    fn stow_from_menu(
+        mut commands: Commands,
+        mut requested: ResMut<StowRequested>,
+        mut bodies: Query<(Entity, &mut ActionSet, Option<&StashedActionSet>)>,
+    ) {
+        if !requested.0 {
+            return;
+        }
+        requested.0 = false;
+        for (body, mut action_set, stashed) in &mut bodies {
+            // The menu passes no catalog in this fixture; `None` is its "no
+            // inventory behind this body" case, not "skip the bookkeeping".
+            unequip_held(&mut commands, body, &mut action_set, stashed, None);
+        }
+    }
+
+    let mut app = App::new();
+    app.insert_resource(ControlFrame::default());
+    app.init_resource::<StowRequested>();
+    app.add_systems(
+        Update,
+        (
+            return_released_items,
+            pickup_held_item_system,
+            throw_held_item_system,
+            // Last, so a stow requested on tick N is observed by the release on
+            // tick N+1 — the schedule relationship production has, where the menu
+            // runs in `Update` and this chain runs in the sim.
+            stow_from_menu,
+        )
+            .chain(),
+    );
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    let authored = SimId::placement("Sandbox:GroundItem-0042");
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            },
+            authored.clone(),
+        ))
+        .id();
+
+    // Take it off the floor.
+    set_control(&mut app, player, true, false);
+    app.update();
+    assert!(
+        app.world().get::<HeldItem>(player).is_some(),
+        "the axe is in hand"
+    );
+
+    // Open the menu and Stow. The press is released — a stow is not an attack.
+    set_control(&mut app, player, false, false);
+    app.world_mut().resource_mut::<StowRequested>().0 = true;
+    app.update();
+    // …and the tick after, with the hand settled empty.
+    app.update();
+
+    let custody = app
+        .world()
+        .get::<ItemCustody>(item)
+        .expect("the stowed axe is the SAME entity, not a replacement");
+    assert!(
+        custody.in_world(),
+        "a body that let go left the axe IN THE WORLD — it used to keep recording \
+         a hand that was already empty, which is neither state this enum has",
+    );
+    assert_eq!(
+        items_in_world(&mut app),
+        1,
+        "and the world can see it: exactly one axe is lying there",
+    );
+    assert_eq!(
+        app.world().get::<GroundItem>(item).map(|g| g.pos),
+        Some(Vec2::new(100.0, 100.0)),
+        "dropped where the body that released it was standing",
+    );
+
+    // ⭐ THE HALF THAT MATTERS: take it again, and it is the same object.
+    set_control(&mut app, player, true, false);
+    app.update();
+    assert!(
+        app.world().get::<HeldItem>(player).is_some(),
+        "the stowed axe can be picked back up — it could not while it was orphaned",
+    );
+    assert!(
+        app.world()
+            .get::<ItemCustody>(item)
+            .is_some_and(|c| c.held_by(player)),
+        "and it is the SAME entity that is back in the hand",
+    );
+    assert_eq!(
+        app.world().get::<SimId>(item),
+        Some(&authored),
+        "with the identity it was authored with — a stow does not mint a replacement",
+    );
+}
+
 #[test]
 fn held_shot_aim_resolves_screen_input_through_the_controlled_body_frame() {
     let mut control = ControlFrame::default();

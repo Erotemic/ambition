@@ -606,6 +606,40 @@ fn handle_room_transition_presentation_events(
                     owner: expected_owner,
                 });
             }
+            // ⛔⛔ **CANCEL IS RETRY WEARING ANOTHER NAME, AND THE CROSSING
+            // CANNOT BE ABANDONED FROM HERE AT ALL.** Censused 2026-08-15 (D71's
+            // cancellation asymmetry). What abandonment needs is for the
+            // `PendingLifecycleCommit` intent to STOP being pending — and the
+            // arm above spells out why this system may not do that: the intent is
+            // ROLLBACK STATE and this runs in `Update`, which never rewinds, so a
+            // write here drifts from the peers' copy silently. So this arm does
+            // the only thing it can — drop the transaction — and
+            // `begin_room_transition_load_system` sees the same still-pending
+            // intent on the very next frame and opens an identical transaction,
+            // new sequence and all. Escape during a Hall load therefore RESTARTS
+            // the load (discarding a prepared plan and its asset manifest); it
+            // does not leave it. `shell_actions.back` is ungated by phase
+            // (`basic_load_keyboard`), so this is reachable throughout, not only
+            // on a failure.
+            //
+            // ⚠ **the asymmetry is real and is NOT fixed by clearing the intent
+            // from here.** Every other route that abandons a crossing does it
+            // INSIDE the simulation, where a retraction rewinds with everything
+            // else: a void crossing is dropped by `commit_confirmed_lifecycle`'s
+            // `CommitOutcome::Cancelled`, and a corrected input that erases the
+            // trigger un-records the intent as ordinary rollback state. A player
+            // pressing Escape is a player INTENT, and the deterministic channel
+            // for one is the input stream the sim already reads — not a
+            // presentation message, which `clear_message_on_rollback` wipes. That
+            // is a slice with a design decision in it (does a crossing become
+            // abandonable at all, or is a transition committed-on-request once the
+            // body has crossed the zone?), so it is NAMED here rather than
+            // improvised: the honest answer today is that a room transition is
+            // committed on request, and this arm is a restart button.
+            //
+            // ⚠ Quit rides the same arm and wants the same drop for a different
+            // reason — it is leaving the session, so the transaction must not
+            // outlive it.
             LoadPresentationEvent::CancelRequested { .. }
             | LoadPresentationEvent::QuitRequested { .. } => {
                 let load_id = active.barrier.load_id.clone();

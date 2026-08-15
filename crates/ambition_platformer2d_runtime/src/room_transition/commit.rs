@@ -704,6 +704,27 @@ pub fn commit_ready_room_transition_system(
     // door. The rollback path never had this bug — `LifecycleIntent::Transition`
     // has carried its subject since Track B — and D71 makes the richer contract
     // the only one.
+    //
+    // ⛔⛔ **AND THE EAGER HOST CANNOT SAY "NEVER", WHICH THE CONFIRMED HOST CAN.**
+    // Censused 2026-08-15 (D71's cancellation asymmetry). This exact condition —
+    // the recorded body no longer resolves — is TERMINAL on the rollback host:
+    // `commit_transition` returns `CommitOutcome::Cancelled`, and
+    // `commit_confirmed_lifecycle` DROPS the pending intent and retires the
+    // transaction, because a void crossing can never succeed. Here it becomes an
+    // ordinary retryable failure that deliberately leaves the intent pending, so
+    // a headless eager host retires the failed transaction
+    // (`finalize_unpresented_room_transition_failure_system`), `begin` reopens the
+    // identical crossing next frame, and it fails again — forever, with no
+    // backoff and no report. `fail_room_transition_commit_precondition` has ONE
+    // outcome where the confirmed side has three (`Committed` / `Retry` /
+    // `Cancelled`), and a transient failure and a void one are the two it merges.
+    //
+    // ⇒ the convergence is the outcome ENUM, not a second reset list: this system
+    // should distinguish "not yet" from "never" the way `CommitOutcome` already
+    // does, and a `never` should clear `pending_lifecycle` here — legal on this
+    // side, because the eager host has no speculative frames. ⛔ NOT attempted in
+    // the same pass as the retirement fix beside it; it changes what every
+    // fixed-tick demo host does with a dead crossing and wants its own probe.
     let Some(subject) = application.subject_entity(&intent.subject) else {
         super::loading::fail_room_transition_commit_precondition(
             &mut transition_state,

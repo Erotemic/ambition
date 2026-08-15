@@ -42,23 +42,37 @@ migration prose names it.
 
 ## Current execution order
 
-### ▢ In flight 2026-08-15 — three lanes dispatched, coordinator holds the build lease
+### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 
-| Lane | Row | Acceptance / falsifier | Status |
-|---|---|---|---|
-| A | D125 | drop P in room B, unload B, load A (P absent) **and** reload B (same `SimId`, dropped position) — suppression and reinstatement land ATOMICALLY | dispatched |
-| B | Mary-O LDtk | author a real room through LDtk end to end; every step needing Rust edits merely to DESCRIBE level content is a finding | dispatched |
-| C | Smash CPU | `Situation::Recovery → selected authored action` instrumented; two fighters visibly differ; ⛔ "a special occurred" is not acceptance | dispatched |
+⚠ **this block is history, not work.** Kept because each row's *evidence* is
+where a later session should look before reopening any of it.
 
-⚠ **a peer agent is committing to this same main tree** (Smash stage/blast-zone
-geometry, co-authored GPT-5.6 Sol). ⛔⛔ therefore every commit here uses
-`git commit -F - -- <paths>`; a bare `git commit` takes the WHOLE INDEX and will
-carry the peer's staged files under this session's message.
+| Lane | What landed | Proof |
+|---|---|---|
+| D125 | cross-room occurrence continuity: a `Placed` row suppresses the home room and reinstates where the object lies, as ONE decision | 6/6 acceptance; **both** poisons red (revert the arm → duplication; delete the foreign leg → ZERO, the deletion bug) |
+| Mary-O LDtk | `mary_o_1_3` authored end to end through LDtk; four hand-kept registration sites deleted | the honest headline was *"almost nothing needed inventing"* |
+| Smash CPU | one instrument, histogram prints every run | George vs duelist MEASURED: 6 vs 8 distinct, specials 9/4 vs 0/0, aerials 3/10 vs 6/9 |
+| VFX | `HostVfxPresentationPlugin` — four demo apps were writing `VfxMessage` into a queue with NO READER | withheld the plugin → the demo's own VFX test goes red |
+| LDtk contract | `ldtk_entity_contract.json`: one table, Rust prover runs the real converters against it in BOTH directions | caught an undeclared `MovingPlatform.speed`, then caught the coordinator's wrong fix for it |
+| `next_room` + tubes | the exit chain and warp tubes are authored content, not Rust control flow | poison → exactly one test red |
 
-⛔ **workers do not run `cargo`.** The lease is held here so three cold target
-dirs cannot thrash CPU and disk; workers hand back the commands to run. The cost
-is that worker code is UNCOMPILED until integration — treat every worker's test
-claim as unrun until this session runs it.
+⭐ **the two engine-level lessons, because they generalise past their lanes:**
+a **generator that owns a whole file discards anything authored by another
+road** — a regenerate deleted an entire level while every check stayed green,
+which is why `scripts/check_authored_levels_survive.py` now ratchets the level
+roster; and **a construction test pins the FUNCTION, not the WIRING** — the
+facing plumbing was green the whole time enemies walked the wrong way, because
+nothing asserted the authored world ever *said* which way.
+
+⛔ **workers do not run `cargo`.** The build lease is held by the coordinator so
+parallel cold target dirs cannot thrash CPU and disk. The cost is that worker
+code arrives UNCOMPILED — **treat every worker test claim as unrun until this
+session runs it.** Two of six lanes handed back code that did not compile, and
+one handed back a wrong diagnosis that a five-minute source read overturned.
+
+⚠ **peer agents commit to this same main tree.** ⛔⛔ therefore every commit uses
+`git commit -F - -- <paths>`; a bare `git commit` takes the WHOLE INDEX and
+carries another session's staged files under this one's message.
 
 ### ▢ Next dispatch — maintainer-reported product bugs still unmarked
 
@@ -72,7 +86,7 @@ whenever a lane returns; ⛔ do not let a lane finish with nothing dispatched.
 | Super Sanic's spikes are clipped by the sprite renderer | ⭐ Jon called it structural himself — *"we should not be able to clip sprite artwork so easily"*. This is the only one that is an ENGINE gap rather than content |
 | Mary-O secret/invisible blocks keep their brick texture when spent (quasar brick in 1-1) | the spent-art road already works for `?`-blocks, so this is a road that skipped a case |
 | Mary-O allows one fireball; should allow two | small, and the number is content, not engine |
-| the multi-coin block's coin-pop VFX is absent (◐) | the block, parse and counter landed; only the arc VFX is missing |
+| ~~the multi-coin block's coin-pop VFX~~ | ✔ **RESOLVED 2026-08-15 and it was never missing** — it landed in `943a9aa0c`; four demo shells had no `VfxMessage` reader, so it drew in the full game and nowhere else. ⛔ the doc entry said otherwise for a day |
 | the snake and AI slop are far too big, and the snake sprite may not match its box | ⚠ related to the player-side sprite/box unit mismatch at the top of that file — the two may be one bug |
 
 ⚠ **the sprite/box pair is the cluster worth taking together**: the player hurtbox

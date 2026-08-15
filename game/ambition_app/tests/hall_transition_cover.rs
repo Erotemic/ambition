@@ -238,4 +238,65 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
          while the Hall's assets were still outstanding — a cover that does not \
          outlast the load it covers is a flash, not a loading screen"
     );
+
+    // ── And it can say WHAT it is waiting for ───────────────────────────────
+    //
+    // ⛔ **"99%" is not an answer, and until 2026-08-15 it was the only one the
+    // engine had.** Jon watched a real browser sit at 99% entering this exact
+    // room; `LoadPresentationModel::from_snapshot` clamps every un-Ready barrier
+    // to `0.999`, so the number means *"not Ready"* and nothing else. The poll
+    // computed `RoomAssetReadiness`, which names every pending asset, and kept
+    // `(settled, total)` — throwing the names away every frame while the player
+    // stared at a number that could not move.
+    //
+    // ⚠ **this test is the natural customer** because a `NoWindow` host decodes
+    // almost nothing (see the header), so the Hall's barrier here genuinely never
+    // settles. That used to be an awkward limitation of the fixture; it is the
+    // ideal stall to interrogate.
+    let mut report = None;
+    let mut outcome = String::from("ran out of frames while the barrier was still un-Ready");
+    for _ in 0..600 {
+        step(&mut app);
+        let state = app
+            .world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
+        );
+        let Some(active) = state.active.as_ref() else {
+            outcome = "the transition finished and released".into();
+            break;
+        };
+        if active.asset_readiness_complete {
+            outcome = format!(
+                "the barrier reached readiness (phase={:?}, progress={:?})",
+                active.phase, active.last_asset_progress
+            );
+            break;
+        }
+        if let Some(explained) = active.asset_stall_report.clone() {
+            report = Some(explained);
+            break;
+        }
+        outcome = format!(
+            "phase={:?} progress={:?} since={:?} complete={}",
+            active.phase,
+            active.last_asset_progress,
+            active.asset_progress_since,
+            active.asset_readiness_complete
+        );
+    }
+    let report = report.unwrap_or_else(|| {
+        panic!(
+            "no stall explanation, and the loop exited because: {outcome}.\n{}",
+            "the Hall's asset barrier sat un-Ready for the whole test and the transition \
+         never produced an explanation. `RoomAssetReadiness::pending` names every \
+         outstanding asset on every poll; if this is `None`, those names are being \
+         computed and dropped again and a stuck load is back to reporting 99%",
+        )
+    });
+    // ⭐ and the explanation has to NAME things. A stall report that says only
+    // "still waiting" is the 99% problem with more words.
+    assert!(
+        report.contains("Still pending:") && report.contains("hall_of_characters"),
+        "the stall report does not name the room and its outstanding assets: {report}"
+    );
 }

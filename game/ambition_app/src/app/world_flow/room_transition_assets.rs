@@ -624,8 +624,11 @@ pub(crate) fn contribute_room_transition_assets_system(
         return;
     };
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let manifest_started = std::time::Instant::now();
+    // ⛔ **the browser recorded NOTHING here**, and this is the burst that most
+    // needed measuring: `build_room_asset_manifest` materializes the whole staged
+    // cast synchronously, and Hall of Characters stages 129 distinct ones.
+    // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
+    let manifest_started = bevy::platform::time::Instant::now();
     let manifest = build_room_asset_manifest(
         target_spec,
         &active.staged_actor_names,
@@ -639,10 +642,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         &prepared_characters,
         &context.authored_sheets,
     );
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        active.asset_manifest_duration = Some(manifest_started.elapsed());
-    }
+    active.asset_manifest_duration = Some(manifest_started.elapsed());
     let now = context.real_time.as_deref().map(|time| time.elapsed());
     if let Some(cache) = context.prefetch.as_deref_mut() {
         let assets_promoted = cache.classify_promotion(
@@ -656,7 +656,7 @@ pub(crate) fn contribute_room_transition_assets_system(
     }
     let manifest_is_empty = manifest.is_empty();
     let readiness = inspect_room_asset_manifest(asset_server, &manifest);
-    active.last_asset_progress = Some((readiness.settled, readiness.total));
+    active.observe_asset_progress(readiness.settled, readiness.total, now.unwrap_or_default());
     contributed.manifest = Some(Arc::new(manifest));
 
     if !readiness.failed.is_empty() {
@@ -732,7 +732,6 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
     };
 
     let readiness = inspect_room_asset_manifest(&asset_server, manifest);
-    let progress_key = (readiness.settled, readiness.total);
     if !readiness.failed.is_empty() {
         let detail = format!(
             "room '{}' failed to load {} activation-critical asset(s): {}",
@@ -753,13 +752,13 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
                 .retryable(true),
             ),
         );
-        active.last_asset_progress = Some(progress_key);
+        active.observe_asset_progress(readiness.settled, readiness.total, time.elapsed());
         active.asset_readiness_complete = true;
         bevy::log::error!(target: "ambition_platformer2d::room_transition", "{detail}");
         return;
     }
 
-    if active.last_asset_progress != Some(progress_key) {
+    if active.observe_asset_progress(readiness.settled, readiness.total, time.elapsed()) {
         let state = if readiness.is_ready() {
             LoadWorkState::Complete
         } else {
@@ -777,14 +776,67 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
             active.asset_work_id.clone(),
             state,
         );
-        active.last_asset_progress = Some(progress_key);
     }
 
     if readiness.is_ready() {
         active.asset_readiness_complete = true;
         active.asset_ready_at.get_or_insert_with(|| time.elapsed());
+        return;
+    }
+
+    // ⛔ **SAY WHAT IT IS WAITING FOR.** `readiness.pending` names every
+    // activation-critical asset that has not settled, and this poll computed it
+    // and threw it away every frame while the foreground showed 99% — a number
+    // that means only *"not Ready"*, because `LoadPresentationModel` clamps an
+    // un-Ready barrier to `0.999`. Jon watched that on a Hall transition and
+    // there was no way to ask which of the room's 129 characters had not
+    // arrived.
+    //
+    // ⚠ **once per stall, not once per frame.** The names are stable while the
+    // barrier is stuck, so repeating them is the log spam this file has been
+    // burned by before; a barrier that starts moving again clears the flag above
+    // and earns a fresh report if it stalls again.
+    let stalled_for = active
+        .asset_progress_since
+        .map(|since| time.elapsed().saturating_sub(since))
+        .unwrap_or_default();
+    if active.asset_stall_report.is_none() && stalled_for >= ASSET_READINESS_STALL_REPORT {
+        const NAMED: usize = 12;
+        let named = readiness
+            .pending
+            .iter()
+            .take(NAMED)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
+        let and_more = readiness.pending.len().saturating_sub(NAMED);
+        let report = format!(
+            "room '{}' has been waiting {:.1}s for {} of {} activation-critical asset(s) \
+             and has not settled one in that time. Still pending: {named}{}",
+            active.target_room_id,
+            stalled_for.as_secs_f32(),
+            readiness.pending.len(),
+            readiness.total,
+            if and_more > 0 {
+                format!(" (+{and_more} more)")
+            } else {
+                String::new()
+            },
+        );
+        bevy::log::warn!(target: "ambition_platformer2d::room_transition", "{report}");
+        active.asset_stall_report = Some(report);
     }
 }
+
+/// How long a room's asset barrier may sit at the SAME settled count before it
+/// owes an explanation.
+///
+/// ⚠ **not a timeout** — nothing is cancelled and no transition fails. A slow
+/// connection legitimately spends this long on a large room, and the report is
+/// how a maintainer tells that apart from a barrier that will never move. Chosen
+/// well above an ordinary covered transition (sub-second on a warm desktop) so a
+/// healthy load never files one.
+const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 
 /// Speculatively prepare construction plans and poll exact asset manifests for graph-neighbor
 /// rooms. The cache is bounded to the current active room's outgoing neighbors.

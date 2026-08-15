@@ -177,6 +177,28 @@ pub struct ActiveRoomTransitionLoad {
     pub staged_actor_names: Vec<String>,
     pub asset_readiness_complete: bool,
     pub last_asset_progress: Option<(usize, usize)>,
+    /// **When `last_asset_progress` last MOVED**, on the feel clock — the only
+    /// thing that separates "waiting" from "stuck".
+    ///
+    /// ⛔ **a barrier that knows it is blocked must be able to say what on, and
+    /// this one could not.** Jon's browser sat at 99% entering Hall of
+    /// Characters (a room staging 129 distinct characters), and 99% means only
+    /// *"not Ready"* — `LoadPresentationModel::from_snapshot` clamps every
+    /// un-Ready barrier to `0.999`. The poll computes `RoomAssetReadiness`,
+    /// which carries `pending` BY NAME, and then keeps `(settled, total)` and
+    /// drops the names. Every frame. So a barrier correctly waiting on the
+    /// slowest of 129 fetches and one deadlocked on an asset that will never
+    /// arrive looked identical, and they want opposite fixes.
+    pub asset_progress_since: Option<Duration>,
+    /// **The explanation for the current stall, once it has earned one** — which
+    /// assets are still pending, how many, and for how long.
+    ///
+    /// ⭐ STATE rather than only a log line, and deliberately: a test can assert
+    /// on it, a dev overlay can show it, and it stays available for whoever asks
+    /// next instead of scrolling past once. `None` while the barrier is moving,
+    /// which is also what makes it the "already explained" flag — one report per
+    /// stall, not one per frame.
+    pub asset_stall_report: Option<String>,
     pub prefetch_hit: bool,
     pub construction_preflight_duration: Option<Duration>,
     pub asset_manifest_duration: Option<Duration>,
@@ -189,6 +211,32 @@ pub struct ActiveRoomTransitionLoad {
 }
 
 impl ActiveRoomTransitionLoad {
+    /// **Record what the asset barrier has settled, and keep the stall clock
+    /// honest.** Returns whether the count actually MOVED.
+    ///
+    /// ⛔ **two systems write this** — the contributor writes it once when it
+    /// builds the manifest, the poll writes it every time it changes — and the
+    /// stall clock was first taught to only one of them. The result was a
+    /// barrier stuck at `(0, 164)` whose `asset_progress_since` was `None`
+    /// forever, so it could never become old enough to explain itself: the
+    /// contributor had already stored the key the poll would have called a
+    /// change. Caught by the Hall pin on its first run, 2026-08-15.
+    ///
+    /// ⭐ so the pair moves together or not at all. A caller cannot record
+    /// progress without restarting the clock, because recording IS this call.
+    pub fn observe_asset_progress(&mut self, settled: usize, total: usize, now: Duration) -> bool {
+        let key = (settled, total);
+        if self.last_asset_progress == Some(key) {
+            return false;
+        }
+        self.last_asset_progress = Some(key);
+        self.asset_progress_since = Some(now);
+        // A moving barrier is not a stalled one, and the next stall will be a
+        // different stall — so the explanation is owed again.
+        self.asset_stall_report = None;
+        true
+    }
+
     fn same_destination(
         &self,
         intent: &RoomTransitionIntent,
@@ -620,6 +668,8 @@ pub fn begin_room_transition_load_system(
             staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
             prefetch_hit: false,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
@@ -751,8 +801,13 @@ pub fn begin_room_transition_load_system(
         // feeding the write-only `construction_preflight_duration` diagnostic,
         // observed by no sim decision and not rollback-registered. Preflight cost
         // is a player-facing latency question, so the feel clock is the right one.
-        #[cfg(not(target_arch = "wasm32"))]
-        let construction_preflight_started = std::time::Instant::now();
+        // ⛔ **THIS WAS `#[cfg(not(target_arch = "wasm32"))] std::time::Instant`,
+        // so the one platform whose numbers would explain a slow transition was
+        // the one platform that recorded none.** `bevy::platform::time::Instant`
+        // is `web-time` on wasm and `std` elsewhere, already in the graph, and
+        // sub-frame on both — `Time<Real>` is NOT a substitute here, because it
+        // advances once per frame and a within-frame span measures zero.
+        let construction_preflight_started = bevy::platform::time::Instant::now();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
             cache.promote(
                 content_epoch.get(),
@@ -816,10 +871,7 @@ pub fn begin_room_transition_load_system(
                 return;
             }
         };
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            active.construction_preflight_duration = Some(construction_preflight_started.elapsed());
-        }
+        active.construction_preflight_duration = Some(construction_preflight_started.elapsed());
         let staged_names = construction_plan.content_staged_names();
         active.construction_plan = Some(construction_plan);
         set_work_state(
@@ -1027,6 +1079,8 @@ mod tests {
             staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
             prefetch_hit: false,
             construction_preflight_duration: None,
             asset_manifest_duration: None,
@@ -1089,6 +1143,8 @@ mod tests {
             staged_actor_names: Vec::new(),
             asset_readiness_complete: false,
             last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
             prefetch_hit: false,
             construction_preflight_duration: None,
             asset_manifest_duration: None,

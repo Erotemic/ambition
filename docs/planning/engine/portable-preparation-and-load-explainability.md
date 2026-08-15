@@ -33,28 +33,47 @@ if !ready {
 So the number means exactly *"the barrier has not reached Ready"* and nothing
 about how much remains. **Reading it as 1% is the first wrong turn.**
 
-The engine cannot currently answer the question that matters —
-*what exact required fact is keeping this barrier from Ready?* — and it is one
-field away from being able to. `inspect_room_asset_manifest` already computes:
+The engine could not answer the question that matters — *what exact required fact
+is keeping this barrier from Ready?* — and it was one field away.
+`inspect_room_asset_manifest` already computed:
 
 ```rust
 RoomAssetReadiness { settled, total, pending: Vec<String>, failed: Vec<String> }
 ```
 
-and `ActiveRoomTransitionLoad` retains only `last_asset_progress: (settled,
-total)`. The names are computed every poll and dropped every poll. **A load
+and `ActiveRoomTransitionLoad` retained only `last_asset_progress: (settled,
+total)`. The names were computed every poll and dropped every poll. **A load
 coordinator that knows it is blocked must be able to say what on.**
+
+✔ **LANDED 2026-08-15.** A barrier that has not settled a single asset for five
+seconds now files one `asset_stall_report` — the room, how long, how many of how
+many are outstanding, and the first twelve of them by name — as STATE on the
+transition, so a test can assert it and a dev overlay can show it, and as one log
+line rather than one per frame. ⚠ not a timeout: nothing is cancelled, because a
+slow connection legitimately spends that long on a large room. The report is how
+a maintainer tells that apart from a barrier that will never move.
+
+⭐ **the pin found the trap on its first run.** `last_asset_progress` has TWO
+writers — the contributor stores it once when it builds the manifest, the poll
+updates it as it changes — and the stall clock was taught to only the poll. The
+Hall then sat at `(0, 164)` with `asset_progress_since: None` forever: it could
+never become old enough to explain itself, because the contributor had already
+stored the key the poll would have called a change. Both now go through
+`observe_asset_progress`, which is the only way to record progress and therefore
+the only way to restart the clock.
 
 ## ⛔ The phase timings are compiled out exactly where the stress is
 
-`construction_preflight_duration` and `asset_manifest_duration` are both written
+`construction_preflight_duration` and `asset_manifest_duration` were both written
 under `#[cfg(not(target_arch = "wasm32"))] std::time::Instant::now()`. The
-browser is the platform whose numbers would explain the observation, and it is
-the one platform that records none.
+browser is the platform whose numbers would explain the observation, and it was
+the one platform that recorded none.
 
-`bevy::platform::time::Instant` is already in the dependency graph (`web-time` on
-wasm, `std` elsewhere) and is a sub-frame clock on both. `Time<Real>` is NOT a
-substitute: it advances once per frame, so a within-frame span measures zero.
+✔ **LANDED 2026-08-15**: both use `bevy::platform::time::Instant`, already in the
+dependency graph (`web-time` on wasm, `std` elsewhere) and sub-frame on both, and
+the two `#[cfg]` blocks are deleted. ⚠ `Time<Real>` is NOT a substitute here: it
+advances once per frame, so a within-frame span measures zero — which is exactly
+what the manifest burst is.
 
 ⚠ these are write-only diagnostics observed by no simulation decision. Timing
 data must never enter a deterministic decision — that is why they are recorded on
@@ -74,12 +93,17 @@ concrete handles before the reveal barrier can be built from them. Hall of
 Characters is the extreme customer of that decision — it is the room whose entire
 point is a large cast standing together.
 
-⭐ **MEASURED, 2026-08-15, from `hall_of_characters.ldtk`: 129 `NpcSpawn` rows
-naming 129 DISTINCT characters, with no repeats.** Not "a big room" — the worst
-possible shape for this seam. Every one of the 129 is its own catalog lookup, its
-own atlas layout, and its own image handle, materialized in the single frame that
-builds the manifest; then the reveal barrier waits on all 129 before anything is
-shown. On a desktop with a warm page cache that is a stutter. In a browser each
+⭐ **MEASURED 2026-08-15 — and name the denominator, because there are three.**
+`hall_of_characters.ldtk` authors **129 `NpcSpawn` rows naming 129 DISTINCT
+character ids, with no repeats**; the staged cast the transition demands reaches
+**~151**; the reveal barrier that results holds **164 activation-critical asset
+handles**. (An older comment in `hall_transition_cover.rs` says "144 NPCs"; the
+129 above is a direct count of the authored file at HEAD.)
+
+Not "a big room" — the worst possible shape for this seam. Each of the 129 is its
+own catalog lookup, its own atlas layout, and its own image handle, materialized
+in the single frame that builds the manifest; then the reveal barrier waits on
+all 164 before anything is shown. On a desktop with a warm page cache that is a stutter. In a browser each
 one is an HTTP request, and *any* single straggler holds the whole barrier
 un-Ready — which is precisely what "stuck at 99%" would look like from outside,
 with no way to ask which one.
@@ -155,6 +179,29 @@ loading. The portable contract:
 > When music begins, it begins from a stable audio-clock position after its
 > required source is ready, and heavy game preparation never causes musical time
 > to race forward to catch up.
+
+⭐ **searched at HEAD, 2026-08-15: there is no music time manipulation to find.**
+`playback_rate`, `seek`, `start_from` and every sibling return nothing across the
+tree; `play_music_track` calls `music_channel.play(handle)` with a 220ms fade and
+nothing else. So *"musical time raced forward to compensate"* has no code that
+could do it, and the leading hypothesis is the opposite direction: **crackle and
+"catch up" are what STARVATION sounds like.** A stream whose position follows the
+audio clock, starved while the main thread does something long, drops samples
+(the crackle) and then resumes at the position the clock has already reached
+(the "catch up"). Nothing in the game decided that; the game simply stopped
+feeding it.
+
+⚠ **and that makes it the SAME defect as the Hall, not a second one.** A wasm
+build without threads runs audio callbacks on the main thread, so an unbounded
+synchronous burst — 129 character materializations in one frame — starves the
+mixer directly. If that is what is happening, budgeted realization fixes both
+symptoms and no audio-specific change is needed.
+
+⛔ **do not act on that until it is measured.** The instrument now exists and is
+the same one: `asset_manifest_duration` is recorded on wasm as of this slice, so
+a browser run will say how long that one frame actually took. A manifest frame in
+the hundreds of milliseconds is the confirmation; a manifest frame of 20ms
+falsifies it and sends the search to the audio path proper.
 
 If no portable defect can be proven natively, leave the retest row open with the
 logging ready. Do not invent a fix for a symptom that cannot be reproduced.

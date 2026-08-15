@@ -599,6 +599,8 @@ mod tests {
             staged_actor_names: Vec::new(),
             asset_readiness_complete: true,
             last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
             prefetch_hit: false,
             construction_preflight_duration: None,
             asset_manifest_duration: None,

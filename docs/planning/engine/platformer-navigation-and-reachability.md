@@ -76,6 +76,57 @@ straight-line reachability sweep with zero production consumers — is gone, wit
 own answer" duplication the section below forbids, and it survived only because
 nothing asked it anything.
 
+## ✔ The first slice LANDED, and the query now has a consumer (2026-08-15)
+
+⭐ **`probe_recovery` shipped with ZERO consumers, and that was the defect** — a
+reusable query with no adopter decays and its claims go stale. It has one now.
+
+`RecoveryLens` (`ambition_characters/src/brain/fighter/recovery.rs`) lowers a
+`Perceived` view into a real `ae::World` plus the body's **own** `AbilitySet` and
+`MovementTuning` into an `ae::BodyClusterScratch`, and `refine_by_rollout`
+overrules the shadow **in both directions**.
+
+⭐ **the reprieve is the half that fixed the measured defect**, and it is not the
+half anyone expected: the shadow line `Hold`s after `commit_ticks`, so near a
+ledge it condemned **every** verb — the veto emptied, and choice fell through to
+*"dies latest"* rather than *"lives"*. The condemnation was never the whole bug.
+
+✔ **and it was a deletion.** `WorldView::reachable` and `SolidKind::blocks_path`
+— hand-rolled straight-line reachability with **zero production consumers** — are
+gone. ⭐ that is exactly the duplication the section below forbids, and it existed
+in the tree while this plan was being written.
+
+⭐ **the body-generic proof is REAL, and the falsifier was executed:** two bodies
+at an identical position, with identical geometry, gravity and unspent air-jump
+*count*, differing only in `AbilitySet::double_jump`, reach opposite verdicts —
+because the kernel gates on verb **and** budget. Poisoning the production path so
+the lens builds its scratch body with a default `AbilitySet` turns **exactly that
+test red and no other**. ⇒ the verdict comes from the body's capabilities, not
+from the stage's shape.
+
+⚠ **three honest limits, recorded rather than hidden:**
+
+- **blast margins are probed at zero** while Smash's stage authors 120px on all
+  three axes, so the probe is conservative by exactly that. A body genuinely
+  recoverable inside the real margin is condemned. Fixing it means carrying
+  margins on `StageView`.
+- ⛔ **the ledge-transition case is the one NOT pinned** — and it is the common
+  one in play. The capture point records the shadow's ground transition, which
+  tests the body's **centre** against `ground_span`, while the kernel uses the
+  **footprint**; at a ledge those disagree by a half-extent, so a probe can start
+  half-overlapping the platform and be trivially reprieved.
+- **cost is unmeasured.** At most one probe per modelled movement verb per
+  decision (≤4), only for a verb whose line left the ground, each 3 efforts
+  capped at 2.0s — worst case ~1440 kernel steps per decision, decisions every 5
+  ticks. The existing budget bench rolls no movement lines, so it does not price
+  the lens and needs extending.
+
+⚠ **one design premise nothing enforces:** the lens reprieves a line on the
+assumption the brain *will* switch to full recovery effort at its next decision.
+That is true today (it re-decides every `interval()` ticks) but unenforced — if
+`Situation::Recovery` ever fails to offer `Recover`, the reprieve becomes a
+promise nothing keeps.
+
 ## Architecture direction
 
 Prefer a derived traversal/reachability representation over hand-authored

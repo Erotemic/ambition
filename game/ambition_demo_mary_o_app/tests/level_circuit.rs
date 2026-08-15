@@ -174,7 +174,23 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
     );
 }
 
-/// **The circuit.** Finish 1-1, arrive in 1-2; finish 1-2, arrive back in 1-1.
+/// **The circuit: finishing every authored level eventually comes home.**
+///
+/// ⛔⛔ **this asserted the LENGTH of the chain, and a third level broke it.**
+/// It hard-coded *"finishing 1-2 returns to 1-1"* — true only while 1-2 was the
+/// last level. Authoring `mary_o_1_3` in LDtk cost no Rust to describe and still
+/// reddened this file, because the test had pinned the shape of the world
+/// instead of the property being claimed.
+///
+/// ⭐ **the property is "a circuit, not a dead end", and it does not mention a
+/// count.** So walk until the entry comes back around, and let the roster say
+/// how long that takes: a fourth level authored tomorrow extends the walk rather
+/// than failing it.
+///
+/// ⚠ **and the walk is still bounded.** A dead end or a short loop that never
+/// reaches the entry must FAIL rather than hang, so the cap is one hop per
+/// authored area plus one — enough for the real circuit, never enough to hide a
+/// broken one.
 #[test]
 fn finishing_each_level_carries_you_to_the_other_one() {
     let mut app = ambition_demo_mary_o_app::build_demo_app();
@@ -187,14 +203,43 @@ fn finishing_each_level_carries_you_to_the_other_one() {
         "the shipped entry is 1-1, or this test is about something else"
     );
 
+    let authored = ambition_demo_mary_o::authored_area_ids();
+    assert!(
+        authored.len() >= 2,
+        "a circuit needs at least two levels to be a claim about anything; the \
+         world authors {authored:?}"
+    );
+
+    // ⭐ the leg that was broken once: without a second hop this test would have
+    // passed over a session that could reach 1-2 and never leave it.
     let second = finish_the_level(&mut app, &first);
     assert_eq!(second, LEVEL_1_2_ROOM_ID, "finishing 1-1 goes to 1-2");
 
-    // ⭐ the leg that was broken. Without it this test would have passed over a
-    // session that could reach 1-2 and never leave it.
-    let third = finish_the_level(&mut app, &second);
-    assert_eq!(
-        third, LEVEL_1_1_ROOM_ID,
-        "finishing 1-2 comes back to 1-1 — a circuit, not a dead end"
+    let mut visited = vec![first.clone(), second.clone()];
+    let mut here = second;
+    for _ in 0..=authored.len() {
+        let next = finish_the_level(&mut app, &here);
+        if next == first {
+            assert_eq!(
+                visited.len(),
+                authored.len(),
+                "the circuit closed after visiting {visited:?}, but the world \
+                 authors {authored:?} — a level nobody can reach by playing is \
+                 as good as unauthored"
+            );
+            return;
+        }
+        assert!(
+            !visited.contains(&next),
+            "finishing '{here}' led to '{next}', which is already on this walk \
+             ({visited:?}) — that is a SHORT LOOP that never returns to the \
+             entry, not a circuit"
+        );
+        visited.push(next.clone());
+        here = next;
+    }
+    panic!(
+        "walked {visited:?} without ever returning to '{first}'; the authored \
+         areas are {authored:?}. Some level's exit is a dead end."
     );
 }

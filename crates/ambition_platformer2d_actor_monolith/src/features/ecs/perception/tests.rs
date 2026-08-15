@@ -460,12 +460,19 @@ fn collect_perception_projectiles_snapshots_both_pools() {
 /// **The 2× bug.** `BodyKinematics::size` is the FULL body size (`aabb()`
 /// halves it); `PerceptionBody::half_extent` and `PerceivedActor::half_extent`
 /// are halves. Both fill sites passed `size` straight through, so every body
-/// perceived itself and everyone else as twice its real box — and
-/// `WorldView::reachable`, which sweeps `self_view.half_extent`, refused
-/// corridors the body physically fits through.
+/// perceived itself and everyone else as twice its real box.
 ///
 /// This test pins the CONTRACT rather than the call sites: the view's
 /// half-extent must equal the body's real `aabb()` half-extent.
+///
+/// ⚠ **it used to observe that through `WorldView::reachable`** — a swept
+/// straight-line query that took `self_view.half_extent`, and that had no
+/// production consumer at all. `reachable` is deleted; the invariant is now
+/// asserted on the BUILT VIEW directly, which is a stronger statement than an
+/// inference from one query's behaviour and cannot go quiet if that query's
+/// sweep changes. ⛔ do NOT re-point this at `line_of_fire`: that one sweeps a
+/// fixed thin probe (`SIGHT_PROBE_HALF`) and is blind to the body's box, so it
+/// would pass identically with the bug present.
 #[test]
 fn the_views_half_extent_is_a_half_extent() {
     let kin_size = ae::Vec2::new(24.0, 36.0);
@@ -475,11 +482,8 @@ fn the_views_half_extent_is_a_half_extent() {
         kin_size * 0.5,
         "if this ever changes, both perception fill sites must change with it"
     );
-    // And a body built with the halved value reaches through a gap its full
-    // size would not fit: the observable consequence of the bug.
     let mut b = body(ae::Vec2::new(0.0, 100.0), ActorFaction::Enemy);
     b.half_extent = kin_size * 0.5;
-    // Gap 50px: the true 36px-tall sweep clears it; the doubled 72px one does not.
     let world = corridor_world(50.0);
     let view = build_world_view(
         &b,
@@ -491,25 +495,19 @@ fn the_views_half_extent_is_a_half_extent() {
         DEFAULT_VIEWPORT_HALF,
         0.0,
     );
-    assert!(
-        view.reachable(ae::Vec2::new(300.0, 100.0)),
-        "a body sweeping its true half-extent fits the corridor"
+    // The observable consequence, on the value the builder actually published:
+    // a HALF, never the full size, and never doubled on the way through.
+    assert_eq!(
+        view.self_view.half_extent, real_half,
+        "the builder published {:?} for a body whose real half-extent is \
+         {real_half:?} — the 2x bug is back",
+        view.self_view.half_extent
     );
-    let mut fat = b;
-    fat.half_extent = kin_size; // the bug
-    let fat_view = build_world_view(
-        &fat,
-        &[],
-        &[],
-        &[],
-        &world,
-        &FactionRelations::default(),
-        DEFAULT_VIEWPORT_HALF,
-        0.0,
-    );
-    assert!(
-        !fat_view.reachable(ae::Vec2::new(300.0, 100.0)),
-        "the doubled box does not — which is what the brain used to believe"
+    // And it is a half of the SIZE, which is the mistake that was made: a fill
+    // site passing `size` straight through would produce this value instead.
+    assert_ne!(
+        view.self_view.half_extent, kin_size,
+        "poison: the view is carrying the FULL body size as a half-extent"
     );
 }
 

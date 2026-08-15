@@ -653,23 +653,15 @@ pub fn shadow_step(
     //     an immediate KO is what removed the discrimination in the first place.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
         let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
-        // ⛔⛔ **A COMMITTED FALL IS A DEATH THIS HORIZON CANNOT REACH — and the
-        // fix is NOT a predicate here.** Measured 2026-08-14: from the Smash
-        // platform's top the blast floor is 180px, 24 ticks at 2250px/s², while
-        // the level-9 horizon is 12. Stepping off the ledge therefore scores
-        // FREE, and a deeper search finds more ways to leave, every one of them
-        // free — depth 12 survived 7.4s against depth 0's 47.8s at 0% damage,
-        // because the fighters died before engaging.
-        //
-        // ⛔ the tempting terminal value — *airborne, below the floor's top,
-        // outside its span ⇒ already dead* — is REFUSED (Jon, 2026-08-14). It is
-        // not body-generic and it is not true: a body may still recover with air
-        // movement, a jump it has not spent, flight, a wall, a ledge grab, a
-        // recovery attack, an impulse, a portal or a grapple. A terminal value
-        // for a fall has to come from actual reachability under THAT body's
-        // capabilities (a future consumer of
-        // `platformer-navigation-and-reachability`) or from a horizon long
-        // enough to contain the landing. Not from a Smash-shaped guess.
+        // ⛔ **THE COMMITTED FALL IS NOT PRICED HERE, AND THAT IS DELIBERATE.**
+        // This block answers a geometric question — did the body cross the
+        // envelope — and nothing else. Whether a fall it has not finished yet is
+        // survivable is a question about the BODY, which the refused *"airborne,
+        // below the floor's top, outside its span ⇒ already dead"* predicate
+        // (Jon, 2026-08-14) got wrong by not asking one. It now has an answer:
+        // `refine_by_rollout` takes a [`super::recovery::RecoveryLens`] and runs
+        // the REAL movement kernel over the body's own kit. Keep this block
+        // geometric; the recoverability verdict belongs where the kit is.
         if !fighter.koed && outside && !fighter.started_offstage {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });
@@ -891,22 +883,26 @@ fn apply_intent(
 /// hand-written physics law, with a one-plane terrain model, beside
 /// `ae::step_motion`.
 ///
-/// ⭐ **the seam that replaces it exists**: `ae::movement::recovery` drives the
-/// real kernel over a cloned [`ae::BodyClusterScratch`] against a real
-/// `&ae::World`, so every verb the body owns is honoured by the code that owns
-/// it. ⚠ it is NOT wired here and must not be — it costs three efforts times its
-/// horizon in kernel steps, which is orders of magnitude past a per-decision
-/// budget, and Smash is paused.
+/// ⭐ **the seam that replaces it exists AND now has a consumer**:
+/// `ae::movement::recovery` drives the real kernel over a cloned
+/// [`ae::BodyClusterScratch`] against a real `&ae::World`, so every verb the body
+/// owns is honoured by the code that owns it.
+/// [`super::recovery::RecoveryLens`] lowers a `Perceived` view into exactly that
+/// pair, and [`refine_by_rollout`] asks it once per movement line that leaves the
+/// ground.
 ///
 /// **Delete this function when all three hold:**
-/// 1. the brain can obtain a `&ae::World` for the room it is fighting in
-///    (`ambition_characters` already depends on `ae`; what it lacks is the
-///    world, which `CollisionWorld::solids()` hands out as exactly that type —
-///    ⛔ do NOT take a dependency on `ambition_platformer2d_world` to get it,
-///    pass it down the way `Perceived` is passed);
+/// 1. ✔ **MET** — the brain can obtain a `&ae::World` for the room it is fighting
+///    in. `RecoveryLens::from_view` builds one from the PERCEIVED terrain and the
+///    stage box, which keeps the no-cheat contract and takes no dependency on
+///    `ambition_platformer2d_world`;
 /// 2. one real kernel step per shadow step is measured against the
 ///    `rollout_k × (1 + rollout_depth)` budget and is affordable, OR the rollout
-///    is restructured so the kernel runs at a coarser cadence than the search;
+///    is restructured so the kernel runs at a coarser cadence than the search.
+///    ⚠ the lens is the SECOND of those, taken deliberately: the search stays
+///    cheap and approximate and the kernel is paid for once, at the terminal
+///    question. What is still owed is the measurement — no bench has priced a
+///    decision with the lens attached;
 /// 3. `ladder_rig --scenarios` re-runs green — that suite is the only instrument
 ///    that has ever seen a shadow-physics divergence (it caught the 1400/160/420
 ///    gap), so a swap without it is a guess.
@@ -1322,6 +1318,11 @@ fn score_line(
 /// steps, plus one movement line of `rollout_depth ×
 /// `[`MOVEMENT_HORIZON_MULTIPLE`] steps per modelled verb; nothing about the
 /// machine, the load, or the clock can change what this function returns.
+///
+/// ⭐ **`lens` is the one place a real kernel step enters this module.** `None`
+/// is the shadow's own verdict, unchanged — which is what a body whose kit the
+/// world-in port did not carry, or a view that names no stage, gets. See the
+/// movement block below for what `Some` buys and what it costs.
 pub fn refine_by_rollout(
     view: Perceived<'_>,
     situation: Situation,
@@ -1331,6 +1332,7 @@ pub fn refine_by_rollout(
     tuning: &ShadowTuning,
     tick_hz: f32,
     commit_ticks: u32,
+    lens: Option<&super::recovery::RecoveryLens>,
 ) -> Option<RefinedChoice> {
     // ⚠ `attacks.is_empty()` used to short-circuit here, which silently made the
     // MOVEMENT veto conditional on having something to swing. A fighter with no
@@ -1421,6 +1423,15 @@ pub fn refine_by_rollout(
             let dt = 1.0 / tick_hz.max(1.0);
             let mut died = false;
             let mut survived = horizon;
+            // **WHERE THIS LINE LAST LEFT THE GROUND.** Cleared on every landing,
+            // so when the line ends it holds the start of the airborne stretch
+            // the line finished in — which is the state a recovery would have to
+            // begin from, and the only state worth paying a kernel probe for.
+            //
+            // ⛔ deliberately NOT the death state and NOT the line's final state:
+            // a body already past the envelope has nothing left to decide, and
+            // probing from there would answer "you are dead" for every line.
+            let mut left_the_ground: Option<super::recovery::RecoveryQuery> = None;
             for tick in 0..horizon {
                 // **THE VERB IS SUSTAINED ONLY AS LONG AS THE BODY IS COMMITTED
                 // TO IT**, and then the line coasts. A brain that re-decides
@@ -1443,12 +1454,54 @@ pub fn refine_by_rollout(
                         died = true;
                     }
                 }
+                if probe.me.on_ground {
+                    left_the_ground = None;
+                } else if left_the_ground.is_none() {
+                    left_the_ground = Some(super::recovery::RecoveryQuery {
+                        pos: probe.me.pos,
+                        vel: probe.me.vel,
+                        air_jumps_left: probe.me.air_jumps,
+                    });
+                }
                 if died {
                     survived = tick;
                     break;
                 }
             }
-            if died {
+            // ⭐⭐ **ON A FALL, THE REAL KERNEL OVERRULES THE SHADOW — BOTH WAYS.**
+            //
+            // The shadow's answer to "is this fall fatal" is two approximations
+            // stacked: a hand-written integrator with a one-plane terrain model,
+            // driven by a line that HOLDS after `commit_ticks` because the model
+            // has no notion of "and then I would try to come back". Both errors
+            // point the same way — a body that walks off a ledge is scored dead
+            // whatever it owns, so near a ledge the veto empties the list and the
+            // choice falls to `least_bad_movement`, which is the line that dies
+            // LATEST rather than the one that lives.
+            //
+            // `RecoveryLens` asks the question the shadow cannot: drive THIS
+            // body's own kernel, over ITS abilities and ITS movement law, at full
+            // recovery effort, from the place this line left the ground. A body
+            // with an unspent air jump, a wall to cling to, a ledge to catch or a
+            // glide is reprieved; one without any of them is condemned even when
+            // the shadow's 3.2 s never got round to killing it.
+            //
+            // ⛔ there is NO capability list here and no stage geometry — the
+            // rollout hands over a position and a kit and takes back one bit.
+            //
+            // **Cost, stated because it is not free**: at most ONE probe per
+            // modelled movement verb per decision, and only for a verb whose line
+            // left the ground; a line that never does pays nothing. Each probe is
+            // three steering efforts capped at
+            // `recovery::RECOVERY_PROBE_SECONDS`, and each effort stops the
+            // instant the body lands or leaves the world. ⚠ unmeasured — the
+            // bench pin above (`the_worst_shipped_budget_is_cheap_enough_to_be_a_
+            // non_event`) rolls no movement lines, so it does not price this.
+            let doomed = match (lens, left_the_ground) {
+                (Some(lens), Some(at)) => !lens.regains_support(at),
+                _ => died,
+            };
+            if doomed {
                 // **HOW LONG IT LASTS, not merely that it ends.** When every
                 // option is fatal the caller still has to pick one, and the
                 // longest-lived line is the one that leaves the most room for
@@ -1459,7 +1512,7 @@ pub fn refine_by_rollout(
                     longest_lived = Some((option.verb, survived));
                 }
             }
-            died.then_some(option.verb)
+            doomed.then_some(option.verb)
         })
         .collect();
 

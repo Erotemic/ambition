@@ -121,6 +121,7 @@ fn tick_peaceful(
         // A fixture body on default tuning: `None` resolves to the engine's
         // canonical movement table, which is what this seed is built from.
         movement_tuning: None,
+        abilities: None,
         attack_cooldown_remaining: 0.0,
         attack_windup_remaining: 0.0,
         attack_active_remaining: 0.0,

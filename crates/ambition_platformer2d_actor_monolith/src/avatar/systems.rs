@@ -184,6 +184,10 @@ pub fn tick_controlled_brains(
             // on this path reads a movement law, and claiming one would be a
             // fact the avatar path never resolved.
             movement_tuning: None,
+            // Same reason as the law above: the player brain translates a stick
+            // and predicts nothing, so it never asks the kernel a question that
+            // would need the kit.
+            abilities: None,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,

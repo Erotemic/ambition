@@ -377,6 +377,7 @@ fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
                 &tuning,
                 60.0,
                 6,
+                None,
             ),
             None,
             "k={k} depth={depth} must degrade to L2, not to a zero-step rollout"
@@ -407,6 +408,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
         &ShadowTuning::default(),
         60.0,
         6,
+        None,
     )
     .expect("rollouts are on and a hostile is in view");
     assert_eq!(refined.move_id.as_deref(), Some("lunge"));
@@ -453,6 +455,7 @@ fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
             &tuning,
             60.0,
             6,
+            None,
         );
         assert!(refined.is_some());
     }
@@ -491,6 +494,7 @@ fn l3_decides_identically_twice() {
         &tuning,
         60.0,
         6,
+        None,
     );
     let two = refine_by_rollout(
         Perceived::cheating(&view),
@@ -501,6 +505,7 @@ fn l3_decides_identically_twice() {
         &tuning,
         60.0,
         6,
+        None,
     );
     assert_eq!(one, two);
     // And the state trajectory itself is bit-identical, not merely the label.
@@ -649,6 +654,9 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
         // A body committed for a full second: long enough that walking 400 px to
         // a foe off the end of a 120 px platform is genuinely underway.
         60,
+        // No lens: this pins the SHADOW's own verdict, which is what a body whose
+        // kit never reached the snapshot still gets.
+        None,
     );
     let refined = refined.expect("no attacks is not a reason to skip movement vetting");
     assert!(
@@ -833,4 +841,195 @@ fn a_snapshot_without_a_movement_law_changes_nothing() {
         None => cfg.clone(),
     };
     assert_eq!(resolved, cfg);
+}
+
+// ── the recovery lens (the veto's body-generic half) ─────────────────────
+
+/// This body is ALREADY in the air, left of the platform and below its top
+/// face, with the foe across the gap. The shadow has no floor under it
+/// (`floor_below` finds none at this x), so the line falls out of the envelope
+/// and the shadow condemns it — whatever the body owns.
+fn view_falling_beside_the_platform() -> WorldView {
+    let mut view = view_on_platform(300.0, 60.0);
+    view.self_view.pos = ae::Vec2::new(300.0, 330.0);
+    view.self_view.on_ground = false;
+    // Unspent, and the SAME for both kits below. The difference under test is
+    // the verb, not the budget.
+    view.self_view.air_jumps_left = 1;
+    view
+}
+
+fn lens_for(
+    view: &WorldView,
+    abilities: ae::AbilitySet,
+) -> crate::brain::fighter::recovery::RecoveryLens {
+    crate::brain::fighter::recovery::RecoveryLens::from_view(
+        view,
+        crate::brain::fighter::recovery::BodyKit {
+            abilities,
+            movement: ae::MovementTuning::default(),
+        },
+        DT,
+    )
+    .expect("the fixture stage is known and gravity is non-zero")
+}
+
+/// **THE SELF-KO STOPS BEING ATTRACTIVE, AND THE REASON IS THE BODY.**
+///
+/// One trajectory, three verdicts. The shadow line is byte-identical in all
+/// three — same start, same sustained verb, same foe — so nothing about the
+/// POSITION distinguishes them:
+///
+/// * no lens ⇒ the shadow's own answer, which is "this kills you", because its
+///   line HOLDS after `commit_ticks` and it has no notion of coming back;
+/// * a lens over a body with no mid-air jump ⇒ the real kernel agrees;
+/// * a lens over a body that owns one ⇒ the kernel drives it back onto the
+///   platform and the verb is reprieved.
+///
+/// ⭐ `decide` picks the first movement option the veto did not name, so an
+/// emptied veto is the difference between choosing this line and falling through
+/// to `least_bad_movement` — the line that merely dies LATEST. That fallback is
+/// what a fighter near a ledge has been getting.
+///
+/// ⛔ the refused *"airborne, below the lip, outside the span"* predicate cannot
+/// produce this table: it reads the position, which is the one thing all three
+/// rows share.
+#[test]
+fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
+    let view = view_falling_beside_the_platform();
+    let options = crate::brain::fighter::options::OptionSet {
+        attacks: Vec::new(),
+        movement: vec![crate::brain::fighter::options::MoveOption {
+            verb: crate::brain::fighter::options::MovementVerb::Approach,
+            score: 1.0,
+        }],
+    };
+    let approach = vec![crate::brain::fighter::options::MovementVerb::Approach];
+    let refine = |lens: Option<&crate::brain::fighter::recovery::RecoveryLens>| {
+        refine_by_rollout(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &options,
+            &HabitModel::default(),
+            &profile(4, 12, 0.0),
+            &ShadowTuning::default(),
+            60.0,
+            60,
+            lens,
+        )
+        .expect("rollouts are on and a hostile is in view")
+    };
+
+    assert_eq!(
+        refine(None).suicidal_movement,
+        approach,
+        "without a lens this is the shadow's verdict, and the shadow kills every \
+         line that leaves the ground here"
+    );
+
+    let grounded_kit = lens_for(&view, ae::AbilitySet::basic());
+    assert_eq!(
+        refine(Some(&grounded_kit)).suicidal_movement,
+        approach,
+        "a body with no mid-air jump really cannot get back from there, and the \
+         kernel must not reprieve it"
+    );
+
+    let jumping_kit = lens_for(
+        &view,
+        ae::AbilitySet {
+            double_jump: true,
+            ..ae::AbilitySet::basic()
+        },
+    );
+    assert!(
+        refine(Some(&jumping_kit)).suicidal_movement.is_empty(),
+        "the SAME line, by a body that owns the mid-air jump, climbs back onto \
+         the platform; vetoing it is what makes a fighter refuse to move"
+    );
+}
+
+/// **An UNMODELLED verb stays unjudged, lens or no lens.**
+///
+/// `movement_intent` returns `None` for a verb the shadow cannot simulate, and
+/// "unmodelled means unjudged, in both directions" is a rule the lens must not
+/// quietly break — a probe attached to a line that was never rolled would be
+/// condemning a maneuver nobody simulated.
+#[test]
+fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
+    let view = view_on_platform(440.0, 60.0);
+    let options = crate::brain::fighter::options::OptionSet {
+        attacks: Vec::new(),
+        movement: vec![crate::brain::fighter::options::MoveOption {
+            verb: crate::brain::fighter::options::MovementVerb::Shield,
+            score: 1.0,
+        }],
+    };
+    let lens = lens_for(&view, ae::AbilitySet::basic());
+    let refined = refine_by_rollout(
+        Perceived::cheating(&view),
+        Situation::Neutral,
+        &options,
+        &HabitModel::default(),
+        &profile(4, 12, 0.0),
+        &ShadowTuning::default(),
+        60.0,
+        60,
+        Some(&lens),
+    )
+    .expect("rollouts are on and a hostile is in view");
+    assert!(
+        refined.suicidal_movement.is_empty(),
+        "`Shield` is unmodelled, so it is unjudged — a lens must not turn an \
+         unjudged verb into a condemned one"
+    );
+    assert!(
+        refined.least_bad_movement.is_none(),
+        "and with nothing condemned there is no least-bad fallback to name"
+    );
+}
+
+/// **The kernel path is as deterministic as the shadow path** (ADR 0023).
+///
+/// A rollback-resimulated decision tick has to reproduce its original answer
+/// bit-for-bit, and the lens is the first thing in this module that leaves it —
+/// it clones a body and drives `step_motion`. No clock, no RNG, and the effort
+/// order is a fixed array, so two identical calls must be identical answers.
+#[test]
+fn a_decision_taken_through_the_lens_repeats_exactly() {
+    let view = view_falling_beside_the_platform();
+    let options = crate::brain::fighter::options::OptionSet {
+        attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
+        movement: vec![
+            crate::brain::fighter::options::MoveOption {
+                verb: crate::brain::fighter::options::MovementVerb::Approach,
+                score: 1.0,
+            },
+            crate::brain::fighter::options::MoveOption {
+                verb: crate::brain::fighter::options::MovementVerb::Retreat,
+                score: 0.5,
+            },
+        ],
+    };
+    let lens = lens_for(
+        &view,
+        ae::AbilitySet {
+            double_jump: true,
+            ..ae::AbilitySet::basic()
+        },
+    );
+    let once = || {
+        refine_by_rollout(
+            Perceived::cheating(&view),
+            Situation::Neutral,
+            &options,
+            &HabitModel::default(),
+            &profile(4, 12, 0.0),
+            &ShadowTuning::default(),
+            60.0,
+            60,
+            Some(&lens),
+        )
+    };
+    assert_eq!(once(), once());
 }

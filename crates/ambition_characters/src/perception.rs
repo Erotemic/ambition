@@ -278,13 +278,6 @@ impl SolidKind {
     pub fn blocks_sight(self) -> bool {
         matches!(self, Self::Solid | Self::BlinkWall)
     }
-
-    /// Whether a solid of this kind blocks a body's straight-line path (coarse
-    /// reachability). Same set as sight today; `OneWay` directionality is left to
-    /// a finer query when a brain needs it.
-    pub fn blocks_path(self) -> bool {
-        matches!(self, Self::Solid | Self::BlinkWall)
-    }
 }
 
 /// A solid block clipped into the viewport — the local terrain a brain reasons
@@ -599,19 +592,6 @@ impl WorldView {
         self.portals
             .iter()
             .find(|p| p.channel_key == portal.channel_key && p.pos != portal.pos)
-    }
-
-    /// Whether self can travel in a straight line to `to` without a solid in the
-    /// way — a coarse reachability test sweeping the body's own collision box.
-    /// (A finer query — jumps, one-way directionality — is a brain-stage refinement.)
-    pub fn reachable(&self, to: ae::Vec2) -> bool {
-        !segment_blocked(
-            self.self_view.pos,
-            to,
-            self.self_view.half_extent,
-            &self.terrain,
-            SolidKind::blocks_path,
-        )
     }
 }
 

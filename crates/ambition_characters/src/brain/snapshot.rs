@@ -156,6 +156,26 @@ pub struct BrainSnapshot {
     /// a predictor falls back to the engine's canonical defaults.
     pub movement_tuning: Option<ae::MovementTuning>,
 
+    /// **Which movement VERBS this body owns**, beside the law that says what
+    /// they are worth.
+    ///
+    /// The pair is what the movement kernel needs to be driven at all, and a
+    /// brain that wants to know *"could I still get back from there"* asks the
+    /// kernel rather than answering it — see
+    /// [`crate::brain::fighter::recovery::RecoveryLens`]. A body with an unspent
+    /// air jump, a wall it can cling to or a ledge it can catch gets a different
+    /// answer from the same position, and no list in the brain has to be kept in
+    /// step for that to be true.
+    ///
+    /// ⚠ **not a capability list for the brain to interpret.** [`Self::actor_aerial`]
+    /// and `SelfView`'s `burst` exist precisely because a driver re-deriving the
+    /// kernel's precedence rules is the failure mode; this field is never read to
+    /// decide what to press, only handed to the kernel that owns the question.
+    ///
+    /// `None` — the default — means no kit reached this snapshot, and every
+    /// consumer degrades to not asking.
+    pub abilities: Option<ae::AbilitySet>,
+
     // --- Combat timers ---
     /// Cooldown remaining before this actor may begin another attack.
     pub attack_cooldown_remaining: f32,
@@ -234,6 +254,7 @@ impl BrainSnapshot {
             dt: 1.0 / 60.0,
             max_run_speed: 120.0,
             movement_tuning: None,
+            abilities: None,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,

@@ -507,6 +507,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         // A fixture body on default tuning: `None` resolves to the engine's
         // canonical movement table.
         movement_tuning: None,
+        abilities: None,
         attack_cooldown_remaining: 0.0,
         attack_windup_remaining: 0.0,
         attack_active_remaining: 0.0,

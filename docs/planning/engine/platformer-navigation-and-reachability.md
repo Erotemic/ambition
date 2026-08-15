@@ -57,6 +57,25 @@ broken, not by the general case. **"Is this body's position recoverable under it
 own capabilities?" is a smaller and sharper question than "plan a route",** and it
 is the one already blocking work.
 
+⭐ **SLICE 1 LANDED (2026-08-15) — `probe_recovery` has its first consumer.**
+`ambition_characters::brain::fighter::recovery::RecoveryLens` lowers a `Perceived`
+view into an `ae::World` (perceived terrain, stage box, every blast margin zero —
+the same death line `StageView::offstage` already draws) plus an
+`ae::BodyClusterScratch` carrying the body's own `AbilitySet` and `MovementTuning`,
+both arriving through the world-in port on `BrainSnapshot`. `refine_by_rollout`
+asks it **once per movement line that left the ground**, and the kernel's verdict
+overrules the shadow in both directions: a body with an unspent air jump is
+reprieved from a line the shadow condemned, one without any way back is condemned
+from a line the shadow let live. ⛔ **unmeasured** — no bench prices a decision
+with the lens attached and `ladder_rig --scenarios` has not re-run, so the survival
+A/B that motivated this is still open.
+
+⇒ **and the deletion the slice paid for:** `WorldView::reachable` — a hand-rolled
+straight-line reachability sweep with zero production consumers — is gone, with
+`SolidKind::blocks_path`. It is exactly the "a reachability graph that builds its
+own answer" duplication the section below forbids, and it survived only because
+nothing asked it anything.
+
 ## Architecture direction
 
 Prefer a derived traversal/reachability representation over hand-authored

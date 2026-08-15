@@ -186,13 +186,24 @@ than a fifth of a second of running.
    grapple. It happened to hold for THIS stage and THIS fighter, which is exactly
    what a Smash-specific approximation looks like from inside.
 
-⇒ **the diagnosis stands and the fix is deferred, deliberately.** A committed-fall
-terminal value has to come from actual recoverability/reachability under the
-body's own capabilities — a future consumer of
-[`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)
-— or from a horizon long enough to contain the landing (option 1, at a known
-price). D72 does not invent an approximation for it now, and the fighter is not
-tuned further until higher-leverage architecture work is exhausted.
+⇒ **the diagnosis stands, and as of 2026-08-15 the fix is option 3 — the one the
+refusal named.** A committed-fall verdict now comes from actual recoverability
+under the body's own capabilities:
+`ambition_characters::brain::fighter::recovery::RecoveryLens` lowers the perceived
+view into a real `ae::World` and the body's own kit into an
+`ae::BodyClusterScratch`, and `refine_by_rollout` asks
+`ae::movement::recovery::probe_recovery` **once per movement line that left the
+ground** — never per node, never per tick. The kernel's answer overrules the
+shadow's in BOTH directions, which matters as much as the condemnation: the
+shadow's movement line HOLDS after `commit_ticks`, so near a ledge it condemned
+every verb, the veto emptied, and the choice fell through to
+`least_bad_movement` — the line that dies latest rather than the one that lives.
+
+⛔ **and it is NOT measured.** No bench prices a decision with the lens attached
+(`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event` rolls no movement
+lines), and `ladder_rig --scenarios` has not re-run. The depth-0-vs-12 survival
+A/B above is the instrument that would close this, and until it does the fix is a
+structural argument with unit evidence, not a measured improvement.
 
 ⭐ **one half of the removed change was KEPT, because it is fidelity rather than
 heuristic.** `ShadowFighter::ground_level` was `view.on_ground.then(…)` — `None`

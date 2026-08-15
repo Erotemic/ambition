@@ -101,22 +101,6 @@ fn line_of_fire_blocked_by_wall_clear_otherwise() {
 }
 
 #[test]
-fn reachable_false_through_solid() {
-    let view = WorldView {
-        self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
-        viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(500.0)),
-        actors: vec![],
-        projectiles: vec![],
-        terrain: vec![wall(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(20.0, 80.0))],
-        portals: vec![],
-        sim_time: 0.0,
-        ..Default::default()
-    };
-    assert!(!view.reachable(ae::Vec2::new(200.0, 0.0)));
-    assert!(view.reachable(ae::Vec2::new(0.0, -200.0)));
-}
-
-#[test]
 fn incoming_threats_only_hostile_and_closing() {
     let me = ae::Vec2::ZERO;
     let view = WorldView {

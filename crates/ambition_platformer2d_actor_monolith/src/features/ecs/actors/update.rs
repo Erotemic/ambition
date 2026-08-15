@@ -1608,6 +1608,11 @@ fn build_enemy_brain_snapshot(
                 .movement
                 .body_tuning(em.config.tuning.max_run_speed),
         ),
+        // **THE VERBS THAT LAW APPLIES TO**, from the body's own ability
+        // cluster — the same component the movement kernel reads. A rollout that
+        // asks whether a fall is recoverable has to drive the kernel, and the
+        // kernel gates every air jump, wall grab and glide on this.
+        abilities: Some(em.abilities.abilities),
         attack_cooldown_remaining: em.attack.cooldown,
         attack_windup_remaining: em.attack.windup_remaining(),
         attack_active_remaining: em.attack.active_remaining(),

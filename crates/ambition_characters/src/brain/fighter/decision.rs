@@ -36,6 +36,7 @@ use crate::brain::fighter::options::{
     generate_options, AttackCandidate, MovementVerb, UtilityWeights,
 };
 use crate::brain::fighter::profile::FighterBrainProfile;
+use crate::brain::fighter::recovery::{BodyKit, RecoveryLens};
 use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
 use crate::brain::fighter::situation::{classify, Situation};
 use crate::brain::BrainSnapshot;
@@ -350,6 +351,31 @@ fn decide(
         None => cfg.tuning.clone(),
     };
 
+    // ⭐ **THE RECOVERY LENS — the one real-kernel seam in the decision.**
+    //
+    // Built once per decision (never per rolled line, and never per tick): the
+    // world lowering allocates a block per perceived solid and does not change
+    // between the lines of one decision. `None` — no kit on the snapshot, or a
+    // view that names no stage — leaves L3 exactly as it was, which is what makes
+    // this safe for every brain seat that is not a fighter on a stage.
+    //
+    // Both halves are body-derived truth from the world-in port, the same channel
+    // `movement_tuning` and `attack_kit` arrive on. Nothing here interprets the
+    // ability set; it is handed to the kernel, which owns what a body can do.
+    let lens = snapshot
+        .abilities
+        .zip(snapshot.movement_tuning.as_ref())
+        .and_then(|(abilities, movement)| {
+            RecoveryLens::from_view(
+                &view,
+                BodyKit {
+                    abilities,
+                    movement: *movement,
+                },
+                1.0 / cfg.tick_hz.max(1.0),
+            )
+        });
+
     // L3 refines L2's ranking when the profile pays for rollouts. `None` means
     // this profile does not, or there was nothing to refine.
     let refined = refine_by_rollout(
@@ -363,6 +389,7 @@ fn decide(
         // How long this body is COMMITTED to whatever it decides: exactly until
         // it decides again.
         cfg.interval(),
+        lens.as_ref(),
     );
 
     // MOVEMENT: the best verb the rollout did not veto.

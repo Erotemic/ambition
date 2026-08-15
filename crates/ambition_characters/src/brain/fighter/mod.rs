@@ -32,6 +32,15 @@
 //!   kernel (`ambition_platformer2d_core::hit_response` — the same one
 //!   `damage_apply` resolves authoritative hits with).
 //!
+//! - **the recovery lens** — [`recovery`], the one place a REAL movement-kernel
+//!   step enters a decision. The shadow is an approximation stacked on an
+//!   approximation about the only question that costs a stock (*"is this fall
+//!   survivable"*), so that question alone is handed to
+//!   `ambition_platformer2d_core::movement::recovery`, which drives the body's
+//!   own kernel over its own kit. ⛔ the reusable layer reports whether support
+//!   was regained; [`rollout::refine_by_rollout`] decides that this means "do not
+//!   take this line".
+//!
 //! Still owed: FB6e's `l3_earns_its_depth` ladder gate.
 //!
 //! ⛔ **"ladder rows keep `rollout_depth: 0` until that instrument exists" was
@@ -50,6 +59,7 @@ pub mod evaluation;
 pub mod habit;
 pub mod options;
 pub mod profile;
+pub mod recovery;
 pub mod rollout;
 pub mod scenarios;
 pub mod situation;
@@ -60,6 +70,7 @@ pub use options::{generate_options, AttackOption, MoveOption, OptionSet, Utility
 pub use profile::{
     profile_for_level, AuthoredFighterLadder, FighterBrainLadder, FighterBrainProfile,
 };
+pub use recovery::{BodyKit, RecoveryLens, RecoveryQuery};
 pub use rollout::{
     refine_by_rollout, shadow_step, RefinedChoice, ShadowEvent, ShadowIntent, ShadowState,
     ShadowTuning,

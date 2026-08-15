@@ -104,17 +104,46 @@ the lens builds its scratch body with a default `AbilitySet` turns **exactly tha
 test red and no other**. ⇒ the verdict comes from the body's capabilities, not
 from the stage's shape.
 
-⚠ **three honest limits, recorded rather than hidden:**
+### ⭐ The negative is now BOUNDED, and that was the important correction
+
+⛔ **`NoSupportFound` never meant "this body cannot recover"** — it meant *"the
+positions a small fixed steering policy reached, within this horizon, found no
+support."* The policy presses **only `side ∈ {0, -1, +1}` plus jump**; dash,
+blink, flight, wall verbs, ledge grab and recovery attacks are never explored.
+
+The outcome is therefore `NoSupportFoundBy { search, reset }`, carrying the
+policy and horizon that failed, and `RecoveryOutlook::bounded_by()` reads it.
+⭐ **a positive returns `None`** — finding a route proves one exists, while
+failing to find one is only ever a claim about the searcher.
+
+⭐ **and the falsifier is a two-policy comparison, which is why it is convincing.**
+Same body, same position, same horizon, same world: under the default policy the
+body does not recover; under a policy that presses **blink**, it does. ⛔ that
+test could not be red before the split, because the comparison was unexpressible
+— it pins the current bounded answer and demonstrates it is wrong about the body
+in the same breath. Poisoned by making the blink policy stop pressing blink:
+exactly that test reddens, so the positive comes from the verb and not from the
+fixture drifting onto the shelf.
+
+⇒ **sound for the shipped fighter, which owns neither dash nor blink** — and the
+first thing to re-check the day a fighter gains one.
+
+⚠ **three further honest limits, recorded rather than hidden:**
 
 - **blast margins are probed at zero** while Smash's stage authors 120px on all
   three axes, so the probe is conservative by exactly that. A body genuinely
   recoverable inside the real margin is condemned. Fixing it means carrying
   margins on `StageView`.
-- ⛔ **the ledge-transition case is the one NOT pinned** — and it is the common
-  one in play. The capture point records the shadow's ground transition, which
-  tests the body's **centre** against `ground_span`, while the kernel uses the
-  **footprint**; at a ledge those disagree by a half-extent, so a probe can start
-  half-overlapping the platform and be trivially reprieved.
+- ✔ **the ledge-transition case is now PINNED (2026-08-15)** — it was the common
+  one in play. The two sites disagreed by `half_width − EDGE_OVERLAP_SLOP`, 11px
+  for the shipped fighter: the shadow tested the body's **centre** against
+  `ground_span` while the kernel used the **footprint**, so a probe started
+  half-overlapping the platform it was leaving and the first "stand still" effort
+  landed it straight back on. ⭐ fixed by making the capture point ask the
+  kernel's own question (`spans_overlap_for_support`), **not** by nudging the
+  start position — a magic epsilon beside a body claim is the smell, not the fix.
+  Probe frequency is non-increasing, since footprint-supported is a strict
+  superset of centre-supported for any body wider than `2 × EDGE_OVERLAP_SLOP`.
 - **cost is unmeasured.** At most one probe per modelled movement verb per
   decision (≤4), only for a verb whose line left the ground, each 3 efforts
   capped at 2.0s — worst case ~1440 kernel steps per decision, decisions every 5

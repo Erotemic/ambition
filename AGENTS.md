@@ -80,7 +80,11 @@ lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
   feature owes only: degrade visibly when a file is absent. ⚠ **they do not
   travel to a `git worktree`** — `crates/ambition_platformer2d_actor_monolith/assets/sprites/` has 972
   files on `main` and 4 in a fresh worktree, so an asset-touching test run there
-  fails for reasons that have nothing to do with the change. Full rules:
+  fails for reasons that have nothing to do with the change. ⭐ **the cure is one
+  command, run FROM INSIDE the worktree:
+  `python3 scripts/mirror_assets_for_worktree.py`** — it symlinks them file by
+  file, so a regenerated asset lands as a real file in the worktree instead of
+  writing back into the main checkout. Full rules:
   `docs/recipes/adding-an-asset.md`.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
@@ -304,87 +308,17 @@ somebody else's work while every test you ran was green.
 waits for a second incident that happens despite the recipe. Adding one now is
 the machinery the next section forbids.
 
-## Running a coordinator + worker session
+## Coordinating subagents, and worktrees
 
-⚠ **applies only when one session coordinates several subagents.** A solo session
-should skip this whole section.
+⚠ **only if you are coordinating subagents.** A solo session should skip this.
 
-The shape that works: **workers write, the coordinator holds the build lease and
-verifies.** Everything below is a measured consequence of that split, not taste.
-
-### ⛔ Workers do not run `cargo`, and the reason is disk, not politeness
-
-The shared target dir is **~143 GB** against **~143 GB free**. A second one fills
-the disk, so **per-worktree target dirs are not available** — re-measure with
-`du -sh "$CARGO_TARGET_DIR"` and `df -h` before assuming otherwise. Two cargo
-processes on one target dir serialise on the lock and thrash the incremental
-cache, which this repo has already paid for: see the link-failure note in
-`.cargo/config.toml`.
-
-⇒ if a worker genuinely needs to compile, **hand it the lease and stop verifying
-while it holds it.** Do not share.
-
-### ⭐ The coordinator IS the workers' compiler
-
-A worker editing the **shared tree** produces diagnostics the coordinator's editor
-integration surfaces automatically. **Relay them mid-flight.** This is what makes
-no-compile workers cheap, and it is the property a worktree gives up.
-
-⚠ a relayed error is often architectural, not syntactic — *"`BrainSnapshot` has no
-`abilities` field"* told a worker its whole route did not exist, hours before its
-handback would have.
-
-### ⛔⛔ A fresh worktree has NO generated assets — mirror them
-
-```sh
-# RUN IT FROM INSIDE THE WORKTREE — it mirrors into the cwd's worktree and
-# finds the primary checkout itself. It takes no path argument.
-python3 scripts/mirror_assets_for_worktree.py
-python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would link
-```
-
-Generated art/audio/packs are gitignored, so a fresh `git worktree` has none.
-**The sheet registry is baked from those directories at build time, so an
-assetless worktree compiles a binary with an EMPTY sheet table** — around forty
-tests then fail for reasons unrelated to the change under test. The script
-symlinks **file by file** on purpose, so a regenerated sprite lands as a real file
-in the worktree instead of writing back into the main checkout.
-
-⇒ **run it, and authored-content work can go to a worktree too.**
-
-### Which lane belongs where
-
-- **shared tree** — narrow, design-risky slices, where the coordinator wants live
-  diagnostics. ⚠ **one at a time**: a single broken core crate blocks verification
-  of *every* lane, because only the coordinator can build.
-- **worktree** — wide mechanical changes (their errors are mechanical and the
-  noise is unactionable) and pure measurement.
-
-### Traps that have actually cost work here
-
-- ⛔⛔ **`git commit` commits the WHOLE INDEX.** `git add <my paths>` then
-  `git commit` sweeps whatever a concurrent worker had staged. In a shared tree
-  use the pathspec form: `git commit -F - -- path/one path/two`.
-- ⛔⛔ **do not prune worktrees by "merged into `main`".** An agent-created worktree
-  with no commits yet is indistinguishable from a stale merged one; pruning that
-  way destroyed a live worker's uncommitted work.
-- ⛔ **a subagent only gets a worktree if the spawn explicitly asks for one.**
-  Otherwise it is editing the shared tree, and a brief that says *"work in your
-  worktree"* is a lie the worker will act on.
-- ⚠ **baselines are the coordinator's job.** A worker that cannot run `cargo`
-  cannot regenerate `rollback_schema_baseline.txt` or the ratchet under
-  `scripts/baselines/`. It must say loudly that one is owed; the coordinator runs it.
-
-### Accepting a handback
-
-Require *"what you could NOT verify, lowest confidence first"*, and read it — it
-has been accurate about its own weakest claims every time.
-
-⛔⛔ **and run the falsifier yourself.** *"Poison reasoned, not executed"* has been
-**wrong** here: a fix's test stayed green with its system unregistered, because the
-test listed that system in its own chain. Verify a worker's red finding by a
-different route too — a census once reported six brain families failing to rewind
-when the snapshot clones the whole component and only *detection* was missing.
+Read
+[`docs/recipes/coordinator-and-worker-sessions.md`](docs/recipes/coordinator-and-worker-sessions.md)
+before spawning workers. ⛔⛔ **most importantly: a fresh worktree has NO
+generated assets, and `scripts/mirror_assets_for_worktree.py` is the fix** — an
+assetless worktree compiles a binary with an empty sheet table and fails ~40
+tests for reasons that have nothing to do with the change under test. Coordinators
+keep rediscovering that the expensive way.
 
 ## Avoid bullshit guardrails
 

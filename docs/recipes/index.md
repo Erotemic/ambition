@@ -13,6 +13,9 @@ When a command changes, update or delete the recipe in the same patch.
 
 - [`fresh-agent-navigation.md`](fresh-agent-navigation.md) — localize a task with
   `.agent` without loading the repository into context.
+- [`coordinator-and-worker-sessions.md`](coordinator-and-worker-sessions.md) —
+  spawning and integrating subagents; ⛔ **mirror a worktree's assets or ~40 tests
+  fail for reasons that are not your change.**
 - [`headless-room-verification.md`](headless-room-verification.md) — prove a
   gameplay/world change through the real headless composition.
 - [`ldtk-authoring.md`](ldtk-authoring.md) — safe world edits and tool-assisted

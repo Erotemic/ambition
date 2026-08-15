@@ -113,10 +113,59 @@ correctly waiting on the slowest of 129 fetches and a barrier deadlocked on one
 asset that will never arrive are indistinguishable today, and they want opposite
 fixes. Naming the pending set is what separates them.
 
-**Measure before redesigning.** The numbers that decide whether there is anything
-here: demanded characters, how many were already materialized, how many needed
-new materialization, elapsed CPU, atlas/layout creations, handles requested, and
-how much of it repeats on re-entry.
+⭐ **MEASURED NATIVELY, 2026-08-15** (`hall_transition_cover`, which prints these
+now and asserts nothing about them — a threshold would be a performance
+assertion inside a correctness test):
+
+```text
+[hall-transition] preflight=1.64ms  manifest=18.23ms  barrier=(0, 164)  prefetch_hit=false
+```
+
+18ms of synchronous manifest work is one dropped frame on a warm desktop. It is
+the single-threaded browser that decides whether that is 18ms or 300ms, and that
+number now records there — which is the measurement to take on the next browser
+run before any redesign.
+
+## ⛔⛔ The prefetch is ANTI-CORRELATED with cost
+
+`prefetch_hit=false` on the most expensive transition in the game, and it is not
+a timing accident. `NEIGHBOR_PREFETCH_ROOM_BUDGET` is **4 rooms**, justified in
+its own comment by *"every corridor and lab in `sandbox.ldtk` has at most four
+exits, so ordinary traversal is unaffected and only the hubs are trimmed"*. Both
+halves of that are true. Counted at HEAD:
+
+```text
+central_hub_main       21 loading zones   <- holds the Hall door
+central_hub_basement   18
+hall_of_bosses         10
+gradient_ascent         6
+drain_alley             5
+everything else       1-4
+```
+
+So the rooms whose preparation is cheap are the ones that always get prefetched,
+and the rooms behind a hub — the Hall, the boss hall, every destination a player
+actually chooses from — are the ones structurally guaranteed to miss. The budget
+was added to stop a hub's fan-out stuttering the launch (2026-07-30, from Jon's
+own desktop timeline), and the shape it produced is a cache that covers exactly
+what does not need covering.
+
+⚠ **and the hub is the right place to pay.** A player standing in a hub choosing
+a door is idle; the door itself is the one moment they are not. Moving the Hall's
+18ms there is strictly better — *if* it is spread rather than spent at once,
+which is the same budgeted-realization question as everything else here.
+
+⛔ **recorded, not cut.** Raising or reordering the budget without a work
+measure would re-create the launch stutter it exists to prevent. The redesign is
+"bound the prefetch by WORK, and order it by expected cost", and it needs the
+browser numbers first. ✔ note the prefetch does now prepare its four neighbours
+at all — before the seven-roads fix below, every neighbour containing a
+character-built body was refused and re-attempted every frame, so the cache was
+empty AND expensive.
+
+**Measure before redesigning.** The numbers that still decide the shape: how many
+of the demanded characters were already materialized, how many needed new work,
+atlas/layout creations, and how much repeats on re-entry.
 
 If measurement confirms a large synchronous burst, the direction is
 

@@ -284,6 +284,27 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
             active.asset_readiness_complete
         );
     }
+    // ⭐ **AND WHAT THE PHASES COST**, printed rather than asserted: these are the
+    // two numbers D124 needs, they record on wasm as well as here now, and a
+    // threshold on them would be a performance assertion inside a correctness
+    // test. Read them from the run output when the burst is what you are
+    // studying.
+    {
+        let state = app
+            .world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>(
+        );
+        if let Some(active) = state.active.as_ref() {
+            println!(
+                "[hall-transition] preflight={:?} manifest={:?} barrier={:?} prefetch_hit={}",
+                active.construction_preflight_duration,
+                active.asset_manifest_duration,
+                active.last_asset_progress,
+                active.prefetch_hit,
+            );
+        }
+    }
+
     let report = report.unwrap_or_else(|| {
         panic!(
             "no stall explanation, and the loop exited because: {outcome}.\n{}",

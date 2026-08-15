@@ -351,6 +351,20 @@ impl MotionModel {
         }
     }
 
+    /// **Has this body caught hold of a ledge?** `false` for a policy that has
+    /// no such thing. The sibling of [`Self::jump_squat_remaining`], and it
+    /// exists for the same reason: a hang holds a body against its frame's pull
+    /// WITHOUT producing a contact, so `SupportFact` cannot see it, and
+    /// "is this body still falling" is asked of any body while only one variant
+    /// can answer it. Asking by matching the variant at the call site is how the
+    /// question ends up answered two different ways.
+    pub fn holds_a_ledge(&self) -> bool {
+        match self {
+            Self::AxisSwept(axis) => axis.state.ledge_grab.is_some(),
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,
+        }
+    }
+
     /// **What a full-deflection direct command means for this body**, in px/s.
     ///
     /// The projection a CONTROLLER wants, and the sibling of

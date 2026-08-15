@@ -263,11 +263,34 @@ rather than assuming: both terms take absolute values and `cos(-t) == cos(t)`,
 about the footprint. Rolling either way occupies the same rectangle. Pinned by a
 test, because the next reader will wonder the same thing.
 
+✔ **SAFE-AREA FRAMING RE-DERIVED 2026-08-15.** The subject safe region is a
+normalized SCREEN rectangle — *"keep the subject in the lower third"* means the
+lower third of what the participant is looking at — and
+`apply_soft_subject_framing` applied it in WORLD axes. Upright the two frames
+coincide and nothing could tell the difference; rolled, the deadzone protected
+the wrong screen edge, and a quarter turn swapped which axis it constrained
+entirely.
+
+⭐ **the transform is a plain rotation by +roll, derived rather than guessed.**
+World is y-down, render is y-up, screen is y-down again: world→render flips y,
+render→view is `R(-θ)`, view→screen flips back, and `flip ∘ R(-θ) ∘ flip = R(θ)`
+because conjugating a rotation by a reflection negates its angle. ⚠ **the body
+box goes through `rolled_view_half_extents`, not the point rotation** — it is an
+EXTENT, and rotated it occupies a larger axis-aligned screen rectangle, which is
+the same footprint question the room clamp asks.
+
+⚠ **the pin is a SIGN test and had to be.** +90° and -90° must disagree; a
+signless rotation lands the camera on the opposite side while every symmetric
+assertion still passes. Falsified by negating the angle, which reported
+`Vec2(-110, 0)` where `Vec2(+110, 0)` was required. A second test reproduces the
+pre-rotation arithmetic inline and requires zero roll to match it, so every
+upright view in the game is provably unchanged.
+
 Still open for later: `visible_view` keeps the UNROTATED extents (it describes
-the view's own size, which is what its consumers mean), camera-ZONE bounds are
-clamped by the same footprint, and safe-area framing has not been re-derived for
-a rolled view. Capture parity holds trivially today — captures pass no transit
-and select no subject frame — and needs a real test the moment either changes.
+the view's own size, which is exactly what a normalized screen region is a
+fraction OF), and camera-ZONE bounds are clamped by the same footprint. Capture
+parity holds trivially today — captures pass no transit and select no subject
+frame — and needs a real test the moment either changes.
 
 ### C4 — presentation composition — DONE (portal 2026-08-14, roll continuity 2026-08-15)
 

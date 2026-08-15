@@ -453,67 +453,6 @@ pub fn resolve_follow_camera_snapshot(
     // Bypassed while a camera zone has taken authorship (cinematic lock),
     // during blink arrival, and on any snap — a deadzone must never fight a
     // deliberate composition.
-    let soft_framing = input
-        .screen_framing
-        .filter(|framing| framing.active)
-        .filter(|_| !input.overview_camera && !input.snap_camera)
-        .filter(|_| !active_zone.is_some_and(|zone| zone.cinematic_lock))
-        .filter(|_| {
-            !input
-                .blink
-                .is_some_and(|blink| blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0)
-        });
-    let desired_target_world = match soft_framing {
-        None => desired_target_world,
-        Some(framing) => {
-            let previous = ease_state
-                .as_deref()
-                .filter(|state| state.target_initialized)
-                .map(|state| state.live_target_world)
-                .unwrap_or(desired_target_world);
-            apply_soft_subject_framing(
-                desired_target_world,
-                previous,
-                input.focus,
-                visible_view,
-                orthographic_scale,
-                framing,
-            )
-        }
-    };
-
-    let target_world = match input.mode {
-        CameraSnapshotResolveMode::Instant => desired_target_world,
-        CameraSnapshotResolveMode::Eased => {
-            if let Some(state) = ease_state.as_deref_mut() {
-                if input.overview_camera || input.snap_camera || !state.target_initialized {
-                    state.target_initialized = true;
-                    state.live_target_world = desired_target_world;
-                    desired_target_world
-                } else {
-                    let target_ease_hz = active_zone
-                        .and_then(|zone| zone.easing_hz)
-                        .unwrap_or(8.0)
-                        .max(0.0);
-                    let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
-                    let previous_target_world = state.live_target_world;
-                    let eased_target_world = previous_target_world
-                        + (desired_target_world - previous_target_world) * alpha;
-                    state.live_target_world = eased_target_world;
-                    eased_target_world
-                }
-            } else {
-                desired_target_world
-            }
-        }
-    };
-
-    let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
-    let target = world_to_centered_render(input.world, target_world);
-    // **THE CLAMP MEASURES THE VIEW'S WORLD FOOTPRINT, NOT ITS SIZE.** A rolled
-    // view occupies a rotated rectangle; asking whether it fits inside a room is
-    // a question about that rectangle's bound, and until this line it was asked
-    // of an upright one.
     let target_roll = presented_roll_radians(
         input.reference_frame,
         input.subject_down,
@@ -558,6 +497,71 @@ pub fn resolve_follow_camera_snapshot(
         }
         None => target_roll,
     };
+
+    let soft_framing = input
+        .screen_framing
+        .filter(|framing| framing.active)
+        .filter(|_| !input.overview_camera && !input.snap_camera)
+        .filter(|_| !active_zone.is_some_and(|zone| zone.cinematic_lock))
+        .filter(|_| {
+            !input
+                .blink
+                .is_some_and(|blink| blink.blink_in_timer > 0.0 && blink.blink_in_duration > 0.0)
+        });
+    let desired_target_world = match soft_framing {
+        None => desired_target_world,
+        Some(framing) => {
+            let previous = ease_state
+                .as_deref()
+                .filter(|state| state.target_initialized)
+                .map(|state| state.live_target_world)
+                .unwrap_or(desired_target_world);
+            apply_soft_subject_framing(
+                desired_target_world,
+                previous,
+                input.focus,
+                visible_view,
+                orthographic_scale,
+                framing,
+                // The roll this view is presenting, resolved above — the screen
+                // region is a fraction of what the participant SEES.
+                rotation_radians,
+            )
+        }
+    };
+
+    let target_world = match input.mode {
+        CameraSnapshotResolveMode::Instant => desired_target_world,
+        CameraSnapshotResolveMode::Eased => {
+            if let Some(state) = ease_state.as_deref_mut() {
+                if input.overview_camera || input.snap_camera || !state.target_initialized {
+                    state.target_initialized = true;
+                    state.live_target_world = desired_target_world;
+                    desired_target_world
+                } else {
+                    let target_ease_hz = active_zone
+                        .and_then(|zone| zone.easing_hz)
+                        .unwrap_or(8.0)
+                        .max(0.0);
+                    let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
+                    let previous_target_world = state.live_target_world;
+                    let eased_target_world = previous_target_world
+                        + (desired_target_world - previous_target_world) * alpha;
+                    state.live_target_world = eased_target_world;
+                    eased_target_world
+                }
+            } else {
+                desired_target_world
+            }
+        }
+    };
+
+    let bounds = active_zone.map(|zone| zone.clamp_mode).unwrap_or_default();
+    let target = world_to_centered_render(input.world, target_world);
+    // **THE CLAMP MEASURES THE VIEW'S WORLD FOOTPRINT, NOT ITS SIZE.** A rolled
+    // view occupies a rotated rectangle; asking whether it fits inside a room is
+    // a question about that rectangle's bound, and until this line it was asked
+    // of an upright one.
     let (clamp_half_w, clamp_half_h) =
         rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
     let (normal_host_x, normal_host_y) = clamp_camera_target(
@@ -636,6 +640,26 @@ pub fn resolve_follow_camera_snapshot(
 /// `desired` contributes only its BIAS — everything the ordinary policy wanted
 /// beyond centering (framing preset look-ahead, camera-zone offsets) — which
 /// translates the admissible interval instead of overriding the deadzone.
+/// ⛔⛔ **THE SAFE REGION IS A SCREEN RECTANGLE, AND THIS USED TO APPLY IT IN
+/// WORLD AXES.** *"Keep the subject in the lower third"* means the lower third of
+/// what the participant is looking at. While a view is upright the two frames
+/// coincide and nothing could tell the difference; under a rolled view — a
+/// gravity flip in `SubjectFrame` mode, a portal seam — they diverge by the roll,
+/// and the deadzone protected the wrong screen edge. Rolling a quarter turn
+/// swapped which axis the region constrained entirely.
+///
+/// ⭐ **the transform is a plain rotation by +roll, and that is worth deriving
+/// rather than guessing.** World is y-DOWN, render is y-UP, and screen space is
+/// y-down again. World→render flips y; the camera's roll takes view-space to
+/// render-space as `R(θ)`, so render→view is `R(-θ)`; view→screen flips y back.
+/// Composing, `flip ∘ R(-θ) ∘ flip = R(θ)` — conjugating a rotation by a
+/// reflection negates its angle — so a world delta becomes a screen delta under
+/// `R(+θ)` with no sign surprises left over.
+///
+/// ⚠ **`visible_view` is deliberately the UNROTATED extent** and that is exactly
+/// what this needs: it describes the view's own width and height, which is what
+/// a normalized screen region is a fraction OF. The rotated footprint is a
+/// different question, asked by the room clamp.
 fn apply_soft_subject_framing(
     desired: ae::Vec2,
     previous: ae::Vec2,
@@ -643,19 +667,35 @@ fn apply_soft_subject_framing(
     visible_view: ae::Vec2,
     orthographic_scale: f32,
     framing: CameraScreenFraming,
+    roll_radians: f32,
 ) -> ae::Vec2 {
     let visible = visible_view.max(ae::Vec2::splat(f32::EPSILON));
     let anchor = focus.stable_center();
-    let bias = desired - anchor;
+
+    // World delta -> screen delta, and back. At zero roll both are the identity,
+    // so every upright view resolves exactly as it did.
+    let (sin, cos) = roll_radians.sin_cos();
+    let to_screen = |v: ae::Vec2| ae::Vec2::new(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
+    let to_world = |v: ae::Vec2| ae::Vec2::new(v.x * cos + v.y * sin, -v.x * sin + v.y * cos);
+
+    let bias = to_screen(desired - anchor);
 
     // Protected bounds: the standing body box (so a crouch does not shrink the
     // protection), padding in viewport pixels converted to world units, and the
     // look-ahead sweep.
-    let half = focus.size.max(focus.base_size) * 0.5
+    //
+    // ⚠ the body box is an EXTENT, not a point: rotated, it occupies a larger
+    // axis-aligned rectangle on screen, which is the same footprint question the
+    // room clamp asks — so it goes through the same helper rather than being
+    // rotated as if it were a position.
+    let half_world = focus.size.max(focus.base_size) * 0.5
         + framing.subject_padding_px.abs() * orthographic_scale.max(0.0);
-    let lead = focus.velocity_world * framing.look_ahead_seconds.max(0.0);
-    let swept_min = anchor.min(anchor + lead) - half;
-    let swept_max = anchor.max(anchor + lead) + half;
+    let (half_x, half_y) = rolled_view_half_extents(half_world.x, half_world.y, roll_radians);
+    let half = ae::Vec2::new(half_x, half_y);
+    let lead = to_screen(focus.velocity_world * framing.look_ahead_seconds.max(0.0));
+    let origin = ae::Vec2::ZERO;
+    let swept_min = origin.min(origin + lead) - half;
+    let swept_max = origin.max(origin + lead) + half;
 
     let region = framing.subject_safe_region;
     let low = swept_max + bias - visible * (region.max - ae::Vec2::splat(0.5));
@@ -667,18 +707,20 @@ fn apply_soft_subject_framing(
     let centered =
         (swept_min + swept_max) * 0.5 + bias - visible * (region.center() - ae::Vec2::splat(0.5));
 
-    ae::Vec2::new(
+    let previous_screen = to_screen(previous - anchor);
+    let resolved = ae::Vec2::new(
         if low.x <= high.x {
-            previous.x.clamp(low.x, high.x)
+            previous_screen.x.clamp(low.x, high.x)
         } else {
             centered.x
         },
         if low.y <= high.y {
-            previous.y.clamp(low.y, high.y)
+            previous_screen.y.clamp(low.y, high.y)
         } else {
             centered.y
         },
-    )
+    );
+    anchor + to_world(resolved)
 }
 
 fn zone_area(zone: &CameraZoneSpec) -> f32 {
@@ -2278,5 +2320,136 @@ mod observer_roll_continuity_tests {
         // A change smaller than one frame's step lands exactly, without
         // oscillating past it.
         assert_eq!(ease_roll_radians(0.0, 0.001, dt), 0.001);
+    }
+}
+
+#[cfg(test)]
+mod rolled_safe_area_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::NormalizedScreenRegion;
+
+    /// A region that pins the subject into the TOP band of the SCREEN, so the
+    /// camera must move screen-DOWNWARD relative to it. Asymmetric on purpose: a
+    /// centred region cannot tell +90° from -90°.
+    fn top_band() -> CameraScreenFraming {
+        CameraScreenFraming {
+            active: true,
+            subject_safe_region: NormalizedScreenRegion {
+                min: ae::Vec2::new(0.0, 0.0),
+                max: ae::Vec2::new(1.0, 0.25),
+            },
+            subject_padding_px: ae::Vec2::ZERO,
+            look_ahead_seconds: 0.0,
+        }
+    }
+
+    fn framed(roll: f32) -> ae::Vec2 {
+        let focus = CameraFocus2d {
+            center_world: ae::Vec2::ZERO,
+            size: ae::Vec2::new(20.0, 20.0),
+            base_size: ae::Vec2::new(20.0, 20.0),
+            facing: 1.0,
+            velocity_world: ae::Vec2::ZERO,
+        };
+        apply_soft_subject_framing(
+            ae::Vec2::ZERO,
+            ae::Vec2::ZERO,
+            focus,
+            ae::Vec2::new(800.0, 400.0),
+            1.0,
+            top_band(),
+            roll,
+        )
+    }
+
+    /// **"THE LOWER THIRD" MEANS THE SCREEN'S, NOT THE WORLD'S.**
+    ///
+    /// The safe region is a normalized SCREEN rectangle and was applied in world
+    /// axes. Upright the two frames coincide and nothing could tell; rolled — a
+    /// gravity flip in `SubjectFrame`, a portal seam — the deadzone protected the
+    /// wrong screen edge, and a quarter turn swapped which axis it constrained.
+    ///
+    /// ⚠ **the two quarter turns must DISAGREE**, which is what makes this a
+    /// sign test rather than a "rotation happens somewhere" test. Conjugating a
+    /// rotation by the world's y-down/render's y-up reflection negates its angle,
+    /// so getting that wrong lands the camera on the opposite side and every
+    /// symmetric assertion still passes.
+    #[test]
+    fn the_safe_region_follows_the_screen_when_the_view_rolls() {
+        use std::f32::consts::FRAC_PI_2;
+
+        // Upright: screen-down is world +y, so the camera sits BELOW the subject
+        // to push it up the screen.
+        let upright = framed(0.0);
+        assert!(
+            upright.x.abs() < 1.0e-3 && upright.y > 1.0,
+            "upright framing should push the camera along world +y, got {upright:?}"
+        );
+        let distance = upright.y;
+
+        // A quarter turn one way sends the same screen-down along world +x...
+        let cw = framed(FRAC_PI_2);
+        assert!(
+            (cw.x - distance).abs() < 1.0e-2 && cw.y.abs() < 1.0e-2,
+            "at +90° the same screen constraint should act along world +x by \
+             {distance}, got {cw:?}"
+        );
+
+        // ...and the other way along world -x. If these two agreed, the rotation
+        // would be signless and the fix would be half-done.
+        let ccw = framed(-FRAC_PI_2);
+        assert!(
+            (ccw.x + distance).abs() < 1.0e-2 && ccw.y.abs() < 1.0e-2,
+            "at -90° it should act along world -x by {distance}, got {ccw:?}"
+        );
+    }
+
+    /// ⭐ **zero roll is byte-identical to the behaviour that shipped**, which is
+    /// what makes this safe for every upright view in the game — and what the 68
+    /// existing resolve tests are implicitly asserting.
+    #[test]
+    fn an_upright_view_is_unchanged_by_the_rotation_path() {
+        let focus = CameraFocus2d {
+            center_world: ae::Vec2::new(100.0, 50.0),
+            size: ae::Vec2::new(24.0, 40.0),
+            base_size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+            velocity_world: ae::Vec2::new(120.0, -30.0),
+        };
+        let framing = CameraScreenFraming {
+            active: true,
+            subject_safe_region: NormalizedScreenRegion {
+                min: ae::Vec2::new(0.3, 0.55),
+                max: ae::Vec2::new(0.7, 0.9),
+            },
+            subject_padding_px: ae::Vec2::new(8.0, 12.0),
+            look_ahead_seconds: 0.4,
+        };
+        let desired = ae::Vec2::new(140.0, 20.0);
+        let previous = ae::Vec2::new(90.0, 44.0);
+        let visible = ae::Vec2::new(640.0, 360.0);
+
+        let rolled_path =
+            apply_soft_subject_framing(desired, previous, focus, visible, 1.5, framing, 0.0);
+
+        // The pre-rotation arithmetic, inline, as the shipped version computed it.
+        let anchor = focus.stable_center();
+        let bias = desired - anchor;
+        let half = focus.size.max(focus.base_size) * 0.5 + framing.subject_padding_px.abs() * 1.5;
+        let lead = focus.velocity_world * framing.look_ahead_seconds;
+        let swept_min = anchor.min(anchor + lead) - half;
+        let swept_max = anchor.max(anchor + lead) + half;
+        let region = framing.subject_safe_region;
+        let low = swept_max + bias - visible * (region.max - ae::Vec2::splat(0.5));
+        let high = swept_min + bias - visible * (region.min - ae::Vec2::splat(0.5));
+        let expected = ae::Vec2::new(
+            previous.x.clamp(low.x, high.x),
+            previous.y.clamp(low.y, high.y),
+        );
+
+        assert!(
+            (rolled_path - expected).length() < 1.0e-3,
+            "zero roll changed an upright framing: {rolled_path:?} vs {expected:?}"
+        );
     }
 }

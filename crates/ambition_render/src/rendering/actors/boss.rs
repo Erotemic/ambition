@@ -26,6 +26,8 @@ use ambition_sprite_sheet::game_assets::GameAssets;
 pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    // Readiness, not residency — see `super::texture_is_ready`.
+    asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     // The boss's geometry (its render `size`) rides its `FeatureView`; its static
     // identity (name + behavior id, for the sheet lookup) rides `BossRenderIndex`.
@@ -79,7 +81,7 @@ pub fn upgrade_boss_sprites(
         let Some(boss_asset) = dedicated.or(assets.boss.as_ref()) else {
             continue;
         };
-        if images.get(&boss_asset.pages[0].texture).is_none() {
+        if !super::texture_is_ready(&asset_server, &images, &boss_asset.pages[0].texture) {
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);

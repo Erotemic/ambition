@@ -494,3 +494,80 @@ fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
         "the comparison is self-limiting once stamped from the asset"
     );
 }
+
+/// **THE DISCRIMINATOR: who owns the handle decides which question is asked.**
+///
+/// `texture_is_ready` replaced `Assets<Image>::get(..).is_some()` at four
+/// binders, and the whole point is that it stops conflating "the asset loaded"
+/// with "a CPU copy is resident". Both branches are exercised here because each
+/// one is the wrong answer for the other's case:
+///
+/// * a handle the ASSET SERVER owns is asked the semantic question, so it keeps
+///   working if the main-world copy is ever evicted (Bevy's `RENDER_WORLD`-only
+///   usage does exactly that after upload);
+/// * a handle handed straight to the main world — `reserve_handle`, `add`, a
+///   procedurally generated sprite — has no load to ask about, so its presence
+///   IS its readiness. Asking the server about it would report "never loaded"
+///   forever, and a game that builds its own sprite would never bind.
+#[test]
+fn texture_readiness_asks_the_owner_of_the_handle() {
+    use super::texture_is_ready;
+
+    // ⚠ its OWN app, with the IO pool: `asset_server.load` spawns onto it and
+    // panics without it, and the shared `asset_app()` fixture deliberately has no
+    // pool because no other test here issues a real load.
+    let mut app = App::new();
+    app.add_plugins(bevy::app::TaskPoolPlugin::default());
+    app.add_plugins(bevy::asset::AssetPlugin::default());
+    app.init_asset::<Image>();
+    let asset_server = app.world().resource::<AssetServer>().clone();
+
+    // Main-world-owned, not yet present: reserved but nothing inserted.
+    let reserved = app
+        .world_mut()
+        .resource_mut::<Assets<Image>>()
+        .reserve_handle();
+    assert!(
+        !texture_is_ready(
+            &asset_server,
+            app.world().resource::<Assets<Image>>(),
+            &reserved
+        ),
+        "a reserved handle with no image is not ready — this is the frame a body \
+         must keep its current pixels"
+    );
+
+    // Main-world-owned and present: readiness IS presence, because there is no
+    // load to ask about.
+    let present = app
+        .world_mut()
+        .resource_mut::<Assets<Image>>()
+        .add(Image::default());
+    assert!(
+        texture_is_ready(
+            &asset_server,
+            app.world().resource::<Assets<Image>>(),
+            &present
+        ),
+        "a directly-added image is usable now; asking the asset server about it \
+         would report 'never loaded' forever and a procedurally generated sprite \
+         would never bind"
+    );
+
+    // Server-owned: the question goes to the server, and a load that has not
+    // settled is not ready — regardless of what the main world holds.
+    let requested: Handle<Image> = asset_server.load("no_such_sheet_for_this_test.png");
+    assert!(
+        !texture_is_ready(
+            &asset_server,
+            app.world().resource::<Assets<Image>>(),
+            &requested
+        ),
+        "an outstanding server load is not ready"
+    );
+    assert!(
+        asset_server.get_load_state(requested.id()).is_some(),
+        "the fixture must actually produce a SERVER-OWNED handle, or the branch \
+         above is the main-world one wearing a disguise"
+    );
+}

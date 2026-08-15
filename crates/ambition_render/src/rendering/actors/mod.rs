@@ -24,6 +24,46 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
+/// **Is this texture usable yet?** — the question four binders were asking as
+/// `Assets<Image>::get(..).is_some()`.
+///
+/// ⛔ that read conflates three facts the engine should keep apart:
+///
+/// ```text
+/// asset loaded / ready  !=  CPU representation resident  !=  GPU resident
+/// ```
+///
+/// They coincide only because Bevy loads images as `MAIN_WORLD | RENDER_WORLD`,
+/// so every decoded sheet keeps its full RGBA in main-world RAM for the lifetime
+/// of the handle. The moment a game chooses otherwise — and residency policy
+/// SHOULD be a consuming game's choice — presence stops meaning "loaded" and
+/// starts meaning "not yet evicted", and a body would go invisible the instant
+/// its texture began working.
+///
+/// ⭐ **the discriminator is who OWNS the handle**, and `get_load_state` answers
+/// it: `Some(..)` for anything the asset server is tracking, `None` for a handle
+/// the main world was handed directly (`reserve_handle`, `add`, a procedurally
+/// generated sprite). A server-owned sheet is asked the semantic question — the
+/// same one `inspect_room_asset_manifest` asks of the room barrier — and survives
+/// main-world eviction. A directly-inserted image has no load to ask about, so
+/// its presence IS its readiness, which is also the honest answer for a game that
+/// builds a sprite itself.
+///
+/// ⚠ behaviour is unchanged today under both branches: an image enters
+/// `Assets<Image>` exactly when it finishes loading, and a FAILED load is false
+/// either way, so a body keeps its current pixels in every case that mattered
+/// before.
+pub(crate) fn texture_is_ready(
+    asset_server: &AssetServer,
+    images: &Assets<Image>,
+    handle: &Handle<Image>,
+) -> bool {
+    match asset_server.get_load_state(handle.id()) {
+        Some(_) => asset_server.is_loaded_with_dependencies(handle),
+        None => images.contains(handle),
+    }
+}
+
 mod animation;
 mod boss;
 mod overlays;
@@ -680,6 +720,8 @@ pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRen
 pub fn upgrade_actor_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    // Readiness, not residency — see `texture_is_ready`.
+    asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(
@@ -821,7 +863,7 @@ pub fn upgrade_actor_sprites(
         // keeps showing the old pixels until the new ones decode, and because
         // the decision above is a comparison rather than a one-frame event, the
         // next frame asks again.
-        if images.get(&character_asset.texture).is_none() {
+        if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
             continue;
         }
         // Honor a shared sprite-metadata render size (e.g. a hostile-flipped
@@ -893,6 +935,8 @@ pub fn upgrade_actor_sprites(
 pub fn refresh_player_sprites_for_resident_quality(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    // Readiness, not residency — see `texture_is_ready`.
+    asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     players: Query<
         (
@@ -922,7 +966,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if images.get(&asset.texture).is_none() {
+        if !texture_is_ready(&asset_server, &images, &asset.texture) {
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
@@ -964,6 +1008,8 @@ pub fn refresh_player_sprites_for_resident_quality(
 pub fn refresh_prop_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    // Readiness, not residency — see `texture_is_ready`.
+    asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
     props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>)>,
 ) {
@@ -1002,7 +1048,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if images.get(&asset.texture).is_none() {
+        if !texture_is_ready(&asset_server, &images, &asset.texture) {
             continue;
         }
         // Rebuild EXACTLY what `spawn_room_prop` built, through the SAME builder

@@ -259,11 +259,39 @@ first. Separating them is a small, bounded change that makes residency policy
 something a consuming game can CHOOSE later, rather than something baked into
 four render systems.
 
-⇒ **the bounded remainder**, and then D124 rests: convert the four readiness
-sites to the semantic question, preserving their UX contract (a body keeps its
-current pixels until the replacement is genuinely usable; a failed texture does
-not silently become an invisible sprite). Not the usages flag. Not a residency
-scheduler. Not a Hall streaming system.
+✔ **THE BOUNDED REMAINDER IS DONE (2026-08-15), and D124 rests here.** All four
+readiness sites — `upgrade_actor_sprites`,
+`refresh_player_sprites_for_resident_quality`,
+`refresh_prop_sprites_on_game_assets_change`, `upgrade_boss_sprites` — ask
+`AssetServer::is_loaded_with_dependencies` now, the same question the room
+barrier already asks. Behaviour is identical today (an image enters
+`Assets<Image>` exactly when it finishes loading, and a failed load is false
+under both readings, so the placeholder is held either way); what changed is that
+the answer no longer depends on a CPU copy existing.
+
+⚠ **and the first attempt was wrong in a way worth recording.** Asking the asset
+server unconditionally broke the quality-convergence fixtures, and the fixture was
+right: a handle handed straight to the main world (`reserve_handle`, `add`, a
+procedurally generated sprite) has no load to ask about, so the server reports
+"never loaded" forever and such a sprite would never bind. **The discriminator is
+who OWNS the handle**, and `AssetServer::get_load_state` answers it — `Some(..)`
+for anything the server tracks, `None` otherwise. `texture_is_ready` routes on
+that: server-owned sheets get the semantic question and survive main-world
+eviction; main-world-owned images keep presence as their readiness, which is the
+honest answer for a game that builds its own sprite.
+
+⭐ **DELETION PAYOFF: three systems dropped their `Assets<Image>` parameter
+outright** (the UV-size readers — hit-flash, deep-dream, portal clip), and the
+four binders stopped using presence as a load signal even though they still hold
+the resource for the main-world-owned case. The remaining main-world readers of a
+LOADED sheet are the image census (instrumentation — reading `data` IS its job)
+and the whole-image branch of two UV helpers, which genuinely need a texture's own
+dimensions.
+
+⛔ **and that is the stop.** Not the usages flag. Not a residency scheduler. Not
+a Hall streaming system. Residency policy is now a choice a consuming game can
+make later, which was the whole point of harvesting this as a contract instead of
+an optimisation.
 
 ⚠ **and do not quote 1803 MB as a Hall baseline.** It came from the 2026-07-30
 UNBOUNDED hub-prefetch run and includes that speculative population. It is
@@ -387,14 +415,15 @@ logging ready. Do not invent a fix for a symptom that cannot be reproduced.
 
 ## Executable size: what is solid, and what I got wrong
 
-⛔⛔ **READ THE CORRECTION FIRST.** An earlier version of this section published a
-section-by-section census and gzip figures. They cannot be trusted: `web/pkg/`
-was overwritten during the session, and the artifact I censused cannot be tied to
-a known build. The current on-disk file is 241.7 MB where the census recorded
-163.3 MB. **Numbers whose provenance you cannot state are not measurements.**
+⚠ **provenance note, because this looked like a measurement error and was not.**
+The census below was taken from artifacts this session built; Jon rebuilt the web
+bundle concurrently, so `web/pkg/` later held a different (plain-`release`) file —
+241.7 MB with a 116.6 MB name section — and the two sets of numbers appeared to
+contradict each other. They describe different builds. ⭐ **the lesson is
+procedural: a size census names the build that produced it, or it is not a
+measurement.** Every figure here is labelled with its profile.
 
-What IS solid, because `build_for_web.sh` prints it at the moment it produces the
-file:
+The sizes `build_for_web.sh` printed as it produced each file:
 
 ```text
                           rust wasm     wasm-bindgen out
@@ -408,13 +437,21 @@ There is no `[profile.release]` override, so `release` is Cargo's default with
 `strip = "none"`; `[profile.web-release]` sets `strip = "symbols"`, `lto = "fat"`,
 `opt-level = "s"`, `codegen-units = 1`.
 
-And the current release artifact shows where a large share of that goes:
+Section census, each labelled with the build it came from:
 
 ```text
-custom:name    116.6 MB      <- debug symbol names, in a release build
-code            88.8 MB
-data            35.1 MB
+                     release(mine)   release(Jon's rebuild)   web-release
+total                    163.3 MB           241.7 MB             83.1 MB
+  code                    89.6 MB            88.8 MB             50.8 MB
+  custom:name             37.4 MB           116.6 MB               GONE
+  data                    35.1 MB            35.1 MB             31.6 MB
+gzip                      26.4 MB                  -             14.3 MB
 ```
+
+⭐ `code` and `data` agree across the two `release` builds; only the NAME section
+differs, and by 79 MB. That is a debug-symbol volume difference between two
+otherwise-identical profiles — worth knowing, and not something to chase here.
+`strip = "symbols"` removes the whole question.
 
 ⚠ **the transfer figure was stated wrongly and is corrected here.** An earlier
 line called a gzip measurement "what a browser actually DOWNLOADS". It is not.

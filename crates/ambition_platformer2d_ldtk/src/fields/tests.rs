@@ -117,9 +117,13 @@ fn parse_pickup_kind_dispatches_each_prefix() {
 
 #[test]
 fn parse_enemy_brain_dispatches_prefixes_and_falls_back_to_custom() {
+    // ⛔ **`Patrol:` is NOT a brain spelling any more** — the patrol path is a
+    // native `EnemySpawn.path_ref` EntityRef, and `convert_enemy_spawn` refuses
+    // the retired prefix out loud. Nothing here may quietly parse it: a second
+    // road that still understands the string is the string surviving.
     assert!(matches!(
         parse_enemy_brain("Patrol:loop_a"),
-        CharacterBrain::Patrol { path_id: Some(p) } if p == "loop_a"
+        CharacterBrain::Custom(s) if s == "Patrol:loop_a"
     ));
     assert!(matches!(
         parse_enemy_brain("Guard:120"),

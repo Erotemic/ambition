@@ -829,19 +829,36 @@ def build_level(project: dict, spec: dict) -> dict:
     collision_iid, _ = allocate_iid(project, "Collision")
     ambition_iid, _ = allocate_iid(project, "Ambition")
 
-    # ADR 0020 mount links: an entity spec may author a `mounted_on` EntityRef
-    # naming a spec-local `ref` handle on a mount entity (the GNU-ton scholar
-    # BossSpawn → its `giant_gnu` EnemySpawn mount). Ensure the target entity
-    # def carries the `mounted_on` field def BEFORE building (so the strict
-    # field check in `build_entity_instance` accepts it), then resolve the
-    # handle into a real LDtk EntityRef after every entity has an iid. The link
-    # can cross entity types (BossSpawn rider → EnemySpawn mount), so the field
-    # def uses `allowedRefs: "Any"`.
-    from ambition_ldtk_tools.mount_split import ensure_mounted_on_fielddef
+    # Native EntityRef relationships: an entity spec may author one naming a
+    # spec-local `ref` handle on another entity — `mounted_on` (ADR 0020, the
+    # GNU-ton scholar BossSpawn → its `giant_gnu` EnemySpawn mount) and
+    # `path_ref` (an EnemySpawn → the KinematicPath it patrols). Ensure the
+    # referring entity def carries the field def BEFORE building (so the strict
+    # field check in `build_entity_instance` accepts it), then resolve the handle
+    # into a real LDtk EntityRef after every entity has an iid.
+    #
+    # ⛔ **driven off the registry, not off one field name.** This loop used to
+    # name `mounted_on` and nothing else, so the SECOND reference relationship
+    # would have been rejected by the strict field check with no hint that the
+    # missing piece was three lines away. Each field's editor-side scope
+    # (`spec_allowed_refs`) is part of the registry too — the mount link crosses
+    # entity types when a spec authors it, and that is a fact about the mount
+    # link, not about this loop.
+    from ambition_ldtk_tools.ldtk.fields import (
+        ENTITY_REF_FIELDS,
+        ensure_entity_ref_fielddef,
+    )
 
     for ent_spec in spec.get("entities", []):
-        if "mounted_on" in (ent_spec.get("fields") or {}):
-            ensure_mounted_on_fielddef(project, ent_spec["type"], allowed_refs="Any")
+        for field in ent_spec.get("fields") or {}:
+            known_ref = ENTITY_REF_FIELDS.get(field)
+            if known_ref is not None:
+                ensure_entity_ref_fielddef(
+                    project,
+                    ent_spec["type"],
+                    field,
+                    allowed_refs=known_ref.get("spec_allowed_refs"),
+                )
 
     # Split entities into "stays as an entity" vs "lower into IntGrid".
     # Solid / OneWayPlatform / BlinkWall belong on the Collision layer;

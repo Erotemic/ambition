@@ -17,6 +17,7 @@ from __future__ import annotations
 import pytest
 
 from ambition_ldtk_tools.edit.set_field import apply_field_edit, resolve_entity_ref
+from ambition_ldtk_tools.ldtk.fields import ensure_entity_ref_fielddef
 
 
 def _project() -> dict:
@@ -134,3 +135,87 @@ def test_a_prebuilt_ref_object_is_refused_with_the_reason():
 
 def test_null_clears_the_ref():
     assert resolve_entity_ref(_project(), None) is None
+
+
+# ---------------------------------------------------------------------------
+# `path_ref` — the SECOND native reference relationship.
+#
+# ⭐ two adopters is what earns a shared synthesizer. `mounted_on` had its
+# ~30-key LDtk field-def shape hand-written in `mount_split`, the one command
+# that needed it; a second hand-written copy is how the two would drift, and a
+# wrong key there makes the editor refuse the file or silently drop the link.
+# ---------------------------------------------------------------------------
+
+
+def _project_with_paths() -> dict:
+    """The rider/mount fixture plus a `KinematicPath` for a patrol to point at."""
+    project = _project()
+    project["nextUid"] = 9000
+    project["defs"]["entities"].append(
+        {
+            "identifier": "KinematicPath",
+            "uid": 2012,
+            "fieldDefs": [{"identifier": "id", "uid": 4341, "__type": "String"}],
+        }
+    )
+    project["levels"][0]["layerInstances"][0]["entityInstances"].append(
+        {
+            "__identifier": "KinematicPath",
+            "iid": "path-1",
+            "px": [128, 240],
+            "width": 360,
+            "height": 12,
+            "defUid": 2012,
+            "fieldInstances": [],
+        }
+    )
+    return project
+
+
+def test_a_path_ref_field_def_is_synthesized_once_and_scoped_to_kinematic_paths():
+    project = _project_with_paths()
+
+    made = ensure_entity_ref_fielddef(project, "EnemySpawn", "path_ref")
+
+    assert made["__type"] == "EntityRef" and made["type"] == "F_EntityRef"
+    # ⭐ the editor itself will only offer KinematicPath targets, so the
+    # wrong-kind mistake cannot be made by hand at all.
+    assert made["allowedRefs"] == "OnlySpecificEntity"
+    assert made["allowedRefsEntityUid"] == 2012, "must name the KinematicPath def"
+    # Idempotent: re-running an authoring pass must not mint a second field def
+    # (a duplicate identifier makes LDtk refuse the file outright).
+    again = ensure_entity_ref_fielddef(project, "EnemySpawn", "path_ref")
+    assert again is made
+    es_def = next(
+        e for e in project["defs"]["entities"] if e["identifier"] == "EnemySpawn"
+    )
+    assert [f["identifier"] for f in es_def["fieldDefs"]].count("path_ref") == 1
+
+
+def test_a_path_ref_resolves_to_the_path_and_refuses_anything_else():
+    project = _project_with_paths()
+    ensure_entity_ref_fielddef(project, "EnemySpawn", "path_ref")
+    spawn = project["levels"][0]["layerInstances"][0]["entityInstances"][0]
+
+    apply_field_edit(project, spawn, "path_ref", "path-1")
+    ref = next(
+        f["__value"] for f in spawn["fieldInstances"] if f["__identifier"] == "path_ref"
+    )
+    assert ref["entityIid"] == "path-1"
+    assert ref["layerIid"] == "Ambition-1", "the containers come from the file"
+
+    # ⛔ THE POISON, and it is the whole reason the def declares a scope: a ref at
+    # the wrong KIND of entity writes cleanly and fails at load. The def already
+    # said what this field may point at; now something reads it.
+    with pytest.raises(SystemExit) as ex:
+        apply_field_edit(project, spawn, "path_ref", "mount-1")
+    assert "mount-1" in str(ex.value)
+    assert "EnemySpawn" in str(ex.value)
+
+
+def test_an_undocumented_ref_field_is_refused_rather_than_invented():
+    """A reference field nobody documented is the string convention this replaced."""
+    project = _project_with_paths()
+    with pytest.raises(SystemExit) as ex:
+        ensure_entity_ref_fielddef(project, "EnemySpawn", "points_at_something")
+    assert "ENTITY_REF_FIELDS" in str(ex.value)

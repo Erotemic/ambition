@@ -30,6 +30,7 @@ from pathlib import Path
 
 from ambition_ldtk_tools.area_authoring import allocate_iid, find_entity_def, make_field_instance
 from ambition_ldtk_tools.edit.postprocess import run_repair_and_validate
+from ambition_ldtk_tools.ldtk.fields import ensure_entity_ref_fielddef
 from ambition_ldtk_tools.ldtk.transaction import LdtkTransaction
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -79,54 +80,15 @@ def ensure_mounted_on_fielddef(
     scholar) references a `giant_gnu` EnemySpawn mount — a CROSS-type ref — so
     the caller passes `allowed_refs="Any"`. Idempotent: returns the existing
     field def untouched if it is already present.
+
+    ⭐ the ~30-key LDtk field-def shape moved to
+    [`ldtk.fields.ensure_entity_ref_fielddef`] when `path_ref` became the second
+    native reference relationship. This names the ADR-0020 policy; that writes
+    the shape, for every relationship.
     """
-    es_def = find_entity_def(project, entity_identifier)
-    for f in es_def.get("fieldDefs", []):
-        if f["identifier"] == "mounted_on":
-            return f
-    _, uid = allocate_iid(project, entity_identifier)  # bumps nextUid; reuse the int
-    field_def = {
-        "identifier": "mounted_on",
-        "doc": "ADR 0020: the mount EnemySpawn this rider is mounted on (the "
-        "mount action pre-applied). Resolved into a RidingOn/MountSlot link.",
-        "__type": "EntityRef",
-        "uid": uid,
-        "type": "F_EntityRef",
-        "isArray": False,
-        "canBeNull": True,
-        "arrayMinLength": None,
-        "arrayMaxLength": None,
-        "editorDisplayMode": "RefLinkBetweenCenters",
-        "editorDisplayScale": 1,
-        "editorDisplayPos": "Above",
-        "editorLinkStyle": "CurvedArrow",
-        "editorDisplayColor": None,
-        "editorAlwaysShow": False,
-        "editorShowInWorld": True,
-        "editorCutLongValues": True,
-        "editorTextSuffix": None,
-        "editorTextPrefix": None,
-        "useForSmartColor": False,
-        "exportToToc": False,
-        "searchable": False,
-        "min": None,
-        "max": None,
-        "regex": None,
-        "acceptFileTypes": None,
-        "defaultOverride": None,
-        "textLanguageMode": None,
-        # EntityRef targets: `allowed_refs` scopes what the rider may point at
-        # ("OnlySame" for EnemySpawn→EnemySpawn, "Any" for BossSpawn→EnemySpawn).
-        "symmetricalRef": False,
-        "autoChainRef": True,
-        "allowOutOfLevelRef": False,
-        "allowedRefs": allowed_refs,
-        "allowedRefsEntityUid": None,
-        "allowedRefTags": [],
-        "tilesetUid": None,
-    }
-    es_def.setdefault("fieldDefs", []).append(field_def)
-    return field_def
+    return ensure_entity_ref_fielddef(
+        project, entity_identifier, "mounted_on", allowed_refs=allowed_refs
+    )
 
 
 def _set_string_field(field_inst: dict, value: str) -> None:

@@ -328,7 +328,7 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-
   a slop as a slop and a snake as a snake. ⚠ closing a field is refused when the
   level already authors a value the enum cannot spell, and it costs whatever the
   runtime allowed beyond the list — `parse_enemy_brain` also takes
-  `Patrol:<path>` and `Guard:<radius>`, which a dropdown cannot say.
+  `Guard:<radius>` and any custom id, which a dropdown cannot say.
 - **`field_display`** puts a field's value beside its entity
   (`"MaryOBlock.contents": "NameAndValue"`). The game never reads
   `editorDisplayMode`, so this is how the editor can show what a block HOLDS

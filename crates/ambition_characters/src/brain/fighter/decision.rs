@@ -829,10 +829,7 @@ fn trace_decision(
         .field("attack", attack.unwrap_or("none").to_string())
         .field("recovery_searched", recovery_searched)
         .field("recovery_regained", recovery_regained)
-        .field(
-            "recovery_move",
-            recovery_move.unwrap_or("none").to_string(),
-        )
+        .field("recovery_move", recovery_move.unwrap_or("none").to_string())
         .field(
             "recovery_bounded_by",
             recovery_bounded_by.unwrap_or("-").to_string(),

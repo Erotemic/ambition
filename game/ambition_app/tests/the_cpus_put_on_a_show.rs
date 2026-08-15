@@ -314,7 +314,8 @@ fn a_cpu_match_between_two_authored_fighters_shows_two_repertoires() {
     //    the world rather than of the ids, because it is the KIT that has to
     //    differ, not the label.
     assert_ne!(
-        seats[0].moveset, seats[1].moveset,
+        seats[0].moveset,
+        seats[1].moveset,
         "both seats are wearing the same authored table, so this match is one \
          fighter twice: {:?}",
         seats.iter().map(|s| &s.character).collect::<Vec<_>>()
@@ -562,7 +563,9 @@ mod with_the_decision_log {
             }
         }
 
-        eprintln!("[fighter decisions] {decisions} facts, {dropped} dropped by the ring\n{by_subject:#?}");
+        eprintln!(
+            "[fighter decisions] {decisions} facts, {dropped} dropped by the ring\n{by_subject:#?}"
+        );
         eprintln!("[recovery routes]\n{recovery_routes:#?}");
 
         assert!(

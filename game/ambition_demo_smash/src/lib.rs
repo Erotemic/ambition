@@ -297,42 +297,38 @@ pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {
 /// Stable room id for the stage.
 pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
 
-/// Stage size, and the platform's top.
-/// ⚠ **these numbers were WRONG until somebody drew them** (2026-07-31).
+/// The authored room around the fighting platform.
 ///
-/// The first cut was a 960x640 world around a 420px platform with a 220px
-/// margin, and every test passed. The diagram
-/// (`cargo run -p ambition_demo_smash_app --bin stage_diagram`) showed what the
-/// tests could not: a fighter knocked off the side had to cross ~490px — MORE
-/// than the whole platform's width — before the world took it. On a platform
-/// fighter that is a body drifting through empty space for about a second while
-/// nothing happens.
-///
-/// The test that was supposed to catch this asserted `distance < world.size.x`,
-/// which is 490 < 960: true, and meaningless. A bound loose enough to hold for
-/// any stage holds for a broken one.
+/// Keep this at 640x480 for the demo's presentation frame. The fighting stage
+/// itself is [`PLATFORM_WIDTH`] wide; the room bounds are only an intermediate
+/// seam between the platform and the blast envelope.
 const STAGE_SIZE: Vec2 = Vec2::new(640.0, 480.0);
 const PLATFORM_TOP: f32 = 300.0;
-/// **Thirteen tiles wide, and that is why it is not 420.**
-///
-/// The floor is drawn by REPEATING a 32px texture (every block is, since
-/// 2026-08-06 — see `spawn_block`), so a width off the tile grid ends the
-/// platform on a sliced brick at its right edge and nowhere else, which reads as
-/// a rendering fault rather than as a stage. 416 is 13 whole tiles.
-///
-/// ⚠ this is 4px narrower than the number the stage diagram was drawn against
-/// (2px per side, on a stage whose blast margin is 120px). Nothing measures it —
-/// change the constant back if a fighter ever feels the difference.
-const PLATFORM_WIDTH: f32 = 416.0;
 
-/// **How far past the stage a body may travel before the world takes it.**
+/// **Fifteen 32px tiles, or ten standing-body heights.**
 ///
-/// Tight ON PURPOSE, and this is the number that makes the demo a fighter rather
-/// than a room with two people in it. Every other room in this game is ENCLOSED —
-/// its margin exists to catch a body that fell through the floor, so it is
-/// generous and rarely reached. Here it is the win condition, so it has to be
-/// close enough that a good hit reaches it.
-const BLAST_MARGIN_PX: f32 = 120.0;
+/// Final Destination's main platform is roughly ten Mario-height units wide.
+/// Ambition's default standing body is 48px tall, so 480px gives the demo the
+/// same useful fighter-to-stage scale while staying exactly on the 32px floor
+/// texture grid.
+const PLATFORM_WIDTH: f32 = 480.0;
+
+/// Blast margins chosen so the PLATFORM, not the room rectangle, has Final
+/// Destination-like normalized proportions:
+///
+/// * ledge -> side blast line = 1.000 platform widths;
+/// * platform surface -> ceiling blast line = 1.125 platform widths;
+/// * platform surface -> fall blast line = 0.875 platform widths.
+///
+/// With a 480px platform centered in a 640px room there are 80px from either
+/// ledge to the room edge, leaving 400px beyond the room edge for the side blast
+/// margin. The platform surface is y=300 in a 480px room, so a 240px vertical
+/// margin puts the ceiling 540px above the platform and the fall line 420px
+/// below it. The complete blast envelope is therefore 1440x960: exactly 3x2
+/// platform widths, matching Final Destination's normalized envelope.
+const FALL_BLAST_MARGIN_PX: f32 = 240.0;
+const SIDE_BLAST_MARGIN_PX: f32 = 400.0;
+const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
 
 /// **The stage: a platform surrounded by nothing.**
 ///
@@ -359,14 +355,14 @@ pub fn smash_stage() -> RoomSpec {
             Vec2::new(PLATFORM_WIDTH, 32.0),
         )],
     );
-    world.blast_margin = BLAST_MARGIN_PX;
+    world.blast_margin = FALL_BLAST_MARGIN_PX;
     // The SIDES are the interesting ones and they are not the default. A body
     // launched horizontally leaves through them, and without an explicit value
     // they inherit a margin sized for "fell through the floor" — generous enough
     // that a fighter knocked off the edge would drift for a second and a half
     // before anything noticed.
-    world.side_blast_margin = Some(BLAST_MARGIN_PX);
-    world.ceiling_blast_margin = Some(BLAST_MARGIN_PX);
+    world.side_blast_margin = Some(SIDE_BLAST_MARGIN_PX);
+    world.ceiling_blast_margin = Some(CEILING_BLAST_MARGIN_PX);
 
     let mut room = RoomSpec::new(SMASH_STAGE_ROOM_ID, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
@@ -2231,33 +2227,38 @@ mod tests {
         );
     }
 
-    /// **The blast margin has to be REACHABLE**, or stocks never spend and the
-    /// whole loop is decorative.
+    /// **The blast envelope is authored from the fighting platform.**
     ///
-    /// The number is the win condition here, not a safety net. Every other room
-    /// sizes its margin for "fell through the floor" — generous, rarely reached —
-    /// and inheriting that default is how a fighter knocked cleanly off the edge
-    /// drifts for a second and a half before anything notices.
+    /// The room rectangle is an implementation seam, not the thing whose size
+    /// should determine knockout timing. Pin the normalized Final Destination
+    /// proportions directly so a future room resize cannot silently move the
+    /// death lines relative to the ledges.
     #[test]
-    fn a_body_knocked_off_the_side_leaves_the_world() {
+    fn the_stage_and_blast_envelope_keep_their_authored_proportions() {
         let room = smash_stage();
-        let platform = room.world.blocks[0].aabb;
-        assert!(
-            platform.left() > BLAST_MARGIN_PX * 0.0,
-            "the platform starts at the world origin, so there is no space to be \
-             knocked into on the left"
-        );
+        let world = &room.world;
+        let platform = world.blocks[0].aabb;
+        let side_margin = world
+            .side_blast_margin
+            .expect("the smash stage authors side blast lines");
+        let ceiling_margin = world
+            .ceiling_blast_margin
+            .expect("the smash stage authors a ceiling blast line");
+
+        let left_ledge_to_blast = platform.left() + side_margin;
+        let right_ledge_to_blast = (world.size.x - platform.right()) + side_margin;
+        let surface_to_ceiling_blast = platform.top() + ceiling_margin;
+        let surface_to_fall_blast = (world.size.y - platform.top()) + world.blast_margin;
+
+        assert_eq!(platform.width(), PLATFORM_WIDTH);
+        assert_eq!(left_ledge_to_blast, PLATFORM_WIDTH);
+        assert_eq!(right_ledge_to_blast, PLATFORM_WIDTH);
+        assert_eq!(surface_to_ceiling_blast, PLATFORM_WIDTH * 1.125);
+        assert_eq!(surface_to_fall_blast, PLATFORM_WIDTH * 0.875);
+        assert_eq!(world.size.x + side_margin * 2.0, PLATFORM_WIDTH * 3.0);
         assert_eq!(
-            room.world.side_blast_margin,
-            Some(BLAST_MARGIN_PX),
-            "the sides fell back to the enclosed-room default, which is sized for \
-             a body that fell through the floor rather than one that was hit"
-        );
-        assert_eq!(room.world.ceiling_blast_margin, Some(BLAST_MARGIN_PX));
-        assert!(
-            BLAST_MARGIN_PX < room.world.size.x / 2.0,
-            "the margin is wider than half the stage, so a body would have to \
-             cross the whole screen before the world took it"
+            world.size.y + ceiling_margin + world.blast_margin,
+            PLATFORM_WIDTH * 2.0
         );
     }
 
@@ -2487,7 +2488,7 @@ mod tests {
         );
         assert_eq!(
             prepared.geometry().0.side_blast_margin,
-            Some(BLAST_MARGIN_PX),
+            Some(SIDE_BLAST_MARGIN_PX),
             "the prepared geometry lost the stage's blast margins, so a fighter \
              knocked off would drift instead of dying"
         );

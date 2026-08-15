@@ -75,9 +75,10 @@
 //!   9/d12  died at x≈758  (0L/3R), vmax 752
 //! ```
 //!
-//! The platform spans x 110..530 of a 640-wide stage and the blast margin is
-//! 120, so `-119` is off the left lip and `756` off the right. Two facts fall
-//! straight out, and both narrow the search:
+//! Those coordinates came from the pre-calibration stage geometry. What
+//! matters diagnostically is which SIDE the fighter left from, not the old
+//! absolute blast-line coordinate. Two facts fall straight out, and both narrow
+//! the search:
 //!
 //! * **the direction is a property of the LEVEL, not of the rollout.** Levels
 //!   1–5 leave to the left, 6–9 to the right, and level 9 leaves right at BOTH
@@ -536,15 +537,16 @@ fn spread_label(values: impl Iterator<Item = Option<usize>> + Clone) -> String {
     }
 }
 
-/// WHERE it died, as a side rather than a number. The platform spans x 110..530
-/// of a 640-wide stage; `<110` is off the left lip and `>530` off the right, and
-/// which one it is separates a veto that steers wrong from a veto that is blind.
+/// WHERE it died, as a side rather than a number. The stage is centered, so
+/// the authored stage centre separates left exits from right exits without
+/// duplicating a room width or platform extent in this diagnostic.
 fn death_side(runs: &[LadderRun]) -> String {
     let xs: Vec<f32> = runs.iter().filter_map(|r| r.death_x).collect();
     if xs.is_empty() {
         return "no self-KO".to_string();
     }
-    let left = xs.iter().filter(|x| **x < 320.0).count();
+    let stage_midpoint = ambition_demo_smash::stage_centre().x;
+    let left = xs.iter().filter(|x| **x < stage_midpoint).count();
     let right = xs.len() - left;
     let mean = xs.iter().sum::<f32>() / xs.len() as f32;
     format!("died at x≈{mean:.0} ({left}L/{right}R)")
@@ -571,8 +573,8 @@ struct LadderRun {
     peak_speed: f32,
     /// Where the body was standing on the tick before its FIRST self-KO.
     ///
-    /// The platform spans x 110..530 of a 640-wide stage, so a death off the
-    /// LEFT and a death off the RIGHT are different bugs — one is the veto
+    /// A death off the LEFT and a death off the RIGHT are different bugs —
+    /// one is the veto
     /// steering, the other is the veto blind. A time alone cannot tell them
     /// apart, and this probe reported only times until 2026-07-31.
     death_x: Option<f32>,

@@ -46,18 +46,22 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
     let room = ambition_demo_smash::smash_stage();
     let world = &room.world;
     let platform = world.blocks[0].aabb;
-    let margin = world.side_blast_margin.unwrap_or(world.blast_margin);
+    let side_margin = world.side_blast_margin.unwrap_or(world.blast_margin);
+    let ceiling_margin = world.ceiling_blast_margin.unwrap_or(world.blast_margin);
+    let fall_margin = world.blast_margin;
     let respawn = ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre());
 
     // Fit the BLAST ENVELOPE, not the world: the envelope is larger, and framing
     // to the world would crop the one boundary this diagram exists to show.
-    let span_x = world.size.x + margin * 2.0;
-    let span_y = world.size.y + margin * 2.0;
+    // Each axis uses its own authored margin; fighter stages need not be
+    // symmetric vertically or share their horizontal knockout distance.
+    let span_x = world.size.x + side_margin * 2.0;
+    let span_y = world.size.y + ceiling_margin + fall_margin;
     let scale = (WIDTH as f32 / span_x).min(HEIGHT as f32 / span_y) * 0.9;
     let to_px = |x: f32, y: f32| -> (i32, i32) {
         (
-            (((x + margin) * scale) + (WIDTH as f32 - span_x * scale) / 2.0) as i32,
-            (((y + margin) * scale) + (HEIGHT as f32 - span_y * scale) / 2.0) as i32,
+            (((x + side_margin) * scale) + (WIDTH as f32 - span_x * scale) / 2.0) as i32,
+            (((y + ceiling_margin) * scale) + (HEIGHT as f32 - span_y * scale) / 2.0) as i32,
         )
     };
 
@@ -83,8 +87,8 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
     };
 
     // The blast envelope: the boundary a body crosses to stop existing.
-    let (bx0, by0) = to_px(-margin, -margin);
-    let (bx1, by1) = to_px(world.size.x + margin, world.size.y + margin);
+    let (bx0, by0) = to_px(-side_margin, -ceiling_margin);
+    let (bx1, by1) = to_px(world.size.x + side_margin, world.size.y + fall_margin);
     rect(bx0, by0, bx1, by1, [220, 70, 70, 255], true);
 
     // The world.

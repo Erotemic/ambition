@@ -949,3 +949,188 @@ fn a_zero_width_window_is_legal_but_an_inverted_one_is_not() {
         "loosening `>=` to `>` must not have made an INVERTED window legal too"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Timed authored self-displacement (`MoveEventKind::Impulse`) and the LIFT
+// affordance derived from it.
+// ---------------------------------------------------------------------------
+
+/// A minimal move: one Startup window, one Active window carrying one volume.
+fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
+    MoveSpec {
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: "attack".into(),
+            fallbacks: Vec::new(),
+        },
+        duration_s,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: 0.10,
+                tag: WindowTag::Startup,
+                volumes: Vec::new(),
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: 0.10,
+                end_s: 0.18,
+                tag: WindowTag::Active,
+                volumes: vec![HitVolume {
+                    shape: VolumeShape::Rect {
+                        offset: (20.0, 0.0),
+                        half_extents: (16.0, 12.0),
+                    },
+                    damage: 4,
+                    knockback: 60.0,
+                    knockback_growth: 1.0,
+                    launch_dir: None,
+                    on_hit: None,
+                    vfx: None,
+                    hit_sfx: None,
+                }],
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+        ],
+        events,
+        gates: MoveGates::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+/// **A move that SETS an against-gravity speed advertises it; one that only ADDS
+/// to the body's own does not.**
+///
+/// ⛔ the distinction is the whole reason [`ImpulseMode`] has two variants, and
+/// pinning it here is what stops a lunging jab from reading as a recovery
+/// special to every consumer downstream. An `Add` produces a speed only in
+/// company with whatever the body was already doing, so no static reader can
+/// name one — and a reader that pretended otherwise would price a jab's 120px/s
+/// hop as a way home.
+#[test]
+fn only_a_commanded_impulse_advertises_lift() {
+    let commanded = timed_move(
+        "ascend",
+        0.9,
+        vec![MoveEvent {
+            at_s: 0.20,
+            kind: MoveEventKind::Impulse {
+                local: (0.0, -980.0),
+                mode: ImpulseMode::Set,
+            },
+        }],
+    );
+    let frames = commanded.frame_data();
+    assert_eq!(frames.lift_speed, 980.0);
+    assert_eq!(frames.lift_at_s, 0.20);
+
+    let mut additive = commanded.clone();
+    additive.events[0].kind = MoveEventKind::Impulse {
+        local: (0.0, -980.0),
+        mode: ImpulseMode::Add,
+    };
+    assert_eq!(
+        additive.frame_data().lift_speed,
+        0.0,
+        "an ADDITIVE up-impulse commands no speed — its result is whatever the \
+         body was already doing, so nothing downstream may read it as a way home"
+    );
+
+    // The identity case: an ordinary strike lifts nobody.
+    assert_eq!(
+        timed_move("jab", 0.3, Vec::new()).frame_data().lift_speed,
+        0.0
+    );
+}
+
+/// **A DOWNWARD commanded impulse is not lift.** A dive is the same primitive
+/// pointed the other way, and a consumer looking for a way home must not find
+/// one in it — the sign is the only thing separating the two, so it gets its own
+/// guard rather than riding on the test above.
+#[test]
+fn a_commanded_dive_is_not_a_lift() {
+    let dive = timed_move(
+        "plunge",
+        0.6,
+        vec![MoveEvent {
+            at_s: 0.12,
+            kind: MoveEventKind::Impulse {
+                local: (0.0, 1200.0),
+                mode: ImpulseMode::Set,
+            },
+        }],
+    );
+    assert_eq!(dive.frame_data().lift_speed, 0.0);
+}
+
+/// **The strongest lift wins, and a tie breaks on the EARLIER moment.** Two
+/// bursts on one timeline is a legal thing to author (a hop into a rise), and
+/// which one a policy plans around must not depend on declaration order.
+#[test]
+fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
+    let two = timed_move(
+        "double_rise",
+        1.2,
+        vec![
+            MoveEvent {
+                at_s: 0.50,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, -400.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+            MoveEvent {
+                at_s: 0.20,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, -900.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+        ],
+    );
+    let frames = two.frame_data();
+    assert_eq!((frames.lift_speed, frames.lift_at_s), (900.0, 0.20));
+
+    let tied = timed_move(
+        "tied",
+        1.2,
+        vec![
+            MoveEvent {
+                at_s: 0.50,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, -900.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+            MoveEvent {
+                at_s: 0.20,
+                kind: MoveEventKind::Impulse {
+                    local: (0.0, -900.0),
+                    mode: ImpulseMode::Set,
+                },
+            },
+        ],
+    );
+    assert_eq!(tied.frame_data().lift_at_s, 0.20);
+}
+
+/// **An `Impulse` event round-trips through RON with `mode` omitted**, so an
+/// authored timeline that says only `Impulse(local: (0, -900))` parses as the
+/// additive meaning `start_impulse` always had rather than failing to load.
+#[test]
+fn an_authored_impulse_defaults_to_the_additive_meaning() {
+    let parsed: MoveEventKind = ron::from_str("Impulse(local: (0.0, -900.0))")
+        .expect("an impulse with no mode is authorable");
+    assert_eq!(
+        parsed,
+        MoveEventKind::Impulse {
+            local: (0.0, -900.0),
+            mode: ImpulseMode::Add,
+        }
+    );
+}

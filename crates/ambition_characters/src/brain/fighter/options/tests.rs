@@ -20,6 +20,8 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         max_damage: 1,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),
+        lift_speed: 0.0,
+        lift_at_s: 0.0,
     }
 }
 

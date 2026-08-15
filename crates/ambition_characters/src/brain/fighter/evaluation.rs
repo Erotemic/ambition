@@ -29,9 +29,9 @@
 
 use super::decision::{tick_fighter, FighterCfg, FighterState};
 use super::options::{AttackBinding, AttackCandidate, AttackVerb};
-use crate::actor::attack_gesture::AttackDir;
 use super::profile::FighterBrainProfile;
 use super::scenarios::{suite, Scenario};
+use crate::actor::attack_gesture::AttackDir;
 use crate::actor::control::ActorControlFrame;
 use crate::brain::BrainSnapshot;
 
@@ -55,18 +55,18 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 /// — the rig measures the DECIDING, and a scenario that named a specific
 /// character would be measuring content instead.
 fn rig_kit() -> Vec<AttackCandidate> {
-    let frames = |startup_s: f32, reach: f32, damage: i32| {
-        ambition_entity_catalog::MoveFrameData {
-            total_s: startup_s + 0.1 + 0.2,
-            startup_s,
-            active_spans: vec![(startup_s, startup_s + 0.1)],
-            recovery_s: 0.2,
-            cancel_windows: Vec::new(),
-            reach,
-            max_damage: damage,
-            max_knockback: 0.0,
-            start_impulse: (0.0, 0.0),
-        }
+    let frames = |startup_s: f32, reach: f32, damage: i32| ambition_entity_catalog::MoveFrameData {
+        total_s: startup_s + 0.1 + 0.2,
+        startup_s,
+        active_spans: vec![(startup_s, startup_s + 0.1)],
+        recovery_s: 0.2,
+        cancel_windows: Vec::new(),
+        reach,
+        max_damage: damage,
+        max_knockback: 0.0,
+        start_impulse: (0.0, 0.0),
+        lift_speed: 0.0,
+        lift_at_s: 0.0,
     };
     // Fast-and-short, slow-and-long, and an aerial — enough that scoring has a
     // trade-off to make. One candidate is not a choice.

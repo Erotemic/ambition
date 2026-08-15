@@ -28,7 +28,8 @@ use bevy::prelude::{
 };
 
 use ambition_entity_catalog::{
-    AttackDir, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+    AttackDir, ImpulseMode, MoveEventKind, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
+    WindowTag,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -472,7 +473,13 @@ pub fn advance_move_playback(
         // `register_character` — which has no `CharacterCatalogOwners` entry at
         // all — still names its own provider here.
         Option<&ambition_sfx::BodyPresentationSource>,
-        &ae::BodyKinematics,
+        // ⭐ MUTABLE since the timeline learned to move its own owner: a
+        // `MoveEventKind::Impulse` crossing is authored SELF-MOTION and this is
+        // the system that owns the move clock, so it is the one place that can
+        // apply it at the authored instant. `trigger_moveset_moves` does the
+        // same write for `start_impulse` at the press; this is that seam, later
+        // on the same timeline.
+        &mut ae::BodyKinematics,
         Option<&ProperTimeScale>,
         // I4: the owner's rollback-stable identity, so the transient strike volume
         // it opens can derive one. Without it every anonymous hitbox folded to the
@@ -497,7 +504,7 @@ pub fn advance_move_playback(
         config,
         worn,
         body_source,
-        kin,
+        mut kin,
         scale,
         owner_sim_id,
     ) in &mut players
@@ -548,6 +555,39 @@ pub fn advance_move_playback(
             // that hole.
             if !pb.fired[idx] && ev.at_s <= t {
                 pb.fired[idx] = true;
+                // ⭐ **AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
+                // is not announced as a message.**
+                //
+                // Every other `MoveEventKind` names something for a CONSUMER to
+                // resolve — a cue, a cosmetic burst, a content technique, a
+                // shot — and `dispatch_move_events` is where those are resolved.
+                // An impulse names no consumer: it is a velocity write on the
+                // owner, exactly like `start_impulse` at the press, and this is
+                // the system that holds both the move clock and the body. One
+                // writer, one site — publishing it as a message and applying it
+                // somewhere else is the follow-up-call shape this tree keeps
+                // paying for.
+                if let MoveEventKind::Impulse { local, mode } = &ev.kind {
+                    let body_frame = owner_frames
+                        .get(owner)
+                        .map(|frame| frame.basis())
+                        .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
+                    // Body-local `(+x = facing, +y = gravity-down)` mirrored by
+                    // the facing the MOVE started with, then rotated into the
+                    // owner's frame — the same two steps `start_impulse` takes,
+                    // so a rise stays a rise under any gravity.
+                    //
+                    // ⚠ `pb.facing`, not the body's live facing: a move whose
+                    // burst pointed wherever the body happened to be looking
+                    // three windows later would not be the move that was
+                    // committed to.
+                    let world = body_frame.to_world(ae::Vec2::new(local.0 * pb.facing, local.1));
+                    kin.vel = match mode {
+                        ImpulseMode::Add => kin.vel + world,
+                        ImpulseMode::Set => world,
+                    };
+                    continue;
+                }
                 events.write(MoveEventMessage {
                     owner,
                     move_id: pb.spec.id.clone(),
@@ -1490,6 +1530,14 @@ pub fn dispatch_move_events(
                     },
                 });
             }
+            // ⛔ **UNREACHABLE BY CONSTRUCTION, and named rather than swept into
+            // a wildcard.** An `Impulse` is a velocity write on the owner, so
+            // `advance_move_playback` applies it at the authored instant and
+            // never publishes it — there is nothing here to resolve. The arm
+            // exists so that the NEXT variant somebody adds still has to come
+            // past this match and say what it means, which a `_ => {}` would
+            // quietly excuse it from.
+            MoveEventKind::Impulse { .. } => {}
         }
     }
 }

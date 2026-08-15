@@ -653,6 +653,47 @@ pub enum MoveEventKind {
     /// startup/recovery windows while its projectile still tracks a strafing target
     /// (fable review: ranged subsumption, option A — dynamic aim, not facing-lock).
     Ranged,
+    /// **A TIMED authored self-displacement**, body-local (`+x = facing,
+    /// `+y = gravity-down`) — the move moving its own owner, at a moment the
+    /// timeline chooses.
+    ///
+    /// ⭐ **why this exists when [`MoveSpec::start_impulse`] already did.** That
+    /// field is a velocity ADD applied at TRIGGER, and both halves fail the one
+    /// move a platform fighter cannot do without. A recovery special has to fire
+    /// its burst AFTER its startup — that windup is the tell the whole move is
+    /// balanced around — and it has to SET the rise rather than add to it,
+    /// because a body that is falling at terminal velocity when it presses the
+    /// button is exactly the body that needs it: `vel += -1000` while falling at
+    /// 900 climbs at 100, so an additive recovery is strongest when it is least
+    /// needed and useless when it is most. [`ImpulseMode::Set`] is the whole
+    /// difference between an Up-B and a hop.
+    ///
+    /// ⛔ **not a character mechanic.** It is authored self-motion on a
+    /// timeline, and its second and third customers are already obvious: a dive
+    /// that commits downward mid-aerial, a lunge that travels on the active
+    /// frame instead of the press.
+    Impulse {
+        /// Body-local `(side toward facing, gravity-down)` in engine units/s.
+        local: (f32, f32),
+        #[serde(default)]
+        mode: ImpulseMode,
+    },
+}
+
+/// How a [`MoveEventKind::Impulse`] meets the velocity the body already had.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImpulseMode {
+    /// ADD to the current velocity — [`MoveSpec::start_impulse`]'s meaning, and
+    /// the default so an authored impulse that says nothing behaves like the
+    /// field it grew out of. A lunge, a drift nudge.
+    #[default]
+    Add,
+    /// REPLACE the velocity outright. The move COMMANDS a speed rather than
+    /// contributing to one, so its result does not depend on how fast the body
+    /// happened to be falling. This is what makes a recovery move a recovery
+    /// move, and it is the only mode a static reader can price
+    /// ([`MoveFrameData::lift_speed`]).
+    Set,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -970,6 +1011,38 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
             .map(|v| v.knockback)
             .fold(0.0_f32, f32::max);
+        // **LIFT: the against-gravity speed this move COMMANDS of its owner.**
+        //
+        // ⭐ the whole point of deriving it here is that a policy layer can then
+        // recognise a recovery move by its GEOMETRY instead of by its name. `+y`
+        // is gravity-down, so lift is `-y`, and it rotates with gravity for free
+        // because it never leaves the body frame.
+        //
+        // ⛔ **only [`ImpulseMode::Set`] counts, and that is not a shortcut.** An
+        // additive impulse commands nothing — its outcome is whatever the body
+        // was already doing plus a number — so no static reader can say what
+        // speed it produces. A `Set` states one. That distinction is exactly why
+        // a jab with a small upward lunge cannot be mistaken here for a recovery
+        // special.
+        let (lift_speed, lift_at_s) = self
+            .events
+            .iter()
+            .filter_map(|ev| match &ev.kind {
+                MoveEventKind::Impulse {
+                    local,
+                    mode: ImpulseMode::Set,
+                } if local.1 < 0.0 => Some((-local.1, ev.at_s)),
+                _ => None,
+            })
+            // Ties on speed break on the EARLIER moment, so the answer does not
+            // depend on declaration order (ADR 0023).
+            .fold((0.0_f32, 0.0_f32), |best, (speed, at)| {
+                if speed > best.0 || (speed == best.0 && speed > 0.0 && at < best.1) {
+                    (speed, at)
+                } else {
+                    best
+                }
+            });
         MoveFrameData {
             total_s: self.duration_s,
             startup_s,
@@ -980,6 +1053,8 @@ impl MoveSpec {
             max_damage,
             max_knockback,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
+            lift_speed,
+            lift_at_s,
         }
     }
 }
@@ -1027,6 +1102,20 @@ pub struct MoveFrameData {
     /// fighter brain's shadow model learned that from its own fidelity
     /// instrument on day one (FB6e: a 51px-reach swing landed from 102px).
     pub start_impulse: (f32, f32),
+    /// **The against-gravity speed this move COMMANDS**, from its strongest
+    /// [`ImpulseMode::Set`] impulse. `0.0` for every move that does not lift its
+    /// owner outright, which is almost all of them.
+    ///
+    /// ⭐ this is the semantic affordance a recovery policy reads. A move is a
+    /// recovery because of what it DOES to the body, not because of what it is
+    /// called — so a brain, an authoring validator and a recovery probe all
+    /// recognise one from the same number, and no layer needs a table of which
+    /// character's special is the Up-B.
+    pub lift_speed: f32,
+    /// When [`Self::lift_speed`] arrives, proper-time seconds from move start —
+    /// the windup a body has to survive before the burst fires. `0.0` when there
+    /// is no lift.
+    pub lift_at_s: f32,
 }
 
 // ---------------------------------------------------------------------------

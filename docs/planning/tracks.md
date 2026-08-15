@@ -37,9 +37,16 @@ These cards are capability fronts, not a serial mega-campaign.
   systems. Use
   [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
 
-- ▢ **Systemic open-world foundation.** Build compatible semantics for room/region
-  residency, instance provenance/lifetime, item custody/accounting, embodied
-  capability gates, platformer reachability and persistent actor populations.
+- ◐ **Systemic open-world foundation. PROMOTED TO THE LEDGER 2026-08-14 as D125 —
+  do not promote it a second time.** ⚠ all six plans below had been reachable from
+  this card and from NOWHERE else, so a fully-designed frontier was invisible to
+  the queue, which is the only authority a working session consults. ⭐ **that is
+  what this reservoir is for, and the lesson is that a card sitting here
+  indefinitely is not "queued", it is stranded** — when the ledger thins, promote
+  from here rather than inventing new work. Build compatible semantics for
+  room/region residency, instance provenance/lifetime, item custody/accounting,
+  embodied capability gates, platformer reachability and persistent actor
+  populations.
   Use [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md),
   [`engine/instance-lifetime-provenance-and-persistence.md`](engine/instance-lifetime-provenance-and-persistence.md),
   [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md),

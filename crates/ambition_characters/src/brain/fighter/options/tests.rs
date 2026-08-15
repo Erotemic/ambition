@@ -212,8 +212,13 @@ fn committing_near_a_blastzone_costs_score() {
     assert!(w.stage_risk < 0.0);
 }
 
-/// **A body past the blastzone has exactly one problem.** No attack is offered
-/// at all — not a low-scoring one, none. `Recovery` is not a preference.
+/// **A body past the blastzone has exactly one problem, and a kit of swings is
+/// not an answer to it.** No offensive attack is offered at all — not a
+/// low-scoring one, none. `Recovery` is not a preference.
+///
+/// ⚠ **the rule is about the REPERTOIRE, not about the situation.** These two
+/// moves lift nobody (`lift_speed: 0.0`), which is why nothing is offered; the
+/// pair below shows what happens when one of them does.
 #[test]
 fn recovery_offers_no_attacks_and_exactly_one_obligation() {
     let kit = [candidate("jab", 0.1, 100.0), candidate("smash", 0.4, 100.0)];
@@ -226,6 +231,161 @@ fn recovery_offers_no_attacks_and_exactly_one_obligation() {
     assert!(opts.attacks.is_empty());
     assert!(opts.best_attack().is_none());
     assert_eq!(opts.best_movement().unwrap().verb, MovementVerb::Recover);
+}
+
+/// The same candidate, plus the one number that makes it a way home.
+fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandidate {
+    let mut c = candidate(id, 0.2, 40.0);
+    c.frames.lift_speed = lift_speed;
+    c.frames.lift_at_s = lift_at_s;
+    c.binding = AttackBinding {
+        verb: AttackVerb::Special,
+        direction: AttackDir::Up,
+    };
+    c
+}
+
+/// **A RECOVERING BODY IS OFFERED THE MOVE THAT LIFTS IT, AND ONLY THAT MOVE.**
+///
+/// ⛔ the defect this closes: `Recovery` returned an empty attack list
+/// unconditionally, so a fighter carrying a real recovery special drifted and
+/// jumped at a stage it could not reach while holding the thing that would have
+/// got it home. The refusal was right about ATTACKING and wrong about the
+/// repertoire.
+///
+/// ⭐ **and the selection is geometric.** Nothing here names a character, a verb
+/// or a move id — the jab and the smash are excluded because they command no
+/// against-gravity speed, and `ascend` is offered because it commands one. Give
+/// a second body a rising move and it is understood by the same line.
+#[test]
+fn a_recovering_body_is_offered_the_move_that_lifts_it() {
+    let kit = [
+        candidate("jab", 0.1, 100.0),
+        candidate("smash", 0.4, 100.0),
+        lifting_candidate("ascend", 980.0, 0.2),
+    ];
+    let opts = generate_options(
+        Perceived::cheating(&view_with(-40.0, 400.0)),
+        Situation::Recovery,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    let ids: Vec<&str> = opts.attacks.iter().map(|a| a.move_id.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec!["ascend"],
+        "a recovering body must be offered its way home and nothing else"
+    );
+    // And it is offered as the PRESS that reaches it, so the winner is
+    // executable on the ordinary gesture seam a human uses.
+    assert_eq!(
+        opts.best_attack().unwrap().binding,
+        AttackBinding {
+            verb: AttackVerb::Special,
+            direction: AttackDir::Up,
+        }
+    );
+}
+
+/// **THE STRONGEST LIFT LEADS, AND A TIE BREAKS ON THE MOVE ID.** Two ways home
+/// is a legal repertoire, and which one the brain reaches for must be a function
+/// of the numbers rather than of the kit's declaration order (ADR 0023).
+#[test]
+fn the_strongest_lift_leads_and_ties_do_not_depend_on_kit_order() {
+    let strong = lifting_candidate("ascend", 980.0, 0.2);
+    let weak = lifting_candidate("hop", 300.0, 0.1);
+    let forward = [weak.clone(), strong.clone()];
+    let reversed = [strong, weak];
+    let opts = |kit: &[AttackCandidate]| -> Vec<String> {
+        generate_options(
+            Perceived::cheating(&view_with(-40.0, 400.0)),
+            Situation::Recovery,
+            kit,
+            &UtilityWeights::v1(),
+        )
+        .attacks
+        .into_iter()
+        .map(|a| a.move_id)
+        .collect()
+    };
+    assert_eq!(opts(&forward), vec!["ascend", "hop"]);
+    assert_eq!(opts(&forward), opts(&reversed));
+}
+
+/// **A BODY WITH A REAL RECOVERY MOVE STOPS BEING OFFERED THE TRAVERSAL VERB.**
+///
+/// Blink is a general-purpose way of being somewhere else; leaning on it to get
+/// home is what a fighter does when its repertoire has no answer. Both halves
+/// are observed here — the same blink-capable body IS offered it while its kit
+/// commands no lift — so this cannot pass by the option having quietly gone
+/// away for everybody.
+#[test]
+fn an_authored_lift_displaces_the_traversal_verb_in_recovery() {
+    let mut view = view_with(-40.0, 400.0);
+    view.self_view.can_blink = true;
+    let w = UtilityWeights::v1();
+    let verbs = |kit: &[AttackCandidate]| -> Vec<MovementVerb> {
+        generate_options(Perceived::cheating(&view), Situation::Recovery, kit, &w)
+            .movement
+            .into_iter()
+            .map(|m| m.verb)
+            .collect()
+    };
+    let swings = [candidate("jab", 0.1, 100.0)];
+    assert!(
+        verbs(&swings).contains(&MovementVerb::Blink),
+        "a body with no way home of its own still falls back on traversal"
+    );
+    let with_lift = [
+        candidate("jab", 0.1, 100.0),
+        lifting_candidate("ascend", 980.0, 0.2),
+    ];
+    assert!(!verbs(&with_lift).contains(&MovementVerb::Blink));
+    assert_eq!(
+        verbs(&with_lift).first().copied(),
+        Some(MovementVerb::Recover),
+        "the obligation is unchanged: steer home, and now throw the move too"
+    );
+}
+
+/// **A LIFTING MOVE IS STILL AN ORDINARY ATTACK EVERYWHERE ELSE.** The affordance
+/// changes what `Recovery` offers and nothing else — in neutral, `ascend` is
+/// scored against the foe by the same five features as every other move, so a
+/// recovery special that happens to be a good anti-air stays one.
+#[test]
+fn a_lifting_move_is_scored_as_an_ordinary_attack_in_neutral() {
+    let kit = [
+        candidate("jab", 0.1, 40.0),
+        lifting_candidate("ascend", 980.0, 0.2),
+    ];
+    let opts = generate_options(
+        Perceived::cheating(&view_with(300.0, 340.0)),
+        Situation::Neutral,
+        &kit,
+        &UtilityWeights::v1(),
+    );
+    assert!(opts
+        .attacks
+        .iter()
+        .any(|a| a.move_id == "ascend" && a.features != Features::default()));
+    assert!(opts.attacks.iter().any(|a| a.move_id == "jab"));
+}
+
+/// **`lifting_candidates` reads the number and nothing else.** The unit under
+/// every rule above, on its own, so a failure says which half broke.
+#[test]
+fn lifting_candidates_selects_on_commanded_lift_alone() {
+    let kit = [
+        candidate("jab", 0.1, 100.0),
+        lifting_candidate("ascend", 980.0, 0.2),
+        lifting_candidate("hop", 300.0, 0.1),
+    ];
+    let ids: Vec<&str> = lifting_candidates(&kit)
+        .into_iter()
+        .map(|c| c.move_id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["ascend", "hop"]);
+    assert!(lifting_candidates(&[candidate("jab", 0.1, 100.0)]).is_empty());
 }
 
 /// Movement expresses the situation's ONE obligation, so a brain with no L3

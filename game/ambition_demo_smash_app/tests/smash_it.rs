@@ -10,5 +10,6 @@
 
 mod smash_it_sync;
 
+mod the_repertoire_gets_used;
 mod the_screen_decides;
 mod the_stage_kills;

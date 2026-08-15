@@ -231,8 +231,10 @@ pub struct AttackCandidate {
 pub struct OptionSet {
     /// Scored movement verbs, best first.
     pub movement: Vec<MoveOption>,
-    /// Scored attacks, best first. **Empty in [`Situation::Recovery`]**: a body
-    /// past the blastzone has exactly one problem.
+    /// Scored attacks, best first. In [`Situation::Recovery`] this holds ONLY
+    /// the kit's lifting moves ([`lifting_candidates`]) — a body past the
+    /// blastzone has exactly one problem, and a move that solves that problem is
+    /// not an offensive option, it is the answer to it.
     pub attacks: Vec<AttackOption>,
 }
 
@@ -252,6 +254,39 @@ impl OptionSet {
 /// would let a big negative reach_fit be bought back by kill potential.
 const REACH_TOLERANCE: f32 = 2.0;
 
+/// **Which of these moves would carry the body AGAINST GRAVITY**, strongest
+/// first, ties on the move id.
+///
+/// ⭐ **this is the whole of "the brain understands recovery moves", and it is
+/// one number.** [`MoveFrameData::lift_speed`] is the against-gravity speed a
+/// move COMMANDS of its owner, derived in the catalog from the move's own
+/// authored impulses. So a recovery special is recognised by what it does to the
+/// body — exactly the way `reach` recognises a poke and `max_damage` recognises
+/// a kill move.
+///
+/// ⛔ **no character conditional, and no role taxonomy.** There is no list of
+/// which body's special is the Up-B, and there is deliberately no `MoveRole`
+/// enum: the day a second body authors a rising move it is understood here for
+/// free, and the day a body authors none this returns empty and the brain plays
+/// exactly as it did before.
+///
+/// ⚠ **the POSTURE filter is upstream and load-bearing.** The kit is built for
+/// the body's real grounded state, so an airborne body's kit already contains
+/// only airborne-legal moves — which is why nothing here has to ask whether a
+/// grounded-only move could be pressed off the stage.
+pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
+    let mut lifts: Vec<&AttackCandidate> =
+        kit.iter().filter(|c| c.frames.lift_speed > 0.0).collect();
+    lifts.sort_by(|a, b| {
+        b.frames
+            .lift_speed
+            .partial_cmp(&a.frames.lift_speed)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.move_id.cmp(&b.move_id))
+    });
+    lifts
+}
+
 /// **L2.** Enumerate and score every legal option for this tick.
 ///
 /// `situation` is L1's answer, passed in rather than recomputed: the two layers
@@ -266,11 +301,53 @@ pub fn generate_options(
     let me = &view.self_view;
     let foe = view.nearest_hostile();
 
+    // ⭐ **DOES THIS BODY OWN A WAY UP?** Derived from the kit's own numbers —
+    // see [`lifting_candidates`] — and handed to movement scoring so that a
+    // fighter with a real recovery move stops being offered the traversal verb
+    // it used to fall back on. Nothing here knows whose body it is.
+    let lifts = lifting_candidates(kit);
+
     // Movement first: it is the only thing `Recovery` has.
-    let mut movement = movement_options(&view, situation);
+    let mut movement = movement_options(&view, situation, !lifts.is_empty());
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
-    if situation == Situation::Recovery || foe.is_none() {
+    if situation == Situation::Recovery {
+        // **THE ONE ATTACK A RECOVERING BODY MAY THROW IS THE ONE THAT LIFTS
+        // IT.**
+        //
+        // ⛔ this list used to be empty, unconditionally, and the reason given
+        // was right about attacking and wrong about the repertoire: *"a body
+        // past the blastzone has exactly one problem"*. It does — and a genre
+        // fighter's answer to that problem IS a move, pressed on the ordinary
+        // attack seam. Refusing to offer it left the brain drifting and jumping
+        // at a stage it could not reach while the body carried the thing that
+        // would have got it home.
+        //
+        // ⚠ scored on LIFT ALONE, deliberately. Reach, frame advantage and
+        // payoff are questions about an opponent, and a recovering body is not
+        // having a conversation with one — the whole utility vocabulary is the
+        // wrong instrument here, and borrowing it would price a way home by how
+        // hard it hits.
+        let mut attacks: Vec<AttackOption> = lifts
+            .into_iter()
+            .map(|c| AttackOption {
+                move_id: c.move_id.clone(),
+                frames: c.frames.clone(),
+                binding: c.binding,
+                score: c.frames.lift_speed,
+                features: Features::default(),
+            })
+            .collect();
+        // Ties on lift break on the move id, never on kit order (ADR 0023).
+        attacks.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.move_id.cmp(&b.move_id))
+        });
+        return OptionSet { movement, attacks };
+    }
+    if foe.is_none() {
         return OptionSet {
             movement,
             attacks: Vec::new(),
@@ -405,7 +482,15 @@ fn walks_off(view: &crate::perception::WorldView, toward: f32) -> bool {
     ahead < view.self_view.half_extent.x * 2.0
 }
 
-fn movement_options(view: &crate::perception::WorldView, situation: Situation) -> Vec<MoveOption> {
+fn movement_options(
+    view: &crate::perception::WorldView,
+    situation: Situation,
+    // **Does the body's own kit contain a move that lifts it?** A fact about the
+    // repertoire, derived by [`lifting_candidates`] and passed in rather than
+    // re-derived, so movement scoring and the attack list cannot disagree about
+    // it within one tick.
+    kit_lifts: bool,
+) -> Vec<MoveOption> {
     let me = &view.self_view;
     // Which way the foe is, so "approach" and "retreat" can be asked whether the
     // floor is still there. Zero when there is nobody to approach, and a zero
@@ -471,7 +556,21 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
     match situation {
         Situation::Recovery => {
             push(MovementVerb::Recover, 1.0);
-            if me.can_blink {
+            // ⭐ **A BODY WITH A REAL RECOVERY MOVE DOES NOT BLINK HOME.**
+            //
+            // Blink is a TRAVERSAL verb — a general-purpose way of being
+            // somewhere else — and using it as a recovery is the placeholder a
+            // fighter reaches for when its repertoire has no answer. Once the
+            // kit contains a move that lifts the body, the answer is that move,
+            // pressed on the ordinary attack seam like any other.
+            //
+            // ⛔ **derived, not decided.** `kit_lifts` is a fact about the
+            // body's own authored numbers, so this rule reads "prefer the
+            // authored recovery over the general traversal verb" for every body
+            // that has one, and changes nothing at all for every body that does
+            // not. A character conditional here would be the thing this brain's
+            // whole no-cheat contract exists to forbid.
+            if me.can_blink && !kit_lifts {
                 push(MovementVerb::Blink, 0.9);
             }
             if can_jump {

@@ -20,17 +20,22 @@
 //!
 //! ⛔⛔ **AND THE VETO IS BOUNDED BY A SEARCH POLICY — say it out loud, because it
 //! used to be implicit.** The outcome is `NoSupportFoundBy { search, .. }`, and
-//! this lens probes under the default `RecoveryPolicy::DRIFT_AND_JUMP`, which
-//! presses **only** `side ∈ {0, -1, +1}` plus jump. A body that recovers by
-//! dash, blink, flight, wall verb, ledge grab or a recovery attack is **not**
+//! this lens probes under `RecoveryPolicy::DRIFT_AND_JUMP`, which presses
+//! **only** `side ∈ {0, -1, +1}` plus jump. A body that recovers by
+//! dash, blink, flight, wall verb or ledge grab is **not**
 //! explored, so a negative here means *"this steering policy found nothing
 //! within this horizon"* — ⛔ never *"this body cannot get back."*
 //!
-//! ⭐ that is sound for the SHIPPED fighter, which owns neither dash nor blink,
-//! and it is the first thing to re-check the day a fighter gains one. Read the
-//! bound off the value with `RecoveryOutlook::bounded_by()` rather than assuming
-//! it; a positive returns `None`, because finding a route proves one exists
-//! while failing to find one is only ever a claim about the searcher.
+//! ⭐ **the recovery ATTACK is the one that is no longer missing, and the
+//! header's own warning is why.** It said this bound *"is the first thing to
+//! re-check the day a fighter gains one"*, and that day arrived: a body whose
+//! repertoire commands an against-gravity speed hands it to the probe as a
+//! [`BodyKit::lift`], the policy becomes `drift+jump+burst`, and the veto is
+//! taken against the body that will actually be throwing its Up-B. Without it
+//! the rollout condemned exactly the lines a real recovery saves. Read the bound
+//! off the value with `RecoveryOutlook::bounded_by()` rather than assuming it; a
+//! positive returns `None`, because finding a route proves one exists while
+//! failing to find one is only ever a claim about the searcher.
 //!
 //! ## What the lowering claims, and what it therefore cannot see
 //!
@@ -44,9 +49,11 @@
 //!   believes it dies sooner than it does), which is the safe direction: a
 //!   rollout that overestimates recovery certifies dives that will not come back.
 //! * **nothing that moves the body from OUTSIDE the kernel is modelled** —
-//!   portals, grapples, a recovery attack, a launch that has not happened yet.
-//!   `probe_recovery`'s own header says so; it is a gap of the kernel, not an
-//!   assumption of this lowering.
+//!   portals, grapples, a launch that has not happened yet. `probe_recovery`'s
+//!   own header says so; it is a gap of the kernel, not an assumption of this
+//!   lowering. (A recovery move used to be on that list. It came off it: an
+//!   authored move STATES the speed it commands, so it is expressible as a
+//!   `RecoveryBurst` and no longer has to be invisible.)
 
 use ambition_platformer2d_core as ae;
 
@@ -78,6 +85,36 @@ pub const RECOVERY_PROBE_SECONDS: f32 = 2.0;
 pub struct BodyKit {
     pub abilities: ae::AbilitySet,
     pub movement: ae::MovementTuning,
+    /// ⭐ **the body's own way up, if it authored one.**
+    ///
+    /// The third body-derived fact, and the one that widens the SEARCH rather
+    /// than the body: an authored move that commands an against-gravity speed
+    /// (`MoveFrameData::lift_speed`) is a route the default drift-and-jump
+    /// policy cannot press, so a negative taken without it is a verdict about a
+    /// body the fighter does not have.
+    ///
+    /// `None` — every body that authors no such move — leaves the probe exactly
+    /// as it was, which is what makes this safe for every other seat.
+    ///
+    /// ⛔ still not a rule about bodies. It is a velocity and a step count, and
+    /// where those came from is this module's business and not the kernel's.
+    pub lift: Option<RecoveryLift>,
+}
+
+/// **The against-gravity displacement a body's repertoire can command, in the
+/// terms a [`RecoveryProbe`](ae::movement::recovery::RecoveryProbe) needs.**
+///
+/// Derived from a move's frame data by
+/// [`lifting_candidates`](super::options::lifting_candidates); nothing here
+/// names a move, a verb or a character.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RecoveryLift {
+    /// Engine units per second, against gravity.
+    pub speed: f32,
+    /// Proper-time seconds from the press to the burst — the windup the body has
+    /// to survive first. A probe that ignored it would certify recoveries the
+    /// real move is too slow to make.
+    pub after_s: f32,
 }
 
 /// Where a rolled line left the ground, in the terms the kernel needs to take it
@@ -163,7 +200,32 @@ impl RecoveryLens {
             kit,
             frame,
             body_size: view.self_view.half_extent * 2.0,
-            probe: ae::movement::recovery::RecoveryProbe::seconds(RECOVERY_PROBE_SECONDS, dt),
+            probe: {
+                let probe =
+                    ae::movement::recovery::RecoveryProbe::seconds(RECOVERY_PROBE_SECONDS, dt);
+                // ⭐ **THE VETO NOW CONSIDERS THE MOVE THE BODY WOULD ACTUALLY
+                // THROW.** Without this the rollout condemned lines a real Up-B
+                // saves, and the module header's own warning — *"the first thing
+                // to re-check the day a fighter gains one"* — was that day.
+                match kit.lift {
+                    Some(lift) => probe.with_policy(
+                        ae::movement::recovery::RecoveryPolicy::drift_jump_and_burst(
+                            ae::movement::recovery::RecoveryBurst {
+                                // Body-local: `+y` is toward the feet, so a lift
+                                // is negative. The side component is zero — the
+                                // move commands a rise; where the body goes
+                                // sideways is the drift's business, and the
+                                // probe steers that itself.
+                                local: ae::Vec2::new(0.0, -lift.speed),
+                                // The windup, in kernel steps of THIS probe.
+                                at_step: (lift.after_s / dt.max(f32::EPSILON)).round().max(0.0)
+                                    as usize,
+                            },
+                        ),
+                    ),
+                    None => probe,
+                }
+            },
         })
     }
 

@@ -870,6 +870,7 @@ fn lens_for(
         crate::brain::fighter::recovery::BodyKit {
             abilities,
             movement: ae::MovementTuning::default(),
+            lift: None,
         },
         DT,
     )

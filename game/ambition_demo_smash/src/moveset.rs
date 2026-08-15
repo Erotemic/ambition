@@ -48,8 +48,8 @@
 //! authoring a move no longer silently opts it OUT of the stage's own loop.
 
 use ambition_platformer2d::entity_catalog::{
-    ClipBinding, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
-    WindowTag,
+    CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
+    MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
@@ -58,6 +58,13 @@ pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
         grounded: Some(true),
     }
+}
+
+/// A move either posture can reach. Used by the SPECIALS: a recovery move that a
+/// grounded body could not press would be a recovery move you have to fall off
+/// the stage to practise, and an out-of-shield option nobody has.
+pub(crate) fn either_posture() -> MoveGates {
+    MoveGates { grounded: None }
 }
 
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
@@ -149,6 +156,190 @@ pub(crate) fn strike(
         landing_lag_s: None,
         autocancel_after_s: None,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Authoring combinators. Every one of these takes a `MoveSpec` and returns it
+// with one more thing said about it, so a table reads as a list of DECISIONS
+// rather than a wall of struct literals — and so the two fighters in this crate
+// (and any third) say the same things the same way.
+// ---------------------------------------------------------------------------
+
+/// The proper-time instant a move's first hit becomes live. Where its feedback
+/// belongs, and where a self-displacement usually does.
+pub(crate) fn active_start(m: &MoveSpec) -> f32 {
+    m.windows
+        .iter()
+        .find(|w| matches!(w.tag, WindowTag::Active))
+        .map_or(0.0, |w| w.start_s)
+}
+
+fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
+    m.events.push(MoveEvent { at_s, kind });
+    m
+}
+
+/// **A TIMED SELF-DISPLACEMENT.** `Set` commands the velocity outright; `Add`
+/// contributes to it. See `MoveEventKind::Impulse` — the difference is the
+/// difference between a recovery and a hop.
+pub(crate) fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> MoveSpec {
+    event(m, at_s, MoveEventKind::Impulse { local, mode })
+}
+
+/// **A CANCEL WINDOW.** The timeline IS the cancel table, so a combo route is
+/// authored here and nowhere else.
+pub(crate) fn cancelable(
+    mut m: MoveSpec,
+    start_s: f32,
+    end_s: f32,
+    into: &[&str],
+    condition: CancelCondition,
+) -> MoveSpec {
+    m.windows.push(MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::Cancelable {
+            into: into.iter().map(|s| (*s).to_string()).collect(),
+            condition,
+        },
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    });
+    m
+}
+
+/// **A CONDITIONAL TECHNIQUE ON CONTACT** — the engine's `on_hit` seam, applied
+/// to every volume the move lands. `pogo_bounce` is the one this crate uses: hit
+/// a body on the way down and be thrown back up by it.
+pub(crate) fn on_hit(mut m: MoveSpec, key: &str) -> MoveSpec {
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.on_hit = Some(EffectRef::new(key));
+    }
+    m
+}
+
+/// **A TAIL THE BODY CANNOT STEER OUT OF.** Extends the move to `to_s` with a
+/// Recovery window whose `motion_scale` damps the owner's steering — the genre's
+/// "you are committed now", authored rather than hardcoded, and enforced
+/// body-side so it binds a CPU and a human identically.
+pub(crate) fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec {
+    let from = m.duration_s;
+    if to_s <= from {
+        return m;
+    }
+    m.windows.push(MoveWindow {
+        start_s: from,
+        end_s: to_s,
+        tag: WindowTag::Recovery,
+        volumes: Vec::new(),
+        motion_scale,
+        sustain_effect: None,
+    });
+    m.duration_s = to_s;
+    m
+}
+
+/// **WHAT A MOVE FEELS LIKE, as six named classes rather than per-move art.**
+///
+/// ⭐ the brief this answers is *"differentiate feedback for normal strike,
+/// heavy strike, launcher, special, recovery activation, impactful hit"* — six
+/// kinds, not one asset per move. So the vocabulary is the ROLE, and every move
+/// in every table picks one; a jab and a forward smash are heard and seen apart
+/// because they claim different roles, and adding a move costs no new asset.
+///
+/// ⚠ **the ids are engine vocabulary, checked at load.** A `Vfx` effect must be
+/// in `ambition_vfx::move_vfx_kind`'s five (`MoveSpec::presentation_problems`
+/// rejects a typo at startup rather than playing nothing), and an SFX cue that
+/// the bank never rendered is silence — safe, but silence. Both lists are short
+/// on purpose.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Feel {
+    /// The fast, cheap one. A swing sound and nothing else — a jab that flashed
+    /// would make the smash below it look like nothing.
+    Poke,
+    /// A committed kill move: a windup you can HEAR, a shockwave, and a heavy
+    /// contact sound so a landed one reads across the stage.
+    Heavy,
+    /// Sends them upward. A round burst and a light contact — the juggle starts
+    /// here, so it must read as a beginning rather than an ending.
+    Launcher,
+    /// A signature special: charged, starburst, a solid contact.
+    Special,
+    /// **A RECOVERY ACTIVATING.** Its own sound and its own burst, because
+    /// seeing one is how you know a fighter is not dead yet.
+    Recovery,
+    /// A committed plunge — the smoke of something arriving fast.
+    Dive,
+}
+
+pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
+    let at = active_start(&m);
+    let (windup_cue, hit_cue, swing_cue, burst) = match feel {
+        Feel::Poke => (None, None, "player.slash", None),
+        Feel::Heavy => (
+            Some("player.attack.charge"),
+            Some("player.robot.slash.impact.metal.gong"),
+            "player.slash",
+            Some("shockwave"),
+        ),
+        Feel::Launcher => (
+            None,
+            Some("player.robot.slash.impact.flesh.light"),
+            "player.slash",
+            Some("burst_round"),
+        ),
+        Feel::Special => (
+            Some("player.attack.charge"),
+            Some("world.rock.hit"),
+            "player.slash",
+            Some("starburst"),
+        ),
+        Feel::Recovery => (
+            Some("player.attack.charge"),
+            Some("player.hit"),
+            "player.robot.slash.air",
+            Some("classic_burst"),
+        ),
+        Feel::Dive => (
+            None,
+            Some("player.robot.slash.impact.pogo"),
+            "player.robot.slash.air",
+            Some("smoke_burst"),
+        ),
+    };
+    let mut m = m;
+    if let Some(cue) = windup_cue {
+        m = event(
+            m,
+            0.0,
+            MoveEventKind::Sfx {
+                cue: cue.to_string(),
+            },
+        );
+    }
+    m = event(
+        m,
+        at,
+        MoveEventKind::Sfx {
+            cue: swing_cue.to_string(),
+        },
+    );
+    if let Some(effect) = burst {
+        m = event(
+            m,
+            at,
+            MoveEventKind::Vfx {
+                effect: effect.to_string(),
+            },
+        );
+    }
+    if let Some(cue) = hit_cue {
+        for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+            volume.hit_sfx = Some(cue.to_string());
+        }
+    }
+    m
 }
 
 /// **The fighter repertoire**, as one authored contract.

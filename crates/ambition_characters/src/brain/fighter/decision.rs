@@ -309,9 +309,17 @@ fn decide(
     // `Recover`, and every attack in this engine LUNGES. So the fighter's own
     // queued swing carried it out at 700 px/s while its emitted input said left.
     //
-    // L2 already refuses to offer attacks in `Recovery` — *"a body past the
-    // blastzone has exactly one problem"* — so this is that rule applied to the
-    // press that was already in flight, rather than a new policy.
+    // ⚠ **and it is a DROP, not a ban** — the distinction matters now that L2
+    // offers a recovering body its lifting moves. The stale press dies here;
+    // `generate_options` runs below and re-arms from the Recovery option set in
+    // this same tick, so a body whose kit contains a way home presses that
+    // instead of nothing. What cannot survive is a press decided under a
+    // different situation, which is the whole of the 2026-07-31 trace.
+    //
+    // (The old note here said *"L2 already refuses to offer attacks in
+    // `Recovery`"*. It no longer does — refusing was right about attacking and
+    // wrong about the repertoire, since a genre fighter's answer to being
+    // offstage IS a move.)
     if situation == Situation::Recovery {
         state.pending_press = None;
     }
@@ -371,6 +379,17 @@ fn decide(
                 BodyKit {
                     abilities,
                     movement: *movement,
+                    // ⭐ **the body's own way up, read off its own kit.** The
+                    // strongest lifting move it can press from where it is —
+                    // derived from move geometry, never from an identity — so
+                    // the veto below is taken against a body that can throw its
+                    // recovery rather than one that cannot.
+                    lift: super::options::lifting_candidates(&snapshot.attack_kit)
+                        .first()
+                        .map(|c| super::recovery::RecoveryLift {
+                            speed: c.frames.lift_speed,
+                            after_s: c.frames.lift_at_s,
+                        }),
                 },
                 1.0 / cfg.tick_hz.max(1.0),
             )

@@ -39,6 +39,13 @@
 //!   toggle or a fast fall is reported as not recovering — a report that is
 //!   *right about the search and wrong about the body*.
 //!
+//! ⭐ **and a policy may now spend one thing that is not a button.** A
+//! [`RecoveryBurst`] is a commanded displacement at a known step —
+//! [`RecoveryPolicy::drift_jump_and_burst`] — which is how a caller holding a
+//! body's authored recovery MOVE gets a verdict that considered it. The kernel
+//! is handed a velocity and a step count and learns nothing about attacks;
+//! deciding that a particular move supplies those numbers is the caller's job.
+//!
 //! ⇒ so a negative is [`RecoveryOutlook::NoSupportFoundBy`] and it carries the
 //! [`RecoveryProbe`] that produced it. *"My search did not find a way"* and *"no
 //! way exists"* are different claims and only the first is available here; a
@@ -62,7 +69,7 @@
 //!
 //! `step_motion` is the whole world here, so anything that moves a body from
 //! OUTSIDE it is invisible: portal transit, a grapple (which is a held item, not
-//! an ability flag), a recovery attack, knockback, and any launch a game writes
+//! an ability flag), knockback, and any launch a game writes
 //! into `BodyFlightState::pending_launch` after the probe was taken. Geometry is
 //! whatever `world` contains at the instant of the call — a moving platform is
 //! frozen where it stands, so a route that only exists while the platform is
@@ -172,6 +179,47 @@ pub struct RecoveryPolicy {
     pub efforts: usize,
     /// The buttons for one step of one effort.
     pub input: fn(RecoveryStep) -> InputState,
+    /// ⭐ **the one thing a search can press that is not a button.**
+    ///
+    /// See [`RecoveryBurst`]. `None` — the default and
+    /// [`Self::DRIFT_AND_JUMP`]'s value — is a policy that presses nothing but
+    /// its buttons, which is what this module shipped with.
+    pub burst: Option<RecoveryBurst>,
+}
+
+/// **A DISPLACEMENT the search is allowed to spend, once, at a known moment.**
+///
+/// ⛔⛔ **this is the module header's own gap, closed on purpose and only this
+/// far.** The header says a recovery ATTACK is invisible here because
+/// `step_motion` is the whole world and nothing that moves a body from outside
+/// it can be seen. That is still true of knockback, of a portal and of a
+/// grapple. What changed is that one of those outside movers is not outside at
+/// all: an authored recovery move states the speed it commands and when
+/// `MoveFrameData::lift_speed`),
+/// so a caller that HOLDS such a move can hand the probe that number and get a
+/// verdict about the body it actually has.
+///
+/// ⚠ **and the honesty rule is unchanged: a negative is still bounded by the
+/// policy.** A search carrying a burst reports *"drift, jump and this one
+/// displacement found nothing"*, which is a stronger claim than before and
+/// still not *"no way exists"*. [`RecoveryProbe`] carries the whole policy into
+/// every negative precisely so a consumer can read which it got.
+///
+/// ⛔ **it is not a MOVE and knows nothing about attacks.** It is a velocity and
+/// a step count. The kernel has no idea whether the thing that produced it was a
+/// special, a jetpack, an authored knockback or a scripted cutscene shove — which
+/// is what stops this from being a fighting-game rule in a movement module.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RecoveryBurst {
+    /// Body-LOCAL, so it rotates with gravity like everything else here:
+    /// `+x` = the side the effort is steering toward, `+y` = toward the feet.
+    /// An against-gravity burst is negative `y`.
+    pub local: crate::Vec2,
+    /// Kernel steps into the effort at which it fires — the authored windup a
+    /// body has to survive before the displacement arrives. A burst that landed
+    /// at step 0 would model a move with no startup, which no recovery special
+    /// has.
+    pub at_step: usize,
 }
 
 impl RecoveryPolicy {
@@ -193,7 +241,24 @@ impl RecoveryPolicy {
         name: "drift+jump",
         efforts: DRIFT_SIDES.len(),
         input: drift_and_jump,
+        burst: None,
     };
+
+    /// **[`Self::DRIFT_AND_JUMP`], plus one displacement the body can actually
+    /// command.**
+    ///
+    /// The steering and the jump are unchanged, so a body that gets home without
+    /// the burst still gets home the same way and by the same effort — the burst
+    /// only ever adds routes. A caller supplies it from whatever it knows the
+    /// body can do; the kernel neither knows nor asks where the number came from.
+    pub const fn drift_jump_and_burst(burst: RecoveryBurst) -> Self {
+        Self {
+            name: "drift+jump+burst",
+            efforts: DRIFT_SIDES.len(),
+            input: drift_and_jump,
+            burst: Some(burst),
+        }
+    }
 }
 
 impl Default for RecoveryPolicy {
@@ -203,22 +268,34 @@ impl Default for RecoveryPolicy {
 }
 
 impl PartialEq for RecoveryPolicy {
-    /// Identity is the NAME and the effort count. ⛔ never the function pointer:
-    /// comparing fn pointers is unspecified (a linker may merge two identical
-    /// bodies or duplicate one), so a value equality that depended on it would
-    /// not be reproducible.
+    /// Identity is the NAME, the effort count and the BURST. ⛔ never the
+    /// function pointer: comparing fn pointers is unspecified (a linker may merge
+    /// two identical bodies or duplicate one), so a value equality that depended
+    /// on it would not be reproducible.
+    ///
+    /// ⚠ the burst IS part of identity, unlike the buttons: two probes named
+    /// `drift+jump+burst` that spend different displacements searched different
+    /// spaces, and a negative that could not tell them apart would let a
+    /// consumer compare two incomparable bounds.
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.efforts == other.efforts
+        self.name == other.name && self.efforts == other.efforts && self.burst == other.burst
     }
 }
 
 impl core::fmt::Debug for RecoveryPolicy {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "RecoveryPolicy({:?}, {} efforts)",
-            self.name, self.efforts
-        )
+        match self.burst {
+            Some(burst) => write!(
+                f,
+                "RecoveryPolicy({:?}, {} efforts, burst {:?} at step {})",
+                self.name, self.efforts, burst.local, burst.at_step
+            ),
+            None => write!(
+                f,
+                "RecoveryPolicy({:?}, {} efforts)",
+                self.name, self.efforts
+            ),
+        }
     }
 }
 
@@ -416,6 +493,43 @@ fn run_effort(
         // The effort's own steering IS its facing intent: a body that cannot
         // turn in the air still points where it is trying to go.
         let facing_intent = input.local_axis().x;
+        // ⭐ **THE BURST, WRITTEN THE WAY THE THING IT MODELS WRITES IT.**
+        //
+        // ⛔⛔ **NOT through `BodyFlightState::pending_launch`, and the reason is
+        // a measured trap rather than a preference.** That channel is the one an
+        // outside mover uses, it is drained at the single gateway, and it would
+        // have been the tidy choice — but `accept_external_launch` also feeds
+        // `launch_into_tumble`, so any burst above the body's authored
+        // `tumble_speed` knocks the probe body DOWN. The search would then model
+        // a fighter that throws its recovery and loses control of it, and report
+        // "no support" about a body the real runtime never tumbles. A predictor
+        // whose one move behaves differently from the move is worse than no
+        // predictor.
+        //
+        // ⚠ so this mirrors the authored-impulse seam exactly: a
+        // `MoveEventKind::Impulse` is a direct velocity write on the owner, and
+        // so is this. ⚠ **and it inherits that seam's own limit** — a direct
+        // `vel` write is authoritative for an axis-swept body and approximate for
+        // a surface-momentum rider, whose `vel` is republished from `v_t` each
+        // step. Both halves are wrong together or right together, which is the
+        // property worth having; fixing it is one change in two places, not a
+        // divergence to reconcile.
+        //
+        // The side component follows the effort's own steering, so effort 1
+        // (drift left) bursts left and effort 2 bursts right; a policy whose
+        // burst always pointed one way would search two of its three efforts
+        // with a displacement fighting the drift.
+        if let Some(burst) = probe.policy.burst {
+            if step == burst.at_step {
+                let toward = if input.local_axis().x == 0.0 {
+                    0.0
+                } else {
+                    input.local_axis().x.signum()
+                };
+                scratch.kinematics.vel =
+                    frame.side() * (burst.local.x * toward) + frame.down() * burst.local.y;
+            }
+        }
         let result = {
             let (model, mut clusters) = scratch.parts();
             step_motion(
@@ -575,10 +689,146 @@ mod tests {
         }
     }
 
+    /// A tall empty room with ONE high shelf: `x` in `300..660`, top face at
+    /// `y = 300`, and nothing else at all. A body that starts BELOW that face
+    /// cannot reach it by falling, whatever it steers.
+    fn high_shelf_world() -> World {
+        World::new(
+            "recovery high shelf",
+            Vec2::new(960.0, 1000.0),
+            Vec2::new(480.0, 260.0),
+            vec![Block::solid(
+                "shelf",
+                Vec2::new(300.0, 300.0),
+                Vec2::new(360.0, 32.0),
+            )],
+        )
+    }
+
+    /// Steers, and nothing else — no jump, no dash, no wall verb. Whatever gets
+    /// this body home was not a button.
+    fn drifter() -> AbilitySet {
+        AbilitySet {
+            move_horizontal: true,
+            ..AbilitySet::NONE
+        }
+    }
+
+    /// **A COMMANDED DISPLACEMENT IS A ROUTE THE SAME SEARCH DID NOT HAVE.**
+    ///
+    /// The body is below the only surface in the world and owns no verb that
+    /// climbs: drift is the whole of its kit, and drift never gains height. So
+    /// `DRIFT_AND_JUMP` is right to report nothing — and the identical body, in
+    /// the identical world, from the identical position, gets home the moment
+    /// the search is allowed to spend the displacement the body can actually
+    /// command.
+    ///
+    /// ⛔ **both terms are observed**, which is what stops this passing
+    /// vacuously: a permissive probe would regain under both policies and a
+    /// broken burst under neither.
+    ///
+    /// ⚠ nothing here is a fighting game. The burst is a velocity and a step
+    /// count; that an authored recovery special is where a caller gets those
+    /// numbers is the caller's business, and this test never mentions one.
+    #[test]
+    fn a_commanded_burst_finds_a_route_the_buttons_could_not() {
+        let world = high_shelf_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        // Below the shelf's top face, and to the left of its span.
+        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+
+        let buttons_only = RecoveryProbe::default();
+        let without = probe_recovery(&world, &body, frame, buttons_only);
+        assert!(
+            !without.regained(),
+            "a body that can only drift cannot climb 200px onto a shelf, but \
+             the probe reported {without:?}"
+        );
+
+        // Rise 1200px/s: 1200² / (2 · 2250) = 320px of climb, comfortably over
+        // the 200px to the shelf's face, with the drift carrying it across.
+        let with_burst =
+            buttons_only.with_policy(RecoveryPolicy::drift_jump_and_burst(RecoveryBurst {
+                local: Vec2::new(0.0, -1200.0),
+                at_step: 8,
+            }));
+        let with = probe_recovery(&world, &body, frame, with_burst);
+        assert!(
+            with.regained(),
+            "the same body, given the displacement it can command, reaches the \
+             shelf — got {with:?}"
+        );
+    }
+
+    /// **THE SIGN IS DOING THE WORK, not the mere presence of a burst.**
+    ///
+    /// A dive is the same primitive pointed the other way. If the test above
+    /// passed because ANY launch shook something loose in the kernel, this one
+    /// would pass too — and it must not.
+    #[test]
+    fn a_burst_pointed_at_the_floor_is_not_a_way_home() {
+        let world = high_shelf_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+        let diving = RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(
+            RecoveryBurst {
+                local: Vec2::new(0.0, 1200.0),
+                at_step: 8,
+            },
+        ));
+        assert!(!probe_recovery(&world, &body, frame, diving).regained());
+    }
+
+    /// **A NEGATIVE STILL NAMES WHAT IT SPENT.**
+    ///
+    /// The module's whole honesty contract is that `NoSupportFoundBy` carries
+    /// the search that produced it, so *"my search found nothing"* can never be
+    /// read as *"no way exists"*. A burst widens the search, so it has to widen
+    /// the BOUND too — two negatives from differently-armed policies are not the
+    /// same claim, and a consumer comparing them must be able to tell.
+    #[test]
+    fn a_negative_names_the_burst_it_spent() {
+        let world = high_shelf_world();
+        let frame = frame_pulling(Vec2::new(0.0, 1.0));
+        let body = falling_body(drifter(), Vec2::new(200.0, 500.0));
+
+        // Too weak to climb 200px (100²/4500 = 1.1px), so it still fails — and
+        // the failure is a fact about THIS search.
+        let feeble = RecoveryBurst {
+            local: Vec2::new(0.0, -100.0),
+            at_step: 8,
+        };
+        let outlook = probe_recovery(
+            &world,
+            &body,
+            frame,
+            RecoveryProbe::default().with_policy(RecoveryPolicy::drift_jump_and_burst(feeble)),
+        );
+        let bound = outlook
+            .bounded_by()
+            .expect("a body that found no support is bounded by its search");
+        assert_eq!(bound.policy.burst, Some(feeble));
+        assert_ne!(
+            bound.policy,
+            RecoveryPolicy::DRIFT_AND_JUMP,
+            "an armed search that failed must not be reported as the bare one"
+        );
+        // ⛔ and two differently-armed searches are different bounds, even
+        // though they share a name.
+        assert_ne!(
+            bound.policy,
+            RecoveryPolicy::drift_jump_and_burst(RecoveryBurst {
+                local: Vec2::new(0.0, -1200.0),
+                at_step: 8,
+            }),
+        );
+    }
+
     const DRIFT_AND_BLINK: RecoveryPolicy = RecoveryPolicy {
         name: "drift+blink (test)",
         efforts: 3,
         input: drift_and_blink,
+        burst: None,
     };
 
     /// **The verdict comes from the BODY's kit, not from where the body is.**

@@ -35,6 +35,10 @@ fn kit(abilities: ae::AbilitySet) -> BodyKit {
     BodyKit {
         abilities,
         movement: ae::MovementTuning::default(),
+        // The bodies in these fixtures author no rising move: the lens must keep
+        // answering for a plain drift-and-jump kit, which is what every seat
+        // that is not a platform fighter still has.
+        lift: None,
     }
 }
 
@@ -146,4 +150,115 @@ fn a_view_with_no_stage_builds_no_lens() {
     let mut view = shelf_stage(ae::Vec2::new(300.0, 330.0));
     view.stage = StageView::default();
     assert!(RecoveryLens::from_view(&view, kit(with_an_air_jump()), DT).is_none());
+}
+
+/// A kit that also carries an authored way up.
+fn kit_with_lift(abilities: ae::AbilitySet, speed: f32, after_s: f32) -> BodyKit {
+    BodyKit {
+        lift: Some(RecoveryLift { speed, after_s }),
+        ..kit(abilities)
+    }
+}
+
+/// **THE VETO NOW CONSIDERS THE MOVE THE BODY WOULD ACTUALLY THROW.**
+///
+/// ⛔ this is the header's own standing warning, cashed: *"a body that recovers
+/// by … a recovery attack is not explored"*, which was sound only while no
+/// fighter had one. A body with no jump verb at all is below the shelf and
+/// falling — drift alone can never climb, so the buttons-only search is right to
+/// report nothing — and the SAME body with the SAME kit gets home once the
+/// search is allowed to spend the rise its repertoire commands.
+///
+/// ⭐ both terms are observed, so a lens that answered `Regained` to everything
+/// would fail the first half and a burst that did nothing would fail the second.
+#[test]
+fn a_kit_that_commands_a_rise_is_probed_with_it() {
+    // Steers, and owns nothing that climbs.
+    let drifter = ae::AbilitySet {
+        move_horizontal: true,
+        ..ae::AbilitySet::NONE
+    };
+    let start = ae::Vec2::new(300.0, 400.0);
+    let view = shelf_stage(start);
+    let at = RecoveryQuery {
+        pos: start,
+        vel: ae::Vec2::ZERO,
+        air_jumps_left: 0,
+    };
+
+    let buttons_only =
+        RecoveryLens::from_view(&view, kit(drifter), DT).expect("the stage is known");
+    let without = buttons_only.outlook(at);
+    assert!(
+        !without.regained(),
+        "a body that can only drift cannot climb back to a shelf it is already \
+         below, but the probe reported {without:?}"
+    );
+
+    // 900px/s against gravity is 180px of climb under the engine baseline —
+    // comfortably over the ~84px back up to the shelf's face.
+    let armed = RecoveryLens::from_view(&view, kit_with_lift(drifter, 900.0, 0.15), DT)
+        .expect("the stage is known");
+    let with = armed.outlook(at);
+    assert!(
+        with.regained(),
+        "the same body, probed with the rise its own repertoire commands, gets \
+         back — got {with:?}"
+    );
+}
+
+/// **AND A NEGATIVE STILL SAYS WHICH SEARCH PRODUCED IT.** The lens's whole
+/// honesty contract is that the veto is bounded by its policy; arming the search
+/// has to widen the bound as well as the search, or a consumer comparing two
+/// negatives is comparing two different questions and cannot tell.
+#[test]
+fn an_armed_negative_is_bounded_by_the_armed_search() {
+    let drifter = ae::AbilitySet {
+        move_horizontal: true,
+        ..ae::AbilitySet::NONE
+    };
+    let start = ae::Vec2::new(300.0, 400.0);
+    let view = shelf_stage(start);
+    let at = RecoveryQuery {
+        pos: start,
+        vel: ae::Vec2::ZERO,
+        air_jumps_left: 0,
+    };
+    // Far too weak to climb 84px (30² / 4500 = 0.2px), so it still fails.
+    let feeble = RecoveryLens::from_view(&view, kit_with_lift(drifter, 30.0, 0.15), DT)
+        .expect("the stage is known");
+    let bound = feeble
+        .outlook(at)
+        .bounded_by()
+        .expect("a body that found no support is bounded by its search");
+    assert!(
+        bound.policy.burst.is_some(),
+        "an armed search that failed must not be reported as the bare one"
+    );
+    assert_ne!(
+        bound.policy,
+        ae::movement::recovery::RecoveryPolicy::DRIFT_AND_JUMP
+    );
+}
+
+/// **A KIT WITH NO LIFT IS PROBED EXACTLY AS BEFORE.** The identity case, pinned
+/// so that every seat which is not a platform fighter keeps the search it has
+/// always had — the change must add routes for bodies that authored one, not
+/// alter the verdict for bodies that did not.
+#[test]
+fn a_kit_with_no_lift_probes_with_the_bare_policy() {
+    let view = shelf_stage(ae::Vec2::new(300.0, 330.0));
+    let lens = RecoveryLens::from_view(&view, kit(with_an_air_jump()), DT).expect("stage is known");
+    let bound = lens
+        .outlook(RecoveryQuery {
+            pos: ae::Vec2::new(300.0, 330.0),
+            vel: ae::Vec2::ZERO,
+            air_jumps_left: 0,
+        })
+        .bounded_by()
+        .expect("a spent body below the shelf finds nothing");
+    assert_eq!(
+        bound.policy,
+        ae::movement::recovery::RecoveryPolicy::DRIFT_AND_JUMP
+    );
 }

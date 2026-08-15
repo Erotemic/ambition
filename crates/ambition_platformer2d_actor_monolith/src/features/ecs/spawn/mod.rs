@@ -27,20 +27,23 @@ pub(crate) use super::spawn_actors::{spawn_runtime_minion, spawn_runtime_minion_
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.
 
-/// Flatten a room's authored `KinematicPathSpec`s into `(lookup key, path)`
-/// pairs (id first, name alias second). Lives spawn-side: `RoomSpec` is
-/// world-IR vocabulary the combat kit must not name (E2).
+/// A room's authored paths under every spelling they answer to, for the
+/// lowering roads that resolve a path reference by string.
+///
+/// ⛔ **this function used to flatten the specs itself — id first, name second —
+/// and that private rule is what made the binding sweep a liar.** `matches_id`
+/// (and therefore the sweep) also accepts the normalized display-name slug, so a
+/// reference spelled that way resolved during validation and found nothing here.
+/// It delegates to `kinematic_path_lookup` now: there is ONE alias set, and a
+/// second one cannot drift back in. See that function for the shipped patrol the
+/// drift had standing still.
+///
+/// Lives spawn-side: `RoomSpec` is world-IR vocabulary the combat kit must not
+/// name (E2).
 pub(crate) fn room_spec_paths(
     room: &crate::rooms::RoomSpec,
 ) -> Vec<(String, ambition_platformer2d_core::KinematicPath)> {
-    let mut paths: Vec<(String, ambition_platformer2d_core::KinematicPath)> = Vec::new();
-    for spec in &room.kinematic_paths {
-        paths.push((spec.id.clone(), spec.path.clone()));
-        if spec.name != spec.id {
-            paths.push((spec.name.clone(), spec.path.clone()));
-        }
-    }
-    paths
+    crate::rooms::kinematic_path_lookup(&room.kinematic_paths)
 }
 
 /// A mutation-free room feature construction failure.

@@ -331,7 +331,7 @@ pub(super) fn convert_kinematic_path(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmis
             .max(0.0),
     };
     Ok(RoomEmission::kinematic_path(KinematicPathSpec::new(
-        path_lookup_id(entity, &name),
+        kinematic_path_lookup_id(entity, &name),
         name,
         object_aabb(min, size),
         path,

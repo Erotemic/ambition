@@ -151,22 +151,22 @@ impl KinematicPathSpec {
         }
     }
 
-    /// The two AUTHORED spellings. Private on purpose: this is not the set a
-    /// query resolves against, and a caller that reached for it would rebuild
-    /// the validator/runtime disagreement that
-    /// [`Self::resolution_aliases`] exists to end.
-    fn authored_aliases(&self) -> impl Iterator<Item = &str> {
-        [self.id.as_str(), self.name.as_str()].into_iter()
-    }
-
     /// Every spelling accepted by [`Self::matches_id`] — the ONE authority.
     ///
-    /// Validation and runtime resolution must share this exact set. They did
-    /// not: `matches_id` also accepted the normalized display-name slug while
-    /// the binding sweep only knew the authored id and name, so the sweep
-    /// reported `enemy_patrol_path_a` as broken content that the runtime
-    /// resolved perfectly. Reporting a working reference as broken is worse
-    /// than not checking at all.
+    /// Validation and runtime resolution must share this exact set, and there
+    /// have now been TWO forks of it, in opposite directions:
+    ///
+    /// - the binding sweep once knew only the authored id and name, so it
+    ///   reported `enemy_patrol_path_a` as broken content — reporting a working
+    ///   reference as broken is worse than not checking at all;
+    /// - ⛔ and then the SPAWN road turned out to be the one missing the slug.
+    ///   `matches_id` accepted it, so validation said the reference was fine
+    ///   while the lookup table lowering built had never heard of it and the
+    ///   patroller silently spawned with no motion. Fixed by generating that
+    ///   table from this function — see [`kinematic_path_lookup`].
+    ///
+    /// ⚠ so a claim that some consumer "mirrors" this set is worth nothing;
+    /// check that it CALLS it.
     ///
     /// The slug is accepted because LDtk derives a path's lookup id from its
     /// name with `_path_` collapsed away (`enemy patrol path A` →
@@ -177,14 +177,68 @@ impl KinematicPathSpec {
     /// The normalized name is owned because it is derived; the authored id and
     /// display name stay borrowed.
     pub fn resolution_aliases(&self) -> impl Iterator<Item = Cow<'_, str>> {
-        self.authored_aliases()
-            .map(Cow::Borrowed)
-            .chain(name_slug(&self.name).map(Cow::Owned))
+        kinematic_path_aliases(&self.id, &self.name)
     }
 
     pub fn matches_id(&self, query: &str) -> bool {
         self.resolution_aliases().any(|alias| alias == query)
     }
+}
+
+/// [`KinematicPathSpec::resolution_aliases`] for a path that is not a spec yet —
+/// the same rule, reachable from a caller holding only the two authored strings.
+///
+/// It exists because the LDtk content validator runs on raw JSON, BEFORE any
+/// world IR is built, so it could not ask a spec which spellings resolve and
+/// grew its own slug rule instead. That copy drifted, which is how a reference
+/// the runtime resolves became a startup abort in waiting. There is one rule,
+/// and every oracle asks it.
+pub fn kinematic_path_aliases<'a>(
+    id: &'a str,
+    name: &'a str,
+) -> impl Iterator<Item = Cow<'a, str>> {
+    [Cow::Borrowed(id), Cow::Borrowed(name)]
+        .into_iter()
+        .chain(name_slug(name).map(Cow::Owned))
+}
+
+/// Every `(spelling, path)` pair a room's authored paths answer to — the table
+/// the lowering roads resolve a string reference against.
+///
+/// Generated from [`KinematicPathSpec::resolution_aliases`], the same authority
+/// [`KinematicPathSpec::matches_id`] and the construction binding sweep use, so
+/// **a reference the sweep calls resolvable is one the body actually rides.**
+///
+/// ⛔ it was not, and the disagreement was live in shipped content. The spawn
+/// road built its own table from the authored id and name ONLY, dropping the
+/// normalized name slug that `resolution_aliases` accepts. Sandbox's basement
+/// path authors no `id` and is named `enemy patrol path A`, so LDtk derived the
+/// COMPACTED lookup id `enemy_patrol_a` (its slug rule collapses `_path_`) while
+/// the placement references the raw slug `enemy_patrol_path_a`. The binding
+/// sweep resolved it, both content validators passed, and the runtime table —
+/// holding only `enemy_patrol_a` and `enemy patrol path A` — did not, so the
+/// gallery's patroller silently spawned with no motion and stood still. Two
+/// green oracles and a dead demo is exactly the failure a binding boundary
+/// exists to make impossible.
+///
+/// First declaration wins, matching the sweep's duplicate reporting: a second
+/// path answering to a spelling already taken is unreachable, not an override.
+/// A blank spelling is registered by nobody — a bare `Patrol:` must find
+/// nothing, not collide with a spec that happens to carry an empty id.
+pub fn kinematic_path_lookup(
+    specs: &[KinematicPathSpec],
+) -> Vec<(String, ambition_platformer2d_core::KinematicPath)> {
+    let mut lookup: Vec<(String, ambition_platformer2d_core::KinematicPath)> = Vec::new();
+    for spec in specs {
+        for alias in spec.resolution_aliases() {
+            let alias = alias.into_owned();
+            if alias.is_empty() || lookup.iter().any(|(known, _)| known == &alias) {
+                continue;
+            }
+            lookup.push((alias, spec.path.clone()));
+        }
+    }
+    lookup
 }
 
 fn name_slug(name: &str) -> Option<String> {
@@ -206,6 +260,77 @@ fn name_slug(name: &str) -> Option<String> {
         None
     } else {
         Some(slug)
+    }
+}
+
+#[cfg(test)]
+mod kinematic_path_lookup_tests {
+    use super::*;
+
+    fn spec(id: &str, name: &str) -> KinematicPathSpec {
+        KinematicPathSpec::new(
+            id,
+            name,
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)),
+            ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
+        )
+    }
+
+    /// **THE INVARIANT: the runtime lookup table accepts exactly what
+    /// `matches_id` accepts.** Validation resolves through `matches_id`, the
+    /// body rides through this table, and any spelling only one of them knows
+    /// is a reference reported healthy that does not move anything.
+    ///
+    /// The poison is the shipped shape that broke: no authored `id`, so LDtk
+    /// derives the compacted `enemy_patrol_a`, while the placement references
+    /// the raw name slug `enemy_patrol_path_a`.
+    #[test]
+    fn every_spelling_matches_id_accepts_is_in_the_lookup_table() {
+        let specs = vec![spec("enemy_patrol_a", "enemy patrol path A")];
+        let lookup = kinematic_path_lookup(&specs);
+
+        for spelling in [
+            "enemy_patrol_a",
+            "enemy patrol path A",
+            "enemy_patrol_path_a",
+        ] {
+            assert!(
+                specs[0].matches_id(spelling),
+                "matches_id must accept `{spelling}`"
+            );
+            assert!(
+                lookup.iter().any(|(alias, _)| alias == spelling),
+                "the runtime lookup table must accept `{spelling}` too — \
+                 a spelling only validation knows is a patrol that never moves"
+            );
+        }
+
+        // ...and the poison: a spelling NEITHER accepts stays absent, so this
+        // is a shared alias set rather than a table that says yes to anything.
+        assert!(!specs[0].matches_id("enemy_patrol_b"));
+        assert!(!lookup.iter().any(|(alias, _)| alias == "enemy_patrol_b"));
+    }
+
+    /// A bare `Patrol:` reaches lowering as an EMPTY id. It must find nothing —
+    /// not collide with a spec whose authored id happens to be blank, which is
+    /// how a typo would acquire a working path.
+    #[test]
+    fn a_blank_spelling_is_registered_by_nobody() {
+        let lookup = kinematic_path_lookup(&[spec("", "Ledge Patrol")]);
+        assert!(!lookup.iter().any(|(alias, _)| alias.is_empty()));
+        assert!(lookup.iter().any(|(alias, _)| alias == "ledge_patrol"));
+    }
+
+    /// Two paths answering to one spelling: the first wins, matching the
+    /// sweep's "the rest are unreachable" report. A second entry would make
+    /// which path you ride depend on iteration order.
+    #[test]
+    fn a_duplicated_spelling_resolves_to_the_first_declaration() {
+        let lookup = kinematic_path_lookup(&[spec("shared", "First"), spec("shared", "Second")]);
+        assert_eq!(
+            lookup.iter().filter(|(alias, _)| alias == "shared").count(),
+            1
+        );
     }
 }
 

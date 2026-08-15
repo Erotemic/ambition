@@ -47,7 +47,9 @@ pub use bevy_runtime::*;
 // The LDtk entity-converter registry (ADR 0009): content registers
 // game-specific entity converters at plugin-build time; the engine's
 // standard vocabulary enters through the same registry.
-pub use conversion::{LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission};
+pub use conversion::{
+    kinematic_path_lookup_id, LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission,
+};
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // The WorldManifest VALUE (JD4 / K2a): a game declares its LDtk worlds +
 // entry room; the engine ships zero worlds and hardcodes no start room.

@@ -356,6 +356,7 @@ dependencies = [
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
  "ambition_platformer2d_host",
+ "ambition_platformer2d_ldtk",
  "ambition_platformer2d_provider",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",

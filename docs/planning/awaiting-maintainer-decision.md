@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 9
+## Open decisions — 10
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -74,7 +74,7 @@ question for you is priority: is CPU quality on the path to what Smash is for,
 or is it acceptable that CPUs are currently sparring partners that suicide?
 Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-### 5. What should fighter-vs-fighter hit emphasis do without the primary local seat? (former D114)
+### 6. What should fighter-vs-fighter hit emphasis do without the primary local seat? (former D114)
 
 `BodyCombat::hitstop_timer` is armed for every body, but the actor road does not
 freeze its integration from that timer. A direct per-body zero-dt experiment was
@@ -106,7 +106,7 @@ participant control for any controlled body, and `tick_actor_brains` skips
 player-brained bodies. Control authority and time integration were separable, and
 the only thing that had joined them was the sentence that named them together.
 
-### 6. How long should a dropped held weapon persist? (former D50)
+### 7. How long should a dropped held weapon persist? (former D50)
 
 The lifetime bug is fixed for ability/currency/health drops: the entity and its
 visual now share room scope. The remaining laser-sword observation is a product
@@ -119,7 +119,7 @@ rule for **held-item drops** after a fight:
 Whichever rule is chosen, simulation entity and presentation must share the same
 lifetime.
 
-### 7. Which platform-fighter verbs does each creature author?
+### 8. Which platform-fighter verbs does each creature author?
 
 **Authoring verbs is currently a nerf, and that is why only two characters do
 it.** A seat's abilities are the character's authored set ∩ the mode's declared
@@ -198,7 +198,7 @@ looking careful, so:
 
 ---
 
-## Camera shake is measured in "px" and behaves as world units
+### 10. Camera shake is measured in "px" and behaves as world units
 
 **Found 2026-08-15 while closing D118's C4.** Not a bug report — a feel question
 with two defensible answers, which is why it is yours.

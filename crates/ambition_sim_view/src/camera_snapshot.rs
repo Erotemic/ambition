@@ -514,11 +514,50 @@ pub fn resolve_follow_camera_snapshot(
     // view occupies a rotated rectangle; asking whether it fits inside a room is
     // a question about that rectangle's bound, and until this line it was asked
     // of an upright one.
-    let rotation_radians = presented_roll_radians(
+    let target_roll = presented_roll_radians(
         input.reference_frame,
         input.subject_down,
         input.chart_transit,
     );
+    // ⛔⛔ **THE ROLL IS EASED; THE SEAM IS NOT.** `presented_roll_radians` has no
+    // history, so in `SubjectFrame` mode a discontinuity in the subject's down
+    // axis — possession, a gravity flip — rotated the world up to a half turn in
+    // ONE frame. Easing it here rather than at a consumer keeps the resolve the
+    // single place a view's orientation is decided, which is what makes the
+    // rolled clamp below measure the footprint actually being drawn.
+    //
+    // ⚠ **a chart transit ADOPTS instead**, because its discontinuity is the
+    // point: the view is asked to present the portal chart's rotation
+    // immediately so the two sides line up across the seam, and smoothing
+    // through that is exactly the overshoot C4's composition rule was derived to
+    // avoid. Storing the adopted value means leaving the transit continues from
+    // where the seam left the view rather than snapping back.
+    //
+    // ⚠ a capture (`ease_state: None`) takes the raw target: it renders one
+    // frame with no previous orientation to be continuous with.
+    let rotation_radians = match ease_state.as_deref_mut() {
+        Some(state) if input.chart_transit.is_none() => {
+            let eased = match state.live_observer_roll {
+                // First resolve for this view: ADOPT. A view opens already
+                // oriented; spinning up from zero would be a defect of its own.
+                None => target_roll,
+                Some(current) => {
+                    ambition_platformer2d_shared_tangle::camera_ease::ease_roll_radians(
+                        current,
+                        target_roll,
+                        input.dt,
+                    )
+                }
+            };
+            state.live_observer_roll = Some(eased);
+            eased
+        }
+        Some(state) => {
+            state.live_observer_roll = Some(target_roll);
+            target_roll
+        }
+        None => target_roll,
+    };
     let (clamp_half_w, clamp_half_h) =
         rolled_view_half_extents(half_view_w, half_view_h, rotation_radians);
     let (normal_host_x, normal_host_y) = clamp_camera_target(
@@ -2059,5 +2098,185 @@ mod reference_frame_tests {
             rolled_view_half_extents(w, h, -eighth),
             "the footprint must not depend on which way the view rolled"
         );
+    }
+}
+
+#[cfg(test)]
+mod observer_roll_continuity_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::camera_ease::{
+        ease_roll_radians, CameraEaseState, OBSERVER_ROLL_EASE_RAD_PER_S,
+    };
+
+    fn world() -> ae::World {
+        ae::World::new(
+            "roll",
+            ae::Vec2::new(4000.0, 2000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        )
+    }
+
+    /// One resolve at `down`, through the real snapshot path.
+    fn resolve(
+        w: &ae::World,
+        ease: &mut CameraEaseState,
+        down: ae::Vec2,
+        transit: Option<CameraChartTransit>,
+    ) -> f32 {
+        let snap = resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world: w,
+                camera_zones: &[],
+                focus: CameraFocus2d {
+                    center_world: ae::Vec2::new(2000.0, 1000.0),
+                    size: ae::Vec2::new(24.0, 40.0),
+                    base_size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                    velocity_world: ae::Vec2::ZERO,
+                },
+                base_view: ae::Vec2::new(800.0, 450.0),
+                viewport_px: ae::Vec2::new(1600.0, 900.0),
+                aspect_policy: Default::default(),
+                framing: Default::default(),
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: false,
+                blink: None,
+                dt: 1.0 / 60.0,
+                mode: CameraSnapshotResolveMode::Eased,
+                extra_clamp_center_world: None,
+                chart_transit: transit,
+                ease_tuning: Default::default(),
+                screen_framing: None,
+                reference_frame: CameraReferenceFrame::SubjectFrame,
+                subject_down: Some(down),
+            },
+            Some(ease),
+        );
+        snap.rotation_radians
+    }
+
+    const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+    const UP: ae::Vec2 = ae::Vec2::new(0.0, -1.0);
+
+    /// **A GRAVITY FLIP MUST NOT CUT.**
+    ///
+    /// `presented_roll_radians` has no history, so before this the world rotated
+    /// a half turn in ONE frame the instant the subject's down axis flipped —
+    /// which is also what possessing a body on a different surface did. D118's
+    /// C4 named those as two remaining items; they are one event and one fix.
+    #[test]
+    fn a_gravity_flip_turns_the_world_instead_of_cutting_it() {
+        let w = world();
+        let mut ease = CameraEaseState::default();
+
+        // The view opens ADOPTED, not spun up from zero.
+        let settled = resolve(&w, &mut ease, DOWN, None);
+        assert_eq!(
+            settled,
+            observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(DOWN)),
+            "a view must open already oriented"
+        );
+
+        // Flip. One frame may only move by one frame's worth.
+        let after_one = resolve(&w, &mut ease, UP, None);
+        let per_frame = OBSERVER_ROLL_EASE_RAD_PER_S / 60.0;
+        assert!(
+            (after_one - settled).abs() <= per_frame + 1.0e-4,
+            "the world turned {:.3} rad in a single frame — that is the snap this \
+             exists to remove (budget {per_frame:.3})",
+            (after_one - settled).abs(),
+        );
+
+        // ⭐ the non-vacuity half: it must actually ARRIVE. An ease that never
+        // converges is a worse defect than the snap, and "it moved a little"
+        // alone would pass for one.
+        let target = observer_roll_radians(CameraReferenceFrame::SubjectFrame, Some(UP));
+        let mut last = after_one;
+        for _ in 0..120 {
+            last = resolve(&w, &mut ease, UP, None);
+        }
+        assert!(
+            (last - target).abs() < 1.0e-3,
+            "the roll never reached its target: {last} vs {target}"
+        );
+    }
+
+    /// **THE SEAM IS EXEMPT, and that is not an oversight.**
+    ///
+    /// A portal transit's discontinuity is the point — the view presents the
+    /// chart's rotation immediately so both sides line up across the seam — so it
+    /// must ADOPT rather than ease. Smoothing through it reintroduces exactly the
+    /// overshoot C4's composition rule was derived to avoid.
+    #[test]
+    fn a_chart_transit_is_adopted_whole_rather_than_eased_through() {
+        let w = world();
+        let mut ease = CameraEaseState::default();
+        resolve(&w, &mut ease, DOWN, None);
+
+        let transit = CameraChartTransit {
+            observer_roll_at_entry: observer_roll_radians(
+                CameraReferenceFrame::SubjectFrame,
+                Some(DOWN),
+            ),
+            chart_roll_radians: std::f32::consts::FRAC_PI_2,
+        };
+        let presented = resolve(&w, &mut ease, DOWN, Some(transit));
+        assert_eq!(
+            presented,
+            transit.observer_roll_at_entry + transit.chart_roll_radians,
+            "the seam must be presented whole, on the frame it is asked for"
+        );
+        assert_eq!(
+            ease.live_observer_roll,
+            Some(presented),
+            "and the adopted roll must be REMEMBERED, or leaving the transit \
+             snaps back to where the view was before the seam"
+        );
+    }
+
+    /// **±π are the same orientation**, so a roll must never take the long way
+    /// round to reach an angle it is already at.
+    #[test]
+    fn easing_takes_the_shortest_way_around_the_circle() {
+        use std::f32::consts::PI;
+        let dt = 1.0 / 60.0;
+        let step = OBSERVER_ROLL_EASE_RAD_PER_S * dt;
+
+        // Just below +π easing to just above -π: 0.02 radians of turn, not a
+        // full rotation backwards.
+        //
+        // ⚠ **assert on the ANGULAR distance travelled, not on `next > current`.**
+        // The first version of this test compared the raw numbers and failed on
+        // correct behaviour: turning +0.02 from +3.1316 lands on -3.1316, which
+        // is numerically smaller while being a forward hair's turn. That is
+        // precisely the confusion `ease_roll_radians` exists to prevent, made by
+        // its own test.
+        let current = PI - 0.01;
+        let target = -PI + 0.01;
+        let next = ease_roll_radians(current, target, dt);
+        let travelled = {
+            let mut d = (next - current) % (2.0 * PI);
+            if d > PI {
+                d -= 2.0 * PI;
+            } else if d < -PI {
+                d += 2.0 * PI;
+            }
+            d
+        };
+        assert!(
+            travelled > 0.0,
+            "wrapped the wrong way: {current} -> {next} (target {target})"
+        );
+        assert!(
+            travelled.abs() <= step + 1.0e-5,
+            "turned {travelled} rad, more than one frame's budget {step}"
+        );
+
+        // A change smaller than one frame's step lands exactly, without
+        // oscillating past it.
+        assert_eq!(ease_roll_radians(0.0, 0.001, dt), 0.001);
     }
 }

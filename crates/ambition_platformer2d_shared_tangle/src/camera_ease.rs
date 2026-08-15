@@ -26,6 +26,57 @@ pub struct CameraEaseState {
     /// zone — which is what makes re-entering one a fresh scroll rather than a
     /// camera pinned to where it stopped an hour ago.
     pub scroll_watermark_x: Option<f32>,
+    /// **The observer roll actually being presented**, eased toward the roll the
+    /// view's reference frame asks for.
+    ///
+    /// ⛔ **without it the world SNAPS.** `presented_roll_radians` is a pure
+    /// function of the CURRENT `subject_down`, so in `SubjectFrame` mode any
+    /// discontinuity in that axis — possessing a body standing on a different
+    /// surface, a gravity flip, any future view-subject change — rotated the
+    /// whole world by up to a half turn in one frame. D118's C4 listed "easing"
+    /// and "possession" as separate remaining items; they are one event
+    /// (`subject_down` changed discontinuously) and one fix.
+    ///
+    /// `None` until the first resolve, which then ADOPTS the target instead of
+    /// easing to it: a view must open already oriented, not spin up from zero.
+    ///
+    /// ⚠ presentation-only, like every other field here, and never rollback
+    /// state. `WorldFixed` views are unaffected because their target roll is
+    /// identically zero — which is every camera Ambition currently ships.
+    pub live_observer_roll: Option<f32>,
+}
+
+/// How fast the presented observer roll follows its reference frame.
+///
+/// ⭐ **the genre answered this, so it is a dial and not a decision.** A gravity
+/// flip rotates the view over a short interval in VVVVVV and Mario Galaxy rather
+/// than cutting; π radians in 0.30s is inside that band and reads as "the world
+/// turns under you" instead of a jump cut.
+///
+/// ⚠ a RATE, not a duration, so a small correction is quick and a half turn
+/// takes the full interval — the alternative normalises every change to the same
+/// time and makes tiny ones feel mushy.
+pub const OBSERVER_ROLL_EASE_RAD_PER_S: f32 = std::f32::consts::PI / 0.30;
+
+/// Ease `current` toward `target` along the SHORTEST angular path.
+///
+/// ⛔ **the wrap is the whole subtlety.** Rolls live on a circle: +π and -π are
+/// the same orientation, and a naive `target - current` would send the view the
+/// long way round — a full rotation to reach an angle it was already at.
+pub fn ease_roll_radians(current: f32, target: f32, dt: f32) -> f32 {
+    use std::f32::consts::PI;
+    let mut delta = (target - current) % (2.0 * PI);
+    if delta > PI {
+        delta -= 2.0 * PI;
+    } else if delta < -PI {
+        delta += 2.0 * PI;
+    }
+    let step = OBSERVER_ROLL_EASE_RAD_PER_S * dt.max(0.0);
+    if delta.abs() <= step {
+        target
+    } else {
+        current + delta.signum() * step
+    }
 }
 
 impl Default for CameraEaseState {
@@ -35,6 +86,7 @@ impl Default for CameraEaseState {
             live_target_world: ae::Vec2::ZERO,
             target_initialized: false,
             scroll_watermark_x: None,
+            live_observer_roll: None,
         }
     }
 }

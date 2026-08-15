@@ -269,7 +269,7 @@ clamped by the same footprint, and safe-area framing has not been re-derived for
 a rolled view. Capture parity holds trivially today — captures pass no transit
 and select no subject frame — and needs a real test the moment either changes.
 
-### C4 — presentation composition — PORTAL HALF DONE (2026-08-14)
+### C4 — presentation composition — DONE (portal 2026-08-14, roll continuity 2026-08-15)
 
 Specify and test composition with portal continuity, shake, easing, possession
 and abrupt gravity changes. **The portal composition is derived, implemented and
@@ -355,17 +355,29 @@ view-rotation on a gravity flip is smoothed over a short interval (VVVVVV,
 Mario Galaxy), not snapped. What needs authoring is the duration dial, not the
 decision.
 
-⛔ **and the state has a home already** — `CameraEaseState` is on the view and
-already smooths the camera TARGET, so roll continuity belongs beside it rather
-than in a new resource. ⚠ presentation-only: the resolved roll must stay out of
-rollback state, and the eased value must be an INPUT to the resolve (the same
-rule `CameraPresentationInputs` follows) rather than a post-hoc adjustment of the
-resolved snapshot.
+✔ **LANDED 2026-08-15.** `CameraEaseState::live_observer_roll` eases toward the
+frame's target inside the resolve — beside the camera-target smoothing that was
+already there, not in a new resource — at `OBSERVER_ROLL_EASE_RAD_PER_S`
+(π per 0.30s, inside the band VVVVVV and Galaxy use). A RATE rather than a
+duration, so a small correction is quick and a half turn takes the full interval;
+normalising every change to one time makes tiny ones feel mushy.
 
-⚠ **the portal path must keep its exemption.** `observer_roll_at_entry +
-chart_roll_radians` is a deliberate discontinuity — the view is asked to present
-the chart's rotation immediately so the seam lines up — so a transit must bypass
-the easing, not be smoothed through it.
+⭐ **the seam keeps its exemption, and remembers what it adopted.** A chart
+transit takes `observer_roll_at_entry + chart_roll_radians` whole on the frame it
+is asked for — smoothing through it reintroduces the overshoot C4's composition
+rule was derived to avoid — and the adopted value is stored, so LEAVING the
+transit continues from where the seam left the view instead of snapping back.
+
+⚠ **`None` ADOPTS**: a view opens already oriented rather than spinning up from
+zero, and a capture (no ease state) takes the raw target because it renders one
+frame with nothing to be continuous with. `WorldFixed` is untouched — its target
+roll is identically zero, which is every camera Ambition currently ships, so the
+shipped game sees no change at all.
+
+⚠ **the shortest-path wrap is the subtlety**, and the first version of its own
+test made the mistake it prevents: turning +0.02 rad from +3.1316 lands on
+-3.1316, numerically smaller while being a forward hair's turn. Assert on angular
+distance travelled, never on `next > current`.
 
 ### C5 — view-index migration
 

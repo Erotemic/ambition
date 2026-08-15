@@ -333,7 +333,7 @@ the guard's check list is yours, and adding a red check would stop every
 autonomous run until the twelve are cleared. The alternative is to treat the
 suite as advisory and fix the twelve on their own merits.
 
-## `ambition_sfx_renderer` cannot be pushed, and `main` already points into it
+## ✔ RESOLVED (sfx) / ▢ OPEN — three submodule remotes still reject access
 
 **Blocked 2026-08-15, and it needs credentials rather than a decision about the
 code.** `git push` in `tools/ambition_sfx_renderer` fails with *"make sure you
@@ -348,6 +348,25 @@ submodule while its `origin/main` is still `bbfe0f9`, so a fresh clone's
 anyway — the commits existed locally either way, and holding my work back would
 not have unpublished yours — but a clone is broken until the push lands.
 
-⇒ **what is needed:** provision the credential, then push that submodule. No
-repository change is required, and ⛔ do not "fix" it by rolling the pointer
-back: `bb2d5950f` and `2a5705839` depend on the content in `b61ee24`.
+✔ **the sfx half is CLOSED** — Jon provisioned the credential and `b61ee24` is
+on its `origin/main`, so the pointer resolves again.
+
+▢ **three remain, each on its own credential alias**, all failing `git ls-remote`
+with the same *"correct access rights"* message from inside the VM:
+
+| submodule | alias |
+|---|---|
+| `tools/ambition_sprite2d_renderer` | `aivm-cred-git-b26309782244` |
+| `dev/ambition_dev_measurements` | `aivm-cred-git-8756ecde04e8` |
+| `tools/ambition_music_renderer` | `aivm-cred-git-c727c9afd09e` |
+
+⚠ **the sprite one is the live risk.** That is where the VFX generators are being
+authored; it reads `ahead: 0` only because Jon pushes it from the host. The first
+agent to commit a generator there reproduces exactly the sfx failure — a
+superproject pointing at a commit no clone can resolve — and will not find out
+until it tries to push.
+
+⇒ **what is needed:** provision the three, then verify with
+`git submodule foreach 'git ls-remote --exit-code origin >/dev/null && echo OK || echo NO-ACCESS'`.
+⛔ never "fix" a rejected push by rolling the pointer back; the superproject
+commits depend on the submodule content.

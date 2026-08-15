@@ -413,17 +413,24 @@ pub fn describe_resolved_layout(
 ///
 /// ⚠ **one display resolve, N views.** `ResolvedGameplayPresentation` describes
 /// the physical screen; each local view is told the rectangle it presents into.
-/// Ambition has one view and one rectangle, so this writes the same size to
+/// Ambition has one view and one rectangle, so this writes the same rectangle to
 /// every row — a split layout is what makes them differ, and that is the phase
-/// that gives each view its own rect.
+/// that gives each view its own rect. The POLICY that chooses rectangles is not
+/// this system's and does not exist yet; what exists is the place to put the
+/// answer.
 pub fn publish_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
     mut views: Query<&mut CameraViewport, With<ambition_sim_view::LocalView>>,
 ) {
-    let size = presentation.gameplay_rect.size().max(ae::Vec2::ONE);
+    let rect = CameraViewport {
+        px: presentation.gameplay_rect.size().max(ae::Vec2::ONE),
+        origin_px: presentation.gameplay_rect.min,
+    };
     for mut viewport in &mut views {
-        if viewport.px != size {
-            viewport.px = size;
+        // Compare before writing: a change tick on every frame is a needless
+        // re-run for anything gated on `is_changed()`.
+        if *viewport != rect {
+            *viewport = rect;
         }
     }
 }
@@ -469,8 +476,22 @@ fn publish_one_views_screen_framing(
     };
 }
 
-/// Apply the resolved gameplay rectangle to the main camera's physical
-/// viewport, leaving the front HUD camera full-screen.
+/// Apply **each view's** rectangle to the physical viewport of **the camera that
+/// presents it**, leaving the front HUD camera full-screen.
+///
+/// ⭐ **this is what gives [`CameraViewport`] a consumer that can place a
+/// view** (D116 M2). It used to read one global `gameplay_rect` and write the
+/// same rectangle to every main camera — which is fine for one view and is
+/// precisely why two views could never occupy two screen regions no matter what
+/// the layout said. Each camera now resolves its OWN view through
+/// `PresentsView`, by the same binding rule `camera_follow` uses, and takes that
+/// view's rectangle.
+///
+/// ⚠ **the single-view case is unchanged, deliberately.**
+/// `publish_camera_viewport` writes the gameplay rectangle onto every view, so
+/// the "full-bleed needs no viewport at all" test below still compares exactly
+/// the same two rectangles it always did and still leaves `Camera::viewport`
+/// cleared. Nothing about the shipped picture moves.
 ///
 /// `Camera::viewport` is in PHYSICAL pixels while the whole layout is resolved
 /// in logical pixels (the space window cursors, touches, and `bevy_ui` share),
@@ -484,35 +505,54 @@ fn publish_one_views_screen_framing(
 pub fn apply_gameplay_camera_viewport(
     presentation: Res<ResolvedGameplayPresentation>,
     windows: Query<&Window, With<PrimaryWindow>>,
+    views: Query<(Entity, &CameraViewport), With<ambition_sim_view::LocalView>>,
     // `RenderTarget` is a required COMPONENT of `Camera` rather than a field,
     // so every camera carries one; it defaults to the primary window.
-    mut cameras: Query<(&mut Camera, &RenderTarget), With<MainCamera>>,
+    mut cameras: Query<
+        (
+            &mut Camera,
+            &RenderTarget,
+            Option<&ambition_sim_view::PresentsView>,
+        ),
+        With<MainCamera>,
+    >,
 ) {
     let Ok(window) = windows.single() else {
         return;
     };
     let scale = window.scale_factor().max(f32::EPSILON);
+    let display = presentation.display_rect;
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, _)| view));
 
-    // Full-bleed with no safe-area inset needs no viewport at all. Leaving it
-    // cleared keeps the ordinary path byte-identical to the pre-viewport
-    // engine instead of round-tripping through physical pixels every frame.
-    let desired = (presentation.gameplay_rect != presentation.display_rect).then(|| {
-        let rect = presentation.gameplay_rect;
-        Viewport {
-            physical_position: (rect.min * scale).round().max(ae::Vec2::ZERO).as_uvec2(),
-            physical_size: (rect.size() * scale).round().max(ae::Vec2::ONE).as_uvec2(),
-            ..default()
-        }
-    });
-
-    for (mut camera, target) in &mut cameras {
+    for (mut camera, target, link) in &mut cameras {
         if !matches!(target, RenderTarget::Window(_)) {
             continue;
         }
+        let Some(view) = on_hand.presented_by(link.copied()) else {
+            continue;
+        };
+        let Ok((_, viewport)) = views.get(view) else {
+            bevy::log::error_once!("a camera presents view {view:?}, which is not a local view");
+            continue;
+        };
+
+        // A view filling the whole display needs no viewport at all. Leaving it
+        // cleared keeps the ordinary path byte-identical to the pre-viewport
+        // engine instead of round-tripping through physical pixels every frame.
+        let fills_the_display = viewport.origin_px == display.min && viewport.px == display.size();
+        let desired = (!fills_the_display).then(|| Viewport {
+            physical_position: (viewport.origin_px * scale)
+                .round()
+                .max(ae::Vec2::ZERO)
+                .as_uvec2(),
+            physical_size: (viewport.px * scale).round().max(ae::Vec2::ONE).as_uvec2(),
+            ..default()
+        });
+
         // Compare before writing: touching `Camera` marks it changed, and a
         // camera that "changes" every frame is a needless render-world sync.
         if !viewport_matches(camera.viewport.as_ref(), desired.as_ref()) {
-            camera.viewport = desired.clone();
+            camera.viewport = desired;
         }
     }
 }

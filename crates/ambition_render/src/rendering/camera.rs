@@ -106,8 +106,9 @@ pub fn publish_portal_camera_clamp(
     }
 }
 
-/// Apply the sim-resolved camera snapshot to the main camera, layering the
-/// presentation-only deltas (portal camera continuity, shake) onto a COPY.
+/// Apply the sim-resolved camera snapshot to EACH main camera — every one of
+/// them through the view it names — layering the presentation-only deltas
+/// (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
     // **THE VIEWS, read through each camera's own link.** This was a
     // `Single<…, With<LocalView>>` beside a query for the main camera — two
@@ -148,114 +149,287 @@ pub fn camera_follow(
         ),
     >,
 ) {
-    // ⚠ **the link, or the only view.** A camera that NAMES its view presents
-    // that one. A camera that names none is a composition with a single view —
-    // every fixture, and every host until the split lands — and taking the only
-    // view is the honest reading of that. ⛔ it refuses rather than picking when
-    // there are several, so a second view arriving without a second link is loud
-    // instead of arbitrary.
-    let link = query.iter().next().and_then(|(_, _, link)| link.copied());
-    let view_entity = match link {
-        Some(ambition_sim_view::PresentsView(view)) => view,
-        None => {
-            let mut unlinked = views.iter();
-            let Some((only, ..)) = unlinked.next() else {
-                return;
-            };
-            if unlinked.next().is_some() {
-                bevy::log::error_once!(
-                    "more than one local view exists and this camera names none of \
-                     them; give each camera a `PresentsView` naming the view it \
-                     presents"
-                );
-                return;
-            }
-            only
-        }
-    };
-    let Ok((_, resolved, mut presentation, mut view_state)) = views.get_mut(view_entity) else {
-        bevy::log::error_once!("a camera presents view {view_entity:?}, which is not a local view");
-        return;
-    };
-    // Presentation deltas apply to a COPY — the sim's resolved snapshot is
-    // read-only here.
-    #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
-    let mut snapshot = resolved.snapshot.clone();
-    #[cfg(feature = "portal_render")]
-    let follow_world = resolved.follow_world;
-
-    #[cfg(not(feature = "portal_render"))]
-    {
-        // Without portal continuity nothing writes these; keep them cleared so a
-        // stale pad or roll can't linger across feature configs.
-        *presentation = CameraPresentationInputs::default();
-    }
-    #[cfg(feature = "portal_render")]
-    let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
-
-    #[cfg(feature = "portal_render")]
-    {
-        let portal_continuity_enabled =
-            portal_continuity
-                .selection
-                .as_deref()
-                .is_some_and(|selection| {
-                    selection.mode
-                        == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
-                });
-        let ordinary_center_world = snapshot.center_world;
-        let portal_clamp_padding_still_needed =
-            (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
-
-        if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
-            if portal_continuity_enabled {
-                let weight = portal_state.active_weight();
-                if weight > 0.0 {
-                    let screen_offset = portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
-                    snapshot.center_world = follow_world - screen_offset;
-                    portal_state.target_camera_world = Some(snapshot.center_world);
-                } else if !portal_clamp_padding_still_needed {
-                    portal_state.clear_clamp_padding();
-                }
-                // ⛔ **the roll is NOT applied here any more.** It used to be
-                // `snapshot.rotation_radians = portal_state.roll_radians`, an
-                // overwrite of a value the resolver had just computed — which
-                // meant the resolver clamped for an orientation it never saw,
-                // and a base observer roll had nowhere to compose with this one.
-                // `publish_portal_camera_clamp` now hands both facts to the
-                // resolve, and `snapshot.rotation_radians` already carries the
-                // composed answer by the time this runs.
-            } else {
-                portal_state.clear();
-            }
-        }
-        if let Some(mut host_view) = portal_continuity.host_view {
-            host_view.capture(
-                snapshot.center_world,
-                ordinary_center_world,
-                snapshot.target_world,
-                snapshot.visible_view,
-                snapshot.active_camera_zones,
-                snapshot.active_camera_zone.clone(),
-            );
-        }
-        if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
-            portal_state.last_host_camera_world = Some(snapshot.center_world);
-        }
-    }
-
-    let x = snapshot.center_world.x - world.0.size.x * 0.5;
-    let y = world.0.size.y * 0.5 - snapshot.center_world.y;
-
-    *view_state = CameraViewState::from(&snapshot);
-
+    // ⛔⛔ **EACH CAMERA RESOLVES THROUGH ITS OWN LINK.** This used to take
+    // `query.iter().next()`'s link, resolve that ONE view, and then apply that
+    // one view's transform and projection to EVERY main camera in the loop
+    // below — so two cameras correctly naming two different views would both
+    // have been handed the first view's framing. Same singleton the component
+    // move deleted, restored as a loop-invariant. `PresentedViewState::get()`
+    // already refused to choose between several main cameras; this had no such
+    // protection, it just picked.
+    //
+    // ⚠ the binding rule itself lives in `ambition_sim_view::ViewsOnHand` — one
+    // statement, shared with the viewport applier and the draw-side lookup,
+    // because three copies of "which view is this camera for" is three chances
+    // to disagree silently.
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
     let shake_offset = shake.offset();
-    for (mut transform, mut projection, _) in &mut query {
+
+    for (mut transform, mut projection, link) in &mut query {
+        let Some(view_entity) = on_hand.presented_by(link.copied()) else {
+            continue;
+        };
+        let Ok((_, resolved, mut presentation, mut view_state)) = views.get_mut(view_entity) else {
+            bevy::log::error_once!(
+                "a camera presents view {view_entity:?}, which is not a local view"
+            );
+            continue;
+        };
+        // Presentation deltas apply to a COPY — the sim's resolved snapshot is
+        // read-only here.
+        #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
+        let mut snapshot = resolved.snapshot.clone();
+        #[cfg(feature = "portal_render")]
+        let follow_world = resolved.follow_world;
+
+        #[cfg(not(feature = "portal_render"))]
+        {
+            // Without portal continuity nothing writes these; keep them cleared
+            // so a stale pad or roll can't linger across feature configs.
+            *presentation = CameraPresentationInputs::default();
+        }
+        #[cfg(feature = "portal_render")]
+        let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
+
+        // ⚠ **portal camera continuity is still ONE global for the whole
+        // process.** `PortalCameraContinuityState`/`HostView` are `Resource`s,
+        // so the writes below are last-camera-wins once a composition really
+        // has two. That is not a regression — it is exactly what the previous
+        // single-resolve shape did — and it is the next thing portal continuity
+        // owes a split layout: the state is per-VIEW (each view crosses its own
+        // seam), and making it so is its own job, not this one.
+        #[cfg(feature = "portal_render")]
+        {
+            let portal_continuity_enabled =
+                portal_continuity
+                    .selection
+                    .as_deref()
+                    .is_some_and(|selection| {
+                        selection.mode
+                            == ambition_portal2d_presentation::PortalCameraTransitMode::Continuous
+                    });
+            let ordinary_center_world = snapshot.center_world;
+            let portal_clamp_padding_still_needed =
+                (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
+
+            if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+                if portal_continuity_enabled {
+                    let weight = portal_state.active_weight();
+                    if weight > 0.0 {
+                        let screen_offset =
+                            portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
+                        snapshot.center_world = follow_world - screen_offset;
+                        portal_state.target_camera_world = Some(snapshot.center_world);
+                    } else if !portal_clamp_padding_still_needed {
+                        portal_state.clear_clamp_padding();
+                    }
+                    // ⛔ **the roll is NOT applied here any more.** It used to be
+                    // `snapshot.rotation_radians = portal_state.roll_radians`, an
+                    // overwrite of a value the resolver had just computed — which
+                    // meant the resolver clamped for an orientation it never saw,
+                    // and a base observer roll had nowhere to compose with this
+                    // one. `publish_portal_camera_clamp` now hands both facts to
+                    // the resolve, and `snapshot.rotation_radians` already carries
+                    // the composed answer by the time this runs.
+                } else {
+                    portal_state.clear();
+                }
+            }
+            if let Some(host_view) = portal_continuity.host_view.as_deref_mut() {
+                host_view.capture(
+                    snapshot.center_world,
+                    ordinary_center_world,
+                    snapshot.target_world,
+                    snapshot.visible_view,
+                    snapshot.active_camera_zones,
+                    snapshot.active_camera_zone.clone(),
+                );
+            }
+            if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
+                portal_state.last_host_camera_world = Some(snapshot.center_world);
+            }
+        }
+
+        let x = snapshot.center_world.x - world.0.size.x * 0.5;
+        let y = world.0.size.y * 0.5 - snapshot.center_world.y;
+
+        *view_state = CameraViewState::from(&snapshot);
+
         if let Projection::Orthographic(orthographic) = &mut *projection {
             orthographic.scale = snapshot.orthographic_scale;
         }
         transform.translation.x = x + shake_offset.x;
         transform.translation.y = y + shake_offset.y;
         transform.rotation = Quat::from_rotation_z(snapshot.rotation_radians);
+    }
+}
+
+#[cfg(test)]
+mod two_views_one_simulation_tests {
+    use super::*;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState;
+    use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
+    use ambition_sim_view::camera_snapshot::CameraSnapshot2d;
+    use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    /// 800x600, so the world-to-Bevy flip below is arithmetic anyone can check
+    /// by hand rather than a number copied out of a previous run.
+    fn room() -> ae::RoomGeometry {
+        ae::RoomGeometry(ae::World::new(
+            "two views",
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(50.0, 50.0),
+            Vec::new(),
+        ))
+    }
+
+    /// What `camera_follow` must put on the Bevy transform for a view centred
+    /// here: the same flip the production line does, written once so the
+    /// expectation is derived rather than pinned.
+    fn expected_translation(center: ae::Vec2) -> Vec2 {
+        Vec2::new(center.x - 800.0 * 0.5, 600.0 * 0.5 - center.y)
+    }
+
+    fn spawn_view(world: &mut World, id: u8, center: ae::Vec2, ortho: f32) -> Entity {
+        world
+            .spawn((
+                LocalView,
+                LocalViewId(id),
+                ResolvedCameraSnapshot {
+                    snapshot: CameraSnapshot2d {
+                        center_world: center,
+                        unpadded_center_world: center,
+                        orthographic_scale: ortho,
+                        ..Default::default()
+                    },
+                    follow_world: center,
+                },
+                CameraPresentationInputs::default(),
+                CameraViewState::default(),
+            ))
+            .id()
+    }
+
+    /// One world, one simulation, two views, two cameras. `first_presents_left`
+    /// is the only thing that differs between runs: it SWAPS which view each
+    /// camera names while leaving spawn order, entity ids and every snapshot
+    /// value untouched.
+    ///
+    /// Returns, per camera in spawn order, the transform translation and
+    /// orthographic scale `camera_follow` gave it, plus what each VIEW's own
+    /// `CameraViewState` ended up holding.
+    fn present(first_presents_left: bool) -> ([(Vec2, f32); 2], [ae::Vec2; 2]) {
+        let mut world = World::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            &mut world,
+            room(),
+        );
+        world.init_resource::<CameraShakeState>();
+
+        let left = spawn_view(&mut world, 0, ae::Vec2::new(100.0, 200.0), 2.0);
+        let right = spawn_view(&mut world, 1, ae::Vec2::new(700.0, 500.0), 0.5);
+
+        let (first, second) = if first_presents_left {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        let cameras: Vec<Entity> = [first, second]
+            .into_iter()
+            .map(|view| {
+                world
+                    .spawn((
+                        MainCamera,
+                        Transform::default(),
+                        Projection::Orthographic(OrthographicProjection::default_2d()),
+                        PresentsView(view),
+                    ))
+                    .id()
+            })
+            .collect();
+
+        world
+            .run_system_once(camera_follow)
+            .expect("camera_follow should run: the fixture provides the session world it reads");
+
+        let mut presented = [(Vec2::ZERO, 0.0); 2];
+        for (slot, camera) in cameras.into_iter().enumerate() {
+            let entity = world.entity(camera);
+            let translation = entity
+                .get::<Transform>()
+                .expect("camera transform")
+                .translation;
+            let scale = match entity.get::<Projection>().expect("camera projection") {
+                Projection::Orthographic(orthographic) => orthographic.scale,
+                other => panic!("the fixture spawned an orthographic camera, found {other:?}"),
+            };
+            presented[slot] = (translation.truncate(), scale);
+        }
+        let view_states = [left, right].map(|view| {
+            world
+                .entity(view)
+                .get::<CameraViewState>()
+                .expect("the view carries its camera state")
+                .center_world
+        });
+        (presented, view_states)
+    }
+
+    /// **⛔⛔ EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
+    /// CAMERA'S VIEW.**
+    ///
+    /// `camera_follow` read `query.iter().next()`'s `PresentsView`, resolved
+    /// that ONE view, and then wrote that one view's transform and projection
+    /// onto EVERY main camera. Two cameras correctly naming two different views
+    /// therefore produced two IDENTICAL cameras — the process-global "the
+    /// gameplay view" that D116 M2 deleted, restored as a loop invariant, and
+    /// invisible until the day a second view existed.
+    ///
+    /// ⭐ **the assertion is on the VALUES, not on inequality.** "the two
+    /// cameras differ" would pass for a pair that differ and are both wrong.
+    /// Each camera is checked against the framing derived from the view it
+    /// names.
+    ///
+    /// ⚠ **and the falsifier is inside the test.** The second run swaps only
+    /// the two `PresentsView` links — same spawn order, same entities, same
+    /// snapshots — and the two cameras must swap with them. A `camera_follow`
+    /// that keys off camera iteration order instead of the link passes the
+    /// first run and fails this one.
+    #[test]
+    fn each_main_camera_presents_the_view_it_names() {
+        let left_expected = (expected_translation(ae::Vec2::new(100.0, 200.0)), 2.0);
+        let right_expected = (expected_translation(ae::Vec2::new(700.0, 500.0)), 0.5);
+        assert_ne!(
+            left_expected, right_expected,
+            "the fixture must give the two views genuinely different framings, or \
+             nothing below can tell a per-camera resolve from a shared one"
+        );
+
+        let (presented, view_states) = present(true);
+        assert_eq!(
+            presented,
+            [left_expected, right_expected],
+            "each camera must take the framing of the view its `PresentsView` names; \
+             getting {presented:?} means one view's snapshot was applied to both \
+             cameras (or the wrong one was)"
+        );
+        assert_eq!(
+            view_states,
+            [ae::Vec2::new(100.0, 200.0), ae::Vec2::new(700.0, 500.0)],
+            "each view's own `CameraViewState` must be written from ITS OWN \
+             snapshot; a shared resolve writes one view's framing into whichever \
+             view it resolved and leaves the other at `Default`"
+        );
+
+        let (swapped, _) = present(false);
+        assert_eq!(
+            swapped,
+            [right_expected, left_expected],
+            "swapping only the two links must swap the two cameras. It did not, so \
+             the framing is following camera iteration order and the assertion above \
+             was passing for the wrong reason"
+        );
     }
 }

@@ -96,6 +96,67 @@ pub fn the_only_view(world: &mut bevy::prelude::World) -> Entity {
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PresentsView(pub Entity);
 
+/// **THE CAMERA→VIEW BINDING RULE, WRITTEN ONCE.**
+///
+/// Three places have to answer *"which view is this camera for"*: the follow
+/// camera (`camera_follow`), the physical viewport applier
+/// (`apply_gameplay_camera_viewport`), and the draw-side lookup
+/// ([`crate::camera_snapshot::PresentedViewState`]). Spelling the rule three
+/// times is three chances to disagree, and every disagreement would be SILENT —
+/// each site would still resolve *some* view and draw *something*.
+///
+/// The rule:
+///
+/// - a camera that NAMES a view presents that one;
+/// - a camera that names none, in a composition with exactly ONE view, presents
+///   that view — this is every fixture in the tree and every shipped host today,
+///   and taking the only view is the honest reading of a single-view
+///   composition;
+/// - a camera that names none while SEVERAL views exist is refused, loudly.
+///   Picking one would be arbitrary, and arbitrary is exactly the process-global
+///   "the gameplay view" that D116 M2 deleted.
+/// - no views at all is quiet: a headless or pre-composition host has nothing to
+///   present and nothing to complain about.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ViewsOnHand {
+    first: Option<Entity>,
+    several: bool,
+}
+
+impl ViewsOnHand {
+    /// Survey the local views. Takes an iterator rather than a `Query` so the
+    /// caller keeps its query free for the per-camera `get_mut` that follows.
+    pub fn survey(views: impl IntoIterator<Item = Entity>) -> Self {
+        let mut views = views.into_iter();
+        let first = views.next();
+        Self {
+            first,
+            several: views.next().is_some(),
+        }
+    }
+
+    /// The view a camera with this link presents, or `None` — silently when
+    /// there is no view at all, loudly when the link is missing and the answer
+    /// would have to be a guess.
+    pub fn presented_by(&self, link: Option<PresentsView>) -> Option<Entity> {
+        match link {
+            Some(PresentsView(view)) => Some(view),
+            None => {
+                let only = self.first?;
+                if self.several {
+                    bevy::log::error_once!(
+                        "several local views exist and a camera names none of them; \
+                         refusing to guess which one it presents. Bind `PresentsView` \
+                         where the camera is spawned."
+                    );
+                    return None;
+                }
+                Some(only)
+            }
+        }
+    }
+}
+
 /// Spawn one local view, with the components a camera resolve needs.
 ///
 /// ⛔ **and it carries no `Name`, deliberately.** A `Name` would be a nice debug

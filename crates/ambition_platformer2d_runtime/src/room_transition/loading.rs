@@ -869,7 +869,21 @@ pub fn begin_room_transition_load_system(
                     // This is the only construction road that can meet an
                     // occurrence of its own making still alive, and it is
                     // therefore the only one that states a ledger.
-                    construction_services.6.as_deref(),
+                    //
+                    // ⭐⭐ **and it states the WORLD'S DEFINITIONS with it**,
+                    // because an occurrence lying in the destination may have
+                    // been minted by a record next door: a body carried it
+                    // through this very road and put it down. The ledger has
+                    // already told that record's home room not to author it, so
+                    // handing over the memory without the definitions to act on
+                    // it would delete the object from the world. They are one
+                    // value for exactly that reason.
+                    construction_services.6.as_deref().map(|remembered| {
+                        ambition_platformer2d_actor_monolith::features::OccurrenceContinuity {
+                            remembered,
+                            world: &room_set.rooms,
+                        }
+                    }),
                 ),
             )
             .map(Arc::new),

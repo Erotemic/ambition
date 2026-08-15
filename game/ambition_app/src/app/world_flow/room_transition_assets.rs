@@ -1048,6 +1048,19 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     // neighbour plan is a MISS and the transition prepares a
                     // fresh one — correct, one preparation, and no cache
                     // keyed on a value that changes when somebody bends down.
+                    //
+                    // ⛔ **AND THAT MISS IS NO LONGER TRANSIENT.** Cross-room
+                    // reinstatement (2026-08-15) made a `Placed` row visible to
+                    // EVERY room's outlook — `Reinstated` where the object
+                    // lies, `Suppressed` everywhere else, because those are one
+                    // decision — so an object put down anywhere disables this
+                    // cache for the whole world for the rest of the session,
+                    // not just for the room holding it. Correctness is
+                    // unaffected; what is lost is the preloading. ⭐ **the fix
+                    // is to state the continuity HERE**, so a prefetched plan is
+                    // prepared against the same ledger the door will compare it
+                    // to — deferred only because this system is already at
+                    // Bevy's parameter ceiling and needs its tuples regrouped.
                     None,
                 ),
             ) {

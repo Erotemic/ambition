@@ -381,6 +381,43 @@ fn an_authored_ground_item_naming_an_unknown_held_item_fails_the_plan() {
     );
 }
 
+/// **THE TWO SIDES OF ONE LIST.**
+///
+/// [`reinstatable_authored_requests`] is what a room hands to a NEIGHBOUR that
+/// has to rebuild an occurrence lying in it, and [`relocate_request`] is what
+/// that neighbour uses to put it back where it was left. A family that joins
+/// one without the other is either an occurrence offered up and then built at
+/// the wrong coordinates, or a `Placed` row nothing can ever answer — so the
+/// pairing is asserted rather than remembered.
+#[test]
+fn every_reinstatable_record_can_be_relocated() {
+    let mut room = empty_room("hall");
+    room.ground_items
+        .push(ground_item("pickup_a", REAL_HELD_ITEM));
+    let requests = reinstatable_authored_requests(&room).expect("the fixture resolves");
+    assert!(
+        !requests.is_empty(),
+        "a fixture that offers nothing to relocate proves nothing about the pairing"
+    );
+
+    let somewhere_else = ae::Vec2::new(123.0, 456.0);
+    for mut request in requests {
+        let sim_id = request.sim_id.clone();
+        assert!(
+            relocate_request(&mut request, somewhere_else),
+            "`{sim_id:?}` is offered for reinstatement but cannot be relocated: a \
+             room that owed it would build it at the coordinates its own record \
+             names instead of where the occurrence was left",
+        );
+        // ⭐ and it MOVED — `relocate_request` answering true while ignoring the
+        // position is the same defect wearing the other mask.
+        let ActorConstructionParams::GroundItem { spec, .. } = &request.parameters else {
+            panic!("a relocated ground item is still a ground item");
+        };
+        assert_eq!(spec.pos, somewhere_else);
+    }
+}
+
 /// Poison test for the above: with the item resolvable the SAME room plans and
 /// commits, so the rejection is about the held item and not about ground items
 /// being unplannable in general.

@@ -164,10 +164,11 @@ pub use ecs::{
     FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass,
     MountClass, MountDeathImpact, MountDied, MountRiderLinkEnforced, MountSlot, Mountable, Mounted,
-    MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
-    PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
-    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
-    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    MountedBrainCache, MountedSize, OccurrenceContinuity, PendingChallenge, PickupArt,
+    PickupCollect, PickupCollectLock, PickupMagnetize, RidingOn, RoomContentStagingError,
+    RoomContentStagingRegistrationError, RoomContentStagingRegistry,
+    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
+    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{

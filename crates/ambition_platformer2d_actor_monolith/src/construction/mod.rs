@@ -1617,8 +1617,6 @@ pub fn preflight_actor_relations(
 
 // ── Request builders ─────────────────────────────────────────────────────────
 
-/// Turn a room's authored ground items into construction requests, resolving
-/// each held item while nothing has been mutated.
 /// **Build this record somewhere other than where it says.**
 ///
 /// The world remembers that the occurrence this record minted was carried
@@ -1649,6 +1647,36 @@ pub fn relocate_request(
     }
 }
 
+/// **The records of `room` that ANOTHER room may have to build.**
+///
+/// An occurrence that was carried out of the room whose record minted it and
+/// put down next door has to be rebuilt by the room it is lying in, from a
+/// record that room does not own. This is the seam that hands it over: the
+/// room being built asks each room of the world for the records it might owe,
+/// keeps only the identities the ledger says are lying in it, and relocates
+/// them.
+///
+/// ⭐ **the list is bounded by [`relocate_request`], and the two are one list
+/// seen from two sides.** An occurrence gets a `Placed` row only from a producer
+/// that read a POSITION off it, and it can be rebuilt at that position only if
+/// `relocate_request` accepts its request — so a family joins both functions in
+/// the same change, and `every_reinstatable_record_can_be_relocated` fails if it
+/// joins only one. Today the list is authored ground items.
+///
+/// ⚠ **deliberately NOT the room's whole request derivation.** Lowered
+/// placements, staged content and authored actors carry relations to rows the
+/// asking room is not building, and dragging a subset of a foreign room's
+/// relation graph across a boundary is a design question the customer that
+/// forces it should answer. Nothing can write a `Placed` row for any of them
+/// today.
+pub fn reinstatable_authored_requests(
+    room: &crate::rooms::RoomSpec,
+) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {
+    authored_ground_item_requests(room)
+}
+
+/// Turn a room's authored ground items into construction requests, resolving
+/// each held item while nothing has been mutated.
 pub fn authored_ground_item_requests(
     room: &crate::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {

@@ -897,4 +897,136 @@ mod tests {
         assert!(plan.matches_room_spec(plan.spec()));
         assert!(!plan.matches_room_spec(&changed));
     }
+
+    /// Prepare room `index` of a WORLD, against what that world remembers about
+    /// its occurrences. The pair is one argument on purpose — see
+    /// [`features::OccurrenceContinuity`].
+    fn prepare_in_world(
+        world: &[RoomSpec],
+        index: usize,
+        remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+    ) -> Result<RoomConstructionPlan, RoomConstructionError> {
+        let recipes = crate::construction::engine_construction_registry();
+        let mut construction = features::ActorConstructionContext::new(&recipes, Default::default())
+            .with_prepared(fixture_cast());
+        construction.continuity = Some(features::OccurrenceContinuity {
+            remembered,
+            world,
+        });
+        RoomConstructionPlan::prepare_spec(
+            index,
+            world[index].clone(),
+            &PlacementLoweringRegistry::default(),
+            &features::RoomContentStagingRegistry::default(),
+            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+            &Default::default(),
+            &crate::boss_encounter::BossCatalog::default(),
+            SessionSpawnScope::UNSCOPED,
+            construction,
+        )
+    }
+
+    /// Where one planned row would put the occurrence it builds.
+    fn planned_position(
+        plan: &RoomConstructionPlan,
+        sim_id: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ) -> Option<ae::Vec2> {
+        plan.features
+            .construction()
+            .entities()
+            .iter()
+            .find(|entity| entity.sim_id() == sim_id)
+            .map(|entity| match entity.parameters() {
+                crate::construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
+                other => panic!("the planned row is not the ground item it was authored as: {other:?}"),
+            })
+    }
+
+    /// **A ROOM REBUILDS AN OCCURRENCE WHOSE RECORD LIVES NEXT DOOR — and the
+    /// room that owns the record does NOT rebuild it. One row, both halves.**
+    ///
+    /// This is room construction ceasing to be a pure function of one
+    /// `RoomSpec`: what a room owes the world is its current RESIDENCY, derived
+    /// from the world's definitions plus the authoritative disposition of every
+    /// occurrence, and an occurrence carried out of the room that minted it and
+    /// put down elsewhere belongs to the room it is lying in.
+    ///
+    /// ⛔⛔ **both terms are asserted from the same ledger row because either
+    /// alone is a bug.** Suppression without reinstatement deletes the object
+    /// from the world permanently; reinstatement without suppression puts two
+    /// live occurrences behind one `SimId`, which is the failure `SimId` exists
+    /// to make impossible.
+    #[test]
+    fn a_room_reinstates_an_occurrence_whose_record_lives_next_door() {
+        let mut home = empty_spec("blink_run");
+        home.ground_items.push(crate::rooms::GroundItemSpec {
+            id: "axe".into(),
+            name: "Axe".into(),
+            held_item: "gun_sword".into(),
+            pos: ae::Vec2::new(10.0, 20.0),
+            half_extent: ae::Vec2::splat(8.0),
+        });
+        let world = vec![home, empty_spec("portal_bridge")];
+        let axe = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("axe");
+        let left_at = ae::Vec2::new(300.0, 64.0);
+
+        // ── NOBODY HAS TOUCHED IT: the home room authors it where it says ────
+        // The baseline that makes the two claims below changes rather than
+        // coincidences.
+        let untouched = Default::default();
+        let plan = prepare_in_world(&world, 0, &untouched).expect("home plan");
+        assert_eq!(
+            planned_position(&plan, &axe),
+            Some(ae::Vec2::new(10.0, 20.0)),
+            "an untouched record is authored at its own coordinates"
+        );
+        assert!(prepare_in_world(&world, 1, &untouched)
+            .expect("neighbour plan")
+            .predicted_authoritative_ids()
+            .is_empty());
+
+        // ── IT WAS CARRIED NEXT DOOR AND PUT DOWN ───────────────────────────
+        let mut remembered =
+            ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
+        remembered.republish_placements(
+            "portal_bridge",
+            [(axe.clone(), left_at)].into_iter().collect(),
+        );
+
+        // HALF ONE: the room it is lying in builds it, at the position it was
+        // left, from a record that room does not own.
+        let away = prepare_in_world(&world, 1, &remembered).expect("destination plan");
+        assert_eq!(
+            planned_position(&away, &axe),
+            Some(left_at),
+            "'portal_bridge' owes the world this occurrence: it is lying there, \
+             and the only record that can rebuild it belongs to 'blink_run'"
+        );
+        let row = away
+            .features
+            .construction()
+            .entities()
+            .iter()
+            .find(|entity| entity.sim_id() == &axe)
+            .expect("the row asserted above");
+        assert!(
+            matches!(
+                row.origin(),
+                ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, .. }
+                    if source.as_str() == "blink_run"
+            ),
+            "and its PROVENANCE still names the room that authored it — it was \
+             moved, not re-created somewhere else: {:?}",
+            row.origin(),
+        );
+
+        // HALF TWO: the room that authors the record does not build it.
+        let home_again = prepare_in_world(&world, 0, &remembered).expect("home plan");
+        assert_eq!(
+            planned_position(&home_again, &axe),
+            None,
+            "'blink_run' must not mint a second occurrence of a record whose \
+             first one is lying in 'portal_bridge'"
+        );
+    }
 }

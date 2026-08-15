@@ -31,6 +31,41 @@ its remaining question is product feel for hit emphasis when no primary local
 seat should own a global camera/time beat; that decision lives in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
 
+## What the expressive-fighter pass measured (2026-08-15)
+
+A pass asking *"can this engine produce a genuinely exciting fighter through
+ordinary reusable architecture"* took `smash_george_booul` from eleven moves to
+sixteen. **Almost all of the gap was CONTENT UNDERUSE, and that is the finding.**
+
+Already sufficient, adopted by nobody: the `special` / `special_forward` /
+`special_up` / `special_down` verb chain (no fighter in the demo had ever bound
+a special at all), `WindowTag::Cancelable` with `CancelCondition::OnHit`,
+per-volume `on_hit` techniques (`pogo_bounce`), `MoveWindow::motion_scale` as a
+committed tail, multiple `Active` windows on one timeline, `MoveEventKind::Sfx`
+/ `Vfx` for per-move feedback, and `landing_lag_s` / `autocancel_after_s` /
+`smash_charge_mult`. None of it needed engine work; it needed authoring.
+
+⭐ **genuinely missing, and only this:** a move could not displace its owner at a
+chosen MOMENT, and could not COMMAND a speed rather than adding to one.
+`MoveSpec::start_impulse` fires at the press and is additive, so a recovery
+special was strongest when least needed — `vel += -1000` while falling at 900
+climbs at 100. `MoveEventKind::Impulse { local, mode: Add | Set }` closes both
+halves, and `MoveFrameData::lift_speed` / `lift_at_s` make the result READABLE,
+which is what lets a policy layer recognise a recovery by its geometry rather
+than by a table of whose special is which.
+
+⚠ **still missing, named rather than half-built:** an airborne move with a
+self-impulse has **no per-airtime budget**. George's Up-B is bounded by
+arithmetic instead (no cancel window, and the move outlasts its own arc, so
+repeated use loses height) — deliberately, because a use counter is rollback
+state and the schema was not this pass's to re-baseline. A body wanting a
+genuinely once-per-airtime action still cannot say so.
+
+⛔ **and `WindowTag::Invuln` / `Armor` remain declared vocabulary with no
+consumer.** Authoring them today parses and does nothing. That is an authoring
+trap of exactly the kind the `OnBlock` variant was deliberately not created to
+avoid; either implement them or delete them.
+
 ## Remaining reusable engine work
 
 ### S1 — body-generic grab / hold / throw

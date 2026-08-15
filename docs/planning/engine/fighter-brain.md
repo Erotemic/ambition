@@ -199,6 +199,29 @@ shadow's movement line HOLDS after `commit_ticks`, so near a ledge it condemned
 every verb, the veto emptied, and the choice fell through to
 `least_bad_movement` — the line that dies latest rather than the one that lives.
 
+⭐⭐ **and as of 2026-08-15 the lens is armed with the body's own recovery move.**
+The module's standing warning — *"a body that recovers by … a recovery attack is
+not explored … the first thing to re-check the day a fighter gains one"* — came
+due. `BodyKit` now carries an optional `RecoveryLift`, derived from the kit by
+`options::lifting_candidates` (a filter on `MoveFrameData::lift_speed`, which is
+non-zero only for an `ImpulseMode::Set` impulse pointing against gravity), and
+`RecoveryLens::from_view` turns it into `RecoveryPolicy::drift_jump_and_burst`.
+So the veto is taken against a body that can throw its Up-B rather than one that
+cannot, and the negative it produces names the burst it spent.
+
+⛔ the burst does **not** ride `pending_launch`, and the reason is a trap worth
+recording: `accept_external_launch` feeds `launch_into_tumble`, so any burst over
+the body's `tumble_speed` would knock the PROBE body down and report "no
+support" about a body the real runtime never tumbles. It mirrors the
+authored-impulse seam instead — a direct `vel` write — inheriting that seam's
+surface-momentum approximation so the two are wrong together or right together.
+
+⭐ the same affordance closed the other half: L2 returned an EMPTY attack list in
+`Situation::Recovery`, so a fighter carrying a real Up-B drifted at a stage it
+could not reach while holding the thing that would have saved it. It now offers
+the kit's lifting moves, scored on lift alone. ⛔ no character conditional
+anywhere: a body that authors no rising move plays exactly as before.
+
 ⛔ **and it is NOT measured.** No bench prices a decision with the lens attached
 (`the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event` rolls no movement
 lines), and `ladder_rig --scenarios` has not re-run. The depth-0-vs-12 survival

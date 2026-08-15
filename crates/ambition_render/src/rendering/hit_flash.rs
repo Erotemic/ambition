@@ -128,7 +128,6 @@ pub fn attach_hit_flash_overlays(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    images: Res<Assets<Image>>,
     candidates: Query<
         (
             Entity,
@@ -157,7 +156,7 @@ pub fn attach_hit_flash_overlays(
             // custom_size on the next tick.
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts, &images) else {
+        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts) else {
             // Texture / atlas not loaded yet; try again next frame.
             continue;
         };
@@ -233,7 +232,6 @@ pub fn sync_hit_flash_overlays() {}
 pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    images: Res<Assets<Image>>,
     // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
     // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
     // on the SAME entity that carries the sprite.
@@ -276,7 +274,7 @@ pub fn sync_hit_flash_overlays(
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(source_sprite, &texture_layouts, &images) else {
+        let Some(uv_rect) = current_sprite_uv_rect(source_sprite, &texture_layouts) else {
             continue;
         };
         let flip = flip_flag(source_sprite);
@@ -424,30 +422,44 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
     }
 }
 
+/// ⭐ **NO `Assets<Image>`, and the plain-image branch shows why it was never
+/// needed.** This fetched the image for one value — `texture_descriptor.size`,
+/// to normalise the frame rect — which `TextureAtlasLayout::size` already
+/// carries; and in the whole-image branch it computed that size and then
+/// returned the constant `(0, 0, 1, 1)` without using it. There, the lookup was
+/// doing nothing but gating on "has the texture decoded", a question the frame
+/// rect does not depend on.
+///
+/// ⛔ it mattered because of what the dependency BLOCKED. Bevy loads images as
+/// `MAIN_WORLD | RENDER_WORLD`, so every decoded sheet keeps its full RGBA in
+/// main-world RAM — 1803 MB entering Hall of Characters. Each main-world reader
+/// of a loaded sheet is one more thing standing between the game and dropping
+/// `MAIN_WORLD`, and this one wanted two integers.
+///
+/// ⚠ **there are THREE implementations of this computation** — here,
+/// `ambition_content::presentation::deep_dream`, and
+/// `ambition_portal2d_presentation::clip_material::sprite_frame_basis` (whose
+/// doc says it "mirrors the hit-flash overlay's UV resolution", which is a
+/// citation, not a mechanism). All three now agree; converging them needs a home
+/// both `ambition_render` and `ambition_portal2d_presentation` can reach, and
+/// the dependency runs render → portal, so it is not either of them.
 fn current_sprite_uv_rect(
     sprite: &Sprite,
     texture_layouts: &Assets<TextureAtlasLayout>,
-    images: &Assets<Image>,
 ) -> Option<Vec4> {
-    let image = images.get(&sprite.image)?;
-    let texture_size = image.texture_descriptor.size;
-    let size = Vec2::new(
-        texture_size.width.max(1) as f32,
-        texture_size.height.max(1) as f32,
-    );
-    if let Some(atlas) = sprite.texture_atlas.as_ref() {
-        let layout = texture_layouts.get(&atlas.layout)?;
-        let rect = layout.textures.get(atlas.index)?;
-        Some(Vec4::new(
-            rect.min.x as f32 / size.x,
-            rect.min.y as f32 / size.y,
-            rect.max.x as f32 / size.x,
-            rect.max.y as f32 / size.y,
-        ))
-    } else {
+    let Some(atlas) = sprite.texture_atlas.as_ref() else {
         // Plain-image sprite: the whole texture is the "frame".
-        Some(Vec4::new(0.0, 0.0, 1.0, 1.0))
-    }
+        return Some(Vec4::new(0.0, 0.0, 1.0, 1.0));
+    };
+    let layout = texture_layouts.get(&atlas.layout)?;
+    let rect = layout.textures.get(atlas.index)?;
+    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
+    Some(Vec4::new(
+        rect.min.x as f32 / size.x,
+        rect.min.y as f32 / size.y,
+        rect.max.x as f32 / size.x,
+        rect.max.y as f32 / size.y,
+    ))
 }
 
 fn overlay_transform_from_source(

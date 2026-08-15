@@ -187,26 +187,99 @@ RGBA in main-world RAM for the lifetime of the handle. `report_image_census`
 sums exactly that — `image.data.as_ref().map(len)` — which is where 1803 MB was
 measured.
 
-⭐ **and the audit says nothing reads those pixels.** Every main-world
-`Assets<Image>` consumer in the tree either writes a runtime-generated image
-(touch joysticks, portal view cones, capture readback, morph ball, bubble
-shield) or reads a LOADED sheet for exactly one thing: `sprite_frame_basis`
-wanted `texture_descriptor.size` to normalise an atlas frame rect.
+⭐ **nothing reads those pixels — but the first audit was too narrow and said
+"one reader" when there are seven.** Correcting it, because the difference
+decides whether the flag change is one edit or a slice. Every main-world
+`Assets<Image>` consumer either writes a runtime-generated image (touch
+joysticks, portal view cones, capture readback, morph ball, bubble shield) or
+touches a LOADED sheet for one of exactly two reasons:
 
-✔ **that last dependency is gone (2026-08-15).** `TextureAtlasLayout` already
-carries `size`, so an atlased sprite — which is every character — resolves its
-basis without touching `Assets<Image>` at all. Pinned by a test that resolves a
-frame whose image handle names nothing in `Assets<Image>`, with the layout and
-image sizes deliberately DISAGREEING (the pre-existing test used 64x32 for both
-and could not have told which was read).
+```text
+TEXTURE SIZE, to normalise an atlas frame rect
+  clip_material::sprite_frame_basis                      ✔ converted
+  hit_flash::current_sprite_uv_rect                      ✔ converted
+  deep_dream::current_sprite_uv_rect                     ✔ converted
+  demo_mary_o::quasar_shader                             ▢
 
-⇒ **the remaining step is to load sheets `RENDER_WORLD`-only**, which is now
-unblocked for atlased sheets. ⛔ do not do it blind: the whole-image branch still
-needs its image, `NoWindow` fixtures have no render world to upload into (the
-Hall test depends on its barrier never settling), and readiness polling asks the
-`AssetServer` rather than `Assets<Image>` — each needs checking before the flag
-changes. Measure the resident number before and after; it is the acceptance
-criterion.
+READINESS — "has this decoded yet", using presence as the signal
+  rendering::actors  (three sites)                       ▢
+  rendering::actors::boss                                ▢
+
+THE INSTRUMENT
+  asset_census::report_image_census                      — measures `data`, must keep it
+```
+
+None of them wants a pixel. The size readers had `TextureAtlasLayout::size`
+available all along; the readiness guards are asking a question
+`AssetServer::is_loaded_with_dependencies` already answers without a main-world
+copy — which is exactly how `inspect_room_asset_manifest` asks it.
+
+⚠ **and the size readers are THREE COPIES of one computation**, in three crates,
+one of whose docs says it "mirrors the hit-flash overlay's UV resolution" — a
+citation, not a mechanism, and citations go stale. Converging them wants a home
+both `ambition_render` and `ambition_portal2d_presentation` can reach; the
+dependency runs render → portal, so it is neither of them. Named here as the
+deletion gate rather than done as a crate move at the end of a long session.
+
+✔ **all three size readers are converted (2026-08-15).** `TextureAtlasLayout`
+already carries `size`, so an atlased sprite — every character — resolves its UV
+rect without touching `Assets<Image>`. Four systems dropped the parameter
+outright. Pinned by a test that resolves a frame whose image handle names nothing
+in `Assets<Image>`, with the layout and image sizes deliberately DISAGREEING (the
+pre-existing test used 64x32 for both and could not have told which was read).
+
+⭐ the whole-image branch of `hit_flash` is the tell: it computed the texture size
+and then returned the constant `(0, 0, 1, 1)` without using it. There the lookup
+was pure readiness gating dressed as a size query.
+
+## ⛔⛔ STOP HERE. The harvest is the CONTRACT, not the optimisation.
+
+**Jon, 2026-08-15:** the browser is a powerful architecture test fixture while
+the engine is being decomposed; it does not get to decide which subsystem gets
+built next. D124 does not become the next campaign.
+
+⛔ **DO NOT make character sheets `RENDER_WORLD`-only.** It is tempting, it is
+large, and it is exactly the shape that turns a diagnosis into a month of
+performance engineering. It is also unsafe at HEAD: four sites read presence in
+`Assets<Image>` as "it decoded", so evicting after extraction would turn
+*successfully uploaded* into *never loaded*, forever — characters that vanish the
+moment their texture works.
+
+⭐ **the engine-level lesson is a distinction the renderer currently conflates:**
+
+```text
+asset loaded / ready     !=     CPU representation resident     !=     GPU resident
+```
+
+That is a clean engine concept and it is worth having if the web target vanished
+tomorrow. `AssetServer::is_loaded_with_dependencies` already answers the first
+question — `inspect_room_asset_manifest` asks it that way — while
+`Assets<Image>::get(..).is_some()` answers the second and is being used for the
+first. Separating them is a small, bounded change that makes residency policy
+something a consuming game can CHOOSE later, rather than something baked into
+four render systems.
+
+⇒ **the bounded remainder**, and then D124 rests: convert the four readiness
+sites to the semantic question, preserving their UX contract (a body keeps its
+current pixels until the replacement is genuinely usable; a failed texture does
+not silently become an invisible sprite). Not the usages flag. Not a residency
+scheduler. Not a Hall streaming system.
+
+⚠ **and do not quote 1803 MB as a Hall baseline.** It came from the 2026-07-30
+UNBOUNDED hub-prefetch run and includes that speculative population. It is
+evidence that CPU image residency can get enormous; it is not the current cost
+of entering the Hall. A before/after would need a current measurement, and taking
+one is a later performance campaign's job, not this one's.
+
+### Checked, so nobody re-checks
+
+- readiness polling (`inspect_room_asset_manifest`) asks the `AssetServer`, not
+  `Assets<Image>` — unaffected by any usages change;
+- `NoWindow` fixtures have no render app, so nothing extracts and nothing is
+  evicted — `hall_transition_cover`'s never-settling barrier is unaffected;
+- the per-load setting is `asset_server.load_with_settings::<Image,
+  ImageLoaderSettings>`, and `load_sprite_pages` is the single site that loads a
+  character page.
 
 **Measure before redesigning.** The numbers that still decide the shape: how many
 of the demanded characters were already materialized, how many needed new work,
@@ -312,74 +385,51 @@ falsifies it and sends the search to the audio path proper.
 If no portable defect can be proven natively, leave the retest row open with the
 logging ready. Do not invent a fix for a symptom that cannot be reproduced.
 
-## Executable size: MEASURED 2026-08-15
+## Executable size: what is solid, and what I got wrong
 
-`./build_for_web.sh --served` at HEAD — features `web_served_assets`, profile
-`release`:
+⛔⛔ **READ THE CORRECTION FIRST.** An earlier version of this section published a
+section-by-section census and gzip figures. They cannot be trusted: `web/pkg/`
+was overwritten during the session, and the artifact I censused cannot be tied to
+a known build. The current on-disk file is 241.7 MB where the census recorded
+163.3 MB. **Numbers whose provenance you cannot state are not measurements.**
 
-```text
-Rust wasm before wasm-bindgen   178 MB
-wasm-bindgen output             164 MB wasm + 112 KB js
-gzip of the wasm                26.4 MB      <- what a browser actually DOWNLOADS
-```
-
-⭐ **so "220 MB" was never a network problem.** The transfer is 26 MB. The 164 MB
-is what the browser must PARSE AND COMPILE, and that is the cost that matters —
-compile time and peak memory, on a device that may have neither.
-
-Section census of the 163.3 MB module:
+What IS solid, because `build_for_web.sh` prints it at the moment it produces the
+file:
 
 ```text
-code                  89.6 MB   54.8%
-custom:name           37.4 MB   22.9%   <- debug symbol names, in a release build
-data                  35.1 MB   21.5%   <- baked into the SERVED-ASSETS persona
-elem/function/rest     1.1 MB    0.7%
+                          rust wasm     wasm-bindgen out
+--served (release)          178 MB           164 MB
+--served --optimize          89 MB            84 MB      [profile.web-release]
 ```
 
-⛔⛔ **and the workspace already has the profile that addresses two of those, and
-nobody ran it.** There is no `[profile.release]` override, so `release` is
-Cargo's default — `strip = "none"`, which is why 37.4 MB of name section ships.
-`[profile.web-release]` right there in the root `Cargo.toml` sets `strip =
-"symbols"`, `lto = "fat"`, `opt-level = "s"`, `codegen-units = 1`, and
-`build_for_web.sh --optimize` selects it.
+⭐ **the conclusion survives: the profile the repository already carries roughly
+halves the module a browser must parse and compile**, and it was sitting unused.
+There is no `[profile.release]` override, so `release` is Cargo's default with
+`strip = "none"`; `[profile.web-release]` sets `strip = "symbols"`, `lto = "fat"`,
+`opt-level = "s"`, `codegen-units = 1`.
 
-✔ **MEASURED, and it halves the artifact** (`--served --optimize`, 9m02s build):
+And the current release artifact shows where a large share of that goes:
 
 ```text
-                     release      web-release
-wasm (pre-bindgen)    178 MB          89 MB     -50%
-wasm-bindgen out      164 MB          84 MB     -49%
-gzip transfer        26.4 MB        14.3 MB     -46%
-  code               89.6 MB        50.8 MB     -43%
-  custom:name        37.4 MB           GONE    -100%
-  data               35.1 MB        31.6 MB     -10%
+custom:name    116.6 MB      <- debug symbol names, in a release build
+code            88.8 MB
+data            35.1 MB
 ```
 
-⭐ **so half of "the wasm is enormous" was a build-profile choice, not
-architecture** — and the lever was already in the repository, unused. The
-browser's parse-and-compile load halves with it.
+⚠ **the transfer figure was stated wrongly and is corrected here.** An earlier
+line called a gzip measurement "what a browser actually DOWNLOADS". It is not.
+`build_for_web.sh --serve` runs `python3 -m http.server`, which serves the file
+raw. Measured against it:
 
-⛔ **and the other half is now a real number rather than an excuse.** 50.8 MB of
-code and 31.6 MB of read-only data SURVIVE fat LTO, `opt-level = "s"` and symbol
-stripping. Data barely moved (−10%), which says it is genuine static content —
-type names, format and panic strings, tables — not slack the optimiser can take.
-Any further reduction is a composition question: what this persona links that it
-cannot exercise. That is where a `twiggy`-class breakdown of the surviving code
-would earn its keep.
+```text
+Content-Length: 253401282   (241.7 MB)
+Content-Encoding: (none)
+Content-type: application/wasm
+```
 
-⚠ `--optimize` costs ~9 minutes against a fast dev cycle, so it should not become
-the default for iteration. `build_for_web.sh` now names the measured trade in its
-own size warning, and stops claiming "no LTO" when the build did use it.
-
-⚠ **35.1 MB of `data` in the SERVED persona looked like embedded assets and is
-mostly not.** `visible_web_base` does pull `static_map`, so all four LDtk worlds
-bake in even though this persona fetches everything else over HTTP — but measured,
-they are **4.2 MB** of it (`sandbox` 2.62, `intro` 0.98, `hall_of_characters`
-0.46, `you_have_to_cut_the_rope` 0.18). The other ~31 MB is ordinary Rust
-read-only data: panic and format strings, type names, static tables. That scales
-with the same monomorphisation bulk as the 89.6 MB code section, which means it
-is the same problem and not a separate one — and `opt-level = "s"` + fat LTO is
-aimed squarely at it.
+So gzip size is **compression potential for a correctly configured production
+server**, not the current transfer. ⛔ and chasing that is deployment work, not
+architecture — out of scope here.
 
 ✔ **and one hypothesis is already dead: the five demo crates are not bloat.**
 `ambition_demo_{sanic,pocket,mary_o,smash,twintrack}` are non-optional

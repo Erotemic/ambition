@@ -144,7 +144,6 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    images: Res<Assets<Image>>,
     // Actor identity read-model (E4 slice 2): dream participation + name
     // ride `ActorRenderView`, no live cluster reads.
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
@@ -171,7 +170,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         let Some(render_size) = sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts, &images) else {
+        let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts) else {
             continue;
         };
 
@@ -233,7 +232,6 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     mut elapsed: Local<f32>,
     settings: Res<PuppySlugDreamSettings>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
-    images: Res<Assets<Image>>,
     mut sources: Query<
         (
             Entity,
@@ -264,8 +262,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
         let Some(render_size) = source_sprite.custom_size else {
             continue;
         };
-        let Some(uv_rect) = current_sprite_uv_rect(&source_sprite, &texture_layouts, &images)
-        else {
+        let Some(uv_rect) = current_sprite_uv_rect(&source_sprite, &texture_layouts) else {
             continue;
         };
         let flip = flip_flag(&source_sprite);
@@ -363,20 +360,26 @@ fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex)
     }
 }
 
+/// ⭐ **NO `Assets<Image>`.** The image was fetched for one value —
+/// `texture_descriptor.size` — and `TextureAtlasLayout::size` already carries
+/// it. Every main-world reader of a loaded sheet is one more thing standing
+/// between the game and dropping `MAIN_WORLD` from the image loader, which is
+/// what keeps 1803 MB of decoded RGBA resident entering Hall of Characters.
+///
+/// ⚠ **this is the second of three copies of this computation** — see
+/// `ambition_render::rendering::hit_flash::current_sprite_uv_rect` (byte-identical
+/// intent) and `ambition_portal2d_presentation::clip_material::sprite_frame_basis`
+/// (a superset that also returns the quad size). All three agree; converging them
+/// wants a crate both `ambition_render` and `ambition_portal2d_presentation` can
+/// reach, and the dependency runs render → portal, so it is neither of them.
 fn current_sprite_uv_rect(
     sprite: &Sprite,
     texture_layouts: &Assets<TextureAtlasLayout>,
-    images: &Assets<Image>,
 ) -> Option<Vec4> {
     let atlas = sprite.texture_atlas.as_ref()?;
     let layout = texture_layouts.get(&atlas.layout)?;
     let rect = layout.textures.get(atlas.index)?;
-    let image = images.get(&sprite.image)?;
-    let texture_size = image.texture_descriptor.size;
-    let size = Vec2::new(
-        texture_size.width.max(1) as f32,
-        texture_size.height.max(1) as f32,
-    );
+    let size = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
     Some(Vec4::new(
         rect.min.x as f32 / size.x,
         rect.min.y as f32 / size.y,

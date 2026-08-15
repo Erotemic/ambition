@@ -289,7 +289,15 @@ label is not worth the enlistment.
 
 ⇒ **what M2 needs next**, in the order the code will demand it: a link from a
 CAMERA entity to the view it presents, per-view gameplay rectangles from a split
-layout, and then `ControlledSubject`.
+layout, and then the `ControlledSubject` projection — which is per PARTICIPANT
+SLOT, not per view.
+
+⛔ **the two identities stay separate and a default policy is not an identity.**
+A participant slot owns a controlled body; a view owns a view SUBJECT. The
+ordinary policy projects a participant's controlled body into that participant's
+local view, and that projection is exactly what makes them look the same — it
+does not make them the same thing. A spectator view, a cutscene view, and a view
+following someone else's body are all the same engine with a different policy.
 
 **✔ the camera→view link LANDED 2026-08-14.** `PresentsView(Entity)` is a
 component on the camera, bound where the camera is SPAWNED — the binding is a
@@ -333,7 +341,10 @@ route at all. A test asserting the component merely EXISTS would have passed
 there and pinned nothing; the test drives the direct-gameplay persona instead.
 
 ⇒ **what M2 needs next**: per-view gameplay rectangles from a split layout, and
-then `ControlledSubject` per view.
+then the `ControlledSubject` projection — ⛔ **per PARTICIPANT SLOT, not per
+view.** See *"`ControlledSubject`: measured 2026-08-14, and it is NOT a view
+question"* below; this sentence used to say "per view" and contradicted the
+measurement in the same document.
 
 ### M2a — one body-generic presented pose (LANDED 2026-08-14)
 

@@ -1,3 +1,10 @@
+> ⚠ **ARCHIVED 2026-08-14 — EVIDENCE, NOT AUTHORITY.** This campaign is complete
+> (zero open markers, untouched since 2026-08-02) and was moved out of
+> `docs/planning/` under that directory's own rule: *completed campaigns and
+> migration evidence belong in `docs/archive`*. ⛔ **do not reconstruct a deleted
+> representation because this file names it**, and do not treat any instruction
+> here as live tasking. Live direction is `docs/planning/queue-72h-2026-08-08.md`.
+
 # Shaped volumes — one authored swing, every consumer reads its real shape
 
 **Armed:** 2026-08-01, on Jon's instruction. Surveyed against source, not docs.

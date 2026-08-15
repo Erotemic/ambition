@@ -81,7 +81,7 @@
 
 * In 1-2 jumping into the invisible brick from below doesn't seem to trigger it.
   * ✔ Fixed — you were right and I was wrong; it genuinely never fired. A `BonkOnly` branch skipped the head-contact arm under a comment claiming it fell through, which `else if` does not do.
-  * ▢ It still pays out invisibly: a discovered hidden block gets promoted and its picture deleted, because promoted blocks have no render pass. Filed separately.
+  * ✔ The invisible-payout half is fixed too — `a_discovered_hidden_block_reveals_itself` passes at HEAD; it had never run, because Mary-O's eight art assertions are behind `--features visible`.
 
 * The pirates in the cover are horribly miss-sized. The heavies need to get a little smaller (this should probably be something done in data by the sprite renderer, not in code) and the other pirates need to probably scale up 2x, They are as tall as the player robot who is supposed to be chibi
 

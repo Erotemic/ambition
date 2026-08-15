@@ -23,7 +23,8 @@
 //! beats); it no longer creates snapshot-authoritative entities.
 //!
 //! Purity is what makes the seam preflightable: a stager must be a function of
-//! the `RoomSpec` alone, so a mutation-free caller (`RoomConstructionPlan::prepare`, a
+//! the `RoomSpec` alone, so a mutation-free caller
+//! (`RoomConstructionPlan::prepare_from_parts`, a
 //! roster preflight) can ask "what WOULD this room stage?" without staging it.
 
 use std::sync::Arc;

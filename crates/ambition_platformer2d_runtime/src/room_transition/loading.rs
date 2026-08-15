@@ -471,6 +471,18 @@ pub fn begin_room_transition_load_system(
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.
         Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+        // ⭐ **WHAT BECAME OF THE OCCURRENCES THIS ROOM ALREADY MINTED.** A
+        // transition is the one road that rebuilds a room the session has been
+        // LIVING in, so it is the road that owes the question an answer: an
+        // authored object carried out of a room and back is still alive, and
+        // re-authoring its `SimId::placement(..)` would put two live things
+        // behind one identity. ⚠ `Option` — a composition that remembers
+        // nothing carries no ledger, which is the ordinary case.
+        //
+        // ⚠ **it is a seventh tuple member and not a seventeenth param because
+        // a Bevy system stops at sixteen**, and it belongs with the other
+        // construction authorities in any case.
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     ),
     // The prepared cast (D73 phase 1), so an NPC rebuilt by a transition still
     // takes its CHARACTER's default autonomous profile rather than only its
@@ -808,12 +820,21 @@ pub fn begin_room_transition_load_system(
         // sub-frame on both — `Time<Real>` is NOT a substitute here, because it
         // advances once per frame and a within-frame span measures zero.
         let construction_preflight_started = bevy::platform::time::Instant::now();
+        // What the world remembers right now, read once: it decides both
+        // whether a cached plan still describes this world and what a fresh
+        // plan must leave out.
+        let suppressed_occurrences = construction_services
+            .6
+            .as_deref()
+            .map(ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::suppressed)
+            .unwrap_or_default();
         let prefetched_construction = plan_prefetch.as_deref_mut().and_then(|cache| {
             cache.promote(
                 content_epoch.get(),
                 current_session,
                 &active.source_room_id,
                 target_spec,
+                &suppressed_occurrences,
             )
         });
         active.prefetch_hit = prefetched_construction.is_some();
@@ -840,6 +861,11 @@ pub fn begin_room_transition_load_system(
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),
                     brain_profiles.as_deref(),
+                    // ⭐ **THE ROAD THAT REBUILDS A ROOM THE SESSION LIVED IN.**
+                    // This is the only construction road that can meet an
+                    // occurrence of its own making still alive, and it is
+                    // therefore the only one that states a ledger.
+                    construction_services.6.as_deref(),
                 ),
             )
             .map(Arc::new),

@@ -1240,6 +1240,9 @@ impl PlatformerSessionBuilder<'_, '_> {
                         None,
                         self.prepared_characters.as_deref(),
                         self.brain_profiles.as_deref(),
+                        // Activation BUILDS a world; there is no earlier
+                        // occurrence of anything to have a disposition yet.
+                        None,
                     ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,

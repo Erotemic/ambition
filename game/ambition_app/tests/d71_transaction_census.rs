@@ -242,8 +242,8 @@ fn d71_probe_counts_room_changes_against_transactions() {
 /// opens a readiness transaction, which is the thing the opaque cover is driven
 /// off. `drive_room_transition_presentation` returns immediately while
 /// `RoomTransitionLoadState::active` is `None`, so with zero transactions no
-/// cover is ever spawned — and `RoomConstructionPlan::prepare` asks nothing about
-/// assets, so the destination theme's parallax is still loading when the room
+/// cover is ever spawned — and `RoomConstructionPlan::prepare_from_parts` asks
+/// nothing about assets, so the destination theme's parallax is still loading when the room
 /// appears.
 ///
 /// ⚠ **`#[ignore]`d deliberately, and this is the one shape that earns it.** The

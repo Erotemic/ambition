@@ -94,8 +94,8 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     //
     // ⛔⛔ **AND IT COMMITS THE PLAN THE TRANSACTION AUTHORIZED, NOT A FRESH
     // ONE.** Waiting for `CommitAuthorized` and then calling
-    // `RoomConstructionPlan::prepare` again would use the transaction as a
-    // permission BIT and start construction over — so the readiness could
+    // `RoomConstructionPlan::prepare_from_parts` again would use the transaction
+    // as a permission BIT and start construction over — so the readiness could
     // authorize a plan built under content epoch E while the world got built from
     // E+1, with the assets accounted for on the wrong one. `authorized_plan`
     // hands over the exact `Arc<RoomConstructionPlan>` the transaction prepared,
@@ -535,7 +535,7 @@ fn execute_lifecycle_commit(
 fn commit_transition(
     world: &mut World,
     // ⭐⭐ **THE PLAN THE READINESS TRANSACTION AUTHORIZED** (D71, 2026-08-14).
-    // This function used to call `RoomConstructionPlan::prepare` ITSELF, which
+    // This function used to prepare a `RoomConstructionPlan` ITSELF, which
     // made the transaction a permission bit: readiness accounted for the assets
     // of one plan and the world was built from another, prepared a frame later
     // and possibly under different content. The transaction's own plan is the

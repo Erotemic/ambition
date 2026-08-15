@@ -132,6 +132,24 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.custody_residency",
         "room residency reprojected from ItemCustody every tick",
     );
+    // ⚠ **AND THE DISPOSITION LEDGER IS DERIVED FOR EXACTLY AS LONG AS ITS ONLY
+    // PRODUCER IS CUSTODY.** `AuthoredOccurrences::persisting` is rebuilt every
+    // tick from the live `InCustodyOf` population above — no "already applied"
+    // gate, whole-set republish — so a rewind that restores custody restores the
+    // ledger on the next step. It is not rollback state today.
+    //
+    // ⛔⛔ **the day `OccurrenceDisposition::Consumed` gains a producer this
+    // declaration becomes a LIE.** That leg accumulates: it records that an
+    // occurrence is gone for good, which is precisely a fact no live component
+    // still carries, so nothing re-derives it and a rewind past the destruction
+    // would not un-record it. It owes a registration with a real VALUE
+    // projection (the id set, not a presence probe) and a durable-save
+    // representation at the same time. There is no producer as of 2026-08-15.
+    app.declare_rollback_derived_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>(
+        OWNER,
+        "derived.placement_continuity",
+        "authored-occurrence dispositions reprojected from InCustodyOf every tick",
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

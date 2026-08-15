@@ -46,6 +46,18 @@ assumed to mean the same thing.
   them — which items exist as instances, which exist only as catalog counts, and
   whether anything is currently allowed to be both.
 
+✔ **PERSISTENT OCCURRENCE CONTINUITY LANDED 2026-08-15, and it is NOT an item
+feature.** Custody let a carried object cross a room boundary alive, which made
+re-entering the room mint a second occurrence behind the same
+`SimId::placement(..)`. The close is `lifecycle::AuthoredOccurrences` /
+`OccurrenceDisposition` in `ambition_platformer2d_shared_tangle`: **durable room
+state** answering *"what became of the occurrence this authored record minted?"*,
+consulted by room construction as a construction authority alongside the cast and
+the policies. ⭐ nothing in it names items — its only producer today projects
+`InCustodyOf`, and its `Consumed` variant is where a permanently destroyed object
+will land. ⛔ **it is not an instance registry**, and it must not be grown into
+one: it holds only the rows some system had a reason to write.
+
 ⚠ that seam, not the count table's existence, is the next slice. `OwnedItems`
 remains a **migration seam**: physical custody belongs to the body and the item
 instance; participant entitlement is a separate fact with a different owner and a

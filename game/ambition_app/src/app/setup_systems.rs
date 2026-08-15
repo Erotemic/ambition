@@ -122,6 +122,9 @@ pub(super) fn setup_simulation_system(
                     None,
                     characters.prepared.as_deref(),
                     characters.brain_profiles.as_deref(),
+                    // Direct entry builds the world at plugin-build time; no
+                    // occurrence of anything exists yet to have a disposition.
+                    None,
                 ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],

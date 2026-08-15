@@ -228,6 +228,15 @@ pub fn process_new_game_reset_request(
             play_state.active_binding.as_deref(),
             play_state.prepared_characters.as_deref(),
             play_state.brain_profiles.as_deref(),
+            // ⛔ **A RESET STATES NO DISPOSITIONS, AND THAT IS THE WHOLE POINT
+            // OF A RESET.** The ledger says which authored occurrences are
+            // alive somewhere else; a reset destroys the world those
+            // occurrences live in, hands included, and rebuilds the room from
+            // the authored records alone. Handing it the ledger would make a
+            // reset taken while carrying an authored object rebuild the room
+            // WITHOUT that object — the one path where "remember what happened"
+            // is exactly wrong.
+            None,
         ),
     );
     // DECLINE, do not die. The preflight runs before the wipe precisely so a

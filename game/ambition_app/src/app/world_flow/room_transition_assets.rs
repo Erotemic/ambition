@@ -1039,6 +1039,16 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                     active_binding.as_deref(),
                     prepared_characters.as_deref(),
                     brain_profiles.as_deref(),
+                    // ⚠ **THE PREFETCH DELIBERATELY REMEMBERS NOTHING**, and
+                    // the promotion check is what makes that safe: a plan
+                    // states the dispositions it was prepared against, and the
+                    // transition refuses to promote one prepared against
+                    // anything but what the world remembers at the door. So
+                    // while a body is carrying an authored object, every
+                    // neighbour plan is a MISS and the transition prepares a
+                    // fresh one — correct, one preparation, and no cache
+                    // keyed on a value that changes when somebody bends down.
+                    None,
                 ),
             ) {
                 Ok(plan) => plan,

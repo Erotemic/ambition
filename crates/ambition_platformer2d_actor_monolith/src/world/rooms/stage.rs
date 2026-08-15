@@ -16,7 +16,6 @@ use std::hash::{Hash, Hasher};
 
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::With;
-use bevy::ecs::world::World;
 use bevy::prelude::{Commands, Resource};
 
 use super::{transaction, RespawnRoomVisualsRequested, RoomSet, RoomSpec};
@@ -25,7 +24,7 @@ use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    session_world_component, session_world_component_mut, ActiveSessionScope, SessionSpawnScope,
+    session_world_component_mut, SessionSpawnScope,
 };
 use ambition_platformer2d_world::platforms::MovingPlatformState;
 
@@ -41,13 +40,16 @@ impl RoomConstructionPlanId {
 
 /// Why canonical room construction could not be prepared. Every variant is
 /// detected before any live-room mutation.
+///
+/// ⛔ **`MissingService { service }` was deleted with the exclusive-`World`
+/// `prepare` that was the only thing able to raise it.** Every surviving road
+/// hands its authorities over as arguments, so "this world does not provide X"
+/// is a shape the type system now refuses rather than an error a caller has to
+/// remember to handle.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoomConstructionError {
     UnknownRoom {
         room: String,
-    },
-    MissingService {
-        service: &'static str,
     },
     InvalidFeatures {
         room: String,
@@ -61,10 +63,6 @@ impl std::fmt::Display for RoomConstructionError {
             Self::UnknownRoom { room } => {
                 write!(f, "no room named `{room}` in the prepared RoomSet")
             }
-            Self::MissingService { service } => write!(
-                f,
-                "room construction needs `{service}`, which this world does not provide"
-            ),
             Self::InvalidFeatures { room, reason } => {
                 write!(f, "room `{room}` construction is invalid: {reason}")
             }
@@ -114,91 +112,6 @@ impl std::fmt::Debug for RoomConstructionPlan {
 }
 
 impl RoomConstructionPlan {
-    /// Prepare from the canonical resources in an exclusive `World`.
-    pub fn prepare(world: &World, target_room_id: &str) -> Result<Self, RoomConstructionError> {
-        let missing = |service| RoomConstructionError::MissingService { service };
-        let rooms = session_world_component::<RoomSet>(world).ok_or(missing("session RoomSet"))?;
-        let target_index = rooms.room_index_by_id(target_room_id).ok_or_else(|| {
-            RoomConstructionError::UnknownRoom {
-                room: target_room_id.to_string(),
-            }
-        })?;
-        session_world_component::<ambition_platformer2d_core::RoomGeometry>(world)
-            .ok_or(missing("session RoomGeometry"))?;
-        if world
-            .get_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .is_none()
-        {
-            return Err(missing("MovingPlatformSet"));
-        }
-        let session_scope = SessionSpawnScope::for_optional_active_session(
-            world.get_resource::<ActiveSessionScope>(),
-        )
-        .ok_or(missing("ActiveSessionScope"))?;
-        let content_staging = world
-            .get_resource::<features::RoomContentStagingRegistry>()
-            .cloned()
-            .unwrap_or_default();
-        // Absent means "no provider authored a sheet", which is the ordinary
-        // state for every app that ships only engine characters — NOT a missing
-        // service. `CharacterRuntimePlugin` installs it in production; the
-        // default here is what keeps a minimal test world buildable, and an
-        // empty registry resolves exactly as this code did before U1.
-        let authored_sheets = world
-            .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
-            .cloned()
-            .unwrap_or_default();
-        Self::prepare_from_parts(
-            rooms,
-            target_index,
-            world
-                .get_resource::<PlacementLoweringRegistry>()
-                .ok_or(missing("PlacementLoweringRegistry"))?,
-            &content_staging,
-            world
-                .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
-                .ok_or(missing("CharacterCatalog"))?,
-            &authored_sheets,
-            world
-                .get_resource::<crate::boss_encounter::BossCatalog>()
-                .ok_or(missing("BossCatalog"))?,
-            session_scope,
-            // ⛔⛔ **THIS ROAD BUILT ITS ROOMS WITHOUT THE CAST, AND NOTHING SAID
-            // SO** (found by AC6, 2026-08-13). Every other preparation site
-            // handed the context the prepared characters and the published
-            // policies; this one — the EXCLUSIVE-WORLD form, used by the
-            // confirmed deferred room transition under a rollback host — read
-            // every other service off the world and not those two. So the same
-            // room was character-first through the eager transition and
-            // archetype-first through the confirmed one: a body whose character
-            // was registered got the generic `combatant` instead, with the right
-            // name on it.
-            //
-            // ⚠ it was invisible precisely because the archetype road worked.
-            // Deleting the fallback turned it into a refusal on the first door a
-            // rollback host opened
-            // (`a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one`),
-            // which is the deletion doing what it is for — and the reason the
-            // authorities are named as arguments now rather than chained on.
-            features::ActorConstructionContext::for_room_construction(
-                world
-                    .get_resource::<crate::construction::ActorConstructionRegistry>()
-                    .ok_or(missing("ActorConstructionRegistry"))?,
-                // The activation generation this world is running, published on
-                // the session root beside the prepared content it identifies. A
-                // world with no prepared session states none.
-                session_world_component::<ambition_platformer2d_core::ContentEpoch>(world)
-                    .copied()
-                    .unwrap_or_default(),
-                None,
-                world.get_resource::<crate::character_runtime::PreparedCharacterRegistry>(),
-                world.get_resource::<
-                    ambition_characters::actor::character_catalog::BrainProfileRegistry,
-                >(),
-            ),
-        )
-    }
-
     /// Prepare from already-borrowed services. This is the system-facing seam
     /// used by activation, reset, transition, and hot reload.
     #[allow(clippy::too_many_arguments)]
@@ -303,6 +216,20 @@ impl RoomConstructionPlan {
 
     pub fn predicted_authoritative_ids(&self) -> &BTreeSet<String> {
         self.features.expected_authoritative_ids()
+    }
+
+    /// **The occurrence dispositions this plan was prepared against.**
+    ///
+    /// A plan is frozen against a world that remembered exactly this much. A
+    /// cached plan prepared while an authored object was in somebody's hands
+    /// left that object out; committing it into a world where the object has
+    /// since been put down and destroyed would leave the room permanently
+    /// short. Anything that holds a plan across frames compares this before
+    /// promoting it.
+    pub fn suppressed_occurrences(
+        &self,
+    ) -> &BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        self.features.suppressed_occurrences()
     }
 
     pub fn content_staged_names(&self) -> Vec<String> {

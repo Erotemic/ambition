@@ -440,6 +440,10 @@ pub(super) fn reload_ldtk_world_from_disk(
             None,
             prepared_characters,
             brain_profiles,
+            // A hot reload replaces the authored content wholesale, so the
+            // dispositions of occurrences minted from the OLD definitions say
+            // nothing about the new ones. Rebuilt from the records alone.
+            None,
         ),
     )
     .map_err(|error| vec![error.to_string()])?;

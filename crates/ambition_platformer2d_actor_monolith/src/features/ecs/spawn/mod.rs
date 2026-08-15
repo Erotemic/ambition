@@ -111,6 +111,10 @@ pub struct RoomFeatureConstructionPlan {
     /// test can assert on it and the commit logs it instead of the defect living
     /// only in whichever consumer shrugged first.
     binding_report: ambition_platformer2d_shared_tangle::binding::BindingReport,
+    /// The occurrence dispositions this plan was prepared against — the
+    /// identities it deliberately did NOT plan. See
+    /// [`Self::suppressed_occurrences`].
+    suppressed: BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId>,
 }
 
 /// What construction planning needs beyond the room's authored content: the
@@ -137,6 +141,18 @@ pub struct ActorConstructionContext<'a> {
     /// which is what every level assumed before a placement could name one.
     pub brain_profiles:
         Option<&'a ambition_characters::actor::character_catalog::BrainProfileRegistry>,
+    /// **What the world remembers about the occurrences this room already
+    /// minted**, so a rebuild does not mint a second one for a record whose
+    /// occurrence is still alive somewhere else.
+    ///
+    /// ⚠ same `Option` contract as the cast and the policies: absent means "this
+    /// composition remembers nothing", which is the honest answer for startup,
+    /// for provider activation, for a hot reload that replaces the content
+    /// wholesale — and for a RESET, which destroys the occurrences a
+    /// disposition is about and must therefore rebuild the room from the
+    /// authored records alone.
+    pub occurrences:
+        Option<&'a ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -151,6 +167,7 @@ impl<'a> ActorConstructionContext<'a> {
             ),
             prepared: None,
             brain_profiles: None,
+            occurrences: None,
         }
     }
 
@@ -186,6 +203,13 @@ impl<'a> ActorConstructionContext<'a> {
         brain_profiles: Option<
             &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
         >,
+        // What became of the occurrences this room minted before. A road that
+        // rebuilds a room the session has been LIVING in states it; a road that
+        // builds a world from nothing, or destroys one to rebuild it, states
+        // `None` and means it. See [`Self::occurrences`].
+        occurrences: Option<
+            &'a ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+        >,
     ) -> Self {
         let mut context = Self::new(recipes, content_epoch);
         if let Some(active) = active_binding {
@@ -193,6 +217,7 @@ impl<'a> ActorConstructionContext<'a> {
         }
         context.prepared = prepared;
         context.brain_profiles = brain_profiles;
+        context.occurrences = occurrences;
         context
     }
 
@@ -357,6 +382,30 @@ impl RoomFeatureConstructionPlan {
             &paths,
             construction.prepared,
         ));
+        // ⭐ **AND NOW THE ONE QUESTION AN AUTHORED RECORD CANNOT ANSWER ABOUT
+        // ITSELF: what became of the occurrence it minted last time?** Authored
+        // DEFINITION identity is not runtime OCCURRENCE identity — a record is
+        // a recipe, `SimId::placement(..)` names the thing the recipe made —
+        // and a rebuild owes the world a fresh occurrence only for the records
+        // whose last one is neither alive elsewhere nor deliberately gone.
+        //
+        // ⛔ **this asks a DISPOSITION, not "is something with this id alive".**
+        // The second sentence has no room for a permanently destroyed object,
+        // which must also not be re-authored and is not alive anywhere; the
+        // ledger answers both with one call. It is also why the filter is here
+        // and not in the room transition: nothing on this road knows that items
+        // exist, or that a carried thing is what put a row in the ledger.
+        let suppressed: BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> = construction
+            .occurrences
+            .map(ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::suppressed)
+            .unwrap_or_default();
+        if let Some(ledger) = construction.occurrences {
+            requests.retain(|request| {
+                ledger
+                    .disposition(&request.sim_id)
+                    .authors_a_fresh_occurrence()
+            });
+        }
         // Authored mount links are planned `ambition.mount` relations between
         // those rows; a link naming nobody fails HERE instead of being retried
         // forever by the deleted frame-later resolver.
@@ -385,9 +434,21 @@ impl RoomFeatureConstructionPlan {
                 room: Some(room.id.clone()),
             },
             requests,
-            // A room plan is prepared against the room it replaces, so nothing
-            // it constructs is live yet by definition.
-            &Default::default(),
+            // ⛔ **THIS USED TO BE AN EMPTY SET AND A SENTENCE THAT STOPPED
+            // BEING TRUE**: *"a room plan is prepared against the room it
+            // replaces, so nothing it constructs is live yet by definition."*
+            // It was true only while a room change destroyed everything it had
+            // built. An occurrence in somebody's custody crosses the boundary
+            // alive, so a room CAN be prepared while one of the identities it
+            // authors is already out there.
+            //
+            // ⭐ the `retain` above is the FIX; passing the same set here is the
+            // GUARD. The planner refuses `IdentityAlreadyLive` — so a future
+            // road that acquires a request for a suppressed identity by some
+            // other route gets a loud refusal during preflight, while the
+            // outgoing room is still whole, instead of two live things behind
+            // one `SimId`.
+            &suppressed,
             construction.recipes,
         )
         .map_err(RoomFeatureConstructionError::Construction)?;
@@ -422,7 +483,21 @@ impl RoomFeatureConstructionPlan {
             construction: construction_plan,
             expected_authoritative_ids,
             binding_report,
+            suppressed,
         })
+    }
+
+    /// **The dispositions this plan was prepared against.**
+    ///
+    /// A frozen plan is only valid for the world that produced it: a plan
+    /// prepared while an authored object was being carried OMITS that object,
+    /// and committing it into a world where the object has since been put down
+    /// would leave the room permanently missing it. Stated on the artifact so a
+    /// cache can compare rather than guess — see the prefetch promotion check.
+    pub fn suppressed_occurrences(
+        &self,
+    ) -> &BTreeSet<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        &self.suppressed
     }
 
     /// Every reference this room makes and does not keep.

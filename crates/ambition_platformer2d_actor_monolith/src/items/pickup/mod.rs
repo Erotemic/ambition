@@ -51,6 +51,12 @@ pub struct ItemPickupSimulationPlugin;
 impl Plugin for ItemPickupSimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // **Durable room state, and the only leg of it that has a producer.**
+        // Inserted here because this is where the producer is registered; every
+        // consumer takes it as an `Option`, so a composition without this plugin
+        // remembers nothing and authors every room from its records — which is
+        // exactly what it did before the ledger existed.
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
         app.configure_sets(
             sim,
             (
@@ -109,6 +115,19 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // between the crossing and the commit, which is precisely the
                 // window in which the room sweep reads residency.
                 project_custody_onto_residency,
+                // ⭐ **AND WHAT THE WORLD REMEMBERS ABOUT IT.** Immediately
+                // after residency, because it reads residency: an occurrence in
+                // somebody's custody is alive and is not the room's to rebuild,
+                // so the room that authored it must not mint a second one
+                // behind the same `SimId::placement(..)`.
+                //
+                // ⚠ registered from here and written NOWHERE near here: the
+                // system is generic lifecycle vocabulary (it queries
+                // `InCustodyOf`, which knows nothing about items) and this is
+                // simply the chain whose last link produces its input. ⛔ do not
+                // read that as "the ledger is about items" — the next thing to
+                // put a row in it will not be one.
+                ambition_platformer2d_shared_tangle::lifecycle::project_custody_onto_authored_occurrences,
             )
                 .chain()
                 // `ItemPickupSet::CoreHeldItems` is configured
@@ -260,17 +279,19 @@ const THROW_AHEAD: f32 = 48.0;
 /// PROJECTION of this value, not a second fact:
 /// [`project_custody_onto_residency`], which owns the whole story.
 ///
-/// ⛔ **AND IT OPENS ONE, which is the durable-ROOM twin of the count-table note
-/// above.** An authored `GroundItem` carries `SimId::placement(..)`, and the room
-/// that authored it rebuilds its whole roster on every load. So carrying an
-/// authored axe out of its room and back in produces the authored axe in your
-/// hands AND a fresh one on the floor, both claiming the same placement id.
-/// Nothing detects it today. It did not arise while the boundary destroyed the
-/// carried object, and it cannot be fixed here: the room's construction plan
-/// would have to know that one of its authored placements is currently in
-/// somebody's custody, which is durable ROOM state and needs the same owner the
-/// unclosed inventory leg needs. ⛔ do not "fix" it by re-destroying carried
-/// objects at the boundary.
+/// ⭐ **IT OPENED ONE, AND IT IS CLOSED — by durable room state, not by
+/// anything here.** An authored `GroundItem` carries `SimId::placement(..)`, and
+/// the room that authored it rebuilds its whole roster on every load, so
+/// carrying an authored axe out of its room and back in produced the axe in your
+/// hands AND a fresh one on the floor, both claiming the same placement id. The
+/// fix is that construction now asks what became of the occurrence a record
+/// minted last time
+/// (`lifecycle::AuthoredOccurrences` / `OccurrenceDisposition`) and mints a new
+/// one only for records whose last occurrence is neither alive elsewhere nor
+/// deliberately gone. ⛔ it was NOT fixed by re-destroying carried objects at the
+/// boundary, and it was not fixed here: nothing in this file writes that ledger
+/// — the projection that does reads `InCustodyOf`, which knows nothing about
+/// items.
 ///
 /// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the

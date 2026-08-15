@@ -31,8 +31,11 @@ The umbrella is
 [`engine/engine-1.0-architecture-program.md`](engine/engine-1.0-architecture-program.md).
 These cards are capability fronts, not a serial mega-campaign.
 
-- ▢ **Controlled-character actor kernel — current highest-leverage architecture
-  card.** Remove protagonist-special assumptions from generic actor decision,
+- ⏸ **Controlled-character actor kernel — LIVE AS LEDGER ROW D117, and RESTING.**
+  ⚠ do not promote again; the row records that control authority converged (one
+  `tick_controlled_brains`) and that only the time-integrator fork remains, blocked
+  on the hit-emphasis decision. Original card: remove protagonist-special
+  assumptions from generic actor decision,
   targeting/crowd arbitration and control flow before widening world/multiplayer
   systems. Use
   [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md).
@@ -73,7 +76,9 @@ These cards are capability fronts, not a serial mega-campaign.
   consumer, and evaluate independent Bevy-game value before publication. Use
   [`engine/bevy-plugin-and-crate-strategy.md`](engine/bevy-plugin-and-crate-strategy.md).
 
-- ▢ **Ambition-first authoring/LDtk + kinematic world objects.** Moving platforms
+- ◐ **Ambition-first authoring/LDtk + kinematic world objects — LIVE AS LEDGER ROW
+  D115.** ⚠ K2/K3/K4 are CLOSED; K5 and K6 remain. Do not promote again. Card:
+  Moving platforms
   already author through LDtk, but their path references, motion-mode shape,
   diagnostics, dynamic-geometry ownership and contact/crush semantics are not
   yet Engine-1.0 quality. Use
@@ -81,14 +86,17 @@ These cards are capability fronts, not a serial mega-campaign.
   [`engine/ldtk-authoring-and-world-tools.md`](engine/ldtk-authoring-and-world-tools.md)
   and [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md).
 
-- ▢ **Ambition multiplayer + multi-view presentation.** Build one participant
+- ◐ **Ambition multiplayer + multi-view presentation — LIVE AS LEDGER ROW D116.**
+  ⚠ M2 is nearly closed (per-view projections landed); do not promote again. Card:
+  Build one participant
   model that supports local, online and mixed parties independently of shared,
   fixed-split or adaptive split-screen. Grow toward two resident rooms when
   participants separate. Use
   [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
   and [`game/multiplayer.md`](game/multiplayer.md).
 
-- ▢ **Per-view camera reference frames.** Preserve the current external/world
+- ⏸ **Per-view camera reference frames — LIVE AS LEDGER ROW D118, a REST ROW whose
+  remainder belongs to D116.** ⚠ do not promote again. Card: Preserve the current external/world
   observer camera and add an optional controlled-body/view-subject-relative mode
   so gravity changes can visually rotate the world. Keep it a view policy, pair
   it coherently with body-relative input, and make rotated clamps/portal roll
@@ -102,7 +110,8 @@ These cards are capability fronts, not a serial mega-campaign.
   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
   and [`triage/bevy-system-parameter-architecture.md`](triage/bevy-system-parameter-architecture.md).
 
-- ▢ **Drain the actor monolith by coherent ownership.** Choose carves from
+- ▢ **Drain the actor monolith by coherent ownership — LIVE AS LEDGER ROW D33, and
+  currently the only live row with NO agent on it.** Choose carves from
   current dependency/authority evidence, especially boundaries that improve
   capability closure or iteration cost. Do not carve by line count. Use
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
@@ -122,7 +131,10 @@ These cards are capability fronts, not a serial mega-campaign.
   when a concrete slice makes them actionable. Use
   [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
 
-- ▢ **Room transition / multi-room transactionality.** Keep real
+- ◐ **Room transition / multi-room transactionality — LIVE AS LEDGER ROW D71/D92.**
+  ⚠ the census is closed and the transition is measured (asset-bound: preflight
+  1.7ms, manifest 14.7ms, 0 of 164 assets settled at commit). Do not promote again.
+  Card: Keep real
   movement-kernel → loading-zone → readiness/commit behavior on one transaction,
   especially under rollback. This also becomes prerequisite evidence for
   Ambition participants occupying different rooms. Use
@@ -168,7 +180,9 @@ These cards are capability fronts, not a serial mega-campaign.
 
 ## Combat, AI and actor-behavior reservoir
 
-- ▢ **Smash body-generic residuals.** The old migration diary is closed. Current
+- ⏸ **Smash body-generic residuals — LIVE AS LEDGER ROW D72, and PAUSED at Jon's
+  direction** (do not tune the fighter until higher-leverage architecture is
+  exhausted). Card: The old migration diary is closed. Current
   reusable gaps include grab/hold/throw, optional richer shield semantics,
   body-scale equipment resolution if still desired, and local-N acceptance.
   Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).

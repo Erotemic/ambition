@@ -296,7 +296,15 @@ These cards are capability fronts, not a serial mega-campaign.
 - **Slower Light** — future 3D game; wait for a 3D runtime;
   [`engine/slower-light.md`](engine/slower-light.md).
 - **Leafwing clash-scan optimization** — only when its dependency/version trigger
-  becomes relevant.
+  becomes relevant. ⚠ **Jon does not want to carry a leafwing fork**, and the
+  Ambition side is already landed and inert until the dependency changes; the
+  measured cost is **1–3.1% of frame CPU** in every gameplay chunk. Detail:
+  [`triage/leafwing-clash-scan-patch-2026-07-23.md`](triage/leafwing-clash-scan-patch-2026-07-23.md).
+- **Localization / translation catalog** — trigger-based. No translation catalog
+  or runtime locale system exists; some vocabularies already carry stable ids or
+  reserved i18n keys. Detail:
+  [`engine/presentation-and-shell-audit.md`](engine/presentation-and-shell-audit.md)
+  and [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md).
 - **Broader stable-ID centralization** — do not invent one universal ID framework
   ahead of concrete identity families.
 - **Provider-owned placement families** — open a typed extension seam only when a
@@ -343,8 +351,14 @@ archive; being listed here is not a verdict that the work is live.
   presentation item, not a campaign.
 - `triage/ambition-test-support.md` (306)
 - `triage/ambition-registry-core.md` (231)
-- `triage/leafwing-clash-scan-patch-2026-07-23.md` (43)
-- `triage/gameplay-presentation-profiles.md` (32)
+- ~~`triage/leafwing-clash-scan-patch-2026-07-23.md` (43)~~ ✔ **ROUTED** to the
+  deferred/trigger list below, where its entry already existed without a link.
+- ~~`triage/gameplay-presentation-profiles.md` (32)~~ ✔ **ROUTED** — GP1–GP5 are
+  implemented (profile resolution, fixed/aspect viewport policy, surround layout,
+  provider profile declaration, occupancy/control regions, touch placement, the
+  HUD's first surround-region consumer). ⭐ **its remainder is adjacent to D116's
+  deferred half** — viewport/layout policy is exactly where a second view's
+  rectangle would have to come from, so read it before reopening that.
 - ~~`game/ambition.md` (40)~~ ✔ **ROUTED from `status.md`** — ⚠ it is not residual
   work at all but a **structural hub** for the flagship customer (it links
   `vision.md`, `open-world-roadmap.md`, `systemic-progression.md`,

@@ -155,6 +155,7 @@ derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZon
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
+derived.placement_continuity	derived	AuthoredOccurrences	authored-occurrence dispositions reprojected from InCustodyOf every tick
 derived.player_affordances	derived	PlayerAffordances	affordance read model recomputed per frame from body state
 derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
 derived.player_input_frame	derived	PlayerInputFrame	copied from GGRS PlayerInputs at the head of every frame

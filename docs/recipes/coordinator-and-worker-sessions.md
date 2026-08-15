@@ -14,17 +14,32 @@ session needs none of it.
 The shape that works: **workers write, the coordinator holds the build lease and
 verifies.** Everything below is a measured consequence of that split, not taste.
 
-## ⛔ Workers do not run `cargo`, and the reason is disk, not politeness
+## ⚠ Workers do not run `cargo` — but the REASON changed on 2026-08-15
 
-The shared target dir is **~143 GB** against **~143 GB free**. A second one fills
-the disk, so **per-worktree target dirs are not available** — re-measure with
-`du -sh "$CARGO_TARGET_DIR"` and `df -h` before assuming otherwise. Two cargo
-processes on one target dir serialise on the lock and thrash the incremental
-cache, which this repo has already paid for: see the link-failure note in
-`.cargo/config.toml`.
+⛔⛔ **the old reason is gone; re-measure before repeating it.** This section
+said per-worktree target dirs were unavailable because one shared dir was
+~143 GB against ~143 GB free. Both halves are now false: the stale dirs are
+deleted (**379 GB free**), and `scripts/setup_target_bindmount.sh` gives **each
+worktree its own backing store on ext4**, keyed by path, so two agents no longer
+share a lock or thrash each other's fingerprints.
 
-⇒ if a worker genuinely needs to compile, **hand it the lease and stop verifying
-while it holds it.** Do not share.
+⇒ **the surviving reason is CPU and cache, not capacity.** Three cold builds on
+8 cores still contend, and a cold target dir is ~40–80 GB of writes before a
+single test runs. So the default stays "workers write, the coordinator
+compiles" — but it is now a *scheduling* choice you may reverse for one worker,
+not a hard limit.
+
+⭐ **and the cost of that default is measured, not theoretical.** Of six lanes on
+2026-08-15, two handed back code that did not compile (a `u32`/`usize` pair, a
+borrow of a temporary) and one handed back a confident diagnosis that a
+five-minute source read overturned. ⇒ **treat every worker test claim as UNRUN**,
+and budget coordinator time for repairs rather than being surprised by them.
+
+⇒ if a worker genuinely needs to compile, either **bind-mount its worktree** and
+let it build in its own store, or **hand it the lease** and stop verifying while
+it holds it. ⛔ what you must not do is let two parties build into one directory,
+or into two directories while believing they are one — see the
+`CARGO_TARGET_DIR` note in `.cargo/config.toml` for what that cost.
 
 ## ⭐ The coordinator IS the workers' compiler
 
@@ -36,14 +51,33 @@ no-compile workers cheap, and it is the property a worktree gives up.
 `abilities` field"* told a worker its whole route did not exist, hours before its
 handback would have.
 
-## ⛔⛔ A fresh worktree has NO generated assets and NO submodules — one command fixes both
+## ⛔⛔ A fresh worktree needs TWO commands before it is usable
+
+**Run both FROM INSIDE the worktree.** Neither takes a path argument; each finds
+what it needs itself.
 
 ```sh
-# RUN IT FROM INSIDE THE WORKTREE — it mirrors into the cwd's worktree and
-# finds the primary checkout itself. It takes no path argument.
+# 1. assets + submodules. A fresh `git worktree` has neither.
 python3 scripts/mirror_assets_for_worktree.py
 python3 scripts/mirror_assets_for_worktree.py --dry-run   # see what it would do
+
+# 2. put THIS worktree's target/ on ext4 instead of the shared virtiofs mount.
+#    Idempotent, and a no-op on a machine whose checkout is already local.
+scripts/setup_target_bindmount.sh
+scripts/setup_target_bindmount.sh --status                # which dir am I building into?
 ```
+
+⚠ **the bind mount is opt-in and safe to skip** — you just get a slower target
+dir on the shared mount. ⛔ **what is NOT safe is exporting `CARGO_TARGET_DIR`
+instead**, because an env var set in your shell does not reach cargo runs made
+by anything else. On 2026-08-15 the goal guard ran `cargo test --test app_it` as
+one of its checks, resolved the target dir from the committed config, and hit a
+link failure there — for hours, while the session was green in the directory it
+had exported. A bind mount cannot split that way: the path stays cargo's
+default, so every caller lands in the same place.
+
+⚠ a bind mount does not survive a reboot; re-run after one. `--status` says
+plainly whether this worktree is bound.
 
 Generated art/audio/packs are gitignored, so a fresh `git worktree` has none.
 **The sheet registry is baked from those directories at build time, so an

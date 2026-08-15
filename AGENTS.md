@@ -89,6 +89,13 @@ lives in `docs/planning/`. `docs/archive/` is evidence, not authority.
   submodule, so an uninitialised one turns any authoring command into a bare
   `FileNotFoundError` on a path that visibly exists). Full rules:
   `docs/recipes/adding-an-asset.md`.
+- **Target dir on a fresh clone or worktree:** run
+  `scripts/setup_target_bindmount.sh` from inside it (`--status` to verify) — it
+  puts `target/` on local ext4 instead of the shared virtiofs mount, per
+  worktree, and no-ops where the checkout is already local. Opt-in; skipping it
+  is just slower. ⛔ never export `CARGO_TARGET_DIR` instead — it only applies to
+  cargo runs from your shell, so anything else (the goal guard's checks, a hook,
+  another session) silently builds somewhere else.
 - **Crate layering:** foundations and domain services feed the unified
   simulation heart; observation/presentation consume it; runtime/provider/host
   compose it; game providers own named content. `ambition_platformer2d_actor_monolith` is not awaiting

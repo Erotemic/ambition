@@ -1,14 +1,38 @@
 [build]
-# Cargo target dir lives outside the repo tree on purpose.
+# ⭐ NO `target-dir` HERE ON PURPOSE — cargo's default `<worktree>/target` is
+# correct, and `scripts/setup_target_bindmount.sh` makes it fast.
 #
-# The repo is checked out on a virtiofs mount shared between the VM
-# and host; `/home/joncrall/` is on each machine's local disk. The
-# path string is identical in both environments, but resolves to
-# distinct filesystems, so VM and host caches stay separate and the
-# fingerprint fragmentation that comes from co-mingled builds is
-# avoided. The repo's `target/` directory is left untouched and can
-# be deleted to reclaim the shared-disk space it currently occupies.
-target-dir = "/home/joncrall/ambition-target"
+# The repo is on virtiofs, shared between the VM and the host, so the default
+# target dir would be slow and co-mingled. This file used to answer that with
+# `target-dir = "/home/joncrall/ambition-target"`: one absolute path that
+# resolved to a different local disk on each machine. It worked and it cost
+# three things.
+#
+#   1. EVERY WORKTREE SHARED ONE TARGET DIR. Parallel agents fought over its
+#      lock and thrashed each other's fingerprints — and one directory reached
+#      153 GB, 80 GB of it stale incremental state.
+#   2. It was a GUESS ABOUT THE MACHINE baked into a committed file, and it
+#      needed the same string to exist on both sides to keep them apart.
+#   3. ⛔⛔ AN ENV OVERRIDE DOES NOT REACH EVERY BUILD. An agent that exported
+#      `CARGO_TARGET_DIR` in its own shell — the obvious move — kept building
+#      here, while anything invoking cargo WITHOUT that variable still read the
+#      `target-dir` above. Same command, same source, two directories. On
+#      2026-08-15 the goal guard ran `cargo test --test app_it` as one of its
+#      checks and got a LINK failure from the directory the config named, while
+#      the session was green in the one it had exported. Neither party inspects
+#      a target dir; they just resolved cargo's differently, and nothing says so
+#      out loud.
+#
+# A bind mount answers all three: the path stays cargo's default so nothing is
+# hardcoded and no env override is needed, while the bytes land on ext4, and
+# each worktree gets its own backing store keyed by path.
+#
+#     scripts/setup_target_bindmount.sh            # opt in (idempotent)
+#     scripts/setup_target_bindmount.sh --status   # is this worktree bound?
+#
+# ⚠ NOT running it is a working configuration — just a slower target dir on the
+# shared mount. ⛔ but do not reach for `CARGO_TARGET_DIR` instead: that is the
+# failure mode in (3), and it is invisible until two parties disagree.
 
 # **INCREMENTAL ON for the edit loop. The suite still turns it OFF for itself.**
 #
@@ -26,7 +50,13 @@ target-dir = "/home/joncrall/ambition-target"
 #
 # ⛔ **IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.**
 #
-#     rm -rf "$CARGO_TARGET_DIR/debug/incremental"   # or /home/joncrall/ambition-target
+#     rm -rf target/debug/incremental        # `target/` is this worktree's, bound or not
+#
+# ⚠ **and check WHICH target dir first, because that symptom has a second
+# cause.** `scripts/setup_target_bindmount.sh --status` names the directory
+# actually in use. On 2026-08-15 this exact `undefined symbol: anon.<hash>`
+# failure was NOT stale incremental state: it was a second target directory
+# nobody was maintaining, and clearing incremental there changed nothing.
 #
 # Three times on 2026-07-31 a `cargo test -p ambition_app` died with
 # `mold: error: undefined symbol: anon.<hash>.llvm.<hash>` referenced from a

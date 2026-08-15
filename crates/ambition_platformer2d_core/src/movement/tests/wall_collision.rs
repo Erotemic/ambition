@@ -1051,3 +1051,101 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         );
     }
 }
+
+/// **D126.1 — PINNED REPRODUCTION, EXPECTED RED.** Where a body is claimed by
+/// TWO solids on the same axis in one frame, the resolved position must not
+/// depend on the order those solids happen to sit in `world.blocks`.
+///
+/// `resolve_axis_repair` walks `&world.blocks` in Vec order, applies each
+/// intersecting block's correction to the body immediately, and re-reads the
+/// AABB before the next block — so the LAST claimant writes the final position.
+/// The block Vec is pure construction order (LDtk emission order for the
+/// authored base, then moving platforms, then ECS overlay solids, then gate
+/// solids, all appended by `ambition_platformer2d_world::collision`), which
+/// makes the outcome stable per build and silently different when authoring
+/// order changes. `docs/planning/engine/kinematic-world-objects.md` forbids
+/// exactly this: *"The engine must not silently depend on pushout iteration
+/// order."*
+///
+/// ⛔ **this is NOT the no-artificial-pushout refusal.** Both corrections here
+/// are 8px and 16px against a body whose half-extent is ~28px, so
+/// `is_contact_range_snap` ACCEPTS both: nothing declines, and the divergence
+/// is iteration order alone. Traced by hand against this fixture:
+/// ceiling-first settles the body at `y = 248` (head 16px inside the ceiling),
+/// platform-first at `y = 264` (feet 16px inside the platform). Same world,
+/// same frame, 16px apart.
+///
+/// Ignored so a red is not mistaken for a broken suite — run it with
+/// `cargo test -p ambition_platformer2d_core -- --ignored closing_solids`.
+/// ⛔ do not weaken this assertion to make it pass; the fix belongs in the
+/// resolver (a deterministic claim ORDER, or a convergence pass), not here.
+#[test]
+#[ignore = "D126.1: red by design — pins the order-independence the resolver does not yet have"]
+fn a_body_between_two_closing_solids_resolves_the_same_in_either_block_order() {
+    // Ceiling spans y 200..240; platform spans y 272..312. The 32px gap is
+    // narrower than the 48px body, so the body overlaps BOTH by 8px — the
+    // classic crush the plan doc names (a ceiling and a rising platform).
+    let ceiling = || Block::solid("ceiling", Vec2::new(0.0, 200.0), Vec2::new(1600.0, 40.0));
+    let platform = || {
+        Block::solid(
+            "rising platform",
+            Vec2::new(300.0, 272.0),
+            Vec2::new(200.0, 40.0),
+        )
+    };
+    let start = Vec2::new(400.0, 256.0);
+
+    // Gravity magnitude zeroed so the ONLY motion in the frame is penetration
+    // repair — the isolation `deeply_embedded_player_is_not_pushout_teleported_
+    // under_sideways_gravity` above uses for the same reason. `gravity_dir`
+    // stays +Y, so Y keeps the gravity role and X the side role.
+    let tuning = TestTuning {
+        base: MovementTuning {
+            gravity: 0.0,
+            ..DEFAULT_TUNING
+        },
+        ..TEST_TUNING
+    };
+
+    let settle = |blocks: Vec<Block>| {
+        let world = World {
+            name: "closing solids".into(),
+            size: Vec2::new(1600.0, 900.0),
+            spawn: start,
+            blocks,
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            chains: Vec::new(),
+            blast_margin: World::DEFAULT_BLAST_MARGIN,
+            side_blast_margin: None,
+            ceiling_blast_margin: None,
+        };
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
+        scratch.kinematics.pos = start;
+        scratch.kinematics.vel = Vec2::ZERO;
+        scratch.ground.on_ground = false;
+        // Several ticks: the divergence is a stable fixed point per order, not a
+        // one-frame transient, and a settled comparison says so.
+        for _ in 0..4 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        scratch.kinematics.pos
+    };
+
+    let ceiling_first = settle(vec![ceiling(), platform()]);
+    let platform_first = settle(vec![platform(), ceiling()]);
+
+    assert!(
+        (ceiling_first - platform_first).length() < 1.0e-3,
+        "resolution depends on block order: ceiling-first settled at {ceiling_first:?}, \
+         platform-first at {platform_first:?} — same world, same frame, \
+         {:.1}px apart",
+        (ceiling_first - platform_first).length(),
+    );
+}

@@ -356,6 +356,7 @@ fn step_adhesive_crawler(
         ctx.facing_intent,
         ctx.dt,
         &mut events.contacts,
+        &mut events.constraint_conflicts,
     );
     match (was_attached, motion.state.is_attached()) {
         (false, true) => events.operations.push(super::MovementOp::CrawlAttach),

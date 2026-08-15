@@ -1,19 +1,23 @@
 //! Shared collision-semantics kernel: the gravity-relative support/surface
 //! truths every actor body agrees on.
 //!
-//! Two sweeps consume these primitives:
+//! ⭐ **ONE sweep consumes these primitives** — [`crate::movement::collision`],
+//! the body movement sweep, with jump-buffer / dash / blink / climb / wall-state
+//! affordances layered on top. **Every actor goes through it**: controlled,
+//! scripted, AI and remote alike.
 //!
-//! - [`crate::movement::collision`] — the controlled-body movement sweep, with
-//!   jump-buffer / dash / blink / climb / wall-state affordances layered on top.
-//! - `ambition_platformer2d_shared_tangle::kinematic` — the generic enemy/NPC/actor
-//!   sweep.
-//!
-//! Both used to carry private copies of these helpers. The copies were *almost*
-//! identical, which is the dangerous kind of duplication: the two bodies agreed
-//! at the design level while being free to drift at the implementation level
-//! (one-way landing eligibility, support-face tolerances, non-down gravity).
-//! This module is the single source of truth for the low-level semantic kernel
-//! so every controlled/scripted/AI/remote actor collides against the same rules.
+//! ⛔ **this header used to say "two sweeps" and name
+//! `ambition_platformer2d_shared_tangle::kinematic` as the generic enemy/NPC one.
+//! That module was DELETED on 2026-08-14 (D126.2)** — it had zero production
+//! callers and 26 test invocations, all inside its own test file, so its only
+//! caller was the thing testing it. The two sweeps really did once carry private,
+//! *almost* identical copies of these helpers, which is the dangerous kind of
+//! duplication: they agreed at the design level while free to drift at the
+//! implementation level (one-way landing eligibility, support-face tolerances,
+//! non-down gravity). Extracting them here removed the drift; deleting the second
+//! sweep removed the fork. ⚠ **the "both sweeps" phrasing survived the second
+//! event and is what made a dead path read as live** — if you find another
+//! sentence claiming two sweeps, it is stale.
 //! The richer *affordances* (depenetration strategy, wall-cling, climb passage,
 //! ability tuning) stay in each sweep — only the pure classification/geometry
 //! truths live here.

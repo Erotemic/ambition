@@ -113,8 +113,14 @@ Remaining acceptance work
   from `FlagPhase::Tallied` when the level cycles, so it is a running total
   rather than the last banner) and `lives`; coins read the shared economy's
   wallet through `PlayerHudFacts`, the same fact Sanic's rings use.
-- ✅ **Lives are spent — LANDED 2026-07-21.** A death costs one and zero lives
-  restarts the run (lives, score, and clock all return to start). Mary-O authors
+- ✅ **Lives are spent — LANDED 2026-07-21.** A death costs one. ⛔ **CORRECTED
+  2026-08-14: lives go NEGATIVE and play continues forever — there is no run
+  restart and no game over.** This bullet said *"zero lives restarts the run (lives,
+  score and clock all return to start)"*, which is the behaviour Jon's *"for now,
+  let's allow lives to go negative and the user to play forever, so no game over
+  screen yet"* explicitly ruled out; the same stale sentence was found in three
+  places in the Rust source, including a test NAMED
+  `..._and_zero_lives_restarts_the_run` whose body asserts `lives == -1`. Mary-O authors
   no death test: she watches `BodyLifetime.resets`, the counter the ENGINE bumps
   in `reset_body_clusters` on every respawn, so any future hazard that respawns
   her already costs a life with no new demo wiring. Running out of time is the
@@ -284,8 +290,28 @@ Remaining acceptance work
   copy were panicking on a duplicate. One owner now.
 - ▢ still open on 1-2: crossing while GROWN (the continuity proof covers coins,
   lives and score), and further authored levels.
-- ▢ **"No way to get the fire flower" is still UNANSWERED, and now precisely so
-  (2026-07-25).** Jon reported it; the investigation fixed the sprite (wearing
+- ✔ **ANSWERED 2026-08-14: THE LEVEL CAN GIVE IT TO YOU, AND NOTHING TELLS YOU.**
+  `a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`
+  (`level_1_acceptance.rs`, DEFAULT feature set) is GREEN — a grown Mary-O bonks a
+  1-1 ladder block and ends up wearing `spark_blossom`. ⭐ **so this was never a
+  missing reward; it is a DISCOVERABILITY problem**, and two authored facts explain
+  the whole report. **The first `?`-block you meet can never pay it** — a small
+  Mary-O is always paid the wand, so the beacon needs a SECOND block, and 1-1's
+  second is past pit A and behind a warp pipe. And **the beacon is
+  `ItemMotionPlan::still()`**, so it waits on top of its block rather than walking
+  to you the way the wand does. ⚠ *"you cannot bonk it from underneath standing
+  still"* is a jump-TECHNIQUE fact and not the bug: a standing jump raises her
+  centre 144.8px against a 96px underside, so bonking is comfortable — what a
+  standing jump cannot do is get her ON TOP (128px face, 17px margin, ~0.25s hang,
+  and `air_coast_decel: 0` crossing only ~12px horizontally). That is why `mount`,
+  written for a 64px pipe rise, could never reach a `?`-block.
+
+  ⇒ **what remains is a PRODUCT question for Jon, not engineering**: should the
+  beacon walk to you like the wand, should 1-1 place a reachable second block
+  earlier, or is "the reward waits up there and you must climb for it" the intended
+  feel? Original investigation record below.
+
+- ▢ **(superseded) "No way to get the fire flower" — the 2026-07-25 record.** Jon reported it; the investigation fixed the sprite (wearing
   the blossom left her on the plain grown sheet) and recorded the rest as
   suspected level PLACEMENT. What is now established is narrower and more
   useful: **nothing in the codebase has ever bonked a ?-block while GROWN.** The

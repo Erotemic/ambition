@@ -44,7 +44,7 @@ pub fn ambition_sim_composition(
     app: &mut App,
     options: &Platformer2dSimHarnessOptions,
 ) -> Result<(), String> {
-    use ambition_platformer2d::actors::ldtk_world;
+    use ambition_platformer2d::ldtk_map as ldtk_world;
     // Provider-owned catalogs are composed as App-local resources by the
     // simulation plugin; validation reads the provider's manifest directly.
     let world_manifest = ambition_content::worlds::world_manifest();

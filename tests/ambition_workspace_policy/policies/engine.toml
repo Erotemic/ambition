@@ -2067,7 +2067,7 @@ rationale = "portal core/presentation consume reusable seams, not Ambition conte
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_portal2d/src", "crates/ambition_portal2d_presentation/src"]
-forbid = ["ambition_platformer2d_actor_monolith::items", "Item::PortalGun", "OwnedItems", "ambition_inventory_ui", "ambition_platformer2d_actor_monolith::menu::effects", "StashedActionSet", "ambition_platformer2d_actor_monolith::content", "ambition_platformer2d_actor_monolith::quest", "ambition_platformer2d_actor_monolith::ldtk_world", "ambition_platformer2d_actor_monolith::world::ldtk_world", "ambition_platformer2d_actor_monolith::persistence", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::items::pickup::GroundItem"]
+forbid = ["ambition_platformer2d_actor_monolith::items", "Item::PortalGun", "OwnedItems", "ambition_inventory_ui", "ambition_platformer2d_actor_monolith::menu::effects", "StashedActionSet", "ambition_platformer2d_actor_monolith::content", "ambition_platformer2d_actor_monolith::quest", "ambition_platformer2d_ldtk", "ambition_platformer2d_actor_monolith::persistence", "ambition_input::ControlFrame", "ambition_platformer2d_actor_monolith::items::pickup::GroundItem"]
 allow_lines = ["ambition_platformer2d_actor_monolith::items::pickup::ItemPickupSet", "ambition_platformer2d_actor_monolith::items::pickup::axe_spec"]
 skip_tests = true
 

@@ -56,9 +56,30 @@
 //! `docs/planning/tracks.md`.
 //!
 //! That is the whole list, and it is now empty: **nothing in this module reaches
-//! into the monolith at all.** The carve is a `Cargo.toml` — see the five
-//! ordered steps in `docs/planning/engine/actor-monolith-decomposition.md`, of
-//! which step 1 (this port) is done.
+//! into the monolith at all.** See the five ordered steps in
+//! `docs/planning/engine/actor-monolith-decomposition.md`, of which step 1 (this
+//! port) is done.
+//!
+//! ⛔⛔ **and "the carve is a `Cargo.toml`" — which this paragraph said until
+//! 2026-08-15 — is FALSE, for a reason an import count cannot see.** The
+//! accounting above measures `crate::` paths. It does not measure the SCHEDULE,
+//! and the schedule is where this module is still joined to `features`:
+//! `features::FeatureInteractionSchedulePlugin` owns every registration this
+//! module has — [`ActiveConversation`], [`ConversationCutBark`], the
+//! `NarrativeInputPlugin` installs, and the systems — and it interleaves three
+//! of them into ONE anonymous `.chain()` with `interact_ecs_actors_and_switches`,
+//! `npcs::speak_conversation_cut_barks` and the chest/breakable systems. Every
+//! interleave is load-bearing and documented only in prose at the call site.
+//!
+//! ⇒ **the prerequisite is a `ConversationPlugin` here that owns those
+//! registrations, with the cross-domain order stated as NAMED SETS instead of
+//! adjacency in a chain.** Only then is what is left a `Cargo.toml`. ⚠ the
+//! per-payload `NarrativeInputPlugin::<T>` installs do NOT all move: `T` is
+//! sometimes a `features` type, and those stay with their owner — which is the
+//! correct seam, not a leftover.
+//!
+//! ⭐ the generalisable lesson: **a module with zero inward imports can still be
+//! pinned by the schedule.** Count the registrations, not only the paths.
 //!
 //! ## The files
 //!

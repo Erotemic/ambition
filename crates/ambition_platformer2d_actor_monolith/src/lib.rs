@@ -81,8 +81,8 @@ pub mod character_sprites;
 pub mod config;
 /// Conversation continuity: the rollback-owned authority, the hold projected
 /// from it, and the break rule. Written to be lifted out as
-/// `ambition_conversation` — see its module header for the two edges that
-/// remain.
+/// `ambition_conversation`. ⚠ its import edges into this crate are zero and its
+/// SCHEDULE coupling is not — see its module header.
 pub mod conversation;
 pub mod cutscene;
 pub mod cutscene_trigger;
@@ -118,7 +118,7 @@ pub mod world;
 // Public re-exports double as the external API for bins, tests, and docs.
 pub mod features;
 pub use dev::trace;
-pub use world::{ldtk_world, rooms};
+pub use world::rooms;
 
 // Crate-root types/consts whose definitions live in themed modules of this
 // crate. (Generic time vocabulary — `WorldTime`, `ClockState`, `ClockDomain`,
@@ -127,7 +127,6 @@ pub use world::{ldtk_world, rooms};
 // still surfaces at the crate root.)
 pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
-
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Message, Resource};

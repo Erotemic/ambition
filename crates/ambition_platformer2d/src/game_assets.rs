@@ -46,12 +46,12 @@
 
 use bevy::prelude::*;
 
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
-use ambition_platformer2d_actor_monolith::ldtk_world::WorldManifest;
-use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
+use ambition_platformer2d_ldtk::WorldManifest;
 use ambition_platformer2d_world::rooms::RoomMetadata;
+use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 
 /// Install the shared asset resources the generic presentation reads.
 ///

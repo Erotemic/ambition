@@ -102,7 +102,7 @@ pub mod yarn_vocabulary;
 // The rendered frames, their manifest and `tools/vanity_card_prep` stay on disk
 // as REFERENCE art (Jon, 2026-08-03) — nothing in the game reads them.
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
-/// `ambition_platformer2d_actor_monolith::ldtk_world`).
+/// `ambition_platformer2d_ldtk`).
 pub mod worlds;
 
 #[cfg(feature = "portal")]

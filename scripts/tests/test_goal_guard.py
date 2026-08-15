@@ -425,3 +425,158 @@ def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
     # same repo it answered correctly — so neither could ever have caught the bug
     # they were written for. A test that is green through its own motivating case
     # is not coverage, it is furniture.
+
+
+# ── Waiting on background work is not stopping ────────────────────────────────
+#
+# A coordinator that spawns subagents and yields to wait for them ENDS A TURN,
+# which is the only thing a Stop hook can see. Blocking it there is the guard
+# pushing an agent through the exact behaviour it wanted. These tests pin the
+# stand-down AND its three bounds, because "I am waiting" is the cheapest
+# sentence an agent that wants out can write — so the wait is read from the
+# TRANSCRIPT, never from anything the agent claims.
+
+
+def transcript(repo: Path, *records: dict, name: str = "t.jsonl") -> str:
+    path = repo / name
+    path.write_text("\n".join(json.dumps(r) for r in records))
+    return str(path)
+
+
+def launched(tool_use_id: str, task_id: str = "task1") -> dict:
+    return {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": f"Command running in background with ID: {task_id}",
+                }
+            ]
+        },
+    }
+
+
+def finished(tool_use_id: str) -> dict:
+    return {
+        "type": "queue-operation",
+        "note": f"<task-notification><tool-use-id>{tool_use_id}</tool-use-id>"
+        "<status>completed</status></task-notification>",
+    }
+
+
+def test_work_still_in_flight_stands_the_guard_down(repo: Path) -> None:
+    arm(repo, checks=[FAIL])
+    out = run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
+    assert out.get("decision") != "block", "a coordinator waiting is not a coordinator stopping"
+    assert "standing down" in out.get("systemMessage", "")
+
+
+def test_a_stand_down_says_the_goal_is_still_armed(repo: Path) -> None:
+    """Silence that looks like a release is how a run gets abandoned."""
+    arm(repo, checks=[FAIL])
+    out = run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
+    assert "STILL ARMED" in out["systemMessage"]
+    assert json.loads((repo / ".goal" / "active.json").read_text())["checks"]
+
+
+def test_finished_work_does_not_stand_it_down(repo: Path) -> None:
+    arm(repo, checks=[FAIL])
+    tp = transcript(repo, launched("toolu_A"), finished("toolu_A"))
+    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
+
+
+def test_prose_about_backgrounding_is_not_work_in_flight(repo: Path) -> None:
+    """The poison: a grep whose OUTPUT quotes the launch phrase. The first cut of
+    this parser counted it as a live task, which would have bought silence for a
+    coordinator that had launched nothing at all."""
+    arm(repo, checks=[FAIL])
+    tp = transcript(
+        repo,
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_Z",
+                        "content": "grep output: running in background with ID",
+                    }
+                ]
+            },
+        },
+    )
+    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
+
+
+def test_an_unreadable_transcript_blocks_rather_than_stands_down(repo: Path) -> None:
+    """Not being able to tell whether work is in flight is not evidence that it
+    is. Every failure in this parser has to fail toward the old behaviour."""
+    arm(repo, checks=[FAIL])
+    assert run(repo, stdin={"transcript_path": "/nope/nope.jsonl"})["decision"] == "block"
+
+
+def test_a_stalled_wait_is_asked_about_on_the_heartbeat(repo: Path) -> None:
+    """In-flight work hangs, and from here a hung task and a slow one look
+    identical. Jon, 2026-08-15: ask how the subagents are doing."""
+    arm(repo, checks=[FAIL])
+    tp = transcript(repo, launched("toolu_A"))
+    run(repo, stdin={"transcript_path": tp})
+    state = state_of(repo)
+    stale = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=2)).isoformat()
+    state["last_wait_nudge_at"] = stale
+    (repo / ".goal" / "state.json").write_text(json.dumps(state))
+    out = run(repo, stdin={"transcript_path": tp})
+    assert out["decision"] == "block"
+    assert "HAS NOT MOVED" in out["reason"]
+    assert "GOAL STILL OPEN" not in out["reason"], "the nudge is short, not the preamble"
+
+
+def test_a_wait_that_never_ends_stops_buying_silence(repo: Path) -> None:
+    """A task that was KILLED never sends a completion, so without a ceiling one
+    `TaskStop` would stand the guard down for the rest of the session."""
+    arm(repo, checks=[FAIL])
+    tp = transcript(repo, launched("toolu_A"))
+    run(repo, stdin={"transcript_path": tp})
+    state = state_of(repo)
+    old = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)).isoformat()
+    state["waiting_since"] = old
+    (repo / ".goal" / "state.json").write_text(json.dumps(state))
+    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
+
+
+# ── The full goal text is worth tokens sometimes, not every turn ──────────────
+
+
+def test_a_repeat_block_drops_the_goal_preamble(repo: Path) -> None:
+    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80, checks=[FAIL])
+    first = run(repo)["reason"]
+    second = run(repo)["reason"]
+    assert "THE WHOLE PREAMBLE" in first, "the first block carries the goal"
+    assert "THE WHOLE PREAMBLE" not in second, "the second does not repeat it"
+    assert len(second) < len(first)
+
+
+def test_a_repeat_block_still_names_the_open_item(repo: Path) -> None:
+    """Shorter must not mean vaguer: what CHANGES between blocks is the checks."""
+    arm(repo, checks=[PASS, FAIL])
+    run(repo)
+    second = run(repo)["reason"]
+    assert "the queue still has open items" in second
+    assert "does not close an item" in second, "and the closing push survives"
+
+
+def test_a_compact_brings_the_whole_goal_back(repo: Path) -> None:
+    """The one case that matters. A compact is precisely when the agent has lost
+    the goal, so that is when reprinting it is worth the tokens."""
+    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80, checks=[FAIL])
+    tp = transcript(repo, {"type": "assistant", "message": {"content": []}})
+    run(repo, stdin={"transcript_path": tp})
+    assert "THE WHOLE PREAMBLE" not in run(repo, stdin={"transcript_path": tp})["reason"]
+    later = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(minutes=1)).isoformat()
+    tp = transcript(
+        repo,
+        {"type": "system", "subtype": "compact_boundary", "timestamp": later},
+    )
+    assert "THE WHOLE PREAMBLE" in run(repo, stdin={"transcript_path": tp})["reason"]

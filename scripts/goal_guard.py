@@ -74,6 +74,48 @@ and cashed in at 3am, and every spend prints its reason and increments
 guard cannot check intent — it makes the act visible instead, which is the same
 bargain the rest of this file makes.
 
+## Coordinator mode: waiting on background work is not stopping
+
+A coordinator that spawns subagents and yields the turn to wait for them is
+ENDING A TURN, and a turn ending is the only event this hook can observe. Left
+alone, the guard blocks that yield and tells the agent to resume — every time,
+forever, each block injecting the whole preamble. That is the guard pushing an
+agent through precisely the behaviour it wanted.
+
+So the Stop path checks the TRANSCRIPT for work that went async and never
+reported back, and stands down while any is outstanding. The wait is read from
+the transcript rather than from anything the agent says, because "I am waiting
+for my subagents" is the cheapest sentence an agent that wants out can write.
+Three bounds, and each one exists because of a specific way this could go wrong:
+
+* every `WAIT_HEARTBEAT_MINUTES` a still-unmoved wait is BLOCKED anyway, with a
+  short message asking how the subagents are doing. Work in flight hangs, and
+  from inside a Stop hook a hung task and a slow one are indistinguishable
+  (Jon, 2026-08-15);
+* the wait resets whenever the outstanding SET changes, so a coordinator whose
+  subagents are landing keeps earning quiet and one whose set is frozen does not;
+* after `WAIT_CEILING_HOURS` the stand-down stops entirely. A task that was
+  KILLED never sends a completion, so without a ceiling one `TaskStop` buys
+  silence for the rest of the session.
+
+⚠ The launch/completion pairing is VERIFIED for background `Bash` tasks. Agent
+tool subagents are documented to report through the same channel and the join key
+is not tool-specific, but no transcript available when this was written contained
+one — every `isSidechain` count was zero. If subagents are not standing the guard
+down, that is the first thing to check.
+
+## The full goal text is worth tokens sometimes, not every turn
+
+The preamble is several thousand tokens and byte-identical every turn, so
+reprinting it at every block spends the context the agent needs to do the work in
+order to say nothing new. Repeats get a short form — the open items, the time
+left, and the closing push — and the full text comes back on the first block, on
+`FULL_REASON_INTERVAL_MINUTES`, and whenever the transcript shows a COMPACT since
+the last full print. That last one is the case that matters: a compact is exactly
+when the agent has lost the goal. A goal shorter than
+`SHORT_FORM_MIN_GOAL_CHARS` is always printed whole, because abbreviating it
+costs more than it saves.
+
 ## Wiring (`.claude/settings.json`) — and why the command is not one word long
 
 ⛔ **The hook command must not contain a RELATIVE path.** A hook inherits the
@@ -193,6 +235,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -217,6 +260,49 @@ MAX_CONSECUTIVE_CRASHES = 3
 # arm at hour 2 and cash in at hour 40, long after the human who asked for it
 # has gone to bed.
 PAUSE_TTL_MINUTES = 30.0
+
+# ── Waiting on background work (coordinator mode) ─────────────────────────────
+#
+# A coordinator that spawns background subagents and yields the turn to wait for
+# them is ENDING A TURN, which is the only thing this hook can see. Without the
+# stand-down below it gets blocked and told to resume — every yield, forever,
+# each block injecting the whole goal. That is not a stall the guard should push
+# through; it is the agent doing exactly the right thing.
+#
+# So: while launched work has not reported back, the guard stands down. Three
+# bounds keep that from becoming a hole, because "I am waiting" is the easiest
+# sentence in the world for an agent that wants out to write:
+#
+# * the wait is derived from the TRANSCRIPT, not from anything the agent says —
+#   a real `tool_use` that really went async and really has not returned;
+# * every WAIT_HEARTBEAT_MINUTES the guard blocks anyway to ask how the subagents
+#   are doing, because in-flight work hangs and a silent coordinator waiting on a
+#   dead task looks exactly like a healthy one (Jon, 2026-08-15);
+# * after WAIT_CEILING_HOURS with nothing returning, standing down stops. A task
+#   that was killed never sends a completion, so without this one `TaskStop` buys
+#   permanent silence.
+WAIT_HEARTBEAT_MINUTES = 60.0
+WAIT_CEILING_HOURS = 4.0
+
+# How often the FULL goal text is reprinted in a block reason. The preamble runs
+# to several thousand tokens and it is identical every turn, so repeating it at
+# every block spends context to say nothing new. Repeats get the short form; the
+# full text comes back on the first block, on this interval, and — the case that
+# actually matters — whenever the transcript shows a COMPACT since the last full
+# print, because that is precisely when the agent has lost it.
+FULL_REASON_INTERVAL_MINUTES = 120.0
+
+# How much of the transcript tail to read when looking for those signals. The
+# transcripts in this project reach tens of megabytes, and this runs at the end
+# of every turn. A launch older than this window is not a live wait, and a
+# compact older than it is covered by FULL_REASON_INTERVAL_MINUTES anyway.
+TRANSCRIPT_TAIL_BYTES = 2_000_000
+
+# Below this, a goal is reprinted in full every time. The short form carries a
+# sentence explaining where the full text went, so abbreviating a small goal
+# makes the block BIGGER — the saving only exists for the multi-thousand-token
+# preambles this repo actually arms.
+SHORT_FORM_MIN_GOAL_CHARS = 1200
 
 
 def as_int(value, fallback: int) -> int:
@@ -545,6 +631,128 @@ def clear_goal(root: Path, reason: str) -> None:
         pass
 
 
+# ── Reading the transcript for what the hook input does not say ───────────────
+
+# A tool result announcing that its work went async. BOTH forms matter and only
+# one of them was obvious: a call made with `run_in_background` says "running in
+# background with ID", and a FOREGROUND call that outlived its timeout says
+# "moved to the background (ID". Matching only the first misses every task that
+# went async by timing out — which is the shape a HUNG task arrives in, so the
+# miss would land exactly where the heartbeat is needed most.
+#
+# ⛔ THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
+# the first run: a `grep` whose OUTPUT contained the phrase "running in
+# background with ID" registered as a launch, so the guard believed a task was
+# in flight that had never existed. Requiring `: <id>` is what separates the
+# announcement from prose about the announcement — the same distinction
+# `check_absence_contracts.py` learned three times.
+_ASYNC_LAUNCH = re.compile(
+    r"running in background with ID: (\w+)|moved to the background \(ID: (\w+)\)"
+)
+# The completion notification. `<tool-use-id>` is the join key because it is on
+# BOTH sides; the human-readable task id is only in prose on the launch side.
+_TASK_DONE = re.compile(
+    r"<tool-use-id>(\w+)</tool-use-id>|<task-id>(\w+)</task-id>"
+)
+# Matched as a bare token and then CONFIRMED by parsing, because the first
+# version keyed on the literal `"subtype":"compact_boundary"` and silently saw
+# nothing the moment the separator had a space in it. A transcript writer's
+# whitespace is not part of the contract.
+_COMPACT_BOUNDARY = "compact_boundary"
+
+
+def transcript_tail(hook_input: dict) -> list[str]:
+    """The last TRANSCRIPT_TAIL_BYTES of the session transcript, as lines.
+
+    Returns [] for anything unreadable. Every caller treats an empty result as
+    "no signal", and every signal here can only make the guard QUIETER, so
+    failing to read must fail toward the existing behaviour: block as before.
+    """
+    path = hook_input.get("transcript_path")
+    if not isinstance(path, str) or not path.strip():
+        return []
+    try:
+        with open(path.strip(), "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - TRANSCRIPT_TAIL_BYTES))
+            raw = handle.read()
+    except OSError:
+        return []
+    text = raw.decode("utf8", errors="replace")
+    lines = text.split("\n")
+    # A window that starts mid-record leaves a fragment that will not parse.
+    return lines[1:] if size > TRANSCRIPT_TAIL_BYTES and len(lines) > 1 else lines
+
+
+def transcript_signals(hook_input: dict) -> dict:
+    """What the transcript knows that the Stop payload does not.
+
+    `pending`: tool_use ids whose work went async and never reported back.
+    `last_compact_at`: when this session was last compacted, if it was.
+
+    ⚠ VERIFIED FOR BACKGROUND `Bash` TASKS ONLY. Agent-tool subagents are
+    documented to report through the same completion channel, and the join key
+    used here (`tool_use_id`) is not tool-specific, but no transcript available
+    when this was written contained one — every `isSidechain` count was zero. If
+    a coordinator's subagents are NOT standing the guard down, that is the first
+    thing to check, and the check is: grep the transcript for the launch phrases
+    above and see which one the Agent tool actually emits.
+    """
+    launched: set[str] = set()
+    done: set[str] = set()
+    # A launch announces a human-readable task id; a completion carries both that
+    # and the tool_use_id. Keeping the alias means EITHER key clears the wait,
+    # which is the difference between a guard that works and one that nags about
+    # a task that finished under a name it did not recognise.
+    alias: dict[str, str] = {}
+    last_compact = None
+    for line in transcript_tail(hook_input):
+        if not line.strip():
+            continue
+        if _COMPACT_BOUNDARY in line:
+            try:
+                record = json.loads(line)
+                confirmed = record.get("subtype") == _COMPACT_BOUNDARY
+            except (ValueError, TypeError, AttributeError):
+                confirmed, record = False, {}
+            stamp = parse_deadline(record.get("timestamp")) if confirmed else None
+            if stamp and (last_compact is None or stamp > last_compact):
+                last_compact = stamp
+        for match in _TASK_DONE.finditer(line):
+            done.add(match.group(1) or match.group(2))
+        if "tool_result" not in line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        message = record.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_result":
+                continue
+            tool_use_id = block.get("tool_use_id")
+            if not isinstance(tool_use_id, str):
+                continue
+            # Match the ANNOUNCEMENT, not the word "background" — a grep whose
+            # own output mentions backgrounding would otherwise register as a
+            # launch, and this file has spent three separate incidents on
+            # patterns that matched prose about the thing instead of the thing.
+            match = _ASYNC_LAUNCH.search(json.dumps(block.get("content")))
+            if match:
+                launched.add(tool_use_id)
+                task_id = match.group(1) or match.group(2)
+                if task_id:
+                    alias[tool_use_id] = task_id
+    pending = {
+        t for t in launched if t not in done and alias.get(t) not in done
+    }
+    return {"pending": pending, "last_compact_at": last_compact}
+
+
 # ── Hook output shapes ────────────────────────────────────────────────────────
 
 
@@ -567,8 +775,62 @@ def open_items_text(goal: dict, results: list[CheckResult]) -> str:
     return "\n".join(lines)
 
 
-def block_reason(goal: dict, results: list[CheckResult], deadline) -> str:
-    parts = [open_items_text(goal, results)]
+def short_open_items_text(results: list[CheckResult]) -> str:
+    """The open items WITHOUT the goal preamble, for a repeat block.
+
+    The preamble is several thousand tokens and is byte-identical every turn, so
+    reprinting it at every block buys nothing and costs the context the agent
+    needs to actually do the work. What changes between blocks is the check
+    results, so that is what a repeat says. The full text comes back on the
+    schedule in `wants_full_reason` — above all, after a compact.
+    """
+    failed = [r for r in results if not r.ok]
+    lines = [
+        "GOAL STILL OPEN (short form — the full goal text is unchanged in "
+        ".goal/active.json, and is reprinted here after a compact).",
+        "",
+        f"{len(failed)} of {len(results)} checks are still failing:",
+    ]
+    for r in failed:
+        detail = f" — {r.detail}" if r.detail else ""
+        lines.append(f"  ▢ {r.name}{detail}")
+    passed = len(results) - len(failed)
+    if passed:
+        lines.append("")
+        lines.append(f"The other {passed} are satisfied.")
+    return "\n".join(lines)
+
+
+def wants_full_reason(state: dict, signals: dict, goal: dict | None = None) -> bool:
+    """Whether this block should carry the whole goal text.
+
+    Four ways to earn it. The first is that there is nothing to save: a SHORT
+    goal costs less to reprint than the sentence explaining why it was not
+    reprinted, and abbreviating it makes the block longer. Then: nothing has been
+    printed yet; the transcript shows a COMPACT newer than the last full print,
+    which is the case that matters because a compact is precisely when the agent
+    lost the goal; or enough time has passed that a re-read is worth the tokens.
+    """
+    text = (goal or {}).get("goal") or ""
+    if len(text) < SHORT_FORM_MIN_GOAL_CHARS:
+        return True
+    last_full = parse_deadline(state.get("last_full_reason_at"))
+    if last_full is None:
+        return True
+    compact_at = signals.get("last_compact_at")
+    if compact_at and compact_at > last_full:
+        return True
+    return now_utc() - last_full >= _dt.timedelta(
+        minutes=FULL_REASON_INTERVAL_MINUTES
+    )
+
+
+def block_reason(
+    goal: dict, results: list[CheckResult], deadline, full: bool = True
+) -> str:
+    parts = [
+        open_items_text(goal, results) if full else short_open_items_text(results)
+    ]
     if deadline:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
         # Only worth saying when it is close enough to shape what to do next; a
@@ -626,6 +888,88 @@ def take_pause(root: Path) -> dict | None:
     return pending
 
 
+def handle_wait(root: Path, signals: dict) -> int | None:
+    """Stand down while launched background work has not reported back.
+
+    Returns an exit code when this turn was handled as a WAIT, or None to carry
+    on into the checks. Three outcomes:
+
+    * nothing pending, or the wait has run past WAIT_CEILING_HOURS — None, and
+      the ordinary block path runs. The ceiling is what stops a KILLED task from
+      buying silence forever: a task that was stopped never sends a completion,
+      so it stays "pending" for the rest of the session.
+    * pending and the heartbeat is not due — stand down silently.
+    * pending and the heartbeat IS due — block, but with a SHORT reason asking
+      about the subagents rather than the goal preamble. Work in flight hangs,
+      and a coordinator waiting on a dead task is indistinguishable from a
+      healthy one until somebody asks.
+
+    The wait resets whenever the outstanding SET changes, so a coordinator whose
+    subagents are landing one by one keeps earning fresh quiet, while one whose
+    set has not moved gets asked about it on the hour.
+    """
+    pending = signals.get("pending") or set()
+    if not pending:
+        return None
+    state = load_json(state_path(root)) or {}
+    key = ",".join(sorted(pending))
+    if state.get("wait_key") != key:
+        # A new or changed wait: something returned, or something new launched.
+        state["wait_key"] = key
+        state["waiting_since"] = now_utc().isoformat()
+        state["last_wait_nudge_at"] = now_utc().isoformat()
+        state["waits"] = as_int(state.get("waits"), 0) + 1
+        write_state(root, state)
+        emit(
+            {
+                "systemMessage": (
+                    f"Goal guard: standing down — {len(pending)} background "
+                    "task(s) launched from this session have not reported back. "
+                    "The goal is STILL ARMED. It will ask how they are doing in "
+                    f"{WAIT_HEARTBEAT_MINUTES:.0f} minutes if none of them return."
+                )
+            }
+        )
+        return 0
+
+    since = parse_deadline(state.get("waiting_since"))
+    if since and now_utc() - since >= _dt.timedelta(hours=WAIT_CEILING_HOURS):
+        # No longer a credible wait. Fall through and block as normal.
+        return None
+
+    last_nudge = parse_deadline(state.get("last_wait_nudge_at")) or since
+    due = last_nudge is None or now_utc() - last_nudge >= _dt.timedelta(
+        minutes=WAIT_HEARTBEAT_MINUTES
+    )
+    if not due:
+        state["waits"] = as_int(state.get("waits"), 0) + 1
+        write_state(root, state)
+        return 0
+
+    state["last_wait_nudge_at"] = now_utc().isoformat()
+    write_state(root, state)
+    held = (now_utc() - since).total_seconds() / 3600.0 if since else 0.0
+    emit(
+        {
+            "decision": "block",
+            "reason": (
+                f"BACKGROUND WORK HAS NOT MOVED IN {held:.1f}h. The same "
+                f"{len(pending)} task(s) have been outstanding since this wait "
+                "began, and nothing has reported back since. That is either "
+                "long-running work or a HUNG one, and from here they look "
+                "identical.\n\nCheck on them NOW — read each one's output, and "
+                "kill and relaunch anything wedged. A task that was stopped "
+                "never sends a completion, so it stays outstanding forever and "
+                "this will keep asking.\n\nIf they are all healthy, say so in "
+                "one line and go back to waiting; do NOT start unrelated work "
+                "to fill the time. The goal is still armed and unchanged in "
+                ".goal/active.json."
+            ),
+        }
+    )
+    return 0
+
+
 # ── Modes ─────────────────────────────────────────────────────────────────────
 
 
@@ -674,6 +1018,15 @@ def mode_stop(root: Path, hook_input: dict) -> int:
         )
         return 0
 
+    # Waiting on background work is not stopping. Decided BEFORE the checks for
+    # the same reason the pause is: the point is to hand the turn back now, and
+    # the checks take minutes. A coordinator that yields ten times an hour must
+    # not pay a full `cargo check --all-targets` for each yield.
+    signals = transcript_signals(hook_input)
+    waited = handle_wait(root, signals)
+    if waited is not None:
+        return waited
+
     results = run_checks(goal, root)
     if results and all(r.ok for r in results):
         clear_goal(root, "all checks passed")
@@ -719,6 +1072,10 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             # A clean run: the crash fuse in `main` counts consecutive crashes,
             # so reaching here at all means the guard is working.
             "crashes": 0,
+            # Reaching an ordinary block means nothing is in flight (or the wait
+            # ran past its ceiling). Dropping the key here keeps `--status`
+            # honest and makes the NEXT wait start its clock fresh.
+            "wait_key": None,
         }
     )
     write_state(root, state)
@@ -759,7 +1116,16 @@ def mode_stop(root: Path, hook_input: dict) -> int:
         )
         return 0
 
-    emit({"decision": "block", "reason": block_reason(goal, results, deadline)})
+    full = wants_full_reason(state, signals, goal)
+    if full:
+        state["last_full_reason_at"] = now_utc().isoformat()
+        write_state(root, state)
+    emit(
+        {
+            "decision": "block",
+            "reason": block_reason(goal, results, deadline, full=full),
+        }
+    )
     return 0
 
 

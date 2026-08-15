@@ -1,6 +1,32 @@
 # Instance lifetime, provenance and persistence — Engine 1.0 program
 
-**State:** OPEN — the definition/instance/lifetime separation is settled; exact identity types are not.
+**State:** ⭐ **MOSTLY BUILT AT HEAD (measured 2026-08-14) — read the mapping
+below before designing anything.** The definition/instance/lifetime separation is
+settled AND implemented, under names this document does not use. What is still
+genuinely open is **persistence policy** and **the explicit terminal transition**.
+
+## ⛔ What already exists, and what to call it
+
+| This document's question | HEAD's answer |
+|---|---|
+| What authored thing is this? | `WornCharacter(CharacterId)` + `PreparedCharacterRegistry` — and it already splits NAMING a template from APPLYING it (`RecharacterizeBody`) |
+| Which runtime occurrence? | **`SimId`** — deterministic, namespaced (`placement:`/`slot:`/`encounter:`/`spawned`/`strike`), dynamic spawns minted as `(spawner SimId, per-spawner counter)`; every snapshot row and checksum projection keys on it |
+| Why does it exist? | **`SpawnOrigin`** — `Authored` / `ProviderStaged` / `Dynamic{parent: SimId, sequence}`, `parent` non-optional, verified against the construction roster, encoded into rollback blobs |
+| How long should it last? | four ENFORCED scopes, each owning a sweep: `RoomScopedEntity`, `ModeScopedEntity`, `RoundScopedEntity`, `SessionScopedEntity`, plus per-domain TTLs and `EncounterCleanupPolicy` |
+
+⭐ **`SpawnOrigin`'s module already states this plan's own rule** — *provenance is
+data, never recovered by parsing an id string* — and `round.rs` states the hardest
+one unprompted: *"round scope is a LIFETIME, not a provenance; where an entity
+CAME FROM does not say how long it should live."*
+
+⛔⛔ **the only gap found was a FALSE DECLARATION.** `RunScopedEntity` and
+`PersistentEntity`, with `spawn_run_scoped` / `spawn_persistent`, had zero
+producers and zero consumers and no sweep read them — so two of `SpawnScopedExt`'s
+four verbs silently did nothing, and a call site declaring "dies with the run"
+got an entity outliving every boundary the engine has. Both are deleted.
+`RunScopedEntity` duplicated `SessionScopedEntity`; `PersistentEntity` was a
+second spelling of absence, since every sweep culls on marker *presence*. ⇒ **a
+scope is spelled here only if a sweep enforces it.**
 
 ## Goal
 

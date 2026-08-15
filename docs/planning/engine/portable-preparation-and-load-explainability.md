@@ -126,13 +126,11 @@ the single-threaded browser that decides whether that is 18ms or 300ms, and that
 number now records there — which is the measurement to take on the next browser
 run before any redesign.
 
-## ⛔⛔ The prefetch is ANTI-CORRELATED with cost
+## The prefetch skips the expensive rooms ON PURPOSE
 
-`prefetch_hit=false` on the most expensive transition in the game, and it is not
-a timing accident. `NEIGHBOR_PREFETCH_ROOM_BUDGET` is **4 rooms**, justified in
-its own comment by *"every corridor and lab in `sandbox.ldtk` has at most four
-exits, so ordinary traversal is unaffected and only the hubs are trimmed"*. Both
-halves of that are true. Counted at HEAD:
+`prefetch_hit=false` on the most expensive transition in the game, and the first
+reading of that was wrong. `NEIGHBOR_PREFETCH_ROOM_BUDGET` is **4 rooms**, and
+counted at HEAD:
 
 ```text
 central_hub_main       21 loading zones   <- holds the Hall door
@@ -143,37 +141,39 @@ drain_alley             5
 everything else       1-4
 ```
 
-So the rooms whose preparation is cheap are the ones that always get prefetched,
-and the rooms behind a hub — the Hall, the boss hall, every destination a player
-actually chooses from — are the ones structurally guaranteed to miss. The budget
-was added to stop a hub's fan-out stuttering the launch (2026-07-30, from Jon's
-own desktop timeline), and the shape it produced is a cache that covers exactly
-what does not need covering.
+So the cache always covers the cheap corridors and never covers the destinations
+behind a hub. That looks like a cache that is anti-correlated with cost, and the
+obvious move is to raise or reorder the budget so the Hall gets prefetched while
+the player stands in the hub choosing a door.
 
-✔ **and the prefetch does NOT re-derive itself every frame — measured, after
-predicting that it did.** The refresh condition ORs `room_set.is_changed()`, and
-`RoomSet` is rollback-registered state; that is exactly the shape which made
-`advance_room_transition_content_epoch_system` bump its epoch every frame under a
-rollback host, repaired there by comparing room ids by value. The same reasoning
-predicted the same defect here. `a_settled_neighbourhood_stops_preparing_itself`
-reports **zero preparations across 60 idle frames** on the shipped GGRS host, so
-the analogy was good enough to act on and wrong. It stays as a guard, and the
-counter it needed — `preparations`, because every existing one describes
-PROMOTIONS — is what could tell the difference at all. A prefetch that rebuilt
-its neighbourhood every frame would have a perfect hit rate.
+⛔⛔ **THAT MOVE WAS ALREADY MADE, MEASURED, AND REVERSED — the constant's own doc
+carries the numbers.** Unbounded prefetch from the hub, 2026-07-30, from Jon's
+desktop timeline capture:
 
-⚠ **and the hub is the right place to pay.** A player standing in a hub choosing
-a door is idle; the door itself is the one moment they are not. Moving the Hall's
-18ms there is strictly better — *if* it is spread rather than spent at once,
-which is the same budgeted-realization question as everything else here.
+```text
+staged cast on entering the Ambition route:  162 characters
+decoded in the 10-15s window:                +157 images, +357.8 MP
+resident image memory:                       1803 MB
+frames in that 5s window:                    91   (p99 1372ms, max 1437ms)
+```
 
-⛔ **recorded, not cut.** Raising or reordering the budget without a work
-measure would re-create the launch stutter it exists to prevent. The redesign is
-"bound the prefetch by WORK, and order it by expected cost", and it needs the
-browser numbers first. ✔ note the prefetch does now prepare its four neighbours
-at all — before the seven-roads fix below, every neighbour containing a
-character-built body was refused and re-attempted every frame, so the cache was
-empty AND expensive.
+⭐ **and the reason it hurts is the half that inverts the argument: a hub is not
+idle time.** The door transition's wait is COVERED — that is what the load
+foreground is for, and `hall_transition_cover` pins that it holds. Prefetching
+moves that same work to a moment when the player is playing and nothing is
+covering anything, for up to 21 rooms they may never enter. Trading a covered
+wait for an uncovered hitch is a straight loss, and multiplying it by 21 is the
+1372ms frame.
+
+⚠ **so the budget is correct and this section is a correction to an earlier
+reading of it.** The prefetch cannot be the answer for expensive rooms. The
+expense itself is the answer: a room whose staging costs 18ms of CPU and hundreds
+of megabytes of resident images is expensive wherever it is paid, and the only
+move that helps is making that cost smaller or spreading it under the cover that
+already exists.
+
+⚠ **1803 MB resident is its own finding** and belongs to the same campaign. On a
+browser that number is not a stutter, it is a tab that dies.
 
 **Measure before redesigning.** The numbers that still decide the shape: how many
 of the demanded characters were already materialized, how many needed new work,

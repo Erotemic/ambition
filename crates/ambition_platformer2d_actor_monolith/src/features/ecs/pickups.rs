@@ -4,6 +4,65 @@ use super::*;
 use crate::features::SetFlagRequested;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
+/// **THE BODIES THAT COLLECT WHAT THEY TOUCH — one population, three systems.**
+///
+/// Touch-collection existed twice with two different answers to "who collects",
+/// and the two were wrong in OPPOSITE directions:
+///
+/// * `collect_ecs_pickups` / [`magnetize_pickups`] claimed `With<PlayerEntity>`
+///   — every body in the player population, which is right for a couch (four
+///   seats, four collectors, each credited on its own wallet) and **excludes a
+///   possessed body**, because possession moves `Brain::Player` onto an ACTOR
+///   and an actor carries no `PlayerEntity`. A possessed body walked through
+///   coins.
+/// * [`collect_world_items`](crate::items::world_item::collect_world_items)
+///   read the `ControlledSubject` resource — ONE body — which includes the
+///   possessed body and **excludes couch seats 2..N**. Seat two walked through
+///   mushrooms. That half was not in the report; it is the same defect seen
+///   from the other side, and it is why "just unify onto `ControlledSubject`"
+///   would have been a regression.
+///
+/// Neither existing population is the right one, so the union is spelled once
+/// here and read by all three systems. It is a strict SUPERSET of both: no body
+/// that collected before stops collecting.
+///
+/// ⚠ **the filter is only half of the answer.** `TemporaryControl` rides on
+/// EVERY autonomous actor (its `Default` is `Autonomous`), so `With` it selects
+/// the whole cast; [`body_collects_on_touch`] applies the value test. The filter
+/// exists to keep the iteration off bodies that can never qualify, not to decide
+/// anything.
+///
+/// ⛔ **`pickup_held_item_system` is deliberately NOT in this population**, and
+/// grouping it with these was the report's third mis-reading. Grabbing a weapon
+/// off the floor SPENDS AN ATTACK PRESS on one body's `ActorControl`; walking
+/// into a coin spends nothing. Its `ControlledSubject` is "the body whose press
+/// this is", which is a different question from "who is standing on the loot".
+pub type TouchCollectorFilter = bevy::prelude::Or<(
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    bevy::prelude::With<crate::features::TemporaryControl>,
+)>;
+
+/// The value half of [`TouchCollectorFilter`]: a body collects on touch if it is
+/// in the player population, or if a player is currently driving it through
+/// possession.
+///
+/// ⚠ **a home avatar whose brain has been vacated keeps collecting**, because it
+/// keeps `PlayerEntity`. That is deliberate and is NOT the possession case
+/// leaking: possession is scoped to slot 0, and narrowing this to "carries a
+/// live player brain" would silently drop any body whose brain arrives later
+/// than its markers do. Widening is safe here; narrowing is what costs a game
+/// its coins.
+pub fn body_collects_on_touch(
+    in_player_population: bool,
+    control: Option<&crate::features::TemporaryControl>,
+) -> bool {
+    in_player_population
+        || matches!(
+            control,
+            Some(crate::features::TemporaryControl::Player { .. })
+        )
+}
+
 /// **A pickup that comes to you.** Absent by default — a pickup with no
 /// `PickupMagnet` sits where it landed and is collected by touching it.
 ///
@@ -78,10 +137,15 @@ pub struct PickupMagnetize;
 pub fn magnetize_pickups(
     time: Res<ambition_time::WorldTime>,
     // The SAME population `collect_ecs_pickups` claims with, so a pickup cannot
-    // be pulled toward a body that is not allowed to pick it up.
+    // be pulled toward a body that is not allowed to pick it up. Now spelled
+    // ONCE, in `TouchCollectorFilter`, instead of restated per system.
     collectors: Query<
-        &ambition_platformer2d_core::BodyKinematics,
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Option<&crate::features::TemporaryControl>,
+        ),
+        TouchCollectorFilter,
     >,
     mut pickups: Query<
         (&mut CenteredAabb, &PickupMagnet),
@@ -101,7 +165,8 @@ pub fn magnetize_pickups(
         // return" would be a coin flip between two players.
         let Some((to_collector, dist)) = collectors
             .iter()
-            .map(|body| {
+            .filter(|(_, is_player, control)| body_collects_on_touch(*is_player, *control))
+            .map(|(body, _, _)| {
                 let delta = body.pos - aabb.center;
                 (delta, delta.length())
             })
@@ -132,9 +197,17 @@ pub struct PickupCollect;
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<
-        (Entity, &ambition_platformer2d_core::BodyKinematics),
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    // See `TouchCollectorFilter`: the possessed body used to be missing from
+    // this population entirely, so a body you had taken over walked through
+    // coins while it could still pick up axes and mushrooms.
+    collectors: Query<
+        (
+            Entity,
+            &ambition_platformer2d_core::BodyKinematics,
+            bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Option<&crate::features::TemporaryControl>,
+        ),
+        TouchCollectorFilter,
     >,
     pickups: Query<
         (
@@ -156,22 +229,27 @@ pub fn collect_ecs_pickups(
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
-    if player.is_empty() {
-        return;
-    }
+    // ⛔ the whole-system `if player.is_empty() { return; }` that used to stand
+    // here is gone. With a population expressed as a filter plus a value test it
+    // would no longer mean "nobody can collect" — `TouchCollectorFilter` matches
+    // every autonomous actor — and a system-wide return on a population guess is
+    // exactly the shape that has switched whole subsystems off in this repo. The
+    // per-pickup `find` below already yields nothing when nobody qualifies.
     for (entity, name, aabb, pickup, collected) in &pickups {
         if collected.is_some() {
             continue;
         }
-        // Find the first overlapping player. The heal is then routed
-        // to that specific player via `PlayerHealRequested::target` so
+        // Find the first overlapping collector. The heal is then routed
+        // to that specific body via `PlayerHealRequested::target` so
         // a non-primary collector still actually heals themselves
         // (OVERNIGHT-TODO #17.6 bridge). Single-player behavior is
         // unchanged: the iterator has one entity, and the target ==
         // primary fallback path lands the heal on the same player.
-        let Some((collector_entity, _)) = player
-            .iter()
-            .find(|(_, kin)| aabb.aabb().strict_intersects(kin.aabb()))
+        let Some((collector_entity, ..)) =
+            collectors.iter().find(|(_, kin, is_player, control)| {
+                body_collects_on_touch(*is_player, *control)
+                    && aabb.aabb().strict_intersects(kin.aabb())
+            })
         else {
             continue;
         };

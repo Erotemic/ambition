@@ -221,7 +221,19 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 29;
+/// ⚠ **v30 (2026-08-15): ITEM CUSTODY joins the wire format.** A physical item
+/// used to be despawned when a body picked it up and a fresh one spawned when it
+/// was thrown, so "who has this axe" was carried by the existence of an entity
+/// and GGRS reproduced it through the entity anchor. `item.item_custody` is the
+/// state that took that job over: it decides, on every later frame, whether the
+/// item is drawn, stepped by the item physics, and grabbable by anyone else. A
+/// peer that cannot reconstruct it resimulates with the same axe in a hand and
+/// on the floor.
+///
+/// ⭐ it REPLACES a despawn/spawn pair rather than adding a fact. What is
+/// genuinely new is that the item now KEEPS its identity across the transfer —
+/// an authored ground item's `SimId::placement(...)` used to die at the pickup.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 30;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

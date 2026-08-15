@@ -18,10 +18,10 @@
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
+use crate::features::ecs::pickups::TouchCollectorFilter;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// A collectible resting in the world. Touch it (AABB overlap) and its
 /// [`payload`](WorldItem::payload) is applied to the collecting body, then it
@@ -117,39 +117,78 @@ pub fn spawn_moving_world_item(
         .id()
 }
 
-/// **Touch-to-collect.** The [`ControlledSubject`] (the driven body — player or
-/// possessed) collects a `WorldItem` it overlaps: the item's row is equipped
-/// into [`WornEquipment`] (inserted if the body wore none), and the item is
-/// despawned. Granted verbs are reconciled from the worn set, not applied here.
+/// **Touch-to-collect.** A body in the touch-collect population
+/// ([`TouchCollectorFilter`]) collects a `WorldItem` it overlaps: the item's row
+/// is equipped into [`WornEquipment`] (inserted if the body wore none), and the
+/// item is despawned. Granted verbs are reconciled from the worn set, not
+/// applied here.
 ///
-/// At most one item is collected per frame (`break` after the first, matching
-/// [`pickup_held_item_system`](super::pickup::pickup_held_item_system)); the
-/// demo's items are spatially separated, so "which one, if several overlap" —
-/// the only query-order dependence here — never arises in practice.
+/// ⛔ **this read `Res<ControlledSubject>` and served ONE body**, which made it
+/// a fork with `collect_ecs_pickups` — and the two were wrong in opposite
+/// directions. A coin was collectible by all four couch seats and not by a
+/// possessed body; a mushroom was collectible by a possessed body and not by
+/// seat two. One population now answers both, and it is a superset of each.
+/// The reasoning and the counter-example are on [`TouchCollectorFilter`].
+///
+/// ⚠ **the item is DESPAWNED, and that is not the destroy-and-recreate this
+/// slice removed elsewhere.** A `WorldItem` is a CONSUMABLE: its payload
+/// transfers into the collector's worn set and the object genuinely ends. A
+/// [`GroundItem`](super::pickup::GroundItem) is an INSTANCE that changes hands,
+/// which is why that one keeps its entity and its `SimId` —
+/// see [`ItemCustody`](super::pickup::ItemCustody).
+///
+/// At most one item per body per frame (a body that has collected is `spent`
+/// for the rest of the tick — with several collectors the old `break` would
+/// have stopped the whole loop rather than that one body); the demo's items are
+/// spatially separated, so "which one, if several overlap" — the only
+/// query-order dependence here — never arises in practice.
 pub fn collect_world_items(
     mut commands: Commands,
-    controlled: Res<ControlledSubject>,
     mut bodies: Query<
-        (&BodyKinematics, Option<&mut WornEquipment>),
-        // A body the game is driving does not shop. Collection is proximity-
-        // based, so blanking the control frame cannot stop it — a corpse held
-        // where it fell would still pocket whatever it landed on.
-        Without<ambition_characters::brain::ScriptedControl>,
+        (
+            Entity,
+            &BodyKinematics,
+            bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            Option<&crate::features::TemporaryControl>,
+            Option<&mut WornEquipment>,
+        ),
+        (
+            // A body the game is driving does not shop. Collection is proximity-
+            // based, so blanking the control frame cannot stop it — a corpse held
+            // where it fell would still pocket whatever it landed on.
+            Without<ambition_characters::brain::ScriptedControl>,
+            TouchCollectorFilter,
+        ),
     >,
     items: Query<(Entity, &WorldItem)>,
 ) {
-    let Some(subject) = controlled.0 else {
+    // The eligible collectors and their boxes, read once. Taken as a snapshot so
+    // the equip below can take the body mutably without the read still borrowing
+    // the query — and so a body's own box cannot shift under it mid-loop.
+    let collectors: Vec<(Entity, ae::Aabb)> = bodies
+        .iter()
+        .filter(|(_, _, is_player, control, _)| {
+            crate::features::ecs::pickups::body_collects_on_touch(*is_player, *control)
+        })
+        .map(|(entity, kin, _, _, _)| (entity, ae::Aabb::new(kin.pos, kin.size * 0.5)))
+        .collect();
+    if collectors.is_empty() {
         return;
-    };
-    let Ok((kin, worn)) = bodies.get_mut(subject) else {
-        return;
-    };
-    let body_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+    }
 
+    // One item per body per frame, so two items landing on one bare body cannot
+    // have the second `WornEquipment::new` overwrite the first.
+    let mut spent: Vec<Entity> = Vec::new();
     for (item_entity, item) in &items {
-        if !body_aabb.strict_intersects(item.aabb()) {
+        let Some(&(body, _)) = collectors
+            .iter()
+            .find(|(body, aabb)| !spent.contains(body) && aabb.strict_intersects(item.aabb()))
+        else {
             continue;
-        }
+        };
+        let Ok((_, _, _, _, worn)) = bodies.get_mut(body) else {
+            continue;
+        };
         match &item.payload {
             // Collecting RECORDS the row and nothing else. Any verb the row grants
             // is applied by `reconcile_equipment_grants`, which derives the live
@@ -163,13 +202,13 @@ pub fn collect_world_items(
                 Some(mut worn) => worn.equip(row.clone()),
                 None => {
                     commands
-                        .entity(subject)
+                        .entity(body)
                         .insert(WornEquipment::new(vec![row.clone()]));
                 }
             },
         }
+        spent.push(body);
         commands.entity(item_entity).despawn();
-        break;
     }
 }
 
@@ -199,10 +238,16 @@ mod tests {
         }
     }
 
+    /// A body in the touch-collect population — the marker a couch seat carries.
     fn app_with_subject(pos: ae::Vec2) -> (App, Entity) {
         let mut app = App::new();
-        let body = app.world_mut().spawn(kin(pos)).id();
-        app.insert_resource(ControlledSubject(Some(body)));
+        let body = app
+            .world_mut()
+            .spawn((
+                kin(pos),
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ))
+            .id();
         app.add_systems(Update, collect_world_items);
         (app, body)
     }
@@ -297,5 +342,88 @@ mod tests {
             .get::<WornEquipment>(body)
             .expect("collecting a granting row still records it");
         assert!(worn.wears("spark"), "the granting row is worn");
+    }
+
+    /// **BOTH sides of the fork this system was on, in one test.**
+    ///
+    /// The invariant: the population that collects a touched item is the union
+    /// of the player population and any body a player is currently driving —
+    /// not one body, and not `PlayerEntity` alone.
+    ///
+    /// ⚠ **it is a paired assertion because either half alone passes on the
+    /// broken code.** A test with only the second couch seat is green under the
+    /// old `PlayerEntity`-filtered `collect_ecs_pickups`; a test with only the
+    /// possessed body is green under the old `ControlledSubject` lookup. What
+    /// neither population can do is BOTH, and that is what is asserted.
+    ///
+    /// Falsified by reverting each half in turn: with the collector filtered to
+    /// a lone `ControlledSubject` the seat-two mushroom is left standing, and
+    /// with it filtered to `With<PlayerEntity>` the possessed body's is.
+    #[test]
+    fn a_second_seat_and_a_possessed_body_both_collect() {
+        let mut app = App::new();
+        app.add_systems(Update, collect_world_items);
+
+        // Seat two: in the player population, and NOT the driven subject.
+        let seat_two = app
+            .world_mut()
+            .spawn((
+                kin(ae::Vec2::new(-400.0, 0.0)),
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ))
+            .id();
+        // A possessed actor: no `PlayerEntity`, driven through possession.
+        let possessed = app
+            .world_mut()
+            .spawn((
+                kin(ae::Vec2::new(400.0, 0.0)),
+                crate::features::TemporaryControl::Player {
+                    controller: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                },
+            ))
+            .id();
+        // An ordinary autonomous actor is in the query's FILTER (every actor
+        // carries `TemporaryControl`) and must still not collect — the poison
+        // for widening the filter without applying the value test.
+        let bystander = app
+            .world_mut()
+            .spawn((
+                kin(ae::Vec2::new(0.0, 0.0)),
+                crate::features::TemporaryControl::Autonomous,
+            ))
+            .id();
+
+        for pos in [
+            ae::Vec2::new(-400.0, 0.0),
+            ae::Vec2::new(400.0, 0.0),
+            ae::Vec2::ZERO,
+        ] {
+            app.world_mut().spawn(WorldItem::equipping(
+                armor_row(),
+                pos,
+                ae::Vec2::new(12.0, 12.0),
+            ));
+        }
+
+        app.update();
+
+        assert!(
+            app.world()
+                .get::<WornEquipment>(seat_two)
+                .is_some_and(|w| w.wears("grow_cap")),
+            "a second couch seat collects what it touches — it did not while this \
+             system served a single `ControlledSubject`",
+        );
+        assert!(
+            app.world()
+                .get::<WornEquipment>(possessed)
+                .is_some_and(|w| w.wears("grow_cap")),
+            "a possessed body collects what it touches — it would not under a \
+             `With<PlayerEntity>` population",
+        );
+        assert!(
+            app.world().get::<WornEquipment>(bystander).is_none(),
+            "an autonomous actor standing on an item must not equip it",
+        );
     }
 }

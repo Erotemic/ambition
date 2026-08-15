@@ -183,10 +183,106 @@ impl Plugin for ItemPickupSimulationPlugin {
 const PICKUP_HALF: f32 = 18.0;
 const THROW_AHEAD: f32 = 48.0;
 
+/// **WHERE A PHYSICAL ITEM IS — the state that replaced destroy-and-recreate.**
+///
+/// An item entity used to be DESPAWNED on pickup and a fresh one SPAWNED on
+/// throw, so the axe you threw was a different object from the axe you picked
+/// up: same spec, new entity, and — for an LDtk-authored ground item, which the
+/// construction executor stamps with `SimId::placement(spec.id)` — a **destroyed
+/// identity**. Nothing downstream could ask "is this the same axe": not a
+/// snapshot row, not a desync report, not a save file.
+///
+/// So custody is a VALUE the item carries, never the presence or absence of the
+/// item itself. ⛔ **retract by resetting, never by removing**: expressing "no
+/// longer lying on the floor" by deleting the entity (or the `GroundItem`
+/// component) drops it out of every query that needs it — including the throw,
+/// which then has nothing to hand back and has to invent a replacement.
+///
+/// ## Which items are INSTANCES and which are QUANTITIES
+///
+/// This component is for the first kind only, and the split is the deliverable:
+///
+/// * **INSTANCE** — [`GroundItem`]. One physical object with a place in the
+///   world: an axe, a javelin, a bomb, the gun-sword. It is authored at a
+///   position, it falls, it can be thrown through a portal, and *which one it
+///   is* is a fact the world can be asked about. It gets an identity and it
+///   keeps it across custody.
+/// * **QUANTITY** — a `PickupFeature` carrying
+///   `PickupKind::Currency`/`Health`, and the `counts` table in `OwnedItems`.
+///   A coin has no individuality worth preserving: two coins are the same coin,
+///   and what survives collection is a NUMBER on the collector, not an object.
+///   Its entity is a DISPENSER of that number, which is why collection marks it
+///   `Collected` and credits a wallet rather than moving anything.
+/// * **CONSUMABLE** — [`WorldItem`](crate::items::world_item::WorldItem). Touch
+///   it and its equipment row transfers to the body; the object itself ends.
+///   That despawn is a real end of life, not a custody change, so it stays.
+///
+/// ⚠ **the inventory leg of `world → held → inventory → world` is NOT closed,
+/// and cannot be here.** `OwnedItems` is a process-global count table with no
+/// row per object, so an instance stowed into it becomes a quantity and its
+/// identity is gone. Equipping from the menu therefore MINTS a fresh instance
+/// on throw (see [`throw_held_item_system`]). That is not a bug to patch at this
+/// layer: **participant entitlement, body inventory, and physical custody are
+/// three different facts with three different owners**, and until the inventory
+/// is one of them there is no answer to *whose* inventory a possessed body
+/// fills. `equip_held_spec`/`unequip_held` keep the two current ends coherent —
+/// they are a migration seam, not the model.
+///
+/// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
+/// simulated, or collectible on a later frame, so a rewind that restored the
+/// wrong custody would leave an axe both in a hand and on the floor. Registered
+/// in `rollback::domains::actors` as `entity:item_custody` (clone + entity-set
+/// probe) with a paired `rollback_map_entities`, because the holder handle is
+/// remapped on load.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ItemCustody {
+    /// Lying in the world: drawn, simulated by [`ground_item_physics`], and
+    /// collectible.
+    #[default]
+    InWorld,
+    /// Carried by `holder`. The entity stays alive with all of its identity;
+    /// it simply stops being a thing in the world.
+    Held { holder: Entity },
+}
+
+impl ItemCustody {
+    /// True while the item is a thing in the world — the condition every
+    /// world-facing reader (physics, pickup, the drawn view, the harness's
+    /// observation) checks before it touches an item.
+    pub fn in_world(&self) -> bool {
+        matches!(self, Self::InWorld)
+    }
+
+    /// True iff `body` is the one carrying this item. How the throw finds the
+    /// object a hand is holding without the hand having to remember an entity.
+    pub fn held_by(&self, body: Entity) -> bool {
+        matches!(self, Self::Held { holder } if *holder == body)
+    }
+}
+
+impl bevy::ecs::entity::MapEntities for ItemCustody {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Self::Held { holder } = self {
+            *holder = mapper.get_mapped(*holder);
+        }
+    }
+}
+
 /// A held item resting in the world, pick-up-able with `Attack` when the
 /// player is empty-handed. Thrown items carry a `vel` and arc under gravity
 /// until they settle on a surface (`vel == ZERO` means resting).
+///
+/// ⭐ **[`ItemCustody`] is REQUIRED, not inserted at each spawn site.** There are
+/// eight production sites that build one (LDtk construction, the boss and actor
+/// death drops, the sandbox reset, the bomb and grenade debug spawns, the
+/// throw), and the `SimId`/`SimIdCounter` precedent in this repo is explicit
+/// about what happens to a pairing that each site has to remember: two of six
+/// forgot, and a shipped boss lost its summon. A required component makes
+/// "every ground item has a custody" a property of the TYPE, so a ninth spawn
+/// site cannot omit it and cannot default to a state that reads as "not in the
+/// world".
 #[derive(Component, Clone, Debug)]
+#[require(ItemCustody)]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
     pub pos: Vec2,
@@ -205,7 +301,7 @@ pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
     gravity: crate::physics::GravityCtx,
-    mut grounds: Query<&mut GroundItem>,
+    mut grounds: Query<(&mut GroundItem, &ItemCustody)>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -219,7 +315,14 @@ pub fn ground_item_physics(
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
-    for mut item in &mut grounds {
+    for (mut item, custody) in &mut grounds {
+        // A carried item has no independent motion — it is not in the world to
+        // fall through. Checked on custody rather than inferred from `vel ==
+        // ZERO`, because "resting" and "in a hand" are different states that
+        // happen to share a velocity, and only one of them may be stepped.
+        if !custody.in_world() {
+            continue;
+        }
         if item.vel == Vec2::ZERO {
             continue;
         }
@@ -445,6 +548,15 @@ pub fn unequip_portal_gun(
 /// held item is EXPLICITLY owned by the controlled body; the catalog grant lands
 /// on the global `OwnedItems` home inventory. One item at a time: a body already
 /// holding an item (or the portal gun) can't grab another.
+///
+/// ⚠ **this is a PRESS-gated action, and that is why it stays on one subject
+/// while the touch-collectors are body-generic.** Picking a weapon off the floor
+/// spends an Attack press on a specific body's `ActorControl`; walking into a
+/// coin spends nothing. The `ControlledSubject` here is not a player-centrism
+/// leftover — it is "the body whose press this is". The touch-collect fork lives
+/// in `features::ecs::pickups`.
+///
+/// ⛔ **it does not DESTROY the item.** See [`ItemCustody`].
 pub fn pickup_held_item_system(
     mut commands: Commands,
     controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
@@ -457,7 +569,7 @@ pub fn pickup_held_item_system(
     )>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
-    grounds: Query<(Entity, &GroundItem)>,
+    mut grounds: Query<(&mut GroundItem, &mut ItemCustody)>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
     let Some(player) = controlled.0 else {
@@ -481,7 +593,14 @@ pub fn pickup_held_item_system(
     }
     let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
     let mut input = input;
-    for (ground_entity, ground) in &grounds {
+    for (mut ground, mut custody) in &mut grounds {
+        // Only an item that is IN THE WORLD can be grabbed. Without this a
+        // second body could take an item straight out of the first body's hand,
+        // because the item entity is still alive — the exact class of bug the
+        // old despawn hid by destroying the evidence.
+        if !custody.in_world() {
+            continue;
+        }
         let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
         // AMBITION_REVIEW(discrete_ok): CC2 §3.3 GroundItem pickup — gated on a
         // deliberate `melee_pressed` while overlapping (the button-press branch
@@ -518,15 +637,33 @@ pub fn pickup_held_item_system(
             if let Some(input) = input.as_deref_mut() {
                 input.frame.attack_pressed = false;
             }
-            commands.entity(ground_entity).despawn();
+            // ⭐ **THE ITEM IS NOT DESTROYED — its custody changes.** This used
+            // to be `commands.entity(ground_entity).despawn()`, and with it went
+            // the item's `SimId`, its `SpawnOrigin`, and any possibility of the
+            // thing you throw being the thing you picked up.
+            *custody = ItemCustody::Held { holder: player };
+            // A carried item is not in flight. Zeroing here (rather than relying
+            // on the custody gate alone) also keeps the fuse arming honest:
+            // `arm_thrown_bombs` / `arm_thrown_gravity_grenades` treat "moving"
+            // as "thrown", and a bomb picked up mid-arc must not stay armed in
+            // a hand because its last world velocity was nonzero.
+            ground.vel = Vec2::ZERO;
             break;
         }
     }
 }
 
-/// Throw the held item: restore the stashed action set, detach `HeldItem`,
-/// and drop a `GroundItem` ahead of the player. Fires on `Shield + Attack`
-/// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
+/// Throw the held item: restore the stashed action set, detach `HeldItem`, and
+/// put the item back into the world ahead of the player. Fires on
+/// `Shield + Attack` for any item, or on a plain `Attack` for a pure throwable
+/// (throw-on-use).
+///
+/// ⭐ **"put back", not "spawn".** The object the body took custody of is still
+/// alive and still carries its identity, so the throw resets its
+/// [`ItemCustody`] and writes the launch onto it. A fresh instance is minted
+/// only when there is no object behind the hand at all — the inventory menu
+/// equips out of a count table — and that mint takes a `SimId::spawned` under
+/// the thrower.
 ///
 /// SUBJECT-GENERIC: acts on the
 /// [`ControlledSubject`](ambition_platformer2d_shared_tangle::markers::ControlledSubject)
@@ -552,6 +689,16 @@ pub fn throw_held_item_system(
         &mut ActionSet,
         &HeldItem,
         Option<&StashedActionSet>,
+    )>,
+    // The object this body is CARRYING, found by the custody it records rather
+    // than by the hand remembering an entity handle.
+    mut carried: Query<(&mut GroundItem, &mut ItemCustody)>,
+    // The thrower's identity stream, for the one case that genuinely mints a new
+    // object (see below). N3.1: a dynamically-spawned sim entity takes
+    // `(spawner SimId, per-spawner counter)`, never a global counter.
+    mut identities: Query<(
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter,
     )>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
@@ -581,6 +728,8 @@ pub fn throw_held_item_system(
     // gravity-relative, so the whole toss now flips with the field.
     let frame = ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
     let throw_pos = kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0));
+    // Forward + away-from-feet, in the local frame → world.
+    let throw_vel = frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP));
     // CUSTODY, one operation: the hand empties and the catalog's equipped slot
     // clears together. Throwing stows the weapon rather than losing it — the
     // thrower keeps catalog OWNERSHIP and can re-equip from the menu — so only
@@ -592,18 +741,44 @@ pub fn throw_held_item_system(
         stashed,
         owned.as_deref_mut(),
     );
-    // ...and the item reappears in the world. Where it goes is the caller's half
-    // of the transfer; that the body stopped holding it is `unequip_held`'s.
-    commands.spawn_room_scoped((
+    // ⭐ **RETURN THE OBJECT, do not manufacture a replacement.** The item this
+    // body took custody of is still a live entity carrying its own identity, so
+    // the throw resets its custody and writes the launch onto it. This used to
+    // be an unconditional `spawn_room_scoped`, which is why picking an authored
+    // axe up and dropping it produced an anonymous axe: `SimId::placement(...)`
+    // died at the pickup and nothing put it back.
+    if let Some((mut ground, mut custody)) = carried
+        .iter_mut()
+        .find(|(_, custody)| custody.held_by(player))
+    {
+        ground.pos = throw_pos;
+        ground.vel = throw_vel;
+        *custody = ItemCustody::InWorld;
+        return;
+    }
+    // ⚠ **NO OBJECT BEHIND THE HAND — materialize one.** A body can come to hold
+    // an item with no world instance at all: the inventory menu equips straight
+    // out of `OwnedItems`, which is a count table. Throwing that turns a
+    // QUANTITY into an INSTANCE, and an instance owes an identity, so it takes
+    // `SimId::spawned(thrower, counter.next())` here rather than joining the
+    // population of anonymous dropped items. This arm is the visible edge of the
+    // unclosed inventory leg described on [`ItemCustody`] — not a fallback that
+    // should quietly absorb the common case.
+    let minted = identities.get_mut(player).ok().map(|(id, mut counter)| {
+        ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, counter.next())
+    });
+    let mut thrown = commands.spawn_room_scoped((
         GroundItem {
             spec,
-            // Forward + away-from-feet, in the local frame → world.
-            vel: frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
+            vel: throw_vel,
             pos: throw_pos,
             half_extent: Vec2::splat(PICKUP_HALF),
         },
         Name::new("Ground item: thrown"),
     ));
+    if let Some(minted) = minted {
+        thrown.insert(minted);
+    }
 }
 
 // ---------------------------------------------------------------------------

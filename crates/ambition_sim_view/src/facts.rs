@@ -156,16 +156,31 @@ pub struct GroundItemFact {
     pub item_id: String,
 }
 
+/// ⚠ **only items that are IN THE WORLD.** A picked-up item is no longer
+/// destroyed — it keeps its entity and its identity and records that a body is
+/// carrying it (`ItemCustody`) — so "there is a `GroundItem` component" stopped
+/// meaning "there is an axe lying over there". The in-hand overlay is a separate
+/// view (`HeldItemView`) drawn from the holder, and publishing a carried item
+/// here would draw it twice: once in the hand and once on the floor where it was
+/// grabbed.
 pub fn rebuild_ground_items_view(
     mut view: ResMut<GroundItemsView>,
-    grounds: Query<&ambition_platformer2d_actor_monolith::items::pickup::GroundItem>,
+    grounds: Query<(
+        &ambition_platformer2d_actor_monolith::items::pickup::GroundItem,
+        &ambition_platformer2d_actor_monolith::items::pickup::ItemCustody,
+    )>,
 ) {
     view.0.clear();
-    view.0.extend(grounds.iter().map(|ground| GroundItemFact {
-        pos: ground.pos,
-        half_extent: ground.half_extent,
-        item_id: ground.spec.id.clone(),
-    }));
+    view.0.extend(
+        grounds
+            .iter()
+            .filter(|(_, custody)| custody.in_world())
+            .map(|(ground, _)| GroundItemFact {
+                pos: ground.pos,
+                half_extent: ground.half_extent,
+                item_id: ground.spec.id.clone(),
+            }),
+    );
 }
 
 /// Every walk-into world item's visual facts (position, box, the row it grants —

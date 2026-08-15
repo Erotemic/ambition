@@ -1548,3 +1548,66 @@ you expect to work.
 Next capture should answer: does `room transition N BEGIN a -> b` appear, and is
 there a matching retirement line? BEGIN without a retirement means the cover was
 never spawned, which is a different bug from the one this parked work assumed.
+
+---
+
+## The recovery fallback still ranks the repertoire by one number (2026-08-15)
+
+**Where:** `crates/ambition_characters/src/brain/fighter/decision.rs`, the `_`
+arm of `wants_attack`, right after the `endorsed_recovery` search.
+
+`RecoveryLens::best_route` was built to replace a static ranking with a kernel
+search: *"the kernel decides which authored action is useful; the repertoire only
+proposes."* That holds on the POSITIVE branch. On the negative branch — the
+search ran in `Situation::Recovery` and nothing it probed regained support — the
+decision falls through to `options.attacks.first()`, and in `Recovery` that list
+is `lifting_candidates` sorted by `lift_speed` descending. So the fallback is
+**the move that pushes hardest against gravity**, chosen before anything knew
+where the body was. `lifting_candidates`' own doc names the consequence:
+
+> If a caller ever takes `.first()` here as the recovery, the tiny-rising-aerial
+> trap is back.
+
+This is that caller.
+
+**Why it has been invisible.** It cannot fire wrong on a fighter with ONE lifting
+move, and until 2026-08-15 there was only one such fighter: George Booul authors
+a single lift (`excluded_middle`, his Up-B), so `.first()` is his recovery and
+the fallback is correct for him. The Pirate Admiral is the first body with two —
+`air_up` advertises 360 (a juggle aerial, authored as a *deliberate poison* for
+this affordance) and `grapple_line` advertises 300 (the move that actually gets
+him home, because its energy went sideways). `.first()` picks the juggle.
+
+**Why the branch is not rare.** The negative is deliberately pessimistic:
+perceived terrain only, every blast margin zeroed, a 2 s horizon, and a policy
+that presses only drift + jump + one burst. `RecoveryLens`' header spends four
+paragraphs saying a negative is a claim about the SEARCHER.
+
+**Why it was not fixed in the same pass.** The obvious repair is the one the
+movement half already has — `RefinedChoice::least_bad_movement` takes the line
+that dies latest when every line is fatal, and the recovery outlook carries the
+same kind of signal (`NoSupportFoundBy { reset }`: `Some` means every steering
+effort ended with the world killing the body, `None` means at least one was still
+going at the horizon). A `least_bad_route` on `RouteVerdict` falls straight out
+of it. What does NOT fall out is a falsifier: it needs a fixture where two routes
+fail DIFFERENTLY, and constructing one requires calibrating a stage, a horizon
+and two bursts against the real kernel. A reasoned falsifier is not a falsifier
+here, so the behaviour change was left unmade rather than shipped blind. ⚠ note
+also that "press nothing when nothing regains" is NOT the safe default — it would
+regress George, whose single-lift fallback is currently right.
+
+**What landed instead: the measurement.** `fighter_decision` now publishes
+`situation`, `attack` (the selected move id), `recovery_searched`,
+`recovery_regained`, `recovery_move`, `recovery_bounded_by` and
+`recovery_routes` (the proposal list, in probe order). So the question is a
+group-by rather than an argument:
+
+```
+cargo test -p ambition_app --features causal --test app_it -- the_cpus_put_on_a_show --nocapture
+```
+
+Read the `[recovery routes]` histogram. Rows shaped
+`no-route from ["air_up", "grapple_line"] (...) -> pressed air_up` are this smell
+firing. If that count is material, build the fixture and ship `least_bad_route`.
+If it is near zero because the search almost always regains, the smell is real
+and cheap and can stay recorded.

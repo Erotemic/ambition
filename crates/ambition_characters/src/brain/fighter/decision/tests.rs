@@ -425,8 +425,12 @@ fn the_jump_button_does_not_stay_held_after_the_jump() {
 /// attack in this engine lunges, so the fighter's own queued swing carried it
 /// further out while its emitted input said "back".
 ///
-/// L2 already refuses to OFFER attacks in `Recovery`; this is that rule applied
-/// to the press already in flight.
+/// ⛔ **"L2 already refuses to OFFER attacks in `Recovery`" is no longer true**,
+/// and the correction is the point rather than a tidy-up: L2 now offers a
+/// recovering body its LIFTING moves, because a genre fighter's answer to being
+/// offstage IS a move. So this is a DROP, not a ban — the stale press dies and
+/// `generate_options` re-arms from the Recovery option set in the same tick.
+/// What cannot survive is a press decided under a different situation.
 #[test]
 fn a_press_in_flight_is_dropped_when_the_body_starts_recovering() {
     let cfg = FighterCfg::new(immediate_profile());
@@ -683,6 +687,32 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
         decision.get("emit_locomotion_x"),
         Some(FactValue::Float(_))
     ));
+
+    // 5. **WHICH QUESTION the choice answered, and which ACTION it selected.**
+    //    A verb without its situation cannot be grouped, and the one histogram a
+    //    platform-fighter brain is judged on is `situation → action`. This scene
+    //    is a body on solid ground, 200px from a foe that is doing nothing and
+    //    300px from every edge, which is the definition of neutral.
+    assert_eq!(
+        decision.get("situation"),
+        Some(&FactValue::Text("Neutral".into())),
+        "on flat ground with an idle foe in the middle distance the tick is \
+         neutral; a different answer means L1 and this instrument disagree"
+    );
+    //    `BrainSnapshot::idle()` carries no attack kit, so there is no move to
+    //    name — and "none" is the honest answer rather than an absent field.
+    assert_eq!(
+        decision.get("attack"),
+        Some(&FactValue::Text("none".into())),
+        "a body with an empty kit selected a move"
+    );
+    //    The recovery search runs in `Situation::Recovery` and nowhere else, so
+    //    a `true` here would mean the brain is paying for kernel probes every
+    //    neutral tick.
+    assert_eq!(
+        decision.get("recovery_searched"),
+        Some(&FactValue::Bool(false))
+    );
 
     // The tick is the one the OWNER stamped, not a brain-local counter.
     assert!(explanation.facts().iter().all(|fact| fact.tick == 41));

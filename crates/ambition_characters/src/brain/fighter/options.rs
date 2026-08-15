@@ -254,21 +254,36 @@ impl OptionSet {
 /// would let a big negative reach_fit be bought back by kill potential.
 const REACH_TOLERANCE: f32 = 2.0;
 
-/// **Which of these moves would carry the body AGAINST GRAVITY**, strongest
-/// first, ties on the move id.
+/// **Which of these moves COMMAND A DISPLACEMENT with an against-gravity
+/// component**, strongest rise first, ties on the move id.
 ///
-/// ⭐ **this is the whole of "the brain understands recovery moves", and it is
-/// one number.** [`MoveFrameData::lift_speed`] is the against-gravity speed a
-/// move COMMANDS of its owner, derived in the catalog from the move's own
-/// authored impulses. So a recovery special is recognised by what it does to the
-/// body — exactly the way `reach` recognises a poke and `max_damage` recognises
-/// a kill move.
+/// ⭐ **a list of CANDIDATE ROUTES — proposals — and nothing more.** Each entry
+/// is a move whose authored `Set` impulse would move its owner, in the catalog's
+/// derived terms (`lift_speed` up, `lift_side` along facing). So a route is
+/// recognised by what the move does to the BODY, exactly the way `reach`
+/// recognises a poke and `max_damage` recognises a kill move.
+///
+/// ⛔⛔ **THE ORDER IS NOT A RANKING OF USEFULNESS, and reading it as one is the
+/// defect this doc used to describe as a feature.** It said *"this is the whole
+/// of 'the brain understands recovery moves', and it is one number"* — and one
+/// number is precisely what it cannot be. A fighter whose way home is a grapple
+/// that trades its energy for lateral distance advertises a SMALL rise, so any
+/// stall-and-juggle aerial in the same kit sorts above it here. Taking
+/// `.first()` as "the recovery" then hands the search a move that goes nowhere
+/// and never explores the one that works. Which route is useful depends on where
+/// the body IS, and the only authority on that is the movement kernel —
+/// [`RecoveryLens::best_route`](super::recovery::RecoveryLens::best_route) asks
+/// it, over this whole list, in this order.
+///
+/// ⚠ so the sort exists for DETERMINISM (ADR 0023) and for the search's cut at
+/// [`MAX_PROBED_ROUTES`](super::recovery::MAX_PROBED_ROUTES) — a stable prefix,
+/// never a claim.
 ///
 /// ⛔ **no character conditional, and no role taxonomy.** There is no list of
 /// which body's special is the Up-B, and there is deliberately no `MoveRole`
-/// enum: the day a second body authors a rising move it is understood here for
-/// free, and the day a body authors none this returns empty and the brain plays
-/// exactly as it did before.
+/// enum: the day a second body authors a displacing move it is understood here
+/// for free, and the day a body authors none this returns empty and the brain
+/// plays exactly as it did before.
 ///
 /// ⚠ **the POSTURE filter is upstream and load-bearing.** The kit is built for
 /// the body's real grounded state, so an airborne body's kit already contains
@@ -328,6 +343,18 @@ pub fn generate_options(
         // having a conversation with one — the whole utility vocabulary is the
         // wrong instrument here, and borrowing it would price a way home by how
         // hard it hits.
+        //
+        // ⛔⛔ **AND THIS ORDER IS A PROPOSAL, NOT THE ANSWER.** L2 is pure: it
+        // has no world, no kernel and no idea where the body will be, so the
+        // most it can say is *"these are the moves that displace me, biggest
+        // rise first."* The DECISION overrides this with the route the recovery
+        // lens actually got home on (`decide`'s `endorsed_recovery`), because a
+        // move's usefulness from a particular place is a physics question and
+        // this function cannot ask one. If a caller ever takes `.first()` here
+        // as the recovery, the tiny-rising-aerial trap is back.
+        //
+        // ⚠ **and it is the ORDER the lens searches**, so the two layers agree
+        // about which route index means which move.
         let mut attacks: Vec<AttackOption> = lifts
             .into_iter()
             .map(|c| AttackOption {

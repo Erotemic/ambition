@@ -370,6 +370,26 @@ fn decide(
     // Both halves are body-derived truth from the world-in port, the same channel
     // `movement_tuning` and `attack_kit` arrive on. Nothing here interprets the
     // ability set; it is handed to the kernel, which owns what a body can do.
+    //
+    // ⭐⭐ **THE ROUTES ARE PROPOSED, NOT CHOSEN.** Every move in this body's kit
+    // that commands a displacement becomes a candidate route, in
+    // `lifting_candidates`' deterministic order, and the LENS decides which of
+    // them is useful from where the body actually is. This used to take
+    // `.first()` — the largest against-gravity number — and hand the search that
+    // one move, which makes a scalar into a recovery ontology: a fighter whose
+    // way home is lateral advertises a small rise, so a stall-and-juggle aerial
+    // outranked it and became "the recovery" for every layer downstream. Nothing
+    // here knows whose body it is; the affordance is still derived from move
+    // geometry and never from an identity.
+    let route_moves = super::options::lifting_candidates(&snapshot.attack_kit);
+    let routes: Vec<super::recovery::RecoveryLift> = route_moves
+        .iter()
+        .map(|c| super::recovery::RecoveryLift {
+            speed: c.frames.lift_speed,
+            side: c.frames.lift_side,
+            after_s: c.frames.lift_at_s,
+        })
+        .collect();
     let lens = snapshot
         .abilities
         .zip(snapshot.movement_tuning.as_ref())
@@ -379,18 +399,8 @@ fn decide(
                 BodyKit {
                     abilities,
                     movement: *movement,
-                    // ⭐ **the body's own way up, read off its own kit.** The
-                    // strongest lifting move it can press from where it is —
-                    // derived from move geometry, never from an identity — so
-                    // the veto below is taken against a body that can throw its
-                    // recovery rather than one that cannot.
-                    lift: super::options::lifting_candidates(&snapshot.attack_kit)
-                        .first()
-                        .map(|c| super::recovery::RecoveryLift {
-                            speed: c.frames.lift_speed,
-                            after_s: c.frames.lift_at_s,
-                        }),
                 },
+                &routes,
                 1.0 / cfg.tick_hz.max(1.0),
             )
         });
@@ -475,10 +485,43 @@ fn decide(
     // 2: the winner used to be reduced to "yes, attack" and a tick count, and the
     // press that matured was a neutral melee edge — so the reach, frame-advantage
     // and rollout work decided WHETHER to swing and never WHICH move.
-    let wants_attack = refined
-        .as_ref()
-        .and_then(|refined| refined.binding)
-        .or_else(|| options.attacks.first().map(|attack| attack.binding));
+    //
+    // ⭐⭐ **AND IN `Recovery` THE KERNEL OUTRANKS BOTH.** L2 orders the routes by
+    // the one thing a pure function can see — how hard each one pushes against
+    // gravity — and that order is a proposal, not an answer. Which authored
+    // action is useful from where this body actually is has exactly one
+    // authority, and it is the movement kernel; `best_route` drove it from here
+    // and reported which route got home.
+    //
+    // Three outcomes, and each is a different instruction:
+    //   * a named route  ⇒ press THAT move, whatever it ranked;
+    //   * home already   ⇒ press NOTHING. Spending a recovery you did not need
+    //                      is how a fighter loses to an edgeguard, and this
+    //                      falls out of the search order rather than being a
+    //                      rule somebody wrote;
+    //   * nothing found  ⇒ a BOUNDED negative, never a proof. Fall through to
+    //                      the ordinary ranking and do the best available thing.
+    let endorsed_recovery = if situation == Situation::Recovery {
+        lens.as_ref().map(|lens| {
+            lens.best_route(super::recovery::RecoveryQuery {
+                pos: view.self_view.pos,
+                vel: view.self_view.vel,
+                air_jumps_left: view.self_view.air_jumps_left,
+            })
+        })
+    } else {
+        None
+    };
+    let wants_attack = match endorsed_recovery {
+        Some(verdict) if verdict.regained() => verdict
+            .route
+            .and_then(|index| route_moves.get(index))
+            .map(|candidate| candidate.binding),
+        _ => refined
+            .as_ref()
+            .and_then(|refined| refined.binding)
+            .or_else(|| options.attacks.first().map(|attack| attack.binding)),
+    };
     if let (Some(binding), None) = (wants_attack, state.pending_press) {
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();

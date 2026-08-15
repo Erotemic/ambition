@@ -871,8 +871,11 @@ fn lens_for(
         crate::brain::fighter::recovery::BodyKit {
             abilities,
             movement: ae::MovementTuning::default(),
-            lift: None,
         },
+        // No routes: these fixtures test the VETO, and the difference under test
+        // is the body's verb. A body carrying a way home would make the verdicts
+        // below about a repertoire instead.
+        &[],
         DT,
     )
     .expect("the fixture stage is known and gravity is non-zero")

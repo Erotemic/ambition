@@ -1201,10 +1201,9 @@ impl PlatformerSessionBuilder<'_, '_> {
         let prepared_identity: PreparedContentIdentity = prepared_content.identity();
         // Live moving-platform state derives from the activating room. Rooms
         // without authored platforms (every current demo) reset it to empty.
-        self.moving_platforms.0 =
-            ambition_platformer2d_world::platforms::moving_platforms_for_room(
-                live_world.room_set.active_spec(),
-            );
+        self.moving_platforms.0 = ambition_platformer2d_world::platforms::moving_platforms_for_room(
+            live_world.room_set.active_spec(),
+        );
 
         let player = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,
@@ -1224,32 +1223,24 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // Activation is the one place that holds the exact prepared
                 // definition, so it is the one place a construction plan can
                 // state a REAL activation generation rather than defaulting.
-                construction: {
-                    let context =
-                        ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
-                            &self.construction_recipes,
-                            prepared_identity.epoch,
-                        );
-                    // ⛔ **the cast was two lines away and not handed over.**
-                    // Planning asks the CHARACTER whether a placement is a
-                    // limbed `"giant"`-class host before it asks the roster, and
-                    // with no cast it can only ask the roster — so the shipped
-                    // sandbox's giant, which authors its mount class on its
-                    // definition, planned as an ordinary enemy and failed
-                    // relation verification (*"is the mount of relation
-                    // `ambition.mount` but is constructed as a
-                    // `authored-enemy`"*). `self.prepared_characters` is right
-                    // here; the room-transition path already passes it.
-                    let context = match self.prepared_characters.as_deref() {
-                        Some(prepared) => context.with_prepared(prepared),
-                        None => context,
-                    };
-                    // ⭐ and the policies a PLACEMENT may name.
-                    match self.brain_profiles.as_deref() {
-                        Some(profiles) => context.with_brain_profiles(profiles),
-                        None => context,
-                    }
-                },
+                // ⛔ **the cast was two lines away and not handed over.**
+                // Planning asks the CHARACTER whether a placement is a limbed
+                // `"giant"`-class host before it asks the roster, and with no
+                // cast it can only ask the roster — so the shipped sandbox's
+                // giant, which authors its mount class on its definition,
+                // planned as an ordinary enemy and failed relation verification
+                // (*"is the mount of relation `ambition.mount` but is
+                // constructed as a `authored-enemy`"*). Naming the authorities
+                // as arguments is what stopped that being a thing a road can
+                // forget.
+                construction:
+                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
+                        &self.construction_recipes,
+                        prepared_identity.epoch,
+                        None,
+                        self.prepared_characters.as_deref(),
+                        self.brain_profiles.as_deref(),
+                    ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),

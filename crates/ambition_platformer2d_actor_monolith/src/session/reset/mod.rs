@@ -103,6 +103,12 @@ pub struct ResetPlayState<'w> {
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
     active_binding: Option<Res<'w, crate::world::rooms::transaction::ActiveContentBinding>>,
+    /// **The published controller policies**, so a placement that names a
+    /// `brain_profile` still resolves it after a reset. Reset was the one road
+    /// that carried the cast and not these — a room came IN with its authored
+    /// policy and came back from every reset without it.
+    brain_profiles:
+        Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
     /// Announced once the preflight has agreed. See [`NewGameResetCommitted`].
     committed: MessageWriter<'w, NewGameResetCommitted>,
 }
@@ -198,23 +204,22 @@ pub fn process_new_game_reset_request(
         &play_state.authored_sheets,
         &play_state.boss_catalog,
         session_scope,
-        {
-            // A reset rebuilds the room the ACTIVE content already defines, so
-            // it states the session's LIVE binding — stating a default sentinel
-            // here used to make every reset plan a stale-looking stranger to
-            // the epoch the session actually runs under.
-            let mut context = crate::features::ActorConstructionContext::new(
-                &play_state.recipes,
-                ambition_platformer2d_core::ContentEpoch::default(),
-            );
-            if let Some(active) = play_state.active_binding.as_deref() {
-                context.binding = active.0;
-            }
-            if let Some(prepared) = play_state.prepared_characters.as_deref() {
-                context = context.with_prepared(prepared);
-            }
-            context
-        },
+        // A reset rebuilds the room the ACTIVE content already defines, so it
+        // states the session's LIVE binding — stating a default sentinel here
+        // used to make every reset plan a stale-looking stranger to the epoch
+        // the session actually runs under.
+        //
+        // ⚠ **and it had the cast but not the published policies**, so a room
+        // whose enemy placement names a `brain_profile` resolved it on the way
+        // in and lost it on every reset. Found by counting the roads rather
+        // than by anything failing (2026-08-15).
+        crate::features::ActorConstructionContext::for_room_construction(
+            &play_state.recipes,
+            ambition_platformer2d_core::ContentEpoch::default(),
+            play_state.active_binding.as_deref(),
+            play_state.prepared_characters.as_deref(),
+            play_state.brain_profiles.as_deref(),
+        ),
     );
     // DECLINE, do not die. The preflight runs before the wipe precisely so a
     // refusal costs nothing — and a reset that cannot be prepared is a reason to

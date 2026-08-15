@@ -151,7 +151,53 @@ impl<'a> ActorConstructionContext<'a> {
         }
     }
 
+    /// **Every authority a ROOM's construction may consult, stated at once.**
+    ///
+    /// ⛔⛔ **SEVEN ROADS BUILT THIS CONTEXT BY HAND AND FOUR OF THEM WERE
+    /// INCOMPLETE.** Startup, reset, transition, hot reload, provider
+    /// activation, the exclusive-world rebuild and the neighbour prefetch each
+    /// assembled their own `new(..).with_prepared(..).with_brain_profiles(..)`
+    /// chain, and a road that forgot one link did not fail to compile — it
+    /// silently constructed rooms against an authority it did not have. AC6
+    /// found the exclusive-world road missing the cast on 2026-08-13; the
+    /// PREFETCH road was still missing both on 2026-08-15, which is why Jon's
+    /// log repeated *"`goblin` … which this composition has not registered"* at
+    /// frame rate for a character that is registered. `reset` had the cast and
+    /// not the policies; direct entry and hot reload had neither.
+    ///
+    /// ⭐ **so the authorities are PARAMETERS, not opt-in builder calls.** A
+    /// caller must say what it has, including saying `None`, and the next
+    /// authority a room may consult is one signature change that breaks every
+    /// road at once instead of seven chances to forget. `Option` still means
+    /// "this composition publishes none" — that is a legal answer and always
+    /// was; what is no longer possible is failing to answer.
+    pub fn for_room_construction(
+        recipes: &'a crate::construction::ActorConstructionRegistry,
+        content_epoch: ambition_platformer2d_core::ContentEpoch,
+        // The generation the SESSION is actually running, when the caller knows
+        // it. A room is rebuilt from content the active binding already
+        // defines, so stating a default sentinel instead makes every plan a
+        // stale-looking stranger to the epoch it will commit under.
+        active_binding: Option<&crate::rooms::ActiveContentBinding>,
+        prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+        brain_profiles: Option<
+            &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
+        >,
+    ) -> Self {
+        let mut context = Self::new(recipes, content_epoch);
+        if let Some(active) = active_binding {
+            context.binding = active.0;
+        }
+        context.prepared = prepared;
+        context.brain_profiles = brain_profiles;
+        context
+    }
+
     /// Supply the prepared cast for this construction. See [`Self::prepared`].
+    ///
+    /// ⚠ **for construction that is not a ROOM's** — a summon, a runtime spawn,
+    /// a focused fixture. A room goes through [`Self::for_room_construction`],
+    /// which is where forgetting an authority stopped being possible.
     #[must_use]
     pub fn with_prepared(
         mut self,

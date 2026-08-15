@@ -840,9 +840,16 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    (construction_recipes, active_binding, mut plan_prefetch): (
+    // ⚠ **PAIRED with the recipes because a Bevy system stops at sixteen
+    // params**, the same reason the covered transition path groups them. The
+    // authorities travel together anyway: a placement names a character and may
+    // name the policy that drives it.
+    (construction_recipes, active_binding, brain_profiles, mut plan_prefetch): (
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Option<Res<ambition_platformer2d::actors::rooms::ActiveContentBinding>>,
+        Option<
+            Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
+        >,
         ResMut<RoomConstructionPlanPrefetch>,
     ),
     mut assets: ResMut<GameAssets>,
@@ -949,21 +956,29 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
                 &authored_sheets,
                 &boss_catalog,
                 spawn_scope,
-                {
-                    let mut context =
-                        ambition_platformer2d::actors::features::ActorConstructionContext::new(
-                            &construction_recipes,
-                            ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
-                        );
-                    // Prefetched plans state the LIVE binding too: if a hot
-                    // reload moves the session to a new generation before this
-                    // plan commits, the boundary refuses the stale prefetch —
-                    // which is exactly the invalidation the cache needs.
-                    if let Some(active) = active_binding.as_deref() {
-                        context.binding = active.0;
-                    }
-                    context
-                },
+                // Prefetched plans state the LIVE binding too: if a hot reload
+                // moves the session to a new generation before this plan
+                // commits, the boundary refuses the stale prefetch — which is
+                // exactly the invalidation the cache needs.
+                //
+                // ⛔⛔ **AND THIS ROAD CARRIED NEITHER THE CAST NOR THE
+                // POLICIES**, which is what Jon's browser log was saying at
+                // frame rate: *"`goblin` … which this composition has not
+                // registered"* for a character that IS registered. An absent
+                // prepared registry is an EMPTY cast, not an exemption, so every
+                // neighbour containing a character-built body failed preflight,
+                // was forgotten, and was re-prepared from scratch on the next
+                // frame — a whole `RoomConstructionPlan` per neighbour per
+                // frame, thrown away, for as long as you stood there. It also
+                // meant the prefetch never covered exactly the rooms that cost
+                // the most to prepare.
+                ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
+                    &construction_recipes,
+                    ambition_platformer2d::engine_core::ContentEpoch(content_epoch.get()),
+                    active_binding.as_deref(),
+                    prepared_characters.as_deref(),
+                    brain_profiles.as_deref(),
+                ),
             ) {
                 Ok(plan) => plan,
                 Err(error) => {

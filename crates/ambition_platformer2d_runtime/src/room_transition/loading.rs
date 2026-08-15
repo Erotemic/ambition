@@ -773,29 +773,19 @@ pub fn begin_room_transition_load_system(
                 &construction_services.5,
                 &construction_services.3,
                 session_scope,
-                {
-                    let mut context = ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
-                        &construction_services.4,
-                        ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
-                    );
-                    // A transition rebuilds a room the ACTIVE content already
-                    // defines, so the plan states the session's LIVE binding —
-                    // the transition-local counter is a prefetch cache key,
-                    // not a content generation (same fix reset received).
-                    if let Some(active) = active_binding.as_deref() {
-                        context.binding = active.0;
-                    }
-                    if let Some(prepared) = prepared_characters.as_deref() {
-                        context = context.with_prepared(prepared);
-                    }
-                    // ⭐ **and the policies a PLACEMENT may name.** Published
-                    // beside the catalog by assembly; a room whose enemy spawn
-                    // authors `brain_profile` resolves it against this.
-                    if let Some(profiles) = brain_profiles.as_deref() {
-                        context = context.with_brain_profiles(profiles);
-                    }
-                    context
-                },
+                // A transition rebuilds a room the ACTIVE content already
+                // defines, so the plan states the session's LIVE binding — the
+                // transition-local counter is a prefetch cache key, not a
+                // content generation (same fix reset received). Plus the cast,
+                // and the policies a PLACEMENT may name: a room whose enemy
+                // spawn authors `brain_profile` resolves it against those.
+                ambition_platformer2d_actor_monolith::features::ActorConstructionContext::for_room_construction(
+                    &construction_services.4,
+                    ambition_platformer2d_core::ContentEpoch(content_epoch.get()),
+                    active_binding.as_deref(),
+                    prepared_characters.as_deref(),
+                    brain_profiles.as_deref(),
+                ),
             )
             .map(Arc::new),
         };

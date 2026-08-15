@@ -163,46 +163,39 @@ impl RoomConstructionPlan {
                 .get_resource::<crate::boss_encounter::BossCatalog>()
                 .ok_or(missing("BossCatalog"))?,
             session_scope,
-            {
-                let mut construction = features::ActorConstructionContext::new(
-                    world
-                        .get_resource::<crate::construction::ActorConstructionRegistry>()
-                        .ok_or(missing("ActorConstructionRegistry"))?,
-                    // The activation generation this world is running, published
-                    // on the session root beside the prepared content it
-                    // identifies. A world with no prepared session states none.
-                    session_world_component::<ambition_platformer2d_core::ContentEpoch>(world)
-                        .copied()
-                        .unwrap_or_default(),
-                );
-                // ⛔⛔ **THIS ROAD BUILT ITS ROOMS WITHOUT THE CAST, AND NOTHING
-                // SAID SO** (found by AC6, 2026-08-13). Every other preparation
-                // site hands the context the prepared characters and the
-                // published policies; this one — the EXCLUSIVE-WORLD form, used
-                // by the confirmed deferred room transition under a rollback
-                // host — read every other service off the world and not these
-                // two. So the same room was character-first through the eager
-                // transition and archetype-first through the confirmed one: a
-                // body whose character was registered got the generic
-                // `combatant` instead, with the right name on it.
-                //
-                // ⚠ it was invisible precisely because the archetype road worked.
-                // Deleting the fallback turned it into a refusal on the first
-                // door a rollback host opened
-                // (`a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one`),
-                // which is the deletion doing what it is for.
-                if let Some(prepared) =
-                    world.get_resource::<crate::character_runtime::PreparedCharacterRegistry>()
-                {
-                    construction = construction.with_prepared(prepared);
-                }
-                if let Some(profiles) = world.get_resource::<
+            // ⛔⛔ **THIS ROAD BUILT ITS ROOMS WITHOUT THE CAST, AND NOTHING SAID
+            // SO** (found by AC6, 2026-08-13). Every other preparation site
+            // handed the context the prepared characters and the published
+            // policies; this one — the EXCLUSIVE-WORLD form, used by the
+            // confirmed deferred room transition under a rollback host — read
+            // every other service off the world and not those two. So the same
+            // room was character-first through the eager transition and
+            // archetype-first through the confirmed one: a body whose character
+            // was registered got the generic `combatant` instead, with the right
+            // name on it.
+            //
+            // ⚠ it was invisible precisely because the archetype road worked.
+            // Deleting the fallback turned it into a refusal on the first door a
+            // rollback host opened
+            // (`a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one`),
+            // which is the deletion doing what it is for — and the reason the
+            // authorities are named as arguments now rather than chained on.
+            features::ActorConstructionContext::for_room_construction(
+                world
+                    .get_resource::<crate::construction::ActorConstructionRegistry>()
+                    .ok_or(missing("ActorConstructionRegistry"))?,
+                // The activation generation this world is running, published on
+                // the session root beside the prepared content it identifies. A
+                // world with no prepared session states none.
+                session_world_component::<ambition_platformer2d_core::ContentEpoch>(world)
+                    .copied()
+                    .unwrap_or_default(),
+                None,
+                world.get_resource::<crate::character_runtime::PreparedCharacterRegistry>(),
+                world.get_resource::<
                     ambition_characters::actor::character_catalog::BrainProfileRegistry,
-                >() {
-                    construction = construction.with_brain_profiles(profiles);
-                }
-                construction
-            },
+                >(),
+            ),
         )
     }
 

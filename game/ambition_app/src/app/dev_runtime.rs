@@ -125,6 +125,16 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
         Res<ldtk_world::WorldManifest>,
+        // **The prepared cast and the published policies.** Hot reload rebuilds
+        // a room, so it consults exactly what every other room-construction road
+        // consults — and it was the fourth road found carrying neither
+        // (2026-08-15). A reload that plans archetype-first rebuilds a
+        // registered character's body as a stranger with its name, which is the
+        // defect AC6 deleted the fallback to expose.
+        Option<Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+        Option<
+            Res<ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
+        >,
     ),
     mut content_identity: (
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -232,6 +242,8 @@ pub(super) fn handle_ldtk_hot_reload(
             &catalogs.5,
             &catalogs.6,
             &catalogs.7,
+            catalogs.8.as_deref(),
+            catalogs.9.as_deref(),
             &mut content_identity.0,
             &mut content_identity.1,
             &mut content_identity.2,
@@ -355,9 +367,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<
-        ambition_platformer2d::world::platforms::MovingPlatformState,
-    >,
+    moving_platforms: &mut Vec<ambition_platformer2d::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
@@ -370,6 +380,12 @@ pub(super) fn reload_ldtk_world_from_disk(
     content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
     construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
     world_manifest: &ldtk_world::WorldManifest,
+    prepared_characters: Option<
+        &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+    >,
+    brain_profiles: Option<
+        &ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry,
+    >,
     prepared_content: &mut ambition_platformer2d::runtime::PreparedContent,
     prepared_identity: &mut ambition_platformer2d::runtime::PreparedContentIdentity,
     epochs: &mut ambition_platformer2d::runtime::ContentEpochSequence,
@@ -411,13 +427,16 @@ pub(super) fn reload_ldtk_world_from_disk(
         authored_sheets,
         boss_catalog,
         session_scope,
-        ambition_platformer2d::actors::features::ActorConstructionContext::new(
+        ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
             construction_recipes,
             // The generation currently live. A materially changed definition
             // allocates a new one below, AFTER every preflight has succeeded —
             // so a plan prepared here always states the epoch it was validated
             // against, never one that does not exist yet.
             prepared_content.epoch(),
+            None,
+            prepared_characters,
+            brain_profiles,
         ),
     )
     .map_err(|error| vec![error.to_string()])?;

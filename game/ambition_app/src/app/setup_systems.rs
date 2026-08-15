@@ -60,6 +60,14 @@ pub(crate) struct CharacterAuthorities<'w> {
         Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
     sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
+    /// **The published controller policies**, so a placement that names a
+    /// `brain_profile` resolves it on the DIRECT-ENTRY road too. Direct entry
+    /// held the cast and handed the construction context neither it nor these —
+    /// one of four roads that were incomplete when they were counted
+    /// (2026-08-15).
+    brain_profiles: Option<
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::BrainProfileRegistry>,
+    >,
 }
 
 /// Sim-only startup. Calls `ambition_platformer2d::actors::session::setup::simulation_world` to spawn the
@@ -104,11 +112,17 @@ pub(super) fn setup_simulation_system(
             content_staging: &construction.content_staging,
             // Direct entry builds its session root at plugin-build time rather
             // than through provider activation, so no prepared-content
-            // generation is available to state here.
-            construction: ambition_platformer2d::actors::features::ActorConstructionContext::new(
-                &construction.recipes,
-                Default::default(),
-            ),
+            // generation is available to state here — but the CAST is, two
+            // lines above, and this road was handing over neither it nor the
+            // published policies.
+            construction:
+                ambition_platformer2d::actors::features::ActorConstructionContext::for_room_construction(
+                    &construction.recipes,
+                    Default::default(),
+                    None,
+                    characters.prepared.as_deref(),
+                    characters.brain_profiles.as_deref(),
+                ),
             boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),
@@ -116,9 +130,8 @@ pub(super) fn setup_simulation_system(
             asset_server: &asset_server,
         },
     );
-    platform_set.0 = ambition_platformer2d::world::platforms::moving_platforms_for_room(
-        room_set.active_spec(),
-    );
+    platform_set.0 =
+        ambition_platformer2d::world::platforms::moving_platforms_for_room(room_set.active_spec());
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See

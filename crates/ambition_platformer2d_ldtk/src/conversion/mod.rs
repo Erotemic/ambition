@@ -605,7 +605,13 @@ fn offset_points(points: Vec<ae::Vec2>, offset: ae::Vec2) -> Vec<ae::Vec2> {
     points.into_iter().map(|point| point + offset).collect()
 }
 
-fn path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> String {
+/// The stable lookup id conversion gives a `KinematicPath`: its authored `id`
+/// field, else a compacted slug of its display name, else the LDtk iid.
+///
+/// Public because a validator reading raw LDtk JSON needs the id conversion
+/// WILL produce, and re-deriving it is how the game-side content validator came
+/// to disagree with the runtime about which paths exist. Ask, do not model.
+pub fn kinematic_path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> String {
     field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())

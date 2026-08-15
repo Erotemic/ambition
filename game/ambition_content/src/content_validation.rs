@@ -120,19 +120,34 @@ pub fn validate_content_graph(
 /// until playtest. Surfacing it as a content-graph warning catches
 /// it at `cargo test` time instead.
 ///
-/// Path id resolution mirrors `world::ldtk_world::conversion::path_lookup_id`:
-/// 1. KinematicPath's `id` field if non-empty.
-/// 2. Otherwise, a slug of the `name` field (lowercase, non-alnum
-///    runs collapsed to underscores).
-/// 3. Otherwise, the iid.
+/// ⛔ **it does not MIRROR the resolution rule any more, it ASKS it.** This
+/// check used to re-derive both halves — conversion's lookup id and the alias
+/// set a reference may be spelled with — and both copies drifted from the
+/// originals, in opposite directions: it registered the plain name slug that
+/// conversion collapses away, and it dropped the display name and slug entirely
+/// whenever a path authored an explicit `id`. So it called a working reference
+/// broken (a hard startup abort on shippable content) and, for sandbox's
+/// basement patrol, called a broken one fine. It now calls
+/// `kinematic_path_lookup_id` for the id conversion WILL produce and
+/// `kinematic_path_aliases` for the spellings that id answers to — the same two
+/// functions the runtime uses.
 ///
 /// ⭐ **THESE ARE ERRORS NOW, which is what this validator always wanted.** It
 /// emitted warnings only because one authored mismatch existed when it was
 /// written — sandbox's basement `Patrol:enemy_patrol_a` against a path whose
 /// name slugged to `enemy_patrol_path_a` — and its own doc said *"promote to an
-/// error once the slugs are aligned"*. Measured 2026-08-14: the content graph
-/// reports ZERO patrol warnings, so the mismatch is gone and the promotion is
-/// unblocked.
+/// error once the slugs are aligned"*.
+///
+/// ⛔⛔ **AND THE SENTENCE AFTER THAT MEASUREMENT WAS WRONG.** "Zero patrol
+/// warnings, so the mismatch is gone" was read off a validator that had become
+/// the wrong oracle: the brain had been rewritten from `enemy_patrol_a` to
+/// `enemy_patrol_path_a` — the spelling THIS check derived — which silenced it
+/// while leaving the runtime's own lookup table, which knew only the compacted
+/// `enemy_patrol_a`, unable to resolve it. The count was correct and the
+/// conclusion was not. The slugs were never aligned; they were aligned to each
+/// other in one direction, and the patroller stood still from that day until
+/// 2026-08-14. Silence from an oracle that derives its own answer is not
+/// evidence about the thing it is meant to be watching.
 ///
 /// ⛔ the failure it catches is silent by construction: a patrol whose path does
 /// not resolve falls back to PASSIVE, so the enemy simply stands there and the
@@ -145,18 +160,15 @@ fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValida
             if entity.identifier != "KinematicPath" {
                 continue;
             }
-            if let Some(value) = field_string(entity, "id") {
-                let trimmed = value.trim();
-                if !trimmed.is_empty() {
-                    path_ids.insert(trimmed.to_string());
-                    continue;
-                }
-            }
-            if let Some(value) = field_string(entity, "name") {
-                if let Some(slug) = patrol_name_slug(value.trim()) {
-                    path_ids.insert(slug);
-                }
-            }
+            // The display name conversion resolves, then the id it derives from
+            // it, then every spelling that id answers to. Three asks, no copies.
+            let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
+            let lookup_id = ambition_platformer2d_ldtk::kinematic_path_lookup_id(entity, &name);
+            path_ids.extend(
+                ambition_platformer2d_world::rooms::kinematic_path_aliases(&lookup_id, &name)
+                    .filter(|alias| !alias.is_empty())
+                    .map(|alias| alias.into_owned()),
+            );
         }
         for entity in level.all_entity_instances() {
             if entity.identifier != "EnemySpawn" {
@@ -183,28 +195,6 @@ fn validate_patrol_brain_paths(project: &LdtkProject, report: &mut ContentValida
                 ));
             }
         }
-    }
-}
-
-fn patrol_name_slug(name: &str) -> Option<String> {
-    let mut slug = String::new();
-    let mut previous_was_sep = false;
-    for ch in name.trim().chars() {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch.to_ascii_lowercase());
-            previous_was_sep = false;
-        } else if !previous_was_sep && !slug.is_empty() {
-            slug.push('_');
-            previous_was_sep = true;
-        }
-    }
-    while slug.ends_with('_') {
-        slug.pop();
-    }
-    if slug.is_empty() {
-        None
-    } else {
-        Some(slug)
     }
 }
 
@@ -816,6 +806,118 @@ mod tests {
         assert!(
             !report.errors.iter().any(|e| e.contains("'passive'")),
             "a non-patrol brain is not this check's business: {:?}",
+            report.errors,
+        );
+    }
+
+    /// **THE INVARIANT: this validator accepts exactly the spellings the
+    /// runtime resolves — no more, and no fewer.**
+    ///
+    /// ⛔ it did neither, on the very path that shipped. Sandbox's basement
+    /// authors `enemy patrol path A` with no `id`, so conversion derives the
+    /// COMPACTED id `enemy_patrol_a` (its slug rule collapses `_path_`) while
+    /// the placement references the raw slug `enemy_patrol_path_a`. This
+    /// validator knew only the raw slug and the binding sweep knew both, so both
+    /// oracles passed — and the runtime's own table knew only the compacted id,
+    /// so the gallery's patroller stood still. Fewer than the runtime is a hard
+    /// startup abort on shippable content; more is a dead demo nobody is told
+    /// about. Both spellings resolve, and a third one does not.
+    #[test]
+    fn a_patrol_reference_is_judged_by_the_runtime_alias_set() {
+        use ambition_platformer2d_ldtk::{
+            LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel,
+        };
+
+        fn field(identifier: &str, value: &str) -> LdtkFieldInstance {
+            LdtkFieldInstance {
+                identifier: identifier.to_string(),
+                value: serde_json::Value::String(value.to_string()),
+                real_editor_values: Vec::new(),
+            }
+        }
+        fn entity(
+            iid: &str,
+            identifier: &str,
+            fields: Vec<LdtkFieldInstance>,
+        ) -> LdtkEntityInstance {
+            LdtkEntityInstance {
+                iid: iid.to_string(),
+                identifier: identifier.to_string(),
+                pivot: Vec::new(),
+                px: [0, 0],
+                width: 16,
+                height: 16,
+                field_instances: fields,
+            }
+        }
+
+        let project = LdtkProject {
+            json_version: "1.5.3".to_string(),
+            levels: vec![LdtkLevel {
+                identifier: "alias_fixture".to_string(),
+                iid: "level-iid".to_string(),
+                world_x: 0,
+                world_y: 0,
+                px_wid: 640,
+                px_hei: 480,
+                field_instances: Vec::new(),
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".to_string(),
+                    layer_type: "Entities".to_string(),
+                    c_wid: 40,
+                    c_hei: 30,
+                    grid_size: 16,
+                    entity_instances: vec![
+                        // The shipped shape: named, never id'd, and the name
+                        // slugs two different ways.
+                        entity(
+                            "path",
+                            "KinematicPath",
+                            vec![field("name", "enemy patrol path A")],
+                        ),
+                        entity(
+                            "by_raw_slug",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:enemy_patrol_path_a")],
+                        ),
+                        entity(
+                            "by_compacted_id",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:enemy_patrol_a")],
+                        ),
+                        entity(
+                            "by_typo",
+                            "EnemySpawn",
+                            vec![field("brain", "Patrol:enemy_patrol_b")],
+                        ),
+                    ],
+                    int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
+                }],
+            }],
+        };
+
+        let mut report = ContentValidationReport::default();
+        validate_patrol_brain_paths(&project, &mut report);
+
+        assert!(
+            !report.errors.iter().any(|e| e.contains("'by_raw_slug'")),
+            "the raw name slug resolves at runtime and must not abort startup: {:?}",
+            report.errors,
+        );
+        assert!(
+            !report
+                .errors
+                .iter()
+                .any(|e| e.contains("'by_compacted_id'")),
+            "the id conversion actually derives must not be reported broken: {:?}",
+            report.errors,
+        );
+        // ...and the poison: a spelling NOTHING accepts is still an error, so
+        // this is a shared alias set rather than a check that stopped checking.
+        assert!(
+            report.errors.iter().any(|e| e.contains("'by_typo'")),
+            "a patrol naming no path at all must still error: {:?}",
             report.errors,
         );
     }

@@ -1,11 +1,12 @@
 //! What a room REFERENCES, resolved at construction time.
 //!
 //! A `RoomSpec` is full of ids that point at something else: a patrol brain
-//! names a kinematic path, an enemy spawn names a character archetype. Each of
-//! those was resolved by its own consumer, at its own moment, with its own way
-//! of shrugging — the patrol brain falls back to passive, the archetype falls
-//! back to a default. A room could therefore be authored entirely of typos and
-//! still construct, quietly, into something that merely looked under-populated.
+//! names a kinematic path, an NPC placement names one, a moving hazard names
+//! one, an enemy spawn names a character archetype. Each of those was resolved
+//! by its own consumer, at its own moment, with its own way of shrugging — the
+//! patrol brain falls back to passive, the archetype falls back to a default. A
+//! room could therefore be authored entirely of typos and still construct,
+//! quietly, into something that merely looked under-populated.
 //!
 //! Only references that shrug belong here. A ground item's held-item id already
 //! REFUSES the room, so it is construction's business, not this sweep's — see
@@ -109,6 +110,59 @@ impl RoomBindings {
                         &Ref::new(path_id),
                         format!("patrol brain of `{}`", enemy.id),
                     );
+                }
+                _ => {}
+            }
+        }
+
+        // ⭐ **THE ENEMY BRAIN WAS NEVER THE ONLY REFERENCE THAT SHRUGS.** Three
+        // roads resolve a path id against this same table by string equality and
+        // all three fall through to `None` in silence — an enemy's patrol brain,
+        // an NPC placement's `patrol_path_id`, and a hazard's motion `path_id`.
+        // Only the first was swept, so the module's own thesis ("only references
+        // that shrug belong here") was two-thirds unimplemented, and the NPC case
+        // is the quietest of the three: an NPC with an unresolvable path still
+        // patrols its home±radius lane, so it moves, just not along the waypoints
+        // somebody drew.
+        for placement in &room.placements {
+            match &placement.schema {
+                ambition_entity_catalog::placements::PlacementSchema::Interactable(
+                    interactable,
+                ) => {
+                    if let ambition_entity_catalog::placements::InteractionKindSpec::Npc {
+                        patrol_path_id: Some(path_id),
+                        ..
+                    } = &interactable.kind
+                    {
+                        // ⚠ resolved UNTRIMMED, because the NPC lowering road
+                        // compares untrimmed (the enemy road trims at conversion,
+                        // the hazard road trims at lookup). Predicting the runtime
+                        // matters more than being tidy: trimming here would call a
+                        // padded id healthy while the body found nothing. Blank is
+                        // skipped — that is "no path authored", not a typo.
+                        if !path_id.trim().is_empty() {
+                            ledger.resolve(
+                                &paths,
+                                &Ref::new(path_id),
+                                format!("npc patrol of `{}`", placement.id.as_str()),
+                            );
+                        }
+                    }
+                }
+                ambition_entity_catalog::placements::PlacementSchema::Hazard(hazard) => {
+                    // The hazard road trims before looking up, so resolve trimmed.
+                    if let Some(path_id) = hazard
+                        .path_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|path_id| !path_id.is_empty())
+                    {
+                        ledger.resolve(
+                            &paths,
+                            &Ref::new(path_id),
+                            format!("motion path of hazard `{}`", placement.id.as_str()),
+                        );
+                    }
                 }
                 _ => {}
             }

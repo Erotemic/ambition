@@ -39,7 +39,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_platformer2d::actor::MatchSeat;
+use ambition_platformer2d::actor::{MatchParticipantRoster, MatchSeat};
 use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
 use ambition_platformer2d::entity_catalog::MovesetContract;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
@@ -183,10 +183,48 @@ impl Watcher {
     }
 }
 
-/// Seat these two characters as CPUs at the same rung in the REAL host, run the
-/// match, and report per seat.
-fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<SeatLedger> {
+/// How many bodies are seated in the match right now.
+///
+/// ⚠ the poll's condition, and the first number the failure message reports.
+/// `MatchSeat` is inserted by `activate_the_prepared_match` on the entity
+/// `realize_seat` just spawned, so a body that has this has been REALISED — it
+/// is the honest "the stage is populated" signal, where a frame count is a guess.
+fn seats_in_the_world(app: &mut App) -> usize {
+    let world = app.world_mut();
+    let mut q = world.query::<&MatchSeat>();
+    q.iter(world).count()
+}
+
+/// Entities carrying a moveset at all, seated or not — the term that separates
+/// "the bodies have no repertoire" from "the two components are on different
+/// entities".
+fn movesets_in_the_world(app: &mut App) -> usize {
+    let world = app.world_mut();
+    let mut q = world.query::<&ActorMoveset>();
+    q.iter(world).count()
+}
+
+/// **Bring a two-CPU crossover match to the point where both bodies exist**, and
+/// hand back the app plus who is in which seat.
+///
+/// ⚠ **one seating path, reached through a hook.** `compose` runs after the
+/// `App` exists and before its first frame — the one moment a caller can install
+/// something like `CausalPlugin`. The alternative was a second copy of this
+/// procedure inside the causal test, and it would have inherited the
+/// zero-bodies bug this function was rewritten to fix; `build_visible_app_with`
+/// carries the same hook for the same reason, and its doc records that the fork
+/// it replaced cost five bugs.
+fn seat_a_crossover(
+    characters: [&str; 2],
+    level: u8,
+    compose: impl FnOnce(&mut App),
+) -> (
+    App,
+    BTreeMap<usize, String>,
+    BTreeMap<usize, MovesetContract>,
+) {
     let mut app = shell_host_app();
+    compose(&mut app);
     for _ in 0..6 {
         app.update();
     }
@@ -216,6 +254,8 @@ fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<Seat
         .enumerate()
         .map(|(index, p)| (index, p.character.to_string()))
         .collect();
+    // Kept, because the poll below may have to hand it in again — see there.
+    let roster_for_the_stage = roster.clone();
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -238,27 +278,126 @@ fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<Seat
     // window inside the hold measures fighters that are correctly forbidden to
     // act. Read it from the ruleset rather than restating it.
     let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
-    for _ in 0..(countdown + 60) {
+
+    // ⛔⛔ **WAIT FOR THE BODIES, do not assume a frame count produced them.**
+    //
+    // The first version ran `countdown + 60` fixed frames and then queried, and
+    // it found ZERO seated bodies on a stage whose room had demonstrably loaded.
+    // A fixed warm-up encodes a guess about how long SEATING takes, and seating
+    // in the host is a lifecycle: the route activates, the room loads,
+    // `prepare_the_match` reads the roster into a `PreparedMatch`, and only then
+    // does `activate_the_prepared_match` realise the bodies. Every one of those
+    // is a separate frame, and `prepare_the_match` returns early — silently —
+    // until its geometry, its registry AND its roster are all present at once.
+    //
+    // ⚠ so the loop polls for the thing it needs instead of for a clock, and the
+    // cap is generous because a slow step here is not the property under test.
+    let mut waited = 0usize;
+    let mut re_supplied = 0usize;
+    let cap = countdown + 900;
+    while waited < cap {
         app.update();
+        waited += 1;
+        if seats_in_the_world(&mut app) >= 2 && waited > countdown {
+            break;
+        }
+        // ⚠ **the roster is an INPUT the stage consumes, and this fixture hands
+        // it in from the select route — which legitimately clears it**, so that
+        // a player coming back to the screen gets a fresh match instead of one
+        // already decided. That is a race a fixture can lose silently: the
+        // resource disappears, `prepare_the_match` returns early forever, the
+        // route still activates, and the stage stands empty.
+        //
+        // ⛔ this is NOT papering over it. Nothing is re-supplied once a body is
+        // seated, and the count is REPORTED — a non-zero `re_supplied` beside a
+        // green run is the screen eating the roster, which is worth knowing and
+        // is a different finding from the brain.
+        if app
+            .world()
+            .get_resource::<MatchParticipantRoster>()
+            .is_none()
+        {
+            app.world_mut()
+                .insert_resource(roster_for_the_stage.clone());
+            re_supplied += 1;
+        }
     }
 
     // The bodies, and the tables they are wearing. Read from the WORLD: a seat's
     // repertoire is whatever preparation actually gave it, which is the only
     // version that can disagree with the authoring.
-    let seat_tables: BTreeMap<usize, MovesetContract> = {
+    //
+    // ⚠ **`Option<&ActorMoveset>`, so the failure below can tell three different
+    // bugs apart.** A required column collapses "no body was ever seated", "the
+    // body exists and preparation gave it no moveset" and "the two components
+    // landed on different entities" into one `found 0`, and they want three
+    // different fixes.
+    let seated: Vec<(usize, Option<MovesetContract>)> = {
         let world = app.world_mut();
-        let mut q = world.query::<(&MatchSeat, &ActorMoveset)>();
+        let mut q = world.query::<(&MatchSeat, Option<&ActorMoveset>)>();
         q.iter(world)
-            .map(|(seat, moveset)| (seat.0, moveset.0.clone()))
+            .map(|(seat, moveset)| (seat.0, moveset.map(|m| m.0.clone())))
             .collect()
+    };
+    let seat_tables: BTreeMap<usize, MovesetContract> = seated
+        .iter()
+        .filter_map(|(seat, moveset)| moveset.clone().map(|m| (*seat, m)))
+        .collect();
+
+    // Every diagnostic term read BEFORE the assertion, so the message is one
+    // format and no borrow of the world outlives it.
+    let with_seat = seated.len();
+    let seated_without_moveset = seated.iter().filter(|(_, m)| m.is_none()).count();
+    let movesets_anywhere = movesets_in_the_world(&mut app);
+    let roster_state = match app.world().get_resource::<MatchParticipantRoster>() {
+        None => "NO — something removed it between the insert and preparation",
+        Some(r) if r.participants.len() == 2 => "yes, 2 participants",
+        Some(_) => "yes, but not 2 participants",
+    };
+    let session_state = match app
+        .world()
+        .get_resource::<ambition_platformer2d::game_shell::ActiveGameplaySession>()
+    {
+        None => "no session resource",
+        Some(s) if s.0.is_some() => "yes",
+        Some(_) => "resource present, no session",
     };
     assert_eq!(
         seat_tables.len(),
         2,
-        "expected two seated bodies carrying movesets, found {}: {:?}",
-        seat_tables.len(),
-        seat_characters
+        "no two seated bodies carrying movesets after {waited} frames \
+         (countdown {countdown}).\n  \
+         bodies with MatchSeat:             {with_seat}\n  \
+         ...of those, WITHOUT ActorMoveset: {seated_without_moveset}\n  \
+         entities with ActorMoveset at all: {movesets_anywhere}\n  \
+         roster resource still present:     {roster_state}\n  \
+         times the fixture re-supplied it:  {re_supplied}\n  \
+         gameplay session active:           {session_state}\n  \
+         asked for: {seat_characters:?}\n\
+         Read it like this. MatchSeat 0 ⇒ SEATING never happened: the route \
+         activated but `prepare_the_match` never turned a roster into a \
+         `PreparedMatch`, so read the roster row — that is a FIXTURE bug. \
+         MatchSeat 2 with movesets 0 ⇒ the bodies exist and preparation gave \
+         them no repertoire, which is a PRODUCT defect. MatchSeat 0 with \
+         movesets > 0 ⇒ the two components really are on different entities, \
+         which contradicts `activate_the_prepared_match` inserting `MatchSeat` \
+         on the entity `realize_seat` returned."
     );
+
+    // ⚠ printed on the GREEN path too: how long seating actually took, and
+    // whether the select route was eating the roster underneath it. Both are
+    // facts about the fixture that a passing run would otherwise hide.
+    eprintln!(
+        "[smash crossover] seated 2 bodies after {waited} frames (countdown \
+         {countdown}); roster re-supplied {re_supplied} time(s)"
+    );
+
+    (app, seat_characters, seat_tables)
+}
+
+/// Seat the crossover, watch it for `ticks`, and report per seat.
+fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<SeatLedger> {
+    let (mut app, seat_characters, seat_tables) = seat_a_crossover(characters, level, |_| {});
 
     let mut watcher = Watcher::new();
     for _ in 0..ticks {
@@ -462,45 +601,34 @@ mod with_the_decision_log {
     /// One row per `(subject, situation, selected action)`.
     #[test]
     fn the_recovery_decisions_name_the_action_they_selected() {
-        let mut app = shell_host_app();
-        // ⚠ **the FEATURE and the PLUGIN are two switches, deliberately.** The
-        // feature compiles the publishers in; only `CausalPlugin` creates the
-        // recording they write to. Installed before the first frame so nothing
-        // published during composition is missed.
-        app.add_plugins(CausalPlugin);
-        for _ in 0..6 {
-            app.update();
-        }
-        // ⚠ **BRAIN only, and the ring is why.** `CausalLog` holds 4096 facts and
-        // drops the oldest; `RecordingPolicy::All` over a thirty-second match
-        // wraps it many times over, so the histogram would silently describe the
-        // last second of the fight. Narrowing the policy is what makes the whole
-        // window readable. `dropped()` is reported below either way.
-        ambition_platformer2d::causal::record_domains(
-            &mut app,
-            RecordingPolicy::only([domains::BRAIN]),
+        // ⛔ **the SAME seating path as every other test in this file.** This
+        // used to spell the whole procedure out again, and when the fixed
+        // warm-up turned out not to seat any bodies, the copy would have
+        // inherited the bug — silently, because a match with no fighters
+        // publishes no decisions and the failure would have read "the `causal`
+        // feature stopped reaching `ambition_characters`". The composition hook
+        // is what makes one path serve both.
+        let (mut app, _seats, _tables) = seat_a_crossover(
+            [ambition_demo_smash::SMASH_GEORGE_BOOUL, PIRATE_ADMIRAL],
+            7,
+            |app| {
+                // ⚠ **the FEATURE and the PLUGIN are two switches, deliberately.**
+                // The feature compiles the publishers in; only `CausalPlugin`
+                // creates the recording they write to. Installed before the first
+                // frame so nothing published during composition is missed.
+                app.add_plugins(CausalPlugin);
+                // ⚠ **BRAIN only, and the ring is why.** `CausalLog` holds 4096
+                // facts and drops the oldest; `RecordingPolicy::All` over a
+                // thirty-second match wraps it many times over, so the histogram
+                // would silently describe the last second of the fight.
+                // `dropped()` is reported below either way.
+                ambition_platformer2d::causal::record_domains(
+                    app,
+                    RecordingPolicy::only([domains::BRAIN]),
+                );
+            },
         );
-
-        launch_row(&mut app, "Smash");
-        for _ in 0..20 {
-            app.update();
-        }
-        app.world_mut()
-            .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-                [ambition_demo_smash::SMASH_GEORGE_BOOUL, PIRATE_ADMIRAL],
-                &[7, 7],
-            ));
-        app.world_mut()
-            .write_message(ShellCommand::GoTo(ShellRouteId::new(
-                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-            )));
-        for _ in 0..120 {
-            app.update();
-            if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
-                break;
-            }
-        }
-        for _ in 0..(WINDOW + 200) {
+        for _ in 0..WINDOW {
             app.update();
         }
 

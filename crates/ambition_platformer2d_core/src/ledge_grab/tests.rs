@@ -1554,3 +1554,89 @@ fn boost_decays_to_zero_outside_window() {
         scratch.kinematics.vel,
     );
 }
+
+/// A block that MOVES: a moving platform composites into the collision world as
+/// exactly this — an ordinary solid whose `velocity` is its displacement this
+/// frame. Deliberately `Solid` rather than the `BlinkWall` a platform actually
+/// gets, so the wall test below cannot pass by accident of block KIND: the
+/// carrier is excluded from it by identity or not at all.
+fn moving_solid(name: &str, min: Vec2, size: Vec2, velocity: Vec2) -> Block {
+    let mut block = Block::solid(name, min, size);
+    block.velocity = velocity;
+    block
+}
+
+/// The contact `probe_ledge_grab_in_frame` produces for a body hanging on the
+/// left lip of `block` under down gravity — built from the probe's own formulas
+/// so the test cannot drift from the matcher independently of the probe.
+fn hang_on_left_lip(block: Aabb, body_size: Vec2) -> LedgeContact {
+    let half = body_size * 0.5;
+    LedgeContact {
+        wall_normal_x: -1.0,
+        anchor: Vec2::new(block.left() - (half.x - 1.0), block.top() + half.y - 4.0),
+        climb_target: Vec2::new(block.left() + (half.x + 4.0), block.top() - half.y - 1.0),
+    }
+}
+
+/// **A ledge hang is carried by the carrying solid's own `Block::velocity`, and
+/// by nothing else.** The rule that replaced a player-only `&[MovingPlatformState]`
+/// scan (K4): the hang rides for the same reason a grounded body rides, so
+/// static geometry is the `velocity == ZERO` degenerate case rather than a
+/// separate road, and the solid doing the carrying is the one solid that cannot
+/// be the wall the carry knocks the body into.
+#[test]
+fn a_ledge_hang_is_carried_by_the_solid_it_is_latched_to() {
+    let body_size = Vec2::new(28.0, 46.0);
+    let ledge = Aabb::new(Vec2::new(300.0, 200.0), Vec2::new(40.0, 10.0));
+    let ledge_min = ledge.center() - ledge.half_size();
+    let ledge_size = ledge.half_size() * 2.0;
+    let contact = hang_on_left_lip(ledge, body_size);
+    let body = Aabb::new(contact.anchor, body_size * 0.5);
+    let down = Vec2::new(0.0, 1.0);
+    // Travels LEFT, away from the platform it belongs to, so the wall below can
+    // sit in open space rather than inside the carrier.
+    let travel = Vec2::new(-3.0, 0.0);
+
+    // The block the hang is on is moving → the hang rides it by that velocity.
+    let world = world_with(vec![moving_solid("lift", ledge_min, ledge_size, travel)]);
+    assert_eq!(
+        ledge_carry_for_frame(&world, contact, body, body_size, down),
+        LedgeCarry::Carry(travel),
+        "a hang latched to a moving solid rides it by that solid's own velocity"
+    );
+
+    // The SAME geometry standing still carries nothing — the ride is a property
+    // of the surface MOVING, not of the surface existing.
+    let still = world_with(vec![moving_solid(
+        "lift",
+        ledge_min,
+        ledge_size,
+        Vec2::ZERO,
+    )]);
+    assert_eq!(
+        ledge_carry_for_frame(&still, contact, body, body_size, down),
+        LedgeCarry::Stay,
+        "static geometry carries nothing"
+    );
+
+    // Carried into a DIFFERENT solid, the hang breaks rather than the body being
+    // shoved through it (#126). The wall sits just past where the carry would put
+    // the body's right edge, so it is only reachable after the carry is applied —
+    // and the carrier itself is `Solid`, so this only passes if the carrier is
+    // excluded from the wall test by IDENTITY.
+    let wall_right = body.left() + travel.x + 1.0;
+    let wall = Block::solid(
+        "wall",
+        Vec2::new(wall_right - 20.0, 0.0),
+        Vec2::new(20.0, 600.0),
+    );
+    let blocked = world_with(vec![
+        moving_solid("lift", ledge_min, ledge_size, travel),
+        wall,
+    ]);
+    assert_eq!(
+        ledge_carry_for_frame(&blocked, contact, body, body_size, down),
+        LedgeCarry::KnockOff,
+        "a carry into another solid knocks the hang off instead of pushing through it"
+    );
+}

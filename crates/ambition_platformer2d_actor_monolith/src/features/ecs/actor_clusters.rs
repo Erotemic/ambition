@@ -512,10 +512,8 @@ impl ActorClusterSeed {
             ambition_interaction::InteractionKind::Npc {
                 patrol_path_id: Some(path_id),
                 ..
-            } => paths
-                .iter()
-                .find(|(p_id, _)| p_id == path_id)
-                .map(|(_, path)| PathMotion::new(path.clone())),
+            } => ambition_platformer2d_core::resolve_kinematic_path(paths, path_id)
+                .map(|path| PathMotion::new(path.clone())),
             _ => None,
         };
         let character_id = match &interactable.kind {
@@ -968,10 +966,10 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(match &config_brain {
                 ambition_entity_catalog::placements::CharacterBrain::Patrol {
                     path_id: Some(path_id),
-                } if !practice_target => paths
-                    .iter()
-                    .find(|(id, _)| id == path_id)
-                    .map(|(_, path)| PathMotion::new(path.clone())),
+                } if !practice_target => {
+                    ambition_platformer2d_core::resolve_kinematic_path(paths, path_id)
+                        .map(|path| PathMotion::new(path.clone()))
+                }
                 _ => None,
             }),
             // ⭐ **THE CHARACTER'S OWN VERBS, when it authored any.**

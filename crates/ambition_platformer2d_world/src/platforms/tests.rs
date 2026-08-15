@@ -83,72 +83,6 @@ fn moving_platform_update_swings_between_min_and_max() {
 }
 
 #[test]
-fn moving_platform_matches_ledge_contact_on_its_edge() {
-    let platform = MovingPlatformState::from_sweep(
-        "ledge_platform",
-        "Ledge Platform",
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(80.0, 20.0),
-        120.0,
-        60.0,
-    );
-    let player_size = ae::Vec2::new(28.0, 46.0);
-    let half = player_size * 0.5;
-    let wall_normal_x = -1.0;
-    let left_edge = platform.aabb().left();
-    let top = platform.aabb().top();
-    let contact = ae::LedgeContact {
-        wall_normal_x,
-        anchor: ae::Vec2::new(
-            left_edge + wall_normal_x * (half.x - 1.0),
-            top + half.y - 4.0,
-        ),
-        climb_target: ae::Vec2::new(
-            left_edge - wall_normal_x * (half.x + 4.0),
-            top - half.y - 1.0,
-        ),
-    };
-
-    assert!(
-        platform.matches_ledge_contact(contact, player_size),
-        "ledge contacts produced from the moving-platform block should match the platform"
-    );
-}
-
-#[test]
-fn moving_platform_rejects_unrelated_ledge_contact() {
-    let platform = MovingPlatformState::from_sweep(
-        "ledge_platform",
-        "Ledge Platform",
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(80.0, 20.0),
-        120.0,
-        60.0,
-    );
-    let player_size = ae::Vec2::new(28.0, 46.0);
-    let half = player_size * 0.5;
-    let wall_normal_x = -1.0;
-    let left_edge = platform.aabb().left();
-    let other_top = platform.aabb().top() - 64.0;
-    let contact = ae::LedgeContact {
-        wall_normal_x,
-        anchor: ae::Vec2::new(
-            left_edge + wall_normal_x * (half.x - 1.0),
-            other_top + half.y - 4.0,
-        ),
-        climb_target: ae::Vec2::new(
-            left_edge - wall_normal_x * (half.x + 4.0),
-            other_top - half.y - 1.0,
-        ),
-    };
-
-    assert!(
-        !platform.matches_ledge_contact(contact, player_size),
-        "ledge contacts on unrelated blocks should not inherit this platform's motion"
-    );
-}
-
-#[test]
 fn moving_platform_update_returns_displacement() {
     let mut platform = sample_platform();
     let dt = 1.0 / 60.0;
@@ -269,55 +203,6 @@ fn moving_platform_support_detection_is_gravity_relative() {
     }
 }
 
-#[test]
-fn moving_platform_ledge_contact_matching_is_gravity_relative() {
-    let platform = MovingPlatformState::from_sweep(
-        "ledge_platform",
-        "Ledge Platform",
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(80.0, 20.0),
-        120.0,
-        60.0,
-    );
-    let player_size = ae::Vec2::new(28.0, 46.0);
-    for gravity_dir in [
-        ae::Vec2::new(0.0, 1.0),
-        ae::Vec2::new(1.0, 0.0),
-        ae::Vec2::new(0.0, -1.0),
-        ae::Vec2::new(-1.0, 0.0),
-    ] {
-        for side_normal in [-1.0, 1.0] {
-            let contact =
-                ledge_contact_for_platform(platform.aabb(), player_size, gravity_dir, side_normal);
-            assert!(
-                platform.matches_ledge_contact_in_frame(contact, player_size, gravity_dir),
-                "ledge contact should match under gravity {gravity_dir:?} side {side_normal}"
-            );
-        }
-    }
-}
-
-#[test]
-fn moving_platform_ledge_contact_matches_previous_aabb_after_advance() {
-    let mut platform = MovingPlatformState::from_sweep(
-        "ledge_platform",
-        "Ledge Platform",
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(80.0, 20.0),
-        120.0,
-        60.0,
-    );
-    let player_size = ae::Vec2::new(28.0, 46.0);
-    let gravity_dir = ae::Vec2::new(-1.0, 0.0);
-    let contact = ledge_contact_for_platform(platform.aabb(), player_size, gravity_dir, -1.0);
-    let delta = platform.update(1.0 / 30.0);
-    assert!(delta.length() > 0.0, "precondition: platform advanced");
-    assert!(
-        platform.matches_ledge_contact_in_frame(contact, player_size, gravity_dir),
-        "a ledge contact stored before platform advance should still match so the hang can be carried"
-    );
-}
-
 fn body_supported_by(
     support: ae::Aabb,
     body_size: ae::Vec2,
@@ -337,31 +222,6 @@ fn body_supported_by(
     let body_center_down = support_head - body_down_half;
     let body_center = frame.side * body_center_side + frame.down * body_center_down;
     ae::Aabb::new(body_center, body_half)
-}
-
-fn ledge_contact_for_platform(
-    platform_box: ae::Aabb,
-    player_size: ae::Vec2,
-    gravity_dir: ae::Vec2,
-    side_normal: f32,
-) -> ae::LedgeContact {
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    let half = player_size * 0.5;
-    let platform_center = platform_box.center();
-    let platform_half = platform_box.half_size();
-    let platform_side = platform_center.dot(frame.side);
-    let platform_down = platform_center.dot(frame.down);
-    let platform_side_half = projected_half_for_test(platform_half, frame.side);
-    let platform_down_half = projected_half_for_test(platform_half, frame.down);
-    let lip_down = platform_down - platform_down_half;
-    let wall_side = platform_side + side_normal * platform_side_half;
-    ae::LedgeContact {
-        wall_normal_x: side_normal,
-        anchor: frame.side * (wall_side + side_normal * (half.x - 1.0))
-            + frame.down * (lip_down + half.y - 4.0),
-        climb_target: frame.side * (wall_side - side_normal * (half.x + 4.0))
-            + frame.down * (lip_down - half.y - 1.0),
-    }
 }
 
 fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {

@@ -32,6 +32,145 @@ fn inside_world_bounds(center: Vec2, half: Vec2, world: &World) -> bool {
         && center.y + half.y <= world.size.y
 }
 
+/// How much slack the latch-matching below allows between a stored contact and
+/// the contact this block WOULD produce. One discrete tick of platform travel
+/// plus the probe's own `-1.0`/`-4.0` face offsets already put the two several
+/// pixels apart, so the tolerance is the matcher's, not a fudge factor.
+const LEDGE_LATCH_TOL: f32 = 8.0;
+
+/// Is `contact` the ledge of THIS block, under this frame?
+///
+/// ⭐ **it inverts [`probe_ledge_grab_in_frame`]'s anchor/climb formulas, which
+/// is why it lives beside them.** It used to live in the world crate, phrased
+/// over a `MovingPlatformState`, where the two copies of the same arithmetic
+/// could drift with nothing to notice: a change to the probe's `- 1.0` /
+/// `- 4.0` face offsets silently stopped every moving platform from matching
+/// its own rider's hang. Same file, same constants, one place to change.
+///
+/// The final range test rejects a block that merely shares a lip coordinate
+/// with the real one — the climb target must be inboard of THIS block.
+pub fn ledge_contact_is_on_block(
+    contact: LedgeContact,
+    body_size: Vec2,
+    block: Aabb,
+    gravity_dir: Vec2,
+) -> bool {
+    if contact.wall_normal_x.abs() < 0.5 {
+        return false;
+    }
+    let frame = crate::AccelerationFrame::new(gravity_dir);
+    let half = body_size * 0.5;
+    let side_normal = contact.wall_normal_x.signum();
+    let block_half = block.half_size();
+    let block_center = block.center();
+    let block_side = block_center.dot(frame.side);
+    let block_down = block_center.dot(frame.down);
+    let block_side_half = half_along_axis(block_half, frame.side);
+    let block_down_half = half_along_axis(block_half, frame.down);
+    let lip_down = block_down - block_down_half;
+    let wall_side = block_side + side_normal * block_side_half;
+
+    // The inverses of `hang_center` and `climb_target` in the probe above.
+    let expected_anchor_side = wall_side + side_normal * (half.x - 1.0);
+    let expected_anchor_down = lip_down + half.y - 4.0;
+    let expected_climb_side = wall_side - side_normal * (half.x + 4.0);
+    let expected_climb_down = lip_down - half.y - 1.0;
+
+    let anchor_side = contact.anchor.dot(frame.side);
+    let anchor_down = contact.anchor.dot(frame.down);
+    let climb_side = contact.climb_target.dot(frame.side);
+    let climb_down = contact.climb_target.dot(frame.down);
+
+    if (anchor_side - expected_anchor_side).abs() > LEDGE_LATCH_TOL
+        || (anchor_down - expected_anchor_down).abs() > LEDGE_LATCH_TOL
+        || (climb_side - expected_climb_side).abs() > LEDGE_LATCH_TOL
+        || (climb_down - expected_climb_down).abs() > LEDGE_LATCH_TOL
+    {
+        return false;
+    }
+
+    climb_side >= block_side - block_side_half - half.x - 12.0
+        && climb_side <= block_side + block_side_half + half.x + 12.0
+}
+
+/// What a moving solid does to a body hanging on its ledge this step.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LedgeCarry {
+    /// Nothing is carrying this hang — no moving solid owns the latched ledge.
+    /// The overwhelmingly common case, including every static ledge.
+    Stay,
+    /// Ride the solid by this displacement.
+    Carry(Vec2),
+    /// The carry would push the body into a DIFFERENT solid, so the hang breaks
+    /// instead of the body being shoved through a wall (#126).
+    KnockOff,
+}
+
+/// **The one contact rule for a ledge hang on moving geometry**, phrased exactly
+/// like the grounded ride: *a body attached to a moving solid is carried by that
+/// solid's [`crate::world::Block::velocity`].* Static geometry carries `ZERO`, so
+/// a hang on an ordinary wall is the degenerate case rather than a separate road.
+///
+/// ⛔ **this used to be player-only, and nothing about it was.** The carry lived
+/// in the actor monolith's home-body integration, reached through a
+/// `&[MovingPlatformState]` parameter that `integrate_actor_body` was never
+/// given — so an enemy or NPC that latched onto a moving platform's ledge (the
+/// hang state is kernel-owned and carries no player marker) was simply left
+/// behind by it, and could be dragged through a wall the player would be knocked
+/// off by. Reading `Block::velocity` off the collision world instead removes the
+/// parameter, and with it the reason the rule could only run on one body.
+///
+/// ⚠ **the carrier is excluded from the wall test by IDENTITY, not by kind.** The
+/// old site passed the *base* world, relying on the platform being composited in
+/// separately; that is an accident of composition order, and it would have
+/// started knocking every rider off the first time a moving solid was authored
+/// into the base. The block we are latched to is the one block that cannot be
+/// the wall we are carried into.
+pub fn ledge_carry_for_frame(
+    world: &World,
+    contact: LedgeContact,
+    body_aabb: Aabb,
+    body_size: Vec2,
+    gravity_dir: Vec2,
+) -> LedgeCarry {
+    // Only a MOVING solid can carry anything, and the zero-velocity test is a
+    // cheap `Vec2` compare that skips the matcher for every static block — which
+    // in a room with no moving platforms is all of them.
+    let Some(carrier) = world.blocks.iter().find(|block| {
+        block.velocity != Vec2::ZERO
+            && ledge_surface_kind(block.kind)
+            && (ledge_contact_is_on_block(contact, body_size, block.aabb, gravity_dir)
+                // The solid advanced before the body simulation, so a contact
+                // stored last tick still describes where it WAS. Matching both
+                // poses keeps the hang glued across the advance instead of
+                // losing it in the one frame between the two.
+                || ledge_contact_is_on_block(
+                    contact,
+                    body_size,
+                    block.aabb.translated(-block.velocity),
+                    gravity_dir,
+                ))
+    }) else {
+        return LedgeCarry::Stay;
+    };
+
+    let delta = carrier.velocity;
+    let carried = body_aabb.translated(delta);
+    // `Solid` only, exactly as before: a one-way is not a wall you can be shoved
+    // through, and a `BlinkWall` is what a moving platform itself is composited
+    // as — widening this would have one platform knock riders off another.
+    let into_wall = world.blocks.iter().any(|block| {
+        !std::ptr::eq(block, carrier)
+            && matches!(block.kind, BlockKind::Solid)
+            && carried.strict_intersects(block.aabb)
+    });
+    if into_wall {
+        LedgeCarry::KnockOff
+    } else {
+        LedgeCarry::Carry(delta)
+    }
+}
+
 /// `OneWay`) whose anti-gravity face is within a shoulder-height band of the
 /// controlled body and whose side face matches the side the body is reaching
 /// toward. If found, returns the snap anchor and the climb target.

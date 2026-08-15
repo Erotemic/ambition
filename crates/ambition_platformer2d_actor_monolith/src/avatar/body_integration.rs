@@ -8,8 +8,6 @@
 //! (`ae::step_motion`) over the body's `BodyClustersMut`
 //! view. The ONLY home-specific work here is:
 //!
-//! - the pre-sim ledge-platform carry ([`ledge_platform_carry`]) — only the home
-//!   body ledge-grabs;
 //! - the two-clock precision-blink affordance carried by `InputState::control_dt`
 //!   (an INPUT affordance, not a simulation structure);
 //! - flagging a body reset ([`PlayerBodyFrameOutput::reset`]) for the separate
@@ -26,9 +24,9 @@ use ambition_platformer2d_core as ae;
 use crate::features::ecs::attack::engine_input_from_actor_control;
 use crate::features::FeatureEcsWorldOverlay;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d_world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_world::collision::world_with_sandbox_solids;
+use ambition_platformer2d_world::platforms::MovingPlatformState;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the
 /// unified body integration phase (`integrate_sim_bodies` → [`integrate_home_body`])
@@ -66,39 +64,6 @@ pub struct BodyReset {
     /// replay tooling, and any other consumer that must not confuse respawn with
     /// impact.
     pub origin: ae::Vec2,
-}
-
-/// How a ledge-grabbing player should react to the moving platform that carries
-/// them this frame: ride along with it, or be knocked off because the carry
-/// would shove them into a wall.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LedgePlatformCarry {
-    Carry,
-    KnockOff,
-}
-
-/// Decide [`LedgePlatformCarry`] for a ledge-grabbing player about to be carried
-/// by `delta`. `world` is the base collision world, which **excludes** the
-/// moving platform (it's composited in separately), so a solid overlap here is a
-/// genuine *other* wall — meaning the platform would push the player through it
-/// (#126 "ledge grab on a moving platform into a wall pushes you through").
-/// Pure, so the wall decision is unit-testable without the full phase context.
-pub fn ledge_platform_carry(
-    world: &ae::World,
-    player_aabb: ae::Aabb,
-    delta: ae::Vec2,
-) -> LedgePlatformCarry {
-    use ambition_platformer2d_core::AabbExt;
-    let carried = player_aabb.translated(delta);
-    let into_wall = world
-        .blocks
-        .iter()
-        .any(|b| matches!(b.kind, ae::BlockKind::Solid) && carried.strict_intersects(b.aabb));
-    if into_wall {
-        LedgePlatformCarry::KnockOff
-    } else {
-        LedgePlatformCarry::Carry
-    }
 }
 
 /// The per-body home movement core — control phase **and** simulation phase in ONE
@@ -180,46 +145,16 @@ pub fn integrate_home_body(
         axis.params = axis_tuning.axis_swept_params();
     }
 
-    // Ledge-platform carry is an axis-swept model-private affordance (the hang
-    // state lives inside the variant, ADR 0024).  The movement dispatch itself
-    // remains one call for every policy.
-    let ledge_carry_delta = if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
-        let player_size_pre = clusters.kinematics.size;
-        axis.state
-            .ledge_grab
-            .and_then(|grab| {
-                moving_platforms.iter().position(|platform| {
-                    platform.matches_ledge_contact_in_frame(
-                        grab.contact,
-                        player_size_pre,
-                        motion_frame.down(),
-                    )
-                })
-            })
-            .map(|idx| moving_platforms[idx].last_delta())
-    } else {
-        None
-    };
-    if let Some(platform_delta) = ledge_carry_delta {
-        let player_aabb_pre = clusters.kinematics.aabb();
-        match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
-            LedgePlatformCarry::KnockOff => {
-                ae::movement::knock_off_ledge(motion_model, clusters.ledge);
-            }
-            LedgePlatformCarry::Carry => {
-                // Parent-frame carry (ADR 0024 external-constraint
-                // authority): the platform moves the grabbed body.
-                ae::movement::carry_body(clusters.kinematics, platform_delta);
-                if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
-                    if let Some(grab) = axis.state.ledge_grab.as_mut() {
-                        grab.contact.anchor += platform_delta;
-                        grab.contact.climb_target += platform_delta;
-                    }
-                }
-            }
-        }
-    }
-
+    // ⭐ **the ledge-platform carry is GONE from here, and that is the point.** It
+    // was the last thing in this function that only a home body could get: a
+    // `&[MovingPlatformState]` scan that matched the hang against each platform
+    // by position and carried it by `last_delta`. `integrate_actor_body` was
+    // never handed the platform set, so an enemy or NPC hanging on a moving
+    // platform — kernel state, no player marker — was left behind by it.
+    //
+    // It now runs inside `update_body_simulation_inner` for EVERY body, reading
+    // the carrying solid's own `Block::velocity` straight off the collision world
+    // this function already composites. See `ledge_grab::ledge_carry_for_frame`.
     let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let result = ae::step_motion(
         motion_model,
@@ -393,5 +328,3 @@ pub fn advance_moving_platforms(
 mod home_momentum_tests;
 #[cfg(test)]
 mod platform_advance_tests;
-#[cfg(test)]
-mod ledge_carry_tests;

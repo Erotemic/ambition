@@ -153,6 +153,26 @@ impl CharacterSheetSpec {
         self.record.flat_index_in_page(slot, frame)
     }
 
+    /// Trim geometry for a slot resolved by [`Self::clip_slot`].
+    ///
+    /// ⛔ **the row-keyed twin of [`Self::frame_trim`], and its absence was a
+    /// live defect.** `CharacterAnimator::current_render` had only the
+    /// [`CharacterAnim`]-keyed form, so while an authored CLIP was playing it
+    /// drew the clip's atlas cell (via [`Self::flat_index_at`]) at the size and
+    /// anchor of whatever SEMANTIC pose `current` still held. Measured
+    /// 2026-08-15: 122 of 185 shipped sheets are trimmed, so on most of the
+    /// population that is a per-frame size/anchor read from the wrong row —
+    /// silent, because both lookups clamp instead of failing.
+    pub fn frame_trim_at(&self, slot: usize, frame: usize) -> FrameTrim {
+        self.record.frame_trim(slot, frame)
+    }
+
+    /// Which page image a clip slot's frame draws from — the row-keyed twin of
+    /// [`Self::page_of`], for the same reason.
+    pub fn page_of_at(&self, slot: usize, frame: usize) -> u32 {
+        self.record.frame_page_of(slot, frame)
+    }
+
     /// Pixel extent of page 0's atlas texture (custom-material UV helper).
     pub fn atlas_texture_size(&self) -> UVec2 {
         self.atlas_texture_size_for_page(0)

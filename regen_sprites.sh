@@ -466,6 +466,11 @@ tackon_targets=(
     super_mary_o_flag_pole_top
     super_mary_o_flag
     generic_explosions
+    # Reusable action-effect vocabulary (contact hits, surface dust, poofs,
+    # glints, directional release flashes, beam impacts, charge/release).
+    # 18 rows on one sheet, addressed BY ROW NAME — none of them is a
+    # `CharacterAnim`, and none of them should become one.
+    generic_action_fx
     smirking_behemoth_boss
     solid_snake
     snakes_on_a_paper_plane

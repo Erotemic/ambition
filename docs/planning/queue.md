@@ -64,15 +64,34 @@ roster; and **a construction test pins the FUNCTION, not the WIRING** — the
 facing plumbing was green the whole time enemies walked the wrong way, because
 nothing asserted the authored world ever *said* which way.
 
-⛔ **workers do not run `cargo`.** The build lease is held by the coordinator so
-parallel cold target dirs cannot thrash CPU and disk. The cost is that worker
-code arrives UNCOMPILED — **treat every worker test claim as unrun until this
-session runs it.** Two of six lanes handed back code that did not compile, and
-one handed back a wrong diagnosis that a five-minute source read overturned.
-
 ⚠ **peer agents commit to this same main tree.** ⛔⛔ therefore every commit uses
 `git commit -F - -- <paths>`; a bare `git commit` takes the WHOLE INDEX and
 carries another session's staged files under this one's message.
+
+⚠ **treat every worker test claim as UNRUN until this session runs it** — two of
+those six lanes handed back code that did not compile, and one handed back a
+confident diagnosis a five-minute source read overturned. That cost is
+independent of whether the worker could build.
+
+### ▢ CURRENT LANES — two, as of 2026-08-15 (the six above are HISTORY)
+
+⛔ **the "three lanes dispatched" table this file used to carry is gone**: all
+three had landed and no worker was running, so the ledger was describing a
+workforce that did not exist. Refill this table when a lane returns; never leave
+it describing the last run.
+
+| Lane | Owner | Executable next action |
+|---|---|---|
+| **D125 — checkpoint/reset truth over persistent occurrences** | coordinator, in the main tree | the seven-step behavioural fixture below |
+| **D128 — Smash CPU showcase** | one worker, in its own worktree | measure real matches first, then spend on the single largest visible deficiency |
+
+⭐ **the build lease is no longer exclusive, and the reason changed.** The old
+rule — *workers never run `cargo`* — rested on one shared target dir against a
+nearly full disk. Both halves are now false: `scripts/setup_target_bindmount.sh`
+gives each worktree its own ext4 backing store keyed by path, and the stale dirs
+are deleted. ⇒ a worker whose job **is** measurement (the Smash lane cannot
+observe a match without running it) gets a worktree and builds in it. The
+surviving cost is CPU contention, which is a scheduling choice, not a limit.
 
 ### ▢ Next dispatch — maintainer-reported product bugs still unmarked
 
@@ -1155,7 +1174,32 @@ the thing a row says is missing before working it.* Measurement record archived 
    specifically the name to avoid. ⇒ the residue is not a rename but **stale
    player-centric prose around the type**, which should be cleaned up in place.
 
-- ▢ **D64 — Finish only verified Mary-O/presentation residue.**
+- ⏸ **D64 — Mary-O / LDtk authoring. RESTING as a successful ACCEPTANCE
+  BASELINE, not a running campaign (2026-08-15).**
+
+✔✔ **the end-to-end authoring acceptance landed.** A new level can now be
+created through LDtk **without adding ordinary Rust level registration**: new
+authored rooms need no Rust routing merely to exist, the demo shell reviews any
+authored room, room destinations are authored, warp tubes scope to the active
+room instead of hard-coding 1-1, one shared `ldtk_entity_contract.json` is
+consumed by both the Rust prover and the Python validator so validation refuses
+exactly what the real converter refuses, enemy facing has editor vocabulary, a
+ratchet guards against deleting authored levels, and the destructive one-shot
+world bootstrap is gone. That is an Engine 1.0 milestone.
+
+⛔ **do not keep adding Mary-O tooling because the lane existed.** The next LDtk
+improvement must come from **actual content-authoring friction**: author or
+revise a room, hit a real editor/semantic limitation, fix *that* generically.
+⛔ do not assign a worker to generic LDtk cleanup.
+
+Preserved architectural rules: `.ldtk` is authoritative spatial source · tools
+edit it additively and in place · destructive bootstrap regeneration must not
+return · Rust and Python validation must agree about what runtime conversion
+accepts · provider/game vocabulary stays discoverable · native editor
+fields/enums/entity references where practical · game-specific semantics stay
+provider-owned rather than growing a central engine taxonomy.
+
+Residue below is kept as evidence, not as dispatchable work.
 
 The multi-coin block pays the purse and, since 2026-08-14, draws the coin
 (`VfxMessage::CoinPop`). Do not reopen old restart or block reports without a
@@ -1428,16 +1472,29 @@ rollback state and the schema was not that pass's to re-baseline), and
 `WindowTag::Invuln`/`Armor` are declared vocabulary with **no consumer** —
 authoring them parses and does nothing.
 
-⇒ **NEXT: a SECOND, mechanically different fighter** — recovery that is **not** a
-positive vertical `Set` impulse (diagonal, horizontal, teleport, multi-stage).
-⛔ **do not keep polishing the first.** ⭐⭐ **the central deliverable is a poison
-fixture: a tiny upward attack must NOT suppress another viable recovery merely
-because `lift_speed > 0`** — the failure mode that scalar invites is hardening
-into *the* universal recovery ontology. ⇒ the direction of travel is that the
-real recovery/search machinery decides whether an authored action is **useful
-from the current state**, rather than a static "this is the recovery move"
-property. ⚠ a teleport is the shape whose behaviour cannot be inferred from
-static geometry, so it is the one allowed to expose its own affordance.
+✔✔ **SECOND FIGHTER LANDED TOO (Pirate Admiral, 2026-08-15)** — a materially
+different lateral/grapple recovery concept, so the recovery ontology is no longer
+a single positive vertical `Set` impulse. Recovery routes are now evaluated
+through the **real movement kernel** (`movement/recovery.rs` drives a scratch
+body) rather than ranked by a static "this is the recovery move" property.
+⛔ **do not redispatch "make a second fighter".**
+
+⇒ **NEXT is a PRODUCT question, not a roster question:** does a watcher actually
+*see* the two kits behave differently? The behavioural claims owed are
+`Recovery situation → useful authored recovery action selected → route has a
+meaningful chance to regain the stage`, and `two different authored kits →
+observably different fighting behavior`. ⛔ *"the special exists"* and *"the
+special occurred somewhere in 1800 ticks"* are both rejected as evidence.
+
+⚠ **a confirmed defect, unfixed as of 2026-08-15:**
+`brain/fighter/decision.rs:523` falls back with
+`.or_else(|| options.attacks.first().map(|a| a.binding))`, against `options.rs:367`
+which says in so many words that taking `.first()` as the recovery brings the
+tiny-rising-aerial trap back. ⭐⭐ **the poison fixture is still owed: a tiny
+upward attack must NOT suppress another viable recovery merely because
+`lift_speed > 0`.** ⚠ a second unexplained observation: in a MIRROR match, seat 0
+used zero specials and zero routes while seat 1 used six of each — if that
+reproduces it is seat-dependent and it undercuts every other measurement.
 
 ⭐ **the question, and it is a product question rather than an architecture one:**
 

@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `0aa61ed3db91` (2026-08-15 local project date).
+**Snapshot:** `0e6135f198` (2026-08-15 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it

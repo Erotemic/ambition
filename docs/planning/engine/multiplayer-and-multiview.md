@@ -306,6 +306,19 @@ repeats. `camera_follow`'s `Single<…, With<LocalView>>` is gone: it resolves t
 view through the link, and a camera that names none takes the only view and
 REFUSES loudly when there are several, rather than picking one.
 
+⛔ **but this passage OVERSTATED it for a day, and the overstatement is worth
+keeping visible.** It also claimed a second camera no longer causes "two cameras
+fighting over one snapshot". Only the first half was true. Having the link is not
+the same as USING it per camera: `camera_follow` read `query.iter().next()` for
+the FIRST camera's link, resolved that one view, and then wrote its transform,
+rotation and ortho scale onto every main camera in the loop — which is precisely
+the fight, still happening, under a doc sentence saying it could not.
+`apply_gameplay_camera_viewport` had the identical shape in the viewport axis.
+⭐ **a landed MECHANISM and an N-view CONSUMER are two claims, and a plan that
+records the first as if it settled the second sends the next session past the
+bug.** Both are per-camera as of 2026-08-14, and `ViewsOnHand` now states the
+camera→view resolution rule once for all three sites that need it.
+
 ⚠ **the fallback is why the test asserts the shipped host BINDS it.** Every
 fixture in the tree spawns a bare `MainCamera`, so the unlinked path has to work
 — and that same fallback would hide the production binding being dropped, right

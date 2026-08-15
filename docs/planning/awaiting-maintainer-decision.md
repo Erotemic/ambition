@@ -44,6 +44,23 @@ This is build-hygiene only. It isolates rust-analyzer artifacts from the normal
 Cargo target directory; it is not established as the cause of the old linker
 failure.
 
+⭐ **MEASURED 2026-08-14, and it is no longer only hygiene — it is a throughput
+cost.** During a long agent session, rust-analyzer's
+`cargo check --workspace` restarted roughly **every 50 seconds** and took the
+target-directory lock each time. The agent's `cargo check -p ambition_app
+--all-targets` — the 21-second gate — took **1m26s of actual work spread across
+about 9 minutes of blocking**, and one focused render test took 6 minutes. ⚠
+nothing was corrupted and no failure was mysterious; the entire cost was
+`Blocking waiting for file lock on build directory`.
+
+⇒ so the question has changed shape. It is not "does this prevent a linker
+failure" (unestablished, and probably no) but **"is a second target directory
+worth roughly 100 GB to stop the editor and the agents from serialising against
+each other?"** ⚠ the volume is at 93% with ~137 GB free and the existing target
+dir is 106 GB, so this genuinely does not fit twice — which is why it is your
+call and not an agent's. A cheaper variant if the disk answer is no: leave the
+directory shared and accept that only one builder makes progress at a time.
+
 ### 4. Mary-O restart report: which game, and roughly when? (former D68)
 
 Current Mary-O tests cover all three death routes — hit, timeout, and

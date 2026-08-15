@@ -643,48 +643,81 @@ fn a_relocated_placement_comes_back_where_it_was_left() {
     );
 }
 
-/// **THE CROSS-ROOM FALSIFIER — and the gate it is waiting on.**
+/// **AN OBJECT LEFT IN ANOTHER ROOM STAYS IN THAT ROOM.**
 ///
-/// ⛔ **`#[ignore]`, deliberately, and it is the specification of the unbuilt
-/// half rather than a test that has gone bad.** Its sibling above proves the
-/// whole mechanism — an authoritative whereabouts row survives a room unload and
-/// reconstruction reinstates the occurrence at it — for a room that AUTHORS the
-/// record. This one drops the object in a room that does NOT author it, and that
-/// last step needs something the engine does not have.
+/// Its sibling above proves the whole mechanism for a room that AUTHORS the
+/// record. This one drops the object in a room that does NOT author it, which is
+/// the case that forced room construction to stop being a pure function of one
+/// `RoomSpec`: reinstating this occurrence in `portal_bridge` means building a
+/// record that lives in `blink_run`, so construction reconstructs current
+/// residency from the world's DEFINITIONS plus the authoritative disposition of
+/// every occurrence, rather than from the one room in front of it.
 ///
-/// ⭐ **THE GATE, exactly: room construction is a pure function of ONE
-/// `RoomSpec`.** Reinstating an occurrence in `portal_bridge` means building a
-/// record that lives in `blink_run`, and `RoomFeatureConstructionPlan::prepare`
-/// never sees another room's records. The caller has them —
-/// `RoomConstructionPlan::prepare_from_parts` holds the whole `RoomSet` — so
-/// closing it is a plumbing change at that seam: derive the foreign requests
-/// there and hand them to the plan beside the room's own.
+/// ⛔⛔ **THE TWO HALVES ARE ONE CLAIM, AND THIS TEST ASSERTS BOTH.** Suppressing
+/// the record in `blink_run` without reconstituting the occurrence in
+/// `portal_bridge` leaves the object in NO room, permanently — a deletion bug
+/// traded for a duplication bug. So:
 ///
-/// ⛔⛔ **and the two halves may not land separately.** Suppressing the record in
-/// `blink_run` without reconstituting the occurrence in `portal_bridge` would
-/// leave the object in NO room, permanently — a deletion bug traded for a
-/// duplication bug. That is why `outlook_for` answers `Authored` for a `Placed`
-/// row naming some other room today: the object comes home, which is the
-/// behaviour this engine had before any of this existed, and is the only safe
-/// answer while the gate is open.
+/// * a run that reinstates but forgets to suppress fails at `blink_run`, which
+///   would hold a second live occurrence of one identity;
+/// * a run that suppresses but forgets to reinstate fails at `portal_bridge`,
+///   which would hold none.
+///
+/// Neither half can regress alone and leave this green, which is the only reason
+/// it is safe to have landed them together.
 #[test]
-#[ignore = "cross-room reinstatement: construction cannot read a record whose home room is not the room being built"]
 fn a_placement_dropped_in_another_room_stays_there() {
     let mut sim = fixed_60hz_room_sim(SOURCE_ROOM);
     for _ in 0..10 {
         sim.step(base());
     }
     let (item, authored) = authored_item(&mut sim);
+    let authored_pos = item_pos(&sim, item);
 
     // ── CARRY IT NEXT DOOR AND DROP IT THERE ────────────────────────────────
     pick_it_up(&mut sim, item);
     assert_eq!(walk_through_the_door_to(&mut sim, TARGET_ROOM), TARGET_ROOM);
+    // Let go standing in the door back to `blink_run`: it is the one position in
+    // `portal_bridge` this test can name without reading the room's geometry —
+    // authored, in bounds, somewhere a body can stand — and it is where the body
+    // leaves from anyway. Dropping wherever the crossing happened to deposit the
+    // body would put the object at an arrival point that may be mid-air.
+    let stand = door_to(&mut sim, SOURCE_ROOM).aabb.center();
+    sim.teleport_player((stand.x, stand.y));
     throw_it_down(&mut sim);
     assert!(
         custody(&sim, item).is_some_and(|custody| custody.in_world()),
         "Shield+Attack puts the object back in the world"
     );
+
+    // ── LET IT COME TO REST, AND PROVE IT HAS ───────────────────────────────
+    // What the world remembers is where the object last WAS when the room
+    // unloaded, so a position measured mid-fall would make the claim below a
+    // race against the physics rather than a claim about reconstruction.
+    for _ in 0..60 {
+        sim.step(base());
+    }
     let dropped_pos = item_pos(&sim, item);
+    for _ in 0..10 {
+        sim.step(base());
+    }
+    let still = item_pos(&sim, item);
+    let creep = (still.0 - dropped_pos.0).abs() + (still.1 - dropped_pos.1).abs();
+    assert!(
+        creep < 0.5,
+        "the dropped object must be at rest before the room is unloaded: it was \
+         at {dropped_pos:?} and ten frames later at {still:?}. Nothing below can \
+         mean anything while it is still moving"
+    );
+    // And it is somewhere the AUTHORED record does not put it, so "came back
+    // where it was left" and "came back where the record says" are different
+    // answers and the last assertion can fail.
+    let moved = (dropped_pos.0 - authored_pos.0).abs() + (dropped_pos.1 - authored_pos.1).abs();
+    assert!(
+        moved > 8.0,
+        "authored at {authored_pos:?}, dropped at {dropped_pos:?} — this test \
+         needs those to be different places"
+    );
 
     // ── UNLOAD THE ROOM IT IS NOW IN, AND VISIT THE ONE THAT AUTHORS IT ─────
     assert_eq!(walk_through_the_door_to(&mut sim, SOURCE_ROOM), SOURCE_ROOM);
@@ -694,9 +727,9 @@ fn a_placement_dropped_in_another_room_stays_there() {
     assert!(
         occurrences(&mut sim, &authored).is_empty(),
         "the room that AUTHORS this placement must not mint it again: the \
-         occurrence it minted is in another room, and re-authoring it here \
-         would put two live things behind one identity the moment the player \
-         walks back"
+         occurrence it minted is lying in '{TARGET_ROOM}', and re-authoring it \
+         here would put two live things behind one identity the moment the \
+         player walks back"
     );
 
     // ── AND BACK NEXT DOOR: THE SAME OCCURRENCE, WHERE IT WAS LEFT ──────────
@@ -709,19 +742,28 @@ fn a_placement_dropped_in_another_room_stays_there() {
         live.len(),
         1,
         "the occurrence was left lying in '{TARGET_ROOM}' and must reconstitute \
-         there — exactly once"
+         there — exactly once. ZERO here is the deletion this whole design \
+         exists to prevent: '{SOURCE_ROOM}' has already been told not to author \
+         it, so if this room does not build it the object is in no room at all"
     );
     let back = live[0];
+    assert_ne!(
+        back, item,
+        "the returning occurrence is a fresh entity built from the record — the \
+         one that was lying here died when '{TARGET_ROOM}' unloaded, and its \
+         `SimId` is what makes this the same occurrence"
+    );
     assert!(
         custody(&sim, back).is_some_and(|custody| custody.in_world()),
-        "lying in the world, the way it was left"
+        "lying in the world, collectible, the way it was left"
     );
     let back_pos = item_pos(&sim, back);
     let drift = (back_pos.0 - dropped_pos.0).abs() + (back_pos.1 - dropped_pos.1).abs();
     assert!(
         drift < 1.0,
         "it must come back at {dropped_pos:?}, where it was dropped; it came \
-         back at {back_pos:?}"
+         back at {back_pos:?}. A record built at the coordinates ITS OWN room \
+         gives it ({authored_pos:?}) is the failure this measures"
     );
 }
 

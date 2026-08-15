@@ -200,7 +200,10 @@ but `RoomScopedEntity` does not encode *which* room owns an occurrence, so
 "released" resolves to *"whatever room is active"*. ⭐ that is exactly why the
 slice needed no memory of the destination — and exactly what will not survive
 participants occupying different rooms simultaneously, which needs keyed,
-explicit ownership.
+explicit ownership. ⚠ **the second leg (below) did NOT close this**: the ledger's
+`Placed { room, .. }` now names the room an occurrence is lying in, which is the
+value a keyed `RoomScopedEntity` would need, but the scope marker itself is
+unchanged.
 
 ### ✔ First leg landed 2026-08-15 — and the shape it chose is the part to keep
 
@@ -241,6 +244,44 @@ and `RoomConstructionError::MissingService`, its only raiser.
 first test to actually *execute* a reset contradicted a sibling that asserted the
 scope component was present and **inferred** the sweep consequence in prose.
 ⛔ an inferred consequence is not a checked one.
+
+### ✔ Second leg landed 2026-08-15 — construction RECONSTRUCTS residency
+
+⭐⭐ **room construction stopped being a pure function of one `RoomSpec`.** What a
+room owes the world is its current RESIDENCY — derived from the world's
+DEFINITIONS plus the authoritative disposition of every occurrence — and an
+occurrence carried out of the room that minted it and put down elsewhere belongs
+to the room it is lying in, under a record that room does not own.
+
+⭐ **the two halves are one row and land together, enforced by a TYPE.**
+`outlook_for` now answers `Reinstated` in the room an occurrence lies in and
+`Suppressed` in every other room including its home — and construction takes
+`OccurrenceContinuity { remembered, world }`, one value carrying the ledger and
+the world's room definitions. ⛔ **a road holding only the ledger could perform
+the suppression and was structurally unable to perform the reinstatement**, which
+is a permanent DELETION traded for a duplication; that road is no longer
+expressible. Exactly one caller states it (the room-transition load), and every
+other construction road still states `None` and means it.
+
+⭐ **the foreign lookup is bounded by the ledger, not by a scan.** A room derives
+records from another room only for identities the ledger says are lying in it and
+its own records do not produce, and stops the moment the debt is settled —
+`reinstatable_authored_requests`, paired with `relocate_request`: an occurrence
+gets a `Placed` row only from a producer that read a POSITION off it, so a family
+joins both functions or neither.
+
+⚠ **two consequences recorded rather than fixed:**
+
+- a foreign room that cannot yield its records **refuses** this build (a
+  preflight failure, raised while the outgoing room is still whole) rather than
+  silently dropping the occurrence. The same defect already makes that room
+  unbuildable.
+- a debt no record in the world can settle — the record was edited away — is a
+  **warning**, not a refusal: refusing would make the room permanently
+  unenterable for a content change.
+
+⛔ `Consumed` still has **no producer**, deliberately, and horizon 2 is still
+blocked on the three things that do not exist.
 
 ## Candidate crate / Bevy shape
 

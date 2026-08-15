@@ -118,6 +118,36 @@ pub struct RoomFeatureConstructionPlan {
     outlook: ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
 }
 
+/// **What the world remembers about its occurrences, and the definitions a room
+/// needs in order to act on what it remembers.**
+///
+/// ⛔⛔ **the two travel as ONE value because acting on half the ledger deletes
+/// objects.** A `Placed` row is a single fact with two consequences: the room
+/// whose record minted the occurrence must not mint it again, and the room the
+/// occurrence is lying in must rebuild it — even though that room does not own
+/// the record. A construction road holding only the ledger can perform the
+/// suppression and is structurally unable to perform the reinstatement, which
+/// turns a duplication bug into a permanent deletion. Stating the ledger and
+/// the world definitions separately would make that road expressible; this type
+/// is what makes it not.
+///
+/// ⚠ **`world` is every room of the world, not the neighbours.** A body can
+/// carry an object any distance before putting it down, so the room holding the
+/// record is not reachable by adjacency. Nothing is derived from a room the
+/// ledger does not name — see
+/// [`RoomFeatureConstructionPlan::prepare`](RoomFeatureConstructionPlan::prepare) —
+/// so the cost of a large world is a slice, not a scan.
+#[derive(Clone, Copy)]
+pub struct OccurrenceContinuity<'a> {
+    /// Horizon 1: where the occurrences this world has already minted actually
+    /// are. THE authority; nothing else may hold a second opinion.
+    pub remembered: &'a ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+    /// Every room's authored records — the world DEFINITIONS the ledger's rows
+    /// refer to. A room being built reaches into these only for identities the
+    /// ledger says are lying in it and that its own records do not produce.
+    pub world: &'a [crate::rooms::RoomSpec],
+}
+
 /// What construction planning needs beyond the room's authored content: the
 /// recipe table, and the content generation the plan is being prepared against.
 #[derive(Clone, Copy)]
@@ -142,9 +172,11 @@ pub struct ActorConstructionContext<'a> {
     /// which is what every level assumed before a placement could name one.
     pub brain_profiles:
         Option<&'a ambition_characters::actor::character_catalog::BrainProfileRegistry>,
-    /// **What the world remembers about the occurrences this room already
-    /// minted**, so a rebuild does not mint a second one for a record whose
-    /// occurrence is still alive somewhere else.
+    /// **What the world remembers about the occurrences it has already minted,
+    /// and the definitions needed to act on it** — so a rebuild neither mints a
+    /// second occurrence for a record whose first one is alive somewhere else,
+    /// nor forgets an occurrence that is lying in this room under a record this
+    /// room does not own.
     ///
     /// ⚠ same `Option` contract as the cast and the policies: absent means "this
     /// composition remembers nothing", which is the honest answer for startup,
@@ -152,8 +184,7 @@ pub struct ActorConstructionContext<'a> {
     /// wholesale — and for a RESET, which destroys the occurrences a
     /// disposition is about and must therefore rebuild the room from the
     /// authored records alone.
-    pub occurrences:
-        Option<&'a ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    pub continuity: Option<OccurrenceContinuity<'a>>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -168,7 +199,7 @@ impl<'a> ActorConstructionContext<'a> {
             ),
             prepared: None,
             brain_profiles: None,
-            occurrences: None,
+            continuity: None,
         }
     }
 
@@ -204,13 +235,12 @@ impl<'a> ActorConstructionContext<'a> {
         brain_profiles: Option<
             &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
         >,
-        // What became of the occurrences this room minted before. A road that
-        // rebuilds a room the session has been LIVING in states it; a road that
-        // builds a world from nothing, or destroys one to rebuild it, states
-        // `None` and means it. See [`Self::occurrences`].
-        occurrences: Option<
-            &'a ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
-        >,
+        // What became of the occurrences this world minted before, and the
+        // definitions that let this room act on it. A road that rebuilds a room
+        // the session has been LIVING in states it; a road that builds a world
+        // from nothing, or destroys one to rebuild it, states `None` and means
+        // it. See [`Self::continuity`].
+        continuity: Option<OccurrenceContinuity<'a>>,
     ) -> Self {
         let mut context = Self::new(recipes, content_epoch);
         if let Some(active) = active_binding {
@@ -218,7 +248,7 @@ impl<'a> ActorConstructionContext<'a> {
         }
         context.prepared = prepared;
         context.brain_profiles = brain_profiles;
-        context.occurrences = occurrences;
+        context.continuity = continuity;
         context
     }
 
@@ -403,9 +433,19 @@ impl RoomFeatureConstructionPlan {
         // the world that occurrence, with its own identity, WHERE IT WAS LEFT.
         // Reading `Reinstated` as "author it" and dropping the position is how a
         // relocation silently becomes a teleport back to the authored spot.
+        //
+        // ⭐⭐ **AND THE ANSWER IS NOT A FUNCTION OF THIS ROOM'S RECORDS ALONE.**
+        // An occurrence lying in this room may have been minted by a record next
+        // door — carried here and put down — and this room owes the world that
+        // occurrence exactly as much as it owes the ones it authors. Its home
+        // room has already been told not to author it, so a build that services
+        // only its own records deletes the object permanently. The foreign leg
+        // below is the other half of that one decision, and the two arrive
+        // together because [`OccurrenceContinuity`] carries the world's
+        // definitions beside the ledger.
         let outlook = construction
-            .occurrences
-            .map(|ledger| ledger.outlook_for(&room.id))
+            .continuity
+            .map(|continuity| continuity.remembered.outlook_for(&room.id))
             .unwrap_or_default();
         let suppressed = outlook.suppressed();
         if !outlook.is_empty() {
@@ -433,6 +473,72 @@ impl RoomFeatureConstructionPlan {
                     ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Suppressed => false,
                 }
             });
+        }
+        // ── THE OCCURRENCES THIS ROOM OWES AND DOES NOT AUTHOR ──────────────
+        //
+        // Whatever the room's own records did not answer for is an occurrence
+        // lying HERE whose record lives somewhere else. The world's definitions
+        // are in front of us, so the room stops being a pure function of ONE
+        // `RoomSpec` and becomes what it always had to be: current residency,
+        // reconstructed from the world's definitions plus the authoritative
+        // disposition of every occurrence.
+        //
+        // ⚠ **only rooms the ledger's obligation actually reaches are touched.**
+        // The loop stops the moment the debt is settled and never runs at all
+        // for the overwhelmingly common empty ledger, so a big world costs a
+        // slice bound, not a scan.
+        if let Some(continuity) = construction.continuity {
+            let mut owed = outlook.reinstatements();
+            for request in &requests {
+                owed.remove(&request.sim_id);
+            }
+            for foreign in continuity.world {
+                if owed.is_empty() {
+                    break;
+                }
+                if foreign.id == room.id {
+                    continue;
+                }
+                // ⛔ **a foreign room that cannot yield its records REFUSES this
+                // build**, rather than quietly dropping the occurrence. The
+                // world promised the player an object back and cannot produce
+                // it; that is a preflight failure — raised while the outgoing
+                // room is still whole, like every other one here — and not a
+                // silent deletion. (The same defect already makes the foreign
+                // room itself unbuildable, so nothing is being made worse.)
+                let candidates = crate::construction::reinstatable_authored_requests(foreign)
+                    .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+                for mut request in candidates {
+                    let Some(at) = owed.remove(&request.sim_id) else {
+                        continue;
+                    };
+                    if !crate::construction::relocate_request(&mut request, at) {
+                        bevy::log::warn!(
+                            target: "ambition_platformer2d::construction",
+                            "room `{}` owes `{:?}`, whose record in room `{}` has no \
+                             position to reinstate it at; it cannot come back here",
+                            room.id,
+                            request.sim_id,
+                            foreign.id,
+                        );
+                        continue;
+                    }
+                    requests.push(request);
+                }
+            }
+            // ⚠ **a debt no record in the world can settle**, which is a CONTENT
+            // change rather than a construction defect: the record an occurrence
+            // was minted from has been edited away. Refusing to build the room
+            // would make it permanently unenterable, so this is loud and the
+            // room is built without it.
+            for (sim_id, at) in owed {
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::construction",
+                    "room `{}` remembers occurrence `{sim_id:?}` lying at {at:?}, and no \
+                     room in this world authors a record that can rebuild it",
+                    room.id,
+                );
+            }
         }
         // Authored mount links are planned `ambition.mount` relations between
         // those rows; a link naming nobody fails HERE instead of being retried

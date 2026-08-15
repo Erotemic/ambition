@@ -180,6 +180,26 @@ impl RoomOccurrenceOutlook {
             .collect()
     }
 
+    /// **Every identity this build OWES the world, and where it owes it.**
+    ///
+    /// ⭐ **the caller must answer this list, not merely consult it.** A
+    /// reinstatement whose record this room authors is satisfied by relocating
+    /// the room's own request; one whose record belongs to ANOTHER room is
+    /// satisfied only by going and getting that record. Both are the same
+    /// obligation — an occurrence that is lying in this room and has to be here
+    /// when the room is built — and a construction road that services the first
+    /// and drops the second deletes the object from the world permanently,
+    /// because [`AuthoredOccurrences::outlook_for`] has already told its home
+    /// room not to author it.
+    pub fn reinstatements(&self) -> BTreeMap<SimId, Vec2> {
+        self.rows
+            .iter()
+            .filter_map(|(sim_id, disposition)| {
+                disposition.relocated_to().map(|at| (sim_id.clone(), at))
+            })
+            .collect()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }
@@ -206,19 +226,27 @@ impl AuthoredOccurrences {
     /// **What construction must do about every record of `room`.** The one
     /// derived view, produced from the authoritative rows and nothing else.
     ///
-    /// ⭐ **a `Placed` row for a room OTHER than the one being built answers
-    /// `Authored`, and that is deliberate, not an oversight.** Exactly one room
-    /// is loaded, so an occurrence placed in a different room is not alive: it
-    /// was destroyed when that room unloaded, and nothing can reconstitute it
-    /// there until construction can read a record whose home room is not the
-    /// room being built (see the gate on [`Self::reinstatement_is_room_local`]).
-    /// Suppressing here instead would trade a duplication bug for a DELETION
-    /// bug: the object would exist in no room at all, forever.
+    /// ⭐⭐ **a `Placed` row is the SAME fact seen from two rooms, and both
+    /// rooms must act on it.** The room the occurrence is lying in reinstates
+    /// it; every other room — including the one whose record MINTED it —
+    /// suppresses it. Those two answers are one decision, and the reason they
+    /// are computed in one function from one row is that they cannot be allowed
+    /// to disagree: suppressing the home room while nothing rebuilds the
+    /// occurrence where it lies deletes the object from the world permanently,
+    /// and reinstating without suppressing puts two live things behind one
+    /// `SimId`.
+    ///
+    /// ⛔ **so a consumer may not answer half of this.** The obligation stated
+    /// by [`RoomOccurrenceOutlook::reinstatements`] includes identities the room
+    /// being built does not author — the record lives next door — and a road
+    /// that services only its own records has taken the suppression and skipped
+    /// the reinstatement. That is why the definitions a room may reach for
+    /// travel WITH this ledger to construction rather than beside it.
     pub fn outlook_for(&self, room: &str) -> RoomOccurrenceOutlook {
         let rows = self
             .rows
             .iter()
-            .filter_map(|(sim_id, whereabouts)| {
+            .map(|(sim_id, whereabouts)| {
                 let disposition = match whereabouts {
                     OccurrenceWhereabouts::InCustody | OccurrenceWhereabouts::Consumed => {
                         OccurrenceDisposition::Suppressed
@@ -226,9 +254,13 @@ impl AuthoredOccurrences {
                     OccurrenceWhereabouts::Placed { room: at_room, at } if at_room == room => {
                         OccurrenceDisposition::Reinstated { at: *at }
                     }
-                    OccurrenceWhereabouts::Placed { .. } => return None,
+                    // Lying in some OTHER room. Not alive — that room unloaded
+                    // and took it with it — but not this room's to author
+                    // either: it comes back when the room it is lying in is
+                    // built, from the record this room holds.
+                    OccurrenceWhereabouts::Placed { .. } => OccurrenceDisposition::Suppressed,
                 };
-                Some((sim_id.clone(), disposition))
+                (sim_id.clone(), disposition)
             })
             .collect();
         RoomOccurrenceOutlook { rows }
@@ -382,22 +414,24 @@ impl AuthoredOccurrences {
     ///    it, and inventing it is inventing a save system.
     pub const fn baseline_is_a_copy_of_this() {}
 
-    /// **The gate on relocation: a reinstatement is ROOM-LOCAL.**
+    /// **A reinstatement is NOT room-local, and the residency it restores is
+    /// still not KEYED.**
     ///
-    /// [`Self::outlook_for`] can reinstate an occurrence only in the room whose
-    /// authored records are in front of it, because a reinstatement is *"build
-    /// this record, at these coordinates"* and construction is a pure function
-    /// of ONE `RoomSpec`. An object carried into a room that does not author it
-    /// and dropped there has a `Placed` row naming that room, and nothing in
-    /// that room's records can produce it.
+    /// ⭐ **the gate this used to describe is closed** (2026-08-15, second leg):
+    /// construction reconstructs a room's residency from the world's
+    /// definitions plus this ledger, so an occurrence lying in a room that does
+    /// not author it comes back there, from the record its home room holds.
+    /// `outlook_for` therefore answers `Suppressed` in the home room and
+    /// `Reinstated` where the object lies, and those two answers are one row.
     ///
-    /// ⭐ **closing the gate is one plumbing change, and it is not this file's.**
-    /// The room being built needs the records of rooms it does not own — the
-    /// caller has them (`RoomConstructionPlan::prepare_from_parts` holds the
-    /// whole `RoomSet`) and would pass the foreign requests alongside the room's
-    /// own. What must NOT happen first is suppression without it: see the note
-    /// on [`Self::outlook_for`] about the deletion bug.
-    pub const fn reinstatement_is_room_local() {}
+    /// ⚠ **what is NOT closed is keyed room OWNERSHIP.** `RoomScopedEntity` says
+    /// an occurrence dies with *a* room, never with *which* room, so residency
+    /// still resolves against "whatever room is active". That is exactly right
+    /// for today's single-active-room host and is the first thing that breaks
+    /// when two participants occupy different rooms at once — at which point
+    /// the scope marker owes a room key and this ledger's `Placed { room, .. }`
+    /// becomes the thing that names it.
+    pub const fn residency_is_reconstructed_not_room_local() {}
 }
 
 /// **Custody is the first thing that gives an occurrence a whereabouts.**
@@ -436,5 +470,83 @@ pub fn project_custody_onto_authored_occurrences(
     let alive: BTreeSet<SimId> = carried.iter().cloned().collect();
     if occurrences.in_custody() != alive {
         occurrences.republish_custody(alive);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **ONE ROW, TWO ROOMS, TWO OPPOSITE ANSWERS — and both are asserted.**
+    ///
+    /// An occurrence carried out of the room that authored it and put down next
+    /// door is exactly one fact. The room it lies in owes the world that
+    /// occurrence; the room whose record minted it owes the world nothing, and
+    /// authoring it again would put two live things behind one `SimId`.
+    ///
+    /// ⛔ **asserting only the suppression is the dangerous half**, because a
+    /// ledger that suppressed everywhere would pass it and would delete the
+    /// object from the world permanently. Both terms are observed here, from
+    /// the same row, so neither arm can regress alone.
+    #[test]
+    fn a_placed_row_reinstates_where_it_lies_and_suppresses_where_it_was_authored() {
+        let axe = SimId::placement("blink_run_pickup");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.republish_placements(
+            "portal_bridge",
+            [(axe.clone(), Vec2::new(48.0, 96.0))].into_iter().collect(),
+        );
+
+        let lying_in = ledger.outlook_for("portal_bridge");
+        assert_eq!(
+            lying_in.disposition(&axe),
+            OccurrenceDisposition::Reinstated {
+                at: Vec2::new(48.0, 96.0)
+            },
+            "the room the occurrence is lying in must rebuild it, where it lies",
+        );
+        assert_eq!(
+            lying_in.reinstatements().get(&axe).copied(),
+            Some(Vec2::new(48.0, 96.0)),
+            "and it must say so through the obligation list construction reads, \
+             which is what carries the position to a record that has none",
+        );
+        assert!(
+            lying_in.suppressed().is_empty(),
+            "nothing is suppressed in the room that owes the occurrence"
+        );
+
+        let authored_by = ledger.outlook_for("blink_run");
+        assert_eq!(
+            authored_by.disposition(&axe),
+            OccurrenceDisposition::Suppressed,
+            "the room whose record minted it must NOT mint a second one: the \
+             occurrence exists, next door",
+        );
+        assert!(authored_by.reinstatements().is_empty());
+
+        // ⭐ AND A ROOM WITH NO STAKE IN THE ROW IS NOT ASKED TO DO ANYTHING
+        // DIFFERENT FROM THE HOME ROOM. Both suppress, because neither is where
+        // the occurrence is — an outlook that answered `Authored` for a third
+        // room would re-author the record on any road that happened to hold it.
+        assert_eq!(
+            ledger.outlook_for("somewhere_else").disposition(&axe),
+            OccurrenceDisposition::Suppressed,
+        );
+    }
+
+    /// A record nobody has touched has no row, and no row is `Authored`. This
+    /// is the ordinary state of every room in the game, and it is what keeps
+    /// the suppression above from being a way to lose an object nobody moved.
+    #[test]
+    fn an_untouched_record_has_the_default_disposition() {
+        let ledger = AuthoredOccurrences::default();
+        assert!(ledger.outlook_for("blink_run").is_empty());
+        assert_eq!(
+            ledger
+                .outlook_for("blink_run")
+                .disposition(&SimId::placement("blink_run_pickup")),
+            OccurrenceDisposition::Authored,
+        );
     }
 }

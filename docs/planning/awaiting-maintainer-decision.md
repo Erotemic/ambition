@@ -303,3 +303,32 @@ not resolve it until that submodule commit is pushed. The two migrated worlds
 ⛔ **I did not work around this** — a workaround here means either rewriting a
 remote or vendoring assets out of their submodule, and both are yours to decide.
 Everything else in that slice is pushed and green.
+
+### 13. The workspace policy suite is red, and nothing watches it
+
+⚠ **measured 2026-08-15: `cargo test -p ambition_workspace_policy` reports 12
+violations in the `engine` scope**, and that suite is **not** among the goal
+guard's 13 checks. Three separate slices landed violations in one day and nothing
+caught them, which is why this is a decision rather than a bug report.
+
+The violations are not one problem. They sort into three kinds, and only you can
+say which deserve enforcement:
+
+1. ⭐ **a false positive on correct code.** `engine.determinism` flags
+   `gate_portal.rs:197` for iterating a std hash container — but that site
+   `collect`s and then **sorts**, which is deterministic. ⇒ the honest fix is
+   structural: make `phases` a `BTreeMap` so ordered iteration is a property of
+   the type rather than a discipline the next editor can drop. **A waiver would
+   be the wrong answer here.**
+2. **genuinely pre-existing debt** — `movement-model-is-never-optional`,
+   `player-fallback-update-documented`, `pose-writes-are-authority-only` all name
+   files untouched today.
+3. **boundary rules with real content** — `runtime-manifest-deny` and
+   `runtime-source-no-upper` say `ambition_platformer2d_runtime` must not name
+   `ambition_platformer2d_ldtk`. ⚠ **that edge predates today** (it is in the
+   manifest at the pre-merge commit), so the rule has been violated for a while.
+
+⇒ **the decision: should this suite join the goal guard?** ⛔ I did not add it —
+the guard's check list is yours, and adding a red check would stop every
+autonomous run until the twelve are cleared. The alternative is to treat the
+suite as advisory and fix the twelve on their own merits.

@@ -85,6 +85,61 @@ of the definition ID.
 Rollback participation and save persistence are separate axes. An encounter mob
 may need rollback but not durable save identity.
 
+## ⭐⭐ THE LIVE CUSTOMER — persistent occurrence continuity (2026-08-15)
+
+⚠ **two of the "deliberately unresolved" questions below stopped being
+hypothetical today**, and they were forced by real product pressure rather than
+by design appetite. The cross-room custody slice made a carried item survive a
+room transition — and the moment an occurrence outlives the room that authored
+it, reconstruction has a question it cannot currently answer.
+
+**The question, stated once:**
+
+> When authored placement **P** has produced a persistent runtime occurrence that
+> subsequently **moved**, was **consumed**, was **destroyed**, or entered
+> **custody elsewhere**, how does world reconstruction know what should happen
+> to P?
+
+The concrete defect: an authored floor item has a placement-derived `SimId`.
+Carry it out of room A, reload room A, and construction instantiates the authored
+placement again — so `placement(room_a, axe_17)` names **two live occurrences**,
+one carried and one freshly built.
+
+⭐ **this is the systemic-world problem the project has been trying to reach**,
+and it is no longer *"how does an inventory work?"* It sits underneath persistent
+items, moved NPCs, opened/removed mechanisms, destroyed objects, relocated quest
+objects, persistent populations, room streaming and save/load.
+
+**The falsifier, brutally concrete:**
+
+```text
+enter room A → authored axe P exists → pick up P → carry P to room B
+→ return to A → P must NOT respawn → the original occurrence still exists elsewhere
+```
+
+and eventually the complementary terminal cases:
+
+```text
+P destroyed permanently      → reconstruction knows not to recreate it
+P intentionally resettable   → reconstruction MAY recreate it
+```
+
+⛔⛔ **do not solve this by teaching the room loader to inspect inventories** —
+that merely creates another composition census, and the custody slice's whole
+achievement was that room transition never learned items exist.
+
+⭐ **the abstraction belongs around the STATE/DISPOSITION of the authored
+occurrence**, with the storage representation discovered from this one customer.
+⛔ we still do not need a universal `EverythingInstanceRegistry`.
+
+⚠ **and treat the current residency mechanism as a bridge, not the answer.**
+`InCustodyOf` / `RoomResident` is right for today's **single-active-room** host,
+but `RoomScopedEntity` does not encode *which* room owns an occurrence, so
+"released" resolves to *"whatever room is active"*. ⭐ that is exactly why the
+slice needed no memory of the destination — and exactly what will not survive
+participants occupying different rooms simultaneously, which needs keyed,
+explicit ownership.
+
 ## Candidate crate / Bevy shape
 
 Do not immediately invent one `UniversalInstanceId`. Domain-specific instance IDs
@@ -100,9 +155,13 @@ policy. See [`bevy-plugin-and-crate-strategy.md`](bevy-plugin-and-crate-strategy
 
 - One common instance ID versus typed actor/item/world-object IDs?
 - Which IDs survive save/load, and which may be regenerated deterministically?
-- Does an authored placement retain one persistent instance identity after it is
-  picked up/moved, or is placement only provenance?
-- Do terminal instances require tombstones to prevent respawn, and for how long?
+- ⛔ ~~Does an authored placement retain one persistent instance identity after it
+  is picked up/moved, or is placement only provenance?~~ **NO LONGER OPTIONAL —
+  see the live customer above.** A carried item now outlives its authoring room,
+  so this must be answered, not deferred.
+- ⛔ ~~Do terminal instances require tombstones to prevent respawn, and for how
+  long?~~ **the same customer forces this**: "destroyed permanently" and
+  "intentionally resettable" are two of its three terminal cases.
 - How should world-unique/per-owner-unique validation be expressed without making
   uniqueness fundamental to definition identity?
 - How do instance records relate to ECS `Entity` generation/reuse?

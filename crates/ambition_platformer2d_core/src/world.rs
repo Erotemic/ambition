@@ -89,6 +89,26 @@ pub struct Block {
     /// emergent property of standing on a moving solid — uniform across every body
     /// (player, clone, enemy, slug), with no per-actor wiring. A static solid is
     /// just the `velocity == ZERO` degenerate case.
+    ///
+    /// ⛔⛔ **this field MEANS TWO THINGS AT ONCE, and the only reason that has
+    /// never hurt is that its ONE producer cannot tell them apart** (measured
+    /// D115 K6, 2026-08-15 — `MovingPlatformState::as_collision_block` is the
+    /// only non-zero writer in the repo). The two quantities are:
+    ///
+    /// 1. **displacement** — how far this solid moved since last frame. It
+    ///    defines the solid's PREVIOUS pose: `ledge_grab::ledge_carry_for_frame`
+    ///    recovers it as `block.aabb.translated(-block.velocity)`, and selects a
+    ///    carrier at all by `velocity != ZERO`.
+    /// 2. **surface drag** — what a supported body inherits, surfaced as
+    ///    `Contact::surface_velocity` in `collision_semantics`.
+    ///
+    /// For a moving platform these are the same vector. For a **conveyor belt**
+    /// they are not: displacement is `ZERO` and drag is not. A belt authored as
+    /// `Block { velocity: drag }` would therefore be picked as a ledge carrier
+    /// (dragging a body that merely hangs off its lip) and be handed a previous
+    /// pose it never occupied. ⇒ **split this into `displacement` and
+    /// `surface_drag` when the second customer arrives — before adding a
+    /// `BlockKind` or an authoring field for it**, not after.
     pub velocity: Vec2,
     /// **Placeholder art override.** `None` (the default) draws the block through
     /// the shared per-`BlockKind` art.

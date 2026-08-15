@@ -1,6 +1,8 @@
 # Kinematic world objects
 
-**State:** OPEN. First customer: Ambition moving platforms.
+**State:** OPEN — **K5 authoring polish only**; K2/K3/K4/K6 are closed.
+**Sole kinematic customer: Ambition moving platforms, and that is MEASURED rather
+than assumed** — see K6 for the census that closed the second-customer question.
 
 ## Why this exists
 
@@ -313,12 +315,97 @@ Consolidate ride/ledge behavior and make crush/one-way policy explicit.
 Make the vertical slice pleasant in LDtk and the tooling, including visible path
 and semantic diagnostics.
 
-### K6 — second consumer test
+### K6 — second consumer test — CLOSED 2026-08-15
 
-Use at least one additional kinematic-world-object need before expanding the
-abstraction. Candidates include a moving door/wall, conveyor-like solid, or
-Smash stage platform. If its semantics differ materially, keep separate types
-rather than forcing a false universal mover.
+**There IS a second customer. It is the door, it has been shipping for months,
+and it is not kinematic** — which is the answer this phase existed to get, so K6
+closes on the evidence rather than on an adoption.
+
+#### The census: every dynamic world-geometry producer at HEAD
+
+Read across `crates/` and `game/`, production sites only. "Channel" is how the
+geometry reaches a collision read-path; "changes" is what varies frame to frame.
+
+| producer | channel | changes | position owner | `Block::velocity` | rollback |
+| --- | --- | --- | --- | --- | --- |
+| moving platforms (`MovingPlatformState::as_collision_block`) | composited into `CollisionWorld` | TRANSFORM | `MovingPlatformState` | `last_delta` | serde snapshot state |
+| encounter lock walls (`contribute_encounter_lock_walls`) | `FeatureEcsWorldOverlay::gate_solids` | EXISTENCE | authored `LockWallSpec` | `ZERO` | derived per frame |
+| intro flag-gated lock walls (`sync_intro_flag_gated_lock_walls`) | `gate_solids` | EXISTENCE | authored `LockWall` placement | `ZERO` | derived per frame |
+| falling sand / liquid (`project_particles_to_movement_world`, `falling_sand_sim`) | `gate_solids` + `water_regions` | EXISTENCE per TILE | the particle grid | `ZERO` | grid is sim state, projection derived |
+| breakables + world-pogo targets (`rebuild_feature_ecs_world_overlay`) | `overlay.blocks` | EXISTENCE | authored `CenteredAabb` | `ZERO` | derived per frame |
+| portal apertures / gnu_ton climbable carve | `portal_carves` / `climbable_carves` | EXISTENCE (subtraction) | portal placement | n/a | derived per frame |
+| struck-block flinch (`block_nudge`) | none — render only | drawn quad offset | nothing; geometry is static | n/a | explicitly not sim state |
+
+⭐ **`MovingPlatformState` is the ONLY producer of a non-zero `Block::velocity`
+anywhere in the repo** (`platforms/mod.rs`, one line). Every other dynamic-geometry
+feature toggles EXISTENCE at a fixed place. That is not a shortage of instances —
+it is a shortage of KIND, and it is why a second kinematic customer cannot be
+found by looking harder.
+
+#### The three candidates the plan named
+
+- ⛔ **moving door/wall — REJECTED, and it is the one with real content.** The door
+  exists: 3 authored `LockWall` entities across `intro.ldtk` and `sandbox.ldtk`,
+  driven by 14 authored `Switch` entities through the encounter lifecycle and by
+  save flags, with TWO independent contributors. It **appears**; it does not
+  **slide**. Adopting the kinematic representation would give it a motion driver
+  for no motion, promote a per-frame *derived* resource into serde snapshot state
+  (a rollback regression bought with nothing), and delete nothing — the whole
+  feature is `desired_lock_wall_blocks`, ten lines. The sliding door that WOULD be
+  kinematic has zero authored instances.
+- ⛔ **conveyor-like solid — REJECTED for want of content, but it is the
+  FALSIFIER.** The word appears twice at HEAD and neither is a new customer:
+  `VerticalLoop::anchor_y`'s doc calls a run of anchored loops *"a conveyor of
+  lifts"* (3 authored — Mary-O's lifts A/B/C, already this representation), and
+  `ForceZone`'s doc calls a wind volume a *"conveyor updraft"* (an acceleration
+  field on bodies, not geometry). A **belt** — a stationary solid that drags what
+  stands on it — is authored nowhere. See the falsifier below before anyone
+  authors one.
+- ⛔ **Smash stage platform — REJECTED as an invented customer.** `smash_stage()`
+  is a single static `ae::Block`, and that crate's own doc argues the stage is four
+  numbers whose one interesting fact is the blast margin. Nothing in the demo wants
+  a moving platform, and a stage that moves is a design decision nobody has made.
+- ⭐ **falling sand — the real second customer the plan did not name, and it must
+  stay separate.** Real authored content (`sandbox.ldtk falling_sand_room` plus 4
+  authored `Switch` spouts), genuinely dynamic solid geometry, and materially
+  different in every respect that matters: it is a FIELD, not a BODY. Its solid is
+  a per-tile lattice re-derived each frame from a particle grid, so a tile has no
+  identity across frames and `last_delta` / `previous_aabb` / stable portal host /
+  ledge carry are all meaningless for it. Its authoritative position owner is the
+  grid; the geometry is a pure projection. Forcing it into a mover would be the
+  false universal K6 warns about.
+
+#### ⛔⛔ The falsifier, recorded so nobody adds a `bool` instead
+
+**`Block::velocity` means two things at once, and only a belt can tell them
+apart.** For a moving platform the solid's per-frame DISPLACEMENT and the DRAG it
+imparts to a rider are the same vector, so one field has carried both:
+
+- the sweep reads it as rider carry (`Contact::surface_velocity`);
+- `ledge_grab::ledge_carry_for_frame` selects a carrier by `velocity != ZERO` and
+  recovers the previous pose as `block.aabb.translated(-block.velocity)`;
+- `MovingPlatformState::previous_aabb` is the world-side sibling of that line.
+
+A belt has displacement `ZERO` and drag non-zero. Authored as
+`Block { velocity: drag }` today it would be selected as a ledge CARRIER (dragging
+a body merely hanging off its lip) and be assigned a previous pose it never
+occupied. ⇒ **the day a belt is authored, `velocity` splits into `displacement`
+(defines the previous pose, drives the carrier test) and `surface_drag` (what a
+supported body inherits)** — before any new `BlockKind` or authoring field.
+
+#### What K6 actually proved
+
+The abstraction that two materially different uses DO prove is not
+`MovingPlatformState` — it is the **collision composition seam**:
+`FeatureEcsWorldOverlay` plus `CollisionWorld`'s four named views carry a moving
+transform, three kinds of existence gate, a particle field and two subtractions,
+with no producer editing the authored base. That seam is proven. The kinematic
+representation has one customer and should keep exactly one until a moving door,
+a belt, or a rotating stage is AUTHORED — at which point the belt case above is
+already scoped.
+
+⇒ **no further work is owed here.** ⛔ do not re-open K6 to go find a customer;
+re-open it when content arrives.
 
 ## Acceptance
 

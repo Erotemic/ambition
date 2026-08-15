@@ -1,7 +1,7 @@
 # Roadmap — Ambition and Engine 1.0
 
 Current facts are in [`status.md`](status.md). Immediate execution is in the
-self-replenishing [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md).
+self-replenishing [`queue.md`](queue.md).
 [`tracks.md`](tracks.md) is the standing reservoir.
 
 ## North star

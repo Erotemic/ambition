@@ -14,7 +14,7 @@ The planning surface has four jobs:
 
 ## Where the open work is
 
-[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the **live execution
+[`queue.md`](queue.md) is the **live execution
 queue and continuation engine**. Its dated filename records where this run
 started; the mechanism is intentionally self-replenishing.
 
@@ -65,7 +65,7 @@ policy.
    Jon has not ruled on the question.
 4. [`status.md`](status.md) — orientation to the current repository state; it is
    not an execution queue.
-5. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) — current execution
+5. [`queue.md`](queue.md) — current execution
    order and the place an autonomous run continues from.
 6. The focused engine, demo, game, or campaign document linked by the selected
    queue row.
@@ -79,7 +79,7 @@ policy.
 
 ### Live execution
 
-- `queue-72h-2026-08-08.md` — one live execution order, intentionally
+- `queue.md` — one live execution order, intentionally
   self-replenishing.
 - `tracks.md` — standing backlog and reservoir feeding the live queue.
 - active campaign documents — focused implementation authority for a bounded

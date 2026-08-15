@@ -635,6 +635,43 @@ ABSENCE_CONTRACTS: list[dict] = [
             "to consult. What must stay singular is the place that WEIGHS them."
         ),
     },
+    {
+        "id": "the-actor-mirrors-stay-deleted",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\bActorIntent\b", r"\bActorCooldowns\b"],
+        "reason": (
+            "AC1 of the authority-convergence campaign (2026-08-13). These two "
+            "components MIRRORED state the body already owned: an intent the "
+            "brain had already published and cooldowns the move playback already "
+            "tracked, kept in a second place and reconciled by a sweep. The "
+            "campaign deleted them (29 and 25 references at arming, 0 at close) "
+            "and the ratchet is the point — a mirror does not come back as a "
+            "mirror, it comes back as one innocent helper that needs 'just the "
+            "intent' somewhere the body is not in scope. "
+            "MIGRATED HERE 2026-08-15 from a goal-guard check that was a bare "
+            "`grep -rn --include=*.rs`. That form reddens on a doc comment "
+            "EXPLAINING the removal, which is the recurrence this file's header "
+            "documents three times; contracts strip comments before matching."
+        ),
+    },
+    {
+        "id": "no-build-legacy-body-then-patch-it",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\badopt_character_intrinsics\b"],
+        "reason": (
+            "AC5 of the same campaign. This was the seam of the two-step "
+            "construction the campaign existed to remove: build a body from the "
+            "legacy archetype, THEN patch the authored character's intrinsics "
+            "over it. While that call existed, the character definition was a "
+            "correction applied to a legacy default rather than the authority, "
+            "so every intrinsic had two possible origins and 'which one won' was "
+            "a function of ordering. Construction reads the definition directly "
+            "now; a reappearance of this symbol means the legacy default is back "
+            "underneath, which is the failure mode 'DELETION IS THE PROOF' names. "
+            "MIGRATED HERE 2026-08-15 from a goal-guard check, same reason as "
+            "`the-actor-mirrors-stay-deleted`."
+        ),
+    },
 ]
 
 # Files whose content is ABOUT the contracts rather than governed by them.

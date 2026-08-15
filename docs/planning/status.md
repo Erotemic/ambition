@@ -8,7 +8,7 @@ disagrees with `git log -1`, trust HEAD and the ledger, and update this line
 rather than reasoning from it.**
 
 This page is a cold-start map, not an execution queue and not a completion
-diary. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the continuing
+diary. [`queue.md`](queue.md) is the continuing
 execution authority. [`tracks.md`](tracks.md) is the standing reservoir used to
 replenish it. Focused plans own technical design.
 
@@ -182,7 +182,7 @@ its product investment, not the engine ownership rules.
 
 ## Where to look next
 
-1. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) for execution order.
+1. [`queue.md`](queue.md) for execution order.
 2. The focused plan named by the selected row.
 3. [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
    for direct maintainer observations.

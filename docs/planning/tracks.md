@@ -1,7 +1,7 @@
 # Tracks — standing backlog and work reservoir
 
 **Role:** preserve worthwhile unresolved work across runs. This file does **not**
-own execution order; [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) does.
+own execution order; [`queue.md`](queue.md) does.
 When the queue needs more work, select from this reservoir, re-measure the claim
 against HEAD, promote the chosen work to the queue, and continue.
 

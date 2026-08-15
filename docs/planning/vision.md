@@ -99,7 +99,7 @@ Bevy game can consume them through ordinary plugin/system composition.
 
 ## Execution
 
-[`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) remains intentionally
+[`queue.md`](queue.md) remains intentionally
 self-replenishing. [`tracks.md`](tracks.md) is the standing reservoir. Focused
 plans own design and explicitly record ambiguities rather than making future
 agents guess which details were settled.

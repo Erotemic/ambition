@@ -80,7 +80,7 @@ first-party rustc work, because per-crate overhead is real and 2,144 lines that
 compiled at the actor crate's 0.61 ms/line are now priced at the population
 median. The case is ownership and edit isolation, which is what the amended
 mandate asks for. The full measurement is the D33 row in
-[`../queue-72h-2026-08-08.md`](../queue-72h-2026-08-08.md).
+[`../queue.md`](../queue.md).
 
 ## E4 — one-way observation boundary
 

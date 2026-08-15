@@ -1,9 +1,17 @@
-# The 72-hour queue — continuing execution ledger
+# The queue — standing execution ledger
 
 **This file is the SPINE and the ledger `scripts/goal_guard.py` reads.** It is
 intentionally self-replenishing. The literal open marker `▢` appears in this
 header as well as on executable rows, so the guard never interprets an empty
 snapshot of the queue as permission to stop.
+
+Its name carries no date on purpose. This ledger outlives any one run: it was
+`queue-72h-2026-08-08.md` until 2026-08-15, and a dated name on a file whose
+whole property is that it never closes is how the guard's pointers went stale
+before. A run rotates; the ledger does not. ⛔ If this file is ever renamed or
+archived anyway, repoint `.goal/active.json` in the SAME commit — its checks
+name this path, and a check whose subject vanished is the one failure that
+looks like success.
 
 > **Finish work, then promote the next highest-value verified item and keep
 > going. There is no "the queue is empty, therefore stop" state.**

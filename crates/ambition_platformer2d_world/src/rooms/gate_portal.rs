@@ -170,6 +170,53 @@ impl GatePortalPhases {
     }
 }
 
+/// **The value projection behind the `resource.gate_portal_phases` rollback
+/// registration** — the checksum a GGRS host folds into its per-frame desync
+/// detector, and the census a restore audit compares across a rewind.
+///
+/// ⭐ **the elapsed timer is the whole point.** The defect this projection
+/// closes was an integrator running ahead of the input that drove it, so a
+/// checksum that saw only *which zones have a phase* would agree with the bug.
+/// Every field that decides when `Opening` becomes `On` is projected here.
+///
+/// ⛔ **keys are SORTED before hashing.** `phases` is a `HashMap`, and hashing it
+/// in iteration order would make the checksum disagree between two peers holding
+/// identical state — a desync detector that manufactures desyncs.
+///
+/// ⚠ **it lives beside the type, not in the rollback runtime.** It moved here
+/// because it is domain semantics: it names every [`GatePortalPhase`] variant
+/// and the field each one carries, so adding a variant must break an exhaustive
+/// match in THIS file rather than in the netcode crate — the same argument
+/// `snapshot_impls` makes for this crate's wire codecs. The encoders are
+/// `ambition_platformer2d_core`'s, which this crate already depends on, so the
+/// move costs no dependency edge and the runtime keeps only the one generic
+/// registration call that names the type.
+pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
+    use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
+
+    let mut ordered: Vec<(&String, &GatePortalPhase)> = phases.phases.iter().collect();
+    ordered.sort_by(|left, right| left.0.cmp(right.0));
+
+    let mut bytes = Vec::new();
+    put_u64(&mut bytes, ordered.len() as u64);
+    for (zone_id, phase) in ordered {
+        put_str(&mut bytes, zone_id);
+        match phase {
+            GatePortalPhase::Off => put_u8(&mut bytes, 0),
+            GatePortalPhase::Opening { elapsed } => {
+                put_u8(&mut bytes, 1);
+                put_f32(&mut bytes, *elapsed);
+            }
+            GatePortalPhase::On => put_u8(&mut bytes, 2),
+            GatePortalPhase::Closing { elapsed } => {
+                put_u8(&mut bytes, 3);
+                put_f32(&mut bytes, *elapsed);
+            }
+        }
+    }
+    checksum_bytes(&bytes)
+}
+
 /// 8 frames × 80ms = 640ms. Mirrors the `opening` row duration in
 /// `interdimensional_gate_portal_spritesheet.yaml`.
 pub const PORTAL_OPENING_DURATION_SECS: f32 = 0.640;
@@ -351,6 +398,80 @@ mod tests {
         assert!(
             (a - b).abs() > 0.1,
             "the reversal must PRESERVE the divergence, not erase it; got {a} vs {b}"
+        );
+    }
+
+    fn phases_of(entries: &[(&str, GatePortalPhase)]) -> GatePortalPhases {
+        let mut phases = GatePortalPhases::default();
+        for (zone_id, phase) in entries {
+            *phases.phase_mut(zone_id) = *phase;
+        }
+        phases
+    }
+
+    /// ⛔ **a presence-only projection would agree with the bug.** The registration
+    /// this backs exists because an `elapsed` timer ran ahead of the switch that
+    /// drove it, and every zone stayed present the whole time.
+    ///
+    /// ⚠ both terms are observed: identical states must AGREE, and a one-tick
+    /// difference in `elapsed` — plus a variant change carrying no payload at all
+    /// — must DISAGREE. A projection that hashed only the key set passes the
+    /// first assertion and fails the rest.
+    #[test]
+    fn the_phase_projection_sees_the_elapsed_timer_and_the_variant() {
+        let dt = 1.0 / 60.0;
+        let ahead = phases_of(&[("gate.a", GatePortalPhase::Opening { elapsed: 4.0 * dt })]);
+        let behind = phases_of(&[("gate.a", GatePortalPhase::Opening { elapsed: 3.0 * dt })]);
+        let twin = phases_of(&[("gate.a", GatePortalPhase::Opening { elapsed: 4.0 * dt })]);
+
+        assert_eq!(
+            gate_portal_phases_checksum(&ahead),
+            gate_portal_phases_checksum(&twin),
+            "identical phase states must project equal — otherwise the detector \
+             manufactures desyncs"
+        );
+        assert_ne!(
+            gate_portal_phases_checksum(&ahead),
+            gate_portal_phases_checksum(&behind),
+            "one tick of divergence in `elapsed` must be visible; that divergence \
+             is exactly the defect the registration closes"
+        );
+
+        let off = phases_of(&[("gate.a", GatePortalPhase::Off)]);
+        let on = phases_of(&[("gate.a", GatePortalPhase::On)]);
+        assert_ne!(
+            gate_portal_phases_checksum(&off),
+            gate_portal_phases_checksum(&on),
+            "the payload-free variants decide traversal, so the tag must be projected"
+        );
+    }
+
+    /// ⛔ **the projection must not read `HashMap` iteration order.** Two peers
+    /// holding identical state build their maps by different insertion routes and
+    /// hash their keys with different per-instance seeds; folding in iteration
+    /// order would report a desync between two worlds that agree.
+    #[test]
+    fn the_phase_projection_ignores_hash_map_insertion_order() {
+        let entries: Vec<(&str, GatePortalPhase)> = vec![
+            ("gate.alpha", GatePortalPhase::On),
+            ("gate.bravo", GatePortalPhase::Opening { elapsed: 0.1 }),
+            ("gate.charlie", GatePortalPhase::Off),
+            ("gate.delta", GatePortalPhase::Closing { elapsed: 0.2 }),
+            ("gate.echo", GatePortalPhase::On),
+            ("gate.foxtrot", GatePortalPhase::Opening { elapsed: 0.3 }),
+            ("gate.golf", GatePortalPhase::Off),
+            ("gate.hotel", GatePortalPhase::Closing { elapsed: 0.4 }),
+        ];
+        let forward = phases_of(&entries);
+        let reversed_entries: Vec<(&str, GatePortalPhase)> =
+            entries.iter().rev().copied().collect();
+        let reversed = phases_of(&reversed_entries);
+
+        assert_eq!(forward, reversed, "the two maps must hold the same state");
+        assert_eq!(
+            gate_portal_phases_checksum(&forward),
+            gate_portal_phases_checksum(&reversed),
+            "the projection must sort its keys, not fold them in iteration order"
         );
     }
 

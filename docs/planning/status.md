@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `d9ed6e49e37a` (2026-08-13 local project date).
+**Snapshot:** `834407e0abf1` (2026-08-14 local project date).
 
 This page is a cold-start map, not an execution queue and not a completion
 diary. [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) is the continuing
@@ -43,15 +43,31 @@ The highest-value successor fronts are:
    toward multiple resident rooms when participants separate. See
    [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
    and [`game/multiplayer.md`](game/multiplayer.md).
-3. **Simulation authority and determinism.** Decompose parameter-ceiling systems
+3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier** (D125). What a
+   thing IS, which runtime occurrence it is, why it exists and how long it lasts;
+   then item custody as the first demanding consumer, then capability-driven
+   gating and reachability, then residency and persistent populations. Its seven
+   focused plans were all written and reachable only from
+   [`tracks.md`](tracks.md) until 2026-08-14 — the design was never the gap.
+4. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
-4. **Capability/runtime composition.** Make optional capabilities honest in
+5. **Capability/runtime composition.** Make optional capabilities honest in
    dependency and composition topology. See
    [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
-5. **Public SDK, authoring ergonomics, performance and iteration.** See
+6. **Public SDK, authoring ergonomics, performance and iteration.** See
    [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
    [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).
+
+⚠ **the browser is a TEST FIXTURE, not a front** (Jon, 2026-08-14). It is a
+powerful architecture probe while the engine is decomposed — it found a shipped
+composition that differed from desktop's and a developer instrument that was
+load-bearing for gameplay input — but it does not decide which subsystem gets
+built next. ⭐ **the test for any tempting performance task: would we want this
+abstraction if the web target disappeared tomorrow?** Semantic asset readiness,
+cross-platform phase telemetry, canonical asset publication, host-owned input and
+an explainable load barrier all pass it. Brotli, wasm audio scheduling, Hall
+streaming, a generic residency scheduler and byte shaving do not.
 
 ## Product and engine customers
 

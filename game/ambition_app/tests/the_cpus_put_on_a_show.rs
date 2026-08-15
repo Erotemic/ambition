@@ -39,7 +39,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_platformer2d::actor::{MatchParticipantRoster, MatchSeat};
+use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, MovePlayback};
 use ambition_platformer2d::entity_catalog::MovesetContract;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
@@ -47,9 +47,9 @@ use bevy::prelude::*;
 
 use crate::smash_in_the_host::{active_route, launch_row, shell_host_app};
 
-/// The Admiral's catalog id. ⚠ a literal, and the assertion that it resolved is
-/// three lines below — an id nothing carries would otherwise seat a stand-in and
-/// this whole file would measure a robot.
+/// The Admiral's catalog id. ⚠ a literal, and an id this composition does not
+/// carry is INVISIBLE — the seat quietly gets a stand-in wearing the demo's
+/// shared table. That is what the two-tables poison in the first test catches.
 const PIRATE_ADMIRAL: &str = "npc_pirate_admiral";
 
 /// Ticks watched after the countdown. Thirty seconds at the pinned 60 Hz — long
@@ -203,11 +203,20 @@ fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<Seat
     // ⚠ **both seats CPU, same rung.** `smash_roster_at_levels` is the helper
     // that seats every slot as a CPU; the one that makes seat 0 a human leaves a
     // statue for the other fighter to pace around.
-    app.world_mut()
-        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
-            characters,
-            &[level, level],
-        ));
+    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[level, level]);
+    // ⚠ seat → character taken from the roster we HAND IN, not read back later:
+    // the resource is the select screen's and it is removed on the way back out,
+    // so a read after the match is a lifetime question rather than a fact about
+    // who is fighting. What this cannot prove — that the ids resolved to two
+    // different fighters — is proved from the world instead, by the two seats'
+    // tables differing.
+    let seat_characters: BTreeMap<usize, String> = roster
+        .participants
+        .iter()
+        .enumerate()
+        .map(|(index, p)| (index, p.character.to_string()))
+        .collect();
+    app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
@@ -243,14 +252,6 @@ fn watch_a_crossover(characters: [&str; 2], level: u8, ticks: usize) -> Vec<Seat
             .map(|(seat, moveset)| (seat.0, moveset.0.clone()))
             .collect()
     };
-    let seat_characters: BTreeMap<usize, String> = app
-        .world()
-        .resource::<MatchParticipantRoster>()
-        .participants
-        .iter()
-        .enumerate()
-        .map(|(index, p)| (index, p.character.to_string()))
-        .collect();
     assert_eq!(
         seat_tables.len(),
         2,
@@ -306,13 +307,17 @@ fn a_cpu_match_between_two_authored_fighters_shows_two_repertoires() {
     let report = render(&seats);
     eprintln!("[smash crossover, {WINDOW} ticks]\n{report}");
 
-    // 0. Both fighters are the ones asked for. An id nothing carries is seated as
-    //    something else and every number below would be about a stand-in.
-    let wearing: Vec<&str> = seats.iter().map(|s| s.character.as_str()).collect();
-    assert!(
-        wearing.contains(&ambition_demo_smash::SMASH_GEORGE_BOOUL)
-            && wearing.contains(&PIRATE_ADMIRAL),
-        "the stage seated {wearing:?} instead of the two authored fighters"
+    // 0. **THE POISON: two seats, two TABLES.** An id this composition does not
+    //    carry seats a stand-in, and a stand-in wears the demo's shared fighter
+    //    table — so both seats would be the same fighter twice and every number
+    //    below would be about one repertoire measured against itself. Asked of
+    //    the world rather than of the ids, because it is the KIT that has to
+    //    differ, not the label.
+    assert_ne!(
+        seats[0].moveset, seats[1].moveset,
+        "both seats are wearing the same authored table, so this match is one \
+         fighter twice: {:?}",
+        seats.iter().map(|s| &s.character).collect::<Vec<_>>()
     );
 
     // 1. **Each fighter reaches for more than one thing.** A body with sixteen

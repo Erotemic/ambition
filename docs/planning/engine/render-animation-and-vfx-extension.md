@@ -25,6 +25,64 @@ this extension in the same consolidation campaign.
 
 ---
 
+## ⭐⭐ COORDINATOR DISPOSITION 2026-08-15 — the campaign SPLITS at the dependency line
+
+⚠ **this program is two programs, and only one of them has a customer today.** Read
+this before taking any task below; several are deferred and one candidate is dropped.
+
+### ▶ RUNNING NOW — zero new dependencies
+
+| Task | Why it goes first |
+|---|---|
+| AUTH-01 | ✔ **already landed** — `tools/ambition_sprite2d_renderer@59139e4` authored the action-FX sheet with frame timing and anchors in a generated sidecar |
+| AUTH-03 | ▶ **in flight** — authored art replacing the placeholder impact, against two customers: Smash hit feel and the Mary-O coin pop |
+| VFX-01 · VFX-08 · VFX-09 · VFX-11 | ⭐ **boundary work that is true whatever backend ever wins.** VFX-08 is the one with a real defect under it: `VfxMessage::Burst { count, speed, color, kind }` leaks renderer-shaped choices to simulation-side producers, and that is wrong today, with or without a particle crate |
+
+### ⛔ DEFERRED — VFX-02 … VFX-07, GATE G1, VFX-10, VFX-12, VFX-13
+
+Not rejected. **Deferred for want of a customer**, and the deferral is cheap
+*because* A1 and A5 already hold: the backend is presentation-only and its
+dependencies point upward, so the swap seam can be built when something needs
+swapping. ⭐ **that is the whole reason it is safe to wait** — a boundary that is
+already correct does not need its far side chosen early.
+
+Three measurements argue against spending the session budget here now:
+
+1. ⭐⭐ **the combat vertical slice measured TWICE that the missing quality was
+   authored REPERTOIRE, not simulation capability.** Timed self-motion was the one
+   genuine engine gap in the whole slice. A particle runtime is a capability answer
+   to what has repeatedly turned out to be a content question.
+2. ⛔ **`capability-footprint-may-not-grow` currently reads 42 crates linked, 15 of
+   them a movement-only game never asked for.** A GPU particle stack pushes exactly
+   the number that contract exists to guard.
+3. ⚠ **the spike's output is EVIDENCE, not a better game** — two adapter crates, two
+   galleries, a lab host, dependency ratchets and a gate. It is the largest single
+   block of work available right now and it ships nothing playable.
+
+### ⛔ DROPPED — Hanabi, and drop it NOW rather than at G1
+
+Hanabi is GPU/compute-shader oriented and its WASM compute path is **WebGPU, not
+WebGL2**. This project ships to Android and treats `capture_scene` as the phone
+proxy. ⇒ carrying a second candidate doubles the spike's cost for the candidate
+whose platform story fights our actual target. ⭐ **G1 does not need two arms to be
+a real gate**; it needs one candidate and a builtin baseline.
+
+### ⭐ THE TRIGGER THAT REOPENS ENOKI — and it is NOT particle quality
+
+⛔ **do not reopen this because an effect looks flat.** The honest argument for
+Enoki is none of its particle math: it is **RON-authored, hot-reloadable effect
+ASSETS**. An agent authoring a particle effect as *data* instead of Rust is this
+project's whole thesis, and it is the same claim the LDtk lane is proving for
+spatial content.
+
+⇒ **the condition to state plainly:** when we want effects authored as data by
+agents, and the built-in renderer cannot take an authored effect asset, adopt
+Enoki for its **asset pipeline** — and say so in those words. ⚠ if instead we only
+ever want a handful of hand-tuned effects, the built-in renderer plus the authored
+sprite sheet is the cheaper permanent answer and this whole spike stays closed.
+
+---
+
 ## Why this extension exists
 
 Ambition already has real VFX architecture, but it currently mixes three levels of

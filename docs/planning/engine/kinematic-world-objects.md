@@ -345,10 +345,13 @@ found by looking harder.
 #### The three candidates the plan named
 
 - ⛔ **moving door/wall — REJECTED, and it is the one with real content.** The door
-  exists: 3 authored `LockWall` entities across `intro.ldtk` and `sandbox.ldtk`,
-  driven by 14 authored `Switch` entities through the encounter lifecycle and by
-  save flags, with TWO independent contributors. It **appears**; it does not
-  **slide**. Adopting the kinematic representation would give it a motion driver
+  exists: 3 authored `LockWall` entities across `intro.ldtk` and `sandbox.ldtk` —
+  `goblin_encounter_lock` sealed by the encounter lifecycle, and
+  `alice_private_return_lock` / `gate_alice_private_lock` sealed by save flags
+  through `INTRO_FLAG_GATED_LOCK_WALLS` — so TWO independent contributors already
+  derive it. It **appears**; it does not **slide**. ⚠ and the LDtk `LockWall`
+  entity is inert on its own: each game wires the condition, which is the
+  authoring gap, not a kinematic one. Adopting the mover would give it a driver
   for no motion, promote a per-frame *derived* resource into serde snapshot state
   (a rollback regression bought with nothing), and delete nothing — the whole
   feature is `desired_lock_wall_blocks`, ten lines. The sliding door that WOULD be

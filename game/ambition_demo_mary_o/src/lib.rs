@@ -51,14 +51,13 @@ use ldtk_vocabulary::{MaryOPipeMouth, MaryOPipeRole};
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 
-/// Stable room id for level 1-3, "The Cinder Ferry".
-///
-/// ⚠ **this constant is the LAST thing a new level should need, and it is here
-/// only because [`exit_for_room`] has to name a successor.** Everything else
-/// about 1-3 is authored: it is an area of `mary_o.ldtk`, so
-/// [`authored_levels`] builds it, [`provider::mary_o_room_ids`] lists it and
-/// [`pole_for_room`] finds its pole, all without knowing the id.
-pub const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
+// ⭐ **`LEVEL_1_3_ROOM_ID` IS GONE (2026-08-15), and its own doc asked for
+// that.** It said it was *"the LAST thing a new level should need, and it is
+// here only because `exit_for_room` has to name a successor"* — a successor is
+// an authored `next_room` field now, so nothing in Rust spells 1-3's id and
+// nothing has to. 1-1's id survives because it is the ENTRY: `MaryOEntryRoom`
+// defaults to it, and "which room does a session with no opinion start in" is
+// genuinely a shipped-game decision rather than a level's own property.
 
 /// The game-MODE tag this demo's rooms carry (decomposition D-C).
 ///
@@ -516,11 +515,20 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 /// player without passing the build and this crate's tests first. The moment the
 /// world is loaded from disk instead, this has to become a reported refusal.
 fn authored_room(area: &str) -> RoomSpec {
+    authored_area(area).unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
+}
+
+/// The authored area with this id, or `None` when the file has no such area.
+///
+/// ⚠ **`None` is not an error here, and there is exactly one caller that can
+/// see it**: the fixture course is a Rust-built probe room no world file holds,
+/// so "which area is this" has no answer for it. Anything that needs the room
+/// to exist keeps using [`authored_room`], whose panic names the missing id.
+fn authored_area(area: &str) -> Option<RoomSpec> {
     authored_world()
         .rooms
         .into_iter()
         .find(|room| room.id == area)
-        .unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
 }
 
 /// **One authored area, finished into the room the game plays.**
@@ -529,9 +537,12 @@ fn authored_room(area: &str) -> RoomSpec {
 /// COSTING RUST (2026-08-15).** `level_1_1` and `level_1_2` did the same four
 /// things in the same order, differing only in a colour — so a third level was
 /// a fourth copy plus an entry in `MARY_O_ROOM_IDS`, an entry in the provider's
-/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, four of
-/// which the LDtk file already knew. This is the single builder; the roster and
-/// the rooms vec are read off the file (see [`authored_levels`]).
+/// rooms vec, an arm in `pole_for_room` and an arm in `exit_for_room`, every one
+/// of which the LDtk file either already knew or can now be told. This is the
+/// single builder; the roster and the rooms vec are read off the file (see
+/// [`authored_levels`]), the pole off the room's own `goal_pole` block, and the
+/// successor off the room's authored `next_room` (see [`exit_for_room`]).
+/// **A new level costs no Rust.**
 ///
 /// ⭐ **the pipe pairing is checked on EVERY level now**, not just 1-1. It was
 /// `level_1_1`'s alone, so a `MaryOPipe` typo in any other room degraded to a
@@ -945,31 +956,33 @@ pub enum LevelDestination {
 /// decision; whether the world contains the room is a question only the loaded
 /// `RoomSet` can settle.
 ///
-/// ⛔ **THIS CHAIN IS THE LAST THING A NEW LEVEL COSTS IN RUST, and it should
-/// not be Rust at all (2026-08-15).** "Where does finishing this room lead" is
-/// a property OF the room, exactly like its biome or its mode, and every other
-/// such property is an LDtk level field lowered into `RoomMetadata`. Authoring
-/// 1-3 needed no Rust for its geometry, its blocks, its enemies, its pickups,
-/// its ferry, its roster entry or its pole — and one arm here, because a
-/// successor has nowhere authored to live. The fix is a `next_room` level field
-/// beside `mode` and `biome`; it is an engine change to `RoomMetadata`
-/// (`crates/ambition_platformer2d_world/src/rooms/metadata.rs`), not a demo one,
-/// so it is recorded rather than taken.
+/// ⛔ **THIS WAS A HAND-KEPT CHAIN, AND IT WAS THE LAST THING A NEW LEVEL COST
+/// IN RUST (2026-08-15).** It read *"1-1 → 1-2, else if 1-2 → 1-3, else if 1-3
+/// → 1-1, else replay"*. "Where does finishing this room lead" is a property OF
+/// the room, exactly like its biome or its mode, and every other such property
+/// is an LDtk level field lowered into `RoomMetadata` — authoring 1-3 needed no
+/// Rust for its geometry, its blocks, its enemies, its pickups, its ferry, its
+/// roster entry or its pole, and one arm here.
+///
+/// ⛔⛔ **and the chain had already cost a test.** `level_circuit.rs` asserted
+/// *"finishing 1-2 returns to 1-1"* — true only while 1-2 was the last level —
+/// so authoring a third level reddened a file that had pinned the SHAPE of the
+/// world instead of the property it claimed. A destination that lives in the
+/// level file cannot be one level behind the level file.
+///
+/// ⭐ **the field is `next_room` on `RoomMetadata`**, authored as an LDtk level
+/// string field beside `mode` and `blast_margin`. There is no room id in this
+/// function: a fourth area drawn in the editor with `next_room` set is reachable
+/// and leads somewhere without a line of Rust, which is the whole claim.
+///
+/// ⚠ **`Replay` is what a room with no `next_room` gets, and it stays a real
+/// answer rather than a failure.** The fixture course is a Rust-built probe room
+/// no world file holds, so it never reaches the metadata at all, and it loops
+/// for the same reason an authored level with a blank field does.
 pub fn exit_for_room(room_id: &str) -> LevelDestination {
-    if room_id == LEVEL_1_1_ROOM_ID {
-        // 1-1 → 1-2: what Jon asked for, and the reason this seam exists.
-        LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string())
-    } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
-        // 1-2 → 1-3, "The Cinder Ferry".
-        LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string())
-    } else if room_id == LEVEL_1_3_ROOM_ID {
-        // ⭐ and 1-3 back to 1-1, which closes the loop into a CIRCUIT rather
-        // than a dead end. Jon: *"The end of 1-2 should transition back to
-        // 1-1."*
-        LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string())
-    } else {
-        // The fixture course, and anything else: loop in place.
-        LevelDestination::Replay
+    match authored_area(room_id).and_then(|room| room.metadata.next_room.clone()) {
+        Some(next) => LevelDestination::Room(next),
+        None => LevelDestination::Replay,
     }
 }
 
@@ -4168,28 +4181,67 @@ mod tests {
     /// Jon, 2026-08-04: *"we need to build a real world 1-2 that you go to when
     /// you complete world 1-1 … The end of 1-2 should transition back to 1-1."*
     ///
-    /// ⚠ this asserts the WIRING — that each room names the other, and that
+    /// ⚠ this asserts the WIRING — that the exits form a circuit, and that
     /// `Replay` is still what an unnamed room gets — rather than driving a
     /// playthrough. The end-to-end run belongs to the fixture course, and the
     /// course deliberately loops, so the transition case has no route to ride.
+    ///
+    /// ⛔⛔ **THIS TEST USED TO NAME EVERY ROOM IN ORDER, and that is the exact
+    /// defect that reddened `level_circuit.rs` when 1-3 was authored.** Three
+    /// `assert_eq!`s spelling *1-1 → 1-2 → 1-3 → 1-1* pin the LENGTH of the
+    /// world, so a fourth level breaks a test that is not about a fourth level.
+    /// The claim is *"a circuit that visits every authored area and comes back
+    /// to the entry, with no dead end and no short loop"* — walk it and let the
+    /// roster say how long that takes.
     #[test]
     fn the_levels_name_each_other_and_anything_else_still_loops() {
-        assert_eq!(
-            exit_for_room(LEVEL_1_1_ROOM_ID),
-            LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string()),
-            "finishing 1-1 goes to 1-2"
+        let authored = authored_area_ids();
+        assert!(
+            authored.len() >= 2,
+            "a circuit needs at least two levels to be a claim about anything; \
+             the world authors {authored:?}"
+        );
+
+        let mut visited = vec![LEVEL_1_1_ROOM_ID.to_string()];
+        let mut here = LEVEL_1_1_ROOM_ID.to_string();
+        let mut closed = false;
+        // One hop per area plus one: enough for the real circuit, never enough
+        // to hide a broken one.
+        for _ in 0..=authored.len() {
+            let LevelDestination::Room(next) = exit_for_room(&here) else {
+                panic!(
+                    "finishing `{here}` loops in place, so the walk {visited:?} \
+                     is a DEAD END — an authored level with no `next_room` is \
+                     the end of the game, not a level"
+                );
+            };
+            if next == LEVEL_1_1_ROOM_ID {
+                closed = true;
+                break;
+            }
+            assert!(
+                !visited.contains(&next),
+                "finishing `{here}` leads to `{next}`, already on this walk \
+                 ({visited:?}) — a SHORT LOOP that never returns to the entry, \
+                 not a circuit"
+            );
+            visited.push(next.clone());
+            here = next;
+        }
+        assert!(
+            closed,
+            "walked {visited:?} without ever coming back to `{}`; the authored \
+             areas are {authored:?}",
+            LEVEL_1_1_ROOM_ID
         );
         assert_eq!(
-            exit_for_room(level_1_2::LEVEL_1_2_ROOM_ID),
-            LevelDestination::Room(LEVEL_1_3_ROOM_ID.to_string()),
-            "and 1-2 on to 1-3"
+            visited.len(),
+            authored.len(),
+            "the circuit closed after visiting {visited:?}, but the world \
+             authors {authored:?} — a level nobody can reach by playing is as \
+             good as unauthored"
         );
-        assert_eq!(
-            exit_for_room(LEVEL_1_3_ROOM_ID),
-            LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string()),
-            "and finishing 1-3 comes back to 1-1, which makes it a circuit \
-             rather than a dead end"
-        );
+
         assert_eq!(
             exit_for_room(test_course::TEST_COURSE_ROOM_ID),
             LevelDestination::Replay,

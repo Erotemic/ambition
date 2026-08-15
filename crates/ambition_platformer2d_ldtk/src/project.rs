@@ -153,6 +153,11 @@ impl LdtkLevel {
             blast_margin: take_px("blast_margin"),
             side_blast_margin: take_px("side_blast_margin"),
             ceiling_blast_margin: take_px("ceiling_blast_margin"),
+            // Where finishing this level leads. An empty string is the same
+            // answer as an unset field — "no successor, loop in place" — which
+            // is why it goes through `take` rather than `field_string`: an
+            // author who clears the box in the editor means it.
+            next_room: take("next_room"),
         }
     }
 

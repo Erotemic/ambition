@@ -137,6 +137,12 @@ pub struct PresentsView(pub Entity);
 /// then the number of views a session can have would be a property of the
 /// renderer.
 ///
+/// ⚠ **the mechanism that reads this today is
+/// `ambition_render::rendering::view_isolation`** — a `RenderLayers` band whose
+/// index is a view's POSITION among the live views, derived per frame from this
+/// relationship and never from `LocalViewId`. That is a citation, and citations
+/// go stale: nothing here depends on it, which is the point.
+///
 /// ⚠ **a copy is retracted by DESPAWNING it, never by clearing this key.** An
 /// entity that keeps its `Text2d` and loses its view falls out of every query
 /// that requires the key while still being drawn by the renderer, and a test

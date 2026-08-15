@@ -122,15 +122,26 @@ pub fn sprite_frame_basis(
     layouts: &Assets<TextureAtlasLayout>,
     images: &Assets<Image>,
 ) -> Option<SpriteFrameBasis> {
-    let image = images.get(&sprite.image)?;
-    let texture_size = image.texture_descriptor.size;
-    let tex = Vec2::new(
-        texture_size.width.max(1) as f32,
-        texture_size.height.max(1) as f32,
-    );
+    // ⭐ **AN ATLASED SPRITE NEVER TOUCHES `Assets<Image>` HERE, and that is the
+    // point rather than a micro-optimisation.** This used to open by fetching the
+    // image for one reason — `texture_descriptor.size`, to normalise the frame
+    // rect — and `TextureAtlasLayout` already carries exactly that as `size`.
+    //
+    // ⛔ the dependency was load-bearing in a direction nobody intended. Bevy
+    // loads images as `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD`, which keeps
+    // every decoded sheet's full RGBA in main-world RAM for the lifetime of the
+    // handle — measured at **1803 MB** entering Hall of Characters (2026-07-30).
+    // Dropping `MAIN_WORLD` would free essentially all of it, and this lookup was
+    // the only main-world reader of a loaded sprite sheet standing in the way. It
+    // wanted two integers the atlas layout already knew.
+    //
+    // ⚠ the whole-image branch still needs the image, because a sprite with no
+    // atlas has no other source for its own dimensions. That is the honest
+    // remaining case, and it is props rather than characters.
     let (uv_rect, frame_px) = if let Some(atlas) = sprite.texture_atlas.as_ref() {
         let layout = layouts.get(&atlas.layout)?;
         let rect = layout.textures.get(atlas.index)?;
+        let tex = Vec2::new(layout.size.x.max(1) as f32, layout.size.y.max(1) as f32);
         let min = Vec2::new(rect.min.x as f32, rect.min.y as f32);
         let max = Vec2::new(rect.max.x as f32, rect.max.y as f32);
         (
@@ -138,6 +149,12 @@ pub fn sprite_frame_basis(
             max - min,
         )
     } else {
+        let image = images.get(&sprite.image)?;
+        let texture_size = image.texture_descriptor.size;
+        let tex = Vec2::new(
+            texture_size.width.max(1) as f32,
+            texture_size.height.max(1) as f32,
+        );
         (Vec4::new(0.0, 0.0, 1.0, 1.0), tex)
     };
     Some(SpriteFrameBasis {

@@ -88,6 +88,46 @@ fn frame_basis_resolves_atlas_and_plain() {
     assert_eq!(basis.size, Vec2::new(64.0, 32.0));
 }
 
+/// **AN ATLASED SPRITE RESOLVES WITH NO IMAGE IN THE MAIN WORLD AT ALL.**
+///
+/// ⛔ this is the claim that matters, not a micro-optimisation. Bevy loads
+/// images as `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD`, so every decoded
+/// sheet keeps its full RGBA in main-world RAM for the lifetime of the handle —
+/// measured at **1803 MB** entering Hall of Characters. Dropping `MAIN_WORLD`
+/// frees essentially all of it, and this function was the only main-world reader
+/// of a loaded sprite sheet standing in the way. It wanted two integers.
+///
+/// ⚠ **the sizes deliberately DISAGREE**, because the pre-existing test used a
+/// 64x32 image and a 64x32 layout and therefore could not tell which one the UV
+/// normalisation read. Here the layout is authoritative and the image would give
+/// a different, wrong answer — and then the image is not present at all, which
+/// no amount of agreement could have proven.
+#[test]
+fn an_atlased_frame_needs_no_main_world_image() {
+    let images = Assets::<Image>::default();
+    let mut layouts = Assets::<TextureAtlasLayout>::default();
+    let mut layout = TextureAtlasLayout::new_empty(bevy::math::UVec2::new(64, 32));
+    layout.add_texture(bevy::math::URect {
+        min: bevy::math::UVec2::new(16, 0),
+        max: bevy::math::UVec2::new(48, 32),
+    });
+    let layout_handle = layouts.add(layout);
+
+    // `Handle::default()` names an image that is NOT in `Assets<Image>` — exactly
+    // the state a `RENDER_WORLD`-only sheet leaves the main world in.
+    let sprite = Sprite::from_atlas_image(
+        Handle::default(),
+        bevy::image::TextureAtlas {
+            layout: layout_handle,
+            index: 0,
+        },
+    );
+    let basis = sprite_frame_basis(&sprite, &layouts, &images)
+        .expect("an atlas frame is fully described by its layout");
+    assert_eq!(basis.uv_rect, Vec4::new(0.25, 0.0, 0.75, 1.0));
+    assert_eq!(basis.size, Vec2::new(32.0, 32.0));
+}
+
 /// An unloaded texture yields no basis (callers fall back to the sprite
 /// copy instead of drawing a broken quad).
 #[test]

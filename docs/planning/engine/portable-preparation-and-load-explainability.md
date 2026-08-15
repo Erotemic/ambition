@@ -172,8 +172,41 @@ of megabytes of resident images is expensive wherever it is paid, and the only
 move that helps is making that cost smaller or spreading it under the cover that
 already exists.
 
-⚠ **1803 MB resident is its own finding** and belongs to the same campaign. On a
-browser that number is not a stutter, it is a tab that dies.
+## ⛔⛔ 1803 MB of resident images, and nothing in the main world wants the pixels
+
+The same 2026-07-30 capture recorded **1803 MB resident image memory**. On a
+browser that is not a stutter, it is a tab that dies — and it is the largest
+single number in this campaign.
+
+**The cause is a default.** Bevy loads images with
+`RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` (`ImageLoaderSettings::default`
+→ `RenderAssetUsages::default`, confirmed in bevy_asset 0.18.1), and Bevy's own
+doc says an asset set to `RENDER_WORLD` without `MAIN_WORLD` has its pixel data
+dropped from the main world after upload. So every decoded sheet keeps its full
+RGBA in main-world RAM for the lifetime of the handle. `report_image_census`
+sums exactly that — `image.data.as_ref().map(len)` — which is where 1803 MB was
+measured.
+
+⭐ **and the audit says nothing reads those pixels.** Every main-world
+`Assets<Image>` consumer in the tree either writes a runtime-generated image
+(touch joysticks, portal view cones, capture readback, morph ball, bubble
+shield) or reads a LOADED sheet for exactly one thing: `sprite_frame_basis`
+wanted `texture_descriptor.size` to normalise an atlas frame rect.
+
+✔ **that last dependency is gone (2026-08-15).** `TextureAtlasLayout` already
+carries `size`, so an atlased sprite — which is every character — resolves its
+basis without touching `Assets<Image>` at all. Pinned by a test that resolves a
+frame whose image handle names nothing in `Assets<Image>`, with the layout and
+image sizes deliberately DISAGREEING (the pre-existing test used 64x32 for both
+and could not have told which was read).
+
+⇒ **the remaining step is to load sheets `RENDER_WORLD`-only**, which is now
+unblocked for atlased sheets. ⛔ do not do it blind: the whole-image branch still
+needs its image, `NoWindow` fixtures have no render world to upload into (the
+Hall test depends on its barrier never settling), and readiness polling asks the
+`AssetServer` rather than `Assets<Image>` — each needs checking before the flag
+changes. Measure the resident number before and after; it is the acceptance
+criterion.
 
 **Measure before redesigning.** The numbers that still decide the shape: how many
 of the demanded characters were already materialized, how many needed new work,

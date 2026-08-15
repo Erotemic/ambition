@@ -289,6 +289,43 @@ These cards are capability fronts, not a serial mega-campaign.
 - **Test execution parallelism** — re-measure only if execution again dominates
   compile/link cost before adding runner machinery.
 
+## ⚠ Stranded plans — promote or retire (measured 2026-08-15)
+
+⭐ **this section exists to end the structural invisibility, not to judge these
+documents.** A planning doc reachable from no ledger row, no reservoir card, no
+`status.md` entry and no other document is invisible to the execution authority —
+that is exactly how seven fully-written Engine 1.0 plans sat unreachable until
+2026-08-14, and the fix then was **promotion, not writing**.
+
+Measured by basename across all of `docs/` (excluding `docs/archive`, which is
+evidence rather than authority) and `AGENTS.md`: **13 planning documents, 2,048
+lines, referenced by nothing.** Listing them here makes them reachable. ⛔ **a
+disposition is still owed for each** — promote to a card or retire to the
+archive; being listed here is not a verdict that the work is live.
+
+- `engine_rename_campaign.md` (322)
+- `engine/portable-preparation-and-load-explainability.md` (484)
+- `engine/sprite-renderer.md` (174)
+- `engine/closeout-review-followups-2026-07-20.md` (212) — *residual work only, re-verified against HEAD 2026-08-13*
+- `engine/binding-resolution-boundary.md` (55) — *residual defects only, re-verified against HEAD 2026-08-13*
+- `engine/combat-model.md` (60)
+- `engine/presentation-and-shell-audit.md` (45)
+- `engine/shell-vanity-sequence.md` (44)
+- `triage/ambition-test-support.md` (306)
+- `triage/ambition-registry-core.md` (231)
+- `triage/leafwing-clash-scan-patch-2026-07-23.md` (43)
+- `triage/gameplay-presentation-profiles.md` (32)
+- `game/ambition.md` (40)
+
+⚠ **two of these are surprising and should be checked before anyone retires
+them:** `game/ambition.md` describes the flagship game, and
+`engine/combat-model.md` is live design vocabulary — that neither is linked from
+the ledger, `tracks.md`, `status.md`, `README.md`, `roadmap.md` or `AGENTS.md` is
+more likely a routing gap than a sign the content is dead.
+
+⛔ **do not bulk-archive this list.** Two already declare themselves as
+*residual work re-verified against HEAD*, which is live work with no route to it.
+
 ## Standing execution rule
 
 The reservoir exists so the continuation queue does not run out of valuable

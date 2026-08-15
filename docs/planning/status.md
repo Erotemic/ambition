@@ -48,6 +48,14 @@ The highest-value successor fronts are:
    toward multiple resident rooms when participants separate. See
    [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
    and [`game/multiplayer.md`](game/multiplayer.md).
+
+   ⏸ **M2 is DONE and D116 RESTS (2026-08-15)** by maintainer instruction. ⚠ it
+   stopped **on a boundary, not at completion**: no production seam spawns a
+   second camera, and `publish_camera_viewport` writes one rectangle to every view
+   **by construction** because it projects the single `ResolvedGameplayPresentation`
+   — a fact about the physical screen. ⇒ distinct gameplay rectangles cannot come
+   out of the shipped schedule today, and that gap belongs to a future split host.
+   ⛔ do not open an M3 without a real product need for a second view.
 3. **⭐ THE SYSTEMIC WORLD SUBSTRATE — the next major frontier, and PRIMARY
    CAPACITY GOES HERE** (D125). What a thing IS, which runtime occurrence it is,
    why it exists and how long it lasts; then item custody as the first demanding
@@ -68,6 +76,14 @@ The highest-value successor fronts are:
    `OwnedItems` / held-item synchronisation as a **migration seam**, never as the
    custody model: physical custody belongs to the body and the item instance, and
    participant entitlement is a separate fact with a different owner and lifetime.
+
+   ⭐ **measured 2026-08-15: the seam is ONE CLASS WIDE.** Of the 24 catalog
+   slots, **5 of 6 classes are counts forever** (consumables, currency, key items,
+   unwired abilities, reserved) and their readers legitimately want a quantity;
+   the whole problem is the **nine held weapons/abilities that are an instance and
+   a count at once**. ⛔ so do not give the count table a row per object. ⇒ the
+   blocking unknown is now **"who owns a body inventory?"** — until that exists,
+   the count is doing durable-save duty for an instance and cannot simply be spent.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 4. **⭐ NEW 2026-08-15 — deterministic authored gameplay logic and orchestration**
    (D127). Authoring is strong for **nouns** and weak for **verbs and

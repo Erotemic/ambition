@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v30
+ggrs-rollback-schema-v31
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -387,6 +387,7 @@ resource.enemy_projectile_state	resource-canonical	EnemyProjectileState	bevy_ggr
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.gate_portal_phases	resource-clone	GatePortalPhases	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.input_stream_recorder	resource-clone	InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.inventory_restored	resource-clone	InventoryRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

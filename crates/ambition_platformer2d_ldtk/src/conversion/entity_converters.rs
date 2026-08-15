@@ -654,6 +654,22 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             )
         })?;
     let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain, character_id);
+    // **WHICH WAY THIS OCCURRENCE STARTS.** Facing is placement context: the
+    // character and controller are reusable, while two instances of the same
+    // pair may enter a room looking opposite ways. Missing/blank keeps the
+    // historical construction default (`Right` / +1); an authored misspelling
+    // refuses rather than silently changing initial locomotion.
+    if let Some(facing) = field_string(entity, "facing") {
+        match facing.trim() {
+            "" | "Right" => {}
+            "Left" => payload.facing = ambition_platformer2d_world::rooms::SpawnFacing::Left,
+            other => {
+                return Err(format!(
+                    "EnemySpawn `{name}` authors facing `{other}`, which is not one of Left / Right"
+                ))
+            }
+        }
+    }
     // **WHEN THIS ONE COMES BACK** — the placement's own answer, when it has one
     // (ADR 0022). A migrated character has no archetype row to inherit a policy
     // from, and the same creature is a permanent casualty in a story room and a

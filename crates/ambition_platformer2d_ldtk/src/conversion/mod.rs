@@ -1488,6 +1488,32 @@ mod tests {
             authored.name, "Solid Snake",
             "the label is still the label; the id did not swallow it"
         );
+        assert_eq!(
+            authored.payload.facing,
+            ambition_platformer2d_world::rooms::SpawnFacing::Right,
+            "an older placement with no facing field keeps the historical +1/right default"
+        );
+
+        let left = convert(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+            named("facing", "Left"),
+        ]));
+        assert_eq!(
+            left.payload.facing,
+            ambition_platformer2d_world::rooms::SpawnFacing::Left,
+            "initial orientation is authored by this occurrence, not by its character or brain"
+        );
+
+        let bad_facing = convert_err(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+            named("facing", "West-ish"),
+        ]));
+        assert!(
+            bad_facing.contains("not one of Left / Right"),
+            "a misspelled orientation must refuse rather than silently choose a direction: {bad_facing}"
+        );
 
         // ⛔⛔ **the display-name road is REFUSED, not defaulted** (2026-08-14).
         // These two cases used to assert `character_id.is_none()` and art

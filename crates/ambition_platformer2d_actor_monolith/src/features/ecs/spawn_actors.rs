@@ -1535,6 +1535,12 @@ pub(crate) fn spawn_enemy_with_faction_into(
             authored.payload.brain.clone(),
             paths,
         );
+        // **INITIAL ORIENTATION IS A PLACEMENT FACT.** The character constructor
+        // intentionally has no stage-direction opinion; seed the body's one
+        // authoritative facing here, before the entity is spawned. Wanderer and
+        // every other controller then consume ordinary body orientation rather
+        // than learning a Mary-O/game-specific default.
+        enemy.kin.facing = authored.payload.facing.sign();
         // **The PLACEMENT's respawn policy** — the one fact here that is neither
         // the character's nor the controller's (ADR 0022).
         //

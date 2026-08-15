@@ -771,6 +771,67 @@ mod authored_enemy_reads_its_character {
         );
     }
 
+    /// Initial orientation is carried by the authored occurrence and lands on
+    /// the authoritative body before its first controller tick. This is the
+    /// regression guard for the old unconditional `facing: 1.0` constructor.
+    #[test]
+    fn a_placement_sets_initial_body_facing_on_the_construction_frame() {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+            "npc_busy_beaver",
+        );
+        spec.facing = crate::rooms::SpawnFacing::Left;
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-facing",
+            "Left-facing beaver",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(prepared_complete());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &prepared,
+                    &Default::default(),
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<&crate::features::BodyKinematics>();
+        let body = q
+            .iter(world)
+            .next()
+            .expect("the authored enemy was not constructed");
+        assert!(
+            body.facing < 0.0,
+            "Left placement facing did not reach BodyKinematics on construction: {}",
+            body.facing
+        );
+    }
+
     /// **THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.**
     ///
     /// ⭐ the demonstration Jon asked for in place of the one-of-each archetype

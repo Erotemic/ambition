@@ -229,6 +229,36 @@ impl<T> Authored<T> {
     }
 }
 
+/// Initial horizontal orientation authored on an enemy placement.
+///
+/// This is placement context, not a character or brain property: the same
+/// character/controller pair may be placed facing either way. Runtime body
+/// kinematics still use a signed scalar; this enum keeps that implementation
+/// detail out of authored room data.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
+pub enum SpawnFacing {
+    Left,
+    #[default]
+    Right,
+}
+
+impl SpawnFacing {
+    /// Signed facing consumed by `BodyKinematics`: left = -1, right = +1.
+    pub const fn sign(self) -> f32 {
+        match self {
+            Self::Left => -1.0,
+            Self::Right => 1.0,
+        }
+    }
+
+    /// Whether serialization may omit this value without changing semantics.
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Right)
+    }
+}
+
 /// **An authored enemy's BEHAVIOUR and its ART are two different identities.**
 ///
 /// Before this existed the payload was a bare `CharacterBrain` and the art was
@@ -277,6 +307,14 @@ pub struct EnemySpawnSpec {
     /// question with two answers, and the point of the type is that absence
     /// stops being representable.
     pub character_id: ambition_entity_catalog::CharacterId,
+    /// Which way this occurrence initially faces.
+    ///
+    /// `Right` is the compatibility default because character-first actor
+    /// construction historically initialized `BodyKinematics::facing` to
+    /// `+1.0`. LDtk and other authoring surfaces may state `Left` explicitly
+    /// without teaching the character or its controller about stage direction.
+    #[serde(default, skip_serializing_if = "SpawnFacing::is_default")]
+    pub facing: SpawnFacing,
     /// **When this body comes back after it dies** (ADR 0022).
     ///
     /// ⭐ **a PLACEMENT fact with nowhere to be authored, until now.** Respawn
@@ -347,6 +385,7 @@ impl EnemySpawnSpec {
         Self {
             brain,
             character_id: character_id.into(),
+            facing: SpawnFacing::default(),
             respawn: None,
             disposition: None,
             brain_profile: None,
@@ -468,7 +507,21 @@ pub use ambition_entity_catalog::placements::{
 
 #[cfg(test)]
 mod enemy_spawn_identity_tests {
-    use super::EnemySpawnSpec;
+    use super::{EnemySpawnSpec, SpawnFacing};
+
+    /// Authored room data uses a semantic direction while the body keeps its
+    /// existing signed runtime representation. Silence preserves the old +1
+    /// construction behavior for non-migrated worlds.
+    #[test]
+    fn spawn_facing_is_semantic_and_backwards_compatible() {
+        let spec = EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Passive,
+            "fretjaw",
+        );
+        assert_eq!(spec.facing, SpawnFacing::Right);
+        assert_eq!(SpawnFacing::Right.sign(), 1.0);
+        assert_eq!(SpawnFacing::Left.sign(), -1.0);
+    }
 
     /// **The two identities agree BY CONSTRUCTION, and that is the whole change.**
     ///

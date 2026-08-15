@@ -171,3 +171,38 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic
 
 Use [`headless-room-verification.md`](headless-room-verification.md) for runtime
 proof. CLI help and source override old recipe flags.
+
+## ⛔⛔ A REGENERATED `.ldtk` SILENTLY DROPS LEVELS ITS SPECS DO NOT KNOW
+
+**Found 2026-08-15, caught one command before it landed.** A commit that added
+authored enemy `facing` also **deleted `mary_o_1_3` entirely** — 139 insertions
+against **1316 deletions**, and the deletions were an entire authored level.
+
+⭐ **the cause is the authoring script, not the agent.** `author_mary_o_ldtk.py`
+rebuilds the world from the specs it knows; a level authored by a *different*
+road — `area create` + `entity add`, which is how `mary_o_1_3` was built — is not
+in those specs, so a regenerate writes a world without it. The `.ldtk` is one
+file, so "regenerate the part I own" is not a thing it can do.
+
+⛔ **and every check downstream stays GREEN.** The result is valid LDtk, the
+roundtrip passes, `doctor` passes, the schema is intact. Nothing is corrupt —
+there is simply one less level, and every tool that derives the roster from the
+file agrees with the smaller world. ⚠ the only thing that noticed was a diffstat
+whose deletion count was suspiciously close to the size of the level added one
+commit earlier.
+
+⇒ **before merging any `.ldtk` change, COUNT THE LEVELS on both sides:**
+
+```bash
+git show <ref>:ambition_demo_mary_o/worlds/mary_o.ldtk | python3 -c "
+import json,sys; print([l['identifier'] for l in json.load(sys.stdin)['levels']])"
+```
+
+⭐ **and prefer re-applying the semantic change over merging the file.** A field
+def plus its instances can be re-authored onto the current world with
+`level add-field-def` / `entity set-field`; a wholesale file merge inherits
+whatever the other side's generator believed the world contained.
+
+⚠ **`next_room` makes this worse than it was.** The exit chain is authored in the
+file now, so a dropped level is also a dangling successor: 1-2 points at a room
+that no longer exists, and the circuit test fails a level later than the deletion.

@@ -330,14 +330,26 @@ archive; being listed here is not a verdict that the work is live.
 - `engine/sprite-renderer.md` (174)
 - ~~`engine/closeout-review-followups-2026-07-20.md` (212)~~ ✔ **PROMOTED** to a card above
 - ~~`engine/binding-resolution-boundary.md` (55)~~ ✔ **PROMOTED** to a card above
-- `engine/combat-model.md` (60)
-- `engine/presentation-and-shell-audit.md` (45)
-- `engine/shell-vanity-sequence.md` (44)
+- ~~`engine/combat-model.md` (60)~~ ✔ **ROUTED** — residual combat work verified
+  against `cecd01ca`; CM1–CM5, CM7, CM8 landed. Current body-generic integration
+  is owned by [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md),
+  which is live as **D72**. ⛔ do not schedule the landed items again.
+- ~~`engine/presentation-and-shell-audit.md` (45)~~ ✔ **ROUTED** — the
+  thirteen-domain audit is closed; what remains is forward capability gaps, of
+  which **localization is trigger-based** (no translation catalog or runtime
+  locale system exists). See the deferred/trigger list below.
+- ~~`engine/shell-vanity-sequence.md` (44)~~ ✔ **ROUTED** — **VC5 only**, the
+  title launcher fade-in. VC1–VC4 and VC6 are implemented. A single small
+  presentation item, not a campaign.
 - `triage/ambition-test-support.md` (306)
 - `triage/ambition-registry-core.md` (231)
 - `triage/leafwing-clash-scan-patch-2026-07-23.md` (43)
 - `triage/gameplay-presentation-profiles.md` (32)
-- `game/ambition.md` (40)
+- ~~`game/ambition.md` (40)~~ ✔ **ROUTED from `status.md`** — ⚠ it is not residual
+  work at all but a **structural hub** for the flagship customer (it links
+  `vision.md`, `open-world-roadmap.md`, `systemic-progression.md`,
+  `multiplayer.md`), and nothing pointed at it. That was a pure routing gap, and
+  it is the reason this list exists.
 
 ⚠ **two of these are surprising and should be checked before anyone retires
 them:** `game/ambition.md` describes the flagship game, and

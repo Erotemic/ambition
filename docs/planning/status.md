@@ -94,9 +94,11 @@ The highest-value successor fronts are:
    idea to a named capability gap. **Rust extends the engine's vocabulary;
    authored content composes vocabulary that already exists.** See
    [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
-   ⛔ **only M0 (inventory + evidence) is authorized** — it is deliberately behind
-   D125 and reachability, both of which it consumes rather than competes with.
-   ⛔ not scripting, not a rule VM, not a central effect enum.
+   ✔ **M0 is complete** (14 systems inspected); **M1 is parked behind D125 and
+   reachability**, both of which this consumes rather than competes with.
+   ⛔ not scripting, not a rule VM, not a central effect enum. ⭐ M0's headline:
+   **the substrate owns no universal sequencer** — the gap is on the *condition*
+   side, and boss patterns are the **template**, not a customer.
 5. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
@@ -121,6 +123,13 @@ streaming, a generic residency scheduler and byte shaving do not.
 
 - **Ambition:** flagship game. Its real content, authoring, multiplayer,
   persistence and presentation needs have first claim on product value.
+  ⭐ its structural hub is [`game/ambition.md`](game/ambition.md) — the game and
+  engine co-evolve, and it is **not** a thin demo waiting for a finished engine.
+  From there: [`game/vision.md`](game/vision.md),
+  [`game/open-world-roadmap.md`](game/open-world-roadmap.md),
+  [`game/systemic-progression.md`](game/systemic-progression.md),
+  [`game/multiplayer.md`](game/multiplayer.md). ⚠ nothing linked that hub until
+  2026-08-15, which is how the flagship customer's own map went unreachable.
 - **Super Smash Siblings:** serious platform-fighter customer and possible future
   first-class game, but not the project focus. Its remaining body-generic work is
   in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).

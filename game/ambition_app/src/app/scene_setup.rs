@@ -255,12 +255,21 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
     //
     // ⚠ deferred, because this helper takes only `Commands` — the view is spawned
     // at plugin BUILD time so it is already in the world when this runs.
+    //
+    // ⛔ **and it is resolved by `ViewsOnHand`, not by `iter().next()`.** The
+    // first cut took the first view the archetype yielded, which is right for one
+    // view and a coin flip for two — this scaffold spawns exactly ONE main
+    // camera, so with several views there is no view it can honestly claim to
+    // present. Refusing (the rule's own answer, logged once) leaves the link off,
+    // and every consumer then declines loudly instead of drawing an arbitrary
+    // view through this rig. A composition that wants two rigs binds them itself.
     commands.queue(move |world: &mut bevy::prelude::World| {
         let mut views = world.query_filtered::<
             bevy::prelude::Entity,
             bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>,
         >();
-        let Some(view) = views.iter(world).next() else {
+        let on_hand = ambition_platformer2d::sim_view::ViewsOnHand::survey(views.iter(world));
+        let Some(view) = on_hand.presented_by(None) else {
             return;
         };
         if let Ok(mut camera) = world.get_entity_mut(main_camera) {

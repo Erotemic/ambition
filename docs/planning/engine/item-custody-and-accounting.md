@@ -26,6 +26,33 @@ These are useful mechanics but they do not yet form one conservation/accounting
 model. In particular, catalog entitlement and physical custody must not be
 assumed to mean the same thing.
 
+### ⭐ Measured at HEAD, 2026-08-15 — the two halves exist and do not meet
+
+- **Physical custody landed, for world item entities only.** `ItemCustody` is
+  `InWorld | Held { holder }` on the item entity itself
+  (`ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs:238`), is
+  explicitly **rollback state rather than cache**, and is registered as
+  `entity:item_custody` with a paired `rollback_map_entities` because the holder
+  handle is remapped on load. ⭐ **and the deletion already happened**: pickup no
+  longer despawns the ground entity, so an instance survives being picked up
+  instead of being destroyed and re-created.
+- **Accounting did not move.** `OwnedItems` — the 24-item catalog count table —
+  still carries **~175 references across 7 crates** (`ambition_app` 80, actor
+  monolith 38, `ambition_content` 27, `ambition_items` 22, plus runtime,
+  inventory UI and menu), and it is what the save mirrors.
+- ⇒ **the two halves have almost no overlap**: `ItemCustody` is referenced in
+  4 crates and 6 files total. ⛔ **so custody is not yet the accounting model; it
+  is a state on world objects.** The unanswered question is the seam between
+  them — which items exist as instances, which exist only as catalog counts, and
+  whether anything is currently allowed to be both.
+
+⚠ that seam, not the count table's existence, is the next slice. `OwnedItems`
+remains a **migration seam**: physical custody belongs to the body and the item
+instance; participant entitlement is a separate fact with a different owner and a
+different lifetime. ⛔ do not "fix" it by giving the count table a row per object
+before measuring which of its ~175 consumers need an instance rather than a
+count — most catalog consumers legitimately want a quantity.
+
 ## Target distinctions
 
 ```text

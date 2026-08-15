@@ -279,13 +279,52 @@ falsifies it and sends the search to the audio path proper.
 If no portable defect can be proven natively, leave the retest row open with the
 logging ready. Do not invent a fix for a symptom that cannot be reproduced.
 
-## Executable size: measure before comparing
+## Executable size: MEASURED 2026-08-15
 
-Two numbers exist and they are not comparable yet — ~222 MB in Jon's build and
-~163 MB in a later served-persona measurement. **Explain the discrepancy before
-drawing any conclusion**: record the Rust wasm before `wasm-bindgen`, the
-`wasm-bindgen` output, `web` vs `web_served_assets`, the profile, the feature set,
-and compressed transfer size where that is trivial.
+`./build_for_web.sh --served` at HEAD — features `web_served_assets`, profile
+`release`:
+
+```text
+Rust wasm before wasm-bindgen   178 MB
+wasm-bindgen output             164 MB wasm + 112 KB js
+gzip of the wasm                26.4 MB      <- what a browser actually DOWNLOADS
+```
+
+⭐ **so "220 MB" was never a network problem.** The transfer is 26 MB. The 164 MB
+is what the browser must PARSE AND COMPILE, and that is the cost that matters —
+compile time and peak memory, on a device that may have neither.
+
+Section census of the 163.3 MB module:
+
+```text
+code                  89.6 MB   54.8%
+custom:name           37.4 MB   22.9%   <- debug symbol names, in a release build
+data                  35.1 MB   21.5%   <- baked into the SERVED-ASSETS persona
+elem/function/rest     1.1 MB    0.7%
+```
+
+⛔⛔ **and the workspace already has the profile that addresses two of those, and
+nobody ran it.** There is no `[profile.release]` override, so `release` is
+Cargo's default — `strip = "none"`, which is why 37.4 MB of name section ships.
+`[profile.web-release]` right there in the root `Cargo.toml` sets `strip =
+"symbols"`, `lto = "fat"`, `opt-level = "s"`, `codegen-units = 1`, and
+`build_for_web.sh --optimize` selects it.
+
+⚠ **so the first question is not "what is too big" but "which build was
+measured".** Until the `web-release` number exists, every conclusion about
+architectural bloat is being drawn from an unoptimized artifact.
+
+⚠ **35.1 MB of `data` in the SERVED persona deserves its own look**: this is the
+build whose entire premise is fetching assets over HTTP, and `visible_web_base`
+still pulls `static_map`, so the LDtk worlds are baked in regardless. That is a
+feature-composition question, not a code-size one.
+
+✔ **and one hypothesis is already dead: the five demo crates are not bloat.**
+`ambition_demo_{sanic,pocket,mary_o,smash,twintrack}` are non-optional
+dependencies of `ambition_app`, which looks like exactly the "capability the
+persona cannot exercise" pattern — but `shell_host` registers all five
+unconditionally, so the browser's launcher lists them and they are reachable.
+They are product, not overhead.
 
 Then classify what is found by PORTABILITY: capability the persona cannot
 exercise, platform backends pulled into unrelated executables, dev capability

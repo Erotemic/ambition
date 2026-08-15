@@ -70,6 +70,44 @@ The design must avoid simply pushing `bevy_ggrs` into every leaf crate. Prefer a
 small engine-owned registration vocabulary or capability fragment that domains
 can implement without depending on the transport/integration backend.
 
+#### ⭐⭐ MEASURED 2026-08-15 — the declaration splits in two, and only one half can federate
+
+A bounded slice took `GatePortalPhases` as a representative customer (chosen
+because its correct rollback semantics had just been established by a real
+desync fix). The result is a **partial success with a named upstream blocker**,
+which is more useful than either a green or a redesign:
+
+- ✔ **SEMANTICS — the codec and the value projection — already federate, and now
+  do for this customer.** `SnapshotState` moved down to
+  `ambition_platformer2d_core::snapshot` on 2026-07-30, and
+  `ambition_platformer2d_world::snapshot_impls` records that the move deleted
+  **2,688 lines** from the runtime. The gate-portal projection was simply authored
+  in the old place; it now lives with its domain. ⭐ **deleted from the generic
+  runtime with it: the whole gameplay vocabulary** — `GatePortalPhase::Off |
+  Opening { elapsed } | On | Closing { elapsed }`, the field access, and the
+  key-ordering rule. What remains there is one generic call naming the type.
+- ⛔ **INSTALLATION cannot federate, and the cause is upstream.** Every
+  `bevy_ggrs` 0.21 registration entry point — `rollback_resource_with_clone`, the
+  copy strategy **and the `Reflect` strategy** — is generic over the concrete
+  type, with no `ComponentId`/`TypeId`-keyed path in the pinned checkout. Something
+  must monomorphize it, and that something must name `bevy_ggrs`. ⚠ exactly **two**
+  crates in the workspace may: `ambition_platformer2d_runtime` and
+  `game/ambition_app`.
+
+⇒ **so the remaining census is a `bevy_ggrs` API shape, not an Ambition design
+failure.** ⛔ giving a world/gameplay crate a netcode dependency to remove it
+would be a **worse** boundary than the census — that is the trade this program's
+paragraph above already forbids, now with a measurement behind it.
+
+⛔ **and relocating the list is not progress.** Moving the registrations into a
+`domains/rooms.rs` was explicitly rejected: `domains/` is inside the same crate
+and its `mod.rs` is a facade holding the same list — failure mode 1 dressed as
+progress.
+
+⇒ **deletion gate for the rest: an upstream (or forked) `bevy_ggrs` registration
+path keyed by type id rather than generic over the type.** Until that exists,
+federate *semantics* per domain and leave *installation* central.
+
 ### One authoritative state, explicit projections
 
 Read models are allowed and useful. They must be one-way projections from the

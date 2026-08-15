@@ -38,6 +38,45 @@ this before taking any task below; several are deferred and one candidate is dro
 | AUTH-03 | ▶ **in flight** — authored art replacing the placeholder impact, against two customers: Smash hit feel and the Mary-O coin pop |
 | VFX-01 · VFX-08 · VFX-09 · VFX-11 | ⭐ **boundary work that is true whatever backend ever wins.** VFX-08 is the one with a real defect under it: `VfxMessage::Burst { count, speed, color, kind }` leaks renderer-shaped choices to simulation-side producers, and that is wrong today, with or without a particle crate |
 
+### ⛔⛔ WITHDRAWN 2026-08-15 — the deferral below rested on a bad argument
+
+⭐ **"no customer yet" is the wrong test for this project.** Jon: *every* game
+wants good VFX, so we will need it at some point; and this is a hobby project
+built with time and ambition, not one under shipping pressure. ⇒ a
+YAGNI/nobody-wants-it-yet argument does not adjudicate anything here. The only
+legitimate question is **ORDER**, never *whether*.
+
+Of the three arguments below, exactly one survives on its own terms:
+
+- ⛔ **argument 1 (repertoire, not capability) — WITHDRAWN as a reason to defer.**
+  It is true and it explains why authored art paid off first; it does **not** show
+  a particle runtime is unwanted.
+- ⛔ **argument 3 (the spike ships evidence, not a game) — WITHDRAWN.** Evidence
+  is a legitimate deliverable when the goal is an engine.
+- ⚠ **argument 2 (capability footprint) — SURVIVES, but only as a COST to measure,
+  not a veto.** It is a real number the adapter task must check, which the plan's
+  own dependency section already requires.
+
+⭐⭐ **and the reopening trigger stated further below was ALREADY MET at authoring
+time** — the case for Enoki is its **RON-authored, hot-reloadable effect ASSETS**,
+which is the same "content as data, not Rust" claim the LDtk lane just proved for
+spatial content. That is a north-star capability, not a nice-to-have. ⇒ **Enoki is
+scheduled, not deferred.**
+
+⭐ **what survives is the ORDERING only:** VFX-01 · VFX-08 · VFX-09 · VFX-11
+first, because VFX-08 repairs a defect that exists today and the adapter should
+plug into a seam that is already correct rather than one being fixed underneath
+it. ⛔ that is a sequencing claim; it is not permission to drop the spike.
+
+⚠ **Hanabi stays dropped, and that ruling is untouched by any of this** — it rests
+on a platform fact (WebGPU-only compute against an Android target), not on
+appetite or timing.
+
+---
+
+⚠ **superseded reasoning below, kept because the flawed argument is worth being
+able to recognise again.**
+
 ### ⛔ DEFERRED — VFX-02 … VFX-07, GATE G1, VFX-10, VFX-12, VFX-13
 
 Not rejected. **Deferred for want of a customer**, and the deferral is cheap

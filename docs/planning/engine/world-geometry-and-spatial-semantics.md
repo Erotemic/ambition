@@ -1,7 +1,8 @@
 # World geometry and spatial semantics
 
-**State:** ⭐ **TRIAGED 2026-08-15 — HELD as a focused architectural owner, NOT
-promoted.** Planning-only extension of existing Engine 1.0 programs. This document
+**State:** ⭐ **WARRANTED 2026-08-15 — a trigger is MET (see the correction
+below); SCHEDULING is open.** Not promoted into an execution row yet, and that is
+an ordering call rather than a verdict on the plan. Planning-only extension of existing Engine 1.0 programs. This document
 is not execution authority and does not promote itself into `queue.md` or
 `tracks.md`.
 
@@ -14,7 +15,50 @@ one axis, and a closed taxonomy of that shape really does grow `OneWayConveyor` 
 `BlinkWallRebound` as customers arrive. Nothing below is a disagreement with the
 analysis.
 
-⛔⛔ **but this plan's own trigger #1 ran as a real experiment today and came back
+## ⛔⛔ CORRECTION 2026-08-15 — the triage below CHECKED ONE TRIGGER OF FIVE
+
+⭐⭐ **trigger #5 is MET, has been for a while, and is shipping.** Jon named it:
+the blast zone is an ENGINE-level concept, which is a smell, and Smash should be
+able to say *"this region is my blast zone"* over generic geometry instead of the
+engine providing a bespoke platform-fighter primitive.
+
+Measured at HEAD, and it is worse than "a game concept leaked upward" —
+`crates/ambition_platformer2d_core/src/world.rs`:
+
+```text
+:888   pub blast_margin: f32,            + a serde default and DEFAULT_BLAST_MARGIN
+:900   pub side_blast_margin: Option<f32>,
+:906   pub ceiling_blast_margin: Option<f32>,
+       three builders, an LDtk lowering pass, and a render overlay
+```
+
+⇒ **every game built on this engine carries three platform-fighter fields.**
+Mary-O's `World` has a `blast_margin`. Trigger #5 says *"a provider game needs a
+spatial noun and must edit a closed engine switch"*; this is that, inverted and
+worse — the Smash-specific noun is already inside the engine, permanently, for
+everyone.
+
+⭐ **and the generic fact underneath it is a boundary region with a CONSEQUENCE.**
+Smash calls it a blast zone and loses a stock; Mary-O calls it a pit and respawns;
+Ambition calls it out-of-bounds. Engine owns the geometry, game owns the meaning —
+which is this plan's own principle 1. ⭐ **the slice is shaped like a DELETION**,
+which is the strongest form a first customer can take.
+
+⛔ **the error to learn from, since it is the cheap kind to repeat:** the triage
+below tested trigger #1, found it negative, and generalised to all five. The
+measurement was sound; the sentence after it was not. **A negative on one trigger
+is not a negative on the plan.**
+
+⚠ **this correction is about JUSTIFICATION, not schedule.** The plan is warranted;
+whether it outranks the other engine work in flight is a separate ordering question
+and is left open deliberately. ⛔ do not read "warranted" as "next".
+
+---
+
+⚠ **the paragraph below is the superseded reasoning, kept because the error is
+more instructive than the conclusion.**
+
+⛔⛔ **this plan's own trigger #1 ran as a real experiment today and came back
 NEGATIVE, and that is the finding.** A worker authored a complete new Mary-O room
 through LDtk end to end — terrain, a bonk row, a hidden block, six enemies, coins,
 a moving platform, a warp-tube pair, spawn and flagpole. It hit **no** surface

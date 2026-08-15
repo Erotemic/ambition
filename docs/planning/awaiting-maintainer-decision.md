@@ -333,40 +333,26 @@ the guard's check list is yours, and adding a red check would stop every
 autonomous run until the twelve are cleared. The alternative is to treat the
 suite as advisory and fix the twelve on their own merits.
 
-## ✔ RESOLVED (sfx) / ▢ OPEN — three submodule remotes still reject access
+## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 
-**Blocked 2026-08-15, and it needs credentials rather than a decision about the
-code.** `git push` in `tools/ambition_sfx_renderer` fails with *"make sure you
-have the correct access rights"* against
-`git@aivm-cred-git-d8c7161d54bc:Erotemic/ambition_sfx_renderer.git`. Its sibling
-submodules push fine today (`ambition_map_assets` and the sprite renderer both
-went out this session), so this is one credential alias, not the mechanism.
+**Was:** `git push` in `tools/ambition_sfx_renderer` failed with *"correct access
+rights"*, and `main` already recorded a commit from it, so a fresh clone could
+not resolve the pointer. Probing the rest found three more on the same footing,
+each behind its own credential alias.
 
-⛔ **the consequence is already published.** `main` records `b61ee24` for that
-submodule while its `origin/main` is still `bbfe0f9`, so a fresh clone's
-`git submodule update` cannot resolve the pointer. I pushed the superproject
-anyway — the commits existed locally either way, and holding my work back would
-not have unpublished yours — but a clone is broken until the push lands.
+✔ **Jon provisioned all four.** Verified from inside the VM: five of five
+submodules answer `git ls-remote`, none is ahead of its `origin/main`, and every
+pointer `main` records exists on its remote.
 
-✔ **the sfx half is CLOSED** — Jon provisioned the credential and `b61ee24` is
-on its `origin/main`, so the pointer resolves again.
+⭐ **the check worth keeping**, because "ahead: 0" alone is not evidence — a
+submodule pushed only from the host reads as current from in here while being
+unpublishable:
 
-▢ **three remain, each on its own credential alias**, all failing `git ls-remote`
-with the same *"correct access rights"* message from inside the VM:
+```sh
+git submodule foreach 'git ls-remote --exit-code origin >/dev/null 2>&1 \
+    && echo OK || echo NO-ACCESS'
+```
 
-| submodule | alias |
-|---|---|
-| `tools/ambition_sprite2d_renderer` | `aivm-cred-git-b26309782244` |
-| `dev/ambition_dev_measurements` | `aivm-cred-git-8756ecde04e8` |
-| `tools/ambition_music_renderer` | `aivm-cred-git-c727c9afd09e` |
-
-⚠ **the sprite one is the live risk.** That is where the VFX generators are being
-authored; it reads `ahead: 0` only because Jon pushes it from the host. The first
-agent to commit a generator there reproduces exactly the sfx failure — a
-superproject pointing at a commit no clone can resolve — and will not find out
-until it tries to push.
-
-⇒ **what is needed:** provision the three, then verify with
-`git submodule foreach 'git ls-remote --exit-code origin >/dev/null && echo OK || echo NO-ACCESS'`.
-⛔ never "fix" a rejected push by rolling the pointer back; the superproject
-commits depend on the submodule content.
+⛔ **and the rule that outlives this:** never resolve a rejected submodule push
+by rolling the superproject pointer back. The superproject commits depend on the
+submodule content; the pointer is the symptom, the credential is the cause.

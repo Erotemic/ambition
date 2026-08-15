@@ -298,7 +298,13 @@ fn seat_a_crossover(
     while waited < cap {
         app.update();
         waited += 1;
-        if seats_in_the_world(&mut app) >= 2 && waited > countdown {
+        let seated_now = seats_in_the_world(&mut app);
+        // ⚠ both terms: two bodies AND past the hold. The stage opens suspended
+        // and seats its fighters before the count ends, so breaking on the bodies
+        // alone would drop the window straight back inside the 3-2-1-GO — the
+        // defect the old fixed warm-up was written to avoid, and it must survive
+        // the rewrite.
+        if seated_now >= 2 && waited > countdown {
             break;
         }
         // ⚠ **the roster is an INPUT the stage consumes, and this fixture hands
@@ -308,14 +314,22 @@ fn seat_a_crossover(
         // resource disappears, `prepare_the_match` returns early forever, the
         // route still activates, and the stage stands empty.
         //
-        // ⛔ this is NOT papering over it. Nothing is re-supplied once a body is
-        // seated, and the count is REPORTED — a non-zero `re_supplied` beside a
-        // green run is the screen eating the roster, which is worth knowing and
-        // is a different finding from the brain.
-        if app
-            .world()
-            .get_resource::<MatchParticipantRoster>()
-            .is_none()
+        // ⛔⛔ **AND IT STOPS THE INSTANT A BODY IS SEATED**, which is the whole
+        // reason this is safe. `versus.rs` has a test named
+        // `a_half_seated_match_is_not_handed_a_different_roster` — handing a
+        // roster to a match that has already seated somebody is a known way to
+        // corrupt one, and a fixture doing it every frame would be manufacturing
+        // exactly that state.
+        //
+        // ⛔ nor is it papering over the race: `re_supplied` is PRINTED on the
+        // green path, so a non-zero count beside a passing run is the select
+        // screen eating the roster — a real finding, and a different one from
+        // anything about the brain.
+        if seated_now == 0
+            && app
+                .world()
+                .get_resource::<MatchParticipantRoster>()
+                .is_none()
         {
             app.world_mut()
                 .insert_resource(roster_for_the_stage.clone());

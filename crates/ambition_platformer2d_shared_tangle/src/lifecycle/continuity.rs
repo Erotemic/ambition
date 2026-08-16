@@ -411,13 +411,21 @@ impl AuthoredOccurrences {
     /// `InCustody` row does not and "the key stays acquired" is a claim about a
     /// particular hand.
     ///
-    /// ⚠ **what is still owed**, and it is the second half of that custody leg:
-    /// an occurrence whose baseline says a body was carrying it, and which is
-    /// NOT live in that body's hand at restore time, cannot be put back —
-    /// nothing mints an occurrence directly into custody. Today it cannot
-    /// happen, because a held occurrence is resident in no room and therefore
-    /// survives every sweep a death crosses. It becomes reachable the moment a
-    /// death destroys the carrier.
+    /// ⭐ **and the second half of that custody leg is closed too** (2026-08-15,
+    /// third leg). An occurrence whose baseline says a body was carrying it and
+    /// which has NO live entity anywhere — carried out, put down, and destroyed
+    /// when that room unloaded — is MATERIALIZED back into that hand from the
+    /// record that minted it, reached BY IDENTITY rather than by room. That leg
+    /// cannot live in this crate: it spawns, and what it spawns belongs to a
+    /// family this crate has never heard of. It is
+    /// `items::pickup::restore_custody_to_checkpoint`.
+    ///
+    /// ⛔ **note which question that answers and which it leaves alone.** A row
+    /// of this ledger is still never a spawn instruction: [`Self::outlook_for`]
+    /// answers `Suppressed` for `InCustody` in every room, and that stays
+    /// exactly right, because a thing in a hand is not a thing in a room.
+    /// Materialization is the one reconstruction road that is not a room's, and
+    /// it is the custody domain's precisely because of that.
     pub const fn baseline_is_a_copy_of_this() {}
 
     /// **A reinstatement is NOT room-local, and the residency it restores is
@@ -540,8 +548,9 @@ pub fn capture_occurrence_baseline(
 ///
 /// ⚠ **the ONE thing it cannot reach is an occurrence in a hand**, because a
 /// held occurrence is resident in no room and no rebuild sees it. That leg is
-/// [`super::retract_custody_to_checkpoint`], and it belongs to the custody
-/// domain because a hand is not room state.
+/// `items::pickup::restore_custody_to_checkpoint`, and it belongs to the custody
+/// domain because a hand is not room state — including the arm that has to
+/// MATERIALIZE an occurrence the world no longer holds an entity for.
 pub fn restore_occurrence_baseline(
     mut resets: bevy::prelude::MessageReader<super::ResetToCheckpoint>,
     baseline: Option<bevy::prelude::Res<OccurrenceBaseline>>,

@@ -66,6 +66,22 @@ impl CustodyBaseline {
         self.held.contains_key(occurrence)
     }
 
+    /// **Every remembered hand, occurrence first**, in identity order.
+    ///
+    /// ⭐ **a restore has to ASK THE BASELINE what it is missing, and it cannot
+    /// do that by walking the world.** [`Self::custodian_of`] answers the
+    /// question the live-object side asks — *does the checkpoint agree with
+    /// where this object is now* — and it can only be asked about an object
+    /// that still exists. An occurrence whose entity was destroyed while its
+    /// room unloaded is invisible to every query in the world, so the only
+    /// place its row can be found is here, by enumerating them.
+    ///
+    /// ⚠ ordered by [`SimId`] and not by an archetype, because the walk drives
+    /// spawns.
+    pub fn rows(&self) -> impl Iterator<Item = (&SimId, &SimId)> {
+        self.held.iter()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.held.is_empty()
     }
@@ -139,6 +155,12 @@ pub fn capture_custody_baseline(
 ///
 /// ⇒ `restore_custody_to_checkpoint` therefore lives with the item domain, which
 /// can see both halves. The CAPTURE stays here because it reads only identities.
+///
+/// ⭐ **and the same boundary decides the other direction.** A baseline row whose
+/// occurrence has no live entity at all is put back by MATERIALIZING one — which
+/// needs the authored record, the recipe and the family's components, none of
+/// which this crate can name. Recording a custodian by identity is what makes
+/// that possible from here; performing it is not.
 #[allow(dead_code)]
 pub const fn retraction_needs_both_halves_of_a_fork() {}
 

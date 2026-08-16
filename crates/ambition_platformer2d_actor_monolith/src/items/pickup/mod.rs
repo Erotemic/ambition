@@ -24,6 +24,7 @@ use ambition_characters::brain::{
 };
 use ambition_input::ControlFrame;
 use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(feature = "portal")]
 use ambition_portal2d::PortalGun;
@@ -662,17 +663,34 @@ pub fn project_custody_onto_residency(
 /// value from its own baseline. Two systems retracting one fact is how a
 /// retraction survives one of them being deleted and quietly stops working.
 ///
-/// ⚠ **the case that is still NOT handled, precisely:** a baseline row whose
-/// occurrence has no live entity at all — carried at the checkpoint, later put
-/// down in a room that then unloaded, then a death. Its ledger row says
-/// `InCustody`, so the rebuild suppresses it, and nothing mints an occurrence
-/// directly into a hand. Reachable only across a room transition, which is why
-/// the fixture does not reach it.
+/// ⭐⭐ **AND THE THIRD ARM: A BASELINE ROW WHOSE OCCURRENCE THE WORLD NO LONGER
+/// HAS AT ALL.** Carried at the checkpoint, later put down in a room, that room
+/// unloaded and took the entity with it, then a death. Re-assignment cannot
+/// reach it — there is nothing to re-assign — and no room rebuild will ever
+/// produce it either, because a baseline that says `InCustody` makes
+/// `outlook_for` answer `Suppressed` in *every* room, which is correct: a thing
+/// in a hand is not a thing in a room. So the occurrence has to be
+/// MATERIALIZED, by identity, from the record that minted it wherever in the
+/// world that record lives — see
+/// [`authored_occurrence_request`](crate::construction::authored_occurrence_request).
+/// It comes back with the record's own `SimId` and provenance, which is what
+/// makes it the same occurrence rather than a look-alike.
 #[allow(clippy::too_many_arguments)]
 pub fn restore_custody_to_checkpoint(
-    mut commands: Commands,
+    // ⭐ **`SessionCommands`, because materialization SPAWNS.** An occurrence
+    // rebuilt into a hand is owned by the activation that is restoring, exactly
+    // as the room build's would be; a bare `Commands` could only produce a
+    // process-resident stranger that outlives the session.
+    mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands,
     mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
     baseline: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+    // **The world's DEFINITIONS**, so an identity with no live occurrence behind
+    // it can still be turned back into one. Every room, not the neighbours: a
+    // body can carry an object any distance before putting it down, so the room
+    // holding the record is not reachable by adjacency.
+    world: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    >,
     mut items: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -688,6 +706,7 @@ pub fn restore_custody_to_checkpoint(
     )>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,
 ) {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
     // Drained unconditionally, like every other reader of this channel.
     let requested = resets.read().count() > 0;
     let Some(baseline) = baseline else {
@@ -799,6 +818,116 @@ pub fn restore_custody_to_checkpoint(
                 );
             }
         }
+    }
+
+    // ── ⭐⭐ AND THE ROWS NO OBJECT IN THE WORLD ANSWERS FOR ──────────────────
+    //
+    // ⛔ **this pass is driven from the BASELINE, not from the world, and that
+    // is the whole difference.** Everything above starts at a live occurrence
+    // and asks whether the checkpoint agrees with where it is — a question that
+    // cannot be asked at all about an occurrence whose entity is gone. Those
+    // rows are invisible to every query in the engine, so the only place they
+    // exist is the baseline, and the only way to find them is to enumerate it.
+    //
+    // ⚠ **LAST, after the retractions, for the reason the partition above
+    // exists**: a body has one hand, and the object being taken out of it must
+    // leave before the banked one is put back.
+    let live: std::collections::BTreeSet<SimId> = items
+        .iter()
+        .map(|(_, occurrence, _, _)| occurrence.clone())
+        .collect();
+    let missing: Vec<(SimId, Entity)> = baseline
+        .rows()
+        .filter(|(occurrence, _)| !live.contains(*occurrence))
+        // A hand this world cannot find is not a hand to put anything back
+        // into. The row stays in the baseline, so the next death tries again.
+        .filter_map(|(occurrence, custodian)| {
+            Some((occurrence.clone(), by_identity.get(custodian).copied()?))
+        })
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    // Resolved once, and only when there is something to materialize: a
+    // composition with no session world has no definitions to reach, and a shell
+    // host at a non-gameplay route must not author gameplay entities.
+    let (Some(world), Some(scope)) = (world.as_deref(), commands.spawn_scope()) else {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::items",
+            "the checkpoint remembers {} carried occurrence(s) this world cannot rebuild: \
+             no session world or no spawn scope",
+            missing.len(),
+        );
+        return;
+    };
+    for (occurrence, holder) in missing {
+        // ⭐ **THE DEFINITION IS REACHED BY IDENTITY, not by room.** The
+        // occurrence is resident nowhere, so no room build is coming for it;
+        // what rebuilds it is the record that minted it, found wherever in the
+        // world that record lives.
+        let Some(request) =
+            crate::construction::authored_occurrence_request(&world.rooms, &occurrence)
+        else {
+            // ⚠ a CONTENT change rather than a defect: the record has been
+            // edited away since the checkpoint was taken. Loud, and the player
+            // simply no longer has the thing.
+            bevy::log::warn!(
+                target: "ambition_platformer2d::items",
+                "the checkpoint remembers `{occurrence:?}` in a hand, and no room in this \
+                 world authors a record that can rebuild it",
+            );
+            continue;
+        };
+        let crate::construction::ActorConstructionParams::GroundItem { spec, held } =
+            &request.parameters
+        else {
+            // ⚠ the family that can be CARRIED and the family that can be
+            // materialized are the same one list; a row for anything else means
+            // a producer joined one road and not the other.
+            bevy::log::warn!(
+                target: "ambition_platformer2d::items",
+                "the checkpoint remembers `{occurrence:?}` in a hand, but its record does not \
+                 describe something a body can carry",
+            );
+            continue;
+        };
+        let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
+            continue;
+        };
+        // ⛔ **the record's OWN `SimId` and provenance**, which is what makes
+        // this the same occurrence coming back rather than a copy wearing its
+        // name. A fresh identity here would be a silent duplication the moment
+        // the home room decided the original was still out there.
+        //
+        // ⚠ **`InCustodyOf` is NOT written here**, for the same reason the arms
+        // above do not write it: it is derived from `ItemCustody` by
+        // `project_custody_onto_residency`, later in this same tick and two
+        // phases before any room sweep reads it.
+        commands.spawn_room_in_session(
+            scope,
+            (
+                request.sim_id.clone(),
+                request.origin.clone(),
+                Name::new(format!("Ground item: {}", spec.name)),
+                GroundItem {
+                    spec: held.clone(),
+                    // Where the record puts it. Never read while the object is
+                    // in a hand, and the honest answer for the instant before
+                    // custody is applied.
+                    pos: spec.pos,
+                    vel: Vec2::ZERO,
+                    half_extent: spec.half_extent,
+                },
+                ItemCustody::Held { holder },
+            ),
+        );
+        equip_held_spec(
+            &mut commands,
+            holder,
+            &mut action_set,
+            held.clone(),
+            owned.as_deref_mut(),
+        );
     }
 }
 

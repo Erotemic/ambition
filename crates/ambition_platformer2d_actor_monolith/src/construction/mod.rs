@@ -1675,6 +1675,58 @@ pub fn reinstatable_authored_requests(
     authored_ground_item_requests(room)
 }
 
+/// **THE RECORD THAT MINTED AN OCCURRENCE, wherever in the world it lives.**
+///
+/// ⭐ **an identity is not enough to rebuild something, and a ROOM is not enough
+/// to find the recipe.** Every other reconstruction road in this engine starts
+/// from a room and asks what it owes; this one starts from an OCCURRENCE that is
+/// resident in no room at all — the checkpoint says a body was carrying it, and
+/// the entity behind it was destroyed when some unrelated room unloaded. No room
+/// build will ever produce it, because `outlook_for` correctly answers
+/// `Suppressed` in every room for something that is supposed to be in a hand. So
+/// the definition has to be reachable BY IDENTITY, and this is that reach.
+///
+/// ⭐ **built on [`reinstatable_authored_requests`], deliberately, so the
+/// families stay ONE list.** The same pairing rule holds: a family becomes
+/// materializable exactly when it becomes reinstatable, and neither road can
+/// grow a family the other has not heard of.
+///
+/// ⚠ **a room whose own records refuse to resolve is SKIPPED, not fatal.** The
+/// caller is a death restoring a checkpoint and has no way to refuse; the room
+/// in question is already unbuildable and says so on its own next load, which is
+/// a louder and better-placed report than aborting a search that was probably
+/// not even about it.
+///
+/// ⚠ **`None` is a real answer**: the record an occurrence was minted from can
+/// have been edited out of the content since the checkpoint was taken. The
+/// caller states that loss rather than inventing a replacement.
+pub fn authored_occurrence_request(
+    world: &[crate::rooms::RoomSpec],
+    occurrence: &SimId,
+) -> Option<ActorConstructionRequest> {
+    for room in world {
+        let candidates = match reinstatable_authored_requests(room) {
+            Ok(candidates) => candidates,
+            Err(error) => {
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::construction",
+                    "room `{}` cannot yield its reinstatable records while looking for \
+                     `{occurrence:?}`, so it is skipped: {error}",
+                    room.id,
+                );
+                continue;
+            }
+        };
+        if let Some(request) = candidates
+            .into_iter()
+            .find(|request| &request.sim_id == occurrence)
+        {
+            return Some(request);
+        }
+    }
+    None
+}
+
 /// Turn a room's authored ground items into construction requests, resolving
 /// each held item while nothing has been mutated.
 pub fn authored_ground_item_requests(

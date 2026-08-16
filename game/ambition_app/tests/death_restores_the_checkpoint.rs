@@ -40,13 +40,18 @@ use bevy::prelude::Entity;
 
 use crate::common::{base, fixed_60hz_room_sim};
 
-/// `central_hub_basement` authors fourteen `GroundItem`s on one shelf, which is
-/// what lets this fixture name TWO objects and hold them at different horizons
-/// in one life. ⛔ that is beat 7's whole requirement and no other authored room
-/// can meet it — a one-item room can show an object reverting and an object
-/// persisting, but never both at once, which is the shape an item-kind rule
-/// cannot produce.
-const ROOM: &str = "central_hub_basement";
+/// The hub authors several `GroundItem`s on one shelf, which is what lets this
+/// fixture name TWO objects and hold them at different horizons in one life.
+/// ⛔ that is beat 7's whole requirement and no other authored room can meet it —
+/// a one-item room can show an object reverting and an object persisting, but
+/// never both at once, which is the shape an item-kind rule cannot produce.
+///
+/// ⛔⛔ **this used to say `central_hub_basement`, which is a LEVEL name and not
+/// a ROOM id.** `with_start_room` warns and falls back to the authored entry
+/// room for an id it cannot resolve, so the fixture had been running in
+/// `central_hub_complex` all along while every comment in it described somewhere
+/// else. Nothing it measured was wrong; every sentence naming the room was.
+const ROOM: &str = "central_hub_complex";
 
 /// The object the player BANKS: acquired, then a checkpoint committed over it.
 const REWARD: &str = "ground_gun_sword";
@@ -313,15 +318,13 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
 }
 
 /// The room next door, used only to take an object somewhere and leave it there.
-const NEIGHBOUR: &str = "duel_arena";
-/// Where to go NEXT, so the neighbour unloads.
 ///
-/// ⚠ **the basement is a ONE-WAY hub — nothing authors a door back into it** —
-/// and leaving by a third door is what actually unloads the room the object was
-/// left in. Dying inside the neighbour would not reproduce the defect: the
-/// object is still live at restore time, and the custody leg puts it straight
-/// back into the hand.
-const ONWARD: &str = "central_hub_complex";
+/// ⚠ **LEAVING it is what actually unloads it**, and that is the whole point of
+/// the trip. Dying inside the neighbour would not reproduce the defect: the
+/// object is still live at restore time, and the ordinary custody re-assignment
+/// puts it straight back into the hand without ever asking the question this
+/// fixture is about.
+const NEIGHBOUR: &str = "duel_arena";
 
 /// Stand in the `Door` zone of the active room that leads to `target` and hold
 /// Interact until the room actually changes.
@@ -372,34 +375,39 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     panic!("held Interact in the '{before}' door to '{target}' for 90 frames and never crossed");
 }
 
-/// **A BANKED OBJECT LEFT IN A ROOM THAT THEN UNLOADS COMES BACK — at its
-/// pedestal, not in the hand, and that degradation is the point.**
+/// **A BANKED OBJECT WHOSE ENTITY THE WORLD DESTROYED COMES BACK INTO THE HAND
+/// THAT BANKED IT — the same occurrence, MATERIALIZED, not re-authored.**
 ///
-/// ⭐⭐ **THE ANNIHILATION THIS WAS WRITTEN TO CATCH DOES NOT HAPPEN, AND THE
-/// REASON IS WORTH MORE THAN THE TEST.** The danger looked real: restoring the
-/// ledger overwrites what the world currently knows, so a baseline saying
-/// `InCustody` replaces the `Placed { room, at }` row that is the only memory of
-/// where an unloaded object lies. Nothing carries it, every room then suppresses
-/// it, and nothing mints an occurrence directly into a hand.
+/// ⭐⭐ **this test used to pin the opposite outcome, and replacing it is the
+/// deliverable rather than a weakening.** It was written on 2026-08-15 as a
+/// CHARACTERISATION of a gap: the baseline named an occurrence whose entity was
+/// no longer resident, `restore_custody_to_checkpoint` could only ever
+/// RE-ASSIGN custody between objects that already existed, and so the object
+/// re-authored on its pedestal in the room that minted it. The player lost the
+/// "still acquired" property they had banked — recoverable, and wrong. What
+/// closed it is materialization: the reset now reaches the record BY IDENTITY,
+/// wherever in the world that record lives, and rebuilds the occurrence
+/// directly into the custodian's hand.
 ///
-/// ⭐ **what saves it is `republish_custody`'s retract-by-RESETTING rule**, in a
-/// case it was not written for. The custody leg is rebuilt from live state every
-/// tick, so the `InCustody` row the restore just wrote is dropped on the next
-/// step by the same write that keeps the others — leaving no row at all, which
-/// means `Authored`, which means the home room builds it from its record.
+/// # The four claims, and why each of them is a different way to fail
 ///
-/// ⇒ the object returns to its **pedestal**. The player loses the "still
-/// acquired" property they had banked, which is wrong but recoverable; the
-/// object is not destroyed, which would not be.
+/// ```text
+/// same occurrence   exactly one entity answers to `SimId::placement(REWARD)`
+/// in the hand       it is in CUSTODY, and of the body the checkpoint named
+/// pedestal empty    the home room was rebuilt and did NOT author a second one
+/// not annihilated   the count is one rather than zero
+/// ```
 ///
-/// ⚠ **so this is a CHARACTERISATION test, and it should be read as one.** It
-/// pins the degradation that a ledger-restore-plus-self-healing-republish
-/// produces today. If a later change makes an `InCustody` row survive without
-/// live custody behind it — a durable save writing the ledger straight to disk
-/// is the obvious way — the annihilation becomes real and this goes red.
+/// ⛔ **counting alone passes with the object back on its pedestal**, which is
+/// precisely the degradation this used to record; asserting custody alone passes
+/// with a duplicate lying in room A beside it. Both terms are observed.
 ///
+/// ⚠ **the NON-VACUITY guard is load-bearing and is asserted, not assumed**: the
+/// occurrence's entity really is gone before the death. Without it the whole
+/// scenario can pass while the ordinary re-assignment arm does all the work and
+/// materialization is never exercised at all.
 #[test]
-fn a_banked_object_left_in_an_unloaded_room_survives_a_death() {
+fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
     let mut sim = fixed_60hz_room_sim(ROOM);
     sim.step_n(base(), 8);
 
@@ -425,30 +433,55 @@ fn a_banked_object_left_in_an_unloaded_room_survives_a_death() {
     });
     sim.step_n(base(), 30);
 
-    // Onward. The neighbour unloads and takes the object's ENTITY with it; only
-    // the ledger's `Placed` row remembers where it lies.
-    walk_to(&mut sim, ONWARD);
+    // Back out again. The neighbour unloads and takes the object's ENTITY with
+    // it; only the ledger's `Placed` row remembers where it lies.
+    walk_to(&mut sim, ROOM);
+    // ⭐⭐ THE NON-VACUITY GUARD. Everything below is about an occurrence with no
+    // entity behind it; if one is still resident here, the reset's ordinary
+    // re-assignment arm answers the whole scenario and this test proves nothing
+    // about materialization.
     assert!(
         occurrences(&mut sim, &reward).is_empty(),
-        "the neighbour must actually have unloaded, or this test measures nothing"
+        "the neighbour must actually have unloaded and taken the object's ENTITY \
+         with it, or this test measures nothing"
     );
 
     die(&mut sim);
+
+    // The death resumes at the checkpoint, which is in the room whose record
+    // MINTED the reward — so the pedestal is genuinely rebuilt, and "the
+    // pedestal stayed empty" is a claim about a room that actually ran its
+    // authored construction rather than one nobody looked at.
+    assert_eq!(
+        sim.observation().active_room,
+        ROOM,
+        "the death must resume at the checkpoint, in the room that authors the \
+         reward, or the empty-pedestal claim below is vacuous"
+    );
 
     let live = occurrences(&mut sim, &reward);
     assert_eq!(
         live.len(),
         1,
-        "⛔ the object must come back exactly once. ZERO means it was ANNIHILATED \
-         — the baseline said a hand, the world said an unloaded room, and \
-         restoring one over the other erased the only record of where it was. \
-         TWO means the suppression and the authoring disagreed. Got {live:?}"
+        "⛔ exactly one occurrence must answer to this identity. ZERO means it was \
+         ANNIHILATED — the baseline said a hand, the world said an unloaded room, \
+         and neither could produce it. TWO means the materialization and the home \
+         room's authoring disagreed about who owed it. Got {live:?}"
     );
     assert!(
-        live[0].1.in_world(),
-        "it comes back at its pedestal, not in the hand: nothing mints an \
-         occurrence directly into custody, so the self-healing custody republish \
-         drops the unsupported row and the home room authors it afresh. Got {:?}",
+        !live[0].1.in_world(),
+        "⭐ the checkpoint saw this in a hand, so a death owes it back to that hand \
+         — not to the pedestal it was authored on, which is a world the player had \
+         already banked their way out of. Got {:?}",
         live[0].1
+    );
+    // ⚠ read AFTER the death: a restart reuses the body, but the claim being made
+    // is about the body that is playing now, which is the one the checkpoint's
+    // custodian identity has to resolve to.
+    let custodian = body(&mut sim);
+    assert!(
+        live[0].1.held_by(custodian),
+        "and back into the hand the checkpoint NAMED: a restore that put it \
+         anywhere else — or into nobody's hand at all — satisfies every count above"
     );
 }

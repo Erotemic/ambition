@@ -1610,6 +1610,50 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
+- ▢ **D129 — The sprite pipeline CUTS ART AT THE LOGICAL FRAME AND NOTHING NOTICES.
+  (opened 2026-08-16 from a maintainer observation, measured the same day)**
+
+Jon: *"Super sanics spikes are clipped by the sprite renderer. This might need a
+structural fix. We should not be able to clip sprite artwork so easily."*
+⇒ **true, and it is not one character.**
+
+**Measured.** Criterion: a frame whose trimmed rect touches a logical-frame
+boundary AND has ≥6 opaque pixels in a straight run along that boundary covering
+>25% of it — the signature of a flat cut rather than art that merely ends there.
+
+```text
+133 sheets scanned
+ 74  have at least one frame TOUCHING a logical-frame edge
+ 23  show the FLAT-CUT signature
+```
+
+Named: `super_sanic` (top — Jon's report exactly), `robot` (171 frames, top),
+`player_extended`, `player_combat_review`, `player_traversal_review`,
+`robot_caster` / `robot_diver` / `robot_miner` / `robot_runner` (top),
+`puppy_slug` (bottom+left+right), `ninja_shadow_oni_leader` (three edges),
+`perfect_cellular_automaton`, `trex_enemy`, `galwah`, `m_leblanc`,
+`mantis_lancer`, `ninja_shadow_duelist`, `pulse_voyager_captain`, `trent`,
+`goblin_desert_bow`, `ranged_skirmisher`, two `sandbag_*_review` sheets.
+
+⭐ **the CONTROL is what makes it causal**: base `sanic` is clean and only
+`super_sanic` is cut, and the super skin is the same body with `spikes_up=True`.
+Spikes down, fine; spikes up, cut.
+
+⛔ **why nothing caught it**: the drawing canvas IS the logical frame, so overflow
+is clipped at draw time, before anything downstream can see it. The only
+frame-bound assert in the pipeline is the packer's post-trim losslessness check
+(`packer.py`), which compares trim geometry against the logical frame — it cannot
+see ink that was never drawn. ⇒ **the guard has to be at draw time**, in the
+renderer, and the honest form is the one this repo already uses for rosters:
+state the invariant once over what discovery finds, not once per sheet.
+
+⚠ **the fix is two separable things and they should not be confused**: (a) a
+CHECK that refuses to publish a clipped frame, and (b) re-authoring the 23 sheets
+that are already clipped — some of which may want a bigger logical frame rather
+than smaller art. (a) is engine work; (b) is art work and partly Jon's call.
+⚠ also: a flat run is strong evidence, not proof — a sprite deliberately drawn
+flush to the edge would score the same. The check should say what it saw.
+
 - ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
 
 ✔✔ **FIRST FIGHTER LANDED AND VERIFIED (George Booul, 2026-08-15)** — Smash lib

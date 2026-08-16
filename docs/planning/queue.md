@@ -321,6 +321,46 @@ Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-un
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
+✔✔ **THE RESTORE FALSIFIER IS GREEN (2026-08-16, `13dd4d31b`)** — bank a reward
+at a checkpoint, carry it to another room, DROP it there, leave so that room
+UNLOADS, then die: it comes back **into the hand that banked it**, as the same
+occurrence (`SimId` *and* `SpawnOrigin` from the authored record), with its
+pedestal still empty and no duplicate. Driven end to end on the composed host
+through authored LDtk items, a real `HealShrine` + `Interact`, real door
+crossings and a real `ActorDiedMessage`; run red-then-green.
+
+⭐⭐ **the mechanism that was missing was MATERIALIZATION, and the reason is
+worth keeping.** The custody restore was pure *re-assignment* — it walked live
+objects and asked whether the checkpoint agreed with where each one was, a
+question that cannot be asked about an object whose entity no longer exists. No
+room build could supply it either, and correctly so: an `InCustody` row makes
+`outlook_for` answer `Suppressed` in **every** room, because a thing in a hand is
+not a thing in a room. ⇒ **every other reconstruction road in this engine starts
+from a ROOM and asks what it owes; this one starts from an occurrence resident in
+no room**, so the authored definition has to be reachable BY IDENTITY. No new
+rollback state; schema stays v32.
+
+⚠ **the limitation, and it is the durable-save leg:** materialization is bounded
+by *"some room authors a record with this id"*. A **runtime-minted** instance —
+the throw's `SimId::spawned` arm, an enemy death drop — is room-scoped and
+carryable, so it can enter the custody baseline, and **no record anywhere can
+rebuild it**. Today it warns and is lost. Closing it needs a durable *instance
+description* rather than a pointer at an authored record, which is the same
+unclosed leg `ItemCustody`'s own doc names.
+
+⛔⛔ **AND IT EXPOSED AN INSTRUMENT DEFECT: A FIXTURE HAD BEEN MEASURING A WORLD
+NOBODY CHOSE, FOR ITS WHOLE LIFE.** `with_start_room` takes a ROOM ID;
+`central_hub_basement` is an LDtk **level** name. The option warns and falls back
+to the authored entry room, so the test silently ran in `central_hub_complex`
+while every comment in it named the basement. `StartRoomMustResolve` exists for
+exactly this and is **opt-in, and no test in the suite opts in**.
+⭐ **blast radius MEASURED 2026-08-16 and it is ~zero**: of all 40 `with_start_room`
+call sites, every literal resolves as a real room id **except that one** (76 room
+ids vs 77 level names across the shipped worlds; 75 overlap), and the only other
+non-resolver is the deliberate `"definitely_not_a_real_room"` negative test. ⇒
+making the test harness resolve strictly is now a small, bounded change with one
+known opt-out, not the open-ended risk it looked like. ▢ **ready to run.**
+
 ⭐ **PROMOTED FROM THE RESERVOIR 2026-08-14, and the promotion IS the work that
 was missing.** Measured: seven focused plans for this frontier already exist and
 are already good —

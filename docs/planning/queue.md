@@ -1770,7 +1770,50 @@ maps only five effect names and `MoveSpec::presentation_problems` **REFUSES**
 anything else at startup, so an authored move cannot name the new art even after
 the sheets are registered.
 
-⭐⭐ **MEASURED 2026-08-16, and it reorders the work — the refusal is the THIRD
+✔✔ **LANDED 2026-08-16 (`ebc8877ee`): AN EFFECT IS A NAME, AND THE ENGINE SHIPS
+THE ART IT DRAWS.** `FxId` is the authored row name on the wire — `SfxId`'s own
+FNV-1a hash, *borrowed rather than re-typed*, because the two id spaces name the
+two halves of one authored thing and a second copy is a place for them to
+disagree. `Copy`, 8 bytes, so a message allocates nothing at RL rollout rates.
+`ambition_sprite_sheet::fx` resolves name → (sheet, row via `first_bound_row`,
+`vfx.<family>.<row>` cue), and `GameAssets.fx` is the home that did not exist,
+filled by the engine's own `load_game_assets` — an FX sheet is neither a
+character nor an LDtk prop, and it no longer squats in a map keyed by
+`Prop.kind`. **FIVE tables deleted, not four**: the fourth-and-a-half was five
+aliases in `CharacterAnim::from_name` spelling effect rows *Idle/Walk/Run/Hit/
+Slash*. 374/0 app, 28/0 smash app, 29/29 contracts.
+
+⭐⭐⭐ **AND THE "ONE REAL DESIGN CONSTRAINT" BELOW DISSOLVED RATHER THAN BEING
+ANSWERED — which is the reusable lesson.** The row said the validator runs at
+roster install with no world and no loaded assets, so the vocabulary could not be
+read off the sheets, and offered two options: a declared 189-row table pinned by
+a both-ways test, or dropping the refusal for SFX's open-vocabulary policy.
+**Neither was needed.** `build.rs` already bakes every `*_spritesheet.ron` into
+the binary, so the art itself is a pure, world-free oracle
+(`ambition_sprite_sheet::fx::is_authored_effect`) — and `expand` takes it as a
+PARAMETER rather than naming that crate, so a headless RL build still does not
+link an image-decoding presentation crate. ⇒ ⛔ **"no world at validation time"
+was a constraint on ASKING A RUNNING APP, not on knowing the data.** The two
+shipped moveset tests now validate against the real 189-name oracle instead of a
+five-name enum, so the guard got stronger while the table disappeared.
+
+⇒ ⛔⛔ **NEXT, and it is the same defect one level up: THE STANDALONE SMASH APP
+COMPOSES NO ASSET INSTALL AT ALL.** `GameAssets` is inserted by exactly one
+plugin (`PlatformerAssetsPlugin`), `game/ambition_demo_smash_app` installs
+engine + host + debug-viz and *not* that, so the resource never exists in that
+process and nothing sheet-driven has art there. Adding the plugin panics:
+`bind_game_assets` takes `AuthoredSheets` and `BossCatalog` as hard `Res`, which
+that composition never registers — **art the engine knows how to draw, with
+nothing in the composition to hand it over.** ⚠ **scope it correctly before
+acting**: `ambition_app` loads assets in its own setup, so *Smash reached through
+the shell is a different composition from the standalone binary*, and only the
+standalone one is bare. Say which binary any claim is about.
+⚠ smaller, same family: the FX sheets load via
+`asset_server.load("<sprite_folder>/<target>_spritesheet.png")` outside the asset
+manifest (Sanic's ring set the precedent) — fine on desktop, and the known
+Android-packaging blind spot.
+
+⭐⭐ **MEASURED 2026-08-16, and it reordered the work — the refusal was the THIRD
 edit, not the first.** Three findings, each read off the shipped data rather than
 inferred:
 

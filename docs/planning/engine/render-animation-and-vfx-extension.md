@@ -122,6 +122,98 @@ sprite sheet is the cheaper permanent answer and this whole spike stays closed.
 
 ---
 
+## ⭐⭐⭐ MEASURED 2026-08-16 — the authored effect vocabulary is COMPLETE, and unaddressable
+
+Three facts, read off the shipped data rather than argued. They change what
+VFX-08 is about and they touch the Enoki trigger directly.
+
+### 1. The art and the audio already agree, one for one, across every sheet
+
+**189 animation rows ↔ 189 `vfx.*` cues in `sfx.bank`, with no sheet off by one.**
+
+| | sheets | rows |
+|---|---|---|
+| generic (`action`/`world`/`exotic`/`explosions`) | 4 | 65 |
+| character (`george_booul` 21, `oiler` 23, `pirate_admiral` 14, `ninja_shadow_oni_leader` 14, `pca` 14, `patent_clerk` 14, `carl_stargan` 12, `noether` 12) | 8 | 124 |
+
+⇒ **the unit of this vocabulary is the effect NAME.** It already addresses the
+clip and its paired sound together, in the data, with no Rust in the middle. An
+engine that needs three tables to reach it has invented a problem the content
+does not have.
+
+### 2. `ExplosionKind` is a transliteration of a naming the data carries twice
+
+Five variants that ARE the five rows of `generic_explosions`, reconstructed by
+three hand-kept tables: `move_vfx_kind` (name→enum), `explosion_anim`
+(enum→`CharacterAnim` — i.e. effect rows addressed as *Idle/Walk/Run/Hit/Slash*),
+`explosion_sfx` (enum→cue). ⭐ **the seam that deletes all three already exists**:
+`SheetRecord::first_bound_row(chain)`, built 2026-08-11 as *"the seam that lets an
+authored CLIP be drawn without an engine enum variant"* — for character clips,
+for exactly this reason. Effects never adopted it.
+
+⇒ this is VFX-08's defect with a second face. VFX-08 names
+`VfxMessage::Burst { count, speed, color, kind }` leaking renderer-shaped choices
+to simulation producers; `VfxMessage::Explosion { kind: ExplosionKind }` leaks a
+closed renderer ENUM, which is why the vocabulary is capped at five while 189
+effects ship. **Same seam, same fix, and the enum one has the deletion in it.**
+
+### 3. ⛔⛔ the sheets are ABSENT from every demo, not merely limited
+
+One table registers them — Ambition's intro
+(`game/ambition_content/src/intro/sprites.rs`) — into
+`GameAssets.characters.props`, *a map keyed by the LDtk `Prop.kind` field*. An FX
+sheet is neither a character nor an LDtk prop; it is squatting. Smash, Sanic and
+Mary-O register character sheets only, so `spawn_explosion` takes its no-asset
+branch **every time** and every `Feel` class degrades to one particle burst.
+⇒ **engine-level FX-sheet registration is the prerequisite.** Widening the
+vocabulary buys nothing while there is no art to name.
+
+### The one real design constraint
+
+`MoveSpec::presentation_problems`' oracle is already INJECTED — `prefab_registry`
+passes `|id| move_vfx_kind(id).is_some()` — but it runs at **roster install**: a
+pure function, no Bevy world, no loaded assets. So a widened vocabulary cannot be
+read off the sheets at validation time. Either a declared table in the `sfx_ids!`
+shape (one declaration emitting constants *and* the name list) pinned by a test
+that reads the shipped `_spritesheet.ron` rows and asserts set equality **both
+ways**, or drop the refusal for SFX's own policy — open vocabulary, counted miss.
+⚠ SFX chose the latter deliberately and it has not hurt.
+
+### ⚠ this bears on the Enoki trigger, and it argues the OTHER way
+
+The stated condition is *"when we want effects authored as data by agents, and
+the built-in renderer cannot take an authored effect asset"*. The second half is
+now measurably false: **11 of the 12 FX sheets ship a `*_authoring.yaml` sidecar**
+carrying
+per-row family, intent, loop/one-shot, orientation, mirror allowance,
+`origin`/contact anchors, layer and attachment hints, tint policy, per-frame
+phase/intensity and a `clear_frame` marker — authored effect data, generated,
+already installed beside the art, and marked
+`status: authoring_hints_not_yet_runtime_contract`. ⇒ **the built-in renderer's
+missing piece is a READER for a sidecar it already ships, not a particle
+backend.** Promoting that sidecar is the cheaper answer this plan's own trigger
+says to prefer, and it should be attempted before the trigger is called met.
+
+⭐ **and the one sheet WITHOUT a sidecar is `generic_explosions`** — the only one
+the engine can currently draw, and the one `ExplosionKind` was built around. The
+eleven carrying authored semantics are precisely the eleven it cannot reach. That
+is the shape of the whole problem in one line.
+
+### The slice, with its deletion gate
+
+```
+engine-level FX sheet registration (the four generic sheets, then character ones)
+        ↓
+an effect is a NAME: FxId (FNV-1a, exactly SfxId's shape)
+        ↓
+resolve name -> (sheet, row) via first_bound_row over registered FX sheets
+        ↓
+DELETE ExplosionKind, move_vfx_kind, explosion_anim, explosion_sfx
+```
+
+⛔ the deletion gate is those four. A slice that adds `VfxMessage::Effect` beside
+`VfxMessage::Explosion` has wrapped the old model, not removed it.
+
 ## Why this extension exists
 
 Ambition already has real VFX architecture, but it currently mixes three levels of

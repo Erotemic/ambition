@@ -144,7 +144,7 @@ pub struct BrainProfile {
     /// Smash-template dash-to-close: a richer option set that dashes to close a
     /// large gap.
     #[serde(default)]
-    pub smash_dash_to_close: bool,
+    pub smash_sprint_to_close: bool,
     /// Smash-template **duelist neutral game** (`SmashCfg::DUELIST_DEFAULT`
     /// base): footsies, neutral hops and a real spacing/retreat rhythm instead
     /// of the grunt's close-and-camp.
@@ -190,7 +190,7 @@ impl Default for BrainProfile {
             fighter_level: default_fighter_level(),
             smash_hit_band: DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
-            smash_dash_to_close: false,
+            smash_sprint_to_close: false,
             smash_duelist: false,
             provoke_forced_brute_min_aggro: None,
             attack_cooldown_mult: default_attack_cooldown_mult(),

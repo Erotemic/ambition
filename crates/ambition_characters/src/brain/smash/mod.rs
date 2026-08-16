@@ -78,12 +78,17 @@ pub struct SmashCfg {
     /// Crowding pressure (from same-faction allies) that triggers
     /// `Reposition` mode. `0.0` disables.
     pub crowding_threshold: f32,
-    /// When true, the actor bursts a [`SpecificAction::Dash`] to close
-    /// a *large* approach gap (on a cooldown) instead of only walking —
-    /// a more aggressive, dynamic chase. Off by default; enabled per
-    /// archetype (goblins) so it doesn't silently change every melee
-    /// enemy's feel.
-    pub dash_to_close: bool,
+    /// When true, the actor commits a [`SpecificAction::Sprint`] — full
+    /// locomotion throttle — to close a *large* approach gap (on a cadence)
+    /// instead of only walking: a more aggressive, dynamic chase. Off by
+    /// default; enabled per archetype (goblins) so it doesn't silently change
+    /// every melee enemy's feel.
+    ///
+    /// ⛔ it was `dash_to_close` and it named a CAPABILITY the body may not
+    /// have. It is a policy about how hard this driver closes distance, and it
+    /// is spent entirely through the ordinary locomotion surface — no ability
+    /// bit, no burst press (D146).
+    pub sprint_to_close: bool,
     /// Neutral-game footsies: amplitude (px) the actor weaves IN and OUT
     /// around [`Self::engage_distance`] while spacing against a live
     /// opponent. `0.0` (the grunt default) disables the weave entirely —
@@ -102,7 +107,7 @@ pub struct SmashCfg {
     /// **Regroup** trigger: accumulated recent damage (as a fraction of max HP,
     /// decaying over a couple seconds) that makes the fighter break off and reset
     /// after taking a beating — instead of trading hits forever at one spacing. It
-    /// retreats a real distance (dashing to cover ground, taking to the air for high
+    /// retreats a real distance (sprinting to cover ground, taking to the air for high
     /// ground if it can fly), then re-engages. `0.0` (the grunt default) disables it.
     pub regroup_damage_threshold: f32,
     /// How long a regroup lasts (s) before the fighter returns to neutral. Ignored
@@ -110,7 +115,7 @@ pub struct SmashCfg {
     pub regroup_duration_s: f32,
     /// Target separation (px) a regroup opens up: once the fighter has backed off at
     /// least this far it has "regrouped" and re-engages early. Large enough that the
-    /// retreat — and the re-approach — cross a real gap (so the dash/fly traversal
+    /// retreat — and the re-approach — cross a real gap (so the sprint/fly traversal
     /// actually fires). Ignored when regroup is disabled.
     pub regroup_distance: f32,
     /// **Poke-and-reset discipline** (whiff-punish footsies). Seconds the fighter
@@ -141,7 +146,7 @@ pub struct SmashCfg {
     pub defense_reactivity: f32,
     /// Perceived closing speed (px/s, toward the fighter) at or above which a
     /// threat is met with a **blink** (the mobile evade for a committed lunge /
-    /// dash-in). Below it — but above [`Self::shield_closing_speed`] — the fighter
+    /// sprint-in). Below it — but above [`Self::shield_closing_speed`] — the fighter
     /// **blocks** instead (the stand-ground option for ordinary approach pressure).
     /// Splitting the two is what gives the layered, readable defensive game.
     pub blink_closing_speed: f32,
@@ -214,7 +219,7 @@ impl SmashCfg {
         chase_speed: 170.0,
         retreat_speed: 130.0,
         crowding_threshold: 0.65,
-        dash_to_close: false,
+        sprint_to_close: false,
         // Grunts don't play footsies — they close and hold. The neutral game
         // is opt-in (duelists / bosses) so this doesn't change every enemy.
         footsies_amplitude: 0.0,
@@ -250,7 +255,7 @@ impl SmashCfg {
         chase_speed: 118.0,
         retreat_speed: 80.0,
         crowding_threshold: 0.55,
-        dash_to_close: false,
+        sprint_to_close: false,
         footsies_amplitude: 0.0,
         footsies_period_s: 1.6,
         neutral_jump_cadence_s: 0.0,
@@ -274,7 +279,7 @@ impl SmashCfg {
         difficulty: DifficultyProfile::MEDIUM,
     };
     /// **Duelist** tuning — a 1v1 fighter with a real neutral game: it weaves
-    /// in and out of poke range (footsies), mixes in neutral hops, and dashes
+    /// in and out of poke range (footsies), mixes in neutral hops, and sprints
     /// to close large gaps. Aware of the whole arena (large aggro). This is the
     /// base the Perfect Cell-ular Automaton and other "platform fighter"
     /// opponents build on; grunts stay on [`Self::STRIKER_DEFAULT`].
@@ -287,12 +292,12 @@ impl SmashCfg {
         chase_speed: 200.0,
         retreat_speed: 175.0,
         crowding_threshold: 0.65,
-        dash_to_close: true,
+        sprint_to_close: true,
         footsies_amplitude: 60.0,
         footsies_period_s: 1.3,
         neutral_jump_cadence_s: 1.7,
         // After taking ~5% of max HP since the last break-off (a few clean hits),
-        // regroup: dash/fly out to a real distance, then re-engage — spatial depth
+        // regroup: sprint/fly out to a real distance, then re-engage — spatial depth
         // instead of a glued trade.
         regroup_damage_threshold: 0.05,
         regroup_duration_s: 1.6,
@@ -431,11 +436,12 @@ pub struct SmashState {
     /// reaction delay variance). Set once at first tick from the
     /// actor id; survives reset_to_spawn via spawn-time init.
     pub rng_seed: u64,
-    /// Seconds until the actor's *dash-to-close* burst is off cooldown
-    /// (only used when [`SmashCfg::dash_to_close`]). Same brain-side
-    /// cadence shape as the ranged cooldown: decremented each tick,
-    /// gated against `> 0`, reset to [`DASH_COOLDOWN_S`] on a dash.
-    pub dash_cooldown_remaining: f32,
+    /// Seconds until the actor's *sprint-to-close* commitment is off cadence
+    /// (only used when [`SmashCfg::sprint_to_close`]). Same brain-side
+    /// shape as the ranged cooldown: decremented each tick, gated against
+    /// `> 0`, reset to [`SPRINT_COOLDOWN_S`] on a commit. Brain-side only —
+    /// the body has no cooldown on running.
+    pub sprint_cooldown_remaining: f32,
     /// Rolling history of the opponent's recent positions, used to apply
     /// the difficulty profile's `reaction_delay_s` (the brain perceives a
     /// lagged opponent — it never reacts frame-perfectly). See [`ObsHistory`].
@@ -468,7 +474,7 @@ pub struct SmashState {
     /// per poke. Pure tick-stream bookkeeping → replay-safe.
     pub was_attacking: bool,
     /// Seconds left in the current regroup (break-off-and-reset after a beating).
-    /// While positive the fighter retreats a real distance — dashing, and taking to
+    /// While positive the fighter retreats a real distance — sprinting, and taking to
     /// the air for high ground if able — instead of trading. `0` outside a regroup.
     pub regroup_timer: f32,
     /// Own health fraction observed last tick, to detect DROPS (damage taken).
@@ -493,15 +499,15 @@ const SHIELD_HOLD_S: f32 = 0.32;
 /// robust to a single-tick jitter.
 const THREAT_WINDOW_S: f32 = 0.08;
 
-/// Dash-to-close cadence (seconds) — a dash-capable actor bursts at
+/// Sprint-to-close cadence (seconds) — an actor commits a hard approach at
 /// most once per this interval, so it punctuates the chase rather than
-/// dashing every frame.
-const DASH_COOLDOWN_S: f32 = 2.0;
+/// running flat out every frame.
+const SPRINT_COOLDOWN_S: f32 = 2.0;
 
-/// Fraction of `aggro_radius` beyond which a dash-to-close fires. Only
-/// *large* gaps are worth a burst; inside this the actor walks (and, if
+/// Fraction of `aggro_radius` beyond which a sprint-to-close fires. Only
+/// *large* gaps are worth the commitment; inside this the actor walks (and, if
 /// ranged-capable, pokes) so it doesn't overshoot its firing range.
-const DASH_CLOSE_FRACTION: f32 = 0.55;
+const SPRINT_CLOSE_FRACTION: f32 = 0.55;
 
 /// Tick the Smash brain pipeline. Pure function modulo `state`
 /// (which the difficulty stage mutates for its RNG advance + the
@@ -525,7 +531,7 @@ pub fn tick_smash(
     // frame's verb selection can re-arm them. Fire-rate is NOT among them:
     // the body owns the ranged refire cooldown (invariant I3), so the brain
     // attempts a shot whenever it wants one and the body enforces the rate.
-    state.dash_cooldown_remaining = (state.dash_cooldown_remaining - snapshot.dt).max(0.0);
+    state.sprint_cooldown_remaining = (state.sprint_cooldown_remaining - snapshot.dt).max(0.0);
     state.neutral_jump_cooldown = (state.neutral_jump_cooldown - snapshot.dt).max(0.0);
     state.blink_cooldown = (state.blink_cooldown - snapshot.dt).max(0.0);
     state.neutral_reset_timer = (state.neutral_reset_timer - snapshot.dt).max(0.0);
@@ -545,7 +551,7 @@ pub fn tick_smash(
     // brain is actually allowed to perceive: the opponent as it was
     // `reaction_delay_s` ago. Only the OPPONENT is delayed — the actor's own
     // pos/vel/ground/timers are read live. This is what stops the brain from
-    // frame-perfectly countering a sudden dash or jump; it's also the single
+    // frame-perfectly countering a sudden sprint or jump; it's also the single
     // place that makes the difficulty knob fair instead of omniscient.
     state
         .obs_history
@@ -626,20 +632,20 @@ pub fn tick_smash(
         }
         other => other,
     };
-    // The grounded movement refiners (dash-to-close, footsies weave, neutral hop)
+    // The grounded movement refiners (sprint-to-close, footsies weave, neutral hop)
     // only make sense for a body that walks + jumps. A flyer skips them — its 2D
     // motion is steered below — but keeps the dimension-agnostic ranged poke.
     let action = if obs.self_aerial {
         action
     } else if state.regroup_timer > 0.0 {
-        // REGROUP (grounded): break off and cover ground — dash away if the burst is
-        // ready (exercises the body dash), else walk away. Taking to the air for high
-        // ground is decided below (after a ground dash). Frame-agnostic: "away" is the
+        // REGROUP (grounded): break off and cover ground — sprint away if the cadence
+        // is ready, else walk away. Taking to the air for high ground is decided
+        // below (after a ground sprint). Frame-agnostic: "away" is the
         // sign along the gravity-perpendicular side axis.
         regroup_ground_action(&obs, cfg, state)
     } else if state.neutral_reset_timer > 0.0 && !force_offense {
         // Post-poke neutral reset (duelist whiff-punish footsies): suppress all
-        // offense (start from Idle, ignoring this tick's melee / ranged / dash) and
+        // offense (start from Idle, ignoring this tick's melee / ranged / sprint) and
         // let the in/out neutral weave reset the spacing — then allow a spacing hop.
         // This is what stops point-blank mashing and opens the approach phase where
         // the opponent's re-entry becomes a perceivable, defendable threat, without
@@ -651,14 +657,14 @@ pub fn tick_smash(
         let action = maybe_apply_footsies(SpecificAction::Idle, &obs, mode, cfg, state);
         maybe_neutral_jump(action, &obs, cfg, state)
     } else {
-        // Then, if still just closing a *large* gap, burst a dash. Runs after
-        // ranged so a mid-range poke wins over a dash (shoot, then dash to close
-        // while the shot reloads).
-        let action = maybe_substitute_dash(action, &obs, mode, cfg, state);
+        // Then, if still just closing a *large* gap, sprint. Runs after ranged
+        // so a mid-range poke wins over a sprint (shoot, then close hard while
+        // the shot reloads).
+        let action = maybe_substitute_sprint(action, &obs, mode, cfg, state);
         // Neutral game (duelists only — no-op when footsies are disabled): weave
         // the spacing in/out around the engage band instead of camping point-blank,
         // then mix in a neutral hop. Runs last among the movement refiners so it
-        // governs only the residual plain Walk/Idle; a committed poke / dash /
+        // governs only the residual plain Walk/Idle; a committed poke / sprint /
         // ranged shot is never overridden.
         let action = maybe_apply_footsies(action, &obs, mode, cfg, state);
         maybe_neutral_jump(action, &obs, cfg, state)
@@ -733,9 +739,9 @@ pub fn tick_smash(
     // pure grounded brawler or a pure flyer (cfg.can_fly == false).
     if cfg.can_fly {
         // During a regroup, take to the air for HIGH GROUND — but only once the
-        // ground dash has fired (dash on cooldown), so the break-off reads as
-        // "dash out, then rise" rather than launching on frame one.
-        let want_air = if state.regroup_timer > 0.0 && state.dash_cooldown_remaining > 0.0 {
+        // ground sprint has fired (cadence armed), so the break-off reads as
+        // "run out, then rise" rather than launching on frame one.
+        let want_air = if state.regroup_timer > 0.0 && state.sprint_cooldown_remaining > 0.0 {
             true
         } else {
             decide_flight(&obs, cfg, state)
@@ -904,7 +910,7 @@ fn seed_phase_offset(rng_seed: u64) -> f32 {
 /// backs out to bait a whiff — instead of collapsing to point-blank and mashing.
 ///
 /// Frame-agnostic: reads only the target-relative `distance_to_target` /
-/// `to_target_x`. Never overrides a committed attack, jump, dash, or ranged shot
+/// `to_target_x`. Never overrides a committed attack, jump, sprint, or ranged shot
 /// (those aren't `Walk`/`Idle`), so it can't suppress offense. No-op unless
 /// `cfg.footsies_amplitude > 0.0`.
 fn maybe_apply_footsies(
@@ -917,7 +923,7 @@ fn maybe_apply_footsies(
     if cfg.footsies_amplitude <= 0.0 {
         return action;
     }
-    // Only govern grounded neutral movement; leave attacks/jumps/dashes and the
+    // Only govern grounded neutral movement; leave attacks/jumps/sprints and the
     // airborne / retreat-too-close / reposition / recover cases alone.
     if !matches!(action, SpecificAction::Walk { .. } | SpecificAction::Idle)
         || obs.self_attacking
@@ -971,7 +977,7 @@ fn maybe_neutral_jump(
     }
     // Only hop within the neutral band — a spacing hop that inherits the weave
     // direction (often a back-hop), NOT a leap across the stage straight into the
-    // opponent. Beyond the band the actor closes on the ground (walk / dash).
+    // opponent. Beyond the band the actor closes on the ground (walk / sprint).
     let neutral_band = cfg.engage_distance + cfg.footsies_amplitude * 1.5;
     if obs.distance_to_target > neutral_band {
         return action;
@@ -980,10 +986,10 @@ fn maybe_neutral_jump(
     SpecificAction::Jump
 }
 
-/// Grounded regroup movement: retreat AWAY from the target — dashing to cover
-/// ground when the burst is ready (the body enforces the dash capability), else
-/// walking. Re-arms the dash cadence on a dash, which the fly toggle then keys off
-/// to rise to high ground. Frame-agnostic: "away" is the sign along the
+/// Grounded regroup movement: retreat AWAY from the target — sprinting to cover
+/// ground when the cadence is ready, else
+/// walking. Re-arms the sprint cadence on a sprint, which the fly toggle then keys
+/// off to rise to high ground. Frame-agnostic: "away" is the sign along the
 /// gravity-perpendicular side axis (`to_target_side`), so it's correct under any
 /// gravity orientation — a duel where the player flips gravity stays sensible.
 fn regroup_ground_action(
@@ -997,9 +1003,9 @@ fn regroup_ground_action(
         obs.to_target_side().signum()
     };
     let away = -toward;
-    if cfg.dash_to_close && obs.self_on_ground && state.dash_cooldown_remaining <= 0.0 {
-        state.dash_cooldown_remaining = DASH_COOLDOWN_S;
-        SpecificAction::Dash { dir: away }
+    if cfg.sprint_to_close && obs.self_on_ground && state.sprint_cooldown_remaining <= 0.0 {
+        state.sprint_cooldown_remaining = SPRINT_COOLDOWN_S;
+        SpecificAction::Sprint { dir: away }
     } else {
         SpecificAction::Walk { dir: away }
     }
@@ -1022,38 +1028,41 @@ fn regroup_aerial_steer(obs: &ObservationFrame, cfg: &SmashCfg) -> ae::WorldVec2
 }
 
 /// Replace a *closing walk* over a large approach gap with a
-/// [`SpecificAction::Dash`] burst when the actor is dash-capable
-/// ([`SmashCfg::dash_to_close`]), grounded, not mid-swing, and the dash
-/// cadence is ready. Only fires beyond [`DASH_CLOSE_FRACTION`] of the
-/// aggro radius, so the actor doesn't dash *through* its ideal melee /
-/// firing distance. Re-arms the cadence on commit. A ranged poke (run
-/// earlier) or a melee swing already wins — only a plain Walk converts.
-fn maybe_substitute_dash(
+/// [`SpecificAction::Sprint`] — full throttle — when the policy allows it
+/// ([`SmashCfg::sprint_to_close`]), the actor is grounded, not mid-swing, and
+/// the cadence is ready. Only fires beyond [`SPRINT_CLOSE_FRACTION`] of the
+/// aggro radius, so the actor doesn't run *through* its ideal melee / firing
+/// distance. Re-arms the cadence on commit. A ranged poke (run earlier) or a
+/// melee swing already wins — only a plain Walk converts.
+///
+/// ⚠ the gate is entirely a DECISION about cadence and distance. Nothing here
+/// asks what the body can do, because running is not a capability.
+fn maybe_substitute_sprint(
     action: SpecificAction,
     obs: &ObservationFrame,
     mode: BroadMode,
     cfg: &SmashCfg,
     state: &mut SmashState,
 ) -> SpecificAction {
-    if !cfg.dash_to_close
+    if !cfg.sprint_to_close
         || obs.self_attacking
         || !obs.self_on_ground
-        || state.dash_cooldown_remaining > 0.0
+        || state.sprint_cooldown_remaining > 0.0
     {
         return action;
     }
     let closing_walk = matches!(action, SpecificAction::Walk { .. });
     let approaching = matches!(mode, BroadMode::Approach | BroadMode::Engage);
-    let big_gap = obs.distance_to_target > cfg.aggro_radius * DASH_CLOSE_FRACTION;
+    let big_gap = obs.distance_to_target > cfg.aggro_radius * SPRINT_CLOSE_FRACTION;
     if !(closing_walk && approaching && big_gap) {
         return action;
     }
-    state.dash_cooldown_remaining = DASH_COOLDOWN_S;
-    // Dash along the local SIDE axis (I10) toward the target — correct under any
+    state.sprint_cooldown_remaining = SPRINT_COOLDOWN_S;
+    // Run along the local SIDE axis (I10) toward the target — correct under any
     // gravity; byte-identical to `to_target_x` under screen-down. Held facing inside
-    // the alignment deadzone so the burst direction doesn't flip on a stacked target.
+    // the alignment deadzone so the direction doesn't flip on a stacked target.
     let dir = obs.side_face_toward_target();
-    SpecificAction::Dash { dir }
+    SpecificAction::Sprint { dir }
 }
 
 /// Replace a *closing* action (`Walk`/`Idle` toward the target) with a

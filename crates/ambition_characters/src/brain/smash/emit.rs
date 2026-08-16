@@ -26,11 +26,12 @@ fn signum_or(x: f32, fallback: f32) -> f32 {
 /// integration's `approach()` call against this magnitude.
 const WALK_SPEED_PX_S: f32 = 170.0;
 
-/// Dash speed (px/s) — higher burst movement, used by Reposition
-/// under severe crowding (when authored) and by future
-/// `BroadMode::Approach` upgrades.
-#[allow(dead_code, reason = "consumer arrives with the dash-action upgrade")]
-const DASH_SPEED_PX_S: f32 = 260.0;
+/// Full-throttle reference speed (px/s) — the denominator that turns
+/// [`WALK_SPEED_PX_S`] into a fraction of a body's own top speed. It is NOT a
+/// speed the emitter commands: `Sprint` sends throttle `1.0` and the body's
+/// tuning decides what that is worth.
+#[allow(dead_code, reason = "consumer arrives with the sprint-action upgrade")]
+const SPRINT_SPEED_PX_S: f32 = 260.0;
 
 /// Translate the chosen action into ActorControlFrame fields.
 /// Overwrites `out` (caller must reset to neutral first if it
@@ -56,23 +57,35 @@ pub fn emit_inputs(
         }
         SpecificAction::Walk { dir } => {
             let signed_dir = signum_or(dir, 0.0);
-            // Walk = a throttle of the brawler's dash-grade top speed; the body's
+            // Walk = a partial throttle of the body's own top speed; its
             // tuning owns the px/s scale. (jitter-free here; intent is the throttle)
             out.locomotion =
-                ae::LocalAxes::new(signed_dir * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
+                ae::LocalAxes::new(signed_dir * (WALK_SPEED_PX_S / SPRINT_SPEED_PX_S), 0.0);
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }
         }
-        SpecificAction::Dash { dir } => {
+        SpecificAction::Sprint { dir } => {
+            // **CLOSING IS LOCOMOTION.** Full throttle against the body's own top
+            // speed — the same surface `Walk` uses at a partial throttle, and the
+            // whole difference between the two.
+            //
+            // ⛔⛔ **`out.dash_pressed = true` used to ride along here** and it
+            // was never the closing. The comment defending it said the throttle
+            // was the "body-agnostic floor" and the press an optional burst on
+            // top — but the press is the SHARED burst button, and once
+            // `apply_intent` stopped conflating the buffer (D146) a smash
+            // fighter resolves it as a DODGE ROLL, because dodge outranks dash.
+            // The brain would have been asking to evade at the exact moment it
+            // meant to run. And the burst it was reaching for is gone from this
+            // game's vocabulary anyway.
+            //
+            // ⚠ a driver that genuinely wants the discrete burst must ask
+            // `resolve_burst_maneuver` what a press would MEAN on this body
+            // first; nothing in the smash brain does, which is why dropping the
+            // press is the correct shape and not a lost capability.
             let signed_dir = signum_or(dir, 0.0);
-            // Full-throttle locomotion is the body-agnostic floor (a body without
-            // the dash capability still closes at its top walk speed). `dash_pressed`
-            // is the intent edge the BODY turns into a burst when it has `can_dash`
-            // (invariant I3): the brain attempts, the body owns the burst speed +
-            // window + cooldown.
             out.locomotion = ae::LocalAxes::new(signed_dir, 0.0);
-            out.dash_pressed = true;
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
             }
@@ -113,7 +126,8 @@ pub fn emit_inputs(
             // aggressive fighter keeps coming (the body, not a brain camp, paces
             // the shots; invariants I3/I4).
             let toward = obs.side_face_toward_target();
-            out.locomotion = ae::LocalAxes::new(toward * (WALK_SPEED_PX_S / DASH_SPEED_PX_S), 0.0);
+            out.locomotion =
+                ae::LocalAxes::new(toward * (WALK_SPEED_PX_S / SPRINT_SPEED_PX_S), 0.0);
         }
         SpecificAction::Special => {
             out.special_pressed = true;
@@ -135,11 +149,19 @@ pub fn emit_inputs(
             out.locomotion = ae::LocalAxes::ZERO;
         }
         SpecificAction::Dodge { .. } => {
-            // ⚠ **still genuinely reserved, and for the stated reason**: there is
-            // no dodge bit on `ActorControlFrame`. A dodge reaches a body through
-            // the dash buffer, which is the coupling P5.38 already records — a
-            // body owning `dodge` never dashes because `apply_dodge` claims that
-            // buffer first. Emitting a dash here would ride the same defect.
+            // ⚠ **still reserved, but the REASON changed** (D146). There is no
+            // dodge bit on `ActorControlFrame`; a dodge reaches a body through
+            // the shared burst press, and the old note called emitting one a
+            // defect because a body owning both verbs resolves the press by its
+            // live state rather than the brain's word.
+            //
+            // ⭐ that is no longer a defect on a SMASH fighter: the kit carries
+            // `dodge` and not `dash` (D146), so a burst press there resolves to
+            // exactly one thing. The remaining requirement is the general one —
+            // this arm must ask `resolve_burst_maneuver` (perception already
+            // carries the answer as `ObservationFrame::burst`) and emit only when
+            // it says a dodge, instead of pressing and hoping. Slice-sized work
+            // of its own; ⛔ don't hand it the press without the question.
             out.locomotion = ae::LocalAxes::ZERO;
         }
     }

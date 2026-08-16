@@ -38,7 +38,7 @@
             patrol_effort: 0.6176,
             chase_effort: 1.0,
             smash_hit_band: 32.0,
-            smash_dash_to_close: true,
+            smash_sprint_to_close: true,
         ),
         // ⭐ **A WANDERING SENTRY that notices late and never hurries.** Not a
         // creature — a WAY OF PLAYING one, which is the whole point of a shared
@@ -65,7 +65,7 @@
             attack_range: 150.0,
             patrol_effort: 0.5714,
             chase_effort: 1.0,
-            smash_dash_to_close: true,
+            smash_sprint_to_close: true,
             smash_duelist: true,
         ),
         "patroller": (
@@ -89,7 +89,7 @@
             attack_range: 60.0,
             patrol_effort: 0.55,
             chase_effort: 1.0,
-            smash_dash_to_close: true,
+            smash_sprint_to_close: true,
             smash_duelist: true,
         ),
         // ⭐ **WHAT A COVE RAIDER BECOMES WHEN YOU HIT IT**, lifted off the

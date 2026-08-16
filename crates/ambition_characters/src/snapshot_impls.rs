@@ -815,7 +815,7 @@ fn put_smash_state(out: &mut Vec<u8>, state: &crate::brain::smash::SmashState) {
     put_smash_mode(out, state.mode);
     put_f32(out, state.mode_dwell_s);
     put_u64(out, state.rng_seed);
-    put_f32(out, state.dash_cooldown_remaining);
+    put_f32(out, state.sprint_cooldown_remaining);
     let (samples, write, count) = state.obs_history.snapshot_parts();
     for (time, pos) in samples {
         put_f32(out, *time);

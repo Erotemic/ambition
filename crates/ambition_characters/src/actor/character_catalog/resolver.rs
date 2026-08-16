@@ -175,7 +175,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             chase_speed,
             retreat_speed,
             crowding_threshold,
-            dash_to_close,
+            sprint_to_close,
             reaction_delay_s,
             commit_probability,
             accuracy,
@@ -189,7 +189,7 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 chase_speed: *chase_speed,
                 retreat_speed: *retreat_speed,
                 crowding_threshold: *crowding_threshold,
-                dash_to_close: *dash_to_close,
+                sprint_to_close: *sprint_to_close,
                 difficulty: crate::brain::smash::DifficultyProfile {
                     reaction_delay_s: *reaction_delay_s,
                     commit_probability: *commit_probability,

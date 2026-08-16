@@ -372,39 +372,52 @@ fn brain_does_not_self_rate_limit_fire_body_owns_the_rate() {
     }
 }
 
-fn dash_striker_cfg() -> SmashCfg {
+fn sprint_striker_cfg() -> SmashCfg {
     SmashCfg {
-        dash_to_close: true,
+        sprint_to_close: true,
         ..crisp_striker_cfg()
     }
 }
 
+/// **CLOSING A BIG GAP IS FULL THROTTLE, AND NOTHING ELSE.**
+///
+/// A sprint-to-close actor beyond `SPRINT_CLOSE_FRACTION * aggro` (0.55 * 460 ≈
+/// 253) opens the locomotion throttle all the way instead of walking at the
+/// partial one.
+///
+/// ⛔⛔ and it must NOT press the burst button. That press used to ride along
+/// with the throttle here; on a smash fighter (`dodge`, no `dash` — D146) the
+/// kernel resolves it as a DODGE ROLL, so a brain that meant *run at them* would
+/// have thrown an evade instead. `dash_pressed` is asserted false deliberately —
+/// the throttle alone is the whole action.
 #[test]
-fn dash_capable_actor_bursts_to_close_a_large_gap() {
-    // A dash-capable Smash actor closing a large gap (beyond
-    // DASH_CLOSE_FRACTION * aggro ≈ 0.55 * 460 ≈ 253) bursts a Dash
-    // (260 px/s) instead of plodding at walk speed (170).
-    let cfg = dash_striker_cfg();
+fn closing_a_large_gap_is_throttle_and_never_a_burst_press() {
+    let cfg = sprint_striker_cfg();
     let mut state = SmashState::default();
-    let actions = ActionSet::peaceful(); // no ranged → dash, not a poke
+    let actions = ActionSet::peaceful(); // no ranged → close, not a poke
     let snap = snap_with_target_at_x(300.0);
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.8,
-        "dash burst should exceed walk speed; got {}",
+        "a sprint should exceed the walk throttle; got {}",
         frame.locomotion.x
     );
     assert!(
-        state.dash_cooldown_remaining > 0.0,
-        "dash cadence armed on commit"
+        !frame.dash_pressed,
+        "closing distance emitted the shared BURST press — on a smash fighter \
+         that is a dodge roll, not a run"
+    );
+    assert!(
+        state.sprint_cooldown_remaining > 0.0,
+        "sprint cadence armed on commit"
     );
 }
 
 #[test]
-fn dash_is_only_for_large_gaps() {
-    // Inside the dash fraction (120 < 253) the actor walks, not dashes.
-    let cfg = dash_striker_cfg();
+fn a_sprint_is_only_for_large_gaps() {
+    // Inside the sprint fraction (120 < 253) the actor walks, not sprints.
+    let cfg = sprint_striker_cfg();
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
     let snap = snap_with_target_at_x(120.0);
@@ -412,20 +425,20 @@ fn dash_is_only_for_large_gaps() {
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
-        "a small gap walks, not dashes; got {}",
+        "a small gap walks, it does not sprint; got {}",
         frame.locomotion.x
     );
     assert_eq!(
-        state.dash_cooldown_remaining, 0.0,
-        "no dash armed for a small gap"
+        state.sprint_cooldown_remaining, 0.0,
+        "no sprint armed for a small gap"
     );
 }
 
 #[test]
-fn non_dash_actor_walks_the_same_large_gap() {
-    // The SAME large gap, but dash_to_close OFF → a plain walk: the
+fn a_non_sprinting_actor_walks_the_same_large_gap() {
+    // The SAME large gap, but sprint_to_close OFF → a plain walk: the
     // capability is gated on the cfg flag, not on by default.
-    let cfg = crisp_striker_cfg(); // dash_to_close = false
+    let cfg = crisp_striker_cfg(); // sprint_to_close = false
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
     let snap = snap_with_target_at_x(300.0);
@@ -433,7 +446,7 @@ fn non_dash_actor_walks_the_same_large_gap() {
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
-        "no dash capability → a walk; got {}",
+        "sprint_to_close off → a walk; got {}",
         frame.locomotion.x
     );
 }
@@ -660,7 +673,7 @@ fn defense_over_approach(cfg: &SmashCfg, closing_px_s: f32, start_x: f32) -> (bo
 #[test]
 fn defense_blinks_a_lunge_and_blocks_a_walk_in() {
     let cfg = crisp_duelist(); // blink ≥ 230, shield ≥ 70
-                               // A 360 px/s dash-in clears the blink threshold.
+                               // A 360 px/s rush-in clears the blink threshold.
     let (blinked, _) = defense_over_approach(&cfg, 360.0, 130.0);
     assert!(blinked, "a fast lunge should be blinked");
     // A 120 px/s walk-in is below the blink threshold but above shield → block.
@@ -686,11 +699,17 @@ fn defense_reactivity_zero_never_defends() {
 }
 
 /// Damage-triggered regroup: after taking a bunch of hits a duelist breaks off —
-/// arms the regroup window and DASHES away (exercising the body dash) instead of
-/// trading at point-blank.
+/// arms the regroup window and RUNS away at full throttle instead of trading at
+/// point-blank.
+///
+/// ⛔ it used to prove the break-off by watching for `dash_pressed`, which was
+/// the emitter's stowaway press and not the retreat at all. The retreat is
+/// LOCOMOTION away from the opponent, so that is what this measures — and the
+/// press must stay off, or a fleeing duelist would roll toward whatever the
+/// stick happened to be aimed at.
 #[test]
-fn duelist_regroups_and_dashes_after_taking_damage() {
-    let cfg = crisp_duelist(); // dash_to_close + regroup enabled
+fn duelist_regroups_and_runs_after_taking_damage() {
+    let cfg = crisp_duelist(); // sprint_to_close + regroup enabled
     let mut state = SmashState {
         rng_seed: 11,
         ..Default::default()
@@ -699,7 +718,8 @@ fn duelist_regroups_and_dashes_after_taking_damage() {
     let dt = 1.0 / 60.0;
     let mut t = 0.0;
     let mut hp = 1.0_f32;
-    let mut dashed = false;
+    let mut fled = false;
+    let mut pressed_burst = false;
     let mut regrouped = false;
     // Target point-blank to the right; bleed health a bit each tick (a beating).
     for i in 0..120 {
@@ -712,8 +732,12 @@ fn duelist_regroups_and_dashes_after_taking_damage() {
         if state.regroup_timer > 0.0 {
             regrouped = true;
         }
+        // The target sits to the RIGHT, so a retreat is locomotion to the left.
+        if state.regroup_timer > 0.0 && f.locomotion.x < -0.8 {
+            fled = true;
+        }
         if f.dash_pressed {
-            dashed = true;
+            pressed_burst = true;
         }
         // Take ~2% of max HP every few ticks for the first ~0.5s (a flurry).
         if i < 30 && i % 5 == 0 {
@@ -723,8 +747,13 @@ fn duelist_regroups_and_dashes_after_taking_damage() {
     }
     assert!(regrouped, "a beaten duelist should enter a regroup");
     assert!(
-        dashed,
-        "the regroup should DASH away to cover ground (exercises the body dash)"
+        fled,
+        "the regroup should RUN away at full throttle to cover ground"
+    );
+    assert!(
+        !pressed_burst,
+        "the regroup emitted the shared burst press — that is a dodge roll on a \
+         smash fighter, not a retreat"
     );
 }
 

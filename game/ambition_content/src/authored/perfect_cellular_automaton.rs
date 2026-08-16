@@ -99,7 +99,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             attack_range: 150.0,
             patrol_effort: 0.5714,
             chase_effort: 1.0,
-            smash_dash_to_close: true,
+            smash_sprint_to_close: true,
             // Footsies and spacing rather than close-and-camp.
             smash_duelist: true,
             ..Default::default()

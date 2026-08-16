@@ -38,8 +38,20 @@ pub enum SpecificAction {
     Idle,
     /// Walk along the x-axis. `dir` is signed `[-1, 1]`.
     Walk { dir: f32 },
-    /// Dash burst — same direction as `Walk` but at higher speed.
-    Dash { dir: f32 },
+    /// **Close hard** — the same direction as `Walk`, at FULL locomotion
+    /// throttle instead of the walk's partial one.
+    ///
+    /// ⛔ this was `Dash`, and the name was the bug. It emitted `dash_pressed`
+    /// on top of the throttle, so a brain that had decided *close the gap* was
+    /// also asking for whatever the shared burst button meant on that body —
+    /// which on a smash fighter is a DODGE ROLL, i.e. an evade in the direction
+    /// it was trying to run. Closing distance is locomotion; it is not a
+    /// discrete authored verb and it consults no ability bit (D146). A body
+    /// genuinely wanting the burst asks
+    /// [`ambition_platformer2d_core::movement::abilities::resolve_burst_maneuver`]
+    /// what a press would MEAN first — reading `abilities.dash` is what that
+    /// resolver exists to replace.
+    Sprint { dir: f32 },
     /// Press jump (single press edge). Vertical motion handled by
     /// the player-side physics; the brain just emits the edge.
     Jump,

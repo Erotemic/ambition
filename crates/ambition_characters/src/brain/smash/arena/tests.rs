@@ -120,7 +120,7 @@ fn player_robot_fighter(name: &'static str, x: f32) -> Fighter {
     cfg.blink_cooldown_s = 0.8;
     cfg.can_shield = true;
     cfg.can_fly = true;
-    cfg.dash_to_close = true;
+    cfg.sprint_to_close = true;
     cfg.aerial_foray_cadence_s = 3.0;
     cfg.aerial_foray_duration_s = 2.5;
     Fighter {
@@ -354,5 +354,66 @@ fn flying_pca_vs_grounded_robot_is_non_degenerate() {
         all.is_empty(),
         "degenerate fight detected:\n  {}",
         all.join("\n  ")
+    );
+}
+
+/// **A SMASH CPU STILL CLOSES ON ITS OPPONENT, AND CLOSING IS LOCOMOTION.**
+///
+/// D146 took the burst press off the closing action: `SpecificAction::Sprint`
+/// now writes a full locomotion throttle and nothing else. The thing that must
+/// survive is the BEHAVIOUR — a fighter across the stage comes to meet you.
+///
+/// ⛔ this asserts the SEPARATION shrank, not that a field was set. The old
+/// coverage for this behaviour watched `dash_pressed`, which is exactly the bit
+/// that had to go; a test written that way would have had to be deleted rather
+/// than kept.
+///
+/// ⭐ and the verb census is the second half: `classify_verb` reads the
+/// LOCOMOTION throttle only, so seeing `SprintLeft`/`SprintRight` in the trace is
+/// direct evidence the approach was full-throttle running rather than a walk
+/// that happened to arrive.
+#[test]
+fn a_smash_cpu_closes_a_large_gap_on_locomotion_alone() {
+    let stage = Stage::noether_like();
+    let mut chaser = robot("Chaser", 60.0);
+    chaser.cfg.sprint_to_close = true;
+    // A stationary opponent: nothing the chaser does can be credited to the
+    // other body walking into it.
+    let mut target = robot("Target", 860.0);
+    target.cfg = SmashCfg {
+        aggro_radius: 0.0,
+        ..target.cfg
+    };
+    let opening = (target.pos.x - chaser.pos.x).abs();
+    let mut arena = Arena::new(stage, chaser, target);
+
+    // ⛔ bounded LOOP on the property, never a fixed step count: what a tick is
+    // worth is the arena's business, and a count would pin the cadence instead
+    // of the behaviour.
+    let mut closed = false;
+    let mut steps = 0;
+    while steps < 3_000 {
+        arena.step();
+        steps += 1;
+        let gap = (arena.fighters[1].pos.x - arena.fighters[0].pos.x).abs();
+        if gap < 120.0 {
+            closed = true;
+            break;
+        }
+    }
+    let gap = (arena.fighters[1].pos.x - arena.fighters[0].pos.x).abs();
+    assert!(
+        closed,
+        "the chaser started {opening:.0}px away and is still {gap:.0}px away after \
+         {steps} ticks — a CPU that no longer closes is not a fighter"
+    );
+
+    let sprinted = arena.trace.samples[0]
+        .iter()
+        .any(|s| matches!(s.verb, Verb::SprintLeft | Verb::SprintRight));
+    assert!(
+        sprinted,
+        "the chaser closed {opening:.0}px without ever opening its throttle past \
+         a walk, so `sprint_to_close` is inert and this only measured a stroll"
     );
 }

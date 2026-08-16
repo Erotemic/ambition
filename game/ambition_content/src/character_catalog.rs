@@ -1007,7 +1007,7 @@ mod tests {
         assert_eq!(profile.aggro_radius, 460.0);
         assert_eq!(profile.attack_range, 150.0);
         assert_eq!(profile.patrol_effort, 0.6176);
-        assert!(profile.smash_dash_to_close);
+        assert!(profile.smash_sprint_to_close);
     }
 
     /// **Every authored brain preset has at least one character using it.**

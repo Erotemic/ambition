@@ -827,7 +827,7 @@ pub enum BrainPreset {
         chase_speed: f32,
         retreat_speed: f32,
         crowding_threshold: f32,
-        dash_to_close: bool,
+        sprint_to_close: bool,
         reaction_delay_s: f32,
         commit_probability: f32,
         accuracy: f32,

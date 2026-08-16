@@ -250,7 +250,7 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
         let Brain::StateMachine(StateMachineCfg::Smash { state, .. }) = &mut *brain else {
             panic!("the provoked combatant should be a Smash brain");
         };
-        state.dash_cooldown_remaining = SENTINEL;
+        state.sprint_cooldown_remaining = SENTINEL;
         state.mode_dwell_s = SENTINEL;
     }
     // A second stimulus on the now-hostile actor must leave the brain intact.
@@ -265,7 +265,7 @@ fn a_repeat_stimulus_preserves_an_already_hostile_brain_state() {
         panic!("the brain should still be a Smash brain");
     };
     assert_eq!(
-        state.dash_cooldown_remaining, SENTINEL,
+        state.sprint_cooldown_remaining, SENTINEL,
         "a repeat stimulus must not reset the brain's dash cadence (no brain rebuild)"
     );
     assert_eq!(

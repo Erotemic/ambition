@@ -437,7 +437,7 @@ fn smash_cfg_from_spec(
 ) -> SmashCfg {
     // Heavy vs striker base + per-archetype hit band + dash-to-close are
     // projected onto `BrainProfile` at spawn (`smash_hit_band`,
-    // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
+    // `smash_heavy`, `smash_sprint_to_close`), so this builder reads generic
     // data rather than matching the roster enum. The 36 px hit-band
     // fallback lives in the projection.
     // Duelist > heavy > striker. The duelist base brings the neutral game
@@ -468,7 +468,7 @@ fn smash_cfg_from_spec(
         // Goblins dash to close a large gap (richer action set: melee +
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
-        dash_to_close: profile.smash_dash_to_close,
+        sprint_to_close: profile.smash_sprint_to_close,
         // ⭐⭐ **THE BODY'S VERBS, ASKED — not a policy's copy of them.**
         //
         // ⛔ these three read `profile.smash_can_blink/_fly/_shield` until

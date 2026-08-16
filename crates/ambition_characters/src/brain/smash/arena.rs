@@ -160,8 +160,8 @@ impl Stage {
 pub enum Verb {
     WalkLeft,
     WalkRight,
-    DashLeft,
-    DashRight,
+    SprintLeft,
+    SprintRight,
     Jump,
     Fly,
     Melee,
@@ -577,12 +577,14 @@ fn classify_verb(frame: &ActorControlFrame, f: &Fighter) -> Verb {
     if mag < 0.05 {
         return Verb::Idle;
     }
-    // A throttle near full is a dash; a partial throttle is a walk.
-    let dash = mag > 0.9;
-    match (x > 0.0, dash) {
-        (true, true) => Verb::DashRight,
+    // A throttle near full is a sprint; a partial throttle is a walk. ⚠ this
+    // reads the LOCOMOTION throttle and never `dash_pressed` — which is why the
+    // variety metric survived dash leaving the smash vocabulary unchanged.
+    let sprint = mag > 0.9;
+    match (x > 0.0, sprint) {
+        (true, true) => Verb::SprintRight,
         (true, false) => Verb::WalkRight,
-        (false, true) => Verb::DashLeft,
+        (false, true) => Verb::SprintLeft,
         (false, false) => Verb::WalkLeft,
     }
 }

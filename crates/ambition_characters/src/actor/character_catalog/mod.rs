@@ -40,8 +40,8 @@ pub use content_schema::{
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
     CharacterCatalogData, CharacterCatalogEntry, CharacterPortraitRef, CharacterTier,
-    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset,
-    RangedPreset, SpecialPreset, SpriteTuningSpec,
+    CompositionLayer, MeleePreset, MomentumParamsSpec, MoveStylePreset, RangedPreset,
+    SpecialPreset, SpriteTuningSpec,
 };
 #[allow(
     unused_imports,
@@ -709,7 +709,7 @@ mod tests {
             chase_speed: 150.0,
             retreat_speed: 120.0,
             crowding_threshold: 0.65,
-            dash_to_close: true,
+            sprint_to_close: true,
             reaction_delay_s: 0.12,
             commit_probability: 0.85,
             accuracy: 0.9,
@@ -719,7 +719,7 @@ mod tests {
         match brain {
             Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
                 assert_eq!(cfg.attack_range, 52.0);
-                assert!(cfg.dash_to_close);
+                assert!(cfg.sprint_to_close);
                 assert_eq!(cfg.difficulty.reaction_delay_s, 0.12);
                 assert_eq!(cfg.difficulty.commit_probability, 0.85);
                 assert_eq!(cfg.difficulty.accuracy, 0.9);

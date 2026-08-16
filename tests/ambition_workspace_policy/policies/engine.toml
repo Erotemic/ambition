@@ -1760,7 +1760,20 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # unchanged. It is a leaf derivation over `ambition_sprite_sheet` /
     # `ambition_combat` / `ambition_platformer2d_core` — no host, no render, no
     # content — so it fits the rationale above.
-    "ambition_character_sprites"]
+    "ambition_character_sprites",
+    # The LDtk authoring-format ADAPTER (`LdtkRuntimeIndex`, `LdtkRuntimeSpinePlugin`).
+    # ⭐ **the third time this list has learned the same lesson, and the first time
+    # the edge also had to leave a DENYLIST** — see the long note on
+    # `engine.runtime-manifest-deny` for the `cargo tree` evidence that it is a
+    # downward edge, and for the wart (a format-specific field on the canonical
+    # session world) that the deny row was standing in for. In this list's own
+    # terms: it sits at the same graph depth as `ambition_platformer2d_world`
+    # above, it names no app/content/host/render crate, and
+    # `ambition_platformer2d_actor_monolith` — already allowed — has linked it all
+    # along, so this adds no graph depth either. The runtime owns the rollback
+    # domain for `LdtkRuntimeIndex` and installs the room-load spine, which is
+    # composition, the job this tier is for.
+    "ambition_platformer2d_ldtk"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -1772,7 +1785,40 @@ watch_paths = ["crates/ambition_platformer2d_runtime/Cargo.toml"]
 rationale = "runtime is headless composition, not app/content/host/render/backend ownership"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "ambition_platformer2d_ldtk", "bevy_ecs_ldtk"]
+# ⛔⛔ **`ambition_platformer2d_ldtk` LEFT THIS LIST (2026-08-16) AND JOINED THE
+# ALLOWLIST — the row was denying the wrong thing.**
+#
+# It was here on the reading that the LDtk crate is a BACKEND the headless
+# runtime sits under, so naming it would be an UPWARD reach. `cargo tree` says
+# otherwise, and says it conclusively: `ambition_platformer2d_ldtk`'s entire
+# transitive closure contains ZERO occurrences of `ambition_platformer2d_runtime`
+# or `ambition_platformer2d_actor_monolith`. Its own dependencies are
+# `ambition_asset_manager`, `ambition_entity_catalog`, `ambition_platformer2d_core`,
+# `ambition_platformer2d_shared_tangle` and `ambition_platformer2d_world` — the
+# same depth as `ambition_platformer2d_world`, which this policy's sibling
+# allowlist has permitted all along. And `ambition_platformer2d_actor_monolith`,
+# which the runtime unquestionably composes, has depended on it directly the whole
+# time. ⇒ the edge is DOWNWARD and always was; declaring it on 2026-08-15 is what
+# let the monolith's `ldtk_world` compatibility facade be deleted. That is the
+# third instance of the story the allowlist already records twice, for
+# `ambition_sprite_sheet` and `ambition_character_sprites`: a laundered edge
+# becoming a declared one reads as a new violation and is not one.
+#
+# ⚠ **the real concern the row was groping at survives, and it is not a manifest
+# edge.** `PlatformerSessionWorld` carries `runtime_rooms: LdtkRuntimeIndex` as a
+# bundle field, so every RON-only game — Sanic, Mary-O, Pocket, TwinTrack, Smash —
+# constructs an `LdtkRuntimeIndex::default()` it will never fill, and the type's
+# own `Default` doc says so out loud ("the 'no LDtk world installed' index").
+# A format-specific member of the CANONICAL SESSION WORLD is a real wart; a
+# dependency-denylist row is simply not the instrument that can state it. Leaving
+# it here to gesture at the wart is what turned one deleted facade into seven red
+# sites across three policies, in a suite no gate was watching. See queue D135 for
+# the shape and cost of generalising the type.
+#
+# ⭐ `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime
+# may compose the adapter crate; it may not name the third-party backend the
+# adapter exists to contain.
+deny = ["ambition_app", "ambition_content", "ambition_platformer2d_host", "ambition_render", "ambition_touch_input", "ambition_inventory_ui", "bevy_ecs_ldtk"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -1785,8 +1831,19 @@ rationale = "runtime source composes without reaching into app/content/host/rend
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src"]
-forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "ambition_platformer2d_ldtk::", "bevy_ecs_ldtk::"]
-allow_lines = ["\"ambition_platformer2d_ldtk::"]
+# ⛔ `ambition_platformer2d_ldtk::` left this list with the manifest row above, on
+# the same evidence and for the same reason — a source rule and a manifest rule
+# stating one wrong fact twice is still one wrong fact. `bevy_ecs_ldtk::` STAYS:
+# the runtime may name the adapter, never the backend the adapter contains.
+#
+# ⛔ **and its `allow_lines` waiver went with it, which was dead before it was
+# obsolete.** The waiver exempted lines containing the QUOTED string
+# `"ambition_platformer2d_ldtk::` — a type-name literal, not a path — and no file
+# under `crates/ambition_platformer2d_runtime/src` has contained one for as long
+# as the rule has been red. So it was a waiver exempting nothing, sitting under a
+# rule that was failing on five lines it did not cover: the exact shape of a
+# waiver that reassures a reader without checking anything.
+forbid = ["ambition_render::", "ambition_platformer2d_host::", "ambition_content::", "ambition_app::", "ambition_touch_input::", "ambition_inventory_ui::", "bevy_ecs_ldtk::"]
 
 
 # was: architecture_boundaries_control_frame_lives_with_engine_body_contract
@@ -2316,17 +2373,28 @@ severity = "error"
 contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
 file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/save_sync.rs"
 
-[[policy]]
-id = "engine.player-fallback-update-documented"
-scope = "engine"
-kind = "file-contains"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"]
-rationale = "actors/update documents the deterministic PlayerSlot fallback"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
-file = "crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs"
+# ⛔⛔ **`engine.player-fallback-update-documented` WAS HERE AND IS DELETED
+# (2026-08-16) — ITS SUBJECT WAS DELETED FIRST.**
+#
+# It required `actors/update.rs` to contain `PlayerSlot` and
+# `AMBITION_REVIEW(determinism)`, documenting the deterministic slot-ordered
+# fallback that system used to run. `333c48376` ("D117: delete the combat slot
+# board, and the primary player it anchored on") removed the fallback, the
+# anchor, and the review marker together: the system chose an anchor position
+# from `PrimaryPlayer`, or the lowest `PlayerSlot` when a build had no primary,
+# and handed it to a slot board no production reader ever consumed. The file now
+# carries the tombstone for that deletion and nothing that needs a determinism
+# waiver.
+#
+# ⇒ this is the DELETE case, not the fix case. A `file-contains` rule cannot say
+# "document it IF you have one", so demanding the marker meant re-adding a
+# review note about machinery that no longer exists — a marker asserting a
+# property of absent code, which is the shape of a check that cannot fail
+# usefully. ⚠ the actual hazard in that file is still covered:
+# `engine.player-fallbacks-no-raw-query` above watches `update.rs` for
+# `player_query.iter().next()` and is green, and
+# `engine.player-fallback-save-sync-documented` still guards the ONE surviving
+# slot-ordered fallback (`save_sync.rs:51`, verified live).
 
 # ── Loading and game-shell core carve ─────────────────────────────────────────
 [[policy]]
@@ -2419,7 +2487,7 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
-rationale = "ADR 0024 §1: absence is never a movement policy. No production query may treat MotionModel as optional or filter on its absence; every integrated body carries a variant from spawn and dispatch happens inside step_motion."
+rationale = "ADR 0024 §1: absence is never a movement policy. No production query may treat MotionModel as optional or filter on its absence; every integrated body carries a variant from spawn and dispatch happens inside step_motion. KNOWN BLIND SPOT (2026-08-16): the list below is a set of SPELLINGS, and `ae::` is the alias most of the workspace imports engine-core under — `Option<&ae::MotionModel>` escaped it entirely. The escape hid the actual §1 violation behind the one site this rule DID catch: `actors/update.rs` passed its optional read down to `perception_body_for`, whose `None` arm read a missing component as `AxisSweptMotion::default()`. Both are non-optional now. ⛔ the spelling is NOT added to `forbid` yet because one further site survives it — `ambition_sim_view/src/combat_geometry_view.rs:152`, an observation read-model whose whole body-cluster group is optional — and widening the rule tonight would have reddened a crate this slice did not analyse. That is a queue row, not a waiver."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true
@@ -2465,7 +2533,7 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
-rationale = "ADR 0024 authority model: body pose writes go through the kernel, transit_body, carry_body/constrain_body_pose, or a sanctioned domain integrator — never a bare field write."
+rationale = "ADR 0024 authority model: body pose writes go through the kernel, transit_body, carry_body/constrain_body_pose, or a sanctioned domain integrator — never a bare field write. SECOND KNOWN BLIND SPOT (2026-08-16): it cannot tell a LIVE body from a PRE-SPAWN SEED. `ActorClusterSeed` has a `kin` field and no entity, no MotionModel and no frame, so `transit_body` cannot be called on it at all and there is no authority to route through — yet `seed.kin.pos = ` reads identically to relocating a simulated body. The one such site now goes through `ActorClusterSeed::place_at`, which is worth having on its own merits (the placement is TWO coupled fields), but a future seed constructor will hit this again and the honest answer there is a construction seam, not a waiver."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true
@@ -2589,7 +2657,7 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
-rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not. KNOWN BLIND SPOT: matching is by receiver NAME (kin/kinematics/body), not by type, so a BodyKinematics bound to a fourth identifier passes unseen — which is how the TwinTrack demo relocated a body outside the authority for two days."
+rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not. KNOWN BLIND SPOT: matching is by receiver NAME (kin/kinematics/body), not by type, so a BodyKinematics bound to a fourth identifier passes unseen — which is how the TwinTrack demo relocated a body outside the authority for two days. SECOND KNOWN BLIND SPOT (2026-08-16): matching by name also cannot tell a SIMULATED body from a SCRATCH one. `BodyClusterScratch` is an owned bag with no entity, no resolved frame and no integrator — the fighter brain's recovery lens builds one to ask 'what would this body do' — so its initial velocity is state being STATED, not a body being changed, and there is no authority to route it through. That site now says it at construction (`BodyClusterScratch::with_velocity`); see the pose rule for the same distinction on the seed side."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true

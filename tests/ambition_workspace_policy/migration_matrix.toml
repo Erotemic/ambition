@@ -313,7 +313,11 @@ policies = ["engine.clock-resets-owner-only", "engine.runtime-applies-clock-rese
 [[entry]]
 old_test = "architecture_boundaries_player_fallbacks_are_slot_ordered"
 disposition = "declarative"
-policies = ["engine.player-fallbacks-no-raw-query", "engine.player-fallback-save-sync-documented", "engine.player-fallback-update-documented"]
+# `engine.player-fallback-update-documented` was the third destination here and
+# was deleted 2026-08-16 with its subject (the slot board removed in 333c48376);
+# see the tombstone in policies/engine.toml. The old test's other two halves
+# still land, so this entry stays `declarative`.
+policies = ["engine.player-fallbacks-no-raw-query", "engine.player-fallback-save-sync-documented"]
 
 [[entry]]
 old_test = "architecture_boundaries_machinery_does_not_import_content"

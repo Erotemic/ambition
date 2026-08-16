@@ -43,19 +43,20 @@ fn the_death_track_is_authorized_by_the_provider_fragment() {
 
 /// **She states the dwell the music was written for.**
 ///
-/// The number itself is sized by the score (see [`DEATH_DWELL`]), and the rules
-/// resource is how the engine learns it. A demo that stated no rules would get
-/// the engine default — no interlude and no level reset — which is a silent,
-/// entirely playable wrong answer, so the statement is worth pinning.
+/// The number itself is sized by the score (see [`DEATH_DWELL`]), and the
+/// declaration is how the engine learns it. A demo that stated no rules would
+/// get the engine default — no interlude and no level reset — which is a
+/// silent, entirely playable wrong answer, so the statement is worth pinning.
 #[test]
 fn her_rules_hold_the_level_for_the_length_of_the_death_music() {
     let mut app = App::new();
     app.add_plugins(crate::MaryORulesPlugin::global());
     let rules = app
         .world()
-        .get_resource::<ambition_platformer2d::combat::death_rules::DeathRules>()
-        .copied()
-        .expect("Mary-O states her death rules");
+        .get_resource::<ambition_platformer2d::combat::death_rules::DeclaredDeathRules>()
+        .expect("Mary-O states her death rules")
+        // Standalone, the demo IS the game, so an untagged fixture room is hers.
+        .governing(None);
     assert_eq!(
         rules.interlude, DEATH_DWELL,
         "the interlude is the length of `mary_o_you_died`"

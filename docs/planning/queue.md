@@ -2382,6 +2382,78 @@ the row which half is which.
 discipline the next editor can drop), and *"a waiver would be the wrong answer
 here."*
 
+### ⭐⭐ SHAPE (b) IS FIXED, AND THE SCOPING MECHANISM ALREADY EXISTED — IN THE WRONG CRATE FOR IT (2026-08-16)
+
+**The question the row set was *"why does `DeathRules` not use
+`ExperienceScopeBuilder`?"* with three candidate answers. The measured answer is
+(2), and specifically:** the shell's scope builder **has adopters** — smash
+(`demo_smash/src/lib.rs:1660`) and versus (`app/versus.rs:1034`) both declare
+scopes, and a policy test already reads them all at once
+(`experience_scope_ownership.rs`) — so *"nobody adopted it"* is FALSE. It does
+not fit because it releases state a SESSION published on route DEPARTURE, and it
+has no entering half at all (*"entering is not an event anything has to catch"*).
+`DeathRules` was inserted in `Plugin::build` and lives for the process; releasing
+it on the first departure would delete it forever.
+
+⭐⭐ **AND THE RIGHT MECHANISM ALSO ALREADY EXISTED, ONE NOUN SHORT.**
+`ambition_platformer2d_runtime::mode_scope` **is** the demo-hosting seam: it
+scopes a hosted game's SYSTEMS (`in_mode` / `in_base_mode`) and its ENTITIES
+(`ModeScopedEntity`) to the rooms tagged with its mode, and **every one of
+Sanic's and Mary-O's systems is already gated through it**. It had no word for a
+RULE. ⇒ so three games each inserted a process-global instead, and the last
+`Plugin::build` won — which is not a missing mechanism, it is a mechanism with a
+missing third noun.
+
+⇒ **`DeathRules` stopped being a `Resource`.** A game declares into
+`DeclaredDeathRules` under the rooms it governs
+(`DeathRulesScope::{Mode(&str), UntaggedRooms, EveryRoom}` — the same three
+answers `<Demo>RulesPlugin` already gives when it decides how to gate its
+systems, selected by the SAME `hosted` constructor flag). `governing(mode)` is
+the one place *"whose rules apply here?"* is answered, and it is reached through
+one `SystemParam` (`GoverningDeathRules`) so a third beat cannot re-derive it.
+**A room no game claimed reads `DeathRules::default()` — `LevelReset::Never`,
+which is exactly what an arena wants.** A second declaration of one scope panics
+at build rather than picking a winner.
+
+⚠ **the mode tag was already universal and nobody had noticed**: smash, versus,
+twintrack, pocket, sanic and mary_o all tag their rooms; only Ambition's own are
+untagged. The fix needed no new identity.
+
+⛔ **the wallet-shield needed a DIFFERENT cure, and a smaller one.**
+`sync_hosted_sanic_wallet_shield` is not a global — it is a system whose
+POPULATION was every `PrimaryPlayer` in the process. It was inert only because
+`BodyWalletShield` has exactly one writer in the workspace (measured: this file).
+That claim is now written down and the loop states its population: a body is
+Sanic's business when it wears a Sanic persona or already carries a shield, and a
+George Booul on a Smash stage is neither. ⇒ **and the `hosted` fork on that
+system is DELETED** — two systems and a bool became one, because the standalone
+binary loads the same `mode: Some("sanic")` speedway the host does, so the
+constructor flag was answering a question the ROOM already answers.
+
+**Rollback: schema did NOT move (still 34).** `DeathRules` was never
+`require_rollback`-registered — it was a WAIVED row in `rollback_coverage.rs`,
+and the waiver moved to `DeclaredDeathRules` with its argument intact
+(`declare` is only reachable through `App`; a tick holds a `World`). ⚠ recorded
+with it: that argument would NOT survive a resolved-rules resource written each
+tick, which is why the resolution is a `SystemParam` that stores nothing.
+
+⇒ **WHAT A THIRD INSTANCE WOULD HAVE TO LOOK LIKE to justify a general
+mechanism** — because this slice deliberately did not build one. Not another
+resource: a resource is now cured by *"declare it into a collection keyed by the
+rooms you govern"*, which is a five-line pattern, not a framework. The instance
+that would justify one is **a game that must scope something the mode tag cannot
+express** — state belonging to a game while it is NOT in its own rooms (a
+crossover fighter carrying its home game's rules onto a foreign stage), or a
+scope whose boundary is a SEAT rather than a room. That is the day
+`ExperienceScope` and `mode_scope` have to become one vocabulary instead of two;
+today they are two because they scope two different lifetimes, and saying so is
+cheaper than merging them.
+
+⚠ **stale in the brief that opened this, for the record**: it said `DeathRules`
+is *"rollback-registered (`rollback_coverage.rs:987`)"*. Line 987 is the WAIVER
+list, not a registration — the distinction is what made the schema question a
+non-event.
+
 - ☑ **D131 — FIXED: NOTHING ACCRUED ON A CLOCK. FOUR FIGHTERS WERE BEING
   DIVIDED BY 1, 1, 60 AND 100. (opened + closed 2026-08-16)**
 

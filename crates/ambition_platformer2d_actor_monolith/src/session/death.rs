@@ -16,6 +16,12 @@
 //! 3. [`close_death_interlude`] — the window ended: ask the ROSTER whether the
 //!    level goes back.
 //!
+//! # Whose rules
+//!
+//! [`GoverningDeathRules`] answers that once, from the active room's mode tag,
+//! for every beat below. Before it existed each game inserted a bare
+//! `DeathRules` resource and the last plugin built governed the whole binary.
+//!
 //! # Nothing here returns a body to play
 //!
 //! [`clear_out_of_play_on_restart`] is an observer on
@@ -28,11 +34,48 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
+use ambition_combat::death_rules::{
+    DeathInterlude, DeathRules, DeclaredDeathRules, LevelReset, OutOfPlay,
+};
+use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 
 use crate::session::reset::RoomReplayRequested;
 use crate::ActorDiedMessage;
+
+/// **Whose death rules govern the room this body died in.**
+///
+/// ⭐ **the one place the question is asked**, so a third beat that needs the
+/// rules cannot re-derive them from a different pair of facts. It reads the
+/// active room's mode tag — the same fact `in_mode` gates a hosted game's
+/// systems on — and hands it to
+/// [`DeclaredDeathRules::governing`](ambition_combat::death_rules::DeclaredDeathRules::governing).
+///
+/// ⚠ **both halves are optional and the absent case is the ENGINE DEFAULT.** A
+/// composition with no declarations and a harness with no session world are the
+/// same answer: hold for nothing, reset nothing. That is the conservative
+/// behaviour a host that has not thought about death should get, and it is never
+/// some other game's answer.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct GoverningDeathRules<'w, 's> {
+    declared: Option<Res<'w, DeclaredDeathRules>>,
+    active_room: Option<SessionWorldRef<'w, 's, ActiveRoomMetadata>>,
+}
+
+impl GoverningDeathRules<'_, '_> {
+    /// The rules in force for the active room.
+    pub fn get(&self) -> DeathRules {
+        let Some(declared) = self.declared.as_ref() else {
+            return DeathRules::default();
+        };
+        let mode = self
+            .active_room
+            .as_ref()
+            .and_then(|active| active.0.mode.as_deref());
+        declared.governing(mode)
+    }
+}
 
 /// A participant died: mark it out of play and open its window.
 ///
@@ -47,14 +90,14 @@ use crate::ActorDiedMessage;
 pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
-    rules: Option<Res<DeathRules>>,
+    rules: GoverningDeathRules,
     participants: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
 ) {
     // Drained unconditionally so a death reported during a load cannot be
     // re-read later and charged to the next attempt — the same rule every other
     // reader of this channel follows.
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
-    let interlude = rules.map(|rules| rules.interlude).unwrap_or_default();
+    let interlude = rules.get().interlude;
     for victim in victims {
         if participants.get(victim).is_err() {
             continue;
@@ -124,7 +167,7 @@ pub fn tick_death_interlude(
 /// times the frame is simulated — a state rather than an observation of the
 /// previous frame, which is what keeps it inside the rollback envelope.
 pub fn close_death_interlude(
-    rules: Option<Res<DeathRules>>,
+    rules: GoverningDeathRules,
     mut closing: Query<&mut DeathInterlude>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     mut replay: MessageWriter<RoomReplayRequested>,
@@ -155,7 +198,7 @@ pub fn close_death_interlude(
     if !any_closed {
         return;
     }
-    let level_reset = rules.map(|rules| rules.level_reset).unwrap_or_default();
+    let level_reset = rules.get().level_reset;
     if level_reset != LevelReset::WhenNoParticipantRemains {
         return;
     }

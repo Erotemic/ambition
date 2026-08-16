@@ -182,9 +182,20 @@ fn register_app_local_sim_systems(app: &mut App) {
     // now stated rather than assumed, it happens ONCE rather than on every frame
     // the gate re-fires, and it travels through the same road every other host
     // uses.
-    app.insert_resource(
-        ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
-    );
+    //
+    // ⚠ **`UntaggedRooms`, not the whole binary.** This function is composed
+    // into the multi-game shell host beside Sanic, Mary-O and Smash, and every
+    // one of those tags its rooms with its own mode. Ambition's own rooms carry
+    // no tag, so `UntaggedRooms` is exactly the set of rooms these rules are
+    // about — and a Smash stage no longer inherits "put the level back" from
+    // whichever provider happened to be built last.
+    {
+        use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
+        app.declare_death_rules(
+            ambition_platformer2d::combat::death_rules::DeathRulesScope::UntaggedRooms,
+            ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+        );
+    }
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(

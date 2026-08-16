@@ -36,7 +36,10 @@ pub mod util;
 pub mod variation;
 
 pub use components::*;
-pub use death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
+pub use death_rules::{
+    DeathInterlude, DeathRules, DeathRulesAppExt, DeathRulesScope, DeclaredDeathRules, LevelReset,
+    OutOfPlay,
+};
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in

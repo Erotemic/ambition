@@ -1938,11 +1938,26 @@ impl Plugin for MaryORulesPlugin {
         // that condition is met by the first death, so single player needs no
         // special case — it is the one-element case of the co-op rule, not the
         // base case the co-op rule is an exception to.
-        app.insert_resource(
-            ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
-                death::DEATH_DWELL,
-            ),
-        );
+        //
+        // ⚠ **scoped by the SAME flag that gates her systems.** Hosted, these
+        // govern the rooms tagged `mary_o` and nothing else. As a bare resource
+        // they were a process global inserted at plugin build, and the shell
+        // composes her AFTER Sanic — so every Smash match in the shipped host
+        // ran under a three-second level replay, in an arena whose rules want
+        // `LevelReset::Never`. Standalone, the demo IS the game.
+        {
+            use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
+            app.declare_death_rules(
+                if self.hosted {
+                    ambition_platformer2d::combat::death_rules::DeathRulesScope::Mode(MARY_O_MODE)
+                } else {
+                    ambition_platformer2d::combat::death_rules::DeathRulesScope::EveryRoom
+                },
+                ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
+                    death::DEATH_DWELL,
+                ),
+            );
+        }
         // The snake stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.

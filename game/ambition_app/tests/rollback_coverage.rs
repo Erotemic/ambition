@@ -975,16 +975,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog",
         "published during plugin build only; `publish` is private and a tick has no `App`",
     ),
-    // **The game's death rules** (ADR 0033): how long a death holds, and the
-    // roster question that decides a level reset.
+    // **Every game's death rules** (ADR 0033): how long a death holds, and the
+    // roster question that decides a level reset — one declaration per game,
+    // keyed by the rooms that game governs.
     //
-    // AUTHORED CONSTANTS, stated once when the game's plugin is built and never
+    // AUTHORED CONSTANTS, stated once when each game's plugin is built and never
     // written by any system. A rewind cannot change what a game's rules are —
     // rewinding them would be rewinding the ruleset itself, not the simulation
     // it governs. The state the rules PRODUCE (`DeathInterlude`, `OutOfPlay`)
     // is per-body and IS registered, in the combat domain.
+    //
+    // ⚠ **the argument survived the collection becoming plural** (2026-08-16):
+    // `declare` is only reachable through `App`, and a tick holds a `World`. It
+    // would NOT survive a resolved-rules resource written each tick from the
+    // active room — which is why the resolution is a `SystemParam` that stores
+    // nothing rather than a derived global.
     (
-        "ambition_combat::death_rules::DeathRules",
+        "ambition_combat::death_rules::DeclaredDeathRules",
         "authored rules stated at plugin build; the state they produce is registered per body",
     ),
     // The rollback localizer's own state: the probe table and its audit ledger.

@@ -1160,9 +1160,24 @@ impl Plugin for SanicRulesPlugin {
         // world forever. That is exactly how this landed — `the_pit_still_
         // swallows_him_at_any_ring_count` went red with `sent_home: false`
         // the moment the reflex respawn was deleted and Sanic had said nothing.
-        app.insert_resource(
-            ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
-        );
+        //
+        // ⚠ **scoped by the SAME flag that gates the systems below.** Hosted,
+        // these rules govern the rooms tagged `sanic` and nothing else — the
+        // resource they used to be was a process global, so whichever provider
+        // the shell built last governed Smash, Mary-O and Ambition too.
+        // Standalone, the demo IS the game and its rules are the binary's,
+        // which is what lets a rules-only harness use an untagged fixture room.
+        {
+            use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
+            app.declare_death_rules(
+                if self.hosted {
+                    ambition_platformer2d::combat::death_rules::DeathRulesScope::Mode(SANIC_MODE)
+                } else {
+                    ambition_platformer2d::combat::death_rules::DeathRulesScope::EveryRoom
+                },
+                ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+            );
+        }
         app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
@@ -1218,32 +1233,26 @@ impl Plugin for SanicRulesPlugin {
             app.add_systems(sim, sanic_pre_gate);
             app.add_systems(sim, sanic_post_gate);
         }
-        // The marker is identity-derived. In a hosted app it is also mode-derived:
-        // leaving the Sanic rooms removes the shield even if the same worn persona
-        // remains selected elsewhere, where no ring-scatter consumer is awake.
-        if self.hosted {
-            app.add_systems(
-                sim,
-                sync_hosted_sanic_wallet_shield
-                    .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-                    // D7: the PHASE, not the leaf. A provider ordering against
-                    // `apply_worn_character_gameplay` is coupled to a name the
-                    // engine may rename or split; `Persona` is the contract.
-                    .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
-            );
-        } else {
-            app.add_systems(
-                sim,
-                sync_sanic_wallet_shield
-                    .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-                    // D7: the PHASE, not the leaf. A provider ordering against
-                    // `apply_worn_character_gameplay` is coupled to a name the
-                    // engine may rename or split; `Persona` is the contract.
-                    .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
-            );
-        }
+        // The marker is identity- AND room-derived: leaving the Sanic rooms
+        // removes the shield even if the same worn persona remains selected
+        // elsewhere, where no ring-scatter consumer is awake.
+        //
+        // ⭐ **ONE registration for both compositions.** This used to fork on
+        // `self.hosted` into a mode-aware system and an always-on one — and the
+        // always-on one was a lie about the standalone binary, which loads the
+        // same mode-tagged speedway. The fork's only real content was "does the
+        // host have other rooms to leave", which is a question about the ROOM,
+        // and the room already answers it.
+        app.add_systems(
+            sim,
+            sync_sanic_wallet_shield
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
+                // D7: the PHASE, not the leaf. A provider ordering against
+                // `apply_worn_character_gameplay` is coupled to a name the
+                // engine may rename or split; `Persona` is the contract.
+                .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
+                .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
+        );
 
         // The ball dash is a RULE, not world content: it exists while the Sanic
         // mode is live and nowhere else, exactly like the act clock. Effects run
@@ -1972,25 +1981,70 @@ pub struct ScatteredRing {
 ///
 /// This is derived state, not an input edge: rebuilding it every frame avoids a
 /// rollback latch while keeping the shared damage resolver content-agnostic.
+///
+/// ⛔⛔ **THE POPULATION IS THE WHOLE CORRECTNESS ARGUMENT.** This used to read
+/// every `PrimaryPlayer` in the process and strip the shield off any body its
+/// `enabled` test said no to — so in a Smash match, hosted beside Sanic, this
+/// ran every tick against four fighters none of which are Sanic's. It was inert
+/// only because [`BodyWalletShield`](ambition_platformer2d::characters::actor::BodyWalletShield)
+/// has exactly one writer in the workspace: this file.
+///
+/// [`sync_sanic_wallet_shield`] states that instead of relying on it: a body is
+/// Sanic's business when it **wears a Sanic persona** (Sanic's rule speaks for
+/// it) or **already carries a shield** — the second half is the giveback for a
+/// body that stopped wearing Sanic, and it is a CLAIM (*nothing else grants
+/// this*) rather than an accident. A George Booul on a Smash stage is neither,
+/// and the loop skips him before it decides anything.
+///
+/// ⚠ the residency test cannot be a query filter — `WornCharacter` holds an id
+/// and Bevy filters on component presence — so it is the first statement in the
+/// loop rather than part of this type.
 type SanicShieldBodies<'w, 's> = bevy::prelude::Query<
     'w,
     's,
     (
         bevy::prelude::Entity,
         &'static ambition_platformer2d::characters::actor::WornCharacter,
-        Option<&'static ambition_platformer2d::characters::actor::BodyWalletShield>,
+        bevy::prelude::Has<ambition_platformer2d::characters::actor::BodyWalletShield>,
     ),
     ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
 >;
 
-fn reconcile_sanic_wallet_shield(
-    commands: &mut bevy::prelude::Commands,
-    bodies: &SanicShieldBodies<'_, '_>,
-    mode_active: bool,
+/// Whether this character id is one of Sanic's forms.
+fn is_sanic_persona(id: &str) -> bool {
+    matches!(id, "sanic" | "super_sanic")
+}
+
+/// **The one system that answers "does this body's wallet absorb a hit?"**
+///
+/// The answer is *yes* for a Sanic persona standing in a Sanic room, and *no*
+/// for everything this ruleset speaks for — which is a strictly smaller set than
+/// "every body in the binary". `in_sanic_rooms` is read from the ACTIVE ROOM's
+/// mode tag rather than from a constructor flag, so the hosted and standalone
+/// compositions are one system: the speedway carries `mode: Some("sanic")`
+/// whichever binary loads it, and the giveback that a hosted session needs on
+/// the way out costs the standalone one nothing.
+fn sync_sanic_wallet_shield(
+    mut commands: bevy::prelude::Commands,
+    active: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::ActiveRoomMetadata,
+        >,
+    >,
+    bodies: SanicShieldBodies<'_, '_>,
 ) {
-    for (entity, worn, shield) in bodies {
-        let enabled = mode_active && matches!(worn.id(), "sanic" | "super_sanic");
-        match (enabled, shield.is_some()) {
+    let in_sanic_rooms = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
+    for (entity, worn, shielded) in &bodies {
+        let sanic_persona = is_sanic_persona(worn.id());
+        // ⛔ **not this ruleset's body.** See `SanicShieldBodies`: Sanic answers
+        // for the bodies wearing his personas, plus whatever already carries a
+        // shield he is the only writer of. Everything else — every fighter on a
+        // Smash stage this demo is composed beside — is somebody else's.
+        if !sanic_persona && !shielded {
+            continue;
+        }
+        let enabled = in_sanic_rooms && sanic_persona;
+        match (enabled, shielded) {
             (true, false) => {
                 commands
                     .entity(entity)
@@ -2004,26 +2058,6 @@ fn reconcile_sanic_wallet_shield(
             _ => {}
         }
     }
-}
-
-fn sync_sanic_wallet_shield(
-    mut commands: bevy::prelude::Commands,
-    bodies: SanicShieldBodies<'_, '_>,
-) {
-    reconcile_sanic_wallet_shield(&mut commands, &bodies, true);
-}
-
-fn sync_hosted_sanic_wallet_shield(
-    mut commands: bevy::prelude::Commands,
-    active: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::ActiveRoomMetadata,
-        >,
-    >,
-    bodies: SanicShieldBodies<'_, '_>,
-) {
-    let mode_active = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
-    reconcile_sanic_wallet_shield(&mut commands, &bodies, mode_active);
 }
 
 /// Present a wallet-shield spend as a classic ring burst.

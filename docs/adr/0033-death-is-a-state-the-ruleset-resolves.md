@@ -104,9 +104,22 @@ CONSEQUENCE the game states. The world does nothing on its own.**
 4. **A level reset is a question about the ROSTER, not a death consequence.**
 
    ```rust
-   app.insert_resource(DeathRules::replay_level_after(3.2));
+   app.declare_death_rules(
+       DeathRulesScope::Mode(MARY_O_MODE),          // the rooms these govern
+       DeathRules::replay_level_after(3.2),
+   );
    // == DeathRules { interlude: 3.2, level_reset: WhenNoParticipantRemains }
    ```
+
+   ⚠ **AMENDED 2026-08-16: a declaration names the ROOMS it governs.** This was
+   `app.insert_resource(DeathRules::…)` — a bare global — and three games in the
+   shipped host each inserted one at plugin-build time, so the last plugin the
+   shell composed governed the whole binary. Mary-O is composed after Sanic, so
+   every Smash match ran under her three-second level replay in an arena that
+   wants `Never`. `DeathRulesScope` is the same three answers a
+   `<Demo>RulesPlugin` already gives when it gates its systems (`in_mode` /
+   `in_base_mode` / ungated): `Mode(..)`, `UntaggedRooms`, `EveryRoom`. Rooms no
+   game claimed read the default rather than a stranger's rules.
 
    `LevelReset`: `Never` (arenas, versus, multiplayer that never resets) ·
    `WhenNoParticipantRemains`.
@@ -169,9 +182,11 @@ question. The new vocabulary is `DeathRules` and must not be folded into it.
 
 - Never respawn, heal, teleport or reset a body as part of resolving its death.
   Publish the fact; the authored `DeathRules` owns everything after.
-- **A game MUST state `DeathRules`**, beside its other rules. The default is
-  `Never`, which is correct for a versus stage and leaves anything with a level
-  falling out of the world.
+- **A game MUST state `DeathRules`**, beside its other rules, **and name the
+  rooms they govern** (`App::declare_death_rules`). The default is `Never`,
+  which is correct for a versus stage and leaves anything with a level falling
+  out of the world. ⛔ never `insert_resource` them: the type is not the key,
+  the SCOPE is, and a second game declaring the same scope panics at build.
 - Never hang a level reset off an individual death. Ask the roster.
 - `RulesetOwnsDeath` is subsumed: the ruleset owns the consequence by
   construction now. Do not grow a second suppression marker beside it.

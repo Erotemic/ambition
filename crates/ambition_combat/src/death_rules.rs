@@ -3,6 +3,16 @@
 //! The engine publishes the FACT that a participant died and then does nothing.
 //! What happens next is stated here, once, by the game.
 //!
+//! # ⭐ Once by the game, not once by the BINARY
+//!
+//! Three games in the shipped host state death rules, and a bare
+//! `Resource` made that a race the last `Plugin::build` won — Mary-O's
+//! three-second level replay governed every Smash match, whose own doc says an
+//! arena wants [`LevelReset::Never`]. So a declaration names the rooms it
+//! governs ([`DeathRulesScope`]), they all live in one
+//! [`DeclaredDeathRules`], and a room its game did not author reads
+//! [`DeathRules::default`] rather than a stranger's answer.
+//!
 //! ⚠ **not [`DeathPolicy`](ambition_characters::actor::DeathPolicy)**, which
 //! answers a different question — *does a full damage meter kill this body* —
 //! and lives beside `BodyHealth` because it travels with the health component.
@@ -29,11 +39,16 @@
 
 use bevy::prelude::*;
 
-/// **The game's death rules.** Stated once, beside its other rules.
+/// **One game's death rules.** Stated once, beside its other rules.
 ///
-/// Absent means the engine defaults below, which are the conservative answer for
-/// a composition that has not thought about it: hold for nothing, reset nothing.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+/// ⛔ **not a resource, and that is deliberate.** Three games in this binary
+/// each state their own, so a bare global would be answered by whichever plugin
+/// was built last — which is exactly what happened: the shell composes Sanic
+/// then Mary-O, so every Smash match in the shipped host ran under Mary-O's
+/// three-second level-replay rules. A game declares these into
+/// [`DeclaredDeathRules`] under the [`DeathRulesScope`] it governs, and the
+/// rooms it did not author read [`DeathRules::default`].
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DeathRules {
     /// Seconds a participant's death holds before its consequence runs — the
     /// window content may fill with presentation.
@@ -50,11 +65,127 @@ pub struct DeathRules {
 }
 
 impl Default for DeathRules {
+    /// The conservative answer for a room whose game said nothing: hold for
+    /// nothing, reset nothing.
+    ///
+    /// ⭐ **and it is the right answer for a versus arena**, which is why an
+    /// unclaimed room is safe. A stage that has no level to put back wants
+    /// [`LevelReset::Never`], and a match ruleset that owns its own respawn
+    /// (Smash's stocks) wants no interlude in front of it.
     fn default() -> Self {
         Self {
             interlude: 0.0,
             level_reset: LevelReset::Never,
         }
+    }
+}
+
+/// **Which rooms a game's death rules govern.**
+///
+/// ⭐ **the third noun of the demo-hosting seam.** That seam
+/// (`ambition_platformer2d_runtime::mode_scope`) already scopes a hosted game's
+/// SYSTEMS (`in_mode` / `in_base_mode`) and its ENTITIES (`ModeScopedEntity`) to
+/// the rooms tagged with its mode. Its RULES had no such word, so each game
+/// inserted a process-global instead and the last plugin built won the whole
+/// binary. These variants are the same three answers `<Demo>RulesPlugin` already
+/// gives when it decides how to gate its systems.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DeathRulesScope {
+    /// Rooms tagged with this game mode — a HOSTED game. The mirror of
+    /// `in_mode(mode)`, which is how every one of that game's systems is gated.
+    Mode(&'static str),
+    /// Rooms carrying no mode tag — the host's own. The mirror of
+    /// `in_base_mode`.
+    UntaggedRooms,
+    /// Every room in the process — a STANDALONE game whose one ruleset IS the
+    /// binary. The mirror of a `RulesPlugin::global()` that gates no system, and
+    /// the reason a demo's own test harness need not tag its fixture rooms.
+    EveryRoom,
+}
+
+/// **Every game's death rules in this binary, and who governs where.**
+///
+/// ⚠ **the collection is the point.** One resource per game is the shape that
+/// cannot be composed: the type is the key, so the second insert silently
+/// overwrites the first and the loser's rooms run under the winner's rules.
+/// Here a second declaration is a different KEY, and a second declaration of the
+/// SAME key is a contradiction that panics at build time rather than picking a
+/// winner.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct DeclaredDeathRules {
+    /// Declaration order is not consulted — [`Self::governing`] resolves by
+    /// specificity — so this is a list rather than a map purely to keep the
+    /// scope key `Copy`.
+    declarations: Vec<(DeathRulesScope, DeathRules)>,
+}
+
+impl DeclaredDeathRules {
+    /// State the rules for one scope.
+    ///
+    /// ⛔ **panics on a second declaration of the same scope.** Two games
+    /// claiming one set of rooms is not a precedence question with a defensible
+    /// answer; it is a composition mistake, and the version of this that picked
+    /// a winner is the defect this type exists to delete.
+    pub fn declare(&mut self, scope: DeathRulesScope, rules: DeathRules) {
+        if let Some((_, existing)) = self
+            .declarations
+            .iter()
+            .find(|(declared, _)| *declared == scope)
+        {
+            panic!(
+                "{scope:?} already has death rules ({existing:?}); a second \
+                 declaration ({rules:?}) would mean two games govern the same \
+                 rooms. Declare the narrower scope the second game actually owns.",
+            );
+        }
+        self.declarations.push((scope, rules));
+    }
+
+    /// ⭐ **THE ONE PLACE the question "whose rules govern a death here?" is
+    /// answered.** `mode` is the active room's mode tag.
+    ///
+    /// Most specific first: the room's own mode, then the untagged-room
+    /// declaration for an untagged room, then a standalone game's whole-process
+    /// claim. A room nobody claimed reads [`DeathRules::default`] — a foreign
+    /// game's rules are never the fallback, which is the whole fix.
+    pub fn governing(&self, mode: Option<&str>) -> DeathRules {
+        let find = |wanted: DeathRulesScope| {
+            self.declarations
+                .iter()
+                .find(|(scope, _)| *scope == wanted)
+                .map(|(_, rules)| *rules)
+        };
+        let own = match mode {
+            Some(mode) => self
+                .declarations
+                .iter()
+                .find(|(scope, _)| matches!(scope, DeathRulesScope::Mode(m) if *m == mode))
+                .map(|(_, rules)| *rules),
+            None => find(DeathRulesScope::UntaggedRooms),
+        };
+        own.or_else(|| find(DeathRulesScope::EveryRoom))
+            .unwrap_or_default()
+    }
+
+    /// Every declaration, for diagnostics and for the composition guard that
+    /// reads them all at once.
+    pub fn iter(&self) -> impl Iterator<Item = (DeathRulesScope, DeathRules)> + '_ {
+        self.declarations.iter().copied()
+    }
+}
+
+/// Declare a game's death rules at app-build time.
+pub trait DeathRulesAppExt {
+    /// See [`DeclaredDeathRules::declare`].
+    fn declare_death_rules(&mut self, scope: DeathRulesScope, rules: DeathRules) -> &mut Self;
+}
+
+impl DeathRulesAppExt for App {
+    fn declare_death_rules(&mut self, scope: DeathRulesScope, rules: DeathRules) -> &mut Self {
+        self.world_mut()
+            .get_resource_or_insert_with(DeclaredDeathRules::default)
+            .declare(scope, rules);
+        self
     }
 }
 
@@ -146,5 +277,89 @@ impl DeathInterlude {
     /// consequence has not run.
     pub fn open(&self) -> bool {
         self.remaining > 0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **A room reads its own game's rules, and an unclaimed room reads the
+    /// engine default — never a stranger's.**
+    ///
+    /// The table is the shipped host's shape: one untagged-room claim and two
+    /// mode claims, with a third mode (the Smash arena) that claims nothing.
+    #[test]
+    fn an_unclaimed_room_reads_the_default_rather_than_another_games_rules() {
+        let mut declared = DeclaredDeathRules::default();
+        declared.declare(
+            DeathRulesScope::UntaggedRooms,
+            DeathRules::replay_level_after(0.0),
+        );
+        declared.declare(
+            DeathRulesScope::Mode("mary_o"),
+            DeathRules::replay_level_after(3.2),
+        );
+
+        assert_eq!(declared.governing(Some("mary_o")).interlude, 3.2);
+        assert_eq!(declared.governing(None).interlude, 0.0);
+        assert_eq!(
+            declared.governing(None).level_reset,
+            LevelReset::WhenNoParticipantRemains,
+        );
+        // The arena. Both declarations above reset the level; it must not.
+        assert_eq!(declared.governing(Some("smash")), DeathRules::default());
+        assert_eq!(
+            declared.governing(Some("smash")).level_reset,
+            LevelReset::Never,
+        );
+    }
+
+    /// **A standalone game's claim is the whole process, including its own
+    /// mode-tagged rooms and any untagged fixture.**
+    ///
+    /// This is what `<Demo>RulesPlugin::global()` means, and it is why a
+    /// rules-only harness need not tag its rooms.
+    #[test]
+    fn a_standalone_games_rules_reach_every_room_it_loads() {
+        let mut declared = DeclaredDeathRules::default();
+        declared.declare(DeathRulesScope::EveryRoom, DeathRules::replay_level_after(3.2));
+
+        assert_eq!(declared.governing(None).interlude, 3.2);
+        assert_eq!(declared.governing(Some("mary_o")).interlude, 3.2);
+    }
+
+    /// **A mode's own claim outranks a whole-process one**, so a composition
+    /// that somehow held both still gives the narrower answer.
+    #[test]
+    fn the_narrower_claim_wins() {
+        let mut declared = DeclaredDeathRules::default();
+        declared.declare(DeathRulesScope::EveryRoom, DeathRules::replay_level_after(9.0));
+        declared.declare(
+            DeathRulesScope::Mode("mary_o"),
+            DeathRules::replay_level_after(3.2),
+        );
+
+        assert_eq!(declared.governing(Some("mary_o")).interlude, 3.2);
+    }
+
+    /// ⛔ **two games claiming one set of rooms is a build-time contradiction,
+    /// not a precedence question.**
+    ///
+    /// The version that picked a winner is the defect this type replaced: three
+    /// `insert_resource(DeathRules)` calls, and whichever plugin the shell built
+    /// last governed the binary. Silently choosing is what made that invisible.
+    #[test]
+    #[should_panic(expected = "already has death rules")]
+    fn a_second_claim_on_the_same_rooms_is_refused() {
+        let mut declared = DeclaredDeathRules::default();
+        declared.declare(
+            DeathRulesScope::Mode("mary_o"),
+            DeathRules::replay_level_after(3.2),
+        );
+        declared.declare(
+            DeathRulesScope::Mode("mary_o"),
+            DeathRules::replay_level_after(0.0),
+        );
     }
 }

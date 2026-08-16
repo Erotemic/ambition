@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "⚠ 2026-08-15 ADDS derived.placement_continuity, the FIRST durable-room-state row and a DECLARED-DERIVED one. AuthoredOccurrences answers the question a rebuilt room cannot ask its own authored records: what became of the occurrence this record minted last time? Its only producing leg (persisting) is republished WHOLE every tick from the live InCustodyOf population, which is itself derived from the registered item.item_custody, so it carries no already-applied gate, converges on the step after a rewind, and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 - no encoding changed. It exists because custody let an authored object cross a room boundary alive, and re-entering the room then minted a SECOND occurrence claiming the same SimId::placement(..). \u26d4\u26d4 the day OccurrenceDisposition::Consumed gains a producer this row becomes a lie: that leg ACCUMULATES a fact no live component still carries, nothing re-derives it, and it will owe a real registration with a value projection over the id set plus a durable-save representation, in the same change.",
+    "⚠ 2026-08-15 ADDS derived.placement_continuity, the FIRST durable-room-state row and a DECLARED-DERIVED one. AuthoredOccurrences answers the question a rebuilt room cannot ask its own authored records: what became of the occurrence this record minted last time? Its only producing leg (persisting) is republished WHOLE every tick from the live InCustodyOf population, which is itself derived from the registered item.item_custody, so it carries no already-applied gate, converges on the step after a rewind, and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 - no encoding changed. It exists because custody let an authored object cross a room boundary alive, and re-entering the room then minted a SECOND occurrence claiming the same SimId::placement(..). ⛔⛔ the day OccurrenceDisposition::Consumed gains a producer this row becomes a lie: that leg ACCUMULATES a fact no live component still carries, nothing re-derives it, and it will owe a real registration with a value projection over the id set plus a durable-save representation, in the same change.",
     "⚠ 2026-08-15 ADDS derived.custody_residency, a DECLARED-DERIVED row rather than a registration: InCustodyOf is recomputed unconditionally every tick from the registered item.item_custody, with no 'already applied' gate, so it is not rollback state and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 — no encoding changed. It exists so a held item's RESIDENCY follows its holder: the roster a room change retires is now (With<RoomScopedEntity>, Without<InCustodyOf>), which is how a carried object crosses a room boundary without the transition knowing that items exist. ⛔ deliberately NOT _component_state: its only value is an entity handle, and hashing a raw handle is the hazard item.item_custody's entity-set probe already answers through the holder's SimId.",
     "⚠ v31 (2026-08-15) ADDS resource.gate_portal_phases, and the growth is deliberate: the portal phase was a mutable f32 timer that nothing rewound. The switch driving it lives in AmbitionGameSave and IS registered, so the INPUT rewound while its INTEGRAL did not, leaving the phase permanently ahead by the depth of every rollback taken during the ~38-tick opening window. Its consumer refuses a room crossing unless the phase is On, so peers disagreed about whether the crossing happened. It was previously waived as 'authored' — a true sentence about GatePortalConfig, which really is authored, and which no longer holds the phase at all. Registered with a VALUE projection, not a presence probe: a presence probe would have restored that phases exist, said nothing about elapsed, and passed while reproducing the defect.",
     "⚠ v28 (2026-08-14) REMOVES resource.combat_slot_board, and a removal is the rarer direction for this file. The board it rewound arranged a crowd into numbered approach slots around a target; no production reader consumed the assignment, so peers agreed every tick about a value nothing asked for. Its anchor was PrimaryPlayer-or-lowest-PlayerSlot, which made it the largest player-centric assumption inside generic actor simulation as well. Deleted with the board rather than made target-relative: target-relative arbitration for a mechanism with no consumer is the abstraction, not the fix.",
@@ -34,9 +34,10 @@
     "⚠ message.conversation_cut_bark (2026-08-08) is the continuity → CAST port: the break rule asks for a bark, the cast answers on the same tick. It exists so `conversation` stops naming crate::features and crate::character_runtime — its last two inward edges — which is what makes the module liftable. Cleared on load like every other in-tick sim channel: a request from a branch the host abandoned must not reach the cast. ⚠ NO version bump: a message-clear row adds no bytes to a snapshot, so two peers differing only in this still agree about every value.",
     "⚠ v20 (2026-08-09) is D37, and NOTHING CHANGES IN THIS FILE FOR IT — recorded for the same reason v19 was: a version bump with no set movement is the case somebody will otherwise go looking for a missing entry. `schema_dump()` stopped writing a type's crate and module path and now writes its FINAL SEGMENT alone, so relocating a rollback-registered type is no longer a wire-format change — which is what stops every carve in the decomposition campaign from being a netplay compatibility break. It is the second half of the decision v5 made about `owner`: an organisational label is not a wire-format fact, and nobody chose this one, it arrived inside a string being used for identity. No stable name joins or leaves and no projection changed; only the hashed spelling of each type moved, and the version constant is the only signal for that. ⚠ the narrower identity is sound only while final segments are unique, so `try_register` now REJECTS two DIFFERENT types that share one — two crates each spelling a `Cooldown` is the shape it names, and `encoded_types` below is where to look when it fires.",
     "⚠ SCHEMA v21 (2026-08-09) is ADR 0033, and it adds two entries that are a JOIN: actor.out_of_play and actor.death_interlude. Death stopped being an event the world resolves in the frame it happens and became a STATE the ruleset resolves, so 'this participant's attempt is over', 'its window has N seconds left' and 'it still owes the game its consequence' are gameplay truth that must survive a rewind. The debt field is the one that had to be learned twice: the level reset it triggers is a message written in one frame and consumed in the next, so a rewind across that boundary loses the request unless the cause is answerable from state — measured as a sync-test checksum mismatch on a route that was green. ⚠ they REPLACE a game-side registration: Mary-O's content.mary_o_death_sequence carried the same facts for one game and was clone-probed rather than checksummed, so the wire format gained the truth it was already relying on rather than gaining a feature.",
-    "⚠ SCHEMA v22 (2026-08-09) makes the resolved body hit the on-hit seam. feature.pogo_target and map.hitbox_on_hit are PRUNED because ordinary combat bodies no longer become anonymous world pogo blocks and HitboxOnHit no longer owns a per-victim entity set; message.landed_body_hit joins as a load-cleared same-frame channel. HitboxOnHit itself also changed encoded fields from EffectRef + victim set to EffectRef + world_fired, so the version bump is required even beyond the descriptor-set movement: a v21 peer would decode different bytes."
+    "⚠ SCHEMA v22 (2026-08-09) makes the resolved body hit the on-hit seam. feature.pogo_target and map.hitbox_on_hit are PRUNED because ordinary combat bodies no longer become anonymous world pogo blocks and HitboxOnHit no longer owns a per-victim entity set; message.landed_body_hit joins as a load-cleared same-frame channel. HitboxOnHit itself also changed encoded fields from EffectRef + victim set to EffectRef + world_fired, so the version bump is required even beyond the descriptor-set movement: a v21 peer would decode different bytes.",
+    "⚠ 2026-08-16 ADDS FIVE, and they are the RESET HORIZON — the first values in this format that nothing republishes. GGRS_ROLLBACK_SCHEMA_VERSION went 31 -> 32 in the same landing. message.checkpoint_committed and message.reset_to_checkpoint are the two channels of the horizon (a shrine rest; a death), both registered with clear_message_on_rollback because a message that survives a rewind fires its consumer twice. resource.occurrence_baseline and resource.custody_baseline are the checkpoint's SNAPSHOT of two authoritative domains — ⭐ deliberately two, not one: an AuthoredOccurrences row says SOMEBODY holds the occurrence and cannot say WHICH body, so custody keeps its own projection and the baseline is a projection of domains rather than a clone of one resource. Both carry their own checksum (rollback_resource_clone_checksum, entity-free over a BTreeMap) rather than claiming another projection supplies it — which would have been a lie, since nothing else projects a baseline. derived.gated_lock_wall_cache is a DECLARED-DERIVED row: the authored-gate wall overlay is recomputed from the active LDtk project + room + save each frame with no already-applied gate. ⛔ the day a baseline row's occurrence has no live entity to restore into a hand, this format grows again — that gap is open and currently degrades to the pedestal."
   ],
-  "measured_on": "2026-08-15",
+  "measured_on": "2026-08-16",
   "stable_schema_names": [
     "actor.action_set",
     "actor.active_combatant",
@@ -159,6 +160,7 @@
     "derived.encounter_view",
     "derived.feature_ecs_world_overlay",
     "derived.force_zones",
+    "derived.gated_lock_wall_cache",
     "derived.global_transform",
     "derived.gravity_zones",
     "derived.nearest_interactable",
@@ -263,6 +265,7 @@
     "message.causal_body_movement_ops",
     "message.causal_body_reaction_applied",
     "message.challenge_requested",
+    "message.checkpoint_committed",
     "message.clear_portals",
     "message.clock_reset_request",
     "message.clock_scale_request",
@@ -303,6 +306,7 @@
     "message.quest_advance_requested",
     "message.release_provocation",
     "message.reset_room_features",
+    "message.reset_to_checkpoint",
     "message.respawn_room_visuals",
     "message.room_loaded",
     "message.room_replay_requested",
@@ -354,6 +358,7 @@
     "resource.base_gravity",
     "resource.clock_regime_policy",
     "resource.clock_state",
+    "resource.custody_baseline",
     "resource.encounter_registry",
     "resource.enemy_projectile_state",
     "resource.faction_relations",
@@ -364,6 +369,7 @@
     "resource.input_stream_recorder",
     "resource.inventory_restored",
     "resource.moving_platform_set",
+    "resource.occurrence_baseline",
     "resource.owned_items",
     "resource.pending_lifecycle_commit",
     "resource.pending_player_hit_events",
@@ -390,7 +396,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 351,
+  "stable_schema_name_count": 356,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

@@ -1506,7 +1506,15 @@ fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme
 /// worn identity every frame — so this toggle grants and revokes the FULL form,
 /// and `WornCharacter` stays the single gameplay + presentation authority. No
 /// timer: a future ring drain can wear the form off the same way this toggle does.
+///
+/// ⚠ **and it sheds the speed shoes**, because a wear REPLACES the live
+/// `MomentumParams` wholesale: a shoes grant that outlives the swap would later
+/// "restore" a baseline saved from the other form's authored row. The monitor
+/// that granted the form used to own that rule; the form now arrives only from
+/// here, so the rule moved here with it rather than being deleted alongside the
+/// monitor.
 fn toggle_sanic_form(
+    mut commands: bevy::prelude::Commands,
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
     >,
@@ -1531,8 +1539,11 @@ fn toggle_sanic_form(
         _ => return,
     };
     // The transform SOUND fires from the worn-identity edge in
-    // `sync_super_form_traits`, so wearing the form is all this does.
+    // `sync_super_form_traits`, so wearing the form is all this does — plus
+    // dropping any live shoes, whose saved baseline belongs to the form being
+    // taken off.
     *worn = ambition_platformer2d::characters::actor::WornCharacter::new(next);
+    commands.entity(entity).remove::<monitors::SpeedShoes>();
 }
 
 /// How often the super form's sparkle trail pulses (sim seconds).

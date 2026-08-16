@@ -150,7 +150,6 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
     // "ldtk one-way" / "ldtk hazard") — authored names are erased by the
     // IntGrid lowering (code smell #15), so kind presence is what's provable.
     for landmark in [
-        "Block: monitor_super",
         "Block: monitor_speed",
         "Block: ReboundPad",
         "Block: ldtk solid",

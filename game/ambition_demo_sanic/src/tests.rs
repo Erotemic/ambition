@@ -181,12 +181,24 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "and the mid-course strip is a DAMAGE volume, so a hit costs rings \
          rather than the whole run"
     );
-    for monitor in [monitors::SUPER_MONITOR, monitors::SPEED_MONITOR] {
-        assert!(
-            room.world.blocks.iter().any(|b| b.name == monitor),
-            "monitor '{monitor}' is authored as a named block"
-        );
-    }
+    // ⛔ **the course offers exactly ONE monitor and it is the shoes.** Jon,
+    // 2026-08-16: *"the sanic level should not offer super form. at all. There
+    // is a key for it."* Naming the absent block by name would pass again the
+    // moment someone authored `monitor_super_v2`, so this counts them instead:
+    // any second monitor, whatever it is called, has to come past this line.
+    let authored = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| b.name.starts_with(monitors::MONITOR_PREFIX))
+        .map(|b| b.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        authored,
+        [monitors::SPEED_MONITOR],
+        "the speedway authors the speed shoes and no other monitor — the super \
+         form is reachable only from the Utility action"
+    );
     assert_eq!(room.enemy_spawns.len(), 4, "four badniks pace the flats");
     assert!(
         room.enemy_spawns

@@ -284,10 +284,15 @@ def area_spec() -> dict:
 # requires rolling and rolling requires moving. That was fixed by editing the
 # .ldtk directly and this script never learned, so it sat here as a loaded
 # regression — one regeneration away from putting the wall back.
+#
+# ⛔ **there is no super-form monitor and there must not be one.** Jon,
+# 2026-08-16: *"the sanic level should not offer super form. at all. There is a
+# key for it."* The transformation is reachable ONLY from the Utility action (D
+# in the classic preset) — a course pickup that hands it out is the thing being
+# removed, not a thing to re-author at a safer position.
 MONITORS = {
     "level_id": "sanic_speedway",
     "entities": [
-        rect("OneWayPlatform", (1490, 646), (26, 26), name="monitor_super"),
         rect("OneWayPlatform", (4650, 390), (26, 26), name="monitor_speed"),
     ],
 }

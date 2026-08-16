@@ -24,13 +24,16 @@
   * ✔ Fixed — the button reads "Transform".
 
 * Sanic should not pick up anything that turns him into super sanic in the level. 
+  * ✔ It came out: `monitor_super` is deleted from the course, from the authoring script and from `monitors.rs`, and a test now counts the monitors so no second one gets authored quietly. The D key is the only way into the form.
 
 * Super sanics spikes are clipped by the sprite renderer. This might need a
   structural fix. We should not be able to clip sprite artwork so easily.
 
+  ▢ Confirmed and measured 2026-08-16, and you were right that it is structural. `super_sanic` has four frames (`idle`, `air_forward`, `hit`, `taunt`) with ~20 opaque pixels in a straight line along the TOP of the 128px logical frame — the flat-cut signature, on the edge the raised spikes point at. Base `sanic` is clean, which is the control: spikes down fine, spikes up cut. **It is not just Sanic: 23 of 133 sheets show the same signature**, including `robot` (171 frames, top), `player_extended`, four of the robot variants, `puppy_slug` (three edges) and `ninja_shadow_oni_leader`. Nothing in the pipeline checks it — the only frame-bound assert is a post-trim losslessness check in the packer, which cannot see ink that was never drawn.
+
 * The current player V3 collision / hurt box  is larger than the player sprite. It needs to be slightly inset from the visible parts of the player. It should be under the main head, and well within the player arms. The player hitbox needs to be very forgiving to the player.
 
-  ▢ Not started; the sprite and box numbers were never converted to a common unit, and this may be the player-side case of the quad-from-bbox decision below.
+  ✔ Already fixed, and now guarded (2026-08-16). v3's sheet authors his box rather than measuring the idle alpha bbox: **57×91 against a 71×103 drawn silhouette — 7px clear of each arm, 10px under the antenna, 0.71× the area**, where you reported it at 1.28× wide. ⛔ but nothing could SEE that: two tests pinned the box and poisoning it back out to the full silhouette left both green, because one asserts a height and the other a fraction of whatever box it is handed. There is now a test comparing the two rectangles data-to-data. ⚠ the snake and Sanic are still the other thing — neither sheet authors a body, so they remain on the hand-tuned `collision_scale` road with 31 others.
 
 * A sword respects an authored hurtbox and a bolt never has — `step_projectiles` tests the coarse `CenteredAabb` while melee consults `DamageableVolumes`. [agent-found]
 

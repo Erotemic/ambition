@@ -14,15 +14,16 @@
 //! via the render reconcile — stops drawing. Re-arms on room (re)load.
 //!
 //! Grants:
-//! - `monitor_super`  → the SUPER FORM: wear the Super Sanic identity
-//!   (`WornCharacter` swap, the same authority the D-toggle uses). The form
-//!   is NOT a timed grant — every super trait derives from the worn identity
-//!   (boosted movement from the catalog row; invincibility, destroy-on-touch,
-//!   and sparkles from `sync_super_form_traits` in the crate root) and the
-//!   D-toggle wears it off. Rings/resources come later; this is a demo.
 //! - `monitor_speed`  → SPEED SHOES: a timed multiplier on the body's OWN
 //!   `MomentumParams` (top speed + ground accel), restored exactly on expiry.
 //!   Skipped while super — the form's params are identity-authored.
+//!
+//! ⛔ **the course does NOT hand out the super form, and no monitor may.** Jon,
+//! 2026-08-16: *"the sanic level should not offer super form. at all. There is a
+//! key for it."* The transformation lives on the Utility action (`toggle_sanic_form`)
+//! and nowhere else, so this file has no super grant to gate, defer or make
+//! deliberate — the whole `monitor_super` block, its placement and its
+//! stomp-only rule are gone rather than tuned.
 
 use bevy::prelude::*;
 
@@ -36,8 +37,7 @@ use crate::{SPEEDWAY_ROOM_ID, SUPER_SANIC_CHARACTER_ID};
 
 /// Authored block-name prefix that marks a block as a monitor.
 pub const MONITOR_PREFIX: &str = "monitor_";
-/// The two authored monitors (block names in the LDtk file).
-pub const SUPER_MONITOR: &str = "monitor_super";
+/// The one authored monitor (block name in the LDtk file).
 pub const SPEED_MONITOR: &str = "monitor_speed";
 
 /// How long the speed shoes last (sim seconds) and what they multiply.
@@ -90,21 +90,13 @@ pub struct SpeedShoes {
     saved_ground_accel: f32,
 }
 
-/// Whether a monitor breaks this frame, given how the player touched it.
-///
-/// The SUPER form is game-changing, so grabbing it is a DELIBERATE act — a stomp
-/// onto the lid — never something you roll into "no matter what" just by carrying
-/// speed through its lane (Jon bug list #6: "runs past a point → turns super no
-/// matter what"). Fast running IS rolling in this demo, so a plain roll-through
-/// used to auto-transform. Ordinary monitors (speed shoes) still pop on a
-/// roll-through, the classic Sonic feel.
-fn monitor_breaks(is_super: bool, stomp: bool, roll: bool) -> bool {
-    stomp || (roll && !is_super)
-}
-
 /// **The break.** A falling player whose feet land on a monitor's lid, or a
-/// rolling player overlapping it, breaks it once: burst + cue + the grant. The
-/// SUPER monitor is stomp-only ([`monitor_breaks`]).
+/// rolling player overlapping it, breaks it once: burst + cue + the grant.
+///
+/// Every monitor pops on a roll-through, the classic Sonic feel. That used to
+/// be conditional — the super monitor was stomp-only, so carrying speed through
+/// its lane could not transform you by accident — and the condition died with
+/// the monitor it protected.
 pub fn break_monitor_boxes(
     mut commands: Commands,
     mut spent: ResMut<SpentMonitors>,
@@ -115,7 +107,7 @@ pub fn break_monitor_boxes(
         (
             Entity,
             &ae::BodyKinematics,
-            &mut ambition_platformer2d::characters::actor::WornCharacter,
+            &ambition_platformer2d::characters::actor::WornCharacter,
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
             Option<&SpeedShoes>,
@@ -123,7 +115,7 @@ pub fn break_monitor_boxes(
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((entity, kin, mut worn, mut model, rolling, shoes)) = players.single_mut() else {
+    let Ok((entity, kin, worn, mut model, rolling, shoes)) = players.single_mut() else {
         return;
     };
     let rolling = rolling.is_some();
@@ -143,8 +135,7 @@ pub fn break_monitor_boxes(
         let stomp =
             falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
         let roll = rolling && overlap_x && overlap_y;
-        let is_super = block.name == SUPER_MONITOR;
-        if !monitor_breaks(is_super, stomp, roll) {
+        if !(stomp || roll) {
             continue;
         }
         spent.0.push(block.name.clone());
@@ -171,20 +162,6 @@ pub fn break_monitor_boxes(
             },
         );
         match block.name.as_str() {
-            SUPER_MONITOR => {
-                // The transformation grant reuses the ONE identity authority
-                // (WornCharacter), exactly like the D-toggle — the super row
-                // authors the boosted movement and every other super trait
-                // derives from the worn identity (`sync_super_form_traits`),
-                // so the wear IS the whole grant. The wear's params refresh
-                // replaces the live `MomentumParams` wholesale, which would
-                // orphan a live speed shoes' saved baseline — the form eats
-                // the shoes.
-                *worn = ambition_platformer2d::characters::actor::WornCharacter::new(
-                    SUPER_SANIC_CHARACTER_ID,
-                );
-                commands.entity(entity).remove::<SpeedShoes>();
-            }
             SPEED_MONITOR => {
                 // Never stack: a second pair of shoes while one is live would
                 // save the already-multiplied params and "restore" them — and
@@ -268,37 +245,11 @@ pub fn rearm_monitors_on_room_loaded(
 mod tests {
     use super::*;
 
-    /// Jon bug #6: rolling THROUGH the super monitor must not auto-transform you;
-    /// only a deliberate stomp grabs the super form. Ordinary monitors keep the
-    /// classic roll-through.
-    #[test]
-    fn the_super_monitor_is_stomp_only_but_others_pop_on_a_rollthrough() {
-        // Ordinary (speed) monitor: a roll-through OR a stomp breaks it.
-        assert!(
-            monitor_breaks(false, false, true),
-            "speed monitor pops on a roll-through"
-        );
-        assert!(monitor_breaks(false, true, false), "and on a stomp");
-        // Super monitor: a roll-through must NOT transform you...
-        assert!(
-            !monitor_breaks(true, false, true),
-            "rolling past the super monitor must NOT auto-transform (Jon bug #6)"
-        );
-        // ...only a deliberate stomp onto the lid does.
-        assert!(
-            monitor_breaks(true, true, false),
-            "a stomp onto the super monitor IS a deliberate grab"
-        );
-        // Touching neither way breaks nothing.
-        assert!(!monitor_breaks(false, false, false));
-        assert!(!monitor_breaks(true, false, false));
-    }
-
     #[test]
     fn a_broken_monitor_is_subtracted_from_the_collision_overlay() {
         let mut app = App::new();
         app.init_resource::<FeatureEcsWorldOverlay>();
-        app.insert_resource(SpentMonitors(vec![SUPER_MONITOR.to_string()]));
+        app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_systems(Update, contribute_broken_monitors_to_overlay);
         app.update();
         let removed = &app
@@ -306,7 +257,7 @@ mod tests {
             .resource::<FeatureEcsWorldOverlay>()
             .removed_block_names;
         assert!(
-            removed.contains(&SUPER_MONITOR.to_string()),
+            removed.contains(&SPEED_MONITOR.to_string()),
             "broken monitors are named in removed_block_names: {removed:?}"
         );
     }

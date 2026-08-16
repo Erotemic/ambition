@@ -238,7 +238,12 @@ now authored+voiced (**Pogo** spring, **Reset** pit-death, and a new reusable
 engine **Land** cue emitted once per touchdown edge in `emit_movement_fx`);
 distinct **monitor**, **badnik**, and **skid** voices; and the **transform** sound
 derived from the worn-identity edge in `sync_super_form_traits` so it fires once
-regardless of cause (D-toggle / monitor / future ring drain).
+regardless of cause (D-toggle / monitor / future ring drain). ⛔ **2026-08-16 —
+the monitor cause is gone and must not come back:** Jon, *"the sanic level should
+not offer super form. at all. There is a key for it."* `monitor_super` is deleted
+from the course, from `author_speedway_ldtk.py` and from `monitors.rs`; the
+Utility action is the only way into the form, and the worn-identity edge means
+the cue still fires for whatever wears it next.
 
 **Rings landed as a collection loop (commit `a8ab166ee`).** Correction to the note
 below: the "291 ring refs" were `ring` inside `String` — there were **zero** rings.

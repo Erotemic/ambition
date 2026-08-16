@@ -250,7 +250,12 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
             move_id: "smash".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Vfx {
+                // The old behaviour, which both fields are serde-defaulted to:
+                // at the owner's centre, at the presentation's default size.
+                // This test is about the NAME reaching the wire.
                 effect: "starburst".to_string(),
+                at: (0.0, 0.0),
+                scale: 1.0,
             },
         });
     app.update();

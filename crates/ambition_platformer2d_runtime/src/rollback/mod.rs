@@ -29,7 +29,7 @@ pub enum AmbitionLoadWorldSet {
 
 mod codec;
 mod codecs;
-mod domains;
+pub(crate) mod domains;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod local_session;

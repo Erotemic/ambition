@@ -54,6 +54,8 @@ pub mod content_identity;
 /// so a rollback cannot duplicate one or leave a mispredicted one standing.
 pub mod external_effects;
 pub mod input_stream;
+/// The opt-in LDtk world install: the format's runtime spine + its rollback row.
+pub mod ldtk_world;
 pub mod lifecycle_commit;
 mod mode_scope;
 mod player_schedule;
@@ -105,6 +107,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 pub use ambition_time::SimTick;
 /// The per-tick input recorder (netcode N0.2).
 pub use input_stream::{input_stream_recording, record_input_stream, InputStreamRecorder};
+pub use ldtk_world::LdtkWorldPlugin;
 
 /// Host-facing input seams that are implemented by the simulation heart but
 /// scheduled by a visible host. Keeping this tiny facade here lets
@@ -420,8 +423,14 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Feature (room-entity) collection + interaction schedules.
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
-            // LDtk runtime spine (room load/transition spine).
-            .add(ambition_platformer2d_ldtk::LdtkRuntimeSpinePlugin)
+            // ⛔ **the LDtk runtime spine is NOT here any more** (2026-08-16).
+            // It was added unconditionally, so five RON-authored games carried
+            // six LDtk index resources, a six-system sim chain in their
+            // schedule graph, and an LDtk component in their wire format for an
+            // authoring format none of them uses. D135 made the chain decline
+            // to RUN there; a plugin that is added and then declines to run is
+            // still added. A game with an LDtk world adds
+            // [`crate::LdtkWorldPlugin`] after this group.
             // Encounter + cutscene simulation schedules.
             .add(ambition_platformer2d_actor_monolith::encounter::EncounterSimulationSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::cutscene::CutsceneSchedulePlugin)

@@ -72,6 +72,8 @@ pub(super) mod combat;
 pub(super) mod cutscene;
 pub(super) mod encounter;
 pub(super) mod items;
+/// ⛔ NOT called by `register_engine_rollback_state` — see the module doc.
+pub(crate) mod ldtk;
 pub(super) mod lifecycle;
 pub(super) mod portal;
 pub(super) mod primitives;

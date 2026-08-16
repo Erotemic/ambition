@@ -100,12 +100,11 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "root.active_room_metadata",
     );
-    app.rollback_component_clone_checksum::<ambition_platformer2d_ldtk::LdtkRuntimeIndex>(
-        OWNER,
-        "root.ldtk_runtime_index",
-        "bevy_ggrs clone snapshot + active LDtk area checksum",
-        ldtk_runtime_index_checksum,
-    );
+    // ⛔ `root.ldtk_runtime_index` used to be registered here. It is not an
+    // actor fact and not an every-game fact — it is an authoring format's, and
+    // registering it beside `RoomSet` put an LDtk component in the wire format
+    // of five games that install no LDtk world. It lives in [`super::ldtk`]
+    // now, called only by `crate::ldtk_world::LdtkWorldPlugin`.
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::rooms::RoomMusicRequest>(
         OWNER,
         "root.room_music_request",
@@ -888,10 +887,4 @@ fn room_set_checksum(rooms: &ambition_platformer2d_actor_monolith::rooms::RoomSe
     put_u64(&mut bytes, rooms.start as u64);
     put_str(&mut bytes, &rooms.active_spec().id);
     checksum_bytes(&bytes)
-}
-
-fn ldtk_runtime_index_checksum(
-    index: &ambition_platformer2d_ldtk::LdtkRuntimeIndex,
-) -> u64 {
-    checksum_bytes(index.active_area().as_bytes())
 }

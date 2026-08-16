@@ -113,6 +113,13 @@ pub fn add_simulation_plugins(app: &mut App) {
     // group membership does not change the resolved schedule.
     app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
 
+    // ⭐ **Ambition is the game that HAS an LDtk world, so Ambition says so.**
+    // The spine and its rollback row used to ride the engine group, which meant
+    // every RON-authored demo installed an authoring format it never uses. This
+    // is the composition statement that replaced it; it must come after the
+    // group, which is what sets `SimulationHost` for the rollback registrar.
+    app.add_plugins(ambition_platformer2d::runtime::LdtkWorldPlugin);
+
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
     // chain, brains, possession, room-transition detect/reset, portal

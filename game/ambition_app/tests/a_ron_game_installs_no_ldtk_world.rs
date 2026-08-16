@@ -129,3 +129,97 @@ fn a_ron_authored_session_root_carries_no_ldtk_index() {
          inside the canonical session world, which is the defect this file pins"
     );
 }
+
+/// The registry row the LDtk runtime index is registered under.
+const LDTK_ROLLBACK_ROW: &str = "root.ldtk_runtime_index";
+
+/// Does this composition's snapshot schema contain the LDtk world's row?
+fn schema_names_the_ldtk_row(world: &ambition_platformer2d::bevy::prelude::World) -> bool {
+    world
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .expect(
+            "no RollbackRegistry in this composition, so the schema question was never \
+             actually asked — the engine group installs one in every game",
+        )
+        .descriptors()
+        .any(|entry| entry.name == LDTK_ROLLBACK_ROW)
+}
+
+/// **THE POSITIVE TERM for the D136 half: the LDtk-authored game installs the
+/// spine and carries the format's row in its wire format.**
+///
+/// ⛔ without this, its sibling below passes in a build where
+/// `LdtkWorldPlugin` is added by nobody — which deletes level streaming AND the
+/// index's rollback participation from the shipped game while turning the pair
+/// green.
+#[test]
+fn the_ldtk_authored_game_installs_the_spine_and_registers_its_rollback_row() {
+    let mut app = ambition_platformer2d::bevy::prelude::App::new();
+    ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
+
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>()
+            .is_some(),
+        "the LDtk-authored game installed no LDtk runtime spine. This is the road \
+         that is supposed to add `LdtkWorldPlugin`, and an absence here is the \
+         format's index-rebuild chain silently gone, not a boundary cleanly drawn"
+    );
+    assert!(
+        schema_names_the_ldtk_row(app.world()),
+        "the LDtk-authored game's snapshot schema does not name '{LDTK_ROLLBACK_ROW}'. \
+         The index is rewound state in THIS game — a missing registration is a \
+         desync, not a tidier boundary"
+    );
+}
+
+/// **THE INVARIANT: a RON-authored composition never mentions LDtk.**
+///
+/// D135 made the spine's six-system chain DECLINE TO RUN in the five
+/// RON-authored games by gating it on `ldtk_world_installed`. ⛔ a plugin that
+/// is added and then declines to run is still added: its six index resources
+/// are still initialized, its systems are still in the schedule graph, and its
+/// component is still a row in the wire format. This pins the other half — the
+/// engine group does not install an authoring format at all.
+#[test]
+fn a_ron_authored_composition_installs_no_ldtk_spine_and_no_ldtk_rollback_row() {
+    let app = PlatformerApp::headless()
+        .mount(VersusModule)
+        .try_build()
+        .expect("the versus stage must compose through the public API");
+
+    // ⚠ **the composition must be REAL before its emptiness means anything.** An
+    // App that failed to assemble the engine would report "no LDtk spine" for
+    // the uninteresting reason that it has nothing in it. The registry is
+    // installed by `AmbitionRollbackSchemaPlugin`, the FIRST plugin in the
+    // engine group, and a populated one is proof the group ran.
+    let registry_rows = app
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
+        .expect("the RON-authored composition installed no RollbackRegistry, so it never \
+                 reached the state where a stray LDtk registration could be observed")
+        .descriptors()
+        .count();
+    assert!(
+        registry_rows > 100,
+        "the RON-authored composition recorded only {registry_rows} rollback rows, so the \
+         engine group did not assemble and this test proves nothing about LDtk"
+    );
+
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::ldtk_map::LdtkRuntimeSpineIndex>()
+            .is_none(),
+        "a RON-authored composition initialized the LDtk runtime spine's index. The spine \
+         is a format's, and this game has no LDtk world — the resource can only ever hold \
+         the empty value the rebuild chain declines to fill"
+    );
+    assert!(
+        !schema_names_the_ldtk_row(app.world()),
+        "a RON-authored composition's snapshot schema names '{LDTK_ROLLBACK_ROW}'. Nothing \
+         in this game installs an LDtk world, so the format's component is a row in a \
+         wire format that can never contain it — and it changes the fingerprint two \
+         peers must agree on"
+    );
+}

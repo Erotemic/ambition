@@ -1738,6 +1738,14 @@ sacrifice discoverability in the name of avoiding central authority.
 - ▣ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
   BEEN ASKED TO AGREE. (opened 2026-08-16; MEASURED and HALF CLOSED 2026-08-16)**
 
+⚠⚠ **A PLAYER-VISIBLE TRADE WENT WITH THIS SLICE, AND IT IS DELIBERATE: A HELD
+WEAPON CARRIED ACROSS A SAVE/LOAD IS NOW LOST RATHER THAN DUPLICATED.** The
+catalog no longer records a picked-up object, and the durable save describes no
+custody at all — so nothing on disk remembers the hand. ⇒ **the duplication glitch
+is gone and a loss took its place**, which is the better failure to have while the
+gap is open but is NOT a resting state. ⛔ **this makes durable custody the
+BLOCKING item, not a nice-to-have** — see the gate below.
+
 ⭐⭐ **MEASURED FIRST, and the prediction below was wrong about which history
 breaks.** `two_persistence_authorities_for_one_item.rs` drives the exact scenario
 this row asks for — save a count of 1, load, equip out of the count table, throw

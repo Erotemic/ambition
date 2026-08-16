@@ -62,6 +62,11 @@ fn rig_kit() -> Vec<AttackCandidate> {
         recovery_s: 0.2,
         cancel_windows: Vec::new(),
         reach,
+        // A forward poke of that length — the shape these fixtures mean.
+        coverage: (reach > 0.0).then(|| ambition_entity_catalog::MoveCoverage {
+            min: (0.0, -12.0),
+            max: (reach, 12.0),
+        }),
         max_damage: damage,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),

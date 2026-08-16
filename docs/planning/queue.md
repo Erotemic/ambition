@@ -1635,6 +1635,59 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
+- ▢ **D130 — The Smash gameplay HUD renders TOFU, and the two-fighter state is
+  unreachable by the tool built to photograph it. (opened 2026-08-16 by LOOKING)**
+
+⭐ **this is the "worth one CPU-vs-CPU match watched by a human" item cashing in,
+and the first frame paid for it.**
+
+### (a) TOFU on `smash_gameplay`
+
+Two full lines, ~35 characters each, **every glyph a hollow box**, bottom-centre
+of the gameplay route — with the HUD's chips drawing as blank grey rounded
+rectangles above them. Reproduce:
+
+```bash
+cargo run --release -p ambition_app_tools --bin capture_scene -- \
+    --route smash_gameplay /tmp/smash.png 1280x720 --warmup 240
+```
+
+⛔ **eliminated, do not re-run these:**
+- **load timing** — identical at `--warmup 900`;
+- **`--include-ui`** — the tofu is present with and without it, byte-identical;
+- **the font files** — `InterDisplay-Regular/SemiBold` and `JetBrainsMono` all
+  ship under `assets/fonts/{bundled,local}`;
+- **the Semibold weight** — `UiFonts::text_font` falls back to `regular` when
+  `semibold` is `None`, so a missing weight cannot reach the default handle;
+- ⭐ **the host** — `smash_select` is the SAME process (both are shell routes
+  through `build_visible_app`) and renders perfectly, **including the non-ASCII
+  em-dash** in *"Two fighters needed — click a slot's button…"*.
+
+⇒ suspect: the declared HUD's font fallback,
+`crates/ambition_render/src/hud/declared.rs` ~line 205 —
+`fonts.as_deref().map(..).unwrap_or(TextFont { font_size, ..default() })`, which
+resolves `Handle::<Font>::default()` when the resource is absent. ⚠ **but note
+the symptom DIFFERS from the 2026-08-01 menu tofu**: that one tofu'd only
+non-ASCII and rendered ASCII fine through the same default handle. Here *every*
+character is a box, which points at a font that never resolved at all rather than
+a glyph-coverage gap. ⛔ do not re-assert "Bevy's default font is ASCII-only" —
+it was refuted then and this is not that.
+
+### (b) ⛔⛔ the instrument cannot reach the state it exists for
+
+`capture_scene`'s own doc says `--press Down,Enter,Enter` is what the select
+screen's headless drivers do (`smash_in_the_host.rs`: `tap(ArrowDown)` then
+`tap(Enter)` twice). Run against `--route smash_select`, **all four slots still
+read `NOT PLAYING` / `— no fighter —`** and no fighter is seated, so
+`smash_gameplay` photographs an empty stage every time. ⇒ **the two-CPU match
+nobody has ever looked at is unreachable by the one tool built to photograph
+it** — and the tool's own doc block calls this exact class of thing *"an
+instrument gap, not a gameplay bug"*. Either the key list drifted from the
+drivers, or those drivers never went through keyboard edges.
+⚠ this blocks the standing *"does a watcher SEE the two kits behave
+differently"* question in D128, and it is why every Smash visual fix so far has
+shipped unseen.
+
 - ▢ **D129 — The sprite pipeline CUTS ART AT THE LOGICAL FRAME AND NOTHING NOTICES.
   (opened 2026-08-16 from a maintainer observation, measured the same day)**
 

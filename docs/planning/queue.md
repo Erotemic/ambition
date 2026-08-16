@@ -1670,9 +1670,24 @@ that shape always hides: `george_booul_vfx` and `oiler_vfx` were authored in the
 submodule and named in **no line of `regen_sprites.sh`**. George's sheet is
 published only because someone ran a focused `--target`; a fresh clone's regen
 would have dropped it. Roster fixed and the invariant now stated over discovery
-rather than once per sheet (`b2e3eeafe`). ▢ **still owed: Oiler is authored,
-rostered, and UNPUBLISHED** — no sheet in `assets/sprites/`, zero `vfx.oiler.*`
-cues in `sfx.bank`. A regen + SFX pack run publishes it; neither has been run.
+rather than once per sheet (`b2e3eeafe`).
+
+✔✔ **AND IT ALL GENERATES NOW (Jon asked, 2026-08-16).** `./regen_sfx.sh`
+rendered **38 missing cues** and repacked (bank 166 → **189** `vfx.*`);
+`./regen_sprites.sh --target george_booul_vfx --target oiler_vfx` published both
+sheets including the reduced-resolution tiers. ⚠ none of it is in git — the
+audio/sprite assets are gitignored, so **the roster commit IS the durable half**
+and a fresh clone gets these only by running the two scripts.
+
+⭐⭐⭐ **AND THE MEASUREMENT IS NOW EXACT: 189 ROWS ↔ 189 CUES, ONE FOR ONE,
+ACROSS ALL TWELVE SHEETS.** 4 generic sheets = 65 rows, 8 character sheets = 124
+rows (`carl_stargan` 12, `george_booul` 21, `ninja_shadow_oni_leader` 14,
+`noether` 12, `oiler` 23, `patent_clerk` 14, `pca` 14, `pirate_admiral` 14) — and
+`sfx.bank` carries exactly that many cues, family by family, with **no sheet off
+by one**. ⇒ the unit of this vocabulary is **the effect NAME**: it already
+addresses the art and the sound together, in the data, with no Rust in the
+middle. The engine owes ONE mapping (name → which sheet holds the row), not the
+three tables `ExplosionKind` currently needs.
 
 ⚠ **remaining showcase weaknesses, in order:**
 - **the mirror match is bit-symmetric.** Brains seed from the level alone

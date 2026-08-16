@@ -165,13 +165,38 @@ sheets publishing the body_metrics the good road needs        194 of 196
 ```
 
 ⇒ ⭐⭐ **`world_per_pixel` IS the common unit Jon's hurtbox note says was never
-established** — one number saying how much world a sheet pixel covers. It exists,
-it works, it has two users, and thirty-three bodies are still sized by a constant
-somebody eyeballed once. **Snake too big, Sanic too small and the player hurtbox
-being wider than the art are three of those thirty-three.** ⇒ the executable
-next step is *migrate a body to `SpriteAuthored` and see whether its report
-disappears*, starting with whichever of the three has a sheet whose
-`body_metrics` look right — not a fourth constant.
+established** — one number saying how much world a sheet pixel covers.
+
+⛔⛔ **AND THE "TWO ADOPTERS" COUNT WAS STILL TOO GENEROUS — THE REAL ANSWER IS
+ONE, AND IT NAMES JON'S BUG EXACTLY.** Both call sites are CONDITIONAL, and the
+player's is **dormant**:
+
+```rust
+// player_robot_lineage.rs
+if let Some(body_px) = authored_body_pixel_size(sheet) {   // <- returns None for v3
+    definition = definition.with_sprite_authored_body(DEFAULT_PLAYER_BODY_HEIGHT / body_px.y);
+}
+```
+
+`authored_body_pixel_size` returns `None` unless the sheet's `body_metrics`
+declares **`authored_body: true`**, and **only 6 of 194 sheets do**: `mary_o_v2`
+and its two forms, two Sanic props, one boss. **`player_robot_v3` is not one of
+them.** ⇒ the capability has effectively **one real character adopter, Mary-O**;
+the player's wiring is already written and simply never fires.
+
+⭐⭐⭐ **and the code comment beside it already describes Jon's report, in his
+words**: sheets without an authored body *"keep exactly the path they have today
+and opt in when someone authors them"* — because their boxes are **"still raw
+silhouettes, arms and all."** Jon: *"It should be under the main head, and well
+within the player arms."* Same defect, written down on both sides and never
+joined up.
+
+⇒ **the executable next step is ART, not Rust**: author a body bbox for
+`player_robot_v3` so its sheet ships `authored_body: true`. The dormant call site
+then fires on its own and the box becomes the authored one — ⛔ no engine change,
+no fourth constant, and nothing to migrate. ⚠ do the same read for the snake and
+Sanic before touching either: the question for each is *"does its sheet declare
+an authored body?"*, and for 188 of 194 sheets the answer is no.
 
 ⛔ **do not fix Sanic's scale in isolation** — a fourth hand-tuned constant is
 what this cluster is made of. ⚠ and ⛔ do not delete `collision_scale` before

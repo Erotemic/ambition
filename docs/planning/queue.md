@@ -1666,6 +1666,40 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
+- ▢ **D131 — PERCENT ACCRUES ON A CLOCK, WITH NO HIT AND NO OPPONENT, ON HALF
+  THE CAST. (opened 2026-08-16, the first thing seen when the camera finally
+  worked)**
+
+⛔⛔ **the Smash showcase is not currently a fight.** Sanic passes 200% before the
+`GO!` banner clears and 600% by six seconds; Mary-O reaches **4200% in six
+seconds** against a George Booul floating several body-widths off-stage with no
+contact at any point. Meanwhile `player_robot_v3` and `george_booul` read **0% in
+every single sample**.
+
+⭐⭐ **THE CONTROL IS WHAT MAKES THIS A DIAGNOSIS RATHER THAN A SIGHTING.** Swap
+Sanic to P2 and **the damage moves with him** — the identical 600% at frame 360,
+against a different opponent. ⇒ in one experiment this eliminates the seat, the
+opponent, the stage position and the matchup. **Percent advances per frame, per
+character, with the attacker uninvolved.**
+
+⚠ **and it splits the cast two-and-two**, which is a clue and not yet an answer:
+
+```text
+runs away    sanic, mary_o                 (each the star of its own demo)
+never hit    player_robot_v3, george_booul (native to Ambition / Smash)
+```
+
+⇒ crossover-vs-native is the obvious hypothesis and **two a side is too small to
+believe it** — widen the sample across the other eleven fighters before chasing
+it. ⛔ do not start from the characters; start from **whatever advances damage per
+frame** and ask what admits these two and not those two.
+
+⚠ pair it with the second defect in the same match: **both fighters lose a stock
+at the same instant while one of them is at 0%.**
+
+⭐ reproducible now, which is the only reason any of this is visible — see D130
+for the nine-tap command; sampled at 240/300/360/420/600/900/1400/2400 frames.
+
 - ☑ **D130 — (b) FIXED: the instrument can now photograph a real match. (a) was
   a MISDIAGNOSIS: there is no tofu. (opened + closed 2026-08-16 by LOOKING)**
 

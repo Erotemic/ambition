@@ -2,7 +2,7 @@
 //!
 //! Decides whether the live build reads a world's checked-in file from
 //! disk, an env-override path, or the statically embedded copy — for
-//! every world the caller's [`super::manifest::WorldManifest`] declares.
+//! every world the caller's [`WorldManifest`] declares.
 //! Pure I/O policy — no validation or runtime conversion lives here, and
 //! no world is named here (the manifest rows carry identity, paths, and
 //! embedded fallbacks).
@@ -38,7 +38,7 @@ use ambition_asset_manager::platformer_assets::{
 };
 use ambition_asset_manager::{AssetManifest, AssetProfile};
 
-use super::manifest::{WorldManifest, WorldSource};
+use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
 use super::project::LdtkProject;
 
 impl LdtkProject {

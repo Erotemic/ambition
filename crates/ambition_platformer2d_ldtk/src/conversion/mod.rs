@@ -43,7 +43,7 @@ impl LdtkProject {
     /// directly here.
     pub fn to_room_set(
         &self,
-        manifest: &super::manifest::WorldManifest,
+        manifest: &ambition_platformer2d_world::world_manifest::WorldManifest,
         vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSet, Vec<String>> {
         // The caller's WorldManifest names where play starts and which baked
@@ -66,7 +66,7 @@ impl LdtkProject {
     fn build_room_set(
         &self,
         entry_room: &str,
-        ron_rooms: &[super::manifest::RonRoomSource],
+        ron_rooms: &[ambition_platformer2d_world::ron_room::RonRoomSource],
         vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSet, Vec<String>> {
         let report = self.validate(vocabulary);
@@ -889,7 +889,42 @@ use entity_converters::*;
 mod tests {
     use super::*;
     use crate::project::{LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject};
+    use ambition_asset_manager::AssetId;
+    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     use serde_json::Value;
+
+    /// The cross-crate test fixture: the game's real worlds under
+    /// `game/ambition_content/assets/worlds`, entry room = the hub. Read
+    /// cross-crate (the explicit cross-crate fixture pattern) so this crate's
+    /// conversion / ron-room contract tests exercise real data without
+    /// shipping any. Tests name it EXPLICITLY — it used to be handed to them
+    /// behind their back by a `cfg(test)` branch inside the global accessor.
+    fn test_fixture_manifest() -> WorldManifest {
+        let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../game/ambition_content/assets/worlds");
+        let source = |id: &str, file: &str, required: bool| WorldSource {
+            id: AssetId::new(id),
+            asset_path: format!("game://worlds/{file}"),
+            loose_path: Some(worlds_dir.join(file)),
+            embedded_text: None,
+            embedded_bevy_path: None,
+            required,
+        };
+        WorldManifest {
+            entry_room: "central_hub_complex".to_string(),
+            ron_rooms: Vec::new(),
+            worlds: vec![
+                source("world.sandbox_ldtk", "sandbox.ldtk", true),
+                source("world.intro_ldtk", "intro.ldtk", false),
+                source(
+                    "world.cut_rope_ldtk",
+                    "you_have_to_cut_the_rope.ldtk",
+                    false,
+                ),
+                source("world.hall_ldtk", "hall_of_characters.ldtk", false),
+            ],
+        }
+    }
 
     // ---- Restored ruled-contract tests (fable final audit F7): these were
     // dropped in the W3 carve. They pin [W-b] dual emission, the §3.6 tile
@@ -1311,7 +1346,7 @@ mod tests {
     /// and re-enters a RoomSet with no LDtk in the second path.
     #[test]
     fn the_sanic_area_round_trips_as_a_ron_room() {
-        let manifest = crate::manifest::test_fixture_manifest();
+        let manifest = test_fixture_manifest();
         let project =
             LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
         let room_set = project

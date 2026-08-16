@@ -2069,6 +2069,59 @@ the one of the nine symbols that is not obviously LDtk-shaped, and until it move
 this counter cannot. This row is still the umbrella; work it by taking that
 instance, not by re-measuring the pattern.
 
+⇒ **THE WORLD-MANIFEST INSTANCE LANDED 2026-08-16, AND THE COUNTER STILL READS
+42/15 — because the premise above named ONE edge and `cargo tree -i` found
+FOUR.** ⛔ *"the monolith holds `ambition_platformer2d_ldtk`"* was true and
+incomplete: `ambition_platformer2d` itself declared the backend
+**unconditionally**, `ambition_platformer2d_runtime` declares it, and
+`ambition_platformer2d_provider` declared it while naming **zero** of its
+symbols. Cutting the monolith's edge alone was never going to move this number.
+
+What the slice did:
+- `WorldManifest`/`WorldSource`/`world_bevy_asset_path` moved OUT of
+  `ambition_platformer2d_ldtk` into `ambition_platformer2d_world::world_manifest`,
+  **no re-export left behind**. The type named nothing from the LDtk crate: an
+  `AssetId`, four paths/strings, a bool, and a `ron_rooms` field that already
+  pointed at the world crate — its sibling `ron_room::RonRoomSource` lived there
+  the whole time.
+- the provider's **dead** LDtk edge was deleted (measured: no `.rs` file in that
+  crate named a symbol from it).
+- the facade's LDtk edge is `optional` again and `ldtk_map` is gated on it —
+  which the manifest's own ⛔ note had made conditional on exactly this move.
+- ⚠ `ambition_platformer2d_world` gained `ambition_asset_manager`
+  (`engine.world-ir-dependency-allowlist` amended, not waived). Free by
+  measurement: that crate was already in the sentinel's closure, and it is a leaf
+  with zero `ambition_*` dependencies, taken without its `bevy` feature.
+
+⇒ **what still holds the edge, and the cost of each**, in the order they must
+fall (the last two cannot be cfg-gated cheaply — the code has to move):
+
+```text
+runtime    LdtkRuntimeSpinePlugin is in PlatformerEnginePlugins unconditionally,
+           and LdtkRuntimeIndex is rollback-registered there. SMALL, and it is
+           the exact successor to D135 — a format installs its own spine.
+monolith   LdtkHotReloadState + poll_ldtk_file_changes, in features/mod.rs and
+           persistence/settings/model. ~35 refs. NOT LDtk: a debounced mtime
+           watcher over an Option<PathBuf> whose ctor takes an asset catalog.
+monolith   menu/map/systems.rs builds map nodes by walking LDtk levels. It wants
+           room metadata instead; needs a world rect on the room. MEDIUM.
+monolith   world/gated_lock_walls.rs walks the project for LockWall entities.
+           MEDIUM — the same inversion, onto the room IR.
+monolith   encounter/loading.rs + encounter/systems.rs read LDtk levels/fields
+           to build encounter specs. LARGE, and already planned: the comment in
+           systems.rs says "W4 will route encounter loading through RoomEmission
+           instead of the project".
+```
+
+⭐ **the sortable finding for the umbrella**: of the nine symbols, only THREE are
+genuine format vocabulary held by production code (`LdtkProject`,
+`ActiveLdtkProject`, `LdtkLevel`, reached through `field_string`/`field_f32`);
+`LdtkVocabulary` is named by a TEST only; and `WorldManifest`,
+`LdtkHotReloadState` and `poll_ldtk_file_changes` are engine concepts wearing an
+LDtk name. One of the three is now gone. **⛔ the lesson for the next instance is
+the measurement, not the move: run `cargo tree -i` for the crate you mean to
+evict BEFORE choosing which code to carve.**
+
 - ✔ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
   FIELD, AND FIVE GAMES FILL IT WITH `::default()`.
   (opened 2026-08-16, split out of D134; DONE 2026-08-16 — read the ⇒ closure at

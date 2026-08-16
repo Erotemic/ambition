@@ -17,7 +17,8 @@
 //!   ([`LdtkProject::load_default`] (catalog-aware),
 //!   [`LdtkProject::load_default_for_dev`] (no-catalog test/headless
 //!   helper), `load_from_disk_at`, `load_from_path`). Each takes the
-//!   caller's [`WorldManifest`] — there is no ambient one.
+//!   caller's `ambition_platformer2d_world::world_manifest::WorldManifest`
+//!   — there is no ambient one.
 //! - `conversion` — LDtk → Ambition runtime conversion
 //!   ([`LdtkProject::to_room_set`], `entity_to_runtime`).
 //! - `contract` — the AUTHORING contract those converters enforce, as one
@@ -30,6 +31,12 @@
 //! - `hot_reload` — file-watch + transactional reload state.
 //! - `intgrid`, `fields`, `surfaces` — IntGrid emission, field
 //!   accessors, typed `Surface` parsing.
+//! - ⛔ **no `manifest`.** `WorldManifest`/`WorldSource` — a game's
+//!   declaration of which authored world documents it ships — moved to
+//!   `ambition_platformer2d_world::world_manifest` on 2026-08-16 (D136).
+//!   They are an asset catalog, not this format's vocabulary, and holding
+//!   them here is what forced `ambition_platformer2d` to depend on this
+//!   crate unconditionally.
 //! - `tests` (cfg(test) only) — internal tests, split by topic
 //!   (`embedded_project`, `intgrid`, `kinematic_paths`, `metadata`,
 //!   `surfaces`).
@@ -45,7 +52,6 @@ mod fields;
 mod hot_reload;
 mod intgrid;
 mod loading;
-mod manifest;
 mod project;
 mod surfaces;
 
@@ -57,14 +63,18 @@ pub use conversion::{
     kinematic_path_lookup_id, LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission,
 };
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
-// The WorldManifest VALUE (JD4 / K2a): a game declares its LDtk worlds +
-// entry room; the engine ships zero worlds and hardcodes no start room.
-// There is no installer and no process global — preparation owns one value
-// and hands it to every reader.
+// ⛔ **`WorldManifest`/`WorldSource` are NOT re-exported here, and the absence
+// is the point.** They moved DOWN to
+// `ambition_platformer2d_world::world_manifest` on 2026-08-16 (D136): a
+// declaration of which authored world documents a game ships is an asset
+// catalog, not this format's vocabulary, and while it lived here it forced
+// `ambition_platformer2d`'s own LDtk edge to stay unconditional
+// (`game_assets` takes a `WorldManifest` in an ungated signature). A
+// convenience re-export from this crate would put that edge straight back.
+// Readers name the world crate.
 pub use ambition_platformer2d_world::ron_room::{
     load_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc,
 };
-pub use manifest::{world_bevy_asset_path, RonRoomSource, WorldManifest, WorldSource};
 pub use project::{
     ActiveLdtkProject, LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel,
     LdtkProject,

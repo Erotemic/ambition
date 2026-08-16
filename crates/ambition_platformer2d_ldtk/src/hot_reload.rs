@@ -54,7 +54,7 @@ impl LdtkHotReloadState {
     /// idle and `poll_ldtk_file_changes` short-circuits.
     pub fn from_catalog(
         catalog: &Platformer2dAssetCatalog,
-        manifest: &super::manifest::WorldManifest,
+        manifest: &ambition_platformer2d_world::world_manifest::WorldManifest,
     ) -> Self {
         let mut state = Self::default();
         let primary = &manifest.primary().id;

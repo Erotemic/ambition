@@ -14,7 +14,8 @@ use bevy_ecs_ldtk::prelude::LevelSet;
 
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 
-use super::super::{world_bevy_asset_path, LdtkLevel, LdtkProject, WorldManifest};
+use super::super::{LdtkLevel, LdtkProject};
+use ambition_platformer2d_world::world_manifest::{world_bevy_asset_path, WorldManifest};
 
 /// Loaded bevy_ecs_ldtk project handles, one per prepared
 /// [`WorldManifest`] row (index-aligned; 0 = primary).

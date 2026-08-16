@@ -25,7 +25,7 @@
 use std::path::Path;
 
 use ambition_asset_manager::AssetId;
-use ambition_platformer2d_ldtk::{WorldManifest, WorldSource};
+use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
 
 macro_rules! static_world_text {
     ($name:ident, $path:literal) => {

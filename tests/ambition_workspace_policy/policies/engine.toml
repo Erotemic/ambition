@@ -111,12 +111,13 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_platformer2d_world"]
 watch_paths = ["crates/ambition_platformer2d_world/Cargo.toml"]
-rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
+rationale = "ambition_platformer2d_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world, and the manifest declaring which authored world documents a game ships). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves. `ambition_asset_manager` was added 2026-08-16 by a deliberate architecture change (D136): `WorldManifest`/`WorldSource` moved DOWN out of `ambition_platformer2d_ldtk`, because a declaration of which files a game ships is an asset catalog and not an authoring format's vocabulary — its sibling `ron_room::RonRoomSource` was already here, and leaving it in the LDtk crate is what forced `ambition_platformer2d`'s own LDtk edge to be unconditional. The entry does not weaken this crate's purity claim: `ambition_asset_manager` is a LEAF with zero `ambition_*` dependencies, and it is taken WITHOUT its `bevy` feature, so the world IR gains an id vocabulary and no engine, app or backend."
 source_doc = "docs/planning/engine/decomposition.md#W3"
 severity = "error"
 exact = true
 manifest = "crates/ambition_platformer2d_world/Cargo.toml"
 allow = [
+    "ambition_asset_manager",
     "ambition_platformer2d_core",
     "ambition_entity_catalog",
     "ambition_platformer2d_shared_tangle",

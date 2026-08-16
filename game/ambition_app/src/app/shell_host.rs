@@ -36,6 +36,7 @@ use ambition_platformer2d::game_shell::{
 };
 
 use ambition_platformer2d::ldtk_map as ldtk_world;
+use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::lifecycle::SessionScopeSet;
 
 /// The host's home/title route. Providers never name it — `QuitToHome`
@@ -385,7 +386,7 @@ fn ambition_activate_session_visuals(
     // Present iff the LDtk plugin stack is composed (absent in the no-window
     // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
     ldtk_projects: Option<Res<Assets<bevy_ecs_ldtk::assets::LdtkProject>>>,
-    world_manifest: Res<ldtk_world::WorldManifest>,
+    world_manifest: Res<world_manifest::WorldManifest>,
 ) {
     for event in sessions.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {

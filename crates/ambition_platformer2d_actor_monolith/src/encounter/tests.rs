@@ -15,8 +15,8 @@ use bevy::math::bounding::IntersectsVolume;
 
 /// The sandbox world these tests read, as a plain value. No install, no
 /// process global: each test names the manifest it loads through.
-fn test_world_manifest() -> ambition_platformer2d_ldtk::WorldManifest {
-    use ambition_platformer2d_ldtk::{WorldManifest, WorldSource};
+fn test_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldManifest {
+    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     use ambition_asset_manager::AssetId;
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");

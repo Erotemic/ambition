@@ -585,7 +585,7 @@ mod live_quality_apply {
                 default_track: String::new(),
                 tracks: Vec::new(),
             },
-            &ambition_platformer2d_ldtk::WorldManifest::default(),
+            &ambition_platformer2d_world::world_manifest::WorldManifest::default(),
         );
 
         let mut settings = UserSettings::default();

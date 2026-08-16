@@ -12,6 +12,7 @@ pub mod platforms;
 pub mod ron_room;
 pub mod rooms;
 mod snapshot_impls;
+pub mod world_manifest;
 
 pub use debug_label::{DebugLabel, DebugLabelKind};
 

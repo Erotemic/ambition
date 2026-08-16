@@ -299,11 +299,19 @@ substrate had overtaken the two fronts printed above it:
 
    ⛔ **the standing number, and it has not moved**:
    `capability-footprint-may-not-grow` still reads **42 crates linked, 15 a
-   movement-only game never asked for**. D135 measured why — the **monolith**
-   holds `ambition_platformer2d_ldtk` in that closure through nine symbols, of
-   which `WorldManifest` is an asset catalog that merely lives in the format
-   crate. ⇒ **a slice claiming this front must say what it did to that number, or
-   why the number is dominated by something it did not touch.**
+   movement-only game never asked for**. ⛔⛔ **and D135's answer for WHY was
+   incomplete in a way that cost a slice**: it named the monolith, and
+   `cargo tree -i ambition_platformer2d_ldtk` in the sentinel's own workspace
+   names **four** holders — the facade itself (unconditionally),
+   `ambition_platformer2d_actor_monolith`, `ambition_platformer2d_runtime`, and
+   `ambition_platformer2d_provider`, which declared the edge and named zero of
+   its symbols. D136 (2026-08-16) moved `WorldManifest` down to
+   `ambition_platformer2d_world`, deleted the provider's dead edge and made the
+   facade's optional again; the number did not move, because the monolith and
+   the runtime still name the backend unconditionally. ⇒ **a slice claiming this
+   front must run `cargo tree -i` for the crate it means to evict BEFORE picking
+   what to carve**, and must say what it did to the number or why the number is
+   dominated by something it did not touch.
 7. **Public SDK, authoring ergonomics, performance and iteration.** See
    [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
    [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).

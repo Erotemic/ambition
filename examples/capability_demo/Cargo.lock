@@ -493,7 +493,6 @@ dependencies = [
  "ambition_load_presentation",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
- "ambition_platformer2d_ldtk",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
@@ -551,6 +550,7 @@ dependencies = [
 name = "ambition_platformer2d_world"
 version = "0.1.0"
 dependencies = [
+ "ambition_asset_manager",
  "ambition_entity_catalog",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",

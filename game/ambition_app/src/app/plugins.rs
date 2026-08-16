@@ -18,6 +18,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
 };
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::ldtk_map as ldtk_world;
+use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::schedule::{
     gameplay_allowed, Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
@@ -306,7 +307,7 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     room_set: &rooms::RoomSet,
     world_assets: Option<&ldtk_world::LdtkWorldAssets>,
     sandbox_asset_collection: Option<&loading::Platformer2dStartupAssets>,
-    manifest: &ldtk_world::WorldManifest,
+    manifest: &world_manifest::WorldManifest,
 ) {
     // One LdtkWorldBundle per prepared WorldManifest row. bevy_ecs_ldtk's
     // asset loader is per-file; Ambition's merged JSON loader doesn't
@@ -327,7 +328,7 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
                     })
                     .flatten()
             })
-            .unwrap_or_else(|| asset_server.load(ldtk_world::world_bevy_asset_path(source)));
+            .unwrap_or_else(|| asset_server.load(world_manifest::world_bevy_asset_path(source)));
         let mut root = commands.spawn((
             bevy_ecs_ldtk::prelude::LdtkWorldBundle {
                 ldtk_handle: handle.into(),

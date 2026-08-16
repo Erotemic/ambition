@@ -28,7 +28,7 @@ impl AmbitionAssetSourcePlugin {
     /// Built BEFORE the `App` exists (it is a plugin value passed to
     /// `add_plugins`), so the manifest arrives as a parameter — a `Res`
     /// cannot reach here.
-    pub fn for_profile(profile: AssetProfile, manifest: &ambition_platformer2d_ldtk::WorldManifest) -> Self {
+    pub fn for_profile(profile: AssetProfile, manifest: &ambition_platformer2d_world::world_manifest::WorldManifest) -> Self {
         let embedded_worlds = manifest
             .worlds
             .iter()
@@ -60,7 +60,7 @@ pub fn desktop_dev_default_catalog(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-    worlds: &ambition_platformer2d_ldtk::WorldManifest,
+    worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
@@ -72,7 +72,7 @@ pub fn desktop_dev_default_catalog(
 /// Build the shared sprite/parallax/audio/world catalog.
 ///
 /// A composition that owns procedural rooms and ships no `.ldtk` file passes
-/// a world-less [`WorldManifest`](ambition_platformer2d_ldtk::WorldManifest)
+/// a world-less [`WorldManifest`](ambition_platformer2d_world::world_manifest::WorldManifest)
 /// (`&WorldManifest::default()`): it then contributes no world rows, and every
 /// ordinary image, character, boss, data, SFX, font, sprite-pack, and music
 /// entry still lands. That replaces the old `_without_worlds` twin — with the
@@ -83,7 +83,7 @@ pub fn build_platformer2d_asset_catalog(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-    worlds: &ambition_platformer2d_ldtk::WorldManifest,
+    worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
     build_sandbox_catalog_with(
         config,
@@ -107,7 +107,7 @@ pub fn build_sandbox_catalog_with(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-    worlds: &ambition_platformer2d_ldtk::WorldManifest,
+    worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
 ) -> Platformer2dAssetCatalog {
     let core_config = Platformer2dAssetCatalogConfig {
@@ -123,7 +123,7 @@ pub fn sandbox_catalog_inputs(
     character_catalog: &CharacterCatalog,
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
-    worlds: &ambition_platformer2d_ldtk::WorldManifest,
+    worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalogInputs {
     let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     inputs.worlds = worlds

@@ -179,6 +179,17 @@ LDtk dependency is not optional. ⇒ **the facade is laundering an unconditional
 dependency through the monolith to keep its own optional**, and the compat module
 cannot be deleted until that is resolved.
 
+⇒ ✔ **RESOLVED 2026-08-16 (D136), and the premise above was WRONG in one word.**
+`WorldManifest` is not LDtk-specific: every field is an `AssetId`, a path, an
+embedded `&'static str` or a bool, its `ron_rooms` field already pointed at
+`ambition_platformer2d_world`, and it named nothing from the LDtk crate at all.
+It moved down to `ambition_platformer2d_world::world_manifest` — no re-export
+left behind — and the facade's LDtk edge is `optional` again, with `ldtk_map`
+gated on it. ⚠ **the resolved graph did not move and that was measured, not
+assumed**: `ambition_platformer2d_actor_monolith` and
+`ambition_platformer2d_runtime` still name the backend unconditionally, so the
+sentinel closure stayed at 42/15. The facade edge was one of FOUR that hold it.
+
 Two honest resolutions, and it is a decision about the facade's feature surface
 rather than a repoint: make the facade's LDtk dependency non-optional (it is
 required in practice), or feature-gate `game_assets` so a no-LDtk consumer stops
@@ -232,6 +243,20 @@ and scatter `#[cfg]` through eight modules. ⇒ **the answer is relocation, not
 gating**: what the monolith uses LDtk for is content LOADING — world manifest,
 asset catalog, encounter loading — and that concern dissolving by owner takes the
 dependency with it. Do not sprinkle cfgs to move the counter.
+
+⇒ **the asset-catalog six are GONE as of 2026-08-16 (D136)** — `WorldManifest`
+moved to `ambition_platformer2d_world::world_manifest`, so
+`Platformer2dAssetCatalog::for_profile`'s public signature no longer names the
+backend. **What is left is six production files**: `features/mod` and the
+settings model (hot-reload state — also not LDtk, just a debounced mtime watcher
+wearing the name), `menu/map/systems`, `world/gated_lock_walls`, and
+`encounter/{loading,systems}`. The last three walk `LdtkProject`/`LdtkLevel` for
+authored entities and want the room IR instead; `encounter/systems`'s own comment
+already names the plan (*"W4 will route encounter loading through RoomEmission
+instead of the project"*). ⛔ **and cutting all six still would not move the
+counter alone**: `ambition_platformer2d_runtime` installs
+`LdtkRuntimeSpinePlugin` and rollback-registers `LdtkRuntimeIndex`
+unconditionally, so the runtime holds the edge too.
 
 ## Slice procedure
 

@@ -8,6 +8,7 @@ use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::ldtk_map as ldtk_world;
+use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::render::rendering::spawn_room_visuals;
 
@@ -127,7 +128,7 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
         Res<ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
-        Res<ldtk_world::WorldManifest>,
+        Res<world_manifest::WorldManifest>,
         // **The prepared cast and the published policies.** Hot reload rebuilds
         // a room, so it consults exactly what every other room-construction road
         // consults — and it was the fourth road found carrying neither
@@ -309,7 +310,7 @@ pub(super) struct LdtkReloadTransaction {
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
-    manifest: &ldtk_world::WorldManifest,
+    manifest: &world_manifest::WorldManifest,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
@@ -382,7 +383,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     placement_lowering: &ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,
     content_staging: &ambition_platformer2d::actors::features::RoomContentStagingRegistry,
     construction_recipes: &ambition_platformer2d::actors::construction::ActorConstructionRegistry,
-    world_manifest: &ldtk_world::WorldManifest,
+    world_manifest: &world_manifest::WorldManifest,
     prepared_characters: Option<
         &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
     >,

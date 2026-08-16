@@ -1,43 +1,57 @@
-//! The `WorldManifest` VALUE (JD4 / AJ2, K2a): a GAME declares its LDtk
-//! worlds and entry room; the engine keeps the room kit (`RoomSpec`/`RoomSet`,
-//! projection, validators) and ships ZERO worlds — the R3.2 asset move
-//! relocated the payload to `ambition_content::worlds`, which builds one.
+//! **Which authored world documents a game ships, and where play starts.**
+//!
+//! A [`WorldManifest`] is a game's declaration of its authored world payload:
+//! a list of [`WorldSource`] rows (one per authored world document, each with
+//! its catalog id, asset path, dev-loose path and optional embedded copy), the
+//! baked [`RonRoomSource`] docs appended beside them, and the entry room a
+//! fresh session starts in.
+//!
+//! ⭐ **it is an asset catalog, not an authoring format's vocabulary.** It
+//! lived in `ambition_platformer2d_ldtk` until 2026-08-16 and named nothing
+//! from that crate — every field is `AssetId`, a path, a `&'static str` or a
+//! bool, and its `ron_rooms` field already pointed at THIS crate's
+//! [`RonRoomSource`]. A format adapter reads a manifest; it does not own one.
+//! Sitting in the LDtk crate is what made `ambition_platformer2d`'s own LDtk
+//! dependency unconditional — `game_assets` takes a `WorldManifest` in an
+//! ungated public signature — so a movement-only game linked an authoring
+//! backend to say which files it ships.
 //!
 //! **There is no install seam and no process global.** A manifest is an
 //! ordinary owned value that boot preparation constructs and hands to every
-//! reader: the asset-catalog rows, the serde loader's disk/embedded fallback
+//! reader: the asset-catalog rows, a backend loader's disk/embedded fallback
 //! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
-//! watcher, the bevy_ecs_ldtk tile-render spine, and `to_room_set`'s entry
-//! room. Readers that run inside a Bevy schedule take it as a `Res`
-//! ([`WorldManifest`] is a `Resource`, inserted by the same preparation that
-//! threaded it everywhere else); readers that run pre-`App`, at plugin-build
-//! time, or as pure functions take `&WorldManifest` directly. Both routes
-//! carry the SAME value, so two providers can prepare two different manifests
-//! in one process — which the `OnceLock` this replaced made impossible.
+//! watcher, the tile-render spine, and room-set composition's entry room.
+//! Readers that run inside a Bevy schedule take it as a `Res` ([`WorldManifest`]
+//! is a `Resource`, inserted by the same preparation that threaded it
+//! everywhere else); readers that run pre-`App`, at plugin-build time, or as
+//! pure functions take `&WorldManifest` directly. Both routes carry the SAME
+//! value, so two providers can prepare two different manifests in one process —
+//! which the `OnceLock` this replaced made impossible.
 
 use std::path::PathBuf;
 
 use ambition_asset_manager::AssetId;
-pub use ambition_platformer2d_world::ron_room::RonRoomSource;
-use bevy::prelude::Resource;
+use bevy_ecs::prelude::Resource;
 
-/// One LDtk world a game ships. The FIRST row of a manifest is the primary
-/// (boot-critical, hot-reload-watched) world; later rows are secondaries the
-/// loader merges and tolerates missing.
+use crate::ron_room::RonRoomSource;
+
+/// One authored world document a game ships. The FIRST row of a manifest is
+/// the primary (boot-critical, hot-reload-watched) world; later rows are
+/// secondaries the loader merges and tolerates missing.
 #[derive(Clone, Debug)]
 pub struct WorldSource {
     /// Catalog id (`world.*` by convention) — the row's identity for asset
     /// resolution and hot reload.
     pub id: AssetId,
-    /// Bevy `AssetPath` for the file (the bevy_ecs_ldtk tile-render spine
-    /// loads it; a game typically roots it in its own registered asset
-    /// source, e.g. `game://worlds/sandbox.ldtk`).
+    /// Bevy `AssetPath` for the file (the backend's tile-render spine loads
+    /// it; a game typically roots it in its own registered asset source, e.g.
+    /// `game://worlds/sandbox.ldtk`).
     pub asset_path: String,
     /// Absolute desktop-dev file path (hot reload + loose-filesystem
     /// profiles). The AUTHORING crate computes it against its own
     /// `CARGO_MANIFEST_DIR`, so the manifest works wherever the files live.
     pub loose_path: Option<PathBuf>,
-    /// The world's JSON text embedded into the binary (web / Android /
+    /// The world document's text embedded into the binary (web / Android /
     /// bundled builds). `None` on builds that only read from disk.
     pub embedded_text: Option<&'static str>,
     /// URL path inside Bevy's `EmbeddedAssetRegistry` the catalog's
@@ -50,7 +64,8 @@ pub struct WorldSource {
     pub required: bool,
 }
 
-/// A game's world declaration: which LDtk files exist and where play starts.
+/// A game's world declaration: which authored world documents exist and where
+/// play starts.
 ///
 /// A `Resource` so in-schedule readers (the tile-render spine's handle load)
 /// can take it as a `Res`; every pre-`App` and pure reader takes `&WorldManifest`
@@ -69,9 +84,9 @@ pub struct WorldManifest {
 impl WorldManifest {
     /// The boot-critical primary world (first row).
     ///
-    /// Panics on a world-less manifest (the [`Default`] value). Only the LDtk
-    /// LOAD path calls this; compositions that own procedural rooms declare a
-    /// world-less manifest and never reach here.
+    /// Panics on a world-less manifest (the [`Default`] value). Only a
+    /// backend's LOAD path calls this; compositions that own procedural rooms
+    /// declare a world-less manifest and never reach here.
     pub fn primary(&self) -> &WorldSource {
         self.worlds
             .first()
@@ -84,45 +99,11 @@ impl WorldManifest {
     }
 
     /// A world-less declaration — a composition that owns procedural rooms
-    /// and loads no `.ldtk` file. Distinguishes "this game ships no worlds"
-    /// from "somebody forgot to prepare one", which the old install seam
-    /// could only express as a panic.
+    /// and loads no authored world document. Distinguishes "this game ships
+    /// no worlds" from "somebody forgot to prepare one", which the old install
+    /// seam could only express as a panic.
     pub fn is_world_less(&self) -> bool {
         self.worlds.is_empty()
-    }
-}
-
-/// The cross-crate test fixture: the game's real worlds under
-/// `game/ambition_content/assets/worlds`, entry room = the hub. Read
-/// cross-crate (the explicit cross-crate fixture pattern) so this crate's
-/// conversion / ron-room contract tests exercise real data without shipping
-/// any. Tests now name it EXPLICITLY — it used to be handed to them behind
-/// their back by a `cfg(test)` branch inside the global accessor.
-#[cfg(test)]
-pub(crate) fn test_fixture_manifest() -> WorldManifest {
-    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../game/ambition_content/assets/worlds");
-    let source = |id: &str, file: &str, required: bool| WorldSource {
-        id: AssetId::new(id),
-        asset_path: format!("game://worlds/{file}"),
-        loose_path: Some(worlds_dir.join(file)),
-        embedded_text: None,
-        embedded_bevy_path: None,
-        required,
-    };
-    WorldManifest {
-        entry_room: "central_hub_complex".to_string(),
-        ron_rooms: Vec::new(),
-        worlds: vec![
-            source("world.sandbox_ldtk", "sandbox.ldtk", true),
-            source("world.intro_ldtk", "intro.ldtk", false),
-            source(
-                "world.cut_rope_ldtk",
-                "you_have_to_cut_the_rope.ldtk",
-                false,
-            ),
-            source("world.hall_ldtk", "hall_of_characters.ldtk", false),
-        ],
     }
 }
 
@@ -179,6 +160,39 @@ mod tests {
             secondary_ids,
             vec!["world.side_a", "world.side_b"],
             "declaration order is merge order"
+        );
+    }
+
+    /// **A manifest row's embedded copy WINS over its authored asset path.**
+    ///
+    /// The bundled/web profiles register the embedded bytes under
+    /// `embedded_bevy_path` and the loader must reach those rather than the
+    /// `game://` source that only exists on a loose desktop checkout. Both
+    /// halves are observed: the same row with no embedded copy resolves to the
+    /// authored path, so a reader that ignored the embedding entirely would
+    /// fail the first assertion and one that always embedded would fail the
+    /// second.
+    #[test]
+    fn embedded_rows_resolve_to_the_embedded_path_and_loose_rows_do_not() {
+        let mut source = WorldSource {
+            id: AssetId::new("world.primary"),
+            asset_path: "game://worlds/primary.ldtk".to_string(),
+            loose_path: None,
+            embedded_text: None,
+            embedded_bevy_path: None,
+            required: true,
+        };
+        assert_eq!(
+            world_bevy_asset_path(&source),
+            "game://worlds/primary.ldtk",
+            "a row with no embedded copy loads its authored asset path"
+        );
+        source.embedded_text = Some("{}");
+        source.embedded_bevy_path = Some("worlds/primary.ldtk");
+        assert_eq!(
+            world_bevy_asset_path(&source),
+            "embedded://worlds/primary.ldtk",
+            "a row that carries embedded bytes loads them, not the loose source"
         );
     }
 }

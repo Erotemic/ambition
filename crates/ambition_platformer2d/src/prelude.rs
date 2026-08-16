@@ -11,8 +11,8 @@ pub use crate::runtime;
 pub use crate::windowed_host::PlatformerHostPlugins;
 
 pub use crate::{
-    actors, asset_manager, characters, combat, engine_core, game_shell, host, input, ldtk_map,
-    load, load_presentation, platformer, sim_view, sprite_sheet, time, world,
+    actors, asset_manager, characters, combat, engine_core, game_shell, host, input, load,
+    load_presentation, platformer, sim_view, sprite_sheet, time, world,
 };
 
 // Capability edges (slice H): present exactly when their feature is — which
@@ -23,6 +23,8 @@ pub use crate::dialog;
 pub use crate::encounter;
 #[cfg(feature = "ambition_menu")]
 pub use crate::menu;
+#[cfg(feature = "ambition_platformer2d_ldtk")]
+pub use crate::ldtk_map;
 #[cfg(feature = "ambition_persistence")]
 pub use crate::persistence;
 #[cfg(feature = "ambition_projectiles")]

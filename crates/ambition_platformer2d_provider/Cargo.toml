@@ -12,10 +12,14 @@ default = []
 audio = ["ambition_audio/kira"]
 
 [dependencies]
-# The LDtk backend, named directly. This crate used to reach it through the
-# actor monolith's `ldtk_world` compatibility facade; the edge was already here
-# transitively, and declaring it is what let that facade be deleted (2026-08-15).
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
+# ⛔ **no `ambition_platformer2d_ldtk` line, and its absence was MEASURED.**
+# It was declared on 2026-08-15 so the monolith's `ldtk_world` compat facade
+# could be deleted, and by 2026-08-16 no `.rs` file in this crate named a single
+# symbol from it — a dead edge that still counted in the sentinel's linked
+# closure (`capability-footprint-may-not-grow`). Declaring an edge to unbind a
+# laundered one is right; leaving it after the last consumer goes is a lie the
+# graph tells. If this crate ever needs the backend again, add the line back
+# WITH the use.
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
 # Promoted from dev-dependencies 2026-07-19 (K1a): the session builder reads the
 # neutral `ActiveMovementTuning` authority instead of the dev-tools inspector

@@ -1186,7 +1186,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
          by the authoring content plugin. The live phase it used to carry is \
          rollback state and moved to `GatePortalPhases`",
     ),
-    ("::manifest::WorldManifest", "authored world manifest"),
+    ("::world_manifest::WorldManifest", "authored world manifest"),
     (
         "::project::ActiveLdtkProject",
         "authored LDtk project; hot reload restarts the session",

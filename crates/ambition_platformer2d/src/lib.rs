@@ -169,8 +169,11 @@ pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
 pub use ambition_platformer2d_core as engine_core;
 pub use ambition_platformer2d_host as host;
-// ⚠ NOT a capability edge. `game_assets` takes a `WorldManifest` in an ungated
-// signature, so this crate is required in every composition — see the manifest.
+// A capability edge again since 2026-08-16 (D136). It was unconditional while
+// `game_assets` took a `WorldManifest` in an ungated signature; that type moved
+// down to `ambition_platformer2d_world::world_manifest`, so the LDtk backend is
+// now something a game asks for by name.
+#[cfg(feature = "ambition_platformer2d_ldtk")]
 pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_platformer2d_runtime as runtime;
 pub use ambition_platformer2d_shared_tangle as platformer;
@@ -472,7 +475,9 @@ pub mod world {
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;
 
-    pub use ambition_platformer2d_world::{collision, debug_label, placements, platforms, rooms};
+    pub use ambition_platformer2d_world::{
+        collision, debug_label, placements, platforms, rooms, world_manifest,
+    };
 }
 // Re-exported so a game can name bevy TYPES through `ambition_platformer2d::bevy::…`. NOTE:
 // this does NOT let a crate `#[derive(Component)]`/`#[derive(Resource)]` through

@@ -998,6 +998,32 @@ by the SCHEDULE.** Step 1.5 is therefore a `ConversationPlugin` owning those
 registrations and stating the cross-domain order as **named sets** — a
 simulation-ordering change that wants a session able to run the suite.
 
+✔ **RE-VERIFIED 2026-08-16, still exactly as described** —
+`features/mod.rs::FeatureInteractionSchedulePlugin` holds ONE anonymous
+`.chain()` of eleven systems spanning four domains, in this order:
+
+```text
+conversation  close_conversation_on_narrative_end
+interaction   interact_ecs_actors_and_switches
+conversation  break_dialogue_on_hit_or_separation
+npcs          speak_conversation_cut_barks
+conversation  project_conversation_hold
+interaction   open_ecs_chests · update_ecs_breakables ·
+              update_ecs_falling_chests · sync_ecs_switches_from_save
+encounter     rebuild_encounter_switch_index
+```
+
+⭐⭐ **the ordering contract exists ONLY as adjacency in that tuple plus prose at
+the call site** — five separate comments explain why each neighbour must follow
+the last (a conversation opened this frame must not be judged for separation
+before the bodies that opened it are read; the bark lands on the tick the
+conversation ended; the hold is projected after whatever decided it). ⇒ **that is
+the carve blocker, and naming it is the deliverable**: extracting `conversation`
+silently reshuffles four domains unless the order is first said out loud as sets.
+⚠ the plugin also owns `ActiveConversation`, the `ConversationCutBark` channel,
+seven `NarrativeInputPlugin` registrations and a second load-bearing `.chain()`
+in `Update` — so "the carve is a Cargo.toml" is false in five separate ways.
+
 ⇒ **every other leaf is NOT YET on this plan's own scorecard:** `menu` is the
 sole namer of `ambition_menu`, but the crate also arrives through render and the
 host, so the consumer footprint stays flat — the lesson `ambition_ui_nav` already

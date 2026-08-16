@@ -19,6 +19,25 @@
 //!   cargo run -p ambition_app_tools --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
 //!   # center on the player, spawned AS the pirate admiral:
 //!   cargo run -p ambition_app_tools --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
+//!
+//! ⭐ **A TWO-FIGHTER CPU-vs-CPU SMASH MATCH, from the lobby.** The state this
+//! tool exists to photograph is usually behind a lobby, and a lobby steered by
+//! a CURSOR cannot be worked by key edges alone — see [`PressStep::Touch`]. The
+//! taps below are the select screen's own rectangles at 1280x720, in order:
+//! both role buttons twice (absent → controller → CPU), then token, portrait,
+//! token, portrait, then START.
+//!
+//!   cargo run --release -p ambition_app_tools --bin capture_scene -- \
+//!       --route smash_select /tmp/match.png 1280x720 --warmup 420 --include-ui \
+//!       --press touch:167x523,touch:167x523,touch:482x523,touch:482x523,\
+//! touch:586x446,touch:747x121,touch:622x446,touch:425x121,touch:1191x446
+//!
+//! ⚠ **the portrait taps are the two that can rot** — `747x121` and `425x121`
+//! are grid cells, and the grid re-flows when the host's roster changes size.
+//! The role buttons, tokens and START do not depend on the roster at all.
+//! `smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`
+//! drives exactly these numbers through the real host and fails when one stops
+//! landing on the widget it names.
 
 use std::path::PathBuf;
 
@@ -35,6 +54,7 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 };
 use bevy::app::AppExit;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
+use bevy::input::touch::{TouchInput, TouchPhase};
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_resource::{TextureFormat, TextureUsages};
@@ -92,8 +112,8 @@ struct SceneCaptureConfig {
     /// what comes back is a configuration a player can reach. Implies
     /// `--dev-overlays`.
     combat_overlay: bool,
-    /// Keys to TAP after reaching the route and before the shutter
-    /// (`--press Down,Enter,Enter`).
+    /// Input to deliver after reaching the route and before the shutter —
+    /// key taps and glass taps (`--press touch:167x523,touch:167x523`).
     ///
     /// ⛔ The state anybody actually wants to photograph is often behind a
     /// lobby. `--route smash_gameplay` photographs a stage with ONE fighter,
@@ -102,11 +122,26 @@ struct SceneCaptureConfig {
     /// neither the headless suite (blind to rendering by construction) nor this
     /// tool. That is an instrument gap, not a gameplay bug.
     ///
-    /// Deliberately generic key TAPS rather than a `--smash-cpu` flag: the
-    /// select screen's own headless drivers in `smash_in_the_host.rs` are
-    /// exactly `tap(ArrowDown)` then `tap(Enter)` twice, so this is the same
-    /// entry those tests use rather than a second mechanism that can disagree
-    /// with them. Any route with a lobby gets it for free.
+    /// Deliberately a generic input vocabulary rather than a `--smash-cpu`
+    /// flag, so any route with a lobby gets it for free.
+    ///
+    /// ⛔⛔ **KEY TAPS ALONE CANNOT WORK A POINTER SCREEN, and this comment
+    /// used to claim they were what the tests do. They are not** (measured
+    /// 2026-08-16, queue D130). `smash_in_the_host.rs` seats a fighter with
+    /// `click(app, rect)`, which is `SelectCursor::move_to(rect.center())` and
+    /// THEN `tap(Enter)` — the POSITION is the load-bearing half. A bare
+    /// `Enter` from here commits wherever the cursor happens to sit, so
+    /// `--press Down,Enter,Enter` left all four slots reading `NOT PLAYING`
+    /// and `--route smash_gameplay` photographed an empty stage.
+    ///
+    /// ⭐ **`touch:X x Y` is the step that carries a position**, and it carries
+    /// it down the road a phone uses: two real `TouchInput` messages folded by
+    /// Bevy's own `touch_screen_input_system`. `select_screen::touch_tests`
+    /// already pins that road, so the tool and the suite drive the same seam
+    /// rather than two that can disagree. See [`PressStep::Touch`].
+    ///
+    /// ⚠ arrow keys are still the right tool for a LIST — the launcher rows,
+    /// the menus — and for gameplay. They just cannot name a rectangle.
     press: Vec<PressStep>,
     /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
     ///
@@ -138,6 +173,16 @@ struct SceneCaptureRuntime {
     /// drivers do exactly this, and a held key is not a second press.
     press_cursor: usize,
     press_held: Option<KeyCode>,
+    /// The finger a `touch:X,Y` step put down and has not lifted yet, and the
+    /// id it went down with. Same two-frame shape as a key tap and for the same
+    /// reason — a press edge and a release edge are two different frames — but
+    /// kept apart from `press_held` because the two travel different seams and
+    /// a step that mixed them would release a key that was never pressed.
+    touch_held: Option<Vec2>,
+    /// The id the NEXT finger goes down with. Fresh per tap rather than reused:
+    /// `Touches` keys everything by id, and a second `Started` under an id the
+    /// fold has not finished retiring is a state a phone never produces.
+    next_touch_id: u64,
     /// Frames left on a `wait` step.
     press_wait: u32,
     /// The frame the last key was released on. The sequence usually STARTS a
@@ -346,6 +391,22 @@ enum PressStep {
     Hold(KeyCode),
     /// Let go of a key an earlier `hold:` is still holding (`release:up`).
     Release(KeyCode),
+    /// **Tap the glass at a point** (`touch:167x523`), in LOGICAL window pixels
+    /// with a top-left origin — the space `HitRect` and `Node { left, top }`
+    /// are already in, and the space a capture's own pixels are in at scale 1.
+    ///
+    /// ⭐ **this is the step that can work a POINTER screen, and a key tap
+    /// cannot.** A key is an EDGE with no position, so `Enter` commits wherever
+    /// the cursor already sits; the select screen's headless drivers commit at
+    /// a rectangle's centre, and the position is the load-bearing half. A
+    /// finger carries both, which is why one step type reaches every widget
+    /// while no number of arrow taps reliably does.
+    ///
+    /// ⚠ **a real `TouchInput` message, not a poke at `Touches`** — the same
+    /// pair of messages winit emits, folded by Bevy's own
+    /// `touch_screen_input_system`. So this drives the phone road the product
+    /// ships, and any route that answers a finger gets it for free.
+    Touch(Vec2),
 }
 
 /// Parse `--press Down,Enter,wait,Down,Enter` into taps and pauses.
@@ -367,6 +428,12 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
             if let Some(rest) = lower.strip_prefix("release:") {
                 return parse_key(rest).map(PressStep::Release);
             }
+            if let Some(rest) = lower.strip_prefix("touch:") {
+                return parse_point(rest).map(PressStep::Touch);
+            }
+            if let Some(rest) = lower.strip_prefix("tap:") {
+                return parse_point(rest).map(PressStep::Touch);
+            }
             if let Some(rest) = lower.strip_prefix("wait:") {
                 return rest
                     .parse::<u32>()
@@ -376,6 +443,27 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
             parse_key(&lower).map(PressStep::Tap)
         })
         .collect()
+}
+
+/// `167x523` — one point in the `--press` vocabulary.
+///
+/// ⚠ `x` and not a comma, because the comma is already the STEP separator:
+/// `touch:167,523` would arrive here as two steps and the second one would be
+/// parsed as a key name. `WIDTHxHEIGHT` is the spelling this tool's own size
+/// argument already uses, so there is one separator convention rather than two.
+fn parse_point(text: &str) -> Result<Vec2, String> {
+    let (x, y) = text
+        .split_once('x')
+        .ok_or_else(|| format!("--press touch:X x Y needs two numbers, got '{text}'"))?;
+    let x = x
+        .trim()
+        .parse::<f32>()
+        .map_err(|_| format!("--press touch: '{x}' is not a number"))?;
+    let y = y
+        .trim()
+        .parse::<f32>()
+        .map_err(|_| format!("--press touch: '{y}' is not a number"))?;
+    Ok(Vec2::new(x, y))
 }
 
 /// One key name from the `--press` vocabulary.
@@ -409,7 +497,7 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         other => Err(format!(
             "--press does not know the key '{other}'. Known: up, down, left, \
                  right, enter, space, escape, z, x, c, a, e, f, g, wait, wait:N, \
-                 hold:KEY, release:KEY"
+                 hold:KEY, release:KEY, touch:XxY"
         )),
     }
 }
@@ -663,15 +751,17 @@ impl SceneCaptureConfig {
 /// it triggered, which for a tool whose purpose is photographing a specific
 /// moment is the whole ballgame.
 ///
-/// Spent means all three are exhausted: no steps left, no tap awaiting its
-/// release, no wait counting down. Asking one question in one place is what
-/// stops the next step type from being forgotten the way these three were.
+/// Spent means all FOUR are exhausted: no steps left, no key tap awaiting its
+/// release, no finger still on the glass, no wait counting down. Asking one
+/// question in one place is what stops the next step type from being forgotten
+/// the way these three were.
 fn complete_press_sequence_if_spent(
     config: &SceneCaptureConfig,
     runtime: &mut SceneCaptureRuntime,
 ) {
     if runtime.press_cursor < config.press.len()
         || runtime.press_held.is_some()
+        || runtime.touch_held.is_some()
         || runtime.press_wait > 0
     {
         return;
@@ -1162,6 +1252,7 @@ fn request_capture(
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
+    mut fingers: MessageWriter<TouchInput>,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -1197,6 +1288,7 @@ fn request_capture(
     // a step type that silently did nothing when it happened to be last.
     if runtime.press_cursor < config.press.len()
         || runtime.press_held.is_some()
+        || runtime.touch_held.is_some()
         || runtime.press_wait > 0
     {
         if runtime.press_wait > 0 {
@@ -1206,6 +1298,19 @@ fn request_capture(
         }
         if let Some(key) = runtime.press_held.take() {
             keys.release(key);
+            complete_press_sequence_if_spent(&config, &mut runtime);
+        } else if let Some(at) = runtime.touch_held.take() {
+            // The lift, at the SAME point the finger went down. A touch that
+            // ended somewhere else is a drag, and a drag means "drop it here"
+            // to the screen this drives — a tap that travelled by accident
+            // would place a token nobody moved.
+            fingers.write(TouchInput {
+                phase: TouchPhase::Ended,
+                position: at,
+                window: Entity::PLACEHOLDER,
+                force: None,
+                id: runtime.next_touch_id - 1,
+            });
             complete_press_sequence_if_spent(&config, &mut runtime);
         } else {
             match config.press[runtime.press_cursor] {
@@ -1233,6 +1338,25 @@ fn request_capture(
                     keys.release(key);
                     eprintln!(
                         "capture_scene: released {key:?} ({} of {})",
+                        runtime.press_cursor + 1,
+                        config.press.len()
+                    );
+                }
+                PressStep::Touch(at) => {
+                    let id = runtime.next_touch_id;
+                    runtime.next_touch_id += 1;
+                    fingers.write(TouchInput {
+                        phase: TouchPhase::Started,
+                        position: at,
+                        window: Entity::PLACEHOLDER,
+                        force: None,
+                        id,
+                    });
+                    runtime.touch_held = Some(at);
+                    eprintln!(
+                        "capture_scene: touched ({:.0}, {:.0}) ({} of {})",
+                        at.x,
+                        at.y,
                         runtime.press_cursor + 1,
                         config.press.len()
                     );

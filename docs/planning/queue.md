@@ -1666,69 +1666,87 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
-- ▢ **D130 — The Smash gameplay HUD renders TOFU, and the two-fighter state is
-  unreachable by the tool built to photograph it. (opened 2026-08-16 by LOOKING)**
+- ☑ **D130 — (b) FIXED: the instrument can now photograph a real match. (a) was
+  a MISDIAGNOSIS: there is no tofu. (opened + closed 2026-08-16 by LOOKING)**
 
-⭐ **this is the "worth one CPU-vs-CPU match watched by a human" item cashing in,
-and the first frame paid for it.**
+### (a) ⛔⛔ THERE IS NO TOFU. IT IS THE STAGE FLOOR.
 
-### (a) TOFU on `smash_gameplay`
+**The "two full lines of ~35 hollow boxes" are the Smash stage's TILES**, and
+the "blank grey rounded HUD chips above them" are **blurred rounded rectangles
+in the far parallax backdrop** — a distant lit cityscape. Neither is text.
+Photographed at 3x: each box has a bevelled top-left highlight and a dark border,
+i.e. a platform tile, not a `.notdef` glyph.
 
-Two full lines, ~35 characters each, **every glyph a hollow box**, bottom-centre
-of the gameplay route — with the HUD's chips drawing as blank grey rounded
-rectangles above them. Reproduce:
+⭐ **why it read as tofu**: `--route smash_gameplay` with no roster puts the
+camera at the default position with no subject to follow, so the stage's floor
+sits alone at the bottom-right of an empty frame with no fighter, no HUD text
+and no scale cue next to it. Two neat rows of ~35 identical squares in a corner
+of a blank screen is a very good impression of two lines of tofu.
 
-```bash
-cargo run --release -p ambition_app_tools --bin capture_scene -- \
-    --route smash_gameplay /tmp/smash.png 1280x720 --warmup 240
+⇒ **`crates/ambition_render/src/hud/declared.rs`'s font fallback is INNOCENT.**
+In a real match every string renders correctly at 1280x720: `Sanic 200% · 3/3`,
+`Player Robot v3 0% · 3/3`, the `GO!` banner, both nameplates — including the
+`·` (U+00B7). ⛔ do not re-open this on the strength of the original report.
+
+### (b) ⭐ FIXED — `capture_scene` grew the step that carries a POSITION
+
+`--press touch:XxY` sends the pair of real `TouchInput` messages winit emits and
+lets Bevy's own `touch_screen_input_system` fold them, so the tool drives the
+PHONE road the product ships. Generic, not a `--smash-cpu` flag: any route that
+answers a finger gets it.
+
+⭐ **the cause, confirmed**: key taps are EDGES WITH NO POSITION. The tests seat
+a fighter with `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)`; the
+tool's bare `Enter` fired wherever the cursor sat. The doc block claiming the
+two were "exactly" the same is corrected in place.
+
+⚠ **`the_arrows_alone_can_work_the_whole_screen` is NOT in conflict.** Arrows do
+work — the cursor starts on portrait 0 and snaps — `Down,Enter,Enter` was simply
+not a seating sequence (one Down lands on another portrait). Arrows are a maze
+here, not a wall.
+
+The working command is in `capture_scene`'s header and guarded by
+`smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`,
+which drives the same literals through the real host.
+
+### ⭐⭐ AND THE MATCH, WATCHED — three things are wrong with it
+
+Sanic (CPU) vs Player Robot v3 (CPU), 3 stocks, sampled at 240/300/360/420/600/
+900/1400/2400 frames.
+
+```text
+frame   Sanic          Robot
+ 240    200%  3/3      0%  3/3     (the "GO!" banner is still up)
+ 300    500%  3/3      0%  3/3
+ 360    600%  3/3      0%  3/3
+ 420      0%  2/3      0%  2/3
+ 600      0%  1/3      0%  1/3
+ 900    400%  1/3      0%  1/3
+1400    (gone)         0%  1/3
+2400    back on the select screen, all four slots reset
 ```
 
-⛔ **eliminated, do not re-run these:**
-- **load timing** — identical at `--warmup 900`;
-- **`--include-ui`** — the tofu is present with and without it, byte-identical;
-- **the font files** — `InterDisplay-Regular/SemiBold` and `JetBrainsMono` all
-  ship under `assets/fonts/{bundled,local}`;
-- **the Semibold weight** — `UiFonts::text_font` falls back to `regular` when
-  `semibold` is `None`, so a missing weight cannot reach the default handle;
-- ⭐ **the host** — `smash_select` is the SAME process (both are shell routes
-  through `build_visible_app`) and renders perfectly, **including the non-ASCII
-  em-dash** in *"Two fighters needed — click a slot's button…"*.
+1. **⛔⛔ THE DAMAGE IS ENTIRELY ONE-WAY.** The robot is at **0% in every single
+   sample**. Sanic takes ~100%/second, continuously, from the first frame — 200%
+   before the `GO!` banner has cleared. That is not a trade, and it is not a hit
+   landing; it is a continuous source.
+2. **⛔ BOTH SPAWN ON THE SAME POINT.** At frame 240 the two sprites are drawn
+   overlapping. That is the obvious suspect for (1): a contact/hurt volume the
+   two share from the first tick.
+3. **⛔ BOTH LOSE A STOCK AT THE SAME MOMENT, and one of them is at 0%.** 3/3 →
+   2/3 → 1/3 happens to BOTH between the same samples while the robot has taken
+   no damage at all. Then they diverge (Sanic is eliminated by 1400; the robot
+   keeps its last stock), so it is not one shared counter — but two simultaneous
+   KOs where only one fighter was ever damaged wants explaining.
 
-⇒ suspect: the declared HUD's font fallback,
-`crates/ambition_render/src/hud/declared.rs` ~line 205 —
-`fonts.as_deref().map(..).unwrap_or(TextFont { font_size, ..default() })`, which
-resolves `Handle::<Font>::default()` when the resource is absent. ⚠ **but note
-the symptom DIFFERS from the 2026-08-01 menu tofu**: that one tofu'd only
-non-ASCII and rendered ASCII fine through the same default handle. Here *every*
-character is a box, which points at a font that never resolved at all rather than
-a glyph-coverage gap. ⛔ do not re-assert "Bevy's default font is ASCII-only" —
-it was refuted then and this is not that.
+⭐ what is RIGHT: the stage draws, the fighters draw at sane relative scale, both
+kits animate (the robot is mid-swing with a visible purple weapon at 900), the
+HUD is legible and correct, the match ENDS on its own and returns to a fully
+reset select screen. Nothing is missing; the fight itself is wrong.
 
-### (b) ⛔⛔ the instrument cannot reach the state it exists for
-
-`capture_scene`'s own doc says `--press Down,Enter,Enter` is what the select
-screen's headless drivers do (`smash_in_the_host.rs`: `tap(ArrowDown)` then
-`tap(Enter)` twice). Run against `--route smash_select`, **all four slots still
-read `NOT PLAYING` / `— no fighter —`** and no fighter is seated, so
-`smash_gameplay` photographs an empty stage every time. ⇒ **the two-CPU match
-nobody has ever looked at is unreachable by the one tool built to photograph
-it** — and the tool's own doc block calls this exact class of thing *"an
-instrument gap, not a gameplay bug"*.
-
-⭐⭐ **CAUSE FOUND, and the tool's doc comment is simply wrong about what the
-drivers do.** `game/ambition_app/tests/smash_in_the_host.rs` seats fighters with
-`click(app, rect)`, which is **`SelectCursor::move_to(rect.center())` and THEN
-`tap(Enter)`** — the cursor position is the load-bearing half. `capture_scene`
-sends bare key edges, so its `Enter` fires wherever the cursor already is and
-claims nothing. ⇒ the fix is for the tool to drive the same seam the tests drive
-(put the cursor on a slot's role button — the `Choose (F)` / `Choose (Z)` chips
-visible in the capture — then confirm), **not** to add more key taps. ⚠ the same
-file asserts `the_arrows_alone_can_work_the_whole_screen`, so arrow-only
-navigation is supposed to work too; that it does not seat anybody here is a
-second question worth asking of that test rather than of the tool.
-⚠ this blocks the standing *"does a watcher SEE the two kits behave
-differently"* question in D128, and it is why every Smash visual fix so far has
-shipped unseen.
+⇒ **this is D128's "does a watcher SEE the two kits behave differently" cashing
+in, and the answer is worse than 'no': one kit never takes a point of damage.**
+Next queue row should be (1)+(2) together — they are probably one bug.
 
 - ▢ **D129 — The sprite pipeline CUTS ART AT THE LOGICAL FRAME AND NOTHING NOTICES.
   (opened 2026-08-16 from a maintainer observation, measured the same day)**

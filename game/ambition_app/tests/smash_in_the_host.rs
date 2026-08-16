@@ -2712,3 +2712,144 @@ fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
          the cue never reached the prompt"
     );
 }
+
+/// **THE COORDINATES `capture_scene` DOCUMENTS STILL SEAT A MATCH.**
+///
+/// ⛔⛔ **the tool could not reach this state at all until 2026-08-16, and the
+/// reason was one sentence in its own doc block that was false about this
+/// file** (queue D130). It claimed `--press Down,Enter,Enter` was "exactly"
+/// what these drivers do. It is not: [`click`] is
+/// `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)`, and the
+/// POSITION is the load-bearing half. A key is an edge with no position, so the
+/// tool's `Enter` fired wherever the cursor already sat, all four slots stayed
+/// `NOT PLAYING`, and every `--route smash_gameplay` capture for days
+/// photographed an empty stage — which is why no Smash change had ever been
+/// looked at.
+///
+/// ⭐ **so the tool grew the one step that carries a position: `touch:XxY`,
+/// two real `TouchInput` messages down the phone road.** This is the guard on
+/// the literal numbers its doc block prints. They are literals on purpose —
+/// re-deriving them here would pin the LAYOUT, which `layout::tests` already
+/// does, and would agree with a stale doc forever.
+///
+/// ⚠ **the whole road, not the arithmetic**: a finger through this host's real
+/// input stack, ending in a `MatchParticipantRoster` of two CPUs on two
+/// DIFFERENT fighters — which is the state a watcher has to be able to
+/// photograph to answer "do the two kits behave differently at all".
+#[test]
+fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
+    use ambition_demo_smash::select::SlotPick;
+    use bevy::input::touch::{TouchInput, TouchPhase};
+
+    // The `--press touch:...` list in `capture_scene`'s header, in order.
+    const ROLE_BUTTON_0: Vec2 = Vec2::new(167.0, 523.0);
+    const ROLE_BUTTON_1: Vec2 = Vec2::new(482.0, 523.0);
+    const TOKEN_HOME_0: Vec2 = Vec2::new(586.0, 446.0);
+    const TOKEN_HOME_1: Vec2 = Vec2::new(622.0, 446.0);
+    const PORTRAIT_A: Vec2 = Vec2::new(747.0, 121.0);
+    const PORTRAIT_B: Vec2 = Vec2::new(425.0, 121.0);
+    const START: Vec2 = Vec2::new(1191.0, 446.0);
+
+    /// One tap of the glass, the way winit reports one: a `Started` and an
+    /// `Ended` message a frame apart, folded by Bevy's own
+    /// `touch_screen_input_system`. Nothing here writes `Touches`.
+    fn glass_tap(app: &mut App, id: u64, at: Vec2) {
+        for phase in [TouchPhase::Started, TouchPhase::Ended] {
+            app.world_mut().write_message(TouchInput {
+                phase,
+                position: at,
+                window: Entity::PLACEHOLDER,
+                force: None,
+                id,
+            });
+            app.update();
+        }
+        app.update();
+    }
+
+    let mut app = open_the_lobby();
+    let layout = screen(&app);
+
+    // Each documented point is still ON the widget it names. A layout change
+    // that moved one would otherwise show up as a capture of the wrong screen.
+    assert!(
+        layout.role_button(0).contains(ROLE_BUTTON_0)
+            && layout.role_button(1).contains(ROLE_BUTTON_1),
+        "the documented role-button taps are off their buttons: {:?} / {:?}",
+        layout.role_button(0),
+        layout.role_button(1)
+    );
+    assert!(
+        layout.token_home(0).contains(TOKEN_HOME_0)
+            && layout.token_home(1).contains(TOKEN_HOME_1),
+        "the documented token taps are off the tokens: {:?} / {:?}",
+        layout.token_home(0),
+        layout.token_home(1)
+    );
+    assert!(
+        layout.start_button().contains(START),
+        "the documented START tap is off the button: {:?}",
+        layout.start_button()
+    );
+
+    let mut id = 0;
+    let mut tap = |app: &mut App, at: Vec2| {
+        id += 1;
+        glass_tap(app, id, at);
+    };
+    // Twice each: the first press takes the only source as a CONTROLLER, the
+    // second cycles it to CPU. Two CPUs is the match a capture wants — nobody
+    // is holding a pad in front of a screenshot.
+    tap(&mut app, ROLE_BUTTON_0);
+    tap(&mut app, ROLE_BUTTON_0);
+    tap(&mut app, ROLE_BUTTON_1);
+    tap(&mut app, ROLE_BUTTON_1);
+    assert_eq!(
+        (
+            app.world().resource::<SmashSelect>().slot(0).occupant,
+            app.world().resource::<SmashSelect>().slot(1).occupant
+        ),
+        (SlotOccupant::Cpu, SlotOccupant::Cpu),
+        "two taps a card did not reach CPU on both cards"
+    );
+
+    // Pick up a token, drop it on a portrait — the two-tap idiom, once per
+    // slot, onto two different faces.
+    tap(&mut app, TOKEN_HOME_0);
+    tap(&mut app, PORTRAIT_A);
+    tap(&mut app, TOKEN_HOME_1);
+    tap(&mut app, PORTRAIT_B);
+
+    let picks: Vec<Option<SlotPick>> = (0..2)
+        .map(|slot| app.world().resource::<SmashSelect>().slot(slot).pick)
+        .collect();
+    assert!(
+        matches!(picks[0], Some(SlotPick::Fighter(_)))
+            && matches!(picks[1], Some(SlotPick::Fighter(_))),
+        "a documented portrait tap chose no fighter: {picks:?} — a `Random` \
+         here means the tap missed the grid and the token went home"
+    );
+    assert_ne!(
+        picks[0], picks[1],
+        "both documented portrait taps landed on the SAME fighter, so the \
+         capture cannot show two kits side by side"
+    );
+
+    tap(&mut app, START);
+    settle(&mut app);
+
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("the documented tap sequence never started a match")
+        .clone();
+    assert_eq!(roster.participants.len(), 2, "{roster:?}");
+    assert!(
+        roster
+            .participants
+            .iter()
+            .all(|seat| seat.controller.brain_profile().is_some()),
+        "a seat the screen made a CPU arrived as a human, so the capture \
+         photographs a fighter nobody is driving"
+    );
+}

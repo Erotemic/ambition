@@ -1632,7 +1632,28 @@ needed `.chain()`; the comment above it already claimed the order).
 reconstruction, sequenced after the instance lifetime/provenance model — see
 [`engine/same-room-replay-is-a-second-constructor.md`](engine/same-room-replay-is-a-second-constructor.md).
 
-- ⏸ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 PARKED behind D125 and reachability.**
+- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR CONDITIONS and OPEN FOR COMMANDS.**
+
+⛔⛔ **THIS ROW SAID "M1 PARKED" FOR A DAY AFTER M1'S ACCEPTANCE WAS MET.**
+Corrected 2026-08-16 against HEAD, not against the plan's prose. M1 asks for two
+domains exposing semantic vocabulary through a domain-owned contract, with the
+behavioural test that adding the second provider edits **no central enum**. All
+three clauses hold: `shared_tangle::authored_logic` owns the contract with a
+PRIVATE `publish` reachable only through `PublishCondition for App`;
+`items/pickup` publishes `custody.is_held` and `world_facts` publishes
+`world.flag_set` from unrelated domains; `world/gated_lock_walls` consumes one
+and names no flag; and `INTRO_FLAG_GATED_LOCK_WALLS` plus its 136-line const
+table were deleted in the same slice.
+
+⚠ **HALF the milestone, and the missing half is the interesting one: COMMANDS
+HAVE NO PROVIDER CONTRACT.** Conclusive grep — no `PublishCommand`, no command
+catalog, nothing. ⭐ **that half is not "one more of the same"**: a condition is a
+*question about the world* and is safe precisely because it cannot change
+anything, while a command mutates and therefore owes **authority** (who may run
+it), **ordering** (when in the frame) and **rollback semantics**. ⇒ M4's warning
+— *rollback is a design input, not a cleanup afterwards* — lands on the command
+half directly, and M2 can only ever prepare a PREDICATE until the command
+vocabulary exists.
 
 Plan: [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 (new, 2026-08-15). Maintainer-identified capability gap: **authoring is strong for

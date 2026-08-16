@@ -855,6 +855,23 @@ pub fn compose_versus_experience(app: &mut App) {
             .with_color([1.0, 0.85, 0.3, 1.0]),
         )
     })
+    // ⭐⭐ **COMPOSED AND ROUTED, BUT NOT OFFERED** (Jon, 2026-08-15: the
+    // game-selection shell should list games, and these can be standalone for
+    // tests).
+    //
+    // ⛔ **it cannot become a standalone binary, and that is a fact about what it
+    // IS rather than an omission.** Its fighters are `mary_o` and `sanic`,
+    // registered by two DIFFERENT provider plugins, so the multi-game shell host
+    // is the only composition where both casts exist — which is exactly why this
+    // module lives in the app and says so at the top. Dropping the composition
+    // would delete the only proof in the workspace that two providers' characters
+    // can fight, at the moment the Smash lane is reporting the same boundary from
+    // the other side.
+    //
+    // ⇒ so the ROW goes and the STAGE stays. `versus_stage.rs` drives the real
+    // shell and activates `VERSUS_GAMEPLAY_ROUTE` by id; nothing it asserts is
+    // about the launcher listing it.
+    .unlisted()
     .install(app, versus_prepared_session_world);
 
     app.init_resource::<super::versus_rules::VersusMatch>();

@@ -410,6 +410,12 @@ pub struct PlatformerExperienceAuthoring {
     /// HUD — the default, and what every experience did before this seam
     /// existed.
     pub hud: Option<ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration>,
+    /// **Whether the launcher offers this experience to a player.**
+    ///
+    /// `true` by default — a provider that goes to the trouble of authoring an
+    /// experience usually means it to be playable. See
+    /// [`PlatformerExperienceAuthoring::unlisted`].
+    pub listed: bool,
 }
 
 impl PlatformerExperienceAuthoring {
@@ -432,7 +438,24 @@ impl PlatformerExperienceAuthoring {
             loading: None,
             presentation: None,
             hud: None,
+            listed: true,
         }
+    }
+
+    /// **Compose and route this experience, but keep it out of the launcher.**
+    ///
+    /// ⭐ **for a stage that exists to be TESTED or DEVELOPED against**, not
+    /// chosen: a fixture, a scratch arena, a crossover that only one composition
+    /// can host. Everything else is unchanged — the route is registered, the
+    /// characters join the roster, the catalogs are installed, and a test that
+    /// activates the route by id works exactly as before.
+    ///
+    /// ⛔ **not the same as declaring it unavailable.** An unavailable
+    /// experience is SHOWN, greyed, with a reason, because the player is meant
+    /// to know it exists. This one is simply not offered.
+    pub fn unlisted(mut self) -> Self {
+        self.listed = false;
+        self
     }
 
     /// **The launcher opens this route; the session still lives on the
@@ -548,6 +571,11 @@ impl PlatformerExperienceAuthoring {
         let registration = match self.entry_route.as_deref() {
             Some(entry) => registration.entered_at(entry),
             None => registration,
+        };
+        let registration = if self.listed {
+            registration
+        } else {
+            registration.unlisted()
         };
         app.register_gameplay_experience(
             registration,

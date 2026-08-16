@@ -57,6 +57,20 @@ pub struct ExperienceRegistration {
     pub description: String,
     pub launch_route: ShellRouteId,
     pub availability: ExperienceAvailability,
+    /// **Whether the launcher ADVERTISES this experience.**
+    ///
+    /// ⭐⭐ **not the same question as [`availability`](Self::availability), and
+    /// conflating them was the gap.** An unavailable experience is shown and
+    /// greyed with a reason, because the player is meant to know it exists and
+    /// why they cannot have it. An UNLISTED one is composed, routed and
+    /// reachable — and simply not offered, because it is a test fixture or a
+    /// development stage rather than something anyone came here to play.
+    ///
+    /// ⚠ **it stays fully registered**, which is the whole point: its route is
+    /// in the catalog, its characters join the roster, and a test that activates
+    /// it by route id works unchanged. Removing the composition instead would
+    /// have deleted the only place two providers' casts coexist.
+    pub listed: bool,
 }
 
 impl ExperienceRegistration {
@@ -72,7 +86,18 @@ impl ExperienceRegistration {
             description: String::new(),
             launch_route: launch_route.into(),
             availability: ExperienceAvailability::Available,
+            listed: true,
         }
+    }
+
+    /// **Compose and route this experience, but keep it out of the launcher.**
+    ///
+    /// For a stage that exists to be tested or developed against rather than
+    /// chosen: the route works, the roster is installed, and the player's game
+    /// list stays a list of games.
+    pub fn unlisted(mut self) -> Self {
+        self.listed = false;
+        self
     }
 
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
@@ -159,9 +184,16 @@ impl ShellExperienceRegistry {
     }
 
     /// The derived launcher entries, in registration order.
+    ///
+    /// ⚠ **UNLISTED registrations are omitted, and they are the only thing
+    /// omitted.** An *unavailable* experience still appears here — greyed, with
+    /// its reason — because the player is meant to see that it exists. This
+    /// filter is for the other case: a stage that is composed and routed but was
+    /// never for the player to choose.
     pub fn launch_entries(&self) -> Vec<ShellLaunchEntry> {
         self.entries
             .iter()
+            .filter(|registration| registration.listed)
             .map(ExperienceRegistration::launch_entry)
             .collect()
     }

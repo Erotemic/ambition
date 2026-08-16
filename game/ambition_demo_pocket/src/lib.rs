@@ -182,6 +182,12 @@ impl Plugin for PocketExperiencePlugin {
         .with_loading_activity(
             ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
         )
+        // ⭐ **its own description says what it is: an architecture proof.**
+        // Jon, 2026-08-15: the game-selection shell should list games. This one
+        // is a fixture that exists so a FOURTH provider proves the seam composes,
+        // and every test that drives it activates its route directly — so it
+        // loses nothing by not being offered.
+        .unlisted()
         .install(app, pocket_prepared_session_world);
     }
 }

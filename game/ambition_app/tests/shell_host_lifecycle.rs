@@ -213,6 +213,36 @@ fn launch_entry(app: &mut App, index: usize) {
     settle(app);
 }
 
+/// **Launch the row with this LABEL.**
+///
+/// ⭐⭐ **the walk below used bare indices until 2026-08-15, and unlisting two
+/// experiences renumbered every one of them.** The failure was not loud — the
+/// test asked for row 3 and got TwinTrack, so it asserted Pocket's route against
+/// TwinTrack's session and reported a route mismatch, which reads as a routing
+/// bug rather than as an off-by-one in the test's own bookkeeping.
+///
+/// A label is what the walk actually means, it survives reordering, and it makes
+/// the panic name the game somebody was looking for.
+fn launch_labeled(app: &mut App, label: &str) {
+    let index = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
+        .entries
+        .iter()
+        .position(|entry| entry.label == label)
+        .unwrap_or_else(|| {
+            let offered: Vec<&str> = app
+                .world()
+                .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
+                .entries
+                .iter()
+                .map(|entry| entry.label.as_str())
+                .collect();
+            panic!("the launcher offers no `{label}` row; it offers {offered:?}")
+        });
+    launch_entry(app, index);
+}
+
 /// Move the launcher cursor to `index` and prove it arrived, without launching.
 ///
 /// Split out of [`launch_entry`] for the EXIT row, which cannot be settled
@@ -415,14 +445,40 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "TwinTrack", "Smash", "Versus"],
-        "launcher entries derive from the registered experiences. `Versus` is the \
-         app-composed crossover stage (C4): its fighters belong to two different \
-         provider plugins, so the multi-game host is the only composition where \
-         both casts exist and it is registered here rather than inside a provider. \
-         An exact list on purpose — a launcher that silently gains or loses a row \
-         is the first thing a player sees."
+        vec!["Ambition", "Sanic", "Mary-O", "TwinTrack", "Smash"],
+        "launcher entries derive from the registered experiences, MINUS the \
+         unlisted ones. An exact list on purpose — a launcher that silently gains \
+         or loses a row is the first thing a player sees."
     );
+
+    // ⭐⭐ **`Pocket` AND `Versus` ARE STILL COMPOSED — they are UNLISTED, which
+    // is a different thing from absent, and asserting both halves is what keeps
+    // this honest.** Jon, 2026-08-15: the game-selection shell should list games,
+    // and these two are a provider-architecture fixture and a crossover test
+    // stage. Dropping their composition would have been the tempting reading and
+    // the wrong one: `Versus` CANNOT be a standalone binary, because its fighters
+    // come from two different provider plugins and this host is the only place
+    // both casts exist. So the row goes and the stage stays.
+    //
+    // ⛔ a test that only checked the visible list would pass just as well if
+    // somebody deleted the composition, which is the failure this pair exists to
+    // separate.
+    let registered: Vec<String> = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .iter()
+        .map(|registration| registration.display_name.clone())
+        .collect();
+    for unlisted in ["Pocket", "Versus"] {
+        assert!(
+            registered.iter().any(|name| name == unlisted),
+            "`{unlisted}` must stay REGISTERED while being unlisted; found {registered:?}"
+        );
+        assert!(
+            !entries.iter().any(|name| name == unlisted),
+            "`{unlisted}` must not be offered in the launcher"
+        );
+    }
 
     // **A ROW MAY LEAD TO A QUESTION RATHER THAN TO A GAME.** Smash is the first
     // one that does: its entry opens character select, and the stage route it
@@ -453,7 +509,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     };
 
     // ── Sanic ──────────────────────────────────────────────────────────
-    launch_entry(&mut app, 1);
+    launch_labeled(&mut app, "Sanic");
     let scope = assert_in_game(
         &mut app,
         "sanic_gameplay",
@@ -483,7 +539,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after sanic");
 
     // ── Mary-O ─────────────────────────────────────────────────────────
-    launch_entry(&mut app, 2);
+    launch_labeled(&mut app, "Mary-O");
     let scope = assert_in_game(
         &mut app,
         "mary_o_gameplay",
@@ -509,7 +565,16 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after mary-o");
 
     // ── Pocket fourth-provider proof ───────────────────────────────────
-    launch_entry(&mut app, 3);
+    //
+    // ⭐ **UNLISTED since 2026-08-15, so it is reached by ROUTE rather than by a
+    // launcher row** — and the leak coverage is the reason to keep visiting it at
+    // all. Not being offered to a player says nothing about whether its session
+    // tears down cleanly, and this walk is the only thing that asks.
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new("pocket_gameplay"),
+        ));
+    settle(&mut app);
     let scope = assert_in_game(
         &mut app,
         "pocket_gameplay",
@@ -529,7 +594,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after pocket");
 
     // ── TwinTrack SR provider ─────────────────────────────────────────
-    launch_entry(&mut app, 4);
+    launch_labeled(&mut app, "TwinTrack");
     let scope = assert_in_game(
         &mut app,
         ambition_demo_twintrack::TWINTRACK_GAMEPLAY_ROUTE,
@@ -552,7 +617,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     }
 
     // ── Ambition ───────────────────────────────────────────────────────
-    launch_entry(&mut app, 0);
+    launch_labeled(&mut app, "Ambition");
     let scope = assert_in_game(
         &mut app,
         shell_host::AMBITION_GAMEPLAY_ROUTE,
@@ -639,7 +704,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     assert_home(&mut app, "after ambition");
 
     // ── Sanic again: a FRESH session, not a resurrection ───────────────
-    launch_entry(&mut app, 1);
+    launch_labeled(&mut app, "Sanic");
     let scope = assert_in_game(
         &mut app,
         "sanic_gameplay",

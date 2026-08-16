@@ -408,6 +408,65 @@ We may need to give everyone extra height for their double jump to compensate."*
 And the follow-up: *"Well, B=jump is the way I like my smash controller, It's
 probably non standard. Will need to have control profiles eventually."*
 
+⭐⭐ **JON'S RULING ON WHICH WAY THE AUTHORING POINTS (2026-08-16, mid-slice-2,
+and it OVERTURNS a recommendation I had already written into this row).**
+
+Jon, verbatim: *"I think MaryO probably should tumble. The issue is that the
+artist needs to author how she does that, similar to how Mario does tumble in
+smash ultimate. The real difference is that in a real smash game each character
+is authored individually exactly for that game. Which is why my thinking is
+going from the character pointing towards the game rather than vice versa.
+Otherwise the game is overriding author facts. The trick here is that our
+characters happen to behave pretty well in both the ambition style game and the
+smash style game, and I also want to be economical and reuse some of the artwork
+where I can. If we were doing this super professionally, each game would have
+their own artwork specifically authored and with specific information for only
+the abilities that happen in that game. We're eventually going to need to offer
+her the ability to grab, but she's never going to be able to grab in her actual
+game — but all of those grab details should be on the authoring side not the
+game side."*
+
+⛔ **I had recommended the opposite** (a per-seat body override on the roster,
+"the exception lives with the invitation"). It was wrong, and the repo says so:
+**D144 already points character → vocabulary.** Mary-O's sixteen smash moves live
+in `game/ambition_demo_mary_o/src/smash_moveset.rs` — HER crate, authored by her,
+unreachable at home because her catalog row omits `attack`. Her own file states
+the principle: *"a move table is what the attack IS; the ability is whether this
+body may attack at all."* `MatchBody` pointing the other way was the inconsistent
+thing.
+
+⭐ **THE TEST THAT SETTLES WHO OWNS A NUMBER:**
+
+```text
+IDENTICAL repetition is CEREMONY  -> centralize it   (the room's physics)
+DIFFERING repetition is CONTENT   -> author it       (the fighter's identity)
+```
+
+The six `MatchBody` numbers were the SAME fourteen times — the room is not
+asserting anything about Mary-O, it is saying what happens in this room, so
+centralizing was right. Gravity, fall speed, weight, air jumps, HOW SHE TUMBLES
+would be DIFFERENT fourteen times. That is content, and content belongs to
+whoever draws it.
+
+| what | owner | why |
+|---|---|---|
+| grab / tumble / get-up / tech — frames, geometry, feel | **the character**, against the VOCABULARY | only its author can draw it, and it never names a game |
+| gravity, fall speed, weight, air jumps | **the character**, as its FIGHTER self | differs per fighter — that IS the identity |
+| tumble threshold, air-dodge window, jump squat, no recoil | **the room** (`MatchBody`) | identical for everyone; the venue's physics |
+| where this fighter sits against THIS cast | **the game** | relative — uncomputable in a file that cannot see the roster |
+
+⛔ **the line: a game may RANK its cast; it may not STATE FACTS about them.**
+The existing `knockback_weight` spread in `install_smash_content` (v2 0.85,
+George 1.35, v3 the 1.0 reference) is the good version of the last row and the
+only thing that belongs on the game side. Jon's *"overriding author facts"* names
+exactly the failure mode a per-seat body override would have become.
+
+⚠ **economy is not a departure from this.** A character's fighter self MAY reuse
+its platformer sheets — the clip fallback chain already does (`smash_forward`
+settles for `attack_side`, then `attack`, then `slash`, then `idle`), so an
+unauthored fighter frame costs a move its picture and never its gameplay. The
+gaps stay playable while the art catches up.
+
 **THREE ITEMS, in the order they should be done. Everything below is MEASURED,
 not assumed — the reading was done 2026-08-16 before any of it was written.**
 
@@ -454,18 +513,36 @@ states the composition once.
 opinion, and `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored`
 caught it in one run — the crawler's authored 80 px/s became the engine's 270.
 That is the trap `MatchAbilities` already names on the grant side.
-▢ **STILL DEAD, and both are product calls rather than engine gaps.** Mary-O is
-granted `double_jump` and authors `air_jumps: 0` (her SMB1 convergence), and
-`air_jumps` is NOT a mode's number — in the genre it is per-fighter. Sanic moves
-by `SurfaceMomentum`, which has no `AxisManeuverState`, so no stage can give him
-an evade window, a parry or a tumble; `perception_body_for` reads
-`AxisSweptMotion::default()` for him and is right to.
+▢ **STILL DEAD — and ⛔ THESE WERE FILED AS "PRODUCT CALLS" AND THAT WAS WRONG.**
+Jon, on Mary-O's exemption: *"I think MaryO probably should tumble. The issue is
+that the artist needs to author how she does that."* ⇒ **nobody ever decided she
+should not; the animation simply does not exist.** A decision and a missing asset
+read IDENTICALLY in the code today, and they must not: **an exemption list is a
+TODO LIST**, and a granted capability a character has no content for owes a NAMED
+GAP WITH AN OWNER, not a quietly different tuning number.
+* ▢ **Mary-O: author a tumble, a get-up and an air jump for her FIGHTER self**
+  (her own crate, beside `smash_moveset.rs`). She authors `air_jumps: 0` for her
+  SMB1 convergence at home; her fighter self wants one, the way Ultimate's Mario
+  has one. `air_jumps` is per-fighter in the genre and is NOT a mode's number.
+* ▢ **Sanic moves by `SurfaceMomentum`**, which has no `AxisManeuverState`, so no
+  stage CAN give him an evade window, a parry or a tumble; `perception_body_for`
+  reads `AxisSweptMotion::default()` for him and is right to. ⚠ this one is a
+  genuine ENGINE gap, not a missing asset — the other motion model has no seat
+  for the state these verbs live in.
 ▢ **AND A LEVELLED STAGE WHERE THIRTEEN BODIES ARE FLOATIER THAN THE
 FOURTEENTH.** The deleted per-character block was ALSO declaring those three
 PLAYER-GRADE (`..DEFAULT_TUNING`: gravity 2500, run accel 5200) where a seat
 that authors nothing takes `BodyMovementTuning::BASELINE`, the generic ACTOR
 body (gravity 1450, run accel 650). It is stated explicitly on the three now, so
-nothing moved; which base a platform fighter uses is the decision left.
+nothing moved.
+⭐ **JON'S RULING RESOLVES THIS, AND NOT THE WAY IT WAS FILED.** It was filed as
+*"which base a platform fighter uses is the decision left"* — i.e. pick one and
+level it. It is not a levelling decision at all: gravity, fall speed, weight and
+air jumps DIFFER per fighter, so by the ceremony/content test above they are
+**fourteen small authored facts nobody has written yet**. Each fighter authors a
+FIGHTER BODY beside the fighter moveset it already authors. ⛔ the eleven are not
+on a wrong base by choice — they are on the wandering-ENEMY baseline by default,
+which is nobody's design.
 
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,

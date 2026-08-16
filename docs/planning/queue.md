@@ -1921,10 +1921,25 @@ frame** and ask what admits these two and not those two.
 
 ⛔ **TWO LEADS ALREADY DEAD (2026-08-16) — do not re-run them:**
 
-1. ⊘ **"their own demo's systems are running in Smash."** `ambition_demo_smash`
-   and `ambition_demo_smash_app` name **neither** `demo_sanic` nor `demo_mary_o`,
-   in any `.rs` or `.toml`. The crossover characters bring their catalog rows and
-   their art, not their game's plugins.
+1. ⛔⛔ **RETRACTED 2026-08-16 — I ELIMINATED THIS AGAINST THE WRONG PROCESS, AND
+   IT IS NOW THE LEADING HYPOTHESIS.** I checked that `ambition_demo_smash` and
+   `ambition_demo_smash_app` name neither `demo_sanic` nor `demo_mary_o` — true,
+   and irrelevant: **the measurement was taken through the SHELL**
+   (`capture_scene --route smash_gameplay`, i.e. `ambition_app`), and
+   `app/shell_host.rs` installs **`SanicExperiencePlugin` and
+   `MaryOExperiencePlugin`** outright. ⇒ both demos' systems WERE running in the
+   process where the damage was observed.
+
+   ⭐⭐ **and it explains the split exactly**: `SMASH_ROSTER`'s own comment calls
+   `mary_o` and `sanic` *"the other demos' protagonists — present only when a host
+   composes them"*, while `player_robot_v3` and `george_booul` belong to Ambition
+   and this demo. **The two that accrue damage are precisely the two whose
+   experience plugins are composed into that process.** ⇒ look for a system in
+   `SanicExperiencePlugin` / `MaryOExperiencePlugin` that damages its own
+   protagonist on a clock and does not check that it is in ITS OWN experience —
+   a hazard, a drown/lava timer, a form-loss rule.
+   ⚠ **and this predicts the standalone `ambition_demo_smash_app` would NOT show
+   it**, which is a cheap confirming experiment before touching any code.
 2. ⊘ **"the two that accrue are the two whose sheets do not author a body."**
    Falsified 4/4: `george_booul` is ALSO `authored_body: false` and takes **zero**
    damage in every sample, while `player_robot_v3` is `true`. Body-geometry

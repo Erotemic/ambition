@@ -628,6 +628,113 @@ mod tests {
         }
     }
 
+    /// **The authored body box is INSET from the art it belongs to**, asked of
+    /// the sheet rather than of a number typed here.
+    ///
+    /// Jon: *"It needs to be slightly inset from the visible parts of the
+    /// player [...] well within the player arms."* The two tests above pin the
+    /// box against the STANDING HEIGHT and the hurtbox against the BOX, and
+    /// both stay green if the authored rectangle silently grows back out to the
+    /// full silhouette — the exact defect being fixed. Only a comparison
+    /// against the drawing catches that.
+    ///
+    /// ⭐ **the sheet already publishes its own alpha extent, so nothing has to
+    /// decode a PNG.** The atlas packer trims every frame to its opaque alpha
+    /// bounding box and records where that box sat inside the logical frame
+    /// (`FrameRect::off`), so the union over a row's frames IS the drawn
+    /// silhouette — in the very same logical-frame pixel space
+    /// `body_pixel_bbox` is expressed in. That is why this can assert a
+    /// RELATIONSHIP instead of pixel constants, and stay true when the art is
+    /// redrawn.
+    ///
+    /// ⚠ the bottom edge is deliberately NOT required to be inset: that is the
+    /// shoe line, and lifting a collision box off the floor is how a character
+    /// starts hovering. "Under the main head" is likewise the HURTBOX's job
+    /// (see above) — this box only has to clear the antenna.
+    #[test]
+    fn v3s_authored_body_box_is_inset_from_his_drawn_silhouette() {
+        use ambition_sprite_sheet::character::sheets;
+
+        let record = sheets::record_for_target("player_robot_v3")
+            .expect("v3's spritesheet is baked into the sheet index");
+        let metrics = record
+            .body_metrics
+            .as_ref()
+            .expect("v3's sheet publishes body metrics");
+        assert!(
+            metrics.authored_body,
+            "v3's sheet only MEASURED its box, so `authored_body_pixel_size` \
+             refuses it and the lineage hands them back the engine's default \
+             constant — the bug this closes",
+        );
+        let body = metrics
+            .body_pixel_bbox
+            .expect("an authored body is a rectangle");
+
+        let idle = record
+            .rows
+            .iter()
+            .find(|row| row.animation == "idle")
+            .expect("v3 has an idle row; it is the pose the standing body is read from");
+        let (mut left, mut top, mut right, mut bottom) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
+        for rect in &idle.rects {
+            left = left.min(rect.off.0);
+            top = top.min(rect.off.1);
+            right = right.max(rect.off.0 + rect.w);
+            bottom = bottom.max(rect.off.1 + rect.h);
+        }
+
+        // ⚠ NON-VACUITY, three ways. Without these the comparisons below pass
+        // on a sheet that says nothing: an empty row leaves the union inverted,
+        // and an UNTRIMMED row reports `off == (0, 0)` with `w`/`h` equal to the
+        // whole logical frame, which is trivially bigger than any body box.
+        assert!(
+            !idle.rects.is_empty() && right > left && bottom > top,
+            "v3's idle row publishes no frame extent, so there is no silhouette \
+             to be inset from and every assertion below is vacuous",
+        );
+        assert!(
+            right - left < record.frame_width as i32 && bottom - top < record.frame_height as i32,
+            "v3's frames are untrimmed, so `off`/`w`/`h` describe the whole \
+             {}×{} logical frame instead of his alpha extent — this test would \
+             then pass on a body box of any size at all",
+            record.frame_width,
+            record.frame_height,
+        );
+
+        // The measurement Jon reported, as a relationship.
+        assert!(
+            body.x > left && body.x + body.w < right,
+            "v3's body box spans x {}..{} against a drawn silhouette of \
+             {left}..{right}: it reaches his arms, which is what 'well within \
+             the player arms' rules out",
+            body.x,
+            body.x + body.w,
+        );
+        assert!(
+            (body.w as f32) < 0.9 * (right - left) as f32,
+            "v3's body box is {} px wide against a {} px silhouette — a hair \
+             narrower is not 'well within the arms', and a hurtbox that \
+             forgiving has to clear the arm span, not graze it",
+            body.w,
+            right - left,
+        );
+        assert!(
+            body.y > top,
+            "v3's body box starts at y {} against a silhouette starting at \
+             {top}, so his antenna is inside his collision box and he is hit by \
+             things that pass over his head",
+            body.y,
+        );
+        assert!(
+            body.y + body.h <= bottom,
+            "v3's body box ends at y {} below his own art, which ends at \
+             {bottom} — a box that overhangs the shoe line plants his feet under \
+             the floor",
+            body.y + body.h,
+        );
+    }
+
     /// Every incarnation's art resolves, and to a DIFFERENT sheet.
     ///
     /// ⚠ the second half is the one worth having. Eighteen shipped sheets

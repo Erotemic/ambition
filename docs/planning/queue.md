@@ -1664,6 +1664,17 @@ state the invariant once over what discovery finds, not once per sheet.
 CHECK that refuses to publish a clipped frame, and (b) re-authoring the 23 sheets
 that are already clipped — some of which may want a bigger logical frame rather
 than smaller art. (a) is engine work; (b) is art work and partly Jon's call.
+
+⛔⛔ **AND IT ORDERS AGAINST THE SIZING CLUSTER ABOVE.**
+[`engine/sprite-renderer.md`](engine/sprite-renderer.md)'s engine-facing
+principle is **measure-by-default**: *"the renderer measures each frame's
+canonical body/feet geometry … so the gameplay layer reads geometry from data
+instead of guessing."* For a clipped sheet that measurement is faithful to art
+**that was already cut** — `body_metrics` then describes a truncated silhouette.
+⇒ **migrating a clipped body to `BodySource::SpriteAuthored` would bake the cut
+into its collision box.** Fix the clipping first for any body in both lists.
+⭐ neither of today's two findings is a new principle; they are the same
+principle with **two adopters and no enforcement**.
 ⚠ also: a flat run is strong evidence, not proof — a sprite deliberately drawn
 flush to the edge would score the same. The check should say what it saw.
 

@@ -306,10 +306,10 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "Signature special",
     ),
     engine(
-        "quick_action",
+        "shield",
         ActionControlKind::Button,
         GAMEPLAY,
-        "Shield / guard",
+        "Hold to raise a guard, release to drop it",
     ),
     engine(
         "interact",

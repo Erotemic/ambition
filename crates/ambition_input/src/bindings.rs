@@ -444,7 +444,7 @@ pub fn action_for_slot(
         ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
         ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
         ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,
-        ControlSlot::QuickAction => Platformer2dInputActionMonolith::QuickAction,
+        ControlSlot::Shield => Platformer2dInputActionMonolith::Shield,
         ControlSlot::Modifier => Platformer2dInputActionMonolith::Modifier,
     })
 }

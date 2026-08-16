@@ -1018,7 +1018,7 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
         TouchActionButton::Interact => ControlSlot::Interact,
         TouchActionButton::Projectile => ControlSlot::Projectile,
         TouchActionButton::FlyToggle => ControlSlot::Utility,
-        TouchActionButton::Shield => ControlSlot::QuickAction,
+        TouchActionButton::Shield => ControlSlot::Shield,
         TouchActionButton::Modifier => ControlSlot::Modifier,
         TouchActionButton::Start | TouchActionButton::Reset => return None,
     })

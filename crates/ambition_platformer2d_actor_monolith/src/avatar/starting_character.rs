@@ -1127,7 +1127,6 @@ pub fn gate_worn_player_control(
     >,
 ) {
     use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
-    use ambition_characters::brain::SpecialActionSpec;
 
     for (
         worn,
@@ -1166,15 +1165,24 @@ pub fn gate_worn_player_control(
              yet (needs the Phase-3 kernel re-key): {unroutable:?}",
         );
 
-        let allows_body_shield = matches!(
-            actions.special.as_ref(),
-            Some(SpecialActionSpec::Special(key)) if key == "bubble_shield"
-        );
-        // Shield+Attack is the universal "throw the held item" gesture, so a
-        // held item keeps the shield verb alive too.
-        if !allows_body_shield && !holds_item {
-            control.0.shield_held = false;
-        }
+        // ⛔⛔ **A SHIELD POLICY STOOD HERE AND ASKED THE WRONG QUESTION**
+        // (deleted D146 slice 2). It read
+        // `ActionSet.special == Special("bubble_shield")` and erased
+        // `shield_held` on every body whose special was anything else — so a
+        // persona that OWNED `AbilitySet::shield` still lost its guard every
+        // frame because its special was not the player robot's folded bubble.
+        // *Which special do you carry* was standing where *can you shield at
+        // all* belongs, which is precisely Shield masquerading as a mode of
+        // Special. Jon: *"Shield is not a special move. It is an independent
+        // participant control/action."*
+        //
+        // ⭐ the question now lives with every other slot's, inside
+        // `resolve_control_slots` above: the Shield slot is present iff the body
+        // has the shield ability, and the held-item exception (shield+attack is
+        // the throw gesture) moved there with it. `sustain_bubble_shield` runs
+        // AFTER this system and still forces the guard up for the folded
+        // bubble-shield special, so a special MAY raise a guard — it is simply no
+        // longer the only way any body has.
 
         // Use the identity as the same-tick source of truth. The marker is
         // synchronized by `apply_worn_character_gameplay`, but Commands are

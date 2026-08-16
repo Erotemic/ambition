@@ -51,8 +51,27 @@ pub enum ControlSlot {
     Interact,
     /// Utility slot — fly toggle / form toggle and similar mode switches.
     Utility,
-    /// Quick-action slot — shield / guard.
-    QuickAction,
+    /// **Shield slot — the guard.** Holding it raises a guard; releasing it drops
+    /// one. It is not a flavour of [`Self::Special`], and a body's shield does not
+    /// depend on which special that body carries (D146, Jon: *"Shield is not a
+    /// special move. It is an independent participant control/action."*).
+    ///
+    /// ⚠ **this was `QuickAction`, and the generic name was the lie.** Every other
+    /// slot here is named for its DEFAULT action — Jump, Attack, Special,
+    /// Projectile, Dash, Blink, Interact — and each of them still hosts a content
+    /// technique without the name misleading anybody. `QuickAction` was the one
+    /// slot named for its ceremony instead, and the measurement that settled it is
+    /// that its only occupant anywhere in the workspace is the shield: the sole
+    /// producer is `movement_actions`' `(abilities.shield, …, ids::SHIELD)` row,
+    /// and every consumer (the touch overlay's Shield button, `shield_held`, the
+    /// gamepad preset comment) already called it the shield.
+    ///
+    /// ⛔ [`Self::Modifier`] and [`Self::Utility`] keep their generic names for the
+    /// opposite reason, and that contrast is the rule: those two genuinely carry
+    /// more than one content meaning (Utility holds the engine fly toggle AND
+    /// Sanic's transformation), so naming either for one occupant would be the
+    /// same mistake pointing the other way.
+    Shield,
     /// Modifier slot — a slot whose SUSTAIN is the point. Content binds a
     /// technique to holding it (a locomotion mode, a stance) and may bind a
     /// momentary action to its press edge. The engine reserves the position and
@@ -75,7 +94,7 @@ pub const CANONICAL_SLOT_ORDER: [ControlSlot; 10] = [
     ControlSlot::Blink,
     ControlSlot::Interact,
     ControlSlot::Utility,
-    ControlSlot::QuickAction,
+    ControlSlot::Shield,
 ];
 
 /// A stable, machine action id (`"jump"`, `"spin_dash"`, `"attack"`). Matches

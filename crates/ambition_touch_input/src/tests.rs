@@ -52,7 +52,10 @@ mod virtual_device_tests {
         (app, participant)
     }
 
-    fn actions<'a>(app: &'a App, participant: Entity) -> &'a ActionState<Platformer2dInputActionMonolith> {
+    fn actions<'a>(
+        app: &'a App,
+        participant: Entity,
+    ) -> &'a ActionState<Platformer2dInputActionMonolith> {
         app.world()
             .get::<ActionState<Platformer2dInputActionMonolith>>(participant)
             .unwrap()
@@ -71,7 +74,10 @@ mod virtual_device_tests {
         hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
         app.update();
         let a = actions(&app, participant);
-        assert!(a.pressed(&Platformer2dInputActionMonolith::Jump), "touch Jump -> Jump");
+        assert!(
+            a.pressed(&Platformer2dInputActionMonolith::Jump),
+            "touch Jump -> Jump"
+        );
         assert!(
             a.pressed(&Platformer2dInputActionMonolith::MenuSelect),
             "touch Jump also -> MenuSelect (declared menu-confirm binding)"
@@ -109,15 +115,21 @@ mod virtual_device_tests {
         });
         app.update();
         let a = actions(&app, participant);
-        assert!(a.pressed(&Platformer2dInputActionMonolith::Reset), "Reset -> Reset");
+        assert!(
+            a.pressed(&Platformer2dInputActionMonolith::Reset),
+            "Reset -> Reset"
+        );
         assert!(
             a.pressed(&Platformer2dInputActionMonolith::MenuBack),
             "Reset doubles as menu Back (declared binding)"
         );
-        assert!(a.pressed(&Platformer2dInputActionMonolith::Utility), "Fly -> Utility");
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::QuickAction),
-            "Shield -> QuickAction"
+            a.pressed(&Platformer2dInputActionMonolith::Utility),
+            "Fly -> Utility"
+        );
+        assert!(
+            a.pressed(&Platformer2dInputActionMonolith::Shield),
+            "the overlay Shield button feeds the Shield action"
         );
         assert!(
             a.pressed(&Platformer2dInputActionMonolith::Special),

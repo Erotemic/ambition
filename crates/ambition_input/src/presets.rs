@@ -39,7 +39,7 @@ pub struct ActionKeys {
     pub secondary: KeyCode,
     /// Dedicated signature-special key (distinct from `secondary`/Blink).
     pub special: KeyCode,
-    pub quick_action: KeyCode,
+    pub shield: KeyCode,
     pub interact: KeyCode,
     pub modifier: KeyCode,
     pub utility: KeyCode,
@@ -106,7 +106,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyC,
                 secondary: KeyCode::KeyA,
                 special: KeyCode::KeyG,
-                quick_action: KeyCode::KeyE,
+                shield: KeyCode::KeyE,
                 interact: KeyCode::KeyF,
                 // ⚠ **X IS THE CLASSIC B BUTTON: hold to run, press to fire.**
                 // Binding `attack` AND `modifier` to the same key is DELIBERATE
@@ -168,7 +168,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyK,
                 secondary: KeyCode::KeyL,
                 special: KeyCode::KeyG,
-                quick_action: KeyCode::KeyI,
+                shield: KeyCode::KeyI,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyU,
@@ -199,7 +199,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyE,
                 secondary: KeyCode::KeyR,
                 special: KeyCode::KeyH,
-                quick_action: KeyCode::KeyT,
+                shield: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyG,
@@ -230,7 +230,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyP,
                 secondary: KeyCode::KeyO,
                 special: KeyCode::KeyH,
-                quick_action: KeyCode::KeyJ,
+                shield: KeyCode::KeyJ,
                 interact: KeyCode::KeyE,
                 modifier: KeyCode::ShiftLeft,
                 utility: KeyCode::KeyK,
@@ -329,10 +329,7 @@ impl KeyboardPreset {
             Platformer2dInputActionMonolith::Special,
             self.actions.special,
         );
-        map.insert(
-            Platformer2dInputActionMonolith::QuickAction,
-            self.actions.quick_action,
-        );
+        map.insert(Platformer2dInputActionMonolith::Shield, self.actions.shield);
         map.insert(
             Platformer2dInputActionMonolith::Interact,
             self.actions.interact,
@@ -447,7 +444,7 @@ impl KeyboardPreset {
 ///   North        Projectile (fireball)
 ///   LeftTrigger  Utility (fly toggle), MenuPageLeft
 ///   LeftTrigger2 Modifier
-///   RightTrigger QuickAction, Interact, MenuPageRight
+///   RightTrigger Shield, Interact, MenuPageRight
 ///   RightTrigger2 Dash
 ///   LeftThumb    Map (click left stick)
 ///   RightThumb   Inventory (click right stick)
@@ -522,7 +519,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
 
     map.insert(Platformer2dInputActionMonolith::Blink, GamepadButton::East);
     map.insert(
-        Platformer2dInputActionMonolith::QuickAction,
+        Platformer2dInputActionMonolith::Shield,
         GamepadButton::RightTrigger,
     );
     map.insert(
@@ -575,7 +572,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         GamepadButton::East,
     );
 
-    // The bumpers double as gameplay Utility/QuickAction, but menu page actions
+    // The bumpers double as gameplay Utility/Shield, but menu page actions
     // are only read while a paged menu is open, so the physical button is shared
     // safely.
     map.insert(

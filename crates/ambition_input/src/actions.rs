@@ -44,7 +44,24 @@ pub enum Platformer2dInputActionMonolith {
     /// a per-preset keyboard key (gamepad Special awaits the remap pass, since
     /// the face + shoulder buttons are already fully assigned).
     Special,
-    QuickAction,
+    /// **SHIELD — hold to raise a guard, release to drop it.** The one semantic
+    /// action that produces `ControlFrame::shield_held`, and an independent
+    /// participant control rather than a variant of [`Self::Special`] (D146,
+    /// Jon: *"Shield input -> can hold/release shield. Special input ->
+    /// activates authored special behavior. One cannot accidentally masquerade
+    /// as the other."*).
+    ///
+    /// ⚠ **this was `QuickAction`** — a generic name for an action every
+    /// producer and consumer already treated as the shield (the touch overlay's
+    /// Shield button maps here, every keyboard preset's `shield` key binds it,
+    /// and `read_gameplay_control_frame` reads it straight into `shield_held`).
+    ///
+    /// ⛔ **a rename is a SETTINGS-FILE event**, because [`crate::BindingOverride`]
+    /// keys an action by this variant's `Debug` spelling and `apply_override`
+    /// silently ignores a name this build does not have — so a player's stored
+    /// remap of the shield would have gone quiet with no symptom. It is migrated
+    /// on load by `ControlSettings::clamp_all`; see `RENAMED_ACTIONS` there.
+    Shield,
     Interact,
     Modifier,
     Utility,

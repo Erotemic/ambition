@@ -125,7 +125,7 @@ pub fn read_gameplay_control_frame_with_settings(
         projectile_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
-        shield_held: actions.pressed(&Platformer2dInputActionMonolith::QuickAction),
+        shield_held: actions.pressed(&Platformer2dInputActionMonolith::Shield),
         modifier_held,
         modifier_pressed,
         aim_x: aim_x_raw,

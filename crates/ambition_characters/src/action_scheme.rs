@@ -143,15 +143,16 @@ fn clear_projectile(control: &mut ActorControlFrame) {
 /// frame, routing techniques and stripping verbs the body doesn't own.
 ///
 /// For every slot that carries a device verb in [`ActorControlFrame`] (Attack,
-/// Special, Projectile, and the shield on QuickAction):
+/// Special, Projectile, and Shield):
 ///
 /// - **`Technique(id)`** → route the slot's device edge into `edges[id]` and
 ///   CLEAR the raw verb, so the content system reads the sanctioned edge and a
 ///   bare melee/special/projectile press is no longer the API.
 /// - **`Move`** → keep the verb (the moveset runtime owns it).
 /// - **absent** → strip the verb, so a body without the slot cannot fire it.
-///   `holds_item` keeps Attack/Projectile alive (a held item repurposes them for
-///   throw/use), matching the persona-gate exception; Special has no such reuse.
+///   `holds_item` keeps Attack/Projectile/Shield alive (a held item repurposes
+///   attack for throw/use, and shield+attack IS the throw gesture); Special has
+///   no such reuse.
 ///
 /// The Modifier and Utility slots carry device verbs too and route the same way,
 /// differing only in what a press MEANS there: Modifier sustains (its edge keeps
@@ -164,9 +165,7 @@ fn clear_projectile(control: &mut ActorControlFrame) {
 ///
 /// Pure and Bevy-free (takes the frame + edges by reference) so the whole slot
 /// matrix is unit-testable without a world; `edges` is cleared first, so a
-/// released technique leaves no stale edge behind. The QuickAction shield's
-/// *presence* gating (special-key / held-item driven) stays with the caller —
-/// this routes only a technique explicitly placed there.
+/// released technique leaves no stale edge behind.
 pub fn resolve_control_slots(
     scheme: &ActionSchemeContract,
     control: &mut ActorControlFrame,
@@ -229,8 +228,26 @@ pub fn resolve_control_slots(
                 None if !holds_item => control.fire = None,
                 _ => {}
             },
-            ControlSlot::QuickAction => {
-                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+            // **THE GUARD, and it asks the same question every other slot does.**
+            //
+            // ⛔⛔ **it used to ask a DIFFERENT one, and that was D146 slice 2's
+            // whole defect.** The policy lived in the caller
+            // (`gate_worn_player_control`), where it read
+            // `ActionSet.special == Special("bubble_shield")` and erased
+            // `shield_held` on every body whose special was anything else. That
+            // is *which special do you carry* standing where *can you shield at
+            // all* belongs — so a persona holding `AbilitySet::shield` and an
+            // ordinary special had its guard wiped every frame, and Shield was in
+            // practice a mode of Special. Jon: *"Shield is not a special move. It
+            // is an independent participant control/action."*
+            //
+            // ⭐ the capability is `AbilitySet::shield`, which `movement_actions`
+            // already turns into this slot. Absent slot → no guard; present slot →
+            // the kernel's `resolve_shield` decides the rest. A held item keeps the
+            // verb alive exactly as it does on Attack, because shield+attack is the
+            // universal throw gesture.
+            ControlSlot::Shield => match gate.as_ref() {
+                Some(ActionGate::Technique(id)) => {
                     edges.set(
                         id,
                         Edge {
@@ -240,9 +257,9 @@ pub fn resolve_control_slots(
                     );
                     control.shield_held = false;
                 }
-                // Non-technique QuickAction (the shield ability) is governed by the
-                // caller's special-key / held-item shield policy.
-            }
+                None if !holds_item => control.shield_held = false,
+                _ => {}
+            },
             // The SUSTAIN slot. A technique bound here is a MODE, not a moment, so
             // the routing differs from every arm above in two ways: the edge
             // carries `held` as well as `pressed`, and neither is cleared off the
@@ -326,7 +343,7 @@ fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
             ControlSlot::Utility,
             ids::FLY_TOGGLE,
         ),
-        (abilities.shield, ControlSlot::QuickAction, ids::SHIELD),
+        (abilities.shield, ControlSlot::Shield, ids::SHIELD),
     ];
     table
         .into_iter()
@@ -663,6 +680,7 @@ mod tests {
                     1.0,
                 ));
             }
+            ControlSlot::Shield => control.shield_held = true,
             _ => unreachable!("only combat slots carry a device verb"),
         }
     }
@@ -677,19 +695,26 @@ mod tests {
             ControlSlot::Attack => control.melee_pressed,
             ControlSlot::Special => control.special_pressed,
             ControlSlot::Projectile => control.fire.is_some(),
+            ControlSlot::Shield => control.shield_held,
             _ => unreachable!("only combat slots carry a device verb"),
         }
     }
 
-    /// The core dispatch matrix: for each of the three combat slots (Attack,
-    /// Projectile, Special), an ABSENT slot strips the verb, a `Move` keeps it,
-    /// and a `Technique` routes the device edge AND clears the raw verb.
+    /// The core dispatch matrix: for each slot that carries a device verb (Attack,
+    /// Projectile, Special, Shield), an ABSENT slot strips the verb, a `Move` keeps
+    /// it, and a `Technique` routes the device edge AND clears the raw verb.
+    ///
+    /// ⚠ **Shield joined this matrix in D146 slice 2.** Its presence rule used to
+    /// live in the caller as a special-key test, which is what let Shield behave as
+    /// a mode of Special; the whole point of the move is that the guard now answers
+    /// the same question in the same place as every other slot.
     #[test]
     fn resolve_control_slots_dispatches_absent_move_and_technique_per_combat_slot() {
         for slot in [
             ControlSlot::Attack,
             ControlSlot::Projectile,
             ControlSlot::Special,
+            ControlSlot::Shield,
         ] {
             // Each row: (gate, kept-after, is-routed).
             let rows = [
@@ -714,9 +739,17 @@ mod tests {
                     kept,
                     "{slot:?} with {gate:?}: kept-after == {kept}"
                 );
+                // ⚠ the Shield slot routes a HELD level, not a press edge — a
+                // guard is a sustain, so `pressed` would read `false` on a
+                // correctly routed shield technique.
+                let edge = edges.edge("t");
+                let observed = if slot == ControlSlot::Shield {
+                    edge.held
+                } else {
+                    edge.pressed
+                };
                 assert_eq!(
-                    edges.pressed("t"),
-                    routed,
+                    observed, routed,
                     "{slot:?} with {gate:?}: technique edge routed == {routed}"
                 );
             }
@@ -751,16 +784,18 @@ mod tests {
         assert!(!control.melee_released);
     }
 
-    /// A held item repurposes the Attack and Projectile verbs (throw / use), so an
-    /// ABSENT combat slot must NOT strip them while an item is held. Special has no
+    /// A held item repurposes the Attack and Projectile verbs (throw / use) and
+    /// shield+attack IS the throw gesture, so an ABSENT Attack / Projectile /
+    /// Shield slot must NOT strip its verb while an item is held. Special has no
     /// such reuse and is always stripped when absent.
     #[test]
-    fn held_item_keeps_attack_and_projectile_but_not_special() {
+    fn held_item_keeps_attack_projectile_and_shield_but_not_special() {
         let empty = ActionSchemeContract::default();
         let mut control = ActorControlFrame::default();
         control.melee_pressed = true;
         control.projectile_pressed = true;
         control.special_pressed = true;
+        control.shield_held = true;
         let mut edges = ResolvedTechniqueEdges::default();
 
         let unroutable =
@@ -774,6 +809,10 @@ mod tests {
         assert!(
             control.projectile_pressed,
             "held item keeps the projectile verb"
+        );
+        assert!(
+            control.shield_held,
+            "held item keeps the shield half of the throw gesture"
         );
         assert!(
             !control.special_pressed,

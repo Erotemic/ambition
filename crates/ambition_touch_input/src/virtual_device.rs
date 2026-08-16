@@ -294,11 +294,11 @@ pub fn touch_bindings() -> Vec<(
         (A::Interact, TouchVirtualButton(B::Interact)),
         (A::MenuSelect, TouchVirtualButton(B::Interact)),
         (A::Projectile, TouchVirtualButton(B::Projectile)),
-        // The overlay's Fly button is the Utility slot (fly toggle), and
-        // Shield is the QuickAction slot (shield/roll) — the same actions
-        // the keyboard/gamepad bindings feed.
+        // The overlay's Fly button is the Utility slot (fly toggle), and the
+        // Shield button is the Shield action — the same actions the
+        // keyboard/gamepad bindings feed.
         (A::Utility, TouchVirtualButton(B::FlyToggle)),
-        (A::QuickAction, TouchVirtualButton(B::Shield)),
+        (A::Shield, TouchVirtualButton(B::Shield)),
         // ⛔ **`Modifier` was MISSING here until 2026-08-04, and the button was
         // drawn the whole time.** `touch_button_slot` maps it to
         // `ControlSlot::Modifier`, so a scheme carrying that slot made the button

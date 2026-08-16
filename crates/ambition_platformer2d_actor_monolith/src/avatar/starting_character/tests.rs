@@ -793,7 +793,18 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
         ambition_platformer2d_core::LocalAxes::ZERO
     );
     assert!(gated.fire.is_none());
-    assert!(!gated.shield_held);
+    // ⚠ **the SHIELD is not one of them, and that is deliberate** (D146 slice 2).
+    // Peaceful is a claim about ATTACKING; a guard is defensive, and this body's
+    // `BodyAbilities` grants `shield`, which is what puts the Shield slot on its
+    // scheme. A body that lacks the ability still loses the verb — that is
+    // `a_body_without_the_shield_ability_loses_its_guard_verb` below, and keeping
+    // the strip here would have been the gate asking about the wrong authority
+    // again.
+    assert!(
+        gated.shield_held,
+        "a peaceful persona that OWNS the shield ability lost its guard — the \
+         persona gate is judging a defensive capability by an offensive kit"
+    );
     assert!(!gated.projectile_pressed);
     assert!(!gated.projectile_held);
     assert!(!gated.projectile_released);
@@ -2439,5 +2450,135 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
         app.world().get::<ActorMoveset>(e).unwrap().0.moves.len() < before,
         "disabling the melee must shrink the repertoire in place; an unchanged \
          count means the ability branch wrote somewhere other than the body",
+    );
+}
+
+/// **THE PROBE FOR D146 SLICE 2 — A BODY'S SHIELD IS ITS OWN CAPABILITY, NOT A
+/// PROPERTY OF ITS SPECIAL.**
+///
+/// ⛔⛔ **seen RED, and the defect was a clearing policy asking the wrong
+/// question.** `gate_worn_player_control` kept `shield_held` alive only for a
+/// body whose `ActionSet.special` was literally `Special("bubble_shield")` — the
+/// protagonist's folded bubble. So *which special do you carry* stood where *can
+/// you shield at all* belongs, and any persona holding `AbilitySet::shield`
+/// alongside an ordinary special had its guard erased every single frame. Jon:
+/// *"Shield is not a special move. It is an independent participant
+/// control/action."*
+///
+/// Three bodies, because one proves nothing on its own:
+/// * a shield-capable body with an ORDINARY special keeps the verb (the case the
+///   old gate refused);
+/// * a shield-capable body with the BUBBLE special keeps it too (the behaviour
+///   that must not regress);
+/// * ⛔ the poison — a body with NO shield ability loses it, so this is a gate and
+///   not a deletion.
+#[test]
+fn the_shield_verb_follows_the_ability_not_the_special() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActionSet, ActorControl, SpecialActionSpec};
+    use bevy::prelude::*;
+
+    let guarding = || {
+        let mut frame = ActorControlFrame::neutral();
+        frame.shield_held = true;
+        frame
+    };
+    // The two authorities the gate consults, varied one at a time: the shield
+    // CAPABILITY (which is what should decide) and the special KEY (which is what
+    // used to).
+    let kit = |special: Option<&str>, shield: bool| {
+        let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
+        abilities.shield = shield;
+        let actions = ActionSet {
+            special: special.map(|key| SpecialActionSpec::Special(key.to_owned())),
+            ..ActionSet::default()
+        };
+        (abilities, actions)
+    };
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, gate_worn_player_control);
+
+    let mut spawn = |abilities, actions| {
+        app.world_mut()
+            .spawn((
+                crate::actor::PlayerEntity,
+                WornCharacter::new("sanic"),
+                MotionModel::default(),
+                crate::actor::BodyAbilities::new(abilities),
+                actions,
+                ActorControl(guarding()),
+            ))
+            .id()
+    };
+    let (abilities, actions) = kit(Some("meteor_kick"), true);
+    let ordinary_special = spawn(abilities, actions);
+    let (abilities, actions) = kit(Some("bubble_shield"), true);
+    let bubble = spawn(abilities, actions);
+    let (abilities, actions) = kit(Some("meteor_kick"), false);
+    let no_shield_ability = spawn(abilities, actions);
+
+    app.update();
+
+    let guard = |app: &App, e: Entity| app.world().get::<ActorControl>(e).unwrap().0.shield_held;
+    assert!(
+        guard(&app, ordinary_special),
+        "a body that OWNS the shield ability lost its guard because its special \
+         is not the bubble shield. Shield is its own participant action — a gate \
+         that reads the special key is asking Special whether Shield may happen"
+    );
+    assert!(
+        guard(&app, bubble),
+        "the bubble-shield persona lost the guard the old exception gave it"
+    );
+    assert!(
+        !guard(&app, no_shield_ability),
+        "a body with NO shield ability kept the guard verb, so nothing is gating \
+         it and the assertions above prove nothing"
+    );
+}
+
+/// The held-item exception survives the move: shield+attack is the universal
+/// "throw the held item" gesture, so a body holding an item keeps the shield verb
+/// even with no shield ability of its own.
+#[test]
+fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActionSet, ActorControl};
+    use bevy::prelude::*;
+
+    let mut frame = ActorControlFrame::neutral();
+    frame.shield_held = true;
+    let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
+    abilities.shield = false;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, gate_worn_player_control);
+    let body = app
+        .world_mut()
+        .spawn((
+            crate::actor::PlayerEntity,
+            WornCharacter::new("sanic"),
+            MotionModel::default(),
+            crate::actor::BodyAbilities::new(abilities),
+            ActionSet::peaceful(),
+            ambition_combat::held_items::HeldItem::new(ambition_characters::brain::HeldItemSpec {
+                id: "rock".to_owned(),
+                melee: None,
+                ranged: None,
+                use_behavior: Default::default(),
+            }),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+
+    assert!(
+        app.world().get::<ActorControl>(body).unwrap().0.shield_held,
+        "a body holding an item lost the shield half of the throw gesture"
     );
 }

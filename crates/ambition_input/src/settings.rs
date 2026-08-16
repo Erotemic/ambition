@@ -563,6 +563,7 @@ impl ControlSettings {
     }
 
     pub fn clamp_all(&mut self) {
+        self.migrate_renamed_actions();
         self.left_stick_deadzone = self.left_stick_deadzone.clamp(0.0, 0.95);
         self.right_stick_deadzone = self.right_stick_deadzone.clamp(0.0, 0.95);
         self.trigger_release_threshold = self.trigger_release_threshold.clamp(0.0, 0.95);
@@ -571,6 +572,51 @@ impl ControlSettings {
         self.trigger_press_threshold = self.trigger_press_threshold.clamp(press_lower, 1.0);
         self.menu_repeat_initial_delay = self.menu_repeat_initial_delay.clamp(0.05, 1.5);
         self.menu_repeat_interval = self.menu_repeat_interval.clamp(0.02, 1.0);
+    }
+
+    /// **Carry a stored remap across an action RENAME.**
+    ///
+    /// ⛔ **a rename silently deletes a player's remap, and nothing reports it.**
+    /// [`BindingOverride::action`] is the action's `Debug` spelling, and
+    /// `apply_override` deliberately ignores a name this build does not have —
+    /// that tolerance is what lets a settings file from a newer build load at all
+    /// (see `bindings::apply_override`). The same tolerance means a renamed
+    /// action's override just stops applying: the player's shield goes back to
+    /// the preset key and no log line says why.
+    ///
+    /// So a rename owes this table an entry. Run from [`Self::clamp_all`], which
+    /// every load path already calls right after reading the file, so the stored
+    /// name is HEALED rather than merely tolerated — a second rename later cannot
+    /// then need a two-step chain.
+    fn migrate_renamed_actions(&mut self) {
+        /// `(old spelling, current spelling)`. D146 slice 2 renamed the shield's
+        /// device action off the ceremony word it had been carrying.
+        const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield")];
+
+        for over in &mut self.binding_overrides {
+            if let Some((_, now)) = RENAMED_ACTIONS
+                .iter()
+                .find(|(was, _)| *was == over.action.as_str())
+            {
+                (*now).clone_into(&mut over.action);
+            }
+        }
+        // A file that already carried BOTH names for one action (written either
+        // side of the rename) would now hold two rows the override layer applies
+        // in order; keep the last one per (action, device class), which is the
+        // same precedence `set_binding_override` enforces on a fresh remap.
+        let mut seen = Vec::new();
+        self.binding_overrides.reverse();
+        self.binding_overrides.retain(|over| {
+            let key = (over.action.clone(), over.control.device_class());
+            if seen.contains(&key) {
+                false
+            } else {
+                seen.push(key);
+                true
+            }
+        });
+        self.binding_overrides.reverse();
     }
 
     /// Apply a radial deadzone to a 2D stick vector.
@@ -810,5 +856,56 @@ mod tests {
         // After clamp_all the values must remain valid.
         s.clamp_all();
         assert!(s.trigger_press_threshold > s.trigger_release_threshold);
+    }
+
+    /// **A PLAYER'S REMAP SURVIVES THE ACTION BEING RENAMED.**
+    ///
+    /// ⛔ this is the one failure mode a rename has that a compiler cannot see.
+    /// `BindingOverride` names an action by its `Debug` spelling and
+    /// `apply_override` deliberately ignores an unknown name, so `QuickAction`
+    /// becoming `Shield` would have quietly reverted every stored shield remap to
+    /// the preset key with nothing logged and nothing red.
+    #[test]
+    fn a_stored_remap_survives_the_shield_action_rename() {
+        use bevy::prelude::KeyCode;
+
+        let mut settings = ControlSettings::default();
+        settings.binding_overrides = vec![
+            BindingOverride::key("QuickAction", KeyCode::KeyQ),
+            BindingOverride::key("Jump", KeyCode::KeyJ),
+        ];
+        settings.clamp_all();
+
+        assert_eq!(
+            settings.binding_overrides,
+            vec![
+                BindingOverride::key("Shield", KeyCode::KeyQ),
+                BindingOverride::key("Jump", KeyCode::KeyJ),
+            ],
+            "the stored shield remap did not carry across the rename (or an \
+             untouched action was disturbed on the way past)"
+        );
+    }
+
+    /// A file written either side of the rename can hold BOTH spellings for one
+    /// action and device class. Migration collapses them the way a fresh remap
+    /// would: last write wins.
+    #[test]
+    fn both_spellings_of_one_action_collapse_to_the_latest() {
+        use bevy::prelude::KeyCode;
+
+        let mut settings = ControlSettings::default();
+        settings.binding_overrides = vec![
+            BindingOverride::key("QuickAction", KeyCode::KeyQ),
+            BindingOverride::key("Shield", KeyCode::KeyR),
+        ];
+        settings.clamp_all();
+
+        assert_eq!(
+            settings.binding_overrides,
+            vec![BindingOverride::key("Shield", KeyCode::KeyR)],
+            "two rows for one action and device class survived migration, so the \
+             override layer would apply them in file order"
+        );
     }
 }

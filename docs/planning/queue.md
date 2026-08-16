@@ -394,6 +394,46 @@ the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.
 
 Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
+- ▢ **D138 — OILER FIGHTS IN HIS OLD BODY: the SVG rig is his portrait and
+  nothing else. (Jon, 2026-08-16)**
+
+Jon, verbatim: *"Oiler's sprite is still his python based one not his SVG based
+one. I would like to completely move the SVG one. Note the SVG is used as the
+portrait in smash, but not for the actual fight. Similar in ambition itself."*
+
+**Current state, read off HEAD.** `regen_sprites.sh` says the split out loud and
+on purpose — *"Oiler is the representative direct-SVG rig target. Render only its
+portrait product here so full regeneration does not replace the established
+gameplay sheet selected by the review config"* — so `portraits oiler` publishes
+`oiler_portraits.{png,ron}` from the rig while `oiler` sits in `review_cues`
+and keeps shipping the Python-drawn gameplay sheet. The rig itself is real and
+tested: `data/characters/oiler/oiler-multiview.svg`,
+`targets/characters/rigged/oiler`, `tests/test_oiler_svg_rig.py`.
+
+⭐ **and the swap is at the PUBLISHER, not in either game.** Both games reach the
+body through one filename: `character_catalog.ron` binds `npc_oiler` to
+`sprites/oiler_spritesheet.png` + `.ron`, and Smash's select screen reaches the
+portrait through `oiler_portraits.png`. So nothing in Rust chooses the Python
+art — `regen_sprites.sh` decides which renderer writes that one pair of files.
+⛔ therefore do not go looking for a game-side binding to flip; there isn't one,
+and Jon confirmed the old sprite is still live in HEAD (2026-08-16).
+
+⇒ **next executable action:** make the rigged target's FULL sheet the published
+gameplay sheet (`--target oiler` already claims a sheet+portrait bundle), take
+`oiler` out of `review_cues` so a full regen cannot restore the Python art, and
+delete the carve-out comment rather than editing around it. ⛔ the deletion is
+the proof here: two publishers for one character's body is the defect.
+
+⚠ **the three things that will bite, in order:** the rig's frame geometry is not
+the review target's, so `body_metrics`/`collision_scale` must be re-derived and
+not assumed; D129's clipped-frame report must be read for the new sheet before
+it ships; and the quality tiers (`sprites_0_5x/…`) are a separate published
+copy — a stale tier reads exactly like a character swap.
+
+**Falsifier (both games, because Jon named both):** a capture of Oiler in a Smash
+match and in Ambition draws the SVG body, not merely the SVG portrait — and the
+old Python sheet is gone from `$sprites_dir`, not shadowed.
+
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
@@ -2933,9 +2973,32 @@ either match, and `--combat-overlay` reads **100/100 over both fighters**. The
    finished at **0% having taken zero damage all match**. This is not new
    behaviour — `ladder_probe`'s own header already measured "5.0s / 9.8s to
    first self-KO" and noted every level lost all three stocks that way — but
-   it is the first time it has been seen as *the whole product experience*. The
-   named cause is in this row: `RecoveryPolicy::DRIFT_AND_JUMP` cannot see the
-   ledge grab these fighters author. ⇒ the largest slice here, days.
+   it is the first time it has been seen as *the whole product experience*.
+   ⛔⛔ **THE CAUSE THIS ROW USED TO NAME IS RETRACTED, 2026-08-16 — do not work
+   it.** It said `RecoveryPolicy::DRIFT_AND_JUMP` cannot see the authored ledge
+   grab. `crates/ambition_characters/src/brain/fighter/recovery.rs`'s own header
+   says the opposite in two places: a body whose repertoire commands a
+   displacement hands it to the probe as a `RecoveryLift` and **the policy
+   becomes `drift+jump+burst`**, and `RecoveryLens::best_route` SEARCHES the
+   routes the body owns rather than ranking one statically. Ledge acquisition
+   already lives in the real movement kernel, `holds_a_ledge()` already counts
+   as recovered, and falling auto-snap already exists. ⛔ **so a second
+   ledge-grab model inside `RecoveryPolicy` is the wrong fix and is banned
+   here** — it would duplicate the kernel.
+   ⇒ **the executable next step is INSTRUMENTATION, not a fix**: take ONE real
+   CPU offstage sequence and record, at each frame from the launch to the death,
+   `position/velocity → Situation classification → body capabilities →
+   perceived terrain → candidate routes → RecoveryOutlook per candidate →
+   selected action → executed action → ledge acquisition attempt/result →
+   recovered or dead`. The deliverable is **which semantic boundary is wrong**,
+   named from that trace. Candidates worth distinguishing, none assumed:
+   `Situation::Recovery` entered too late · perceived terrain omits the ledge ·
+   probe's initial state differs from the real actor · search predicts a success
+   the runtime diverges from · the plan is re-chosen every frame and never
+   executed · the stage is genuinely outside the envelope · acquisition
+   tolerances · candidate generation excludes a useful tool. Fix the smallest
+   real cause, then re-measure with matches, not with a unit test. ⇒ still the
+   largest slice here.
 2. ⛔ **THE CAMERA DOES NOT FOLLOW A FIGHTER OFF THE STAGE.** f330 draws the
    robot past the left screen edge, f345 draws Sanic behind the touch stick,
    f360 is an EMPTY STAGE, and expr f360 clips George's nameplate at x=0. The

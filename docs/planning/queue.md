@@ -1682,8 +1682,19 @@ read `NOT PLAYING` / `— no fighter —`** and no fighter is seated, so
 `smash_gameplay` photographs an empty stage every time. ⇒ **the two-CPU match
 nobody has ever looked at is unreachable by the one tool built to photograph
 it** — and the tool's own doc block calls this exact class of thing *"an
-instrument gap, not a gameplay bug"*. Either the key list drifted from the
-drivers, or those drivers never went through keyboard edges.
+instrument gap, not a gameplay bug"*.
+
+⭐⭐ **CAUSE FOUND, and the tool's doc comment is simply wrong about what the
+drivers do.** `game/ambition_app/tests/smash_in_the_host.rs` seats fighters with
+`click(app, rect)`, which is **`SelectCursor::move_to(rect.center())` and THEN
+`tap(Enter)`** — the cursor position is the load-bearing half. `capture_scene`
+sends bare key edges, so its `Enter` fires wherever the cursor already is and
+claims nothing. ⇒ the fix is for the tool to drive the same seam the tests drive
+(put the cursor on a slot's role button — the `Choose (F)` / `Choose (Z)` chips
+visible in the capture — then confirm), **not** to add more key taps. ⚠ the same
+file asserts `the_arrows_alone_can_work_the_whole_screen`, so arrow-only
+navigation is supposed to work too; that it does not seat anybody here is a
+second question worth asking of that test rather than of the tool.
 ⚠ this blocks the standing *"does a watcher SEE the two kits behave
 differently"* question in D128, and it is why every Smash visual fix so far has
 shipped unseen.

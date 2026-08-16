@@ -912,7 +912,7 @@ mod tests {
             );
             assert!(
                 m.events.iter().any(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect } => {
+                    MoveEventKind::Vfx { effect, .. } => {
                         assert!(
                             ambition_platformer2d::sprite_sheet::fx::is_authored_effect(effect),
                             "`{id}` names vfx `{effect}`, which the engine's \

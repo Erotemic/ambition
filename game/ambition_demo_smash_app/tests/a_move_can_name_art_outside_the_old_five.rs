@@ -46,7 +46,7 @@ fn a_move_names_art_outside_the_old_five_and_the_whole_chain_resolves() {
         set.moves
             .iter()
             .any(|m| m.events.iter().any(
-                |e| matches!(&e.kind, MoveEventKind::Vfx { effect } if effect == "sonic_boom")
+                |e| matches!(&e.kind, MoveEventKind::Vfx { effect, .. } if effect == "sonic_boom")
             )),
         "George's special claims the Feel::Special look, which is `sonic_boom`"
     );

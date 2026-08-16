@@ -428,6 +428,23 @@ pub fn resolve_drawable(
     Some((effect, asset, slot))
 }
 
+/// **How big an unscaled authored effect is drawn, in world units.**
+///
+/// ⛔ **this was `132.0` written inline, and it was every effect in the
+/// project.** Jon, 2026-08-16: *"right now we are seeing crazy upscaled vfx"*.
+/// Measured against a two-CPU Smash capture, a fighter's body stands about 60
+/// world units; a 132-unit square is more than twice her height, so a jab's
+/// spark and a screen-clearing super drew at the same size and both of them
+/// covered the fighter throwing them.
+///
+/// ⭐ **the number is now the DEFAULT, not the answer.** A move authors
+/// `Vfx { scale }` (see `MoveEventKind::Vfx`), so a flourish asks for less and a
+/// super asks for more — which is the expressive range the constant took away.
+/// This value is a little under a fighter's height on purpose: an effect the
+/// same size as the body reads as the body's own, which is what a move's burst
+/// is.
+pub const FX_DEFAULT_WORLD_SIZE: f32 = 56.0;
+
 /// **Draw the authored effect `fx`, or say why not.**
 ///
 /// Three ways this ends, and they are different facts: the id names no shipped
@@ -467,7 +484,7 @@ fn spawn_effect(
         return;
     };
     let scale = scale.max(0.1);
-    let render_size = BVec2::splat(132.0 * scale);
+    let render_size = BVec2::splat(FX_DEFAULT_WORLD_SIZE * scale);
     // ⛔ NOT `build_character_sprite_with_render_size`: that opens on
     // `CharacterAnim::Idle`, and an effect sheet has no idle row — asking for
     // one panics. The first frame of the clip is the right opening frame anyway.

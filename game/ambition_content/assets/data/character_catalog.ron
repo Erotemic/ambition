@@ -2698,7 +2698,12 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            default_action_set: "peaceful",
+            // ⭐ 2026-08-16: he authors a sixteen-move repertoire
+            // (`carl_stargan_moveset`). An ability and a repertoire are
+            // different questions — *may this body attack* versus *what the
+            // attack is* — and a `peaceful` row answered the first one NO, so
+            // the table could never reach a fighter.
+            default_action_set: "striker_swipe",
             tags: ["story", "science_communicator", "cosmic_storyteller", "skeptic", "peaceful"],
         barks: (
             idle: ["Billions and billions of rooms, and only one of them has you in it.", "Look up. The ceiling is a temporary opinion."],

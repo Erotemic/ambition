@@ -603,7 +603,7 @@ fn derive_presentation_dependencies(
                 MoveEventKind::Sfx { cue } if !cue.is_empty() => {
                     cues.insert(cue.clone());
                 }
-                MoveEventKind::Vfx { effect } if !effect.is_empty() => {
+                MoveEventKind::Vfx { effect, .. } if !effect.is_empty() => {
                     vfx.insert(effect.clone());
                 }
                 _ => {}

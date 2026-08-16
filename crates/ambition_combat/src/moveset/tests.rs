@@ -187,7 +187,7 @@ fn per_move_presentation_is_authored_on_the_prefab_row() {
     assert!(
         smash.events.iter().any(|e| matches!(
             &e.kind,
-            MoveEventKind::Vfx { effect } if effect == "shockwave"
+            MoveEventKind::Vfx { effect, .. } if effect == "shockwave"
         )),
         "the authored cosmetic burst rides the timeline"
     );
@@ -245,6 +245,7 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "smash".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
@@ -1692,6 +1693,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "sig".into(),
             presentation_source: ambition_sfx::PresentationSourceId::new("sanic.moves"),
@@ -1702,6 +1704,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "sig".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
@@ -1805,6 +1808,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "fire".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
@@ -1879,6 +1883,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
         .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
             owner,
             move_id: "fire".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
@@ -1955,6 +1960,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
             .write(MoveEventMessage {
+                world_offset: ae::Vec2::ZERO,
                 owner,
                 move_id: "fire".into(),
                 presentation_source: ambition_sfx::PresentationSourceId::unscoped(),

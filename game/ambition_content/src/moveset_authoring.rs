@@ -87,6 +87,30 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
         at_s,
         MoveEventKind::Vfx {
             effect: effect.to_string(),
+            at: (0.0, 0.0),
+            scale: 1.0,
+        },
+    )
+}
+
+/// **A burst that says WHERE and HOW BIG**, in the same body-local numbers the
+/// move's strike volumes use.
+///
+/// Jon, 2026-08-16: *"try to make the hitboxes and vfx placement make sense,
+/// right now we are seeing crazy upscaled vfx and very tiny hitboxes"*. Plain
+/// [`vfx`] draws at the owner's centre at the presentation default size, which
+/// is the right identity for an effect ABOUT the fighter (a transformation, a
+/// shield) and the wrong one for a swing: the spark belongs on the box.
+///
+/// ⭐ pass a volume's own `offset` as `at` and the two cannot disagree.
+pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) -> MoveSpec {
+    event(
+        m,
+        at_s,
+        MoveEventKind::Vfx {
+            effect: effect.to_string(),
+            at,
+            scale,
         },
     )
 }

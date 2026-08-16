@@ -140,7 +140,11 @@ pub fn boss_attack_moveset(
                     if let Some(effect) = spec.vfx.clone() {
                         events.push(MoveEvent {
                             at_s: TELEGRAPH_EDGE_S,
-                            kind: MoveEventKind::Vfx { effect },
+                            kind: MoveEventKind::Vfx {
+                                effect,
+                                at: (0.0, 0.0),
+                                scale: 1.0,
+                            },
                         });
                     }
                 }

@@ -63,7 +63,6 @@ const KNOWN_UNARMED: &[&str] = &[
     // and whether Stargan FIGHTS is a product question already filed as D96
     // item 5 — so he belongs here rather than being given a swipe by a test
     // that noticed him.
-    "npc_carl_stargan",
 ];
 
 #[test]
@@ -408,6 +407,13 @@ fn the_grid_fighters_with_a_real_repertoire_only_grow() {
         // ledge options, a shield break — and not one of them had ever been asked
         // for a hitbox. Her sixteen moves bind all twelve of her own effects.
         "npc_noether",
+        // ⭐ **THE SEVENTH AND EIGHTH, on the same day and for the same reason**
+        // (Jon, 2026-08-16: *"We need to make sure they also have full smash
+        // movesets."*). Carl Stargan stands on 133 authored rows — the largest
+        // vocabulary here — and had one swipe; the Clerk was already on this
+        // list above with eleven moves and no specials, so no way back to the
+        // stage at all, and he now has the five that were missing.
+        "npc_carl_stargan",
     ];
 
     let mut app =

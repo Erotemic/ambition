@@ -79,8 +79,22 @@ use ambition_platformer2d::entity_catalog::{
 
 use crate::moveset_authoring::{
     airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    strike_tag, vfx,
+    strike_tag, vfx_at,
 };
+
+/// **How big a burst is, by what kind of move throws it** — multiples of the
+/// presentation default (`ambition_render::fx::FX_DEFAULT_WORLD_SIZE`, a little
+/// under a fighter's height).
+///
+/// Jon, 2026-08-16: *"try to make the hitboxes and vfx placement make sense,
+/// right now we are seeing crazy upscaled vfx"*. A poke is a spark on a
+/// knuckle; a smash is the size of the swing; a field is meant to be read as
+/// ground you cannot stand on. They are not the same size, and until this week
+/// every effect in the project drew at one.
+const POKE_FX: f32 = 0.55;
+const SWING_FX: f32 = 0.75;
+const SMASH_FX: f32 = 1.05;
+const FIELD_FX: f32 = 1.30;
 
 /// **The conserved quantity**: `damage x active_seconds`, in damage-seconds.
 ///
@@ -187,7 +201,7 @@ pub fn noether_moveset() -> MovesetContract {
     );
     jab.gates = grounded_only();
     let jab = strike_tag(jab, SLASH_POKE_VFX);
-    let jab = vfx(jab, 0.05, "generator_steps");
+    let jab = vfx_at(jab, 0.05, "generator_steps", (26.0, -6.0), POKE_FX);
     let jab = sfx(jab, 0.05, "vfx.noether.generator_steps");
     moves.push(jab);
 
@@ -209,9 +223,9 @@ pub fn noether_moveset() -> MovesetContract {
     );
     f_tilt.gates = grounded_only();
     f_tilt.start_impulse = Some((130.0, 0.0));
-    let f_tilt = vfx(f_tilt, 0.10, "generator_steps");
+    let f_tilt = vfx_at(f_tilt, 0.10, "generator_steps", (32.0, -4.0), SWING_FX);
     let f_tilt = sfx(f_tilt, 0.10, "vfx.noether.generator_steps");
-    let f_tilt = vfx(f_tilt, 0.13, "symmetry_axis_snap");
+    let f_tilt = vfx_at(f_tilt, 0.13, "symmetry_axis_snap", (32.0, -4.0), POKE_FX);
     let f_tilt = sfx(f_tilt, 0.13, "vfx.noether.symmetry_axis_snap");
     let f_tilt = on_contact(f_tilt, "player.hit");
     moves.push(f_tilt);
@@ -231,7 +245,7 @@ pub fn noether_moveset() -> MovesetContract {
         None,
     );
     up_tilt.gates = grounded_only();
-    let up_tilt = vfx(up_tilt, 0.09, "group_orbit");
+    let up_tilt = vfx_at(up_tilt, 0.09, "group_orbit", (6.0, -26.0), SWING_FX);
     let up_tilt = sfx(up_tilt, 0.09, "vfx.noether.group_orbit.loop");
     let up_tilt = on_contact(up_tilt, "player.hit");
     moves.push(up_tilt);
@@ -251,7 +265,7 @@ pub fn noether_moveset() -> MovesetContract {
         None,
     );
     down_tilt.gates = grounded_only();
-    let down_tilt = vfx(down_tilt, 0.08, "conserved_current");
+    let down_tilt = vfx_at(down_tilt, 0.08, "conserved_current", (24.0, 15.0), SWING_FX);
     let down_tilt = sfx(down_tilt, 0.08, "vfx.noether.conserved_current.loop");
     let down_tilt = on_contact(down_tilt, "player.hit");
     moves.push(down_tilt);
@@ -278,9 +292,11 @@ pub fn noether_moveset() -> MovesetContract {
     f_smash.gates = grounded_only();
     f_smash.smash_charge_mult = 1.85;
     let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
-    let f_smash = vfx(f_smash, 0.02, "symmetry_axis_snap");
+    // The tell sits on HER, not on the box — it is the wind-up, and the box
+    // does not exist yet.
+    let f_smash = vfx_at(f_smash, 0.02, "symmetry_axis_snap", (0.0, -10.0), SWING_FX);
     let f_smash = sfx(f_smash, 0.02, "vfx.noether.symmetry_axis_snap");
-    let f_smash = vfx(f_smash, 0.20, "broken_symmetry_shards");
+    let f_smash = vfx_at(f_smash, 0.20, "broken_symmetry_shards", (36.0, -8.0), SMASH_FX);
     let f_smash = sfx(f_smash, 0.20, "vfx.noether.broken_symmetry_shards");
     let f_smash = on_contact(f_smash, "player.hit");
     moves.push(f_smash);
@@ -301,7 +317,7 @@ pub fn noether_moveset() -> MovesetContract {
     );
     up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.70;
-    let up_smash = vfx(up_smash, 0.17, "group_orbit");
+    let up_smash = vfx_at(up_smash, 0.17, "group_orbit", (2.0, -34.0), SMASH_FX);
     let up_smash = sfx(up_smash, 0.17, "vfx.noether.group_orbit.loop");
     let up_smash = on_contact(up_smash, "player.hit");
     moves.push(up_smash);
@@ -324,7 +340,7 @@ pub fn noether_moveset() -> MovesetContract {
     );
     down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.70;
-    let down_smash = vfx(down_smash, 0.17, "conserved_current");
+    let down_smash = vfx_at(down_smash, 0.17, "conserved_current", (0.0, 20.0), SMASH_FX);
     let down_smash = sfx(down_smash, 0.17, "vfx.noether.conserved_current.loop");
     let down_smash = on_contact(down_smash, "player.hit");
     moves.push(down_smash);
@@ -348,7 +364,7 @@ pub fn noether_moveset() -> MovesetContract {
     n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
-    let n_air = vfx(n_air, 0.08, "group_orbit");
+    let n_air = vfx_at(n_air, 0.08, "group_orbit", (0.0, -6.0), SWING_FX);
     let n_air = sfx(n_air, 0.08, "vfx.noether.group_orbit.loop");
     let n_air = on_contact(n_air, "player.hit");
     moves.push(n_air);
@@ -379,7 +395,7 @@ pub fn noether_moveset() -> MovesetContract {
         aerial.gates = airborne_only();
         aerial.landing_lag_s = Some(0.18);
         aerial.autocancel_after_s = Some(0.32);
-        let aerial = vfx(aerial, 0.10, "paired_trajectory");
+        let aerial = vfx_at(aerial, 0.10, "paired_trajectory", (28.0 * dir_x, -4.0), SWING_FX);
         let aerial = sfx(aerial, 0.10, "vfx.noether.paired_trajectory.loop");
         let aerial = on_contact(aerial, "player.hit");
         moves.push(aerial);
@@ -402,7 +418,7 @@ pub fn noether_moveset() -> MovesetContract {
     up_air.gates = airborne_only();
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
-    let up_air = vfx(up_air, 0.08, "equivalence_bridge");
+    let up_air = vfx_at(up_air, 0.08, "equivalence_bridge", (2.0, -28.0), SWING_FX);
     let up_air = sfx(up_air, 0.08, "vfx.noether.equivalence_bridge");
     let up_air = on_contact(up_air, "player.hit");
     moves.push(up_air);
@@ -425,7 +441,7 @@ pub fn noether_moveset() -> MovesetContract {
     d_air.gates = airborne_only();
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
-    let d_air = vfx(d_air, 0.12, "ether_cancel");
+    let d_air = vfx_at(d_air, 0.12, "ether_cancel", (0.0, 24.0), SWING_FX);
     let d_air = sfx(d_air, 0.12, "vfx.noether.ether_cancel");
     let d_air = on_contact(d_air, "player.hit");
     moves.push(d_air);
@@ -466,13 +482,13 @@ pub fn noether_moveset() -> MovesetContract {
         n_b.duration_s >= 0.66,
         "the last term of the field must fit inside the move"
     );
-    let n_b = vfx(n_b, 0.0, "invariant_core");
+    let n_b = vfx_at(n_b, 0.0, "invariant_core", (0.0, 0.0), SWING_FX);
     let n_b = sfx(n_b, 0.0, "vfx.noether.invariant_core.loop");
-    let n_b = vfx(n_b, 0.16, "conserved_pair_exchange");
+    let n_b = vfx_at(n_b, 0.16, "conserved_pair_exchange", (0.0, 18.0), FIELD_FX);
     let n_b = sfx(n_b, 0.16, "vfx.noether.conserved_pair_exchange.loop");
-    let n_b = vfx(n_b, 0.56, "conservation_transfer");
+    let n_b = vfx_at(n_b, 0.56, "conservation_transfer", (0.0, 18.0), FIELD_FX);
     let n_b = sfx(n_b, 0.56, "vfx.noether.conservation_transfer");
-    let n_b = vfx(n_b, 0.66, "proof_complete");
+    let n_b = vfx_at(n_b, 0.66, "proof_complete", (0.0, 0.0), SMASH_FX);
     let n_b = sfx(n_b, 0.66, "vfx.noether.proof_complete");
     let n_b = on_contact(n_b, "player.hit");
     moves.push(n_b);
@@ -502,9 +518,11 @@ pub fn noether_moveset() -> MovesetContract {
     side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.14, (-640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.55);
-    let side_b = vfx(side_b, 0.14, "equivalence_bridge");
+    let side_b = vfx_at(side_b, 0.14, "equivalence_bridge", (18.0, -2.0), SWING_FX);
     let side_b = sfx(side_b, 0.14, "vfx.noether.equivalence_bridge");
-    let side_b = vfx(side_b, 0.30, "paired_trajectory");
+    // The trail she leaves BEHIND her, which is the half of a retreat a watcher
+    // needs to see.
+    let side_b = vfx_at(side_b, 0.30, "paired_trajectory", (34.0, -2.0), SWING_FX);
     let side_b = sfx(side_b, 0.30, "vfx.noether.paired_trajectory.loop");
     let side_b = on_contact(side_b, "player.hit");
     moves.push(side_b);
@@ -558,11 +576,11 @@ pub fn noether_moveset() -> MovesetContract {
         sustain_effect: None,
     });
     let up_b = impulse(up_b, LIFT_AT_S, (0.0, -LIFT_SPEED), ImpulseMode::Set);
-    let up_b = vfx(up_b, 0.04, "invariant_core");
+    let up_b = vfx_at(up_b, 0.04, "invariant_core", (0.0, 6.0), SWING_FX);
     let up_b = sfx(up_b, 0.04, "vfx.noether.invariant_core.loop");
-    let up_b = vfx(up_b, LIFT_AT_S, "group_orbit");
+    let up_b = vfx_at(up_b, LIFT_AT_S, "group_orbit", (0.0, 0.0), SMASH_FX);
     let up_b = sfx(up_b, LIFT_AT_S, "vfx.noether.group_orbit.loop");
-    let up_b = vfx(up_b, 0.62, "conserved_current");
+    let up_b = vfx_at(up_b, 0.62, "conserved_current", (0.0, 20.0), SWING_FX);
     let up_b = sfx(up_b, 0.62, "vfx.noether.conserved_current.loop");
     moves.push(up_b);
 
@@ -583,9 +601,9 @@ pub fn noether_moveset() -> MovesetContract {
         None,
     );
     down_b.gates = grounded_only();
-    let down_b = vfx(down_b, 0.14, "invariant_core");
+    let down_b = vfx_at(down_b, 0.14, "invariant_core", (14.0, 20.0), FIELD_FX);
     let down_b = sfx(down_b, 0.14, "vfx.noether.invariant_core.loop");
-    let down_b = vfx(down_b, 0.22, "conserved_current");
+    let down_b = vfx_at(down_b, 0.22, "conserved_current", (14.0, 20.0), FIELD_FX);
     let down_b = sfx(down_b, 0.22, "vfx.noether.conserved_current.loop");
     let down_b = on_contact(down_b, "player.hit");
     moves.push(down_b);
@@ -858,7 +876,7 @@ mod tests {
                 .events
                 .iter()
                 .filter_map(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect } => Some(effect.clone()),
+                    MoveEventKind::Vfx { effect, .. } => Some(effect.clone()),
                     _ => None,
                 })
                 .collect();
@@ -894,7 +912,7 @@ mod tests {
                 panic!("{problem}");
             }
             for ev in &m.events {
-                if let MoveEventKind::Vfx { effect } = &ev.kind {
+                if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
                     effects.insert(effect.clone());
                 }
             }

@@ -933,7 +933,7 @@ mod tests {
             }
             for ev in &m.events {
                 match &ev.kind {
-                    MoveEventKind::Vfx { effect } => {
+                    MoveEventKind::Vfx { effect, .. } => {
                         effects.insert(effect.clone());
                     }
                     MoveEventKind::Sfx { cue } => {
@@ -954,7 +954,7 @@ mod tests {
         let up_b = find(&set, "excluded_middle");
         assert!(up_b.events.iter().any(|e| matches!(
             &e.kind,
-            MoveEventKind::Vfx { effect } if effect == "classic_burst"
+            MoveEventKind::Vfx { effect, .. } if effect == "classic_burst"
         )));
         // And a heavy landing is heard apart from a poke landing.
         let heavy_hit = |id: &str| -> Option<String> {

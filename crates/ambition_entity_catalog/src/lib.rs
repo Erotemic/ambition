@@ -644,7 +644,31 @@ pub enum MoveEventKind {
     /// otherwise — never a silent no-op. This is how a jab, a smash, and a
     /// launcher look distinct with zero code — each authors its own
     /// `Vfx { effect }`.
-    Vfx { effect: String },
+    ///
+    /// ⭐ **it also says WHERE and HOW BIG, because a move that could not was
+    /// the whole of Jon's 2026-08-16 report**: *"right now we are seeing crazy
+    /// upscaled vfx and very tiny hitboxes"*. Every authored effect drew as a
+    /// fixed square at the owner's CENTRE, so a jab's spark bloomed out of the
+    /// fighter's chest at the size of a super. Both fields are serde-defaulted
+    /// to exactly the old behaviour, so no existing authored event moves.
+    Vfx {
+        effect: String,
+        /// WHERE, body-local — `+x` toward the facing the move committed to,
+        /// `+y` gravity-down — the same convention
+        /// [`Impulse`](Self::Impulse) and every [`HitVolume`] offset use, and
+        /// mirrored and rotated by the same two steps. `(0.0, 0.0)` is the
+        /// owner's centre, which is where every effect drew before this existed.
+        ///
+        /// ⭐ **so an effect can sit on the box that throws it.** A move authors
+        /// its strike volume's offset and its burst's offset in the same numbers.
+        #[serde(default)]
+        at: (f32, f32),
+        /// HOW BIG, as a multiple of the presentation's default effect size.
+        /// `1.0` is that default; a flourish asks for less and a screen-filling
+        /// super asks for more.
+        #[serde(default = "default_vfx_scale")]
+        scale: f32,
+    },
     /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
     /// resolves it), carrying its opaque params.
     Effect(EffectRef),
@@ -802,6 +826,13 @@ fn default_charge_mult() -> f32 {
     1.0
 }
 
+/// Serde default for [`MoveEventKind::Vfx::scale`]: the presentation default
+/// size, so every effect authored before the field existed draws exactly as it
+/// did.
+fn default_vfx_scale() -> f32 {
+    1.0
+}
+
 /// Serde default for [`MoveWindow::motion_scale`]: the multiplicative
 /// identity, so every existing window leaves steering untouched (parity).
 fn default_motion_scale() -> f32 {
@@ -832,7 +863,7 @@ impl MoveSpec {
         let mut problems = Vec::new();
         for ev in &self.events {
             match &ev.kind {
-                MoveEventKind::Vfx { effect } if !vfx_known(effect) => {
+                MoveEventKind::Vfx { effect, .. } if !vfx_known(effect) => {
                     problems.push(format!(
                         "move '{}': Vfx event names unknown cosmetic effect '{}' (no \
                          shipped FX spritesheet has a row by that name)",

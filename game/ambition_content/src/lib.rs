@@ -72,6 +72,7 @@ pub mod moveset_authoring;
 #[cfg(feature = "audio")]
 pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;
+pub mod carl_stargan_moveset;
 pub mod noether_moveset;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;

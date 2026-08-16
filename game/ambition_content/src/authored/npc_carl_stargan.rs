@@ -35,6 +35,15 @@
 //! capabilities merely to close migration metrics."* One melee verb, a walk, and
 //! the humanoid baseline health Jon named (4). No ranged, no special, no mount.
 //!
+//! ⭐⭐ **AND ON 2026-08-16 JON ASKED FOR THE KIT DIRECTLY**, which is the one
+//! thing that supersedes the caution above — it forbade inventing capabilities to
+//! close a metric, not authoring the repertoire he asks for: *"We need to make
+//! sure they also have full smash movesets."* So he carries
+//! [`crate::carl_stargan_moveset`] now: sixteen moves across the 133 rows his rig
+//! already published. The swipe below stays, because it is what an autonomous
+//! Hall body swings when nothing has handed it a repertoire, and the two answer
+//! different questions.
+//!
 //! ⚠ he is also why this list existed at all: he was registered without a body
 //! because the Smash grid filters `SMASH_ROSTER` against the prepared registry,
 //! so an unbuildable portrait is dropped rather than offered — and he was
@@ -73,6 +82,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         // The policy that lets him answer a fight he did not start. It is
         // CONTROLLER policy, not body identity — his Hall placement overrides it
         // with `stand_still`, and overriding it is what a placement is for.
+        .with_moveset(crate::carl_stargan_moveset::carl_stargan_moveset())
         .with_autonomous_profile(BrainProfile {
             template: CharacterBrainTemplate::Smash,
             aggro_radius: 420.0,

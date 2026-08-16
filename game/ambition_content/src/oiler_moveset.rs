@@ -900,7 +900,7 @@ mod tests {
             up_b.events
                 .iter()
                 .filter_map(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect } if effect == row => Some(e.at_s),
+                    MoveEventKind::Vfx { effect, .. } if effect == row => Some(e.at_s),
                     _ => None,
                 })
                 .collect()
@@ -1054,7 +1054,7 @@ mod tests {
                 .events
                 .iter()
                 .filter_map(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect } => Some(effect.clone()),
+                    MoveEventKind::Vfx { effect, .. } => Some(effect.clone()),
                     _ => None,
                 })
                 .collect();
@@ -1093,7 +1093,7 @@ mod tests {
                 panic!("{problem}");
             }
             for ev in &m.events {
-                if let MoveEventKind::Vfx { effect } = &ev.kind {
+                if let MoveEventKind::Vfx { effect, .. } = &ev.kind {
                     effects.insert(effect.clone());
                 }
             }

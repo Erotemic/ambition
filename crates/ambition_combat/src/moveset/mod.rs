@@ -187,6 +187,13 @@ pub struct MoveEventMessage {
     /// bodies; dispatch then uses the active context's primary source.
     pub presentation_source: PresentationSourceId,
     pub kind: MoveEventKind,
+    /// **WHERE this event happens, relative to the owner, in WORLD units.**
+    ///
+    /// ⭐ authored body-local and resolved HERE, because this is where the
+    /// facing the move committed to and the owner's gravity frame are both in
+    /// hand — the consumer has neither. Zero for every event kind that has no
+    /// place of its own, which is all of them but `Vfx`.
+    pub world_offset: ae::Vec2,
 }
 
 /// This actor is playing a move. Insert to start; the system removes it when
@@ -588,11 +595,27 @@ pub fn advance_move_playback(
                     };
                     continue;
                 }
+                // A `Vfx` says where it happens in the same body-local terms a
+                // hit volume does; mirror by the move's committed facing and
+                // rotate into the owner's frame — the two steps `Impulse` takes
+                // directly above, so a burst authored at the end of a swing
+                // stays there under any gravity and either facing.
+                let world_offset = match &ev.kind {
+                    MoveEventKind::Vfx { at, .. } if *at != (0.0, 0.0) => {
+                        let body_frame = owner_frames
+                            .get(owner)
+                            .map(|frame| frame.basis())
+                            .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
+                        body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
+                    }
+                    _ => ae::Vec2::ZERO,
+                };
                 events.write(MoveEventMessage {
                     owner,
                     move_id: pb.spec.id.clone(),
                     presentation_source: presentation_source.clone(),
                     kind: ev.kind.clone(),
+                    world_offset,
                 });
             }
         }
@@ -607,6 +630,7 @@ pub fn advance_move_playback(
             if let Some(effect) = &window.sustain_effect {
                 if window.start_s <= t && t < window.end_s {
                     events.write(MoveEventMessage {
+                        world_offset: ae::Vec2::ZERO,
                         owner,
                         move_id: pb.spec.id.clone(),
                         presentation_source: presentation_source.clone(),
@@ -1423,7 +1447,7 @@ pub fn dispatch_move_events(
                     sfx.write_from(ev.presentation_source.clone(), request);
                 }
             }
-            MoveEventKind::Vfx { effect } => {
+            MoveEventKind::Vfx { effect, scale, .. } => {
                 // CM5 per-move cosmetic effect. ⭐ there is no table here any
                 // more: the authored NAME goes on the wire as its hash, and
                 // presentation resolves it against the rows the shipped FX
@@ -1432,11 +1456,12 @@ pub fn dispatch_move_events(
                 let pos = positions
                     .get(ev.owner)
                     .map(|k| k.pos)
-                    .unwrap_or(ae::Vec2::ZERO);
+                    .unwrap_or(ae::Vec2::ZERO)
+                    + ev.world_offset;
                 vfx.write(ambition_vfx::VfxMessage::Effect {
                     pos,
                     fx: ambition_vfx::FxId::new(effect),
-                    scale: 1.0,
+                    scale: *scale,
                 });
             }
             MoveEventKind::Effect(effect) => {

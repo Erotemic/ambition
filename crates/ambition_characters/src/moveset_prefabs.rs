@@ -254,6 +254,8 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                     at_s: windup,
                     kind: MoveEventKind::Vfx {
                         effect: effect.clone(),
+                        at: (0.0, 0.0),
+                        scale: 1.0,
                     },
                 });
             }
@@ -548,6 +550,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                     at_s: charge,
                     kind: MoveEventKind::Vfx {
                         effect: effect.clone(),
+                        at: (0.0, 0.0),
+                        scale: 1.0,
                     },
                 });
             }

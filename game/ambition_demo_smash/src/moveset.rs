@@ -336,6 +336,8 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
             at,
             MoveEventKind::Vfx {
                 effect: effect.to_string(),
+                at: (0.0, 0.0),
+                scale: 1.0,
             },
         );
     }

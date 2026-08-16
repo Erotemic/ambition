@@ -1190,18 +1190,34 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     // ⛔ THE POISON, and the reason this is not just "it moved": a body driven at
     // somebody else's top speed still passes "it moved".
     //
-    // ⚠ **the bound is MEASURED, not derived.** 40 frames × 80 px/s "should" be
-    // ~53px; the slug actually covers 34.85px, because it accelerates from a
-    // standstill and never reaches its top speed in that window. Modelling it
-    // would have put the line in the wrong place — so this ran the same test
-    // with the GOBLIN in the slug's seat (170 px/s, the other fighter already on
-    // this stage) and measured 92.50px. 60px sits between the two with room on
-    // both sides.
+    // ⚠ **the bound is MEASURED, not derived**, and it is measured by running
+    // this same test with the GOBLIN in the slug's seat (170 px/s, the other
+    // fighter already on this stage). Modelling it would put the line in the
+    // wrong place: the body accelerates from a standstill and the opponent
+    // shoves it around even on an attempt with no hitstun in it.
+    //
+    // ⭐ **RE-BASELINED 2026-08-16 (D146 slice 1b), and the reason is the
+    // change itself.** The stage now supplies every fighter a `MatchBody`, and
+    // one of its six numbers is `slash_recoil: 0.0` — the 110 px/s backwards
+    // shove the engine puts on every melee press, which a fighter brain
+    // pressing attack on most decisions turns into a body walking itself
+    // backwards off the stage. With it gone, both fighters cover roughly three
+    // times the ground in the same 40 frames:
+    //
+    // ```text
+    //             recoil 110 (before)    recoil 0 (the stage's body)
+    //   slug        34.85px                114.90px
+    //   goblin      92.50px                327.46px
+    // ```
+    //
+    // The DISCRIMINATION is what this test needs and it survives intact — the
+    // slug still covers about a third of what the goblin does. 200px sits
+    // between the two with room on both sides.
     assert!(
-        travelled < 60.0,
+        travelled < 200.0,
         "the puppy slug covered {travelled:.2}px in {FRAMES} frames. Measured \
-         under exactly these conditions, its authored 80 px/s produces ~34.8px \
-         and the goblin's 170 px/s produces ~92.5px — so this body is being \
+         under exactly these conditions, its authored 80 px/s produces ~115px \
+         and the goblin's 170 px/s produces ~327px — so this body is being \
          driven at a top speed that is not the one its character states, even \
          though `ActorConfig` above reads correctly"
     );
@@ -3299,42 +3315,65 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
     );
 
     // The SAME damage at each of them, down the real channel.
+    //
+    // ⭐ **RETRIED, because a fighter can now EVADE one** (D146 slice 1b). The
+    // stage supplies every seat a `MatchBody` whose `air_dodge_time` is the one
+    // window the engine deliberately leaves shut — so an airborne fighter whose
+    // brain dodges is INVULNERABLE for it, and a single injected bite landed on
+    // George and passed straight through Mary-O (`taken: 1` against a 20-point
+    // hit, measured 2026-08-16). That is the mechanic working; it just makes a
+    // one-shot injection a coin flip. Each attempt is the original test — the
+    // same hit at each body, four frames to resolve — and the loop stops as soon
+    // as both have registered one.
     const BITE: i32 = 20;
-    for (_, body, ..) in &bodies {
-        let at = app
-            .world()
-            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(*body)
-            .expect("a seated fighter has a body")
-            .pos;
-        let volume: ambition_platformer2d::engine_core::CombatVolume =
-            ambition_platformer2d::engine_core::Aabb::new(
-                at,
-                ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
-            )
-            .into();
-        app.world_mut()
-            .write_message(ambition_platformer2d::combat::events::HitEvent {
-                strike_sfx: None,
-                volume,
-                damage: BITE,
-                source: ambition_platformer2d::combat::events::HitSource::Melee,
-                attacker: None,
-                target: ambition_platformer2d::combat::events::HitTarget::Body(*body),
-                mode: ambition_platformer2d::combat::events::HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-            });
+    let mut after = bodies.clone();
+    for _ in 0..12 {
+        bite_both(&mut app, &bodies, BITE);
+        after = seated(&mut app);
+        if after.iter().all(|(_, _, _, taken, _)| *taken >= BITE) {
+            break;
+        }
+        // Let any evade window and its endlag expire before trying again.
+        for _ in 0..30 {
+            app.update();
+        }
     }
-    for _ in 0..4 {
-        app.update();
-    }
-
-    let after = seated(&mut app);
     for (id, _, _, taken, _) in &after {
         assert!(
             *taken >= BITE,
-            "the hit never reached {id}, so this test measures nothing: {after:?}"
+            "the hit never reached {id} in twelve attempts, so this test \
+             measures nothing: {after:?}"
         );
+    }
+    fn bite_both(app: &mut App, bodies: &[(String, Entity, i32, i32, f32)], bite: i32) {
+        for (_, body, ..) in bodies {
+            let at = app
+                .world()
+                .get::<ambition_platformer2d::platformer::body::BodyKinematics>(*body)
+                .expect("a seated fighter has a body")
+                .pos;
+            let volume: ambition_platformer2d::engine_core::CombatVolume =
+                ambition_platformer2d::engine_core::Aabb::new(
+                    at,
+                    ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
+                )
+                .into();
+            app.world_mut()
+                .write_message(ambition_platformer2d::combat::events::HitEvent {
+                    strike_sfx: None,
+                    volume,
+                    damage: bite,
+                    source: ambition_platformer2d::combat::events::HitSource::Melee,
+                    attacker: None,
+                    target: ambition_platformer2d::combat::events::HitTarget::Body(*body),
+                    mode: ambition_platformer2d::combat::events::HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: Vec::new(),
+                });
+        }
+        for _ in 0..4 {
+            app.update();
+        }
     }
     // **WHAT ONE POINT OF DAMAGE READS AS, per fighter.** Compared as a scale
     // rather than as a total, because these two are in a live match and the

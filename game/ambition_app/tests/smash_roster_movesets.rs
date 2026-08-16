@@ -796,3 +796,233 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
         rows.join("\n")
     );
 }
+
+/// **Fighters on the grid the stage's body cannot reach, because they do not
+/// move by the axis-swept model at all.**
+///
+/// ⭐ **measured 2026-08-16: ONE of the fourteen.** Sanic's catalog row authors
+/// `momentum`, so `motion_model_spec` gives him `SurfaceMomentum` — and every
+/// evade window lives in `AxisManeuverState`, which that model does not have.
+/// `perception_body_for` says so out loud: a present non-axis model reads
+/// `AxisSweptMotion::default()`, so *"no window open"* is the honest answer for
+/// one. Supplying him a body changes nothing; he cannot air dodge on this stage
+/// whatever the stage says, and neither can he shield-parry or tumble.
+///
+/// ⚠ **so this is NOT the defect above wearing a different hat, and it must not
+/// be fixed by widening the stage's body.** It is a momentum-model body standing
+/// on a platform-fighter stage, which is a question about what a crossover match
+/// owes a guest's locomotion — filed, not taken here.
+///
+/// ⛔ **a RATCHET: the list may only SHRINK.** What must never happen is a new
+/// fighter joining it silently.
+const NOT_AN_AXIS_BODY: &[&str] = &["sanic"];
+
+/// **THE PLATFORM FIGHTER'S BODY REACHES NO GAME THAT DID NOT ASK FOR ONE.**
+/// (D146 slice 1b)
+///
+/// ⛔ **the whole risk of a stage-supplied body is a floor LEAKING.** The
+/// numbers `SMASH_FIGHTER_BODY` carries are wrong everywhere else and the engine
+/// says so in its own defaults: a jump squat is a different game's jump (Mary-O's
+/// SMB1 convergence needs the leap on the press tick), an air dodge steals the
+/// airborne burst press from every exploration body, and a tumble floor makes a
+/// wandering enemy stand up after every hit.
+///
+/// ⭐ **a supply is opt-in by CONSTRUCTION, and this asserts the construction
+/// rather than a sample of its consequences**: a match receives a body only
+/// where its own roster declares one, so the two facts that matter are that the
+/// DEFAULT is no supply, and that the stage next door — the other match in this
+/// host — declares none.
+#[test]
+fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
+    use ambition_platformer2d::engine_core as ae;
+
+    assert!(
+        ambition_platformer2d::actor::MatchParticipantRoster::default()
+            .fighter_body
+            .is_none(),
+        "a roster now supplies a fighter's body by DEFAULT, so every scripted \
+         encounter, boss and fixture in the engine just became a platform fighter"
+    );
+    assert!(
+        ambition_app::app::versus::versus_roster(1)
+            .fighter_body
+            .is_none(),
+        "the versus stage supplies a body it never declared — its cast is two \
+         characters authored FOR it, and a duel wants none of a platform \
+         fighter's extras"
+    );
+
+    // ⛔ **AND THE ENGINE DEFAULT IS STILL THE ENGINE'S.** The cheapest way to
+    // make the grid census above pass is to move these four numbers, and doing
+    // it would change Mary-O, the exploration protagonist and every wandering
+    // enemy in the game at once. Each is zero (or the explorer's recoil) for a
+    // reason written at `DEFAULT_TUNING`.
+    assert_eq!(ae::DEFAULT_TUNING.air_dodge_time, 0.0);
+    assert_eq!(ae::DEFAULT_TUNING.tumble_speed, 0.0);
+    assert_eq!(ae::DEFAULT_TUNING.jump_squat_time, 0.0);
+    assert_eq!(
+        ae::DEFAULT_TUNING.slash_recoil,
+        ae::SLASH_RECOIL,
+        "the engine default lost the exploration protagonist's melee recoil — \
+         the smash stage authors 0.0 for ITSELF, and that is the point"
+    );
+}
+
+/// **EVERY FIGHTER ON THE SMASH GRID GETS A BODY THAT CAN ACTUALLY DODGE.**
+/// (D146 slice 1b)
+///
+/// ⛔⛔ **the companion above proves the stage GRANTS `dodge` to all fourteen,
+/// and that was not enough.** A verb needs a WINDOW, and the window was
+/// authorable only on a CHARACTER:
+///
+/// ```text
+///   DEFAULT_TUNING.air_dodge_time = 0.0     deliberately - an air dodge that
+///                                           was on by default would steal the
+///                                           airborne burst press from every
+///                                           exploration body in the game
+/// ```
+///
+/// So `available_dodge` fell straight through for every fighter whose character
+/// had not authored a platform fighter's body — measured on this host,
+/// **twelve of the fourteen**, `player_robot_v3` among them: the smash demo's
+/// careful tuning was authored on `smash_duelist_a`, the STAND-IN this host
+/// drops in favour of the real robot. Mary-O made thirteen: she authors a body,
+/// but she authored it for SMB1, which has no air dodge in it.
+///
+/// ⚠ **it did not read as broken until D146 slice 1.** Those twelve had `dash`
+/// from the kit, so an airborne burst press fell out of the dodge and into
+/// `apply_dash` and they air-dashed. Removing `dash` — correctly — left the
+/// press meaning nothing at all.
+///
+/// ⭐ **it asks the ENGINE's own resolver**, not a threshold of its own:
+/// `resolve_burst_maneuver` is the one expression the kernel and the autonomous
+/// driver both read, so a fighter this test calls capable is one the sim will
+/// actually air-dodge.
+#[test]
+fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
+    use ambition_platformer2d::engine_core as ae;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // One frame, for the same reason the census above needs it: the seatable
+    // registry is filled by a `Startup` system.
+    app.update();
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .expect("the composed host has a prepared-character registry");
+    let grid = SmashRoster::assemble(registry);
+
+    // The stage's own declaration, from the stage's own roster builder rather
+    // than a literal — the same source the kit census reads.
+    let roster = ambition_demo_smash::smash_roster(grid.ids().take(2));
+    let rules = ambition_platformer2d::actors::character_runtime::MatchRules {
+        body: roster.fighter_body,
+        ..Default::default()
+    };
+    assert!(
+        rules.body.is_some(),
+        "the smash stage declares no body at all, so nothing below is measuring \
+         a supply — see `MatchParticipantRoster::fighter_body`"
+    );
+
+    let mut report: Vec<String> = Vec::new();
+    let mut shut: Vec<String> = Vec::new();
+    // ⛔ NON-VACUITY: at least one fighter must reach the stage's numbers over a
+    // body its CHARACTER authored, or this is only measuring the default case
+    // and the composition could be a wholesale replacement.
+    let mut composed_over_an_authored_body = false;
+    for id in grid.ids() {
+        let prepared = registry
+            .get(id)
+            .expect("the grid is assembled from the registry");
+        let authored = prepared.movement_tuning;
+        // ⭐ the ENGINE's composition, asked once — not a second copy of it here.
+        // ⚠ the base for a character that authored none is `DEFAULT_TUNING`
+        // rather than the seat's built tuning: this census is about the WINDOWS,
+        // and none of them is a number a construction seed states.
+        let body = rules
+            .body_over(authored, ae::DEFAULT_TUNING)
+            .expect("a stage that declares a body always answers");
+        if authored.is_some() {
+            composed_over_an_authored_body = true;
+        }
+        // ⚠ **the MODEL decides whether the window is even asked about.** A
+        // non-axis body reads `AxisSweptMotion::default()` in
+        // `perception_body_for`, so reading the tuning alone here would call a
+        // momentum body capable of an evade it structurally cannot perform.
+        let axis = matches!(prepared.motion_model, ae::MotionModelSpec::AxisSwept(_));
+        let params = if axis {
+            body.axis_swept_params()
+        } else {
+            ae::AxisSweptParams::default()
+        };
+        // Airborne, nothing spent, nothing on cooldown: the press a player makes
+        // on the way up. The only term that varies across the grid is the body.
+        let maneuver = ae::resolve_burst_maneuver(
+            &ae::BodyAbilities {
+                abilities: ambition_demo_smash::SMASH_FIGHTER_KIT,
+                ..Default::default()
+            },
+            &ae::BodyGroundState {
+                on_ground: false,
+                contact_initialized: true,
+            },
+            &ae::BodyDodgeState::default(),
+            &ae::AxisManeuverState::default(),
+            &ae::BodyDashState::default(),
+            params,
+        );
+        report.push(format!(
+            "  {:<34} brought={:<8} model={:<8} air_dodge_time={:<5} -> {maneuver:?}",
+            id,
+            if authored.is_some() {
+                "its own"
+            } else {
+                "nothing"
+            },
+            if axis { "axis" } else { "momentum" },
+            body.air_dodge_time,
+        ));
+        if maneuver != ae::BurstManeuver::AirDodge {
+            shut.push(id.to_string());
+        }
+    }
+
+    assert!(
+        report.len() >= 8,
+        "only {} fighters resolved against this composition — the host is not \
+         composing the cast and this test is about to prove nothing",
+        report.len()
+    );
+    assert!(
+        composed_over_an_authored_body,
+        "no fighter on the grid brought a body of its own, so the composition \
+         was never exercised and a wholesale replacement would pass this:\n{}",
+        report.join("\n")
+    );
+    let unexpected: Vec<&String> = shut
+        .iter()
+        .filter(|id| !NOT_AN_AXIS_BODY.contains(&id.as_str()))
+        .collect();
+    assert!(
+        unexpected.is_empty(),
+        "{} fighter(s) are GRANTED the dodge and cannot use it in the air:\n{}\n\n\
+         A granted verb whose window is zero is a dead grant — see \
+         `apply_smash_match_rules`, which is where the stage supplies the body \
+         those verbs run on.",
+        unexpected.len(),
+        report.join("\n")
+    );
+    // ⭐ THE OTHER DIRECTION, so the list cannot quietly outlive what it names.
+    let cured: Vec<&&str> = NOT_AN_AXIS_BODY
+        .iter()
+        .filter(|id| !shut.iter().any(|shut| shut == *id) && grid.ids().any(|on| on == **id))
+        .collect();
+    assert!(
+        cured.is_empty(),
+        "{cured:?} can air-dodge now and is still listed as moving by a model \
+         that has no evade window — the ratchet only turns one way, so take it \
+         off the list"
+    );
+}

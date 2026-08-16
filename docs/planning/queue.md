@@ -416,13 +416,41 @@ from a ROOM and asks what it owes; this one starts from an occurrence resident i
 no room**, so the authored definition has to be reachable BY IDENTITY. No new
 rollback state; schema stays v32.
 
-⚠ **the limitation, and it is the durable-save leg:** materialization is bounded
-by *"some room authors a record with this id"*. A **runtime-minted** instance —
-the throw's `SimId::spawned` arm, an enemy death drop — is room-scoped and
-carryable, so it can enter the custody baseline, and **no record anywhere can
-rebuild it**. Today it warns and is lost. Closing it needs a durable *instance
-description* rather than a pointer at an authored record, which is the same
-unclosed leg `ItemCustody`'s own doc names.
+✔✔ **AND THE RUNTIME-MINTED CASE CLOSED TOO** (2026-08-16, `88b611caf`) — the
+limitation that stood here is gone. Materialization was bounded by *"some room
+authors a record with this id"*; a runtime-minted instance (the throw's
+`SimId::spawned` arm, where the inventory count table equips an item with no
+object behind the hand) had no record anywhere and was lost on a death. **The
+minimal durable description turned out to be three things and no more:**
+
+```text
+identity     the occurrence's own SimId
+provenance   SpawnOrigin::Dynamic { parent, sequence }
+definition   the item spec's authored id — a REFERENCE, never a copy
+```
+
+⛔ no position, no velocity, **no component snapshot** — that is rollback wearing
+save's clothes. The predicted *"a hand needs strictly less than a world"* held:
+`ground_item_physics` refuses to step anything not `InWorld`, so the hand
+supplies the place.
+
+⭐⭐ **the coordinator's prediction was one field short, and the missing one is
+the durable-save lesson.** I predicted `(identity, spec)`. An instance rebuilt
+without its `SpawnOrigin` cannot say which spawner it descends from — the state
+that component's doc refuses to let anyone spell — so it would survive **exactly
+one death** and then be invisible to the next capture. ⇒ **a durable description
+that restores the thing is not sufficient; it must restore the thing's ABILITY TO
+BE DESCRIBED AGAIN.** The mint site was not stating provenance at all, so
+identity and provenance are now minted as one value.
+
+⭐ **snapshot-not-registry is MEASURED, not asserted**: rebuilt as a growing
+registry of every mint with the restore returning each row to its spawner's hand,
+the banked-item fixture stayed GREEN and
+`a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death` went RED.
+`MintedItemBaseline` answers HOW to rebuild; the custody baseline still decides
+WHETHER and INTO WHOSE HAND. It lives in the item domain for the same reason the
+retraction does — the lifecycle crate cannot see a `GroundItem`'s spec, and what
+an item IS is not a question it may answer. Schema 32 → 33.
 
 ⛔⛔ **AND IT EXPOSED AN INSTRUMENT DEFECT: A FIXTURE HAD BEEN MEASURING A WORLD
 NOBODY CHOSE, FOR ITS WHOLE LIFE.** `with_start_room` takes a ROOM ID;

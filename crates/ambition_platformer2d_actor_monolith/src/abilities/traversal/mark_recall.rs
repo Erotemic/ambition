@@ -104,9 +104,9 @@ pub fn mark_recall_system(
                 pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos,
-            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.4,
         });
         return;
@@ -148,9 +148,9 @@ pub fn mark_recall_system(
                     pos: target,
                 },
             );
-            vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+            vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
                 pos: target,
-                kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                 scale: 0.6,
             });
         }

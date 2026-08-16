@@ -7,7 +7,7 @@
 //! `attack_move_from_melee`, `directional_attack_variants`, `build_actor_moveset`
 //! — and character PREPARATION calls it, so it has to sit at or below
 //! `ambition_characters`. Every type it touches already does, with ONE
-//! exception: this registry's `expand` validates a move's presentation ids
+//! exception: this registry's `expand` validated a move's presentation ids
 //! through `ambition_vfx::move_vfx_kind`, and reaching a render-adjacent crate
 //! from the character domain is the wrong direction.
 //!
@@ -15,6 +15,17 @@
 //! move from a spec and EXPANDING an authored prefab key are different jobs; the
 //! second is the one that needs to know what a renderer can draw, and it belongs
 //! up here with the rest of the combat runtime.
+//!
+//! ⭐⭐ **and then the vocabulary stopped being a Rust table.** `move_vfx_kind`
+//! was five names transliterated from the five rows of one spritesheet; what a
+//! renderer can draw is now *the rows of the shipped FX sheets*
+//! (`ambition_sprite_sheet::fx`), read off the baked manifests. That answer is
+//! pure and world-free — it needs no App and no loaded assets — but it lives in
+//! a presentation-asset crate that combat must not link, and a headless RL build
+//! has no business pulling an image decoder to expand a prefab. So `expand`
+//! takes the oracle instead of naming one, which is the shape
+//! `MoveSpec::presentation_problems` already had one level down: whoever knows
+//! what art shipped says so.
 //!
 //! ⚠ the engine prefabs it seeds itself with (`simple_melee` / `simple_ranged` /
 //! `simple_charge`) stay in `prefabs.rs` and are called from here — a downward
@@ -60,12 +71,19 @@ impl MovePrefabRegistry {
     }
 
     /// Expand a prefab row into a move named `move_id`. Errors if the key is
-    /// unknown (a roster typo) or the authored params don't hydrate.
+    /// unknown (a roster typo), the authored params don't hydrate, or the move
+    /// names a cosmetic effect `vfx_known` does not recognize.
+    ///
+    /// `vfx_known` is the caller's answer to *"what can actually be drawn?"* —
+    /// pass `ambition_sprite_sheet::fx::is_authored_effect` from anywhere that
+    /// links presentation, which answers it from the shipped sheets themselves.
+    /// See the module header for why this crate does not name that function.
     pub fn expand(
         &self,
         key: &str,
         params: &ambition_entity_catalog::ParamValue,
         move_id: &str,
+        vfx_known: impl Fn(&str) -> bool,
     ) -> Result<MoveSpec, String> {
         let builder = self
             .builders
@@ -76,9 +94,8 @@ impl MovePrefabRegistry {
         // CM5: reject an unresolvable presentation id (a `Vfx`/`Sfx` typo) at
         // expansion time — the SAME startup-validation gate a bad prefab key or
         // param hits, so authored sound/vfx typos never survive to a silent
-        // missing effect. The cosmetic-vfx vocabulary lives in `ambition_vfx`;
-        // inject it (entity_catalog can't depend on the render-adjacent crate).
-        let problems = spec.presentation_problems(|id| ambition_vfx::move_vfx_kind(id).is_some());
+        // missing effect.
+        let problems = spec.presentation_problems(vfx_known);
         if !problems.is_empty() {
             return Err(problems.join("; "));
         }

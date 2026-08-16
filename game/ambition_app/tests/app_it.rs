@@ -116,6 +116,7 @@ mod starting_character_selection;
 mod stocks;
 mod symmetry_attunement;
 mod the_engine_can_be_asked_questions;
+mod the_engine_ships_its_own_effects;
 mod unified_body_movement;
 mod unified_melee;
 mod update_schedule_census;

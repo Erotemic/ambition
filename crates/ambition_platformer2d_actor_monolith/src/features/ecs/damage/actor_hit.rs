@@ -540,9 +540,9 @@ pub(crate) fn apply_actor_hit(
                         actor_entity,
                         em.kin.pos,
                     );
-                    writers.vfx.write(VfxMessage::Explosion {
+                    writers.vfx.write(VfxMessage::Effect {
                         pos: em.kin.pos,
-                        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                         scale: 0.85,
                     });
                 }

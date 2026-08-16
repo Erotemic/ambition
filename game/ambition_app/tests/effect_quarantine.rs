@@ -217,7 +217,7 @@ fn the_journal_drains_once_every_frame_confirms() {
 #[test]
 fn only_presentation_facing_effects_are_quarantined() {
     use ambition_platformer2d::vfx::vfx::DebrisBurstMessage;
-    use ambition_platformer2d::vfx::{EffectRequest, ExplosionRequest, FireworksRequest, VfxMessage};
+    use ambition_platformer2d::vfx::{EffectRequest, FireworksRequest, FxRequest, VfxMessage};
 
     let sim = sim_with_rewind_distance(4);
     let world = sim.world();
@@ -251,7 +251,7 @@ fn only_presentation_facing_effects_are_quarantined() {
     assert_quarantined!(
         OwnedSfxMessage,
         VfxMessage,
-        ExplosionRequest,
+        FxRequest,
         FireworksRequest,
         DebrisBurstMessage,
         // P0.1: a screen kick leaves the process exactly as a sound does. It

@@ -415,6 +415,25 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
     }
 }
 
+/// A spec for a sheet whose rows are addressed by NAME rather than by pose.
+///
+/// ⛔ **the difference from [`try_load_spec_for_target`] is the `idle` refusal,
+/// and it is deliberate on both sides.** That one refuses a sheet with no idle
+/// row because the character path indexes through [`CharacterAnim`] and would
+/// panic asking such a sheet for a pose. A sheet of EFFECTS has no poses at all
+/// — eleven of the twelve shipped FX sheets have no row `CharacterAnim` names —
+/// and its consumer resolves rows through
+/// [`CharacterSheetSpec::clip_slot`], which needs no pose. See
+/// [`crate::fx`].
+pub fn try_load_row_addressed_spec(
+    target: &str,
+    tuning: &SheetTuning,
+) -> Option<CharacterSheetSpec> {
+    record_index()
+        .get(target)
+        .map(|r| spec_from_record(r, tuning))
+}
+
 /// Load the **scaled-variant** spec for a manifest target, when its variant
 /// record was baked (the generator produced `sprites_<suffix>/…` and `build.rs`
 /// embedded it). Returns `None` for `Full` or when no variant record exists, so
@@ -701,9 +720,10 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// the anvil; the cut-rope arena system swaps the prop sprite based on the
 /// replay cycle's selected heavy-object kind.
 
-/// Generic reusable explosion VFX sheet. The rows are mapped onto
-/// CharacterAnim slots by `CharacterAnim::from_name`; consumers pick
-/// a row through `ExplosionKind` instead of hard-coding atlas indices.
+/// Generic reusable explosion VFX sheet — one of the twelve declared in
+/// `crate::fx::FX_SHEETS`. Its rows are addressed by NAME
+/// (`crate::fx::authored_effect`), not by pose: the five aliases that used to
+/// spell `classic_burst` as *Idle* inside `CharacterAnim::from_name` are gone.
 
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so

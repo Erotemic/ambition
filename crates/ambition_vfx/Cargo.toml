@@ -30,6 +30,8 @@ ambition_geometry = { path = "../ambition_geometry" }
 # which is the same defect one level down.
 ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 
-# SfxId for ExplosionRequest's paired sound cue + the explosion_sfx id mapping
-# that lives with the request vocab.
+# SfxId for FxRequest's OPTIONAL cue override. ⚠ the effect's OWN cue is no
+# longer named here: it is derived from the authored effect name by the
+# presentation layer, because the bank already ships one `vfx.<family>.<row>`
+# cue per authored row and a Rust table restating that could only drift.
 ambition_sfx = { path = "../ambition_sfx" }

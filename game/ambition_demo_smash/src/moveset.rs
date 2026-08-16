@@ -248,11 +248,12 @@ pub(crate) fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> M
 /// in every table picks one; a jab and a forward smash are heard and seen apart
 /// because they claim different roles, and adding a move costs no new asset.
 ///
-/// ⚠ **the ids are engine vocabulary, checked at load.** A `Vfx` effect must be
-/// in `ambition_vfx::move_vfx_kind`'s five (`MoveSpec::presentation_problems`
-/// rejects a typo at startup rather than playing nothing), and an SFX cue that
-/// the bank never rendered is silence — safe, but silence. Both lists are short
-/// on purpose.
+/// ⚠ **the ids name shipped ART, and are checked against it.** A `Vfx` effect
+/// is the NAME of a row on one of the published FX spritesheets — any of 189,
+/// not the five a closed enum used to allow — and `MoveSpec::presentation_problems`
+/// asks the sheets themselves whether it exists. An SFX cue the bank never
+/// rendered is silence: safe, but silent. The list below is short because six
+/// ROLES is the vocabulary, not because the art is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Feel {
     /// The fast, cheap one. A swing sound and nothing else — a jab that flashed
@@ -289,11 +290,15 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
             "player.slash",
             Some("burst_round"),
         ),
+        // ⭐ `sonic_boom` lives on `generic_exotic_fx`, one of the eleven sheets
+        // no app could reach until the engine started shipping its own effect
+        // art. A signature special is exactly the move that should get a look
+        // the shared explosion sheet does not have.
         Feel::Special => (
             Some("player.attack.charge"),
             Some("world.rock.hit"),
             "player.slash",
-            Some("starburst"),
+            Some("sonic_boom"),
         ),
         Feel::Recovery => (
             Some("player.attack.charge"),

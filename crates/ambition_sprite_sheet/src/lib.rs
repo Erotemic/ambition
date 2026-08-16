@@ -37,6 +37,7 @@ pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
 pub mod boss;
 pub mod character;
+pub mod fx;
 pub mod game_assets;
 pub mod sprite_packs;
 

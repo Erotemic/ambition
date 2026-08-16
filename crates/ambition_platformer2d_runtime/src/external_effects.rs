@@ -342,7 +342,7 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 /// |---|---|---|
 /// | `OwnedSfxMessage` | `audio_play_sfx_messages` (`Update`) | reaches the speakers |
 /// | `VfxMessage` | `vfx_spawn_messages`, `spawn_slash_effects` (`Update`) | spawns visuals |
-/// | `ExplosionRequest` | `process_explosion_requests` (`Update`) | fans out to the two above |
+/// | `FxRequest` | `process_fx_requests` (`Update`) | fans out to the two above |
 /// | `FireworksRequest` | `process_fireworks_requests` (`Update`) | spawns a visual sequence |
 /// | `DebrisBurstMessage` | `physics_spawn_debris_messages` (`Update`) | spawns physics debris |
 /// | `CameraShakeRequest` | `apply_camera_shake_requests` (`Update`) | moves the screen |
@@ -350,19 +350,19 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 /// Deliberately absent: `EffectRequest` and `SpawnProjectile`, whose readers are
 /// all sim-side despite the effect-shaped names.
 ///
-/// The two presentation-side writers in the fan-out chain (`ExplosionRequest`
+/// The two presentation-side writers in the fan-out chain (`FxRequest`
 /// and `VfxMessage` are also written by `ambition_render`'s `Update` systems)
 /// need no special handling: they run after the release, so what they produce is
 /// already downstream of the confirmed boundary and flows straight through.
 pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl ScheduleLabel + Clone) {
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
     use ambition_vfx::vfx::DebrisBurstMessage;
-    use ambition_vfx::{ExplosionRequest, FireworksRequest, VfxMessage};
+    use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
 
     app.add_plugins((
         ExternalEffectQuarantinePlugin::<ambition_sfx::OwnedSfxMessage>::default(),
         ExternalEffectQuarantinePlugin::<VfxMessage>::default(),
-        ExternalEffectQuarantinePlugin::<ExplosionRequest>::default(),
+        ExternalEffectQuarantinePlugin::<FxRequest>::default(),
         ExternalEffectQuarantinePlugin::<FireworksRequest>::default(),
         ExternalEffectQuarantinePlugin::<DebrisBurstMessage>::default(),
         ExternalEffectQuarantinePlugin::<CameraShakeRequest>::default(),
@@ -370,7 +370,7 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
 
     quarantine_discard_on_load::<ambition_sfx::OwnedSfxMessage>(app, load_schedule.clone());
     quarantine_discard_on_load::<VfxMessage>(app, load_schedule.clone());
-    quarantine_discard_on_load::<ExplosionRequest>(app, load_schedule.clone());
+    quarantine_discard_on_load::<FxRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<FireworksRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<DebrisBurstMessage>(app, load_schedule.clone());
     quarantine_discard_on_load::<CameraShakeRequest>(app, load_schedule);

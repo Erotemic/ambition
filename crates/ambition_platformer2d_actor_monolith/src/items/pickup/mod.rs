@@ -1527,9 +1527,9 @@ fn emit_fireball_explosion(
         id: ambition_sfx::ids::WORLD_ROCK_HIT,
         pos,
     });
-    vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
         pos,
-        kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
         scale: 1.0,
     });
 }

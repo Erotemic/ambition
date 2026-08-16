@@ -95,9 +95,9 @@ pub fn tick_gravity_grenade_fuses(
                 pos: ground.pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: ground.pos,
-            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.7,
         });
         commands.entity(entity).despawn();

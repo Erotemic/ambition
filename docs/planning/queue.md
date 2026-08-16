@@ -1844,6 +1844,27 @@ is `ExplosionKind` + `move_vfx_kind` + `explosion_anim` + `explosion_sfx`; a
 slice that adds a new message beside `VfxMessage::Explosion` has wrapped the old
 model, not removed it.
 
+✔✔ **LANDED 2026-08-16.** All four deleted, plus a FIFTH table nobody had
+counted: the `classic_burst`→*Idle* / `burst_round`→*Walk* / `shockwave`→*Run* /
+`smoke_burst`→*Hit* / `starburst`→*Slash* aliases inside
+`CharacterAnim::from_name`, which existed only so the explosion sheet could be
+loaded through the character path. An effect is an `FxId` (FNV-1a, `SfxId`'s
+shape) resolved against `ambition_sprite_sheet::fx`, which walks the twelve
+declared FX sheets' BAKED records — so name→(sheet,row,cue) is derived, not
+declared, and 189 rows are reachable. `GameAssets.fx` is the engine's own sheet
+slot and `load_game_assets` fills it; the intro's LDtk-prop row for
+`generic_explosions` is deleted. ⭐ **the "one real design constraint" dissolved**:
+`build.rs` already embeds every `*_spritesheet.ron`, so the vocabulary IS
+readable at validation time with no App and no loaded assets — no declared table,
+no dropped refusal. `MovePrefabRegistry::expand` takes the oracle as a parameter
+rather than naming a crate a headless RL build must not link.
+⛔⛔ **and it exposed the next one: the Smash shell installs no
+`PlatformerAssetsPlugin` at all** (Mary-O, Sanic and Twintrack each do), so
+`GameAssets` does not exist in that process and NOTHING sheet-driven has art
+there — fighters included. Adding the umbrella install panics: `bind_game_assets`
+demands `AuthoredSheets` + `BossCatalog` as hard `Res`, which that composition
+never registers. Same defect shape one level up.
+
 ⚠ **remaining showcase weaknesses, in order:**
 - **the mirror match is bit-symmetric.** Brains seed from the level alone
   (`0x5F37_7A11 * (level+1)`) and the comment approves. A per-body seed was tried

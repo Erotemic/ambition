@@ -12,30 +12,80 @@ use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_sfx::{SfxMessage, SfxWriter};
-use ambition_sprite_sheet::character::{
-    build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
-};
+use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
+use ambition_sprite_sheet::character::CharacterAnimator;
+use ambition_sprite_sheet::fx::{authored_effects, AuthoredEffect};
+use ambition_vfx::FxId;
 
 // The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_vfx`
 // (presentation-neutral data, so a sim system can emit a cue without depending on
 // this render module). Re-exported here so existing `crate::fx::*`
-// paths keep resolving. The VFX request vocab (`ExplosionRequest` /
-// `FireworksRequest`) + the `explosion_sfx` id mapping moved down with the message
-// types; only the spritesheet-row mapping (`explosion_anim`) is render-specific.
-pub use ambition_vfx::vfx::{
-    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, SlashKind,
-    VfxMessage,
-};
+// paths keep resolving.
+pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind, VfxMessage};
 
-/// Spritesheet row an [`ExplosionKind`] renders as (presentation-only mapping).
-pub fn explosion_anim(kind: ExplosionKind) -> CharacterAnim {
-    match kind {
-        ExplosionKind::ClassicBurst => CharacterAnim::Idle,
-        ExplosionKind::BurstRound => CharacterAnim::Walk,
-        ExplosionKind::Shockwave => CharacterAnim::Run,
-        ExplosionKind::SmokeBurst => CharacterAnim::Hit,
-        ExplosionKind::Starburst => CharacterAnim::Slash,
+/// **What an [`FxId`] names**: the authored row, the sheet holding it, and the
+/// packed cue that ships with it.
+///
+/// ⭐⭐ **this index IS the engine's effect vocabulary, and nothing declares it.**
+/// It is built by walking the FX sheets' own baked records and hashing each row
+/// name — so the set of drawable effects is the set of shipped rows, by
+/// construction. That is what replaced `move_vfx_kind` (name→enum),
+/// `explosion_anim` (enum→pose) and `explosion_sfx` (enum→cue): three tables
+/// whose whole job was getting back to the string the content already had.
+///
+/// ⚠ `SfxId` is precomputed here rather than at every spawn: the cue name is
+/// derived from the row (`vfx.<family>.<row>`), and hashing it once at first
+/// use keeps the draw path allocation-free.
+struct EffectIndex {
+    by_id: std::collections::HashMap<FxId, (&'static AuthoredEffect, SfxId)>,
+}
+
+fn effect_index() -> &'static EffectIndex {
+    static INDEX: std::sync::OnceLock<EffectIndex> = std::sync::OnceLock::new();
+    INDEX.get_or_init(|| EffectIndex {
+        by_id: authored_effects()
+            .values()
+            .map(|effect| (FxId::new(effect.name), (effect, SfxId::new(&effect.cue))))
+            .collect(),
+    })
+}
+
+/// The authored effect `fx` names, if the shipped art has a row for it.
+pub fn authored_effect_for(fx: FxId) -> Option<&'static AuthoredEffect> {
+    effect_index().by_id.get(&fx).map(|(effect, _)| *effect)
+}
+
+/// **The sound `fx` makes.** A property of the NAME, not of the call site: the
+/// bank ships one `vfx.<family>.<row>` cue for every authored row, so an
+/// emitter that says which effect has already said which sound.
+pub fn effect_cue(fx: FxId) -> Option<SfxId> {
+    effect_index().by_id.get(&fx).map(|(_, cue)| *cue)
+}
+
+/// **Say once, per id, that an effect named nothing.**
+///
+/// SFX's policy, for SFX's reason: the vocabulary is open (a game may author
+/// effects the engine never heard of), so a miss is a report rather than a
+/// refusal — but a per-frame warning for a move that fires sixty times a second
+/// trains everyone to filter the channel. ⚠ the id is a one-way hash and the
+/// name is not among the shipped rows *by definition of being a miss*, so the
+/// report can only print the hash. That is the honest amount of information.
+fn note_effect_miss(fx: FxId) {
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+    static SEEN: std::sync::OnceLock<Mutex<HashSet<u64>>> = std::sync::OnceLock::new();
+    let seen = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
+    let first = seen
+        .lock()
+        .map(|mut set| set.insert(fx.hash()))
+        .unwrap_or(false);
+    if first {
+        bevy::log::warn!(
+            target: "ambition_render::fx",
+            "{fx} is not a row on any of the {} shipped FX sheets, so it draws a generic \
+             particle burst instead of art; check the authored `Vfx {{ effect }}` id",
+            ambition_sprite_sheet::fx::FX_SHEETS.len(),
+        );
     }
 }
 
@@ -65,7 +115,7 @@ pub struct ImpactVisual {
 }
 
 #[derive(Component)]
-pub struct ExplosionVisual {
+pub struct EffectVisual {
     pos: ae::Vec2,
     age: f32,
     duration: f32,
@@ -83,7 +133,7 @@ pub struct FireworkSequence {
 pub struct FireworkBurstSpec {
     at: f32,
     offset: ae::Vec2,
-    kind: ExplosionKind,
+    fx: FxId,
     scale: f32,
 }
 
@@ -132,26 +182,25 @@ pub struct BlinkPreviewVisual {
     angle_offset: f32,
 }
 
-/// Reusable gameplay request for a point explosion. Simulation code writes this
-/// instead of remembering to pair a visual `VfxMessage::Explosion` with the
-/// matching packed-bank SFX. The presentation/audio bridge below fans it out
-/// into the existing message types, so headless tests can still ignore the
-/// render/audio backends while gameplay stays ECS-native.
-/// Fan out reusable explosion requests into the existing visual and audio
-/// message channels. Systems that want an explosion should write
-/// `ExplosionRequest` unless they specifically need visual-only behavior.
-pub fn process_explosion_requests(
-    mut requests: MessageReader<ExplosionRequest>,
+/// Fan out reusable effect requests into the visual and audio message channels.
+/// Simulation code writes an [`FxRequest`] instead of remembering to pair a
+/// visual `VfxMessage::Effect` with the matching packed-bank cue; headless
+/// tests can still ignore the render/audio backends while gameplay stays
+/// ECS-native.
+pub fn process_fx_requests(
+    mut requests: MessageReader<FxRequest>,
     mut vfx: MessageWriter<VfxMessage>,
     mut sfx: SfxWriter,
 ) {
     for request in requests.read() {
-        vfx.write(VfxMessage::Explosion {
+        vfx.write(VfxMessage::Effect {
             pos: request.pos,
-            kind: request.kind,
+            fx: request.fx,
             scale: request.scale,
         });
-        if let Some(id) = request.sfx {
+        // The override if there is one, otherwise the cue the effect's own name
+        // already addresses. A caller has nothing to remember.
+        if let Some(id) = request.sfx.or_else(|| effect_cue(request.fx)) {
             sfx.write(SfxMessage::Play {
                 id,
                 pos: request.pos,
@@ -191,18 +240,18 @@ pub fn process_fireworks_requests(
                 x_jitter * request.spread.x + wave,
                 -request.spread.y * (0.22 + 0.78 * y_jitter),
             );
-            let kind = match i % 5 {
-                0 => ExplosionKind::Starburst,
-                1 => ExplosionKind::ClassicBurst,
-                2 => ExplosionKind::BurstRound,
-                3 => ExplosionKind::Shockwave,
-                _ => ExplosionKind::SmokeBurst,
+            let fx = match i % 5 {
+                0 => ambition_vfx::fx::ids::STARBURST,
+                1 => ambition_vfx::fx::ids::CLASSIC_BURST,
+                2 => ambition_vfx::fx::ids::BURST_ROUND,
+                3 => ambition_vfx::fx::ids::SHOCKWAVE,
+                _ => ambition_vfx::fx::ids::SMOKE_BURST,
             };
             let scale = 0.82 + (((i * 19 + 7) % 9) as f32) * 0.055;
             schedule.push(FireworkBurstSpec {
                 at: at.max(0.0),
                 offset,
-                kind,
+                fx,
                 scale,
             });
         }
@@ -226,7 +275,7 @@ pub fn tick_firework_sequences(
     mut commands: Commands,
     presentation_time: ambition_time::PresentationTime,
     mut sequences: Query<(Entity, &mut FireworkSequence)>,
-    mut explosions: MessageWriter<ExplosionRequest>,
+    mut effects: MessageWriter<FxRequest>,
 ) {
     let dt = presentation_time.wall_dt().max(0.0);
     for (entity, mut sequence) in &mut sequences {
@@ -235,9 +284,8 @@ pub fn tick_firework_sequences(
             && sequence.schedule[sequence.next_index].at <= sequence.age
         {
             let burst = sequence.schedule[sequence.next_index];
-            explosions.write(
-                ExplosionRequest::new(sequence.origin + burst.offset, burst.kind)
-                    .with_scale(burst.scale),
+            effects.write(
+                FxRequest::new(sequence.origin + burst.offset, burst.fx).with_scale(burst.scale),
             );
             sequence.next_index += 1;
         }
@@ -296,17 +344,15 @@ pub fn vfx_spawn_messages(
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
             VfxMessage::Impact { pos } => spawn_impact(&mut commands, spawn_scope, world, pos),
-            VfxMessage::CoinPop { pos } => {
-                spawn_coin_pop(&mut commands, spawn_scope, world, pos)
-            }
-            VfxMessage::Explosion { pos, kind, scale } => {
-                spawn_explosion(
+            VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
+            VfxMessage::Effect { pos, fx, scale } => {
+                spawn_effect(
                     &mut commands,
                     spawn_scope,
                     world,
                     assets.as_deref(),
                     pos,
-                    kind,
+                    fx,
                     scale,
                 );
             }
@@ -357,20 +403,55 @@ pub fn vfx_spawn_messages(
     }
 }
 
-fn spawn_explosion(
+/// **Can `fx` be drawn as ART right now, and from what?**
+///
+/// The decision `spawn_effect` makes, factored out so a test can ask the engine
+/// rather than re-derive it: `None` here IS the particle fallback. Two ways to
+/// get it — the id names no shipped row, or the sheet holding that row is not
+/// decoded in these assets.
+///
+/// ⛔ the slot is re-resolved against the LOADED spec rather than trusted from
+/// the baked index. They are the same sheet today; a quality variant with a
+/// different row layout would make them disagree, and drawing the wrong row is
+/// exactly the failure `first_bound_row` was built to refuse.
+pub fn resolve_drawable(
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
+    fx: FxId,
+) -> Option<(
+    &'static AuthoredEffect,
+    &ambition_sprite_sheet::character::CharacterSpriteAsset,
+    usize,
+)> {
+    let effect = authored_effect_for(fx)?;
+    let asset = assets?.fx.get(effect.sheet)?;
+    let slot = asset.spec.clip_slot([effect.name])?;
+    Some((effect, asset, slot))
+}
+
+/// **Draw the authored effect `fx`, or say why not.**
+///
+/// Three ways this ends, and they are different facts: the id names no shipped
+/// row (a counted miss — the authored id is wrong or the art was never made);
+/// the sheet holding the row is not decoded (`--no-assets`, or a build whose
+/// FX manifests were not baked); or it draws. Only the last one is art, and the
+/// other two share the particle fallback that used to be the ONLY outcome
+/// outside Ambition.
+fn spawn_effect(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     pos: ae::Vec2,
-    kind: ExplosionKind,
+    fx: FxId,
     scale: f32,
 ) {
     let Some(session_scope) = session_scope else {
         return;
     };
-    let Some(asset) = assets.and_then(|assets| assets.characters.props.get("generic_explosions"))
-    else {
+    if authored_effect_for(fx).is_none() {
+        note_effect_miss(fx);
+    }
+    let Some((effect, asset, slot)) = resolve_drawable(assets, fx) else {
         // Fallback keeps the call site useful in headless/no-asset profiles.
         spawn_burst(
             commands,
@@ -387,24 +468,37 @@ fn spawn_explosion(
     };
     let scale = scale.max(0.1);
     let render_size = BVec2::splat(132.0 * scale);
-    let mut sprite = build_character_sprite_with_render_size(asset, render_size);
+    // ⛔ NOT `build_character_sprite_with_render_size`: that opens on
+    // `CharacterAnim::Idle`, and an effect sheet has no idle row — asking for
+    // one panics. The first frame of the clip is the right opening frame anyway.
+    let mut sprite = Sprite::from_atlas_image(
+        asset.texture.clone(),
+        bevy::image::TextureAtlas {
+            layout: asset.layout.clone(),
+            index: asset.spec.flat_index_at(slot, 0),
+        },
+    );
+    sprite.custom_size = Some(render_size);
     let mut animator = CharacterAnimator::new(asset);
-    animator.request(explosion_anim(kind));
-    let index = animator.tick(0.0);
-    if let Some(atlas) = sprite.texture_atlas.as_mut() {
-        atlas.index = index;
-    }
+    animator.request_clip(
+        [effect.name],
+        ambition_sprite_sheet::character::CharacterAnim::Idle,
+    );
     commands.spawn_session_scoped(
         session_scope,
         (
-            Name::new(format!("VFX explosion: {:?}", kind)),
+            Name::new(format!("VFX effect: {}", effect.name)),
             sprite,
             Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0)),
             animator,
-            ExplosionVisual {
+            EffectVisual {
                 pos,
                 age: 0.0,
-                duration: 0.72,
+                // ⭐ the AUTHORED length, not a magic 0.72. The row knows how
+                // many frames it has and how long each one holds; a fixed
+                // duration either cut a long effect off or held a short one on
+                // its last frame while it faded.
+                duration: effect.clip_secs().max(0.05),
             },
         ),
     );
@@ -568,7 +662,7 @@ pub fn update_speech_bubble_outlines(
     }
 }
 
-pub fn update_explosions(
+pub fn update_effects(
     mut commands: Commands,
     time: Res<Time>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -576,7 +670,7 @@ pub fn update_explosions(
     >,
     mut query: Query<(
         Entity,
-        &mut ExplosionVisual,
+        &mut EffectVisual,
         &mut Transform,
         &mut Sprite,
         &mut CharacterAnimator,
@@ -1056,5 +1150,85 @@ pub fn update_blink_preview(
                 ),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Every shipped effect row is addressable by its hashed name, and the
+    /// sound comes with it.**
+    ///
+    /// The index is the whole vocabulary now, so its size is the number of rows
+    /// the art actually ships — not a number anyone typed. Asserting both
+    /// directions on a sample keeps the *pairing* honest: the same string that
+    /// finds the clip finds the cue.
+    #[test]
+    fn an_effect_id_resolves_to_its_row_and_its_cue() {
+        assert_eq!(
+            effect_index().by_id.len(),
+            ambition_sprite_sheet::fx::authored_effects().len(),
+            "hashing the names must not collide two rows into one id"
+        );
+
+        for (name, sheet, cue) in [
+            (
+                "classic_burst",
+                "generic_explosions",
+                "vfx.explosion.classic_burst",
+            ),
+            (
+                "sonic_boom",
+                "generic_exotic_fx",
+                "vfx.generic_exotic.sonic_boom",
+            ),
+            (
+                "reductio_impact",
+                "george_booul_vfx",
+                "vfx.george_booul.reductio_impact",
+            ),
+        ] {
+            let fx = FxId::new(name);
+            let effect = authored_effect_for(fx).unwrap_or_else(|| panic!("`{name}` ships"));
+            assert_eq!(effect.sheet, sheet);
+            assert_eq!(effect_cue(fx), Some(SfxId::from_static(cue)));
+        }
+    }
+
+    /// **The old five are ordinary rows now.**
+    ///
+    /// `ExplosionKind`'s variants were the five rows of one sheet, reached
+    /// through three tables. They resolve through exactly the same path as the
+    /// other 184 — which is the claim the deletion rests on, so it is worth
+    /// saying out loud rather than inferring from the absence of the enum.
+    #[test]
+    fn the_five_former_enum_variants_take_the_same_path_as_every_other_row() {
+        use ambition_vfx::fx::ids;
+        for (fx, name) in [
+            (ids::CLASSIC_BURST, "classic_burst"),
+            (ids::BURST_ROUND, "burst_round"),
+            (ids::SHOCKWAVE, "shockwave"),
+            (ids::SMOKE_BURST, "smoke_burst"),
+            (ids::STARBURST, "starburst"),
+        ] {
+            let effect = authored_effect_for(fx).expect("a row of generic_explosions");
+            assert_eq!(effect.name, name);
+            assert_eq!(effect.sheet, "generic_explosions");
+        }
+        // ⭐ and one from outside it, resolved by the same call — the property
+        // the enum made impossible.
+        assert_eq!(
+            authored_effect_for(ids::SONIC_BOOM).map(|e| e.sheet),
+            Some("generic_exotic_fx"),
+        );
+    }
+
+    /// An id no sheet carries resolves to nothing rather than to row 0 of
+    /// something — the `unwrap_or(0)` habit `first_bound_row` exists to refuse.
+    #[test]
+    fn an_unknown_effect_resolves_to_nothing_not_to_row_zero() {
+        assert!(authored_effect_for(FxId::new("kaboom")).is_none());
+        assert!(effect_cue(FxId::new("kaboom")).is_none());
     }
 }

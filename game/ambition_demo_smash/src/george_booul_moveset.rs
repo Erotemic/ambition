@@ -913,10 +913,12 @@ mod tests {
     /// **THE FEEDBACK IS DIFFERENTIATED, AND IT IS RESOLVABLE.**
     ///
     /// Two claims in one test because they fail together: a table where every
-    /// move sounds the same has no feedback, and a table naming an effect the
-    /// engine's vocabulary does not carry has feedback that silently never
-    /// plays. `presentation_problems` is the engine's own validator, so this is
-    /// the same check the host runs at load.
+    /// move sounds the same has no feedback, and a table naming an effect no
+    /// shipped spritesheet carries has feedback that silently never plays.
+    /// ⭐ the oracle is the ART — `is_authored_effect` reads the rows of the
+    /// twelve published FX sheets out of their baked manifests — so this asks
+    /// exactly what the renderer will ask, over all 189 authored rows rather
+    /// than the five an enum used to allow.
     #[test]
     fn important_moves_sound_and_look_like_themselves() {
         use ambition_platformer2d::entity_catalog::MoveEventKind;
@@ -925,7 +927,7 @@ mod tests {
         let mut cues = std::collections::BTreeSet::new();
         for m in &set.moves {
             for problem in m
-                .presentation_problems(|id| ambition_platformer2d::vfx::move_vfx_kind(id).is_some())
+                .presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
             {
                 panic!("{problem}");
             }

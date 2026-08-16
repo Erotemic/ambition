@@ -637,11 +637,13 @@ pub enum MoveEventKind {
     /// Emit a purely COSMETIC visual effect by id (CM5 per-move presentation).
     /// Unlike [`Effect`](Self::Effect) (a gameplay technique) this changes only
     /// what the move LOOKS like — the sim emits the fact, presentation resolves
-    /// the `effect` id against the content-registered cosmetic vocabulary
-    /// (`ambition_vfx::move_vfx_kind`) and spawns the burst at the owner. A typo
-    /// is a startup validation error (`MoveSpec::presentation_problems`), never
-    /// a silent no-op. This is how a jab, a smash, and a launcher look distinct
-    /// with zero code — each authors its own `Vfx { effect }`.
+    /// the id against the rows the shipped FX spritesheets carry
+    /// (`ambition_sprite_sheet::fx`) and draws that clip at the owner. A typo is
+    /// a validation error where a validator is available
+    /// (`MoveSpec::presentation_problems`) and a counted miss at draw time
+    /// otherwise — never a silent no-op. This is how a jab, a smash, and a
+    /// launcher look distinct with zero code — each authors its own
+    /// `Vfx { effect }`.
     Vfx { effect: String },
     /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
     /// resolves it), carrying its opaque params.
@@ -818,9 +820,11 @@ impl MoveSpec {
 
     /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly
     /// at load, never as a silent missing sound/effect. `vfx_known` is the
-    /// injected cosmetic-vfx vocabulary oracle (this crate does not depend on
-    /// `ambition_vfx`, so gameplay_core passes `|id| move_vfx_kind(id).is_some()`
-    /// at expansion time). Returns one human-readable problem per bad id:
+    /// injected cosmetic-vfx vocabulary oracle — this crate does not depend on
+    /// presentation, and the honest answer lives with the ART: pass
+    /// `ambition_sprite_sheet::fx::is_authored_effect`, which reads the rows of
+    /// the shipped FX sheets out of their baked manifests (pure; no App, no
+    /// loaded assets). Returns one human-readable problem per bad id:
     /// - a `Vfx { effect }` whose id is not in the cosmetic vocabulary, and
     /// - a `Sfx { cue }` with an empty cue (a blank cue resolves to silence).
     /// Empty result = the move's presentation is resolvable.
@@ -830,8 +834,8 @@ impl MoveSpec {
             match &ev.kind {
                 MoveEventKind::Vfx { effect } if !vfx_known(effect) => {
                     problems.push(format!(
-                        "move '{}': Vfx event names unknown cosmetic effect '{}' (not in \
-                         the move_vfx_kind vocabulary)",
+                        "move '{}': Vfx event names unknown cosmetic effect '{}' (no \
+                         shipped FX spritesheet has a row by that name)",
                         self.id, effect
                     ));
                 }

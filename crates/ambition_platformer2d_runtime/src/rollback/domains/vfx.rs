@@ -43,10 +43,12 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.debris_burst",
     );
-    app.clear_message_on_rollback::<ambition_vfx::ExplosionRequest>(
-        OWNER,
-        "message.explosion_request",
-    );
+    // ⛔ **the STABLE NAME keeps its old spelling on purpose.** The type is
+    // `FxRequest` now (it carries any of the 189 authored effects, not five
+    // explosions), but a rollback stable name is WIRE FORMAT — frozen by
+    // `rollback-wire-format-is-frozen`, and renaming one to match a Rust
+    // identifier is how a schema breaks for cosmetic reasons.
+    app.clear_message_on_rollback::<ambition_vfx::FxRequest>(OWNER, "message.explosion_request");
     app.clear_message_on_rollback::<ambition_vfx::FireworksRequest>(
         OWNER,
         "message.fireworks_request",

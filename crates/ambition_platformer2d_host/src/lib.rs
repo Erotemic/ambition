@@ -564,7 +564,7 @@ impl Plugin for HostVfxPresentationPlugin {
             (
                 ambition_render::fx::process_fireworks_requests,
                 ambition_render::fx::tick_firework_sequences,
-                ambition_render::fx::process_explosion_requests,
+                ambition_render::fx::process_fx_requests,
             )
                 .chain()
                 .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
@@ -574,7 +574,7 @@ impl Plugin for HostVfxPresentationPlugin {
         .add_systems(
             Update,
             ambition_render::fx::vfx_spawn_messages
-                .after(ambition_render::fx::process_explosion_requests)
+                .after(ambition_render::fx::process_fx_requests)
                 .run_if(session_world_exists),
         )
         .add_systems(
@@ -588,7 +588,7 @@ impl Plugin for HostVfxPresentationPlugin {
             // `ambition_app`'s own dev system. Nothing here reads what it writes.
             (
                 ambition_render::fx::update_particles,
-                ambition_render::fx::update_explosions,
+                ambition_render::fx::update_effects,
                 ambition_render::fx::update_impacts,
                 ambition_render::fx::update_speech_bubbles,
                 ambition_render::fx::update_speech_bubble_outlines,

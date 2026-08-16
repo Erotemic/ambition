@@ -776,6 +776,60 @@ pub fn build_prop_sprite_asset(
     build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
 }
 
+/// **Decode the effect sheets the ENGINE itself draws** — every entry of
+/// [`ambition_sprite_sheet::fx::FX_SHEETS`], with no content, catalog or LDtk
+/// prop involved.
+///
+/// ⭐⭐ **this is the registration that did not exist.** `spawn_effect` reaches
+/// for FX art from `ambition_render`, but until now the only way that art got
+/// loaded was for a GAME to declare it: Ambition's intro listed
+/// `generic_explosions` in its LDtk-prop table, and nothing else in the
+/// workspace listed anything. So Smash, Sanic and Mary-O drew the no-asset
+/// particle fallback for every effect, forever. An engine that draws an asset
+/// has to be able to ship it.
+///
+/// Base resolution only, like [`load_prop_sheet_for_target`]: an effect is a
+/// short-lived overlay and no quality profile has asked to shrink one yet.
+/// Sheets whose manifest was not baked are skipped and reported — the caller
+/// keeps the particle fallback for anything they would have drawn.
+pub fn load_fx_sheets(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+) -> ambition_sprite_sheet::game_assets::FxSheetAssets {
+    let mut set = ambition_sprite_sheet::game_assets::FxSheetAssets::default();
+    let mut missing: Vec<&'static str> = Vec::new();
+    for sheet in ambition_sprite_sheet::fx::FX_SHEETS {
+        let Some(spec) = ambition_sprite_sheet::fx::fx_sheet_spec(sheet.target) else {
+            missing.push(sheet.target);
+            continue;
+        };
+        let page0_path = format!("{sprite_folder}/{}_spritesheet.png", sheet.target);
+        set.insert(
+            sheet.target,
+            load_sprite_pages(
+                asset_server,
+                layouts,
+                &page0_path,
+                &spec,
+                TextureResolutionScale::Full,
+                TextureResolutionScale::Full,
+            ),
+        );
+    }
+    if !missing.is_empty() {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::fx_sheets",
+            "{}/{} engine FX sheets decoded; no baked manifest for {:?}, so effects on \
+             those sheets fall back to a particle burst",
+            set.len(),
+            ambition_sprite_sheet::fx::FX_SHEETS.len(),
+            missing,
+        );
+    }
+    set
+}
+
 /// Load a prop sprite sheet straight from its generated manifest TARGET, without
 /// a `Platformer2dAssetCatalog` — for a demo that registers one animated prop (a
 /// collectible ring) and doesn't carry that prop in its lean asset catalog. The

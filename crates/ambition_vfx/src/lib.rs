@@ -23,10 +23,11 @@ use bevy::prelude::*;
 use ambition_geometry as ae;
 use ambition_projectile_spec::ProjectileSpawn;
 
+pub mod fx;
 pub mod vfx;
+pub use fx::FxId;
 pub use vfx::{
-    explosion_sfx, move_vfx_kind, ExplosionKind, ExplosionRequest, FireworksRequest, HitBurst,
-    HurtFeedback, ImpactMaterial, ParticleKind, VfxMessage,
+    FireworksRequest, FxRequest, HitBurst, HurtFeedback, ImpactMaterial, ParticleKind, VfxMessage,
 };
 
 // ===================================================================

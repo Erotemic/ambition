@@ -114,7 +114,7 @@ pub fn tick_cut_rope_flavor(
     hazards: Query<(&CenteredAabb, &FallingHazard)>,
     bosses: Query<BossClusterRef, With<FeatureSimEntity>>,
     mut banner: ResMut<GameplayBanner>,
-    mut explosions: MessageWriter<ExplosionRequest>,
+    mut explosions: MessageWriter<FxRequest>,
     mut fireworks: MessageWriter<FireworksRequest>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -168,7 +168,7 @@ pub fn tick_cut_rope_flavor(
             ),
             2.8,
         );
-        explosions.write(ExplosionRequest::classic(center).with_scale(1.25));
+        explosions.write(FxRequest::classic(center).with_scale(1.25));
         if !state.death_fireworks_sent {
             let mut death_show = FireworksRequest::around(burst_pos);
             death_show.count = 18;
@@ -229,7 +229,7 @@ fn pulse_waiting_rope_explosions(
     dt: f32,
     rope_pos: ae::Vec2,
     boss_pos: ae::Vec2,
-    explosions: &mut MessageWriter<ExplosionRequest>,
+    explosions: &mut MessageWriter<FxRequest>,
 ) {
     state.rope_fx_timer -= dt;
     if state.rope_fx_timer > 0.0 {
@@ -241,16 +241,15 @@ fn pulse_waiting_rope_explosions(
     let horizontal_pull = (boss_pos.x - rope_pos.x).clamp(-80.0, 80.0) * 0.18;
     let x = (((i.wrapping_mul(37).wrapping_add(11)) % 101) as f32 / 100.0 - 0.5) * 44.0;
     let y = -16.0 - ((i.wrapping_mul(53).wrapping_add(7)) % 59) as f32;
-    let kind = match i % 5 {
-        0 => ExplosionKind::Starburst,
-        1 => ExplosionKind::ClassicBurst,
-        2 => ExplosionKind::BurstRound,
-        3 => ExplosionKind::Shockwave,
-        _ => ExplosionKind::SmokeBurst,
+    let fx = match i % 5 {
+        0 => ambition_vfx::fx::ids::STARBURST,
+        1 => ambition_vfx::fx::ids::CLASSIC_BURST,
+        2 => ambition_vfx::fx::ids::BURST_ROUND,
+        3 => ambition_vfx::fx::ids::SHOCKWAVE,
+        _ => ambition_vfx::fx::ids::SMOKE_BURST,
     };
     explosions.write(
-        ExplosionRequest::new(rope_pos + ae::Vec2::new(horizontal_pull + x, y), kind)
-            .with_scale(0.48),
+        FxRequest::new(rope_pos + ae::Vec2::new(horizontal_pull + x, y), fx).with_scale(0.48),
     );
 }
 

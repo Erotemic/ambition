@@ -88,9 +88,9 @@ pub fn tick_bomb_fuses(
                 pos: ground.pos,
             },
         );
-        vfx.write(ambition_vfx::vfx::VfxMessage::Explosion {
+        vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
             pos: ground.pos,
-            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+            fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 1.0,
         });
         commands.entity(entity).despawn();

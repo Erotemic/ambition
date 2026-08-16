@@ -90,15 +90,15 @@ pub enum ProjectileRotation {
 /// kind's art means the stepper's generic impact fallback is used.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProjectileExpiryBurst {
-    pub kind: ambition_vfx::vfx::ExplosionKind,
+    pub fx: ambition_vfx::FxId,
     pub scale: f32,
 }
 
 impl ProjectileExpiryBurst {
     pub fn to_message(self, pos: ambition_platformer2d_core::Vec2) -> ambition_vfx::vfx::VfxMessage {
-        ambition_vfx::vfx::VfxMessage::Explosion {
+        ambition_vfx::vfx::VfxMessage::Effect {
             pos,
-            kind: self.kind,
+            fx: self.fx,
             scale: self.scale,
         }
     }

@@ -252,21 +252,26 @@ impl CharacterAnim {
             // catalog can pull every character in. A fully typed
             // CharacterAnim::Rest can land later if a consumer
             // distinguishes them.
-            "idle" | "opening" | "rest" | "front_idle" | "side_idle" | "classic_burst" => {
-                Self::Idle
-            }
-            "walk" | "stable" | "spin" | "side_walk" | "burst_round" => Self::Walk,
-            "run" | "closing" | "shockwave" => Self::Run,
+            // ⛔ `classic_burst` used to alias Idle here (and `burst_round`
+            // Walk, `shockwave` Run, `smoke_burst` Hit, `starburst` Slash) so
+            // the explosion sheet could be loaded through the character path
+            // and its rows selected by pose. That was the fifth table
+            // reconstructing a naming the content already carried: effect rows
+            // are addressed by their own names now (`crate::fx`), and a body
+            // pose vocabulary has no business spelling one *Idle*.
+            "idle" | "opening" | "rest" | "front_idle" | "side_idle" => Self::Idle,
+            "walk" | "stable" | "spin" | "side_walk" => Self::Walk,
+            "run" | "closing" => Self::Run,
             "jump" => Self::Jump,
             "fall" => Self::Fall,
             // `jab` is the quick poke; it shares the generic `Slash` read.
             // `punch` is the committal heavy with its own row.
-            "slash" | "starburst" | "jab" => Self::Slash,
+            "slash" | "jab" => Self::Slash,
             "punch" => Self::Punch,
             // Charge→thrust special (glider release). Distinct from `Charge`
             // (the held wind-up only) — `special` is the full beat.
             "special" => Self::Special,
-            "hit" | "hurt" | "smoke_burst" => Self::Hit,
+            "hit" | "hurt" => Self::Hit,
             "grow" => Self::Grow,
             "shrink" => Self::Shrink,
             "big_shrink" => Self::BigShrink,

@@ -601,7 +601,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
-    // ⚠ the VFX tick cluster (`update_particles` / `update_explosions` /
+    // ⚠ the VFX tick cluster (`update_particles` / `update_effects` /
     // `update_impacts` / the two speech-bubble passes) left this file on
     // 2026-08-15, together with `vfx_spawn_messages` below:
     // `ambition_platformer2d_host::HostVfxPresentationPlugin` registers them for

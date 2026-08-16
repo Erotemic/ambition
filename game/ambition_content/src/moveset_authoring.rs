@@ -76,9 +76,10 @@ pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
 
 /// **A BURST AT A MOMENT.**
 ///
-/// ⚠ `effect` must be one of `ambition_vfx::move_vfx_kind`'s ids —
-/// `MoveSpec::presentation_problems` refuses a typo at startup rather than
-/// playing nothing.
+/// ⚠ `effect` is the NAME of a row on one of the shipped FX spritesheets
+/// (`ambition_sprite_sheet::fx` — 189 of them). `MoveSpec::presentation_problems`
+/// refuses a name no sheet carries, and the renderer counts it as a miss rather
+/// than playing nothing quietly.
 pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
     event(
         m,

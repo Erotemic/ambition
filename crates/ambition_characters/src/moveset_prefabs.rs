@@ -113,10 +113,11 @@ pub struct SimpleMeleeParams {
     /// snaps) with zero code.
     #[serde(default)]
     pub swing_sfx: Option<String>,
-    /// CM5: an OPTIONAL cosmetic burst id (`ambition_vfx::move_vfx_kind`
-    /// vocabulary) emitted at the Active edge on top of the slash arc — `None` =
-    /// no extra burst (parity). Lets a launcher `"starburst"`, a smash
-    /// `"shockwave"`. A typo is a startup validation error, never silent.
+    /// CM5: an OPTIONAL cosmetic effect id — the NAME of a row on one of the
+    /// shipped FX spritesheets (`ambition_sprite_sheet::fx`) — emitted at the
+    /// Active edge on top of the slash arc. `None` = no extra burst (parity).
+    /// Lets a launcher `"starburst"`, a smash `"shockwave"`, a signature
+    /// `"sonic_boom"`. A typo is a validation error, never silent.
     #[serde(default)]
     pub swing_vfx: Option<String>,
     /// CM8: the CONTACT sound this swing makes when it LANDS on a body (an

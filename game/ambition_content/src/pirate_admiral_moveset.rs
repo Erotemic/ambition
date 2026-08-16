@@ -887,10 +887,11 @@ mod tests {
 
     /// **EVERY IMPORTANT MOVE IS HEARD AND SEEN.**
     ///
-    /// ⚠ **the vfx ids are checked against the ENGINE's vocabulary**, which is
-    /// what `MoveSpec::presentation_problems` does at startup — a typo there is a
-    /// refused load, and a typo here would be a move that plays nothing. So this
-    /// asserts membership rather than spelling.
+    /// ⚠ **the vfx ids are checked against the SHIPPED ART** — the rows of the
+    /// published FX spritesheets, which is what the renderer resolves against
+    /// and what `MoveSpec::presentation_problems` is handed. A typo here would
+    /// be a move that plays nothing. So this asserts membership rather than
+    /// spelling.
     #[test]
     fn the_specials_and_the_juggle_carry_their_own_feedback() {
         use ambition_platformer2d::entity_catalog::MoveEventKind;
@@ -913,7 +914,7 @@ mod tests {
                 m.events.iter().any(|e| match &e.kind {
                     MoveEventKind::Vfx { effect } => {
                         assert!(
-                            ambition_platformer2d::vfx::move_vfx_kind(effect).is_some(),
+                            ambition_platformer2d::sprite_sheet::fx::is_authored_effect(effect),
                             "`{id}` names vfx `{effect}`, which the engine's \
                              vocabulary does not contain — this is a refused load"
                         );

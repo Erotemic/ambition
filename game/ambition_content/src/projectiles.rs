@@ -77,7 +77,7 @@ pub(super) fn register(app: &mut App) {
             debug_tint: [0.45, 1.0, 0.85, 1.0],
             label: "lasersword".to_string(),
             expiry_vfx: Some(ProjectileExpiryBurst {
-                kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                 scale: 0.7,
             }),
         },

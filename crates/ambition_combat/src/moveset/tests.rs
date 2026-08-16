@@ -69,6 +69,22 @@ fn attack_dir_is_relative_to_facing() {
     );
 }
 
+/// **What this test suite pretends a renderer can draw.**
+///
+/// ⚠ a STUB, and deliberately so: the real answer is the rows of the shipped FX
+/// spritesheets (`ambition_sprite_sheet::fx::is_authored_effect`), and this
+/// crate must not link a presentation-asset crate to expand a prefab — a
+/// headless RL build expands prefabs and has no image decoder. What is under
+/// test here is the registry's REFUSAL, not the vocabulary: an id the oracle
+/// rejects must not survive expansion. The vocabulary itself is pinned where it
+/// lives, against the sheets.
+fn drawable(effect: &str) -> bool {
+    matches!(
+        effect,
+        "classic_burst" | "burst_round" | "shockwave" | "smoke_burst" | "starburst" | "sonic_boom"
+    )
+}
+
 #[test]
 fn prefab_registry_expands_sword_slash_from_simple_melee_with_zero_new_code() {
     // A2 / R2.3: `sword_slash` is the `simple_melee` prefab + params, minted
@@ -80,7 +96,7 @@ fn prefab_registry_expands_sword_slash_from_simple_melee_with_zero_new_code() {
     )
     .unwrap();
     let sword = reg
-        .expand("simple_melee", &params, "sword_slash")
+        .expand("simple_melee", &params, "sword_slash", drawable)
         .expect("simple_melee expands");
     assert_eq!(
         sword.id, "sword_slash",
@@ -102,14 +118,19 @@ fn prefab_registry_rejects_unknown_key_and_bad_params() {
     let reg = MovePrefabRegistry::with_engine_prefabs();
     let empty = ambition_entity_catalog::ParamValue::default();
     assert!(
-        reg.expand("not_a_prefab", &empty, "x").is_err(),
+        reg.expand("not_a_prefab", &empty, "x", drawable).is_err(),
         "typo'd key"
     );
     // Wrong type for a field fails at expand (install) time.
     let bad = ambition_entity_catalog::ParamValue::parse("(damage: \"lots\")").unwrap();
-    assert!(reg.expand("simple_melee", &bad, "x").is_err(), "bad params");
+    assert!(
+        reg.expand("simple_melee", &bad, "x", drawable).is_err(),
+        "bad params"
+    );
     // Empty params hydrate to the prefab defaults (every field defaults).
-    assert!(reg.expand("simple_charge", &empty, "smash").is_ok());
+    assert!(reg
+        .expand("simple_charge", &empty, "smash", drawable)
+        .is_ok());
 }
 
 /// CM5: a prefab row authors its OWN swing sfx + a cosmetic burst, so the
@@ -124,6 +145,7 @@ fn per_move_presentation_is_authored_on_the_prefab_row() {
             "simple_melee",
             &ambition_entity_catalog::ParamValue::default(),
             "jab",
+            drawable,
         )
         .unwrap();
     let sfx_cues: Vec<&str> = default
@@ -152,6 +174,7 @@ fn per_move_presentation_is_authored_on_the_prefab_row() {
             )
             .unwrap(),
             "smash",
+            drawable,
         )
         .expect("authored presentation expands");
     assert!(
@@ -177,7 +200,7 @@ fn a_typod_cosmetic_vfx_id_is_rejected_at_expansion() {
     let reg = MovePrefabRegistry::with_engine_prefabs();
     let bad = ambition_entity_catalog::ParamValue::parse("(swing_vfx: Some(\"kaboom\"))").unwrap();
     let err = reg
-        .expand("simple_melee", &bad, "x")
+        .expand("simple_melee", &bad, "x", drawable)
         .expect_err("an unknown cosmetic id must fail validation");
     assert!(
         err.contains("kaboom") && err.contains("unknown cosmetic effect"),
@@ -193,12 +216,12 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
-    struct Seen(Option<ambition_vfx::ExplosionKind>);
+    struct Seen(Option<ambition_vfx::FxId>);
 
     fn capture(mut vfx: MessageReader<VfxMessage>, mut seen: ResMut<Seen>) {
         for m in vfx.read() {
-            if let VfxMessage::Explosion { kind, .. } = m {
-                seen.0 = Some(*kind);
+            if let VfxMessage::Effect { fx, .. } = m {
+                seen.0 = Some(*fx);
             }
         }
     }
@@ -232,8 +255,8 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
     app.update();
     assert_eq!(
         app.world().resource::<Seen>().0,
-        Some(ambition_vfx::ExplosionKind::Starburst),
-        "the Vfx event resolved to a Starburst explosion burst",
+        Some(ambition_vfx::FxId::new("starburst")),
+        "the Vfx event put the authored NAME on the wire — no enum in between",
     );
 }
 

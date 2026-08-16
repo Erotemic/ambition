@@ -1424,21 +1424,18 @@ pub fn dispatch_move_events(
                 }
             }
             MoveEventKind::Vfx { effect } => {
-                // CM5 per-move cosmetic burst: resolve the id against the
-                // content-registered vocabulary and spawn it at the owner. A
-                // typo can't reach here — `presentation_problems` rejects an
-                // unresolvable id at startup — but stay robust if it somehow
-                // does (skip, never panic on the RL-hot path).
-                let Some(kind) = ambition_vfx::move_vfx_kind(effect) else {
-                    continue;
-                };
+                // CM5 per-move cosmetic effect. ⭐ there is no table here any
+                // more: the authored NAME goes on the wire as its hash, and
+                // presentation resolves it against the rows the shipped FX
+                // sheets actually carry. An id no sheet has is a counted miss
+                // at draw time (SFX's policy), never a panic on the RL-hot path.
                 let pos = positions
                     .get(ev.owner)
                     .map(|k| k.pos)
                     .unwrap_or(ae::Vec2::ZERO);
-                vfx.write(ambition_vfx::VfxMessage::Explosion {
+                vfx.write(ambition_vfx::VfxMessage::Effect {
                     pos,
-                    kind,
+                    fx: ambition_vfx::FxId::new(effect),
                     scale: 1.0,
                 });
             }

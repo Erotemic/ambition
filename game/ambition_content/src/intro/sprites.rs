@@ -176,12 +176,11 @@ pub fn intro_prop_sprite_rows() -> Vec<(
             intro_sheet("cut_rope_piano", t),
             None,
         ),
-        (
-            "generic_explosions",
-            "generic_explosions_spritesheet.png",
-            intro_sheet("generic_explosions", t),
-            None,
-        ),
+        // ⛔ `generic_explosions` used to be listed here, as an LDtk PROP —
+        // which is how the one FX sheet the engine could draw got loaded at
+        // all, and why no other app could draw any effect. The engine ships its
+        // own effect sheets now (`ambition_sprite_sheet::fx::FX_SHEETS`); a
+        // story's prop table is not the place to declare them.
         // Interdimensional gate ring + portal surface.
         (
             "gate_ring",

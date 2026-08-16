@@ -124,6 +124,21 @@ sprite sheet is the cheaper permanent answer and this whole spike stays closed.
 
 ## ⭐⭐⭐ MEASURED 2026-08-16 — the authored effect vocabulary is COMPLETE, and unaddressable
 
+> **LANDED 2026-08-16.** The slice below shipped: `ExplosionKind`,
+> `move_vfx_kind`, `explosion_anim` and `explosion_sfx` are deleted (and so are
+> the five `classic_burst`→*Idle* aliases inside `CharacterAnim::from_name`, a
+> FIFTH table nobody had counted). An effect is now an `FxId` — FNV-1a over the
+> authored row name, `SfxId`'s shape — resolved against
+> `ambition_sprite_sheet::fx`, which walks the twelve declared FX sheets' own
+> BAKED records. ⭐ **the section's "one real design constraint" dissolved**: the
+> vocabulary IS readable at validation time, because `build.rs` embeds every
+> `*_spritesheet.ron` and reading it needs no App and no loaded assets. So there
+> is no declared 189-row table and no dropped refusal — the oracle is the art,
+> and `MovePrefabRegistry::expand` takes it as a parameter rather than naming a
+> crate combat must not link. `GameAssets.fx` is the engine's own sheet slot;
+> `load_game_assets` fills it. The two facts below that are still open are the
+> Enoki bearing (§ "argues the OTHER way") and the sidecar reader.
+
 Three facts, read off the shipped data rather than argued. They change what
 VFX-08 is about and they touch the Enoki trigger directly.
 

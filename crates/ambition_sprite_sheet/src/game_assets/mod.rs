@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use ambition_asset_manager::AssetProfile;
 
 use crate::boss::BossSpriteAsset;
-use crate::character::CharacterSpriteAssets;
+use crate::character::{CharacterSpriteAsset, CharacterSpriteAssets};
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 
@@ -349,6 +349,18 @@ impl ParallaxLayerSet {
 pub struct GameAssets {
     pub characters: CharacterSpriteAssets,
     pub entities: EntitySpriteSet,
+    /// **The effect sheets the ENGINE draws from**, keyed by sheet manifest
+    /// target (`generic_exotic_fx`).
+    ///
+    /// ⭐ its own slot, and that is the point. These used to be parked in
+    /// `characters.props` — *a map keyed by the LDtk `Prop.kind` field* — which
+    /// meant the only way an engine renderer could reach the art it itself
+    /// draws was for some GAME to have declared it as a level prop. Ambition's
+    /// intro did; Smash, Sanic and Mary-O did not, so `spawn_effect` took its
+    /// no-asset particle branch in all three, always. An FX sheet is neither a
+    /// character nor an LDtk prop, and the engine's own `load_game_assets`
+    /// fills this from [`crate::fx::FX_SHEETS`] with no content involved.
+    pub fx: FxSheetAssets,
     /// Generic boss spritesheet — the fallback the renderer uses for any boss
     /// without a dedicated sheet in `boss_sprites`. Separate from `characters`
     /// because the boss generator emits its own animation rows
@@ -369,6 +381,41 @@ pub struct GameAssets {
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
     pub parallax_layers: ParallaxLayerSet,
+}
+
+/// Decoded FX spritesheets, keyed by manifest target.
+///
+/// A `'static` key because the engine's effect sheets are declared in
+/// [`crate::fx::FX_SHEETS`], not discovered from content — the set is a
+/// property of the build, not of the loaded world.
+#[derive(Default, Clone)]
+pub struct FxSheetAssets {
+    sheets: HashMap<&'static str, CharacterSpriteAsset>,
+}
+
+impl FxSheetAssets {
+    pub fn insert(&mut self, target: &'static str, asset: CharacterSpriteAsset) {
+        self.sheets.insert(target, asset);
+    }
+
+    pub fn get(&self, target: &str) -> Option<&CharacterSpriteAsset> {
+        self.sheets.get(target)
+    }
+
+    pub fn len(&self) -> usize {
+        self.sheets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sheets.is_empty()
+    }
+
+    /// The targets that decoded, sorted — for the startup tally.
+    pub fn targets(&self) -> Vec<&'static str> {
+        let mut targets: Vec<&'static str> = self.sheets.keys().copied().collect();
+        targets.sort_unstable();
+        targets
+    }
 }
 
 impl GameAssets {

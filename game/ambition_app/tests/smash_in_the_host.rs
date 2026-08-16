@@ -3686,3 +3686,328 @@ fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
     );
     eprintln!("[d146] a dash-less fighter covered {covered:.1}px in {updates} updates");
 }
+
+// ─── D146 slice 2 — Shield is its OWN action, not a flavour of Special ───────
+//
+// Jon, 2026-08-16: *"Shield is not a special move. It is an independent
+// participant control/action. Shield input -> can hold/release shield. Special
+// input -> activates authored special behavior. One cannot accidentally
+// masquerade as the other."*
+//
+// Every case below drives the SHIPPED keyboard preset (`arrows_zxc`) through the
+// host's real participant chain: `E` is the shield key and `G` is the special
+// key on that preset. Reading them off the preset rather than naming a device
+// would test a table; pressing them is what tests the game.
+
+/// The shield key on the default keyboard preset (`arrows_zxc`).
+const SHIELD_KEY: KeyCode = KeyCode::KeyE;
+/// The special key on the same preset — deliberately a DIFFERENT physical key,
+/// which is what makes the two masquerade cases below separable at all.
+const SPECIAL_KEY: KeyCode = KeyCode::KeyG;
+
+/// Seat a person (seat 0, on the keyboard) as `fighter` against one CPU, start
+/// the match, and hand back the person's body once the opening hold is off.
+fn a_person_fighting_as(fighter: &str) -> (App, Entity) {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 1); // the person takes the only source (the keyboard)
+    cycle_role(&mut app, 1, 1); // no source left, so: CPU
+    pick_fighter(&mut app, 0, fighter);
+    pick_fighter(&mut app, 1, PREPARED_FIGHTER);
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "the lobby refused to start a person-versus-CPU match"
+    );
+    wait_for_the_round_to_go_live(&mut app);
+
+    let body = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        assert!(!rows.is_empty(), "a started match seated no fighter at all");
+        rows[0].1
+    };
+    (app, body)
+}
+
+fn guard_is_up(app: &App, body: Entity) -> bool {
+    app.world()
+        .get::<ambition_platformer2d::engine_core::body_clusters::BodyShieldState>(body)
+        .map(|shield| shield.active)
+        .unwrap_or(false)
+}
+
+/// Run until `property` holds or the give-up ceiling expires; report whether it
+/// ever held and how many updates it took.
+///
+/// ⛔ `app.update()` is NOT a tick of sim time, so a fixed count would be
+/// measuring the machine rather than the game. The ceiling is patience, never
+/// the measurement.
+fn hold_until(app: &mut App, mut property: impl FnMut(&App) -> bool) -> Option<usize> {
+    for updates in 0..180 {
+        if property(app) {
+            return Some(updates);
+        }
+        app.update();
+    }
+    None
+}
+
+/// **THE PROBE. A SMASH FIGHTER'S SHIELD BUTTON RAISES THEIR GUARD.**
+///
+/// ⛔⛔ **seen RED first, and the defect it caught was a CLEARING POLICY asking
+/// the wrong question.** `gate_worn_player_control` kept `shield_held` alive only
+/// for a body whose `ActionSet.special` was literally the player robot's folded
+/// `"bubble_shield"` — so *which special do you carry* stood where *can you
+/// shield at all* belonged. Every one of the fourteen smash fighters is granted
+/// `AbilitySet::shield` by `SMASH_FIGHTER_KIT`, and thirteen of them throw an
+/// ordinary special, so thirteen fighters had their guard erased every frame by a
+/// gate that had never heard of them.
+///
+/// George Booul is the fighter this demo owns and his special is his own — which
+/// is exactly the population the old gate refused, and the non-vacuity assertions
+/// below say so out loud rather than trusting the roster to stay that way.
+#[test]
+fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
+    let (mut app, body) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // **THE BLAST RADIUS, MEASURED RATHER THAN REASONED.** The gate that erased
+    // the guard is `With<PlayerEntity>`, so whether it reaches a smash seat at
+    // all is the difference between this being the bug and being a bug somewhere
+    // else entirely. Asserted, not assumed.
+    eprintln!(
+        "[d146-shield] seat 0 PlayerEntity = {}",
+        app.world()
+            .get::<ambition_platformer2d::actors::actor::PlayerEntity>(body)
+            .is_some()
+    );
+
+    // **NON-VACUITY, both terms.** A fighter without the shield ability could
+    // never raise a guard, and a fighter whose special IS a shield move would
+    // pass through the very exception this test exists to delete.
+    let abilities = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyAbilities>(body)
+        .expect("a seated fighter carries its ability set")
+        .abilities;
+    assert!(
+        abilities.shield,
+        "this fighter has no shield ability, so nothing below could raise a guard"
+    );
+    let special = app
+        .world()
+        .get::<ambition_platformer2d::characters::brain::ActionSet>(body)
+        .expect("a seated fighter carries its action set")
+        .special
+        .clone();
+    eprintln!("[d146-shield] seat 0 special = {special:?}");
+    assert!(
+        !matches!(
+            special.as_ref(),
+            Some(ambition_platformer2d::characters::brain::SpecialActionSpec::Special(key))
+                if key == "bubble_shield"
+        ),
+        "this fighter's special IS the bubble shield, so it would ride the old \
+         gate's exception and prove nothing about the other thirteen"
+    );
+
+    assert!(
+        !guard_is_up(&app, body),
+        "the guard is up before anybody touched the shield button"
+    );
+
+    // HOLD.
+    Buttonlike::press(&SHIELD_KEY, app.world_mut());
+    let raised = hold_until(&mut app, |app| guard_is_up(app, body));
+    assert!(
+        raised.is_some(),
+        "a smash fighter held the SHIELD button and no guard came up. Shield is \
+         its own participant action — it is not a variant of Special, and it must \
+         not depend on which special this body happens to carry"
+    );
+
+    // RELEASE. A guard that cannot come down is a guard nobody can play around.
+    Buttonlike::release(&SHIELD_KEY, app.world_mut());
+    let lowered = hold_until(&mut app, |app| !guard_is_up(app, body));
+    assert!(
+        lowered.is_some(),
+        "the guard never came down after the shield button was released"
+    );
+    eprintln!(
+        "[d146-shield] guard up after {:?} updates, down after {:?}",
+        raised, lowered
+    );
+}
+
+/// **SPECIAL CANNOT MASQUERADE AS SHIELD.** (D146 slice 2, half one)
+///
+/// Pressing Special must not raise a guard on a body whose special is not a
+/// shield move. Without this the fix could have been "keep the guard alive for
+/// everybody", which is not a separation of the two actions — it is the same
+/// conflation pointing the other way.
+///
+/// ⚠ **NON-VACUOUS: the press has to reach the body.** A test where Special did
+/// nothing at all would pass this perfectly, so it asserts the special MOVE
+/// started as well as that no guard came up.
+#[test]
+fn pressing_special_does_not_raise_a_guard_on_a_fighter_whose_special_is_not_one() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let (mut app, body) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
+    assert!(
+        !guard_is_up(&app, body),
+        "the guard is up before anybody pressed anything"
+    );
+
+    Buttonlike::press(&SPECIAL_KEY, app.world_mut());
+    let mut fired: Option<String> = None;
+    let mut raised = false;
+    for _ in 0..180 {
+        app.update();
+        raised |= guard_is_up(&app, body);
+        if fired.is_none() {
+            fired = app
+                .world()
+                .get::<MovePlayback>(body)
+                .map(|playback| playback.spec.id.clone());
+        }
+    }
+    Buttonlike::release(&SPECIAL_KEY, app.world_mut());
+
+    assert!(
+        fired.is_some(),
+        "pressing SPECIAL started no move at all, so this fighter never received \
+         the press and the guard claim below is vacuous"
+    );
+    assert!(
+        !raised,
+        "pressing SPECIAL raised this fighter's guard (it played {fired:?}). \
+         Special activates the authored special behaviour; a guard is the Shield \
+         action's job, and a special that raises one by accident is exactly the \
+         masquerade Jon named"
+    );
+}
+
+/// **SHIELD CANNOT MASQUERADE AS SPECIAL.** (D146 slice 2, half two)
+///
+/// Holding the shield button raises a guard and starts NO authored move. The two
+/// halves together are Jon's *"one cannot accidentally masquerade as the other"*;
+/// either alone passes for a build where both buttons do both things.
+#[test]
+fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let (mut app, body) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    Buttonlike::press(&SHIELD_KEY, app.world_mut());
+    let mut raised = false;
+    let mut played: Option<String> = None;
+    for _ in 0..180 {
+        app.update();
+        raised |= guard_is_up(&app, body);
+        if played.is_none() {
+            played = app
+                .world()
+                .get::<MovePlayback>(body)
+                .map(|playback| playback.spec.id.clone());
+        }
+    }
+    Buttonlike::release(&SHIELD_KEY, app.world_mut());
+
+    assert!(
+        raised,
+        "holding SHIELD raised no guard, so the other half of this claim is vacuous"
+    );
+    assert_eq!(
+        played, None,
+        "holding SHIELD started an authored move. Shield holds a guard; it does \
+         not activate authored behaviour, and a shield that fires a special is \
+         the masquerade pointing the other way"
+    );
+}
+
+/// **A CPU FIGHTER RAISES A GUARD OF ITS OWN, IN A REAL MATCH.** (D146 slice 2)
+///
+/// Jon: *"CPU logic should be able to request Shield semantically without
+/// pretending to press a physical controller trigger."* This is the link no unit
+/// test reaches: a CPU seat carries no `PlayerEntity` and no persona gate, so
+/// whether a brain-requested guard survives to `BodyShieldState` is only
+/// answerable in an assembled match.
+///
+/// ⚠ **WHICH brain, said plainly, because the obvious reading is wrong.** The
+/// shipped smash CPU is `template: Fighter` (`SMASH_CATALOG_RON`'s
+/// `autonomous_profiles`), so the guard this observes is the fighter brain's
+/// `MovementVerb::Shield`, not the smash brain's reactive block. What the two
+/// prove together is the whole claim: a brain — either brain — names a defensive
+/// intent in its OWN vocabulary and the body raises a real guard, with no
+/// physical button anywhere in the chain. The smash brain's half is
+/// `brain::smash::tests::defense_blinks_a_lunge_and_blocks_a_walk_in`, which now runs
+/// through `SpecificAction::Shield` rather than writing `shield_held` beside it.
+///
+/// ⚠ **the person has to ATTACK, not merely approach.** A guard is offered to a
+/// fighter that is losing an exchange AND has something incoming — pressing it
+/// against nothing is how you get grabbed, and the day shielding was offered on
+/// "cornered" alone the stage became two statues holding guard forever. So this
+/// walks in and swings.
+#[test]
+fn a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button() {
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let (mut app, person) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
+    let cpu = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows[1].1
+    };
+    assert_ne!(person, cpu, "the two seats are the same body");
+    assert!(
+        !guard_is_up(&app, cpu),
+        "the CPU is already guarding before the match has been played"
+    );
+
+    // Walk TOWARD the opponent (whichever side it opened on) and swing.
+    let x = |app: &App, body: Entity| {
+        app.world()
+            .get::<BodyKinematics>(body)
+            .map(|kin| kin.pos.x)
+            .unwrap_or(0.0)
+    };
+    let toward = if x(&app, cpu) > x(&app, person) {
+        KeyCode::ArrowRight
+    } else {
+        KeyCode::ArrowLeft
+    };
+    Buttonlike::press(&toward, app.world_mut());
+
+    let mut guarded = None;
+    for updates in 0..1_800 {
+        // Mash the attack key: a hostile mid-swing is what puts a guard on the
+        // CPU's option list at all.
+        if updates % 12 == 0 {
+            Buttonlike::press(&KeyCode::KeyX, app.world_mut());
+        } else if updates % 12 == 3 {
+            Buttonlike::release(&KeyCode::KeyX, app.world_mut());
+        }
+        app.update();
+        if guard_is_up(&app, cpu) {
+            guarded = Some(updates);
+            break;
+        }
+    }
+    Buttonlike::release(&toward, app.world_mut());
+    Buttonlike::release(&KeyCode::KeyX, app.world_mut());
+    assert!(
+        guarded.is_some(),
+        "a CPU fighter never raised a guard across a whole pressured exchange. A \
+         CPU body carries no `PlayerEntity` and no persona gate, so if a \
+         brain-requested `shield_held` does not arrive at `BodyShieldState` the \
+         defensive half of the CPU's vocabulary is decorative"
+    );
+    eprintln!("[d146-shield] the CPU guarded after {guarded:?} updates");
+}

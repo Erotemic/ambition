@@ -394,7 +394,7 @@ the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.
 
 Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
-- ▢ **D146 — THE SMASH CONTROLLER, AND DASH LEAVING THE VOCABULARY. (Jon,
+- ◐ **D146 — THE SMASH CONTROLLER, AND DASH LEAVING THE VOCABULARY. (Jon,
   2026-08-16, three asks in one message + one follow-up)**
 
 Jon, verbatim: *"Another thing to note is I don't think the special button is
@@ -474,25 +474,66 @@ not done — it belongs with item 2/3 below.
 prompt "Dash" for a body that now rolls; it reads `is_aerial` and never the
 ability set. HUD naming, not behaviour.
 
-**2 ▢ SHIELD IS ITS OWN INPUT ACTION UNDER ANOTHER NAME, AND A POLICY CLEARS
-IT.** ⛔⛔ **an earlier note here said "there is no `Shield` action". That was
-WRONG and is corrected 2026-08-16** — re-measured: `control.rs:128` reads
-`shield_held: actions.pressed(&…::QuickAction)`, the gamepad binds QuickAction
-to RightTrigger, and `derive_action_scheme` already gates
-`(abilities.shield, ControlSlot::QuickAction, ids::SHIELD)`. The semantic action
-EXISTS; its NAME lies.
-⛔ **the real defect is the clearing policy.** `gate_worn_player_control`
-(`starting_character.rs`, `With<PlayerEntity>`) does
-`if !allows_body_shield && !holds_item { control.0.shield_held = false; }`,
-where `allows_body_shield` is *the body's special is the `bubble_shield` key*.
-So a human smash fighter with `AbilitySet::shield` but any ordinary special has
-its guard cleared EVERY FRAME and can never shield. The question that gate asks
-should be *does this body have the shield ability*, not *is its special the
-robot's folded bubble*.
-⚠ renaming `QuickAction` → `Shield` is the honest fix, but `BindingOverride`
-keys an action by the `Debug` SPELLING of the enum and ignores unknown names, so
-a rename silently drops a user's existing remap of that action. Cheap to handle,
-must not be forgotten.
+**2 ✔ SHIELD IS ITS OWN SEMANTIC ACTION — CLOSED 2026-08-16.** Jon's three
+criteria hold: *"Shield input -> can hold/release shield. Special input ->
+activates authored special behavior. One cannot accidentally masquerade as the
+other."*
+⛔⛔ **THE BLAST RADIUS IN THIS ROW WAS WRONG, and the probe is what said so.** It
+claimed a human smash fighter could never shield. **A SMASH SEAT CARRIES NO
+`PlayerEntity`** — `realize_seat` builds every seat, human and CPU, from
+`EnemyActorBundle`, and smash declares `InitialBodyPolicy::NoInitialBody` so no
+home avatar exists to adopt. `gate_worn_player_control` is `With<PlayerEntity>`
+and therefore never ran on a fighter at all: `a_smash_fighters_shield_input_…`
+was written expecting red and came back GREEN on the unmodified tree. ⭐ **the
+lesson is the general one — a gate's QUERY FILTER is the blast radius, and it is
+one `world.get::<Marker>()` away from being measured rather than reasoned.**
+⛔ **the defect was real, on Ambition's own player body.** `gate_worn_player_control`
+cleared `shield_held` unless `ActionSet.special == Special("bubble_shield")`, so
+any PERSONA a `PlayerEntity` wears that owns `AbilitySet::shield` alongside an
+ordinary special lost its guard every frame —
+`the_shield_verb_follows_the_ability_not_the_special` fails on the old policy and
+passes on the new one.
+⭐ the policy moved to where every other slot's already lives:
+`resolve_control_slots`' `ControlSlot::Shield` arm now mirrors Attack — absent
+slot strips the verb, held item keeps it (shield+attack is the throw gesture),
+technique routes it. The kernel's `resolve_shield` still owns the rest, and
+`sustain_bubble_shield` is untouched, so a special MAY still raise a guard; it is
+simply no longer the only route any body has.
+⭐ **renamed, and the reason is stated at the type.** `ControlSlot::QuickAction`
+→ `ControlSlot::Shield` and `Platformer2dInputActionMonolith::QuickAction` →
+`::Shield` (semantic id `quick_action` → `shield`, preset key
+`ActionKeys::quick_action` → `shield`). Measured first: the slot's ONLY occupant
+anywhere in the workspace is the shield, and every other slot is already named
+for its default action while still hosting techniques. `Modifier`/`Utility` keep
+generic names because they genuinely carry more than one meaning.
+⭐ **the settings-key consequence is handled, not left to be discovered.**
+`ControlSettings::migrate_renamed_actions` (run from `clamp_all`, which every load
+path calls) rewrites a stored `"QuickAction"` override to `"Shield"` and collapses
+a file holding both spellings; `a_stored_remap_survives_the_shield_action_rename`
+pins it.
+⭐ **the CPU asks for Shield semantically.** `tick_smash`'s reactive block was
+writing `shield_held` by hand beside an unused `SpecificAction::Shield` — two
+producers, and the semantic action had none. It commits the action now.
+⚠ **the facing is NOT the action's here**: `emit_inputs` faces the target
+unconditionally, and letting it do so overrode the footsies weave and pinned both
+fighters in a corner (`flying_pca_vs_grounded_robot_is_non_degenerate`, red on the
+first attempt) — reactive defense LAYERS onto a chosen action rather than
+replacing it.
+⚠ **the shipped smash CPU is `template: Fighter`, not the smash brain**, so its
+guard comes from `MovementVerb::Shield`. Worth knowing before tuning smash-brain
+defense and expecting the stage to change.
+Evidence: `a_smash_fighters_shield_input_raises_and_lowers_their_guard`,
+`pressing_special_does_not_raise_a_guard_on_a_fighter_whose_special_is_not_one`,
+`holding_shield_raises_a_guard_and_fires_no_authored_move`,
+`a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button` (all
+`smash_in_the_host`), `the_shield_verb_follows_the_ability_not_the_special`,
+`a_held_item_keeps_the_shield_verb_alive_without_the_ability`, and the resolver
+matrix, which Shield joined.
+▢ **NOW UNBLOCKED, and recorded rather than done: dodging comes off the SHIELD
+button.** In the genre shield+direction is a roll, shield on the spot is a spot
+dodge, and shield in the air is an air dodge — none of them a separate burst
+button, which is where they live here. It needed Shield to be a real action
+first; it is one now.
 
 **3 ▢ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT.**
 ⛔ measured: `Special` has NO gamepad binding at all. The action enum says so in

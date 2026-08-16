@@ -1003,6 +1003,37 @@ struct CastFraming {
 /// it is already wider.
 const CAST_FRAMING_MARGIN: f32 = 48.0;
 
+/// **How fast the cast framing CLOSES**, as an exponential rate in Hz.
+///
+/// ⛔⛔ **only the way in is eased, and the asymmetry is the whole fix.**
+/// Reported from the couch, 2026-08-15: *"the camera zooms out when someone
+/// flys off the stage, and that is good, but when they die in the blast zone
+/// instead of having a smooth camera transition back, it just snaps back to the
+/// main stage."*
+///
+/// Measured on a headless CPU-versus-CPU match, largest per-frame change in
+/// `visible_view` around four knockouts:
+///
+/// ```text
+///   widening   33 .. 49 units/frame, over 7-8 frames   (800 -> 1115)
+///   closing    237 .. 361 units in ONE frame           (-> 800)
+/// ```
+///
+/// The widening was never eased and never needed to be: its INPUT is a body
+/// flying, which is already continuous, so the ramp comes out smooth for free.
+/// The close is a DISCONTINUITY in the input — the body is taken out of play and
+/// the cast's bounding box collapses between one frame and the next — and there
+/// was nothing to absorb it. So widening stays immediate (a fighter launched off
+/// the top must not leave the frame while the camera catches up) and only the
+/// close is eased.
+///
+/// ⚠ **a rate, not a duration**, matching the target ease a few screens down
+/// (`easing_hz`, 8.0). 5 Hz closes ~63% of the gap in 0.2 s and reads as a
+/// camera settling rather than a cut; it is deliberately slower than the
+/// widening it undoes, which is the same shape `CameraEaseTuning` already
+/// declares for the encounter zoom (out 1.6, in 0.9).
+const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
+
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
     bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
@@ -1064,6 +1095,15 @@ pub fn resolve_camera_observation(
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
+    // **The cast framing currently being PRESENTED**, eased toward the cast's
+    // real bounding box on the way IN. See `CAST_FRAMING_CLOSE_HZ`.
+    //
+    // ⚠ a `Local` beside `last_camera_room` rather than a field on
+    // `CameraEaseState`, and for the same reason that one is: what the CAST
+    // spans is a fact about the world this system resolves ONCE, above the
+    // per-observer loop, while `CameraEaseState` is per view. Presentation-only
+    // either way — nothing in the simulation reads it.
+    mut live_cast_view: bevy::prelude::Local<Option<ae::Vec2>>,
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1149,20 +1189,54 @@ pub fn resolve_camera_observation(
                 ),
                 None => {
                     let Some(cast) = frame_the_cast(&framed.0, &body_kinematics) else {
+                        // ⚠ forget the eased framing with the cast, or the next
+                        // match opens by closing in from the last one's final
+                        // spread instead of at its own true framing.
+                        *live_cast_view = None;
                         return;
                     };
                     // The bounds decide the ZOOM as well as the centre: two
                     // fighters that run apart must both stay on screen, and a
                     // fixed view centred between them is how one of them walks
                     // off it. A FLOOR, so authored zoom still wins when wider.
-                    base_view = base_view.max(cast.view);
+                    //
+                    // ⭐ **and it CLOSES on an ease while it OPENS immediately.**
+                    // See [`CAST_FRAMING_CLOSE_HZ`]: a fighter flying off is a
+                    // continuous input and needs no help, but a fighter taken out
+                    // of play collapses the bounding box in one frame, which is
+                    // the snap Jon reported. Per axis, so a pair that separates
+                    // horizontally while settling vertically does both.
+                    let dt = time.delta_secs().max(0.0);
+                    let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
+                    let presented = match *live_cast_view {
+                        Some(previous) => ae::Vec2::new(
+                            if cast.view.x >= previous.x {
+                                cast.view.x
+                            } else {
+                                previous.x + (cast.view.x - previous.x) * alpha
+                            },
+                            if cast.view.y >= previous.y {
+                                cast.view.y
+                            } else {
+                                previous.y + (cast.view.y - previous.y) * alpha
+                            },
+                        ),
+                        // The first frame ADOPTS rather than easing: a match must
+                        // open already framed, not zoom in from nothing.
+                        None => cast.view,
+                    };
+                    *live_cast_view = Some(presented);
+                    base_view = base_view.max(presented);
                     (
                         ae::BodyKinematics {
                             pos: cast.centre,
                             ..Default::default()
                         },
+                        // The PRESENTED framing, not the raw box — the two must
+                        // be one number or the base size would close on the
+                        // frame the view is still easing through.
                         ae::BodyBaseSize {
-                            base_size: cast.view,
+                            base_size: presented,
                         },
                         ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(
                         ),

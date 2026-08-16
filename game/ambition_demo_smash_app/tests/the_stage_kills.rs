@@ -567,6 +567,95 @@ fn the_opening_countdown_is_something_a_player_can_see() {
     );
 }
 
+/// **THE CAMERA COMES BACK NO FASTER THAN IT LEFT.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"the camera zooms out when someone
+/// flys off the stage, and that is good, but when they die in the blast zone
+/// instead of having a smooth camera transition back, it just snaps back to the
+/// main stage."*
+///
+/// Both halves of that sentence are one number, which is why this measures the
+/// RATIO rather than either rate. Measured before the fix, over four knockouts
+/// in one CPU-versus-CPU match:
+///
+/// ```text
+///   widest single-frame OPEN    49.3      (a ramp over 7-8 frames, 800 -> 1115)
+///   widest single-frame CLOSE  360.9      (one frame, straight back to 800)
+/// ```
+///
+/// The open was never eased and never needed to be — its input is a body
+/// flying, already continuous. The close is a DISCONTINUITY: the body is taken
+/// out of play and the cast's bounding box collapses between two frames. After
+/// easing only the close, the same run reads `open 57.5 / close 68.9`.
+///
+/// ⚠ **the non-vacuity guard is the OPEN**, and it is doing real work: a match
+/// where nobody was ever launched far enough to widen the frame would satisfy
+/// any ratio at all, and this fixture is a live fight rather than a scripted
+/// one.
+#[test]
+fn the_camera_closes_no_faster_than_it_opened() {
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let mut previous: Option<ambition_platformer2d::engine_core::Vec2> = None;
+    let mut widest_open = 0.0f32;
+    let mut widest_close = 0.0f32;
+    for tick in 0..5_400 {
+        app.update();
+        let view = {
+            let world = app.world_mut();
+            let observer = ambition_platformer2d::sim_view::the_only_view(world);
+            world
+                .entity(observer)
+                .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .map(|resolved| resolved.snapshot.visible_view)
+        };
+        let Some(view) = view else { continue };
+        if let Some(previous) = previous {
+            let step = (view - previous).length();
+            if view.x > previous.x {
+                widest_open = widest_open.max(step);
+            } else if view.x < previous.x {
+                // ⚠ skip the opening frames: the first resolve ADOPTS the cast's
+                // framing rather than easing to it, which is correct (a match
+                // opens already framed) and is not a transition anybody sees.
+                if tick > 60 {
+                    widest_close = widest_close.max(step);
+                }
+            }
+        }
+        previous = Some(view);
+    }
+
+    assert!(
+        widest_open > 25.0,
+        "the frame never widened by more than {widest_open:.1} units in a frame, \
+         so nobody was launched far enough to move the camera and the ratio \
+         below is about a match that never happened"
+    );
+    assert!(
+        widest_close <= widest_open * 2.0,
+        "the camera closed by {widest_close:.1} units in one frame having opened \
+         by at most {widest_open:.1} — the return is a cut, not a transition"
+    );
+}
+
 /// **A MATCH SOMEBODY WINS ACTUALLY ENDS.**
 ///
 /// ⛔⛔ reported from the couch, 2026-08-15: *"there seems like several cases

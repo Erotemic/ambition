@@ -25,6 +25,8 @@ pub mod cues;
 #[cfg(feature = "input")]
 mod glyphs;
 #[cfg(feature = "input")]
+pub mod layout;
+#[cfg(feature = "input")]
 mod local_seats;
 mod menu;
 mod motion_input;
@@ -120,6 +122,8 @@ pub use bindings::{
     action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
     ActionBindings, BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
 };
+#[cfg(feature = "input")]
+pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
 pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{
     analog_to_dir, DeclaredInputSeats, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState,

@@ -115,3 +115,58 @@ pub enum Platformer2dInputActionMonolith {
     #[actionlike(DualAxis)]
     AimStick,
 }
+
+#[cfg(feature = "input")]
+impl Platformer2dInputActionMonolith {
+    /// **Is this action read ONLY while a menu surface is up?**
+    ///
+    /// The pad deliberately SHARES physical buttons between gameplay and menus
+    /// — `MenuSelect` sits on South beside Jump, `MenuBack` on East beside
+    /// Blink, the page turns on the bumpers — and that is safe precisely
+    /// because a paged menu only consumes them while it is open.
+    ///
+    /// A game's [`crate::BindingLayout`] re-arranges GAMEPLAY: it has to be
+    /// able to take Jump off South without taking confirm off South with it.
+    /// This is the line it cuts on.
+    ///
+    /// ⭐ **exhaustive on purpose.** A new action must decide which side it is
+    /// on, at the compiler's insistence, rather than falling through a `_` arm
+    /// into whichever answer the author of this function happened to prefer.
+    pub fn is_menu_only(self) -> bool {
+        match self {
+            Self::MenuNavigateUp
+            | Self::MenuNavigateDown
+            | Self::MenuNavigateLeft
+            | Self::MenuNavigateRight
+            | Self::MenuSelect
+            | Self::MenuBack
+            | Self::MenuPageLeft
+            | Self::MenuPageRight
+            | Self::MenuStick => true,
+            Self::Move
+            | Self::MoveLeft
+            | Self::MoveRight
+            | Self::MoveUp
+            | Self::MoveDown
+            | Self::Jump
+            | Self::Attack
+            | Self::StrongAttack
+            | Self::Dash
+            | Self::Blink
+            | Self::Special
+            | Self::Shield
+            | Self::Interact
+            | Self::Modifier
+            | Self::Utility
+            | Self::Map
+            | Self::Inventory
+            | Self::Pogo
+            | Self::Reset
+            | Self::Start
+            | Self::Projectile
+            | Self::TrailToggle
+            | Self::DashAnalog
+            | Self::AimStick => false,
+        }
+    }
+}

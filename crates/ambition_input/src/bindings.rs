@@ -68,6 +68,13 @@ pub enum BindingBase {
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BindingRecipe {
     pub base: BindingBase,
+    /// **Which GAME's pad this seat is playing on** — the middle term of
+    /// `device -> profile -> semantic action -> rules`.
+    ///
+    /// A fact about the mode, not the person: every seat in a smash match wants
+    /// the smash pad, and none of them wanted it in Ambition. See
+    /// [`crate::BindingLayout`] for why this is not just more [`Self::overrides`].
+    pub layout: crate::BindingLayout,
     /// What this seat moved off the base, in the order it was declared.
     ///
     /// A LAYER on the base, never a replacement for it: the base still decides
@@ -81,6 +88,7 @@ impl BindingRecipe {
     pub fn preset(id: PresetId) -> Self {
         Self {
             base: BindingBase::Preset(id),
+            layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
@@ -88,6 +96,7 @@ impl BindingRecipe {
     pub fn gamepad_only() -> Self {
         Self {
             base: BindingBase::GamepadOnly,
+            layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
@@ -98,13 +107,26 @@ impl BindingRecipe {
         self
     }
 
+    /// The same recipe arranged for this game's layout.
+    pub fn with_layout(mut self, layout: crate::BindingLayout) -> Self {
+        self.layout = layout;
+        self
+    }
+
     /// The map this recipe declares. Pure, so a spawn site and the rebuild
     /// system cannot drift: both call this.
+    ///
+    /// ⭐ **THREE layers, and the ORDER is the precedence rule.** Base, then the
+    /// GAME's layout, then the USER's overrides — so a player who remapped a
+    /// button still gets their remap inside a mode that ships its own pad. A
+    /// mode's layout is a better default; it is not an override of the person
+    /// holding the controller. (`a_user_remap_beats_the_modes_layout` pins it.)
     pub fn build(&self) -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = match self.base {
             BindingBase::Preset(id) => KeyboardPreset::of(id).input_map(),
             BindingBase::GamepadOnly => KeyboardPreset::gamepad_only_map(),
         };
+        self.layout.apply(&mut map);
         for over in &self.overrides {
             apply_override(&mut map, over);
         }
@@ -310,7 +332,7 @@ impl ActionBindings {
                     action_name(action),
                     inputs
                         .iter()
-                        .map(|input| classify(input.as_ref()))
+                        .map(|input| physical_control_of(input.as_ref()))
                         .collect(),
                 )
             })
@@ -529,7 +551,13 @@ pub fn action_name(action: &Platformer2dInputActionMonolith) -> String {
 /// `Buttonlike: Reflect`, so the concrete input downcasts. Anything the two
 /// arms miss becomes [`PhysicalControl::Other`] carrying its `Debug` form —
 /// visibly unhandled rather than silently absent.
-fn classify(input: &dyn leafwing_input_manager::prelude::Buttonlike) -> PhysicalControl {
+/// Name one bound control. The ONE place a `dyn Buttonlike` becomes something
+/// this crate can compare or draw — [`crate::layout`] removes a binding by
+/// asking this what it IS, so a layout displaces exactly what a prompt would
+/// have shown on that button.
+pub(crate) fn physical_control_of(
+    input: &dyn leafwing_input_manager::prelude::Buttonlike,
+) -> PhysicalControl {
     let reflected = input.as_reflect();
     if let Some(key) = reflected.downcast_ref::<KeyCode>() {
         return PhysicalControl::Key(*key);
@@ -800,6 +828,44 @@ mod tests {
             recipe.build(),
             BindingRecipe::preset(PresetId::ArrowsZxc).build(),
             "an unknown action leaves the map exactly as the preset built it"
+        );
+    }
+
+    /// ⭐ **PRECEDENCE, proven rather than asserted about the field order.**
+    ///
+    /// The three layers are base → the GAME's layout → the USER's overrides, and
+    /// that order is a product decision: a mode's shipped pad is a better
+    /// DEFAULT, not an override of the person holding the controller. So a
+    /// player who put Special on Y keeps Special on Y inside a smash match,
+    /// even though the smash layout says X — and Y stops being the blank the
+    /// layout reserved.
+    #[test]
+    fn a_user_remap_beats_the_modes_layout() {
+        let smash = BindingRecipe::gamepad_only().with_layout(crate::BindingLayout::Smash);
+        let layout_only = ActionBindings::from_map(&smash.build());
+        assert_eq!(
+            layout_only.controls(&Platformer2dInputActionMonolith::Special),
+            [PhysicalControl::Button(GamepadButton::West)],
+            "the mode's layout is what an unremapped player gets"
+        );
+
+        let remapped = smash.clone().with_overrides(vec![BindingOverride::button(
+            "Special",
+            GamepadButton::North,
+        )]);
+        let after = ActionBindings::from_map(&remapped.build());
+        assert_eq!(
+            after.controls(&Platformer2dInputActionMonolith::Special),
+            [PhysicalControl::Button(GamepadButton::North)],
+            "the USER's remap wins over the mode's layout"
+        );
+        // And it really displaced, rather than adding a second button: the
+        // remap that only ADDS is the double-bind this whole seam refuses.
+        assert!(
+            !after
+                .controls(&Platformer2dInputActionMonolith::Special)
+                .contains(&PhysicalControl::Button(GamepadButton::West)),
+            "the layout's West binding is gone, not doubled"
         );
     }
 

@@ -272,8 +272,11 @@ impl KeyboardPreset {
     /// nobody is playing a worse version of the game because they joined second.
     /// (`Special` has no gamepad button on either seat: every face, shoulder,
     /// trigger and stick button is already assigned, and double-binding one
-    /// would fire two actions at once. It is left to the remap UX, as
-    /// `special_is_a_dedicated_slot_...` pins.)
+    /// would fire two actions at once. It is left to the remap UX and to a
+    /// GAME's [`crate::BindingLayout`], which PERMUTES the pad rather than
+    /// adding to it and so can free a button — Jon's smash layout puts Special
+    /// on X. `the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it`
+    /// pins both halves.)
     #[cfg(feature = "input")]
     pub fn gamepad_only_map() -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = InputMap::default();
@@ -322,9 +325,14 @@ impl KeyboardPreset {
         // every face/shoulder/trigger/stick button is already assigned (see
         // `insert_gamepad_bindings`), so rather than double-bind a button (which
         // would fire TWO actions at once), gamepad-Special is intentionally left
-        // to the remap UX (P5). Keyboard (this key) and the touch overlay's
-        // dedicated Special button cover it meanwhile.
-        // `special_is_a_dedicated_slot_...` pins this policy.
+        // to the remap UX (P5) and to a game's `BindingLayout`. Keyboard (this
+        // key) and the touch overlay's dedicated Special button cover it in
+        // Ambition. ⚠ **that is a claim about THIS DEFAULT, not about pads** — a
+        // layout permutes an already-full pad and so can free a button for
+        // Special, which is what the smash profile does (X).
+        // `special_is_a_dedicated_slot_...` and
+        // `the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it`
+        // pin the two halves.
         map.insert(
             Platformer2dInputActionMonolith::Special,
             self.actions.special,
@@ -683,10 +691,19 @@ mod tests {
     /// Gate 5 (GPT-5.6 review) — the dynamic-slot policy for Special, pinned.
     /// Special is a dedicated first-class slot: every keyboard preset binds it to
     /// its OWN key, distinct from Blink (`secondary`) — the old alias is retired
-    /// at the binding layer too. The gamepad is fully assigned, so gamepad-Special
-    /// is deliberately deferred to remap; keyboard + the touch Special button are
-    /// its routes today. (If a future edit adds a gamepad Special binding, update
-    /// the policy comment in `input_map`.)
+    /// at the binding layer too.
+    ///
+    /// ⭐ **the gamepad half of this policy is a claim about the DEFAULT preset,
+    /// and D146 slice 3 made that distinction load-bearing.** The reason there
+    /// is no gamepad Special here has never been "Special does not deserve a
+    /// button" — it is that THIS pad is fully assigned, so adding one would
+    /// double-bind a button and fire two actions at once. A GAME's
+    /// [`crate::BindingLayout`] is a permutation, not an addition: it can free a
+    /// button first, and Jon's smash layout does exactly that (X = Special).
+    ///
+    /// So the policy is now stated with its scope attached, and the test asserts
+    /// BOTH halves — the default still declines the button, and a mode layout
+    /// may claim one. Neither half is weakened by the other's existence.
     #[test]
     fn special_is_a_dedicated_slot_distinct_from_blink_on_every_preset() {
         for preset in KeyboardPreset::presets() {
@@ -696,6 +713,33 @@ mod tests {
                 preset.id
             );
         }
+    }
+
+    /// The gamepad half of the dedicated-slot policy, and its SCOPE.
+    #[cfg(feature = "input")]
+    #[test]
+    fn the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it() {
+        use crate::bindings::ActionBindings;
+        use crate::layout::BindingLayout;
+
+        let default_pad = KeyboardPreset::gamepad_only_map();
+        assert!(
+            ActionBindings::from_map(&default_pad)
+                .controls(&Platformer2dInputActionMonolith::Special)
+                .is_empty(),
+            "the DEFAULT pad is fully assigned, so it declines to double-bind \
+             Special onto a button that already means something"
+        );
+
+        let mut smash_pad = KeyboardPreset::gamepad_only_map();
+        BindingLayout::Smash.apply(&mut smash_pad);
+        assert_eq!(
+            ActionBindings::from_map(&smash_pad)
+                .controls(&Platformer2dInputActionMonolith::Special),
+            [crate::PhysicalControl::Button(GamepadButton::West)],
+            "a GAME's layout permutes the pad, so it CAN free a button for \
+             Special — that is the difference between a profile and a default"
+        );
     }
 
     /// A second local seat's map must touch NO key.

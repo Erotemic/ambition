@@ -209,7 +209,15 @@ pub fn sync_primary_recipe_from_settings(
         if participant.id != ambition_input::ParticipantId::PRIMARY {
             continue;
         }
+        // ⚠ **carry the GAME's layout forward.** This rewrites the seat's WHOLE
+        // recipe from the persisted preset, and a freshly-constructed recipe
+        // says `Standard` — so without this, any settings edit during a smash
+        // match would silently snap that seat back to Ambition's pad, and the
+        // symptom would be B jumping until you opened the options screen.
+        // The layout is not a setting; it is
+        // `ambition_input::apply_active_binding_layout_to_recipes`'s to own.
         let wanted = ambition_input::BindingRecipe::preset(id)
+            .with_layout(recipe.layout)
             .with_overrides(settings.controls.binding_overrides.clone());
         // Write only on a real change: `Res<UserSettings>` is marked changed
         // by every settings edit, and most of them are not this field.

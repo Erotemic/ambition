@@ -323,6 +323,11 @@ impl Plugin for HostInputBindingsPlugin {
                 Update,
                 (
                     sync_primary_recipe_from_settings,
+                    // …and the GAME's layout, between the person's settings and
+                    // the rebuild: `device -> game profile -> semantic action`.
+                    // Every seat, because a layout is a fact about the mode
+                    // being played and not about who is holding which pad.
+                    ambition_input::layout::apply_active_binding_layout_to_recipes,
                     ambition_input::rebuild_maps_from_recipes,
                 )
                     .chain()

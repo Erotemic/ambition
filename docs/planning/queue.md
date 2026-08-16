@@ -1737,23 +1737,39 @@ Jon: *"Super sanics spikes are clipped by the sprite renderer. This might need a
 structural fix. We should not be able to clip sprite artwork so easily."*
 ⇒ **true, and it is not one character.**
 
-**Measured.** Criterion: a frame whose trimmed rect touches a logical-frame
-boundary AND has ≥6 opaque pixels in a straight run along that boundary covering
->25% of it — the signature of a flat cut rather than art that merely ends there.
+✔✔ **GUARD LANDED 2026-08-16** (renderer `6228c58`) — the renderer now WARNS,
+at draw time, when a frame's drawing runs off the logical frame, naming the
+animation, frame and edges. It warns rather than raises because 52 sheets already
+trip it and a fatal check would stop everyone regenerating anything until the
+roster is redrawn; whoever fixes the art can make it fatal. Seven tests.
 
-```text
-133 sheets scanned
- 74  have at least one frame TOUCHING a logical-frame edge
- 23  show the FLAT-CUT signature
-```
+⛔⛔ **AND THE FIRST TWO CRITERIA WERE BOTH WRONG — including the one this row
+originally published.**
 
-Named: `super_sanic` (top — Jon's report exactly), `robot` (171 frames, top),
-`player_extended`, `player_combat_review`, `player_traversal_review`,
-`robot_caster` / `robot_diver` / `robot_miner` / `robot_runner` (top),
-`puppy_slug` (bottom+left+right), `ninja_shadow_oni_leader` (three edges),
-`perfect_cellular_automaton`, `trex_enemy`, `galwah`, `m_leblanc`,
-`mantis_lancer`, `ninja_shadow_duelist`, `pulse_voyager_captain`, `trent`,
-`goblin_desert_bow`, `ranged_skirmisher`, two `sandbag_*_review` sheets.
+1. *"the art touches a logical-frame boundary"* → flags **74 of 133**. Useless:
+   with `auto_crop` the frame is FITTED to the art, so touching is the normal
+   case.
+2. *"…and has ≥6 opaque pixels in a straight run covering >25% of that edge"* →
+   **this row's original criterion, and it hides a denominator.** *Wide relative
+   to what?* Against the trimmed rect's width it flags `super_sanic`; against the
+   logical frame's width it does not. Nothing chooses between them. ⇒ the
+   **"23 sheets" published here was not trustworthy**, and it was caught only by
+   building the guard and watching it disagree with the scan that produced it.
+
+⭐ **the criterion that survives is denominator-free, and it is the one thing
+actually measured: a truncated shape does not TAPER.** Compare the edge line to
+the widest the shape reaches within a few lines inside it — a tip narrows on its
+way out, a cut arrives already near full width.
+
+**Re-measured with it: 52 of 196 sheets, with frame counts.** Worst first —
+`ninja_shadow_oni_leader` 73 frames (all four edges), `ninja_shadow_duelist` 70
+(all four), `player_combat_review` 108, `player_traversal_review` 100,
+`trex_enemy` 57 (bottom+left), **`super_sanic` 54 (top — Jon's report)**,
+`raid_enforcer` 52, `fascist_enforcer` 53, `pulse_voyager_captain` 48,
+`perfect_cellular_automaton` 45, `goblin_shaman_staff` 39, `tech_bro_disruptor`
+and `goblin_cantina_chieftain` 35, `robot` 34, `robot_guardian` 33,
+`m_leblanc` 32, `player_extended` 30, and 35 more with fewer frames each
+(`pirate_admiral` only 2, `oiler_vfx` 1).
 
 ⭐ **the CONTROL is what makes it causal**: base `sanic` is clean and only
 `super_sanic` is cut, and the super skin is the same body with `spikes_up=True`.

@@ -385,7 +385,10 @@ fi
 review_cues=(
     # Toon-target NPC variants already promoted.
     absurd_general architect kernel_guide vault_keeper
-    merchant_prototype oiler erdish raid_enforcer fascist_enforcer
+    # ⛔ oiler is NOT here any more — see `tackon_targets`. His body comes from
+    # the direct-SVG rig; leaving the review cue in place would have this loop
+    # overwrite the rig's sheet with the toon render on every full run.
+    merchant_prototype erdish raid_enforcer fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
     alice bob craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter
@@ -400,6 +403,15 @@ review_cues=(
 faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
+    # Oiler's body is the direct-SVG multiview rig
+    # (data/characters/oiler/oiler-multiview.svg + rigged/oiler/*.rig.json),
+    # not the toon render of configs/review/oiler.yaml. Jon, 2026-08-16:
+    # *"Oiler's sprite is still his python based one not his SVG based one. I
+    # would like to completely move the SVG one."* ⛔ do not put him back in
+    # `review_cues`: `character_catalog.ron` binds npc_oiler to ONE pair of
+    # filenames (`sprites/oiler_spritesheet.png` + `.ron`), so whichever
+    # publisher writes them last is the body both games draw.
+    oiler
     sandbag
     burning_flying_shark
     pipi_tau
@@ -1109,18 +1121,6 @@ for cue in "${review_cues[@]}"; do
             echo "  WARN: $src missing — skipped"
         fi
     done
-done
-
-# Oiler is the representative direct-SVG rig target. Render only its portrait
-# product here so full regeneration does not replace the established gameplay
-# sheet selected by the review config. Focused `--target oiler` still publishes
-# the module target's full sheet + portrait bundle.
-echo "==> Oiler native rig portrait → $sprites_dir"
-run_renderer_python portraits-oiler -m ambition_sprite2d_renderer portraits oiler
-for ext in png ron; do
-    src="$renderer_dir/generated/oiler/oiler_portraits.$ext"
-    cp "$src" "$sprites_dir/oiler_portraits.$ext"
-    echo "  installed oiler_portraits.$ext"
 done
 
 echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"

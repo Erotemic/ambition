@@ -434,6 +434,32 @@ copy — a stale tier reads exactly like a character swap.
 match and in Ambition draws the SVG body, not merely the SVG portrait — and the
 old Python sheet is gone from `$sprites_dir`, not shadowed.
 
+⛔⛔ **AND THE SHEET IS NOT THE LAST COPY — THE ULTRAPACK IS.** Found 2026-08-16
+while doing this: after the rig's sheet was installed over the toon one,
+`assets/sprite_packs/full/ultrapack.json` still carried `oiler` with
+`src: [102, 222]` — the TOON frame size. The four tier atlases are baked from
+whatever was in `$sprites_dir` when they were last packed, so a target whose
+sheet changed keeps drawing its old art until the packs are rebuilt. ⇒ **any
+sheet swap owes three regenerations, not one**: `--target <t>`, then
+`regen_visual_quality_variants.sh --target <t>`, then the four ultrapack tiers.
+⚠ this is very likely why Jon saw the old sprite after a regen that did replace
+the sheet.
+
+**SECOND HALF — Jon, 2026-08-16:** *"It might be the case that we have to author
+more oiler poses so he has a full smash moveset and can use some of his new
+sweet sfx and vfx. Especially oil geyser."* He is right that the poses are the
+gap, and the census already says so from the other side: `npc_oiler` is one of
+the eight fighters on `KNOWN_UNARMED` in `smash_roster_movesets.rs` — a
+`peaceful` preset, no melee at all. The rig publishes four rows (idle, walk,
+talk, interact), where George Booul's fighting sheet publishes nine and names
+them after his MOVES (`toggle_state`, `and_zap`, `not_fade`, `hit`, `death`,
+`taunt`). ⇒ the work is: authored moveset row → rig clip → sheet row →
+`FxId`/`SfxId` on the move. The effects are already rendered and waiting —
+`vfx.oiler.oil_geyser_{emerge,stream,impact}`, `wrench_strike`,
+`stabilizer_{spinup,lock}`, `pressure_vent` are in the SFX renderer's output and
+`oiler_vfx` is on the sprite roster. ⛔ do not start this before the body swap
+above is verified in a capture; a moveset on the wrong body is two problems.
+
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 

@@ -2951,7 +2951,15 @@ mod tests {
                 && !mary_o_kit.blink
                 && !mary_o_kit.dash
                 && !mary_o_kit.fly
-                && !mary_o_kit.attack,
+                && !mary_o_kit.attack
+                // ⭐ **AND NO LEDGE GRAB** (Jon, 2026-08-16: *"we need to make
+                // sure mary-o and sanic do NOT get this ability in their
+                // games"*). She has one on the Smash grid, which is a rule of
+                // that MATCH and reaches her through a different door — a
+                // catalog grant list is what a session's own avatar wears, and
+                // a seat intersects the CHARACTER DEFINITION with the stage.
+                // Naming it here is what keeps the two doors from becoming one.
+                && !mary_o_kit.ledge_grab,
             "advanced movement and the full Ambition kit stay out of the classic core"
         );
         // ⭐ **and no TALK verb.** Jon, from a phone: *"maryo has more than 2 on

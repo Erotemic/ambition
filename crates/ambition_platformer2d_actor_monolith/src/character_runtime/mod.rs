@@ -76,8 +76,8 @@ pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use prepared_match::{
-    activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_match,
-    prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
+    activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,
+    prepare_match, prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
     MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
 pub use presentation::{

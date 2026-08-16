@@ -543,3 +543,150 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
         );
     }
 }
+
+/// **EVERY FIGHTER ON THE SMASH GRID CAN GRAB A LEDGE.** (Jon, 2026-08-16:
+/// *"ensure that every character in smash is authored with the ledge grab
+/// ability"*)
+///
+/// ⛔⛔ **and one of them could not, for a reason the design makes easy to
+/// reach.** `MatchParticipantRoster::fighter_abilities` is an INTERSECTION:
+///
+/// ```text
+///   character authors nothing  ->  the stage's set verbatim   (the bridge)
+///   character authors a kit    ->  kit ∩ stage                (the rule)
+/// ```
+///
+/// Twelve of the fourteen author no kit, so the stage's `ledge_grab: true`
+/// reached them unchanged and nobody noticed the rule had teeth. The Perfect
+/// Cellular Automaton authors one — written for the DUEL ARENA, based on
+/// `AbilitySet::basic()`, which says `ledge_grab: false` — so the one fighter on
+/// the grid whose sheet has ten ledge rows drawn for it was the one fighter who
+/// could not use them. Nothing was wrong: two correct statements, intersected.
+///
+/// ⭐ **so this is a ratchet against the bridge shrinking.** Every character
+/// that gets a real authored kit from here on is a character that can silently
+/// lose the ledge, and `redirect P6/§8` says that count is supposed to GROW.
+/// A per-character census is the only guard that survives that migration.
+///
+/// ⚠ **it asks the ENGINE's own function** rather than re-deriving the
+/// intersection here. That the seat actually WEARS this answer is pinned
+/// separately, on a live body, by `the_stage_kills.rs`'s
+/// `a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines`.
+#[test]
+fn every_fighter_on_the_smash_grid_can_grab_a_ledge() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // One frame, for the same reason the census above needs it: the seatable
+    // registry is filled by a `Startup` system.
+    app.update();
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .expect("the composed host has a prepared-character registry");
+    let grid = SmashRoster::assemble(registry);
+
+    // The stage's own declared mask, from the stage's own roster builder rather
+    // than a literal — a stage that dropped the verb must fail here too. ⚠ the
+    // CAST does not matter: `smash_roster` states one set for the match, which
+    // is the whole reason the intersection below is the interesting half.
+    let mask = ambition_demo_smash::smash_roster(grid.ids().take(2))
+        .fighter_abilities
+        .expect("the smash stage declares what a fighter on it may do");
+
+    let mut cannot: Vec<String> = Vec::new();
+    let mut report: Vec<String> = Vec::new();
+    for id in grid.ids() {
+        let authored = registry.get(id).and_then(|prepared| prepared.abilities);
+        let effective = ambition_platformer2d::actors::character_runtime::effective_abilities(
+            authored,
+            Some(mask),
+        );
+        report.push(format!(
+            "  {:<34} authored={:<8} ledge={}",
+            id,
+            authored.map_or("no", |_| "yes"),
+            effective.is_some_and(|set| set.ledge_grab),
+        ));
+        if !effective.is_some_and(|set| set.ledge_grab) {
+            cannot.push(id.to_string());
+        }
+    }
+
+    assert!(
+        report.len() >= 8,
+        "only {} fighters resolved against this composition — the host is not \
+         composing the cast and this test is about to prove nothing",
+        report.len()
+    );
+    // ⛔ NON-VACUITY: at least one fighter must author a kit at all, or this is
+    // a census of the migration bridge and would pass on a stage whose mask was
+    // the only thing keeping the verb alive.
+    assert!(
+        report.iter().any(|row| row.contains("authored=yes")),
+        "no fighter on the grid authors a kit, so the intersection this test \
+         exists to guard never runs:\n{}",
+        report.join("\n")
+    );
+    assert!(
+        cannot.is_empty(),
+        "{} of the smash grid cannot grab a ledge: {cannot:?}\n{}\n\n\
+         A fighter that authors its own `AbilitySet` keeps only what the stage \
+         ALSO grants, so an authored kit that omits `ledge_grab` takes the verb \
+         away — the stage cannot give it back.",
+        cannot.len(),
+        report.join("\n")
+    );
+}
+
+/// **AND MARY-O AND SANIC DO NOT TAKE IT HOME.** (Jon, 2026-08-16: *"we need to
+/// make sure mary-o and sanic do NOT get this ability in their games"*)
+///
+/// ⭐ **the other half of the test above, and the reason both are needed.** A
+/// character reaches a body down two different roads and they are not the same
+/// road:
+///
+/// ```text
+///   its own game    catalog GRANT LIST -> the session's avatar   (`session/setup`)
+///   a smash seat    character DEFINITION ∩ the match's mask      (`prepared_match`)
+/// ```
+///
+/// So "everybody on the grid can grab a ledge" and "the platformer protagonists
+/// cannot at home" are both satisfiable, and each is one edit away from
+/// breaking the other. Asserting them in one file is what makes the split
+/// legible instead of a coincidence.
+///
+/// ⛔ **Sanic's row authored nothing until this landed**, and a row that
+/// authors nothing falls through to `EditableAbilitySet::default()` — which is
+/// `sandbox_all`. He was carrying ledge grab, swim, glide, dodge and a shield
+/// around his own speedway; his control gate resolves Attack and Utility onto
+/// spin dash and transform, so nothing on screen ever said so.
+#[test]
+fn mary_o_and_sanic_do_not_carry_a_ledge_grab_in_their_own_games() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+
+    for id in ["mary_o", "sanic"] {
+        let kit = catalog.ability_set(id).unwrap_or_else(|| {
+            panic!(
+                "`{id}` authors no grant list, so its own game hands it the dev \
+                 sandbox set — which is `sandbox_all`, ledge grab included"
+            )
+        });
+        assert!(
+            !kit.ledge_grab,
+            "`{id}` can grab a ledge in its own game: {kit:?}"
+        );
+        // ⛔ NON-VACUITY: a kit of nothing would satisfy the line above and
+        // would mean the character cannot move.
+        assert!(
+            kit.move_horizontal && kit.jump,
+            "`{id}`'s authored kit cannot run and jump, so this asserted the \
+             absence of a verb on a body that has none of them: {kit:?}"
+        );
+    }
+}

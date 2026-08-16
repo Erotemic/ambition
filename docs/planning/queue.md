@@ -458,6 +458,47 @@ exactly one winner is announced, and that no fighter travels more than 8px after
 the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
 why the existing ones passed.
 
+- ✔ **D141 — CLOSED 2026-08-16. One fighter on the smash grid could not grab a
+  ledge, and the ledge lived at home on two who should not have it. (Jon)**
+
+Jon, verbatim: *"ensure that every character in smash is authored with the ledge
+grab ability. Note: we need to make sure mary-o and sanic do NOT get this ability
+in their games."*
+
+**MEASURED across all fourteen** (`smash_roster_movesets::every_fighter_on_the_smash_grid_can_grab_a_ledge`):
+twelve author no kit and take the stage's set verbatim; two author one. Of those
+two, `player_robot_v3` says `ledge_grab: true` and the **Perfect Cellular
+Automaton did not** — its kit was written for the DUEL ARENA on
+`AbilitySet::basic()`, whose answer is `false`. `fighter_abilities` is an
+INTERSECTION, so the stage could not give it back: the one fighter on the grid
+whose sheet has ten ledge rows drawn for it was the one who could not use them.
+⇒ authored `ledge_grab: true` on the PCA.
+
+⚠ **the same read says its `double_jump`, `fast_fall` and `dodge` are still
+`basic()`'s answers** — a real recovery handicap on a platform fighter, left
+alone because that is a balance call about this character rather than part of
+the ask.
+
+⭐ **the two roads are what makes "in smash but not at home" expressible**, and
+they are easy to mistake for one:
+
+```text
+  its own game    catalog GRANT LIST     -> the session's avatar   (`session/setup`)
+  a smash seat    character DEFINITION ∩ the match's mask          (`prepared_match`)
+```
+
+Mary-O's row has said `abilities: Some([RunJump])` since her demo landed. **Sanic's
+authored nothing**, and a row that authors nothing falls through to
+`EditableAbilitySet::default()` — which is `sandbox_all` — so he was carrying
+ledge grab, swim, glide, dodge and a bubble shield around his own speedway, with
+his control gate resolving Attack and Utility onto spin dash and transform so
+nothing on screen said so. ⇒ his row authors `[SaneSubset]`, the engine's named
+baseline, which excludes those five BY NAME. ⛔ what a runner's kit should
+actually be (no double jump? no blink?) is still open and is not answered here.
+
+Both halves are guarded in one file, because each is one edit away from breaking
+the other.
+
 - ▢ **D138 — OILER FIGHTS IN HIS OLD BODY: the SVG rig is his portrait and
   nothing else. (Jon, 2026-08-16)**
 

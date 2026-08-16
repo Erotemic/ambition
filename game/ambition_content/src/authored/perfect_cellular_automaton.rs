@@ -76,6 +76,26 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             fly_toggle: true,
             shield: true,
             dash: true,
+            // ⛔⛔ **AUTHORED, because an unauthored verb is a verb the SMASH
+            // MASK cannot give back** (Jon, 2026-08-16: *"ensure that every
+            // character in smash is authored with the ledge grab ability"*).
+            //
+            // `fighter_abilities` is an INTERSECTION, so the stage's ledge grab
+            // reaches a fighter only if the fighter's own kit has one. Every
+            // other character on that grid authors NO kit and therefore takes
+            // the stage's set verbatim — the PCA authors one, so it was the
+            // single fighter on the roster who could not grab a ledge, and its
+            // sheet has ten ledge rows drawn for it. That is the shape this
+            // whole design is meant to have: authoring a kit is how a body
+            // states what it is, and a kit written for the duel arena said
+            // nothing about a stage that did not exist yet.
+            //
+            // ⚠ `double_jump`, `fast_fall` and `dodge` are still absent (they
+            // are `basic()`'s answers, not decisions made here), which on a
+            // platform fighter is a real recovery handicap. Left alone
+            // deliberately: that is a balance call about this character and Jon
+            // asked for the ledge.
+            ledge_grab: true,
             ..ambition_platformer2d_core::AbilitySet::basic()
         })
         .with_autonomous_profile(BrainProfile {

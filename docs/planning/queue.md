@@ -2115,6 +2115,28 @@ crate rather than in `ambition_platformer2d_ldtk`, because the floor trait
 COMPONENT on the session root. **Widening the floor is a separate slice**, and
 saying so beats a facade.
 
+✔✔ **THE FIRST TWO HOLDERS FELL (2026-08-16, `d0ed12edb` + `a0d452a4c`) — AND
+RELOCATION IS NOW EXHAUSTED, WHICH IS THE FINDING.**
+
+⭐ **`WorldManifest` and the hot-reload watcher are both off the monolith's list,
+and what remains is ALL GENUINELY LDtk** — five production files needing
+`LdtkProject`, `LdtkLevel`, `ActiveLdtkProject`, `LdtkVocabulary` and the
+`field_*` accessors (`encounter/loading.rs`, `encounter/systems.rs`,
+`menu/map/systems.rs`, `world/gated_lock_walls.rs`, `world/mod.rs`). ⇒ **no
+further RELOCATION can cure this.** The remaining cure is **INVERSION** — route
+those readers onto the room IR instead of the project — and the encounter pair is
+the LARGE one, already planned in its own comment as *"W4 will route encounter
+loading through RoomEmission instead of the project"*. **It is now the only thing
+between the workspace and 42/15.**
+
+⚠ **the row said FOUR holders; `cargo tree -i` names TWO** — the monolith and the
+runtime. The other two were transitive re-listings of the same crates. Corrected
+by the tool, again.
+
+⚠ **and the runtime's edge is now legitimate by design**: it owns `LdtkWorldPlugin`
+and the LDtk rollback domain, which a game ADDS if it wants them. That is a
+declared offer, not an imposition.
+
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):
 

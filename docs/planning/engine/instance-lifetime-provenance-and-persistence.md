@@ -384,6 +384,54 @@ rooms have no on-disk representation; nothing here is serialized to a file, only
 to a rollback blob; and `OwnedItems` — the QUANTITY half of the same inventory —
 persists through a different mechanism that the horizon does not coordinate with.
 
+## D132 — the two authorities, measured (2026-08-16)
+
+`game/ambition_app/tests/two_persistence_authorities_for_one_item.rs` is the
+first fixture that puts the durable save and the checkpoint in one sentence. It
+saves a count of 1, loads, equips out of the count table, throws (which MINTS an
+instance), picks it up, banks it at a shrine and dies. What it measured:
+
+```text
+holding it AND owning it?   BOTH — an instance in the hand and a stored row
+decremented once/twice/never?   NEVER, at any beat
+second save round-trip agrees?  yes, and by coincidence rather than by rule
+```
+
+⭐ **so the predicted double-restore is not what is wrong.** The real defect is
+next door and the fixture that found it is
+`a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it`:
+`OwnedItems` **is not checkpoint state at all**, so an acquisition made after the
+checkpoint sticks permanently while the object it referred to is taken back. The
+pressed pickup used to `grant` a catalog row beside taking custody — one
+acquisition, two records, and only one of them rewound. The player kept owning a
+gun-sword lying back on its shelf, the durable save wrote the phantom to disk,
+and the menu would equip it and mint a second real one on the next throw.
+
+⛔ **the fix is a DELETION, and both halves are falsified by probe**: the pickup's
+`grant` is gone, and `OwnedItems::count` PROJECTS the equipped slot instead —
+restoring either one turns the fixture red. `to_persisted` reads the stored
+quantity, never the projection, so a hand never reaches disk as a row. The two
+populations are disjoint now: a row is a quantity with no object, an object is an
+occurrence the checkpoint owns.
+
+⚠ **THE GATE for the other half, named rather than taken.** A quantity conferred
+by `<<give_item>>`/shop/drop still keeps its row through the mint, so it can
+still manifest a second object. Spending the row at the mint is the obvious fix
+and is wrong while the catalog sits outside the checkpoint horizon: a death that
+retracts an instance minted after the checkpoint would find the quantity already
+spent and annihilate it — the mirror image of the phantom. `OwnedItems`
+participating in the checkpoint baseline is the prerequisite, and the mint can
+spend the row in that same change and not before.
+`a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
+is the poison that keeps the wrong shortcut (retracting the row at the reset)
+out.
+
+⚠ **and a composition finding**: the durable-save leg (`InventoryRestored` plus
+`restore_inventory_from_save`/`persist_inventory_to_save`) is installed by
+`install_menu_setup_and_hotkeys`, inside `add_presentation_plugins` — "visible
+binary only". No headless composition schedules it, which is a large part of why
+the two authorities had never met in a test.
+
 ## Candidate crate / Bevy shape
 
 Do not immediately invent one `UniversalInstanceId`. Domain-specific instance IDs

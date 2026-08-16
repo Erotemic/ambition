@@ -553,15 +553,37 @@ impl Item {
     }
 }
 
-/// Authoritative ownership of the 24 catalog items.
+/// The player's 24 catalog rows: a QUANTITY per slot, plus which slot is in the
+/// body's hand.
 ///
-/// `counts[i]` is how many of [`Item::from_index(i)`] the player holds; for unique
-/// items it is 0 or 1, for [`ItemCategory::Consumable`] it is a stack size.
-/// `equipped` is the currently-equipped [`ItemCategory::Weapon`] slot, if any.
+/// `counts[i]` is how many of [`Item::from_index(i)`] the player owns **as a
+/// quantity, with no object behind it** — a `<<give_item>>` grant, a shop
+/// purchase, a stack of health cells. For unique items it is 0 or 1, for
+/// [`ItemCategory::Consumable`] it is a stack size. `equipped` is the slot the
+/// body is currently holding, written by the ONE take-custody operation.
 ///
-/// This is the single source of truth the unified menu, pickups, dialogue, and
-/// the equip path share. (It replaced the legacy 3-kind `PlayerInventory` bag,
-/// which was deleted once this catalog became the only item store.)
+/// # ⭐⭐ WHAT THIS TABLE IS NOT AN AUTHORITY FOR (D132)
+///
+/// **A held object is NOT a row here.** Nine of the 24 slots
+/// ([`Item::held_item_id`] is `Some`) can be an INSTANCE in the world as well as
+/// a quantity in this table, and while both stored the same acquisition they
+/// disagreed: a death that returned a picked-up weapon to its pedestal retracted
+/// the object and left the row, because this resource is not checkpoint state
+/// and nothing captures or restores it. The player kept owning a thing that was
+/// lying back on its shelf, the durable save wrote the phantom to disk, and the
+/// inventory menu would happily equip it and MINT a second one on the next
+/// throw.
+///
+/// ⇒ so the object side is the authority and this table PROJECTS it:
+/// [`Self::count`] reports the stored quantity **or** the hand, and the pressed
+/// pickup no longer grants at all. The two populations are now disjoint — a row
+/// is an entitlement with no object; an object is an occurrence the checkpoint
+/// owns — and the disagreement has nowhere to live.
+///
+/// ⚠ [`Self::to_persisted`] therefore writes the STORED quantity, never
+/// [`Self::count`]. Persisting the hand as a quantity would put the object back
+/// in the save as a row, which is the same duplication arriving by the durable
+/// road.
 #[derive(Resource, Clone, Debug)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],
@@ -596,12 +618,30 @@ pub struct ItemGrantRequested {
 }
 
 impl OwnedItems {
+    /// **How many of `item` the player has: the stored quantity, OR the one in
+    /// the body's hand.**
+    ///
+    /// ⭐ **the second term is a PROJECTION, not a row** — see the type's docs.
+    /// A weapon picked up off the floor has no quantity at all; the object is the
+    /// record that you have it, and `equipped` is that object's presence in the
+    /// hand as the catalog sees it. `max` rather than `+` because these are two
+    /// readings of the same possession, never two possessions.
     pub fn count(&self, item: Item) -> u32 {
+        self.stored(item).max(u32::from(self.equipped == Some(item)))
+    }
+
+    /// The stored quantity ALONE — an entitlement with no object behind it.
+    ///
+    /// ⛔ the durable save's view ([`Self::to_persisted`]) and every mutation
+    /// ([`Self::grant`] / [`Self::take`]) go through this rather than through
+    /// [`Self::count`]: writing the projected hand back into the table is exactly
+    /// the double-claim the projection exists to remove.
+    fn stored(&self, item: Item) -> u32 {
         self.counts[item.index()]
     }
 
     pub fn has(&self, item: Item) -> bool {
-        self.counts[item.index()] > 0
+        self.count(item) > 0
     }
 
     /// Add `n` of an item. Unique items clamp at 1 so a second pickup doesn't
@@ -658,14 +698,20 @@ impl OwnedItems {
         self.counts.iter().sum()
     }
 
-    /// Serialize the owned counts to the persisted save form (every item with a
-    /// non-zero count, keyed by stable `dialog_id`). Equipped state is not
-    /// persisted yet — re-equip from the grid on load (handoff).
+    /// Serialize the owned quantities to the persisted save form (every item with
+    /// a non-zero STORED count, keyed by stable `dialog_id`). Equipped state is
+    /// not persisted yet — re-equip from the grid on load (handoff).
+    ///
+    /// ⛔⛔ **[`Self::stored`], never [`Self::count`].** The projected hand is an
+    /// OBJECT, and an object written into the save as a quantity comes back on
+    /// the next load as a row while the room that authors it re-authors the
+    /// object — one weapon saved, two loaded. What the save does not describe it
+    /// does not keep, and durable custody is a frontier of its own.
     pub fn to_persisted(&self) -> Vec<ambition_persistence::save_data::PersistedItem> {
         Item::ALL
             .into_iter()
             .filter_map(|item| {
-                let c = self.count(item);
+                let c = self.stored(item);
                 (c > 0).then(|| {
                     ambition_persistence::save_data::PersistedItem::new(item.dialog_id(), c)
                 })

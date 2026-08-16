@@ -1735,8 +1735,44 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
-- ▢ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
-  BEEN ASKED TO AGREE. (opened 2026-08-16, exposed by closing the minted case)**
+- ▣ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
+  BEEN ASKED TO AGREE. (opened 2026-08-16; MEASURED and HALF CLOSED 2026-08-16)**
+
+⭐⭐ **MEASURED FIRST, and the prediction below was wrong about which history
+breaks.** `two_persistence_authorities_for_one_item.rs` drives the exact scenario
+this row asks for — save a count of 1, load, equip out of the count table, throw
+(which mints), pick up, bank at a shrine, die — and answers: the player ends up
+**holding it AND owning it**; the count is decremented **never, at any beat**;
+and the second save round-trip **agrees with the hand**, by coincidence rather
+than by rule. That history is not the defect.
+
+⛔ **THE DEFECT IS NEXT DOOR: `OwnedItems` is not checkpoint state at all.** The
+pressed pickup used to `grant` a catalog row beside taking custody, so ONE
+acquisition left TWO records and only the object's rewound. Acquire a weapon
+after the checkpoint, die, and the object goes back on its pedestal while the row
+stays — the menu then equips the phantom and the throw mints a SECOND real
+weapon, and the durable save writes the phantom to disk on the way past.
+
+⭐ **CLOSED BY DELETION, both halves probe-falsified.** The `grant` at the pickup
+is gone (the object is the record), and `OwnedItems::count` PROJECTS the equipped
+slot so the grid shows what the hand holds and loses it exactly when the hand
+does. `to_persisted` reads the stored quantity, never the projection. Restoring
+either half turns the fixture red. No schema change — no field moved.
+
+⚠ **STILL OPEN, and the gate is named**: a quantity conferred by
+`<<give_item>>`/shop/drop keeps its row through the mint, so it can still
+manifest a second object. Spending the row at the mint annihilates it on a death
+that retracts a post-checkpoint mint. ⇒ `OwnedItems` must join the checkpoint
+baseline first, and the mint spends the row in that same change.
+`a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
+is the poison against retracting the row at the reset instead.
+
+⚠ **and the durable-save leg runs in NO headless composition** — the persist
+systems live in `install_menu_setup_and_hotkeys`, inside the visible-binary-only
+`add_presentation_plugins`. The fixture runs the shipped functions directly and
+says so.
+
+⇣ the original statement of the row, kept because its second half is the gate:
 
 ⭐ **the durable-save frontier's first real problem, and it is not "write a file".**
 Two mechanisms already persist the player's possessions, by different keys, on

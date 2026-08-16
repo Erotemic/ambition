@@ -288,17 +288,32 @@ const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 /// they are a migration seam, not the model.
 ///
 /// ⛔⛔ **and MEASURED (2026-08-15): one entitlement can manifest UNBOUNDEDLY
-/// MANY objects.** `pickup_held_item_system` grants a catalog count for an item
-/// that is ALSO a live instance, and the throw deliberately keeps that count
-/// ("the thrower keeps catalog OWNERSHIP"). So after throwing an axe the world
-/// holds an axe AND the menu still offers one; equipping from the menu fills the
-/// hand with nothing, and the throw's mint arm materializes a SECOND axe. Repeat
-/// for a third. The count is not wrong to survive the throw — it is the only
-/// thing that survives the ROOM-SCOPED despawn of a dropped weapon, which is why
-/// removing it would lose the axe instead — so this is a **durable-save** concern
-/// wearing a **custody** concern's clothes, and closing it needs the body
-/// inventory that does not exist yet. ⛔ do not "fix" it by spending the count on
-/// throw: that trades a duplication bug for a deletion bug.
+/// MANY objects.** An entitlement in the count table equips into a hand with no
+/// object behind it, the throw's mint arm materializes one, and the count
+/// survives the throw — so equipping again materializes a SECOND. Repeat for a
+/// third.
+///
+/// ⭐ **HALF OF THAT IS CLOSED (D132, 2026-08-16), and it is the half that came
+/// from an OBJECT.** `pickup_held_item_system` used to `grant` a catalog count
+/// for an item that was ALSO a live instance, so one acquisition left two
+/// records — and only the object's rewound, because `OwnedItems` is not
+/// checkpoint state. A death that returned a picked-up weapon to its pedestal
+/// left the row behind, and the row then minted a second weapon. That grant is
+/// DELETED: picking an object up writes nothing to the catalog, and
+/// [`OwnedItems::count`](crate::items::OwnedItems::count) instead PROJECTS the
+/// equipped slot, so the grid shows what the hand holds and loses it exactly when
+/// the hand does. The two populations are disjoint now: a row is a quantity with
+/// no object; an object is an occurrence the checkpoint owns.
+///
+/// ⛔ **the GRANTED half is still open, and the tempting fix is still wrong.** A
+/// quantity conferred by `<<give_item>>`, a shop or a drop still keeps its row
+/// through the mint, so it can still manifest a second object. ⛔ do not "fix" it
+/// by spending the count on throw while the catalog sits outside the checkpoint
+/// horizon: a death that retracts an instance minted after the checkpoint would
+/// find the quantity already spent and annihilate it, which trades a duplication
+/// bug for a deletion bug. THE GATE is `OwnedItems` participating in the
+/// checkpoint baseline; the mint can spend the row in the same change and not
+/// before.
 ///
 /// ⭐ **CUSTODY ALSO DECIDES WHERE THE OBJECT LIVES.** An object in a travelling
 /// body's custody is not resident in any room, so a room change does not retire
@@ -1203,10 +1218,13 @@ pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
 /// all. `None` means "this body has no catalog behind it" (a headless fixture, a
 /// game with no inventory) — never "skip the bookkeeping".
 ///
-/// ⚠ **it does NOT grant.** Entitlement (*do you own an axe*) and custody (*are
-/// you holding one*) are different questions and only the second is this
-/// function's. `grant` stays at the ACQUISITION sites, so equipping something you
-/// already own cannot mint a second one.
+/// ⚠ **it does NOT grant, and after D132 nothing on this road does.** Entitlement
+/// (*do you own an axe as a quantity, with no object behind it*) and custody
+/// (*are you holding one*) are different questions, and picking an object up
+/// answers only the second: the object is the record, and
+/// [`OwnedItems::count`](crate::items::OwnedItems::count) projects the equipped
+/// slot this function writes. `grant` belongs to the sites that confer a
+/// quantity with no object — `<<give_item>>`, the shop, ability drops.
 pub fn equip_held_spec(
     commands: &mut Commands,
     player: Entity,
@@ -1387,14 +1405,22 @@ pub fn pickup_held_item_system(
         // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
         // ring/coin) would instead route through `cast::aabb_path_contacts`.
         if player_aabb.strict_intersects(ground_aabb) {
-            // ACQUISITION, which grabbing a weapon off the floor also is: you now
-            // OWN an axe. Deliberately not folded into the transfer below —
-            // equipping something you already own must not mint a second one.
-            if let Some(owned) = owned.as_deref_mut() {
-                if let Some(item) = crate::items::Item::from_held_item_id(&ground.spec.id) {
-                    owned.grant(item, 1);
-                }
-            }
+            // ⛔⛔ **THE CATALOG IS NOT WRITTEN HERE, AND THE DELETED WRITE IS
+            // D132.** This used to `owned.grant(item, 1)` — "you now OWN an axe"
+            // — beside taking custody, so ONE acquisition left TWO records: the
+            // object, which the checkpoint captures and a death rewinds, and a
+            // catalog row, which no checkpoint has ever seen. A player who picked
+            // a weapon up after the last shrine and died got the object back on
+            // its pedestal AND kept the row; the inventory menu would then equip
+            // the phantom and mint a SECOND weapon on the first throw, and the
+            // durable save wrote it to disk on the way past.
+            //
+            // ⭐ the object is the record. `OwnedItems::count` PROJECTS the hand
+            // (via the equipped slot `equip_held_spec` writes below), so the grid
+            // still shows the axe you are carrying — derived, retracted by the
+            // same reset that retracts the object, and impossible to disagree
+            // with. See [`OwnedItems`](crate::items::OwnedItems)'s own docs.
+            //
             // CUSTODY: the ONE take-custody operation, shared with the inventory
             // menu. This used to be four hand-written edits here and the same
             // four inside `equip_held_spec`, whose own doc called itself a mirror
@@ -1510,9 +1536,22 @@ pub fn throw_held_item_system(
     // Forward + away-from-feet, in the local frame → world.
     let throw_vel = frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP));
     // CUSTODY, one operation: the hand empties and the catalog's equipped slot
-    // clears together. Throwing stows the weapon rather than losing it — the
-    // thrower keeps catalog OWNERSHIP and can re-equip from the menu — so only
-    // the equipped slot moves, never the count.
+    // clears together. Only the equipped slot moves, never the stored quantity —
+    // and after D132 that sentence means two different things depending on which
+    // road put the item in the hand. A weapon PICKED UP has no stored row at all,
+    // so letting go of it is letting go of it: the object on the floor is the
+    // only record, and the grid dims. A weapon equipped out of a GRANTED quantity
+    // still has its row, so the thrower keeps catalog ownership and can re-equip.
+    //
+    // ⛔⛔ **and that second case is the surviving half of D132, deliberately left
+    // open.** Throwing a granted quantity MINTS an instance (below) without
+    // spending the row, so the row and the object both claim it and a second
+    // throw makes a second object. The row cannot simply be spent here: the
+    // catalog is not checkpoint state, so a death that retracts a
+    // minted-after-the-checkpoint instance would find the quantity already spent
+    // and ANNIHILATE it — the mirror image of the phantom this slice removed.
+    // ⇒ THE GATE: spending the row at the mint is correct only once `OwnedItems`
+    // participates in the checkpoint horizon.
     unequip_held(
         &mut commands,
         player,

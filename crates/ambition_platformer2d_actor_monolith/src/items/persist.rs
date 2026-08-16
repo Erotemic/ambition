@@ -6,6 +6,13 @@
 //! existing autosave writes to disk) and restores them on load, keyed by stable
 //! `dialog_id` so the save survives catalog reordering. Equipped state is a
 //! handoff (re-equip from the grid on load).
+//!
+//! ⛔⛔ **it mirrors QUANTITIES, and a held object is not one.** `to_persisted`
+//! reads the stored counts, never `OwnedItems::count`, which projects the body's
+//! hand. Writing the projection would put the object into the save as a row, and
+//! the next load would restore the row while the room that authors the object
+//! re-authors the object — one weapon saved, two loaded. What this save does not
+//! describe it does not keep; durable custody is a frontier of its own (D132).
 
 use bevy::prelude::*;
 

@@ -1675,8 +1675,27 @@ instead of guessing."* For a clipped sheet that measurement is faithful to art
 into its collision box.** Fix the clipping first for any body in both lists.
 ⭐ neither of today's two findings is a new principle; they are the same
 principle with **two adopters and no enforcement**.
-⚠ also: a flat run is strong evidence, not proof — a sprite deliberately drawn
-flush to the edge would score the same. The check should say what it saw.
+✔✔ **VERIFIED BY A SECOND ROUTE, because the first one had a live alternative
+explanation.** `render_sheet`'s `auto_crop` computes the union alpha bbox across
+every frame and crops to it, so *"the art touches the frame edge"* could mean the
+frame was fitted to the art rather than the art being cut. The discriminator is
+the **opaque-width profile of the topmost rows** — a real tip tapers up from
+nothing; a truncated shape starts wide:
+
+```text
+super_sanic  idle     top rows ->  12 14 17 18 20 22 24 25   ⛔ no tip: CUT
+sanic        idle     top rows ->   0  0  0  0  3  6  8 11   ✔ a taper
+sanic        jump     top rows ->   0  0  0  0  0  0  0  0   ✔ touches, NOT cut
+player_robot_v3 idle  top rows ->   0  7  9 11 11 13 13 13   ✔ and off.y=73
+```
+
+⇒ the art is drawn into a fixed canvas FIRST (overflow cut there) and auto-crop
+then hugs whatever survived — a crop can only hug what was drawn. ⭐ `sanic/jump`
+is why the two counts differ: it touches the boundary because another frame in
+its row sets the union bbox, and it is **not** cut. The run-based criterion
+already rejects it, which is the check discriminating correctly rather than
+counting edges. ⚠ the check should still report the profile it saw, not just a
+verdict.
 
 - ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
 

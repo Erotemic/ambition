@@ -126,6 +126,19 @@ turn. Do not arm it early, do not arm it because a check is annoying — every
 pause is counted and its reason printed where Jon reads it. Anything else that
 would end the run (`--clear`) is Jon's call, not yours.
 
+**"Extend the timer."** One command — never a hand edit of `.goal/active.json`:
+
+```bash
+python3 scripts/goal_guard.py --extend 48h   # also 2d, 90m, or an ISO timestamp
+python3 scripts/goal_guard.py --extend       # just print the clocks, cheaply
+```
+
+⛔ A run ends on whichever release fires FIRST, and two of them are clocks kept
+in different units against different origins (`deadline_utc` is absolute;
+`max_run_hours` counts from the first block). Moving one by hand leaves the
+other to release the run on the old schedule. `--extend` moves both. It does not
+touch the stall fuse — that one is answered by committing something.
+
 ## Verification
 
 * **Drive the real headless sim — don't say "I can't test it."** Step the actual

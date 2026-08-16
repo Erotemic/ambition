@@ -338,6 +338,103 @@ def test_pausing_an_unarmed_repo_does_nothing(repo: Path) -> None:
     assert not (repo / ".goal" / "state.json").exists()
 
 
+# ── Extending a live run ─────────────────────────────────────────────────────
+
+
+def cli_raw(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    """`cli` asserts rc 0; `--extend` REFUSES bad input with a non-zero rc, and
+    refusing is half of what these tests are about."""
+    return subprocess.run(
+        [sys.executable, str(guard_in(repo)), *args],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+def goal_of(repo: Path) -> dict:
+    return json.loads((repo / ".goal" / "active.json").read_text())
+
+
+def test_extending_moves_both_clocks(repo: Path) -> None:
+    """⛔⛔ THE WHOLE REASON THIS IS A COMMAND. Two independent releases end a
+    run on time — an absolute deadline and a fuse counted in hours from the first
+    block — and the earlier one wins. A hand edit moves the one you can see, and
+    the run then releases itself on the old schedule from the one you cannot."""
+    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
+    assert cli_raw(repo, "--extend", "48h").returncode == 0
+    after = goal_of(repo)
+    assert after["deadline_utc"] == "2999-01-03T00:00:00Z"
+    assert after["max_run_hours"] == 122, "the fuse must move by the same 48 hours"
+
+
+def test_extending_does_not_forgive_a_stall(repo: Path) -> None:
+    """The poison. `--extend` buys TIME, and time is not evidence that work is
+    landing. A version that also reset the stall counter would turn every "give
+    it another day" into an unbounded silence, which is the failure the stall
+    fuse exists for."""
+    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_stalled_blocks=2)
+    assert run(repo).get("decision") == "block"
+    assert run(repo).get("decision") == "block"
+    assert cli_raw(repo, "--extend", "48h").returncode == 0
+    assert run(repo).get("decision") is None, "the stall still releases it"
+    assert state_of(repo)["stalled"] >= 2, "and the count was never rewritten"
+
+
+def test_a_dead_deadline_extends_from_now_not_from_itself(repo: Path) -> None:
+    """+48h onto a deadline that lapsed three days ago is still in the past, so
+    "extend" would hand back a run that is already over — the shape where the
+    command reports success and changes nothing."""
+    stale = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=3)).isoformat()
+    arm(repo, checks=[FAIL], deadline_utc=stale)
+    assert cli_raw(repo, "--extend", "48h").returncode == 0
+    extended = _dt.datetime.fromisoformat(goal_of(repo)["deadline_utc"].replace("Z", "+00:00"))
+    assert extended > _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=47)
+
+
+def test_a_nonsense_duration_changes_nothing(repo: Path) -> None:
+    """A guard file half-written by a rejected command is an UNARMED run."""
+    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
+    before = (repo / ".goal" / "active.json").read_text()
+    proc = cli_raw(repo, "--extend", "next tuesday")
+    assert proc.returncode != 0
+    assert "ISO-8601" in proc.stdout, "say what it would have accepted"
+    assert (repo / ".goal" / "active.json").read_text() == before
+
+
+def test_a_bare_number_of_hours_is_echoed_as_such(repo: Path) -> None:
+    """`--extend 2` is the one input a caller can mean two ways. It means hours,
+    and the answer says so rather than leaving them to check the file."""
+    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z")
+    proc = cli_raw(repo, "--extend", "2")
+    assert goal_of(repo)["deadline_utc"] == "2999-01-01T02:00:00Z"
+    assert "2h" in proc.stdout
+
+
+def test_extending_reads_the_clocks_without_running_the_checks(repo: Path) -> None:
+    """With no argument it is the cheap read. `--status` answers the same
+    question by running every check, which in a real repository is a build."""
+    marker = repo / "ran.txt"
+    arm(
+        repo,
+        checks=[{"name": "an expensive check", "cmd": f"touch {marker}"}],
+        deadline_utc="2999-01-01T00:00:00Z",
+    )
+    before = (repo / ".goal" / "active.json").read_text()
+    proc = cli_raw(repo, "--extend")
+    assert proc.returncode == 0
+    assert not marker.exists(), "printing the clocks must not run the checks"
+    assert "2999-01-01T00:00:00Z" in proc.stdout
+    assert (repo / ".goal" / "active.json").read_text() == before
+
+
+def test_extending_an_unarmed_repo_arms_nothing(repo: Path) -> None:
+    proc = cli_raw(repo, "--extend", "48h")
+    assert proc.returncode != 0
+    assert not (repo / ".goal" / "active.json").exists()
+
+
 # ── Context injection, the compaction half ───────────────────────────────────
 
 

@@ -152,6 +152,32 @@ the same channel and the join key (`tool_use_id`) is not tool-specific, but no
 transcript on this machine has ever contained one — every `isSidechain` count
 was zero. If subagents are not standing the guard down, look here first.
 
+## "Extend the timer" was two edits, and one of them was invisible
+
+Jon asked for 48 more hours on a live run (2026-08-16). There is no single field
+that holds "when this ends": `deadline_utc` is an absolute time, `max_run_hours`
+is a fuse counted from the **first block**, and the run ends on whichever comes
+first. Editing the deadline alone — the obvious move, and the one the file
+invites — leaves the fuse to release the run on the old schedule from a field
+the editor never looked at.
+
+Worse, answering *"how long is left?"* meant reading `.goal/active.json` and
+`.goal/state.json` and doing the arithmetic, because the only command that knew
+was `--status`, which **runs every check** to print a date. Here that is a cargo
+build: minutes of wall clock and a screenful of output to learn a timestamp.
+
+```bash
+python3 scripts/goal_guard.py --extend 48h   # also 2d, 90m, or an ISO timestamp
+python3 scripts/goal_guard.py --extend       # just the clocks, no checks
+```
+
+It moves both clocks by the same amount, refuses to write a goal that would no
+longer arm, and records what it did in an `extended` list in the goal file. It
+deliberately does **not** touch `max_stalled_blocks`: that one counts blocks with
+no new commit, so resetting it would quietly convert "give it another day" into
+"forgive the silence". It prints the stall count instead — the number a human
+extending a quiet run actually needs.
+
 ## What this file cannot do
 
 It is not unfoolable. The checks are commands, and the agent can edit the files

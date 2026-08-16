@@ -74,6 +74,27 @@ and cashed in at 3am, and every spend prints its reason and increments
 guard cannot check intent — it makes the act visible instead, which is the same
 bargain the rest of this file makes.
 
+## Giving a live run more time (`--extend`)
+
+    python3 scripts/goal_guard.py --extend 48h      # 2d, 90m, or 2026-08-20T20:15Z
+    python3 scripts/goal_guard.py --extend          # just print the clocks
+
+⛔ **Do not hand-edit `deadline_utc`.** Two of the four releases above are
+clocks, they are stored in different units against different origins, and the
+EARLIER one wins: `deadline_utc` is absolute, `max_run_hours` counts from the
+first block. Moving one is not extending the run — it leaves the other to fire
+on the old schedule, from a field the editor was not looking at. `--extend`
+moves both and keeps the gap between them.
+
+It will not touch `max_stalled_blocks`. That is a progress oracle, not a clock;
+buying hours is not evidence that work is landing, and resetting it silently
+would turn "extend the timer" into "forgive the stall" — so the stall count is
+printed instead, which is the number a human extending a quiet run needs to see.
+
+With no argument it changes nothing and prints the three releases. `--status`
+answers the same question, but it RUNS EVERY CHECK to do it, and in a repository
+whose checks build the workspace that is minutes of wall clock to learn a date.
+
 ## Coordinator mode: waiting on background work is not stopping
 
 A coordinator that spawns subagents and yields the turn to wait for them is
@@ -553,6 +574,65 @@ def parse_deadline(raw) -> _dt.datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=_dt.timezone.utc)
     return parsed
+
+
+_DURATION_UNIT_HOURS = {
+    "": 1.0,
+    "h": 1.0,
+    "hr": 1.0,
+    "hrs": 1.0,
+    "hour": 1.0,
+    "hours": 1.0,
+    "m": 1.0 / 60.0,
+    "min": 1.0 / 60.0,
+    "mins": 1.0 / 60.0,
+    "minute": 1.0 / 60.0,
+    "minutes": 1.0 / 60.0,
+    "d": 24.0,
+    "day": 24.0,
+    "days": 24.0,
+    "w": 168.0,
+    "week": 168.0,
+    "weeks": 168.0,
+}
+
+
+def parse_duration_hours(raw) -> float | None:
+    """`48h`, `48`, `2d`, `90m`, `1.5h`, `2 days` → hours. Anything else, None.
+
+    A BARE NUMBER MEANS HOURS, which is the one thing a caller might get wrong
+    silently, so the unit is echoed back by every command that uses this.
+    """
+    text = str(raw).strip().lower().replace(" ", "")
+    if not text:
+        return None
+    digits = 0
+    while digits < len(text) and (text[digits].isdigit() or text[digits] == "."):
+        digits += 1
+    unit = _DURATION_UNIT_HOURS.get(text[digits:])
+    if unit is None:
+        return None
+    try:
+        value = float(text[:digits])
+    except ValueError:
+        return None
+    return value * unit if value > 0 else None
+
+
+def format_hours(hours: float) -> str:
+    """`122.0` → `5d 2h`. For humans reading a release time, not for parsing."""
+    if hours <= 0:
+        return "0h"
+    days, rest = divmod(round(hours * 60), 24 * 60)
+    part_h, minutes = divmod(rest, 60)
+    parts = [f"{days}d" if days else "", f"{part_h}h" if part_h else "", f"{minutes}m" if minutes else ""]
+    return " ".join(p for p in parts if p) or "0h"
+
+
+def stamp_utc(when: _dt.datetime) -> str:
+    """The `deadline_utc` spelling this file already uses, so `--extend` writes
+    what a hand edit would have written."""
+    return when.astimezone(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ── Running the checks ────────────────────────────────────────────────────────
@@ -1314,7 +1394,16 @@ def mode_inject(root: Path, hook_input: dict) -> int:
 
     if deadline:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
-        lines += ["", f"{hours:.1f}h remain before this goal releases on its own."]
+        # The one place the answer to "extend it" belongs: an agent asked for
+        # more time reads this, and without the pointer it goes reading the goal
+        # file, finds ONE clock, and edits the wrong half. Injected once per
+        # session, not per block, so it costs nothing per turn.
+        lines += [
+            "",
+            f"{hours:.1f}h remain before this goal releases on its own. "
+            "⛔ To give it more time, run `python3 scripts/goal_guard.py --extend 48h` "
+            "— never hand-edit deadline_utc, there are two clocks and it moves both.",
+        ]
     lines += [
         "",
         "This goal is enforced by a command hook (scripts/goal_guard.py) reading "
@@ -1421,6 +1510,153 @@ def mode_pause(root: Path, reason: str) -> int:
     return 0
 
 
+def timer_lines(root: Path, goal: dict) -> list[str]:
+    """ALL THREE RELEASES, in one place, computed the same way `mode_stop` does.
+
+    ⭐ this exists because "how long is left?" had no cheap answer. `--status`
+    knows, but it RUNS THE CHECKS to say so, and in this repository that is a
+    cargo build — minutes of wall clock and a screenful of output to learn a
+    date. Reading the two files by hand instead is what `--extend` was added to
+    stop, and it would be silly to fix the write and leave the read expensive.
+
+    Naming the stall fuse here is the load-bearing part: it is the release
+    `--extend` CANNOT move (it counts blocks, not seconds), so a run that is
+    about to be let go for lack of commits looks exactly like a healthy one from
+    the deadline alone.
+    """
+    now = now_utc()
+    state = load_json(state_path(root)) or {}
+    lines: list[str] = []
+
+    deadline = parse_deadline(goal.get("deadline_utc"))
+    if deadline:
+        left = (deadline - now).total_seconds() / 3600.0
+        when = "PASSED" if left <= 0 else f"in {format_hours(left)}"
+        lines.append(f"  deadline    {stamp_utc(deadline)}  ({when})")
+    else:
+        lines.append("  deadline    (none) — ⚠ this run has no intended end")
+
+    fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
+    first_block = parse_deadline(state.get("first_block_at"))
+    if fuse_h <= 0:
+        lines.append("  run fuse    disabled (max_run_hours = 0)")
+    elif first_block:
+        fires = first_block + _dt.timedelta(hours=fuse_h)
+        left = (fires - now).total_seconds() / 3600.0
+        when = "PASSED" if left <= 0 else f"in {format_hours(left)}"
+        lines.append(
+            f"  run fuse    {stamp_utc(fires)}  ({when})"
+            f" — {fuse_h:g}h from the first block {stamp_utc(first_block)}"
+        )
+    else:
+        lines.append(f"  run fuse    {fuse_h:g}h from the first block (not blocked yet)")
+
+    max_stalled = as_int(goal.get("max_stalled_blocks"), DEFAULT_MAX_STALLED_BLOCKS)
+    stalled = as_int(state.get("stalled"), 0)
+    close = "  ⚠ CLOSE" if max_stalled > 0 and stalled >= max_stalled - 2 else ""
+    lines.append(
+        f"  stall fuse  {stalled} of {max_stalled} blocks with no new commit"
+        f"{close} — ⛔ NOT movable by --extend; commit something instead"
+    )
+    return lines
+
+
+def mode_extend(root: Path, raw: str) -> int:
+    """Move BOTH clocks that end a run, in one command, and show the result.
+
+    ⛔⛔ **THE DEADLINE IS NOT THE ONLY CLOCK, AND IT IS NOT EVEN THE ONE THAT
+    FIRES FIRST.** `max_run_hours` counts from the FIRST BLOCK, not from the
+    arming, so a hand edit that moves `deadline_utc` alone leaves the run to
+    release itself on the old schedule through a backstop the editor was not
+    looking at. That is the entire reason this is a command: the operation is
+    two coupled edits, and the coupling is invisible in the file. Extending
+    keeps the gap between them, so whichever one Jon armed as the real end stays
+    the real end.
+
+    The stall fuse is deliberately NOT touched. It is a progress oracle, not a
+    clock; buying more time is not evidence that work is landing, and silently
+    resetting it would turn "extend the timer" into "forgive the stall".
+
+    Called with no argument it changes nothing and just prints the clocks, which
+    makes the read cheap too — `--status` answers the same question but runs
+    every check to do it.
+    """
+    goal = load_json(active_path(root))
+    if not goal:
+        print("no goal armed — nothing to extend")
+        return 1
+
+    if not str(raw).strip():
+        print(f"goal: {str(goal.get('goal', ''))[:90]}…")
+        for line in timer_lines(root, goal):
+            print(line)
+        print("\nextend with:  python3 scripts/goal_guard.py --extend 48h")
+        return 0
+
+    now = now_utc()
+    old = parse_deadline(goal.get("deadline_utc"))
+    live_base = old if (old and old > now) else now
+    hours = parse_duration_hours(raw)
+    if hours is not None:
+        new_deadline = live_base + _dt.timedelta(hours=hours)
+    else:
+        # An absolute timestamp is the other thing a human means by "extend to".
+        new_deadline = parse_deadline(raw)
+        if new_deadline is None:
+            print(
+                f"cannot read {raw!r} — give a duration (48h, 2d, 90m; a bare "
+                f"number is HOURS) or an ISO-8601 timestamp (2026-08-20T20:15Z)"
+            )
+            return 2
+        if new_deadline <= now:
+            print(f"{stamp_utc(new_deadline)} is in the past — that would end the run, not extend it")
+            return 2
+        hours = (new_deadline - live_base).total_seconds() / 3600.0
+
+    fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
+    if fuse_h > 0:
+        # Written even when it was ABSENT: the default applies either way, and a
+        # default that fires early is the failure this command exists to prevent.
+        goal["max_run_hours"] = round(fuse_h + hours, 3)
+    goal["deadline_utc"] = stamp_utc(new_deadline)
+
+    problems = validate_goal(goal)
+    if problems:
+        print("refusing to write — the extended goal would not arm:")
+        for problem in problems:
+            print(f"  ⛔ {problem}")
+        return 2
+
+    log = goal.get("extended")
+    if not isinstance(log, list):
+        log = []
+    log.append(
+        {
+            "at": stamp_utc(now),
+            "by": f"+{format_hours(hours)}",
+            "deadline_utc": goal["deadline_utc"],
+            "max_run_hours": goal.get("max_run_hours"),
+        }
+    )
+    goal["extended"] = log[-12:]
+
+    # Written through a temp file: a Stop hook in another session may be reading
+    # this exact path, and a half-written goal is an unarmed one.
+    target = active_path(root)
+    temp = target.with_suffix(".json.tmp")
+    try:
+        temp.write_text(json.dumps(goal, indent=2, ensure_ascii=False) + "\n")
+        temp.replace(target)
+    except OSError as exc:
+        print(f"could not write {target}: {exc}")
+        return 2
+
+    print(f"extended by {format_hours(hours)}" + (f" (from {stamp_utc(old)})" if old else ""))
+    for line in timer_lines(root, goal):
+        print(line)
+    return 0
+
+
 def mode_status(root: Path) -> int:
     goal = load_json(active_path(root))
     if not goal:
@@ -1433,9 +1669,8 @@ def mode_status(root: Path) -> int:
         if owner
         else "owner session: (unclaimed — the next session to stop claims it)"
     )
-    deadline = parse_deadline(goal.get("deadline_utc"))
-    if deadline:
-        print(f"deadline: {deadline.isoformat()} ({deadline - now_utc()} remaining)")
+    for line in timer_lines(root, goal):
+        print(line)
     results = run_checks(goal, root)
     for r in results:
         mark = "✅" if r.ok else "▢"
@@ -1577,6 +1812,18 @@ def main() -> int:
         help="take over an orphaned goal (after /clear) and print what it is",
     )
     parser.add_argument(
+        "--extend",
+        nargs="?",
+        const="",
+        metavar="DURATION",
+        help=(
+            "give the armed goal more time: --extend 48h (also 2d, 90m, or an "
+            "ISO-8601 timestamp; a bare number is HOURS). Moves deadline_utc AND "
+            "max_run_hours together — they are two independent releases and the "
+            "earlier one wins. With no argument, just prints the clocks."
+        ),
+    )
+    parser.add_argument(
         "--pause",
         nargs="?",
         const="",
@@ -1590,6 +1837,8 @@ def main() -> int:
 
     root = repo_root()
 
+    if args.extend is not None:
+        return mode_extend(root, args.extend)
     if args.pause is not None:
         return mode_pause(root, args.pause)
     if args.own:

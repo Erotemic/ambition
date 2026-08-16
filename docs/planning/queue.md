@@ -1986,10 +1986,28 @@ what every rollback checksum and every replay claim in this repo assumes cannot
 happen. ⚠ the `runtime → ldtk` cluster is 7 of the 12 and is one architectural
 fact, not seven: an upward dependency the policy denies twice over.
 
-⇒ **two decisions are owed, and they are different**: (a) fix the violations, and
-(b) decide whether this suite joins the gate — because a policy suite nobody runs
-is a check that cannot fail, which this project already ruled is worse than no
-check at all. ⛔ do not fix (a) and leave (b), or it silently reddens again.
+⇒ **two things are owed and they belong to DIFFERENT PEOPLE**: (a) fixing the
+violations is work, and this row owns it; (b) **whether the suite joins the goal
+guard is JON'S, and it is already logged** as item 13 of
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) — where a
+previous session deliberately declined to act, in these words: *"the guard's
+check list is yours, and adding a red check would stop every autonomous run until
+the twelve are cleared."*
+
+⛔⛔ **this row was opened without reading that file first, and the brief it
+produced told an agent to decide (b) and implement it.** That is answering a
+reserved question by dispatch, and the hazard is concrete rather than procedural:
+`.goal/active.json`'s check list is what keeps an autonomous run alive, so a red
+check added there **wedges every turn** until all twelve clear. Corrected
+mid-flight. ⇒ **promote the WORK from that file, never the DECISION**, and say in
+the row which half is which.
+
+⭐ that file also carries a **better diagnosis than this row first had**: the
+`engine.determinism` hit is a **false positive on correct code** — the site
+`collect`s and then **sorts** — so the honest fix is structural (make `phases` a
+`BTreeMap`, making ordered iteration a property of the TYPE rather than a
+discipline the next editor can drop), and *"a waiver would be the wrong answer
+here."*
 
 - ▢ **D131 — PERCENT ACCRUES ON A CLOCK, WITH NO HIT AND NO OPPONENT, ON HALF
   THE CAST. (opened 2026-08-16, the first thing seen when the camera finally

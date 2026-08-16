@@ -320,6 +320,37 @@ pub struct MatchParticipantRoster {
     /// `fighter_abilities` and `opens_suspended`: the engine does not get an
     /// opinion about what a match's economy is.
     pub fighter_stocks: Option<u32>,
+    /// **The health pool every fighter in this match plays with**, whatever
+    /// its character authored.
+    ///
+    /// `None` leaves each seat with its CHARACTER's authored pool — the right
+    /// answer for a match staged inside one game, where the cast and the rules
+    /// were written together.
+    ///
+    /// ⛔⛔ **`Some(n)` is what a CROSSOVER match owes its own numbers, and its
+    /// absence is queue D131.** `damage_percent()` is `accumulated / max`, so
+    /// the pool is the scale a percent is READ against — and an authored pool is
+    /// a statement made under the AUTHORING GAME's rules. Mary-O and Sanic are
+    /// one-hit-kill platformer protagonists and author `max_health: 1`, which is
+    /// true of their own games and meaningless in a platform fighter: measured
+    /// through the shipped host on 2026-08-16, one seven-second stocks match
+    /// read `mary_o 4200%`, `sanic 800%`, `player_robot_v3 18%` and
+    /// `smash_george_booul 9%` — from 42, 8, 11 and 9 points of ordinary melee
+    /// damage. Nothing was accruing on a clock; four fighters were being divided
+    /// by 1, 1, 60 and 100.
+    ///
+    /// ⚠ **it is the POOL, not a display scale**, and that is deliberate: under
+    /// [`fighter_stocks`](Self::fighter_stocks) the pool never drains
+    /// (`DeathPolicy::Unbounded`) so it is purely what 100% means, while a match
+    /// with no stock economy would be declaring literal hit points. One field
+    /// either way, because it is one quantity — a second "percent reference"
+    /// beside `max_health` would be a second authority over the same number,
+    /// which is the shape `PhysicalBaseline` exists to refuse.
+    ///
+    /// On the roster for the same reason as `fighter_abilities` and
+    /// `fighter_stocks`: the engine does not get an opinion about a match's
+    /// economy, and a CHARACTER does not get an opinion about somebody else's.
+    pub fighter_health_pool: Option<i32>,
     /// **Which experience published this roster.**
     ///
     /// ⚠ **added because one host now has TWO stages that publish one**, and the

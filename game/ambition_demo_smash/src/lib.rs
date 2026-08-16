@@ -59,8 +59,14 @@ pub const STARTING_STOCKS: u32 = 3;
 ///
 /// The denominator of `damage_percent()`. Under `DeathPolicy::Unbounded` the
 /// pool never kills, so this is purely the scale a percent is read against —
-/// which is exactly why it has to be authored: an unauthored pool is ONE, and a
-/// meter divided by one reports 14000%.
+/// which is exactly why it has to be declared: an undeclared pool is whatever
+/// the CHARACTER authored, and a meter divided by one reports 14000%.
+///
+/// ⛔⛔ **THE MATCH declares it, not the characters** (queue D131). It was
+/// stamped onto the three ids this demo registers until 2026-08-16, which fixed
+/// three fighters out of fourteen: everybody else walks onto this stage carrying
+/// a pool their own game authored, and Mary-O and Sanic are one-hit-kill
+/// platformer protagonists whose games say `1`. See `apply_smash_match_rules`.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
 /// The **published controller policy** a CPU seat asks for — `smash::duelist`,
@@ -153,6 +159,26 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
     roster.opening_countdown_ticks = 3 * 60;
     roster.fighter_stocks = Some(STARTING_STOCKS);
+    // **EVERY FIGHTER IN THIS MATCH IS READ AGAINST THE SAME 100%.**
+    //
+    // ⛔⛔ **the crossover cast does not author its percent, and cannot be asked
+    // to** (queue D131, measured through the shipped host 2026-08-16). An
+    // authored `max_health` is a statement made under the AUTHORING GAME's
+    // rules: Mary-O and Sanic are one-hit-kill platformer protagonists and both
+    // author `max_health: 1`, which is exactly right in their own games. Seated
+    // here, `damage_percent()` divided ordinary melee damage by ONE — a
+    // seven-second match read `mary_o 4200%` and `sanic 800%` beside
+    // `player_robot_v3 18%` and `smash_george_booul 9%`, off 42, 8, 11 and 9
+    // points of damage. It looked like percent accruing on a clock on half the
+    // cast. It was four fighters divided by 1, 1, 60 and 100.
+    //
+    // ⛔ **and this REPLACES three per-character writes**, which is why it is
+    // here and not there. This demo used to stamp the reference onto the three
+    // characters it happens to register — a fix that could only ever cover its
+    // own fighters, and the roster is fourteen. The pool a percent is read
+    // against is a rule of the MATCH, exactly like the stock count above it and
+    // the death policy that count implies.
+    roster.fighter_health_pool = Some(SMASH_PERCENT_REFERENCE);
     // **EVERY FIGHTER IN THIS MATCH HAS THE SAME VERBS.**
     //
     // ⛔ Measured 2026-08-01, both seats wearing the right duelist:
@@ -1989,21 +2015,26 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         ] {
             let mut definition =
                 CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
-            // **THE PERCENT REFERENCE.** (found by drawing it, 2026-07-31)
+            // ⛔⛔ **THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE**
+            // (2026-07-31 found it; queue D131 moved it, 2026-08-16).
             //
-            // A character that authors no vitals gets a ONE-HIT pool — the
-            // seating code names this exact trap in its own comment — and under
-            // `DeathPolicy::Unbounded` the pool never kills, so nothing goes
-            // wrong except the number. `damage_percent()` is
-            // `accumulated / max`, so with `max = 1` a 140-damage hit read as
-            // **14000%**. Every test passed: the meter was accumulating
-            // correctly and the division was correct, over a denominator nobody
-            // had authored.
+            // It used to be `definition.vitals.max_health =
+            // Some(SMASH_PERCENT_REFERENCE)`, on this line, for these three ids
+            // — and it was right about the symptom and wrong about the owner. A
+            // character that authors no vitals gets a ONE-HIT pool, and
+            // `damage_percent()` is `accumulated / max`, so a 140-damage hit
+            // read as **14000%**. Stamping the reference onto the characters
+            // this demo happens to REGISTER fixed the three fighters it could
+            // reach and could never reach the other eleven: `mary_o` and `sanic`
+            // walked onto the same stage carrying the `max_health: 1` their own
+            // one-hit-kill games authored, and read 4200% and 800%.
             //
-            // 100 makes percent read the way a platform fighter's does, where a
-            // player learns "around 120 I get launched" as a number that means
-            // something across characters.
-            definition.vitals.max_health = Some(SMASH_PERCENT_REFERENCE);
+            // ⭐ what 100% means is a rule of the MATCH, so
+            // `apply_smash_match_rules` declares it and seating applies it to
+            // every seat — see `MatchParticipantRoster::fighter_health_pool`.
+            // These three now author what they ARE and nothing about how a
+            // stocks match reads them.
+            //
             // **WEIGHT, so the roster is not three of the same fighter.**
             //
             // `scaled_knockback` divides the growth term by the victim's weight,
@@ -2548,8 +2579,9 @@ mod tests {
         );
     }
 
-    /// **A fighter's percent is read against an AUTHORED pool.** (found by
-    /// drawing a match, 2026-07-31)
+    /// **The MATCH declares what 100% means, so a crossover fighter cannot bring
+    /// its own.** (2026-07-31 found the number; queue D131 found the owner,
+    /// 2026-08-16)
     ///
     /// A character that authors no vitals gets a ONE-HIT pool, and under
     /// `DeathPolicy::Unbounded` the pool never kills — so nothing goes wrong
@@ -2557,11 +2589,26 @@ mod tests {
     /// stocks model. A 140-damage hit read as 14000%, with every test green:
     /// the meter accumulated correctly and divided correctly, by a denominator
     /// nobody had authored.
+    ///
+    /// ⛔⛔ **and the first fix was per-CHARACTER, which is why it held for a
+    /// fortnight and then failed on eleven fighters.** This demo stamped the
+    /// reference onto the three ids it registers; every other name on
+    /// [`select::SMASH_ROSTER`] belongs to another game. Mary-O and Sanic author
+    /// `max_health: 1` — correct for a one-hit-kill platformer — and read 4200%
+    /// and 800% off ordinary melee damage on this stage.
+    ///
+    /// ⚠ so the assertion is about the ROSTER, not about a catalog row: the
+    /// character-side write is DELETED and re-adding it would not make this pass.
     #[test]
-    fn each_duelist_authors_the_pool_its_percent_is_read_against() {
-        assert!(
-            SMASH_CATALOG_RON.contains("smash_duelist_a"),
-            "the catalog rows moved; this test guards the pool that goes with them"
+    fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
+        let mut roster =
+            ambition_platformer2d::actor::MatchParticipantRoster::of(["mary_o", "sanic"]);
+        apply_smash_match_rules(&mut roster);
+        assert_eq!(
+            roster.fighter_health_pool,
+            Some(SMASH_PERCENT_REFERENCE),
+            "a stocks match that does not declare its own pool reads each seat's \
+             percent against whatever that character's HOME GAME authored"
         );
         // The reference is what makes a percent comparable across characters.
         // One would make every hit read in the thousands.

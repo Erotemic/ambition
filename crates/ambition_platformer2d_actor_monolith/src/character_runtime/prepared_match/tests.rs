@@ -1683,6 +1683,85 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     );
 }
 
+/// **A match that DECLARES a pool overrules what each character authored — and
+/// a match that declares none does not.** (queue D131)
+///
+/// ⛔⛔ **an authored `max_health` is a statement made under the AUTHORING
+/// GAME's rules.** `damage_percent()` is `accumulated / max`, so the pool is the
+/// scale a percent is read against, and a one-hit-kill platformer protagonist
+/// authors `1` — correct at home, and in a crossover stocks match it turns every
+/// point of ordinary melee damage into 100%. Measured through the shipped host
+/// 2026-08-16: one seven-second match read `mary_o 4200%` and `sanic 800%`
+/// beside `player_robot_v3 18%` and `smash_george_booul 9%`, off 42, 8, 11 and 9
+/// points of damage. Nothing accrued on a clock; four fighters were divided by
+/// 1, 1, 60 and 100.
+///
+/// ⚠ **both terms are asserted, and the second is what makes the first mean
+/// anything.** The declared arm alone would pass in a world where seating had
+/// stopped reading authored vitals at all, which is a different bug wearing the
+/// same green tick — so the undeclared arm pins that the two characters really
+/// do bring 1 and 100 down this exact road.
+#[test]
+fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently() {
+    fn seat_two(pool: Option<i32>) -> Vec<(String, i32)> {
+        let mut app = seating_app();
+        // A one-hit-kill platformer protagonist and a platform fighter, as their
+        // own games author them.
+        let mut glass = CharacterDefinition::new("glass", "Glass", "demo");
+        glass.vitals = crate::character_runtime::Vitals {
+            max_health: Some(1),
+            mass: Some(1.0),
+            knockback_weight: None,
+        };
+        let mut fighter = CharacterDefinition::new("fighter", "Fighter", "demo");
+        fighter.vitals = crate::character_runtime::Vitals {
+            max_health: Some(100),
+            mass: Some(1.0),
+            knockback_weight: None,
+        };
+        app.register_character(glass);
+        app.register_character(fighter);
+        app.insert_resource(MatchParticipantRoster {
+            participants: vec![cpu("glass"), cpu("fighter")],
+            fighter_health_pool: pool,
+            ..Default::default()
+        });
+        finalize_and_update(&mut app);
+
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_characters::actor::WornCharacter,
+            &ambition_characters::actor::BodyHealth,
+        )>();
+        let mut rows: Vec<(String, i32)> = q
+            .iter(world)
+            .map(|(worn, health)| (worn.id().to_string(), health.max()))
+            .collect();
+        rows.sort();
+        assert_eq!(
+            rows.len(),
+            2,
+            "both fighters have to be seated or this measures nothing: {rows:?}"
+        );
+        rows
+    }
+
+    assert_eq!(
+        seat_two(None),
+        vec![("fighter".to_string(), 100), ("glass".to_string(), 1)],
+        "with no declared pool a seat keeps what its CHARACTER authored — and if \
+         this ever stops being true, the declared arm below is passing because \
+         seating ignores authored vitals entirely, not because the match won"
+    );
+    assert_eq!(
+        seat_two(Some(100)),
+        vec![("fighter".to_string(), 100), ("glass".to_string(), 100)],
+        "a match that declares its own pool must apply it to EVERY seat: the \
+         glass fighter still reads its home game's 1, so the same damage is a \
+         hundred times more percent on one fighter than on the other"
+    );
+}
+
 /// **Both fighters get the same movement capabilities.** (2026-07-29)
 ///
 /// A SPAWNED seat's abilities come from `AncillaryMovementBundle` — the basic

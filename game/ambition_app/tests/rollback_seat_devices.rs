@@ -130,6 +130,7 @@ fn two_human_roster() -> MatchParticipantRoster {
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
+        fighter_health_pool: None,
         published_by: None,
     }
 }

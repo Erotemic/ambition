@@ -105,6 +105,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(11),
         fighter_abilities: None,
         fighter_stocks: None,
+        fighter_health_pool: None,
         // A fixture's roster has no publisher: nothing else in this App claims
         // one, which is the case `None` is for.
         published_by: None,
@@ -706,6 +707,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
+        fighter_health_pool: None,
         published_by: None,
     });
     sim.rebase_rollback_history()
@@ -842,6 +844,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
+        fighter_health_pool: None,
         published_by: None,
     }
 }

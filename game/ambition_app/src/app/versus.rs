@@ -300,6 +300,18 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // fighter to `DeathPolicy::Unbounded`, which is the pair that has to
         // travel together.
         fighter_stocks: None,
+        // **NONE, and it is a decision** (queue D131). This stage settles ROUNDS
+        // off health, so the pool is literal hit points rather than the scale a
+        // percent is read against — and its cast is `versus_fighters::duelists()`,
+        // two characters authored FOR this stage whose light/heavy split is
+        // partly the pool itself (`with_health`). Declaring one number here
+        // would flatten a difference the stage exists to have.
+        //
+        // ⚠ **the day this stage seats somebody else's character, this becomes
+        // `Some(_)`.** That is the whole of D131: an authored `max_health` is a
+        // statement made under the AUTHORING game's rules, and a host that seats
+        // a foreign cast owes its own. Smash seats fourteen and declares one.
+        fighter_health_pool: None,
         seating,
         // **WHOSE MATCH THIS IS.** The exit rule below removes the roster it
         // finds; with a second stage in the same host publishing one from its

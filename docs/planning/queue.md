@@ -2033,9 +2033,9 @@ D128  the engine cannot ship the art IT draws — every sprite-registration site
 D132  the durable-save leg is installed by the visible-binary-only presentation
       assembly, so ONE OF TWO persistence authorities does not exist in any
       headless harness — which is why they had never met in a test
-D131  the shell composes every experience into one process, so a DEMO's rules
-      reach a fighter from a different demo (leading hypothesis, and it explains
-      the cast split exactly)
+D131  a crossover match reads each seat's percent against the pool that seat's
+      HOME GAME authored — a DATA value crossing the boundary, not a rule
+      (FIXED; the "a demo's rules reach a foreign fighter" reading was wrong)
 D134  `runtime → ldtk` was forbidden by two policies nothing ran; the EDGE turned
       out legitimate and downward — but only because a facade deletion converted
       a laundered edge into a declared one, for the THIRD time in that file
@@ -2050,6 +2050,19 @@ more than the feature-shaped ones this week — naming the schedule order let
 `conversation` leave, giving the engine a home for its own art made effects
 reachable, and making a load a checkpoint resume removed a whole reconstruction
 road.
+
+⚠ **D131 (2026-08-16) sharpened the umbrella and cost it a member.** Its
+composition failure was real and was **not a rule reaching a foreign body** — it
+was an authored NUMBER (`max_health`) read by another game's rules, so nothing a
+system-scoping mechanism could have caught. ⇒ **the umbrella has two shapes, not
+one**: (a) a value authored under game A's rules read as universal by game B, and
+(b) a global SINGLETON whose owner is whoever installed it last. D131 also
+MEASURED an instance of (b) and left it standing on purpose:
+`MaryORulesPlugin` inserts `DeathRules::replay_level_after(3.2s)` ungated, after
+Sanic's, so **every Smash match in the shipped host runs under Mary-O's death
+rules** — inert today (an `Unbounded` fighter writes no `ActorDiedMessage`) and
+one composition change from not being. ⛔ two shapes measured is the argument for
+a scoping mechanism; one was not, and D131 deliberately did not build one.
 
 ⚠ **the standing number to move**: `capability-footprint-may-not-grow` reads
 **42 crates linked, 15 a movement-only game never asked for**. ⛔ it has not moved
@@ -2369,9 +2382,86 @@ the row which half is which.
 discipline the next editor can drop), and *"a waiver would be the wrong answer
 here."*
 
-- ▢ **D131 — PERCENT ACCRUES ON A CLOCK, WITH NO HIT AND NO OPPONENT, ON HALF
-  THE CAST. (opened 2026-08-16, the first thing seen when the camera finally
-  worked)**
+- ☑ **D131 — FIXED: NOTHING ACCRUED ON A CLOCK. FOUR FIGHTERS WERE BEING
+  DIVIDED BY 1, 1, 60 AND 100. (opened + closed 2026-08-16)**
+
+### ⭐⭐ THE ANSWER: THE DENOMINATOR, NOT THE NUMERATOR
+
+**`damage_percent()` is `accumulated / max`, and `max` was each character's
+HOME GAME's authored pool.** Reproduced headlessly through the shipped shell
+(4 CPU seats, `smash_gameplay`), logging every `HitEvent` with its source:
+
+```text
+mary_o             42 damage / max   1  = 4200%   <- Jon's exact number, ~same tick
+sanic               8 damage / max   1  =  800%
+player_robot_v3    11 damage / max  60  =   18%
+smash_george_booul  9 damage / max 100  =    9%
+```
+
+⇒ **every hit was `HitSource::Melee` from the other fighters.** The meter was
+honest and the division was correct. Mary-O and Sanic author `max_health: 1`
+because they are one-hit-kill platformer protagonists — true in their own games,
+and it makes one point of ordinary damage read as a full meter on a stocks stage.
+
+⛔⛔ **and the swap-to-P2 control was right and pointed at the wrong thing.** It
+proved the cause travels with the CHARACTER — and what travels with a character
+is its authored VITALS, not a system. **No demo system was involved.** The
+crossover hypothesis (a `SanicExperiencePlugin` / `MaryOExperiencePlugin` system
+damaging a foreign body) is **FALSIFIED**: measured in the same run, `players=0`,
+`outofplay=0`, zero `ActorDiedMessage`, zero `RoomReplayRequested`. What crossed
+the boundary was a NUMBER, not a rule.
+
+⚠ **the standalone-app experiment would have "confirmed" the false hypothesis.**
+`ambition_demo_smash_app` composes no Mary-O or Sanic provider, so
+`SmashRoster::assemble` drops both and its whole cast was stamped with the
+reference — the bug is structurally unreachable there, for a reason unrelated to
+which plugins are installed.
+
+### THE FIX — the MATCH declares what 100% means
+
+`MatchParticipantRoster::fighter_health_pool: Option<i32>` →
+`MatchRules::health_pool` → `MatchRules::pool_over(authored)`, applied at both
+seat sites in `prepared_match.rs` (spawned seed AND adopted `body.max_health`).
+`apply_smash_match_rules` declares `SMASH_PERCENT_REFERENCE`.
+
+⭐ **the tell it was half a decision:** a stocks match already overruled the
+character on *whether the pool kills* (`MatchRules::death_policy`) and left *how
+big the pool is* with the character. `pool_over` sits one function above
+`death_policy` for that reason.
+
+⛔ **DELETED: the per-character workaround.** `definition.vitals.max_health =
+Some(SMASH_PERCENT_REFERENCE)` on the three ids this demo registers (2026-07-31,
+the 14000% fix). It was right about the symptom and wrong about the owner — it
+could only ever reach three fighters and the roster is fourteen. Its guard test
+`each_duelist_authors_the_pool_its_percent_is_read_against` is replaced by
+`the_match_declares_the_pool_every_fighters_percent_is_read_against`.
+
+### ⚠ THE SECOND DEFECT WAS THE SAME INSTRUMENT, NOT A SECOND BUG
+
+**"Both fighters lose a stock at the same instant while one is at 0%"** — the KOs
+are 3 and 24 ticks apart in the trace, which at 60-frame sampling is one instant;
+and `spend_fighter_stocks` calls `health.reset()` on a fighter coming back, so a
+seat that just lost a stock reads **0% because it respawned**. Correct behaviour
+seen at capture resolution.
+
+### ⛔ WHAT THE HUNT FOUND ON THE WAY — a REAL crossover leak, measured INERT
+
+`MaryORulesPlugin::build` inserts `DeathRules::replay_level_after(3.2s)` as a
+GLOBAL resource with no gate (`demo_mary_o/src/lib.rs:1941`), Sanic inserts its
+own (`demo_sanic/src/lib.rs:1163`), and `shell_host.rs` installs Mary-O AFTER
+Sanic — so **every Smash match in the shipped host runs under Mary-O's death
+rules**, whose own doc says a versus arena wants `LevelReset::Never`. Measured
+inert today: an `Unbounded` fighter never writes `ActorDiedMessage` and a seat
+carries no `PlayerEntity`, so `open_death_interlude` never fires. ⇒ **not fixed
+here, and it is D136's second instance in a different shape** — the first was a
+DATA value authored under one game's rules, this is a global SINGLETON whose
+owner is whoever installed it last. Two shapes is what would justify a scoping
+mechanism; one would not have.
+⚠ same file, same shape, also ungated: `sync_hosted_sanic_wallet_shield`
+(`demo_sanic/src/lib.rs:1225`) runs every tick of a Smash match and its non-Sanic
+branch REMOVES `BodyWalletShield` from any `PrimaryPlayer`.
+
+### the original report, kept
 
 ⛔⛔ **the Smash showcase is not currently a fight.** Sanic passes 200% before the
 `GO!` banner clears and 600% by six seconds; Mary-O reaches **4200% in six

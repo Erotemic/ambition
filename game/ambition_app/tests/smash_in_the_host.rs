@@ -2853,3 +2853,224 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
          photographs a fighter nobody is driving"
     );
 }
+
+/// **Every fighter on this stage is read against ONE percent, whatever game it
+/// came from.** (queue D131, found by capturing a real match 2026-08-16)
+///
+/// ⛔⛔ **an authored `max_health` is a statement made under the AUTHORING
+/// GAME's rules, and this stage seats fourteen games' worth of cast.**
+/// `damage_percent()` is `accumulated / max`, so the pool is the scale a percent
+/// is READ against. Mary-O and Sanic are one-hit-kill platformer protagonists
+/// and both author `max_health: 1` — exactly right at home. Seated here, one
+/// seven-second match through this very composition read:
+///
+/// ```text
+/// mary_o             42 damage    4200%
+/// sanic               8 damage     800%
+/// player_robot_v3    11 damage      18%
+/// smash_george_booul  9 damage       9%
+/// ```
+///
+/// Four fighters divided by 1, 1, 60 and 100. It looked exactly like percent
+/// accruing on a clock on half the cast — the meter was honest, the division was
+/// correct, and the denominators were four different games'.
+///
+/// ⚠ **the fix that failed first was per-CHARACTER**: this demo stamped its
+/// reference onto the three ids it registers, which is three of fourteen. The
+/// pool is a rule of the MATCH now
+/// (`MatchParticipantRoster::fighter_health_pool`), so a character joining from
+/// anywhere is read against the stage's own hundred.
+///
+/// ⭐ **the hit is written, the SCALE is measured.** The claim is not that a
+/// swing connects — `duel_arena` and `the_repertoire_gets_used` own that — it is
+/// that the same damage is the same percent on two bodies whose home games sized
+/// them a hundred times apart. So the damage arrives down the real channel and
+/// the reading is what is asserted.
+#[test]
+fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
+    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+
+    const CROSSOVER: &str = "mary_o";
+    // ⚠ **Ambition's own robot, not this demo's George.** The pair is Jon's
+    // capture's pair, and it is also the honest poison: `player_robot_v3`
+    // authors a real 60-point pool, so the two characters disagree about their
+    // meter by a factor of sixty BEFORE the match says anything. George authors
+    // no pool at all now — the demo stopped stamping its reference onto the
+    // three ids it registers — which would make "they disagree" true for a
+    // duller reason.
+    const NATIVE: &str = "player_robot_v3";
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    // ⛔ **THE POISON, and without it the assertion below is unfalsifiable.**
+    // The two characters have to really arrive at this stage carrying different
+    // pools, or "both seats agree" would also be true of a build that had
+    // stopped reading authored vitals at all.
+    let authored = |app: &App, id: &str| -> Option<i32> {
+        app.world()
+            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .get(id)
+            .expect("this stage cannot seat a character it has not prepared")
+            .vitals
+            .max_health
+    };
+    let crossover_pool = authored(&app, CROSSOVER);
+    let native_pool = authored(&app, NATIVE);
+    assert_ne!(
+        crossover_pool, native_pool,
+        "{CROSSOVER} and {NATIVE} author the same pool now, so this test can no \
+         longer tell a levelled match from an unlevelled one. Pick two \
+         characters whose home games disagree, or delete this test with the \
+         defect it guards."
+    );
+    assert_eq!(
+        crossover_pool,
+        Some(1),
+        "{CROSSOVER} is a one-hit-kill platformer protagonist and its own game \
+         says so; if that changed, this test is measuring a different world"
+    );
+    assert_eq!(
+        native_pool,
+        Some(60),
+        "{NATIVE} is supposed to bring a real authored pool of its own, so the \
+         two characters disagree by a factor of sixty before the match speaks"
+    );
+
+    let roster = app
+        .world()
+        .resource::<ambition_demo_smash::select::SmashRoster>()
+        .0
+        .clone();
+    let portrait_of = |id: &str| {
+        roster
+            .iter()
+            .position(|entry| entry == id)
+            .unwrap_or_else(|| panic!("{id} is not on the assembled grid: {roster:?}"))
+    };
+
+    let layout = screen(&app);
+    click(&mut app, layout.role_button(0));
+    click(&mut app, layout.role_button(1));
+    for (slot, character) in [(0usize, CROSSOVER), (1, NATIVE)] {
+        click(&mut app, layout.token_home(slot));
+        click(
+            &mut app,
+            layout
+                .portrait(portrait_of(character))
+                .expect("an authored portrait"),
+        );
+    }
+    click(&mut app, layout.start_button());
+    // Past the 3-2-1 opening hold, so nothing below is refused for being held.
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seated = |app: &mut App| -> Vec<(String, Entity, i32, i32, f32)> {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &WornCharacter, &BodyHealth)>();
+        let mut rows: Vec<(String, Entity, i32, i32, f32)> = q
+            .iter(world)
+            .map(|(entity, worn, health)| {
+                (
+                    worn.id().to_string(),
+                    entity,
+                    health.max(),
+                    health.damage_taken(),
+                    health.damage_percent(),
+                )
+            })
+            .collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        rows
+    };
+
+    let bodies = seated(&mut app);
+    assert_eq!(
+        bodies.len(),
+        2,
+        "the screen has to seat both fighters or nothing below measures anything: \
+         {bodies:?}"
+    );
+    let pools: Vec<i32> = bodies.iter().map(|(_, _, max, ..)| *max).collect();
+    assert_eq!(
+        pools,
+        vec![
+            ambition_demo_smash::SMASH_PERCENT_REFERENCE,
+            ambition_demo_smash::SMASH_PERCENT_REFERENCE
+        ],
+        "two seats in one match are being read against two different hundreds: \
+         {bodies:?}"
+    );
+
+    // The SAME damage at each of them, down the real channel.
+    const BITE: i32 = 20;
+    for (_, body, ..) in &bodies {
+        let at = app
+            .world()
+            .get::<ambition_platformer2d::platformer::body::BodyKinematics>(*body)
+            .expect("a seated fighter has a body")
+            .pos;
+        let volume: ambition_platformer2d::engine_core::CombatVolume =
+            ambition_platformer2d::engine_core::Aabb::new(
+                at,
+                ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
+            )
+            .into();
+        app.world_mut()
+            .write_message(ambition_platformer2d::combat::events::HitEvent {
+                strike_sfx: None,
+                volume,
+                damage: BITE,
+                source: ambition_platformer2d::combat::events::HitSource::Melee,
+                attacker: None,
+                target: ambition_platformer2d::combat::events::HitTarget::Body(*body),
+                mode: ambition_platformer2d::combat::events::HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            });
+    }
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let after = seated(&mut app);
+    for (id, _, _, taken, _) in &after {
+        assert!(
+            *taken >= BITE,
+            "the hit never reached {id}, so this test measures nothing: {after:?}"
+        );
+    }
+    // **WHAT ONE POINT OF DAMAGE READS AS, per fighter.** Compared as a scale
+    // rather than as a total, because these two are in a live match and the
+    // brains land their own hits — what must agree is the exchange rate, not the
+    // running score. Before the match declared its own pool this was 1.0 for
+    // Mary-O (a point of damage is a whole meter) and 0.01 for George.
+    let scale = |(id, _, _, taken, pct): &(String, Entity, i32, i32, f32)| {
+        assert!(
+            *taken > 0,
+            "{id} has taken no damage, so its scale is undefined"
+        );
+        *pct / *taken as f32
+    };
+    let crossover_scale = scale(&after[0]);
+    let native_scale = scale(&after[1]);
+    assert!(
+        (crossover_scale - native_scale).abs() < 1e-6,
+        "one point of damage reads as {crossover_scale} on {} and {native_scale} \
+         on {} — a fighter's HOME GAME is still sizing its meter: {after:?}",
+        after[0].0,
+        after[1].0
+    );
+    let declared = 1.0 / ambition_demo_smash::SMASH_PERCENT_REFERENCE as f32;
+    assert!(
+        (crossover_scale - declared).abs() < 1e-6,
+        "both fighters agree, and they agree on the wrong number: this stage \
+         declares {} as a full meter, so a point of damage is {declared} of one, \
+         not {crossover_scale}",
+        ambition_demo_smash::SMASH_PERCENT_REFERENCE
+    );
+}

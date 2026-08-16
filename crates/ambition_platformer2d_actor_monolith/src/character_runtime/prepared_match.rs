@@ -283,6 +283,11 @@ pub struct PreparedSeat {
 pub struct MatchRules {
     pub stocks: Option<u32>,
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// **The pool this match gives every seat**, or `None` to keep each
+    /// character's own. See
+    /// [`MatchParticipantRoster::fighter_health_pool`](super::staging::MatchParticipantRoster::fighter_health_pool)
+    /// — the field it is carried from, and where the reasoning lives.
+    pub health_pool: Option<i32>,
     pub opens_suspended: bool,
     /// **How long the opening ceremony holds the cast**, in simulation ticks.
     ///
@@ -320,6 +325,19 @@ impl MatchRules {
     /// S4: a stocks match's fighters die to the WORLD, not to the meter.
     /// Declared once so no two seats can disagree about it — a divergence this
     /// file's predecessor had three times.
+    /// **The pool a seat gets**: the match's, if it declared one, else the
+    /// character's own.
+    ///
+    /// ⭐ the same shape as [`Self::death_policy`] one function down, and the
+    /// pairing is the point. A stocks match already overrules the character on
+    /// *whether the pool kills*; D131 was half of one decision taken and the
+    /// other half left with the character — the match said the pool would never
+    /// drain and then read a percent against a number four different games had
+    /// each authored for themselves.
+    pub fn pool_over(&self, authored: i32) -> i32 {
+        self.health_pool.map(|pool| pool.max(1)).unwrap_or(authored)
+    }
+
     pub fn death_policy(&self) -> ambition_characters::actor::DeathPolicy {
         if self.stocks.is_some() {
             ambition_characters::actor::DeathPolicy::Unbounded
@@ -600,6 +618,7 @@ pub fn prepare_match(
     let rules = MatchRules {
         stocks: roster.fighter_stocks,
         abilities: roster.fighter_abilities,
+        health_pool: roster.fighter_health_pool,
         opens_suspended: roster.opens_suspended,
         opening_countdown_ticks: roster.opening_countdown_ticks,
     };
@@ -815,9 +834,11 @@ pub fn prepare_match(
         // A seat differs from a room placement in exactly three ways, and each
         // is a line rather than a parameter buried in a list of fourteen.
         let mut body = definition.seat_blueprint(ambition_platformer2d_core::MAX_RUN_SPEED);
-        // The character's own pool, or the reference body's. `baseline` already
-        // folded the definition's authored maximum.
-        body.max_health = baseline.max_health_over(1);
+        // **THE MATCH'S POOL, or the character's own.** `baseline` already
+        // folded the definition's authored maximum; `pool_over` is where a
+        // crossover match overrules it, because a percent read against four
+        // different games' authored maxima is four different percents (D131).
+        body.max_health = rules.pool_over(baseline.max_health_over(1));
         // The policy is the MATCH's decision, not the character's default: a
         // human seat's body carries none at all.
         body.autonomous_profile = Some(profile);
@@ -840,7 +861,7 @@ pub fn prepare_match(
         // defaulted to a one-hit pool and every seated fighter silently took it.
         seed.health =
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
-                baseline.max_health_over(seed.health.health.max.max(1)),
+                rules.pool_over(baseline.max_health_over(seed.health.health.max.max(1))),
             ))
             .with_policy(death_policy);
         // **THE AUTHORED KNOCKBACK WEIGHT**, onto the seed for the same reason

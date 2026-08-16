@@ -220,6 +220,21 @@ pub struct StocksMatchDecided {
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StocksMatchSettled(pub bool);
 
+/// **WHICH SIDE A SEATED FIGHTER FIGHTS FOR** — its declared team, or its own
+/// seat when the match declared none and every fighter is a side of one.
+///
+/// ⭐ **one rule, and it had two copies.** `decide_stocks_match` folds bodies
+/// into sides with it and every scoreboard has to name the same sides back, so
+/// the day the seat wording changed ("seat 2" is 1-indexed on purpose — a
+/// scoreboard counts players, it does not index an array) one of the copies
+/// would have kept the old one and the winner card would have named a side no
+/// fighter was on. Naming it here makes "the same side" a call rather than a
+/// convention.
+pub fn side_label(seat: usize, team: Option<&crate::targeting::MatchTeam>) -> String {
+    team.map(|team| team.as_str().to_string())
+        .unwrap_or_else(|| format!("seat {}", seat + 1))
+}
+
 /// Who took it, if anyone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SidesOutcome {

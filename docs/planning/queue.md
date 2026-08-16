@@ -394,8 +394,8 @@ the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.
 
 Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
-- ▢ **D140 — A SECOND MATCH NEVER STARTS AND NEVER ENDS: "GO!" stays up, and
-  nothing can win. (Jon, 2026-08-16, REPRODUCIBLE)**
+- ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
+  "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**
 
 Jon, verbatim: *"sometimes in a 4 player cpu battle, when someone wins it ends I
 with 'Go'. Maybe that is a side effect of starting one match, and then doing
@@ -413,29 +413,50 @@ the game ended when someone won with the screen text confirmation. But then
 another cpu vs cpu the go issue appears again, so this is reproducible."*
 
 ⭐ **the repro is exact and it is a SEQUENCE, which is why a test missed it**:
-match 1 is correct in every shape he tried (2-CPU and 4-CPU free-for-all).
-Match 2 — reached either by rematch OR by quitting to title first — hangs at
-"GO!" and never resolves a winner. So the defect is in what the FIRST match
-leaves behind, and quitting to the title does not clear it.
+match 1 is correct in every shape he tried (2-CPU and 4-CPU free-for-all), and
+every guard on this stage plays exactly one match. His own note — *"I thought we
+had tests for that"* — was the finding.
 
-⇒ **two things are stuck together and they may be one bug**: the countdown
-never retires (its state stays at GO), and the victory condition never fires
-(one fighter alive does not end the match). A countdown that never leaves GO
-would explain both if the win check is gated on the match having STARTED and
-the start edge is what never arrives on the second run.
+**MEASURED, not reasoned** (`the_stage_kills::a_second_match_on_the_same_stage_counts_in_and_ends`,
+written red first). The card said this on match one:
 
-**Falsifier, and Jon named it:** *"I thought we had tests for that. Probably
-worth strenthening them."* ⇒ the guard must run TWO matches in one app — the
-existing ones almost certainly assert one — and assert on the second that the
-countdown has retired and that a last-fighter-standing ends the match. ⛔ a test
-that builds a fresh app per match cannot fail this bug, which is very likely why
-the current ones pass.
+```text
+  match 1   3 . 2 . 1 . GO! . "seat 1 wins" . GO!      <- the ceremony took the card BACK
+  match 2   3 . 2 . 1 . GO! . (nothing, ever)          <- never decided
+```
 
-**And the product rule he stated**, which is the acceptance for the end of a
-match: *"the time in the game should freeze with 'WINNER: <name>' ... and not
-let players continue to play after the match ends"* — a frozen clock, the
-winner NAMED (not "seat 2 wins", which is D128 item 4), and inputs no longer
-moving anybody.
+⇒ **TWO defects that met on one `if`**, both now fixed:
+
+1. **`StocksMatchSettled` could not be retracted between matches.** It was
+   cleared only by `decide_stocks_match` observing NO active match — *"a match
+   that went away un-decides itself"* — and this stage never removes the receipt
+   (the versus stage does; activation REPLACES it). So there is no sim tick
+   between two matches on which the receipt is absent, match two opened wearing
+   match one's verdict, and `decide_stocks_match` returned on its first line
+   forever. ⇒ **retracted by ACTIVATION now**, in the same command flush as the
+   receipt: a match that is starting has not been decided.
+2. **The announce card had two writers and no arbitration.** The GO! card holds
+   one beat past the release; a knockout inside that beat overwrote the victory
+   card on the next tick. The old guard protected the wrong half (*"do not CLEAR
+   the winner's card"*), which also meant that once (1) made the verdict
+   permanent, the clear was gated off forever and GO! sat on a live match. ⇒ the
+   ceremony now **stops talking the moment the match is decided**, and the clear
+   is unconditional.
+
+**And the product rule he stated is built**: the sim clock is requested to `0.0`
+while a match is settled and back to `1.0` while one is live and undecided
+(`stocks_match::state_the_matchs_pace`) — self-healing, because nothing else
+says "full speed" on a CPU-vs-CPU stage, and safe because the sink reduces a
+frame's requests by `min` so hitstop still wins. The winner is NAMED: the card
+reads `WINNER: Robot v3`, resolving the engine's SIDE ("seat 1") to the
+fighter's own `Name` when the side is a side of one, and keeping the team's name
+when a team won together (closes D128 item 4).
+
+**The guard is the sequence**: two matches in ONE app, asserting on each that it
+counts in `3-2-1-GO!`, that the ceremony does not have the last word, that
+exactly one winner is announced, and that no fighter travels more than 8px after
+the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
+why the existing ones passed.
 
 - ▢ **D138 — OILER FIGHTS IN HIS OLD BODY: the SVG rig is his portrait and
   nothing else. (Jon, 2026-08-16)**

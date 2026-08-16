@@ -85,8 +85,6 @@ fn the_worlds_edge_sits_within_a_launch_of_the_platform() {
 /// retries into existence.
 #[test]
 fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
-    use ambition_demo_smash::select::SmashSelect;
-
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -1345,5 +1343,364 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
          of play, against at most {worst_ordinary_step:.1} in an ordinary frame, absorbing a \
          {biggest_absorbed_jump:.1}-unit collapse — that is a cut back to the platform, which is \
          the thing Jon reported about the zoom and is now possible for the centre too"
+    );
+}
+
+/// **THE SECOND MATCH ON THE SAME STAGE COUNTS IN, TAKES THE CARD DOWN, ENDS,
+/// AND STOPS.** (D140)
+///
+/// ⛔⛔ reported from the couch, 2026-08-16 (Jon): *"cpu vs cpu on a fresh match,
+/// got seat 2 wins. Running back and doing another cpu vs cpu after gets a 3 2 1
+/// go, but the GO stays on the screen for the entire match, and the match does
+/// not end. I can quit to title and then do another match which does a 3, 2, 1,
+/// go, but again the go still appears on the screen, and the match does not end
+/// when there is only 1 player left."*
+///
+/// ⭐⭐ **THE SECOND MATCH IS THE TEST, and it is why every other one here
+/// missed this.** `the_opening_countdown_is_something_a_player_can_see` watches
+/// one ceremony; `a_launched_fighter_is_taken_by_the_world_and_spends_a_stock`
+/// spends one stock; the host's `coming_back_to_the_select_screen_offers_a_fresh_match`
+/// starts a second match and never plays it. Each is green about exactly what it
+/// claims. The defect lived in what the FIRST match left behind, so a suite of
+/// single-match tests could not see it however many of them there were — Jon's
+/// own note, *"I thought we had tests for that"*, is the finding.
+///
+/// So this plays two identical matches through one app and asserts they are the
+/// same match twice. What it pins:
+///
+/// ```text
+///   counted in       3 - 2 - 1 - GO!, on BOTH visits
+///   card comes down  the ceremony never has the last word
+///   decided          exactly one winner announced per match
+///   stopped          the cast does not move after the winner is named
+/// ```
+#[test]
+fn a_second_match_on_the_same_stage_counts_in_and_ends() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat, StocksMatchDecided};
+    use bevy::prelude::*;
+
+    /// What one match said, decided, and did after it was over.
+    struct Played {
+        /// Every distinct word the centred card showed WHILE THE STAGE WAS UP.
+        said: Vec<String>,
+        /// The winners announced while this match ran.
+        decided: Vec<Option<String>>,
+        /// The furthest any fighter travelled after the winner was named.
+        travelled_after_the_end: f32,
+    }
+
+    #[derive(Resource, Default)]
+    struct Decisions(Vec<Option<String>>);
+
+    let slot: ambition_platformer2d::presentation::HudSlotId =
+        ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
+
+    let mut app = build_demo_app();
+    app.init_resource::<Decisions>();
+    app.add_systems(
+        Update,
+        |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
+            for outcome in decided.read() {
+                seen.0.push(outcome.winner.clone());
+            }
+        },
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // ⚠ **CPU vs CPU, which is Jon's repro**, and ONE stock so the end arrives
+    // from a single launch rather than from minutes of fighting.
+    let play = |app: &mut App| -> Played {
+        let before = app.world().resource::<Decisions>().0.len();
+        let mut roster = ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        );
+        roster.fighter_stocks = Some(1);
+        let countdown = roster.opening_countdown_ticks as usize;
+        app.world_mut().insert_resource(roster);
+        app.world_mut()
+            .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+                ambition_platformer2d::game_shell::ShellRouteId::new(
+                    ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+                ),
+            ));
+
+        let cast = |app: &mut App| -> Vec<(usize, ambition_platformer2d::engine_core::Vec2)> {
+            let world = app.world_mut();
+            let mut query = world.query::<(&MatchSeat, &BodyKinematics)>();
+            let mut rows: Vec<_> = query
+                .iter(world)
+                .map(|(seat, kin)| (seat.0, kin.pos))
+                .collect();
+            rows.sort_by_key(|(seat, _)| *seat);
+            rows
+        };
+
+        let mut said: Vec<String> = Vec::new();
+        let mut launched = false;
+        let mut travelled_after_the_end = 0.0f32;
+        let mut standing: Option<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = None;
+        for tick in 0..(countdown + 600) {
+            app.update();
+            // The launch, once, after the ceremony has released the cast: a body
+            // thrown at 2400px/s crosses this stage's blast margin in a handful
+            // of ticks, and on one stock that is the match.
+            if !launched && tick > countdown + 30 {
+                let world = app.world_mut();
+                let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+                for (seat, mut kin) in query.iter_mut(world) {
+                    if seat.0 == 1 {
+                        kin.vel = ambition_platformer2d::engine_core::Vec2::new(2_400.0, -200.0);
+                        launched = true;
+                    }
+                }
+            }
+
+            let on_stage = app
+                .world()
+                .resource::<ambition_platformer2d::game_shell::ShellRouter>()
+                .active
+                .as_ref()
+                .is_some_and(|active| {
+                    active.route_id.as_str() == ambition_demo_smash::SMASH_GAMEPLAY_ROUTE
+                });
+            // ⚠ **only while the STAGE is up.** The card the previous match
+            // ended on is still in `HudReadouts` while the select screen shows —
+            // it is the experience's HUD DECLARATION that stops it being drawn,
+            // not the readout — so recording it off-stage would make every match
+            // after the first look like it opened on a victory card.
+            if on_stage {
+                if let Some(text) = app
+                    .world()
+                    .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+                    .and_then(|readouts| readouts.get(&slot))
+                    .map(ambition_platformer2d::presentation::HudReadout::text)
+                {
+                    if said.last() != Some(&text) {
+                        said.push(text);
+                    }
+                }
+            }
+
+            // ⭐ **the FREEZE, measured as distance rather than as a resource.**
+            // Reading `ClockState::time_scale` would assert that a number was
+            // written; this asks the only question Jon asked — *"the time in the
+            // game should freeze"* — of the bodies themselves.
+            let ended = app.world().resource::<Decisions>().0.len() > before;
+            if ended && on_stage {
+                let now = cast(app);
+                if let Some(previous) = standing.as_ref() {
+                    for (seat, pos) in &now {
+                        if let Some((_, was)) = previous.iter().find(|(other, _)| other == seat) {
+                            travelled_after_the_end =
+                                travelled_after_the_end.max((*pos - *was).length());
+                        }
+                    }
+                }
+                standing = Some(now);
+            }
+        }
+        Played {
+            said,
+            decided: app.world().resource::<Decisions>().0[before..].to_vec(),
+            travelled_after_the_end,
+        }
+    };
+
+    let first = play(&mut app);
+    // The stage takes itself back to the select screen 4.5s after the end; let
+    // it, so the second match arrives by the road a player takes.
+    for _ in 0..400 {
+        app.update();
+    }
+    let second = play(&mut app);
+
+    for (which, played) in [("first", &first), ("second", &second)] {
+        assert_eq!(
+            played.decided.len(),
+            1,
+            "the {which} match announced {} winners ({:?}) — one fighter was \
+             launched off a one-stock stage, so exactly one match ended and was \
+             announced once. The card said {:?}",
+            played.decided.len(),
+            played.decided,
+            played.said
+        );
+        assert_eq!(
+            played
+                .said
+                .iter()
+                .take(4)
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            vec!["3", "2", "1", "GO!"],
+            "the {which} match counted the players in with {:?}",
+            played.said
+        );
+        assert_ne!(
+            played.said.last().map(String::as_str),
+            Some("GO!"),
+            "the {which} match ended with GO! still on the card — the opening \
+             ceremony had the last word and is sitting on the match it \
+             announced: {:?}",
+            played.said
+        );
+        let winner = played.decided[0]
+            .as_deref()
+            .expect("a launch off a one-stock stage leaves one fighter standing");
+        assert_eq!(
+            played.said.last().map(String::as_str),
+            Some(ambition_demo_smash::victory_banner(Some("Robot v3")).as_str()),
+            "the {which} match's last word was not the winner card. It decided \
+             {winner:?} and said {:?}",
+            played.said
+        );
+        // ⚠ **half a pixel over ~350 ticks.** Not zero: the clock RAMPS to a
+        // stop rather than snapping, which is the feel the time-control
+        // smoother exists for, so the frame the winner is named still carries a
+        // fraction of a step. What must not happen is the match playing on.
+        assert!(
+            played.travelled_after_the_end < 8.0,
+            "a fighter moved {:.1}px after the {which} match was decided — the \
+             winner is still playing, and the game did not stop",
+            played.travelled_after_the_end
+        );
+    }
+}
+
+/// **A FOUR-WAY FREE-FOR-ALL ENDS WHEN ONE FIGHTER IS LEFT.** (D140)
+///
+/// Jon named this shape twice — *"sometimes in a 4 player cpu battle, when
+/// someone wins it ends with 'Go'"* and *"when there is only 1 player alive or 1
+/// team alive for team matches the time in the game should freeze"* — and the
+/// sibling test above plays a duel. The predicate is `last_side_standing`, which
+/// folds N sides rather than comparing two, so "three of four are out" is a
+/// genuinely different question from "one of two is out": a fold that stopped at
+/// the first surviving side would answer both the same way while only one of
+/// them is right.
+///
+/// ⚠ **the same two fighters twice.** The standalone demo declares two
+/// characters (the stand-ins for the robot lineage), so a four-seat match here
+/// is a mirror match — which is also the case worth having, because four bodies
+/// wearing two characters is where a side keyed on the CHARACTER rather than the
+/// SEAT would collapse four sides into two and end the match early.
+#[test]
+fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat, StocksMatchDecided};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Decisions(Vec<Option<String>>);
+
+    let mut app = build_demo_app();
+    app.init_resource::<Decisions>();
+    app.add_systems(
+        Update,
+        |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
+            for outcome in decided.read() {
+                seen.0.push(outcome.winner.clone());
+            }
+        },
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        [
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ],
+        &[5, 5, 5, 5],
+    );
+    roster.fighter_stocks = Some(1);
+    let countdown = roster.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let mut seated = 0usize;
+    let mut launched = false;
+    // ⚠ **it STOPS a few ticks after the end, and that is not impatience.** The
+    // stage takes itself back to the select screen 4.5s later and the card comes
+    // down with it (`return_to_the_select_screen_when_the_match_ends`), so a
+    // loop that ran to a fixed budget would read an empty slot and blame the
+    // announcement.
+    for tick in 0..(countdown + 400) {
+        app.update();
+        if app.world().resource::<Decisions>().0.len() == 1 && launched {
+            for _ in 0..10 {
+                app.update();
+            }
+            break;
+        }
+        if tick == countdown {
+            let world = app.world_mut();
+            let mut query = world.query::<&MatchSeat>();
+            seated = query.iter(world).count();
+        }
+        // Everybody but seat 0 leaves the world, once.
+        if !launched && tick > countdown + 30 {
+            let world = app.world_mut();
+            let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+            for (seat, mut kin) in query.iter_mut(world) {
+                if seat.0 > 0 {
+                    kin.vel = ambition_platformer2d::engine_core::Vec2::new(
+                        2_400.0 * if seat.0 % 2 == 0 { 1.0 } else { -1.0 },
+                        -200.0,
+                    );
+                    launched = true;
+                }
+            }
+        }
+    }
+
+    assert_eq!(
+        seated, 4,
+        "the stage seated {seated} fighters for a four-way, so whatever this \
+         measured it was not a free-for-all"
+    );
+    let decided = &app.world().resource::<Decisions>().0;
+    assert_eq!(
+        decided.len(),
+        1,
+        "a four-way with one fighter left announced {decided:?} — three sides \
+         went out and exactly one match ended"
+    );
+    let slot: ambition_platformer2d::presentation::HudSlotId =
+        ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
+    let card = app
+        .world()
+        .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+        .and_then(|readouts| readouts.get(&slot))
+        .map(ambition_platformer2d::presentation::HudReadout::text)
+        .expect("the end of a match writes the announce card");
+    // The last fighter standing is seat 0's, and the card names IT rather than
+    // the engine's word for its side.
+    let survivor = {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &Name)>();
+        query
+            .iter(world)
+            .find(|(seat, _)| seat.0 == 0)
+            .map(|(_, name)| name.as_str().to_string())
+            .expect("seat 0 is the fighter nobody launched")
+    };
+    assert_eq!(
+        card,
+        ambition_demo_smash::victory_banner(Some(&survivor)),
+        "the four-way's card reads {card:?} with {survivor:?} the only fighter \
+         left standing"
     );
 }

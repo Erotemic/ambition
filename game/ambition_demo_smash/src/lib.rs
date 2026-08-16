@@ -401,9 +401,16 @@ pub fn stage_centre() -> Vec2 {
 }
 
 /// What the match announces when it ends.
+///
+/// ⭐ **"WINNER: <name>", in Jon's own words** (2026-08-16): *"the time in the
+/// game should freeze with 'WINNER: <name>' to show the match is over"*. It read
+/// `seat 2 wins` before — which is what he was looking at when he asked — and
+/// the SIDE is not a name. `announce_the_winner` resolves the winning side into
+/// the fighter's own name before it gets here; this owns the wording alone, so
+/// the card and any test of it read one function.
 pub fn victory_banner(winner: Option<&str>) -> String {
     match winner {
-        Some(side) => format!("{side} wins"),
+        Some(side) => format!("WINNER: {side}"),
         // A draw is reachable and cheaply: two fighters on their last stock,
         // knocked off together. A `winner: String` shape would have needed a
         // sentinel for this, which is why the engine's message carries an
@@ -679,6 +686,24 @@ fn announce_the_opening_countdown(
     if !rules.opens_suspended || rules.opening_countdown_ticks == 0 {
         return;
     }
+    // ⛔⛔ **THE CEREMONY STOPS TALKING THE MOMENT THE MATCH IS DECIDED** (D140).
+    //
+    // The card has exactly one owner at a time and the ORDER is the whole rule:
+    // the opening owns it until there is an outcome, and then the outcome does,
+    // for as long as the results stand. This used to be expressed as "do not
+    // CLEAR the winner's card", which guarded the wrong half — the `Some(word)`
+    // arm was ungated, so a match decided while GO! was still up (its card holds
+    // one beat past the release, and a knockout can land inside that beat)
+    // overwrote the victory card with GO! on the very next tick. Measured on
+    // this stage: `["3", "2", "1", "GO!", "seat 1 wins", "GO!"]`.
+    //
+    // ⚠ and the same line is why a stuck GO! was UNCLEARABLE. Once the previous
+    // match's verdict could not be retracted (the defect above this one), the
+    // clear was gated off forever and the card sat on a live match announcing
+    // its start. Both halves of D140 met on this one `if`.
+    if settled.is_some_and(|settled| settled.0) {
+        return;
+    }
     let total = u64::from(rules.opening_countdown_ticks);
     // One beat, from the ruleset's own arithmetic rather than a second constant:
     // `opening_phase` divides the countdown by `opening_beats()` exactly this
@@ -697,14 +722,9 @@ fn announce_the_opening_countdown(
             SMASH_ANNOUNCE_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(word),
         ),
-        // ⚠ **the slot has ONE owner at a time, and after the match is decided
-        // it is the winner's.** Clearing unconditionally here would wipe the
-        // victory card off the screen on the very next tick.
-        None => {
-            if !settled.is_some_and(|settled| settled.0) {
-                readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
-            }
-        }
+        // Unconditional now, and it can be: the arm above this one already
+        // handed the slot over for the rest of the match.
+        None => readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT),
     }
 }
 
@@ -856,6 +876,7 @@ fn return_to_the_select_screen_when_the_match_ends(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
     mut countdown: bevy::prelude::Local<Option<f32>>,
 ) {
     let on_stage = router
@@ -867,6 +888,15 @@ fn return_to_the_select_screen_when_the_match_ends(
         // countdown belongs to THIS visit to the stage.
         *countdown = None;
         decided.clear();
+        // ⭐ **AND THE CARD BELONGS TO THIS VISIT TOO** (D140). It used to be
+        // left standing on the argument that "the experience's whole HUD
+        // declaration goes with the route", which is true about what is DRAWN
+        // and not about what is HELD — so the next match arrived on the stage
+        // with the previous winner still in the slot, and it showed for the two
+        // frames before that match activated and the ceremony took the slot
+        // over. A card that outlives its match is exactly the defect D140 is
+        // about, in miniature.
+        readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
         return;
     }
     let ended = decided.read().count() > 0;
@@ -912,22 +942,56 @@ fn return_to_the_select_screen_when_the_match_ends(
 /// [`announce_the_opening_countdown`] for why nothing draws that channel. The
 /// demo has declared a centred announce slot the whole time; this writes it.
 ///
-/// ⚠ **written once and never cleared, deliberately.** A readout persists until
-/// somebody replaces or clears it, and 4.5 s later
-/// [`return_to_the_select_screen_when_the_match_ends`] leaves the stage and the
-/// experience's whole HUD declaration goes with it. So the card stands for
-/// exactly as long as the results screen does, with no timer to keep in step
-/// with the route change.
+/// ⚠ **written once, and it stands until the stage is LEFT.** A readout
+/// persists until somebody replaces or clears it, and nothing on this stage
+/// replaces it — [`announce_the_opening_countdown`] hands the slot over the
+/// moment a match is decided. 4.5 s later
+/// [`return_to_the_select_screen_when_the_match_ends`] takes the card down as it
+/// goes, so the card stands for exactly as long as the results screen does with
+/// no timer to keep in step with the route change.
+///
+/// ⛔ **it used to rely on the HUD DECLARATION leaving with the route instead**,
+/// and that is a claim about what is DRAWN, not about what is HELD — the next
+/// match arrived on the stage still holding the last one's winner (D140).
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
+    // **THE CAST, so the card can say a NAME.** The engine decides a SIDE — a
+    // team, or `seat 2` when nobody declared one — and a side is the right
+    // answer to "who won" and the wrong thing to put on a screen. The bodies
+    // still standing are the ones that know their names.
+    fighters: bevy::prelude::Query<(
+        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
+        &bevy::prelude::Name,
+    )>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for outcome in decided.read() {
+        // ⚠ **a TEAM keeps its own name.** Substituting one member's name for
+        // "Red" would name a player on a side that won together, so the swap
+        // only happens for a side of one — which is the only case where the
+        // side and the fighter are the same thing.
+        //
+        // ⚠ **and the fallback is the SIDE, not a panic.** A simultaneous
+        // ring-out despawns every body, so a card can legitimately be asked to
+        // name a winner with nobody left standing to ask.
+        let named = outcome.winner.as_deref().map(|side| {
+            let mut on_the_winning_side = fighters.iter().filter(|(seat, team, _)| {
+                ambition_platformer2d::combat::stocks::side_label(seat.0, *team) == side
+            });
+            match (on_the_winning_side.next(), on_the_winning_side.next()) {
+                // A side of ONE is a person, and a person has a name.
+                (Some((_, _, name)), None) => name.as_str().to_string(),
+                // A real team won together — naming one of its members would
+                // put a player's name on somebody else's victory — or nobody is
+                // left standing to ask (a simultaneous ring-out despawns every
+                // body). Either way the side is the honest answer.
+                _ => side.to_string(),
+            }
+        });
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(
-                outcome.winner.as_deref(),
-            )),
+            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(named.as_deref())),
         );
     }
 }
@@ -2417,9 +2481,12 @@ mod tests {
     /// is writing it once.
     #[test]
     fn deciding_the_match_shows_a_card_naming_the_winner() {
+        // ⚠ the WORDING comes from `victory_banner`, which is where it is
+        // decided; this fixture seats no bodies, so the card falls back to the
+        // side label and that fallback is part of what is being asserted.
         assert_eq!(
             announced_outcome(Some("seat 2")).as_deref(),
-            Some("seat 2 wins"),
+            Some(victory_banner(Some("seat 2")).as_str()),
             "the ending wrote no announce card, so the stage says nothing about \
              who won"
         );
@@ -2707,9 +2774,14 @@ mod tests {
 
     /// A draw has a name. The engine's `winner: Option<String>` exists so this
     /// case does not need a sentinel, and the banner has to honour that.
+    ///
+    /// ⭐ **and a winner is announced as one, in Jon's words** (D140): the card
+    /// reads `WINNER: <name>` rather than `<side> wins`, because a player
+    /// looking at the end of a match should be told who WON rather than be
+    /// handed the engine's word for a side.
     #[test]
     fn a_draw_is_announced_as_a_draw_rather_than_as_a_winner() {
-        assert_eq!(victory_banner(Some("seat 1")), "seat 1 wins");
+        assert_eq!(victory_banner(Some("Robot v3")), "WINNER: Robot v3");
         assert!(victory_banner(None).contains("Draw"));
     }
 }

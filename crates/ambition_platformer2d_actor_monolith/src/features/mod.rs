@@ -315,6 +315,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // producing it", which is exactly what this is — the KO was decided in
         // Resolve, and spending is bookkeeping over it.
         app.init_resource::<ambition_combat::stocks::StocksMatchSettled>();
+        // ⚠ **the same rule as `BodyHitResolved` below, applied to the clock.**
+        // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
+        // is what schedules it, so this plugin registers it — a fixture that
+        // composes the ruleset without the runtime's time-control assembly
+        // would otherwise die on the first tick of a match. `add_message` is
+        // idempotent, so the composition that already registers it is
+        // unaffected (`transform_beat` does exactly this for the same reason).
+        app.add_message::<crate::time::time_control::ClockScaleRequest>();
         // ⚠ REGISTERED WHERE THE WRITERS ARE SCHEDULED, not one crate up.
         // `apply_feature_hit_events` and the player hit path both write
         // `BodyHitResolved`, and registering it in `ambition_platformer2d_runtime` left every
@@ -360,6 +368,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // answer on the frame the last fighter goes out.
                 crate::features::stocks_match::decide_stocks_match
                     .in_set(ambition_combat::stocks::MatchOutcomeDecided),
+                // AFTER the decision, in the same phase, so the tick a match is
+                // over is the tick it stops (D140). Reading the latch on the
+                // frame BEFORE the one that sets it would let the winner play
+                // on for one tick, which is the window a final KO happens in.
+                crate::features::stocks_match::state_the_matchs_pace,
                 // The causal OBSERVER, last in the chain so it reads this tick's
                 // decision rather than the previous one. It holds no authority
                 // over any of the above — it reads their messages — which is why

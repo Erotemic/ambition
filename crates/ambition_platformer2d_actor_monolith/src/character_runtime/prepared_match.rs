@@ -1001,7 +1001,7 @@ pub fn prepare_match(
 /// preparation can answer this BEFORE deriving the kit. It could only be asked
 /// after construction while a persona pass came back to repair any
 /// ability-dependent kit; with that pass gone the ordering became observable.
-fn effective_abilities(
+pub fn effective_abilities(
     authored: Option<ambition_platformer2d_core::AbilitySet>,
     mask: Option<ambition_platformer2d_core::AbilitySet>,
 ) -> Option<ambition_platformer2d_core::AbilitySet> {
@@ -1624,6 +1624,29 @@ pub fn activate_the_prepared_match(
         }
     }
 
+    // ⛔⛔ **A MATCH THAT IS STARTING HAS NOT BEEN DECIDED** (D140, Jon
+    // 2026-08-16: *"the GO stays on the screen for the entire match, and the
+    // match does not end"*).
+    //
+    // `StocksMatchSettled` is a match-scoped latch on a process-global
+    // resource, and the only thing that used to clear it was
+    // `decide_stocks_match` observing NO active match — *"a match that went
+    // away un-decides itself"*. That reads as a complete answer and is not one:
+    // clearing on ABSENCE needs a sim tick on which the receipt is absent, and
+    // between two matches on the same stage there is none. This demo never
+    // removes the receipt (the versus stage does); activation REPLACES it, so
+    // the second match opened already carrying the first one's verdict and
+    // `decide_stocks_match` returned on its first line forever.
+    //
+    // ⭐ **so it is retracted by the thing that starts a match rather than by a
+    // gap between two** — step two belongs inside step one. Written through
+    // `Commands` beside the receipt so it lands in the SAME flush: there is no
+    // tick on which a live match is wearing a stale decision.
+    //
+    // ⚠ `insert_resource`, not a `ResMut`, deliberately — a composition that
+    // never installed the stocks ruleset still activates matches, and taking
+    // the resource as a parameter would make this system unschedulable there.
+    commands.insert_resource(crate::combat::stocks::StocksMatchSettled(false));
     // ATOMIC: the receipt goes in with the bodies, in the same flush. There is
     // no partial state to land a rewind in — either the tick that activated
     // happened or it did not.

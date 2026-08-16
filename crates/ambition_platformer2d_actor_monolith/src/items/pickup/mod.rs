@@ -11,6 +11,7 @@
 //! throws.
 
 pub mod conditions;
+pub mod minted_horizon;
 
 use bevy::prelude::*;
 
@@ -233,6 +234,13 @@ impl Plugin for ItemPickupSimulationPlugin {
 
 const PICKUP_HALF: f32 = 18.0;
 const THROW_AHEAD: f32 = 48.0;
+
+/// **The body a runtime-minted instance gets.** A mint has no authored record to
+/// take a size from, so this is a property of the MINT SITE rather than of the
+/// instance — which is why it is not part of the instance's durable description
+/// and why the checkpoint restore rebuilds one with the same constant rather
+/// than remembering a copy per object.
+const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 
 /// **WHERE A PHYSICAL ITEM IS — the state that replaced destroy-and-recreate.**
 ///
@@ -675,6 +683,14 @@ pub fn project_custody_onto_residency(
 /// [`authored_occurrence_request`](crate::construction::authored_occurrence_request).
 /// It comes back with the record's own `SimId` and provenance, which is what
 /// makes it the same occurrence rather than a look-alike.
+///
+/// ⭐⭐ **AND THE FOURTH: A ROW NO RECORD ANYWHERE CAN DESCRIBE.** Materializing
+/// from a record is bounded by *"some room authors this id"*, and a
+/// RUNTIME-MINTED instance ([`SpawnOrigin::Dynamic`](ambition_platformer2d_shared_tangle::construction::SpawnOrigin))
+/// is room-scoped and carryable — it can enter the baseline, and no record can
+/// rebuild it. The checkpoint therefore captures a durable DESCRIPTION of one at
+/// commit time ([`minted_horizon`]) and this arm rebuilds from that. The two
+/// describers are disjoint populations, not a preference order.
 #[allow(clippy::too_many_arguments)]
 pub fn restore_custody_to_checkpoint(
     // ⭐ **`SessionCommands`, because materialization SPAWNS.** An occurrence
@@ -691,6 +707,11 @@ pub fn restore_custody_to_checkpoint(
     world: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
     >,
+    // **The checkpoint's own DESCRIPTIONS of what the simulation minted**, for
+    // the occurrences no record in any room can describe. See
+    // [`minted_horizon`]; it is the item domain's third arm of the same
+    // baseline, and its population is disjoint from the authored one.
+    minted: Option<Res<minted_horizon::MintedItemBaseline>>,
     mut items: Query<(
         Entity,
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -848,56 +869,129 @@ pub fn restore_custody_to_checkpoint(
     if missing.is_empty() {
         return;
     }
-    // Resolved once, and only when there is something to materialize: a
-    // composition with no session world has no definitions to reach, and a shell
+    // Resolved once, and only when there is something to materialize: a shell
     // host at a non-gameplay route must not author gameplay entities.
-    let (Some(world), Some(scope)) = (world.as_deref(), commands.spawn_scope()) else {
+    //
+    // ⚠ **the session world is NOT required here any more, and that is the
+    // second describer arriving.** It used to be, because the authored record
+    // was the only thing that could rebuild an occurrence; a runtime mint has no
+    // record and is rebuilt from the checkpoint's own description, so a
+    // composition with no world can still put one back. The authored arm below
+    // asks for the world itself.
+    let Some(scope) = commands.spawn_scope() else {
         bevy::log::warn!(
             target: "ambition_platformer2d::items",
             "the checkpoint remembers {} carried occurrence(s) this world cannot rebuild: \
-             no session world or no spawn scope",
+             no spawn scope",
             missing.len(),
         );
         return;
     };
     for (occurrence, holder) in missing {
-        // ⭐ **THE DEFINITION IS REACHED BY IDENTITY, not by room.** The
-        // occurrence is resident nowhere, so no room build is coming for it;
-        // what rebuilds it is the record that minted it, found wherever in the
-        // world that record lives.
-        let Some(request) =
-            crate::construction::authored_occurrence_request(&world.rooms, &occurrence)
-        else {
-            // ⚠ a CONTENT change rather than a defect: the record has been
-            // edited away since the checkpoint was taken. Loud, and the player
-            // simply no longer has the thing.
-            bevy::log::warn!(
-                target: "ambition_platformer2d::items",
-                "the checkpoint remembers `{occurrence:?}` in a hand, and no room in this \
-                 world authors a record that can rebuild it",
-            );
-            continue;
+        // ⭐⭐ **TWO DESCRIBERS, AND WHICH ONE ANSWERS IS DECIDED BY WHERE THE
+        // OCCURRENCE CAME FROM.** An authored occurrence is rebuilt by the record
+        // that minted it; a runtime mint has no record anywhere and is rebuilt
+        // from the description the checkpoint captured of it. Asking the
+        // checkpoint FIRST is not a preference between two answers — the two
+        // populations are disjoint by construction, because the capture takes
+        // only `SpawnOrigin::Dynamic` rows and an authored record can never
+        // spell one.
+        let described = minted
+            .as_deref()
+            .and_then(|minted| minted.description_of(&occurrence));
+        let rebuilt = match described {
+            // ── the simulation minted it: identity + provenance + spec id ─────
+            Some(description) => match held_spec_by_id(&description.held_item) {
+                Some(spec) => Some((
+                    description.origin.clone(),
+                    // ⭐ **NO POSITION IS REMEMBERED AND NONE IS NEEDED.** The
+                    // hand supplies where the object is, and `ground_item_physics`
+                    // refuses to step anything not `InWorld`, so this value is
+                    // not read while it is carried. It is the honest answer for
+                    // the instant before custody applies, exactly as the
+                    // authored arm's authored position is.
+                    Vec2::ZERO,
+                    MINTED_ITEM_HALF_EXTENT,
+                    format!("Ground item: {}", description.held_item),
+                    spec,
+                )),
+                None => {
+                    // ⚠ a CONTENT change: the item's spec has been edited out of
+                    // the catalog since the checkpoint was taken.
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::items",
+                        "the checkpoint remembers minted `{occurrence:?}` in a hand as a \
+                         `{}`, and no item spec answers to that id any more",
+                        description.held_item,
+                    );
+                    None
+                }
+            },
+            // ── authored: reach the record BY IDENTITY, not by room ───────────
+            //
+            // The occurrence is resident nowhere, so no room build is coming for
+            // it; what rebuilds it is the record that minted it, found wherever
+            // in the world that record lives.
+            None => match world
+                .as_deref()
+                .and_then(|world| {
+                    crate::construction::authored_occurrence_request(&world.rooms, &occurrence)
+                })
+                .as_ref()
+                .map(|request| (request, &request.parameters))
+            {
+                Some((
+                    request,
+                    crate::construction::ActorConstructionParams::GroundItem { spec, held },
+                )) => Some((
+                    request.origin.clone(),
+                    // Where the record puts it. Never read while the object is
+                    // in a hand, and the honest answer for the instant before
+                    // custody is applied.
+                    spec.pos,
+                    spec.half_extent,
+                    format!("Ground item: {}", spec.name),
+                    held.clone(),
+                )),
+                Some(_) => {
+                    // ⚠ the family that can be CARRIED and the family that can be
+                    // materialized are the same one list; a row for anything else
+                    // means a producer joined one road and not the other.
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::items",
+                        "the checkpoint remembers `{occurrence:?}` in a hand, but its record \
+                         does not describe something a body can carry",
+                    );
+                    None
+                }
+                None => {
+                    // ⚠ a CONTENT change rather than a defect: the record has
+                    // been edited away since the checkpoint was taken (or this
+                    // composition has no session world to look in). Loud, and
+                    // the player simply no longer has the thing.
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::items",
+                        "the checkpoint remembers `{occurrence:?}` in a hand, it carries no \
+                         minted description, and no room in this world authors a record that \
+                         can rebuild it",
+                    );
+                    None
+                }
+            },
         };
-        let crate::construction::ActorConstructionParams::GroundItem { spec, held } =
-            &request.parameters
-        else {
-            // ⚠ the family that can be CARRIED and the family that can be
-            // materialized are the same one list; a row for anything else means
-            // a producer joined one road and not the other.
-            bevy::log::warn!(
-                target: "ambition_platformer2d::items",
-                "the checkpoint remembers `{occurrence:?}` in a hand, but its record does not \
-                 describe something a body can carry",
-            );
+        let Some((origin, pos, half_extent, name, held)) = rebuilt else {
             continue;
         };
         let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
             continue;
         };
-        // ⛔ **the record's OWN `SimId` and provenance**, which is what makes
+        // ⛔ **the occurrence's OWN `SimId` and provenance**, which is what makes
         // this the same occurrence coming back rather than a copy wearing its
         // name. A fresh identity here would be a silent duplication the moment
-        // the home room decided the original was still out there.
+        // the home room decided the original was still out there — and for a
+        // runtime mint, a rebuilt entity with no `SpawnOrigin::Dynamic` would be
+        // invisible to the NEXT capture, so the object would survive exactly one
+        // death and then become unrecoverable.
         //
         // ⚠ **`InCustodyOf` is NOT written here**, for the same reason the arms
         // above do not write it: it is derived from `ItemCustody` by
@@ -906,17 +1000,14 @@ pub fn restore_custody_to_checkpoint(
         commands.spawn_room_in_session(
             scope,
             (
-                request.sim_id.clone(),
-                request.origin.clone(),
-                Name::new(format!("Ground item: {}", spec.name)),
+                occurrence.clone(),
+                origin,
+                Name::new(name),
                 GroundItem {
                     spec: held.clone(),
-                    // Where the record puts it. Never read while the object is
-                    // in a hand, and the honest answer for the instant before
-                    // custody is applied.
-                    pos: spec.pos,
+                    pos,
                     vel: Vec2::ZERO,
-                    half_extent: spec.half_extent,
+                    half_extent,
                 },
                 ItemCustody::Held { holder },
             ),
@@ -925,7 +1016,7 @@ pub fn restore_custody_to_checkpoint(
             &mut commands,
             holder,
             &mut action_set,
-            held.clone(),
+            held,
             owned.as_deref_mut(),
         );
     }
@@ -1074,6 +1165,26 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
             .held_item_id()
             .and_then(ambition_characters::brain::held_item_by_id),
     }
+}
+
+/// **Resolve a held item's authored spec id back to its spec — the reverse of
+/// [`HeldItemSpec::id`], and the item domain's answer to "what is this thing".**
+///
+/// ⭐ **the reverse direction is what makes a durable description possible.** A
+/// checkpoint that wants to rebuild a runtime-minted instance stores the id and
+/// nothing else (see
+/// [`minted_horizon`](crate::items::pickup::minted_horizon)); storing the
+/// resolved spec would put a second authority for *what a javelin is* inside a
+/// snapshot, so the id has to be resolvable from outside.
+///
+/// ⚠ **both registries, in that order, because there are two.** The three wired
+/// weapons are built here by [`held_spec_for_item`] and are NOT rows in
+/// `ambition_characters`'s table; the pirates' `gun_sword_heavy` is a row there
+/// and has no catalog slot. Consulting one alone silently loses half the items.
+pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
+    crate::items::Item::from_held_item_id(id)
+        .and_then(held_spec_for_item)
+        .or_else(|| ambition_characters::brain::held_item_by_id(id))
 }
 
 /// **TAKE custody of a held item — one operation, both ends.**
@@ -1432,20 +1543,40 @@ pub fn throw_held_item_system(
     // population of anonymous dropped items. This arm is the visible edge of the
     // unclosed inventory leg described on [`ItemCustody`] — not a fallback that
     // should quietly absorb the common case.
+    //
+    // ⭐⭐ **IDENTITY AND PROVENANCE ARE MINTED TOGETHER, and the second half used
+    // to be missing.** The id alone made this instance nameable and left it
+    // unreconstructable: `SpawnOrigin::Dynamic`'s doc says a dynamic entity
+    // states which spawner it descends from or it cannot be rebuilt, and
+    // `SimId::as_str`'s doc says the spelling may never be parsed to recover
+    // that fact. So the checkpoint horizon had no legitimate way to tell a mint
+    // from an authored placement, and
+    // [`minted_horizon::capture_minted_item_baseline`] — which discriminates on
+    // exactly this component — would have described nothing.
+    //
+    // ⚠ the pair is `Option` as ONE value: a thrower with no identity mints
+    // neither half, so "dynamic, parent unknown" stays unspellable.
     let minted = identities.get_mut(player).ok().map(|(id, mut counter)| {
-        ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, counter.next())
+        let sequence = counter.next();
+        (
+            ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(id, sequence),
+            ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
+                parent: id.clone(),
+                sequence,
+            },
+        )
     });
     let mut thrown = commands.spawn_room_scoped((
         GroundItem {
             spec,
             vel: throw_vel,
             pos: throw_pos,
-            half_extent: Vec2::splat(PICKUP_HALF),
+            half_extent: MINTED_ITEM_HALF_EXTENT,
         },
         Name::new("Ground item: thrown"),
     ));
-    if let Some(minted) = minted {
-        thrown.insert(minted);
+    if let Some((sim_id, origin)) = minted {
+        thrown.insert((sim_id, origin));
     }
 }
 

@@ -35,6 +35,7 @@
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};
+use ambition_platformer2d::platformer::construction::SpawnOrigin;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::Entity;
 
@@ -483,5 +484,384 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
         live[0].1.held_by(custodian),
         "and back into the hand the checkpoint NAMED: a restore that put it \
          anywhere else — or into nobody's hand at all — satisfies every count above"
+    );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐⭐ THE OTHER HALF OF THE HORIZON: AN OCCURRENCE NO RECORD DESCRIBES
+//
+// Everything above is about AUTHORED occurrences — a room states `ground_axe`
+// lies here, so a checkpoint that remembers one in a hand can always reach the
+// record that minted it. That bounds materialization by *"some room authors a
+// record with this id"*, and the boundary has a real inhabitant on the other
+// side: a RUNTIME-MINTED instance. It is room-scoped and carryable, so it can
+// enter the custody baseline, and no record anywhere can rebuild it.
+//
+// ⭐ **the production road that mints one is the inventory leg.** `OwnedItems`
+// is a COUNT TABLE — a quantity, not an object — and the inventory menu equips
+// straight out of it, so the body ends up holding a spec with no world instance
+// behind it. Throwing that turns the quantity into an INSTANCE, and
+// `throw_held_item_system` mints `SimId::spawned(thrower, counter.next())` with
+// a `SpawnOrigin::Dynamic` naming the thrower. Its own comment calls that arm
+// "the visible edge of the unclosed inventory leg".
+// ───────────────────────────────────────────────────────────────────────────
+
+type Item = ambition_platformer2d::actors::items::Item;
+
+/// The item this pair MINTS. A javelin's authored `use_behavior` is
+/// `ThrowOnUse`, so a plain `Attack` throws it — no shield modifier needed, and
+/// the throw is the ordinary pressed action rather than a special case.
+const MINTED_ITEM: Item = Item::Javelin;
+
+/// Every live occurrence the SIMULATION minted, by identity.
+///
+/// ⭐ **it asks the `SpawnOrigin`, never the spelling of the id.** `SimId`'s own
+/// doc is explicit that the string is a legibility convenience and that nothing
+/// may recover a fact from it — provenance is a component precisely so a change
+/// to the id grammar cannot silently change what reconstruction believes. A test
+/// that pattern-matched `"slot:0/0"` would be asserting the grammar.
+fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
+    let mut query = sim.world_mut().query::<(&SimId, &SpawnOrigin, &Ground)>();
+    let mut found: Vec<SimId> = query
+        .iter(sim.world())
+        .filter(|(_, origin, _)| matches!(origin, SpawnOrigin::Dynamic { .. }))
+        .map(|(sim_id, _, _)| sim_id.clone())
+        .collect();
+    found.sort();
+    found
+}
+
+/// **Turn a QUANTITY into an INSTANCE on the production road**, and return the
+/// identity the simulation minted for it.
+///
+/// Three beats, all of them the game's own:
+///
+/// ```text
+/// 1. entitlement   ItemGrantRequested — the `<<give_item>>` channel
+/// 2. custody       equip_held_spec    — THE take-custody operation, shared by
+///                                       the inventory menu and the world pickup
+/// 3. the mint      a pressed Attack   — throw_held_item_system finds no object
+///                                       behind the hand and mints one
+/// ```
+///
+/// ⭐ **beat 2 calls the production verb directly rather than driving the menu
+/// UI**, for the same reason this file constructs the shrine: the claim under
+/// test is what the CHECKPOINT does with a minted instance, and the inventory
+/// grid's cursor navigation is a different subsystem that no other test here
+/// drives. `equip_held_spec` is not a test shim — `menu::effects` reaches this
+/// exact function with these exact arguments, and it is the one place a body
+/// comes to hold anything.
+///
+/// ⛔ **beat 3 is NOT called directly, and that is the part that must not be
+/// faked.** The mint is the thing under test.
+fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
+    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use bevy::ecs::system::RunSystemOnce;
+
+    let before = dynamic_occurrences(sim);
+
+    // ── 1. entitlement, through the channel `<<give_item>>` uses ─────────────
+    sim.world_mut().write_message(ItemGrantRequested {
+        item: MINTED_ITEM,
+        count: 1,
+    });
+    sim.step_n(base(), 4);
+    assert!(
+        sim.world().resource::<OwnedItems>().has(MINTED_ITEM),
+        "the grant channel must have put the item in the catalog, or there is \
+         nothing to equip out of"
+    );
+
+    // ── 2. equip out of the count table ─────────────────────────────────────
+    sim.world_mut()
+        .run_system_once(equip_the_minted_item)
+        .expect("the equip runs");
+    sim.step_n(base(), 2);
+    let player = body(sim);
+    assert!(
+        sim.world()
+            .get::<ambition_platformer2d::combat::held_items::HeldItem>(player)
+            .is_some(),
+        "the body must be holding the equipped spec"
+    );
+    // ⭐⭐ THE NON-VACUITY GUARD FOR THE WHOLE ROAD: there is NO OBJECT behind
+    // this hand. If the equip had produced one, the throw would hand that object
+    // back instead of minting, and neither fixture below would exercise a
+    // runtime mint at all.
+    assert_eq!(
+        dynamic_occurrences(sim),
+        before,
+        "equipping out of the catalog must not create a world instance — that is \
+         the whole reason throwing one has to mint"
+    );
+
+    // ── 3. throw it: the mint ───────────────────────────────────────────────
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    // Long enough for the arc to finish and the object to settle, so the pickup
+    // below has a resting position to stand on.
+    sim.step_n(base(), 120);
+
+    let after = dynamic_occurrences(sim);
+    let minted: Vec<SimId> = after.into_iter().filter(|id| !before.contains(id)).collect();
+    assert_eq!(
+        minted.len(),
+        1,
+        "throwing an item with no object behind the hand must mint exactly one \
+         instance; before {before:?}"
+    );
+    minted.into_iter().next().expect("one mint")
+}
+
+/// The inventory menu's equip, as a one-shot system.
+///
+/// This is the body of `MenuAction::Equip` in `menu::effects` with the portal
+/// fork removed: resolve the catalog item's spec, then hand it to the ONE
+/// take-custody operation.
+fn equip_the_minted_item(
+    mut commands: bevy::prelude::Commands,
+    mut owned: bevy::prelude::ResMut<ambition_platformer2d::actors::items::OwnedItems>,
+    mut bodies: bevy::prelude::Query<
+        (Entity, &mut ambition_platformer2d::characters::brain::ActionSet),
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+    >,
+) {
+    let (player, mut action_set) = bodies.single_mut().expect("one primary body");
+    let spec = ambition_platformer2d::actors::items::pickup::held_spec_for_item(MINTED_ITEM)
+        .expect("the javelin is a wired weapon with a held spec");
+    ambition_platformer2d::actors::items::pickup::equip_held_spec(
+        &mut commands,
+        player,
+        &mut action_set,
+        spec,
+        Some(&mut owned),
+    );
+}
+
+/// **A: A RUNTIME-MINTED INSTANCE BANKED AT A CHECKPOINT COMES BACK TO THE HAND,
+/// EVEN AFTER THE WORLD DESTROYED IT.**
+///
+/// The authored twin of this scenario is
+/// `a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it`, and
+/// the difference is the whole point: there, the reset reaches the record that
+/// authored the object. Here there is no record. Nothing in any room describes
+/// this instance, and the only thing that can rebuild it is the description the
+/// checkpoint captured of it — provenance plus the authored id of its spec.
+///
+/// ```text
+/// mint      equip out of the count table, throw it → SimId::spawned + Dynamic
+/// acquire   the ordinary pressed pickup
+/// bank      a real shrine rest, with it in hand
+/// destroy   carry it next door, drop it, LEAVE so that room unloads
+/// die       and it is back in the hand, same identity, exactly once
+/// ```
+#[test]
+fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    let minted = mint_a_dynamic_item(&mut sim);
+
+    let landed = resting_place(&mut sim, &minted);
+    pick_up(&mut sim, landed, &minted);
+    assert_still_held(
+        &mut sim,
+        &minted,
+        "the minted instance is picked up like any other object in the world",
+    );
+
+    // Banked: the checkpoint sees the mint in hand, and captures both the
+    // custody row and the description that can rebuild it.
+    commit_a_checkpoint(&mut sim);
+
+    // Carried next door and put down there.
+    walk_to(&mut sim, NEIGHBOUR);
+    assert_still_held(
+        &mut sim,
+        &minted,
+        "custody crosses a room boundary, so the mint arrives still in hand",
+    );
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    // ⚠ dropping it must RETURN the object, not mint a second one: there is an
+    // instance behind the hand now, and the throw's whole first arm exists to
+    // hand it back.
+    assert_returned(
+        &mut sim,
+        &minted,
+        "putting the mint down returns the object it already is",
+    );
+
+    // Back out again. The neighbour unloads and takes the entity with it.
+    walk_to(&mut sim, ROOM);
+    // ⭐⭐ THE NON-VACUITY GUARD. Everything below is about an occurrence with no
+    // entity behind it; if one were still resident, the ordinary re-assignment
+    // arm would answer the scenario and this would prove nothing.
+    assert!(
+        occurrences(&mut sim, &minted).is_empty(),
+        "the neighbour must actually have unloaded and taken the minted object's \
+         ENTITY with it, or this test measures nothing"
+    );
+
+    die(&mut sim);
+
+    let live = occurrences(&mut sim, &minted);
+    assert_eq!(
+        live.len(),
+        1,
+        "⛔ exactly one occurrence must answer to `{}`. ZERO means it was \
+         ANNIHILATED — the checkpoint said a hand, the world said an unloaded \
+         room, and no authored record could ever have described it. Got {live:?}",
+        minted.as_str()
+    );
+    assert!(
+        !live[0].1.in_world(),
+        "⭐ the checkpoint saw this in a hand, so a death owes it back to that \
+         hand. Got {:?}",
+        live[0].1
+    );
+    let custodian = body(&mut sim);
+    assert!(
+        live[0].1.held_by(custodian),
+        "and back into the hand the checkpoint NAMED"
+    );
+    // ⭐⭐ **AND IT COMES BACK RECONSTRUCTABLE.** A rebuilt instance that stated
+    // no provenance would be invisible to the NEXT capture — it would survive
+    // exactly one death and then be unrecoverable — and `SpawnOrigin::Dynamic`'s
+    // own doc refuses to let "dynamic, parent unknown" be spelled at all.
+    assert!(
+        dynamic_occurrences(&mut sim).contains(&minted),
+        "the materialized instance must state the same dynamic provenance the \
+         original did, or the checkpoint can only ever restore it once"
+    );
+}
+
+/// **B1: A RUNTIME-MINTED INSTANCE STILL IN THE HAND AT DEATH, ACQUIRED AFTER
+/// THE CHECKPOINT, IS TAKEN BACK.**
+///
+/// The ordinary retraction arm, reached by an object that has no authored record
+/// behind it — so the despawn cannot be softened into "let the room re-author
+/// it", because no room will.
+///
+/// ⚠ the identity is asserted absent EVERYWHERE, not merely absent from the
+/// hand: a restore that put it back on some floor would satisfy "you are not
+/// holding it" and still be a world the player had never been in.
+#[test]
+fn a_runtime_mint_acquired_after_the_checkpoint_is_gone_after_a_death() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    // ── the checkpoint FIRST, with empty hands ──────────────────────────────
+    commit_a_checkpoint(&mut sim);
+
+    // ── and only THEN the mint ──────────────────────────────────────────────
+    let minted = mint_a_dynamic_item(&mut sim);
+    let landed = resting_place(&mut sim, &minted);
+    pick_up(&mut sim, landed, &minted);
+    // ⭐⭐ THE NON-VACUITY GUARD: it really is in the hand going into the death,
+    // so "gone afterwards" is a claim about a retraction that happened rather
+    // than about a scenario that never got started.
+    assert_still_held(
+        &mut sim,
+        &minted,
+        "the mint must be in hand at the moment of death, or the claim below is \
+         vacuous",
+    );
+
+    die(&mut sim);
+
+    assert!(
+        occurrences(&mut sim, &minted).is_empty(),
+        "⛔ `{}` was minted AFTER the checkpoint, so it did not exist at the \
+         checkpoint and a death owes it to nobody — not to the hand, and not to \
+         any floor. Found {:?}",
+        minted.as_str(),
+        occurrences(&mut sim, &minted)
+    );
+    let player = body(&mut sim);
+    assert!(
+        sim.world()
+            .get::<ambition_platformer2d::combat::held_items::HeldItem>(player)
+            .is_none(),
+        "and the hand is empty: retracting the object without retracting the \
+         hand leaves the body wielding a ghost it can never put down"
+    );
+}
+
+/// **B2: ⛔⛔ A RUNTIME MINT WHOSE ENTITY THE WORLD DESTROYED, AND WHICH THE
+/// CHECKPOINT NEVER SAW, IS NOT RESURRECTED — THE POISON.**
+///
+/// ⭐⭐ **this is the half that stops the cheap wrong answer, and B1 above does
+/// NOT stop it.** In B1 the object is still a live entity when the death lands,
+/// so the ordinary retraction arm despawns it and any implementation passes.
+/// Here the entity is already gone — destroyed with the room it was left in —
+/// which is precisely the state that made fixture A need materialization at all.
+/// So the only thing standing between this object and a resurrection is that
+/// nothing remembers it, and "rebuild everything the engine remembers minting"
+/// is exactly the forbidden design: a growing registry of every instance that
+/// ever existed.
+///
+/// ⚠ **measured, not reasoned.** With the description turned into a registry
+/// written at every tick, and the restore extended to rebuild each row into its
+/// spawner's hand, fixture A stayed green, B1 stayed green, and this one went
+/// red. The commit-time snapshot is what it is measuring.
+///
+/// ⭐ the scenario is fixture A's, beat for beat, with ONE line moved: the
+/// checkpoint is committed BEFORE the mint instead of after it.
+#[test]
+fn a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    // ⭐ THE ONE MOVED LINE. In fixture A this rest happens with the mint
+    // already in hand.
+    commit_a_checkpoint(&mut sim);
+
+    let minted = mint_a_dynamic_item(&mut sim);
+    let landed = resting_place(&mut sim, &minted);
+    pick_up(&mut sim, landed, &minted);
+
+    // Carried next door and left there, exactly as in fixture A.
+    walk_to(&mut sim, NEIGHBOUR);
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    walk_to(&mut sim, ROOM);
+
+    // ⭐⭐ THE NON-VACUITY GUARD, and it is the same one fixture A needs: the
+    // entity really is gone before the death, so what happens next is a decision
+    // about REBUILDING rather than about re-assigning something still resident.
+    assert!(
+        occurrences(&mut sim, &minted).is_empty(),
+        "the neighbour must actually have unloaded and taken the minted object's \
+         ENTITY with it, or this test measures nothing"
+    );
+
+    die(&mut sim);
+
+    assert!(
+        occurrences(&mut sim, &minted).is_empty(),
+        "⛔ `{}` was minted AFTER the checkpoint, so the checkpoint never saw it \
+         and a death owes it to nobody. Coming back here means the engine is \
+         rebuilding from a record of everything it ever minted rather than from \
+         a snapshot of what was true at the commit. Found {:?}",
+        minted.as_str(),
+        occurrences(&mut sim, &minted)
+    );
+    let player = body(&mut sim);
+    assert!(
+        sim.world()
+            .get::<ambition_platformer2d::combat::held_items::HeldItem>(player)
+            .is_none(),
+        "and nothing was put into the hand either"
     );
 }

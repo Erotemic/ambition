@@ -211,10 +211,11 @@ run:
    fighter, whose `held_item` needs no world object at all.
 3. **a hand must be EMPTIED before it can be FILLED.**
 
-⚠ **what horizon 2 still cannot do:** put back a baseline row whose occurrence
-has no live entity — carried at the checkpoint, later put down in a room that
-then unloaded, then a death. Nothing mints an occurrence directly into a hand.
-Reachable only across a room transition.
+⛔ **this section used to end "what horizon 2 still cannot do: put back a
+baseline row whose occurrence has no live entity". CLOSED — twice, and the
+second time is the interesting one.** See the third and fourth legs below. The
+baseline listing above is also one short: there are THREE domain projections
+now, and the third is not an identity.
 
 ✔ **the body-inventory leg this section said was blocking is answered for this
 customer and no further.** `CustodyBaseline` records physical custody by
@@ -309,6 +310,79 @@ joins both functions or neither.
 
 ⛔ `Consumed` still has **no producer**, deliberately, and horizon 2 is still
 blocked on the three things that do not exist.
+
+### ✔ Third leg landed 2026-08-16 — a death can MATERIALIZE what it puts back
+
+A baseline row whose occurrence has no live entity is rebuilt **by identity**
+from the authored record that minted it, wherever in the world that record lives,
+directly into the custodian's hand — `authored_occurrence_request`, driven from
+`items::pickup::restore_custody_to_checkpoint`. It comes back with the record's
+own `SimId` and `SpawnOrigin`, which is what makes it the same occurrence rather
+than a look-alike.
+
+⛔ **and it named its own boundary**: materialization is bounded by *"some room
+authors a record with this id"*.
+
+### ✔ Fourth leg landed 2026-08-16 — and it is the first step of DURABLE SAVE
+
+The inhabitant of that boundary is a **runtime-minted instance**
+(`SpawnOrigin::Dynamic`). It is room-scoped and carryable, so it can enter the
+custody baseline, and **no record anywhere can rebuild it.** The production road
+that mints one is the unclosed inventory leg: `OwnedItems` is a count table, the
+menu equips out of it, and throwing what it equipped turns a QUANTITY into an
+INSTANCE.
+
+⭐⭐ **THE MINIMAL DURABLE DESCRIPTION, MEASURED RATHER THAN ASSUMED:**
+
+```text
+identity     the occurrence's own SimId          the map key
+provenance   SpawnOrigin::Dynamic{parent, seq}   what makes it re-mintable AGAIN
+definition   the item spec's authored id         what it IS — a REFERENCE, not a copy
+```
+
+**and nothing else.** No position, no velocity, no component snapshot.
+
+⭐ **"a hand needs strictly less than a world" HELD.** A held object has no place
+in the world — the hand supplies one, and `ground_item_physics` refuses to step
+anything whose custody is not `InWorld`, so `GroundItem::pos` is not read while
+it is carried. ⚠ that is a claim about restoring into a HAND. The day a
+checkpoint owes a minted instance back to the FLOOR, the description grows a
+position, and nothing today remembers one.
+
+⛔ **the third field is where the prediction was one short.** `(identity, spec)`
+looked sufficient and is not: a rebuilt instance with no `SpawnOrigin::Dynamic`
+cannot say which spawner it descends from — the state that component's own doc
+refuses to let anyone spell — and would therefore be invisible to the NEXT
+capture. It would survive exactly one death and then become unrecoverable.
+
+⚠ **and the mint site was not stating it.** `throw_held_item_system` minted a
+`SimId::spawned(...)` and no `SpawnOrigin` at all, so the only legitimate way to
+tell a mint from an authored placement did not exist on the object. Identity and
+provenance are now minted as ONE `Option`, so "dynamic, parent unknown" stays
+unspellable.
+
+⭐ **the shape follows the domain rule this page already learned**: the baseline
+is a projection of DOMAINS, each capturing from its own live authority, and
+`MintedItemBaseline` lives with the item domain because only it knows what an
+item is. The lifecycle crate's two projections stay identity-only.
+
+⛔⛔ **it is a SNAPSHOT AT COMMIT TIME, never a registry of every mint** — and
+that is measured, not asserted. Turned into a growing registry written at each
+tick, with the restore rebuilding every row into its spawner's hand, the
+"banked mint comes back" fixture stayed green and
+`a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death` went red.
+The restore is still driven by the CUSTODY baseline: this map answers *how*, the
+custody baseline decides *whether* and *into whose hand*.
+
+⚠ `GGRS_ROLLBACK_SCHEMA_VERSION` 32 → 33: `resource.minted_item_baseline` is the
+third leg of the same checkpoint and the first that is not an identity.
+
+⚠ **what durable SAVE still needs that this did not provide**: a minted instance
+that is NOT in a hand at the commit (lying in a room, in flight) is still
+undescribed and still lost; `OccurrenceWhereabouts::Placed` rows for unloaded
+rooms have no on-disk representation; nothing here is serialized to a file, only
+to a rollback blob; and `OwnedItems` — the QUANTITY half of the same inventory —
+persists through a different mechanism that the horizon does not coordinate with.
 
 ## Candidate crate / Bevy shape
 

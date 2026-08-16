@@ -264,7 +264,21 @@ use super::{
 /// rewinds, and for an ordinary channel a stale cursor costs one duplicated or
 /// skipped read; for these it decides whether a baseline is recorded at all, and
 /// nothing later re-derives the answer.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 32;
+/// ⚠ **v33 (2026-08-16): the MINTED-INSTANCE DESCRIPTION joins the wire
+/// format.** `resource.minted_item_baseline` is the third leg of the same
+/// checkpoint, and the first one that is not an identity: it says how to REBUILD
+/// an instance the simulation minted, because such an instance is room-scoped
+/// and carryable — it can enter `resource.custody_baseline` — and no authored
+/// record anywhere describes it.
+///
+/// ⭐ **the encoding is provenance plus a spec ID, and deliberately not a
+/// snapshot of the occurrence's components.** Component state is what rollback
+/// already carries; a checkpoint outlives the entity, so it stores the
+/// DEFINITION (a reference into the item catalog) and the
+/// `SpawnOrigin::Dynamic` that says which spawner it descends from. A held
+/// object needs no position — the hand supplies one, and nothing steps an item
+/// that is not `InWorld`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 33;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

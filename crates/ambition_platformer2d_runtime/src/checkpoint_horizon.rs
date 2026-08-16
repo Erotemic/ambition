@@ -42,8 +42,8 @@ use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt,
 };
 
-/// Installs the reset horizon: its two channels, the two domain baselines, and
-/// the placement of the capture and restore sets.
+/// Installs the reset horizon: its two channels, the three domain baselines,
+/// and the placement of the capture and restore sets.
 ///
 /// ⚠ **a host that installs this and never emits [`CheckpointCommitted`] gets
 /// the empty baseline**, so a [`ResetToCheckpoint`] returns every authored
@@ -58,7 +58,16 @@ impl Plugin for CheckpointHorizonPlugin {
         app.add_message::<CheckpointCommitted>()
             .add_message::<ResetToCheckpoint>()
             .init_resource::<OccurrenceBaseline>()
-            .init_resource::<CustodyBaseline>();
+            .init_resource::<CustodyBaseline>()
+            // ⭐ **the third domain baseline, and the item domain's own.** The
+            // two above are keyed on identities alone, which is all the
+            // lifecycle crate can name; this one says how to REBUILD a
+            // runtime-minted instance, and only the item domain knows what an
+            // item is. It is installed here with its siblings because the
+            // horizon owns the set of baselines a commit writes.
+            .init_resource::<
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
+            >();
 
         app.configure_sets(
             sim,
@@ -85,7 +94,17 @@ impl Plugin for CheckpointHorizonPlugin {
             // snapshot, so no capture can observe another's output and no order
             // between them is expressible as a bug. The day one of them wants
             // another's result, they are one domain wearing two names.
-            (capture_occurrence_baseline, capture_custody_baseline).in_set(CheckpointCapture),
+            (
+                capture_occurrence_baseline,
+                capture_custody_baseline,
+                // ⚠ **the item domain's**, not the lifecycle crate's, for the
+                // mirror of the reason the restore leg below is: the lifecycle
+                // crate cannot see a `GroundItem`'s spec, and a description of
+                // what an item IS can only come from the domain that owns the
+                // answer.
+                ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::capture_minted_item_baseline,
+            )
+                .in_set(CheckpointCapture),
         );
         app.add_systems(
             sim,

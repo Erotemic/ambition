@@ -1,0 +1,352 @@
+//! **The item domain's share of the reset baseline: how to rebuild an instance
+//! the SIMULATION minted, which no authored record can describe.**
+//!
+//! The custody baseline
+//! ([`CustodyBaseline`](ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline))
+//! says *which body was carrying which occurrence* at the checkpoint, in
+//! identities, and the restore puts an occurrence whose entity is gone back by
+//! MATERIALIZING it from the record that minted it. That closes the AUTHORED
+//! case and names its own boundary: materialization is bounded by *"some room
+//! authors a record with this id"*, and a runtime-minted instance —
+//! [`SpawnOrigin::Dynamic`] — has no record anywhere. It is room-scoped and
+//! carryable, so it can enter the custody baseline, and nothing could rebuild
+//! it.
+//!
+//! ⇒ this is the description that closes that gap, and it is the item domain's
+//! because only the item domain knows what an item IS.
+//!
+//! # ⭐ WHAT THE MINIMAL DURABLE DESCRIPTION TURNED OUT TO BE
+//!
+//! ```text
+//! identity     the occurrence's own SimId          — the map key
+//! provenance   SpawnOrigin::Dynamic { parent, .. } — what makes it re-mintable AGAIN
+//! definition   the held item's authored spec id    — what it IS
+//! ```
+//!
+//! **and nothing else — no position, no velocity, no components.** A held
+//! object has no place in the world: the hand supplies its position, and
+//! `ground_item_physics` refuses to step anything whose custody is not
+//! `InWorld`, so `GroundItem::pos` is not read at all while it is carried. That
+//! is the whole reason a description this small is enough, and it is a claim
+//! about restoring into a HAND specifically — restoring one into the WORLD would
+//! owe a position, and a position is a fact nothing in a checkpoint currently
+//! remembers for a minted instance.
+//!
+//! ⛔ **the PROVENANCE is not decoration, and leaving it out was the tempting
+//! shortcut.** Without it the rebuilt occurrence would be a dynamic instance
+//! that cannot say which spawner it descends from — exactly the state
+//! [`SpawnOrigin::Dynamic`]'s own doc refuses to let anyone spell — and it would
+//! therefore be invisible to the NEXT capture. The object would come back once
+//! and be unrecoverable from the checkpoint after that.
+//!
+//! ⛔ **and the definition is a REFERENCE, never a copy.** The row stores the
+//! spec's authored id and the item domain resolves it back through
+//! [`held_spec_by_id`](super::held_spec_by_id). Copying the resolved
+//! [`HeldItemSpec`](ambition_characters::brain::HeldItemSpec) in would put a
+//! second authority for *what an axe is* inside a snapshot, and a content edit
+//! would then be silently overridden by every checkpoint taken before it.
+//!
+//! # ⛔⛔ IT IS A SNAPSHOT AT COMMIT TIME, NOT A REGISTRY OF EVERY MINT
+//!
+//! Nothing writes here at the mint site. A description is captured only for the
+//! instances that were alive and in somebody's custody when the checkpoint
+//! committed, and the whole map is overwritten at every commit. An instance
+//! minted AFTER the checkpoint has no row — which is the same sentence, from the
+//! other side, as "it did not exist at the checkpoint, so a death does not owe
+//! it back".
+//!
+//! ⭐ **the restore is still driven by the CUSTODY baseline, never by this
+//! map.** This answers *how* to rebuild an occurrence; the custody baseline
+//! decides *whether* one is owed and *into whose hand*. Two values, two
+//! questions, and a description with no custody row is simply never consulted.
+
+use std::collections::BTreeMap;
+
+use bevy::prelude::{MessageReader, Query, ResMut, Resource, With};
+
+use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+use ambition_platformer2d_shared_tangle::lifecycle::{CheckpointCommitted, RoomScopedEntity};
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+use super::{GroundItem, ItemCustody};
+
+/// **Everything a restore needs to make one runtime-minted instance again**, and
+/// deliberately nothing more. See the module docs for why each of the two fields
+/// is load-bearing and why there is no third.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MintedItemDescription {
+    /// Where it came from — carried forward verbatim so the rebuilt occurrence
+    /// states the same spawner the original did.
+    pub origin: SpawnOrigin,
+    /// The authored id of the item's spec: a reference into the item catalog,
+    /// resolved by [`held_spec_by_id`](super::held_spec_by_id) at restore time.
+    pub held_item: String,
+}
+
+/// **How to rebuild each runtime-minted instance that was in a hand at the last
+/// committed checkpoint**, keyed by the occurrence's own identity.
+///
+/// ⛔⛔ **rollback state with a real VALUE, exactly like the two baselines it
+/// sits beside.** Nothing republishes it from live state, and a checkpoint
+/// commits mid-frame, so a rewind across the commit must restore it or the world
+/// keeps a description from a future that was un-happened.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct MintedItemBaseline {
+    /// occurrence → how to make it again.
+    minted: BTreeMap<SimId, MintedItemDescription>,
+}
+
+impl MintedItemBaseline {
+    /// How to rebuild `occurrence`, if the checkpoint saw it as a runtime mint.
+    ///
+    /// `None` is the ordinary answer for an authored occurrence, whose record is
+    /// the thing that rebuilds it.
+    pub fn description_of(&self, occurrence: &SimId) -> Option<&MintedItemDescription> {
+        self.minted.get(occurrence)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.minted.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.minted.len()
+    }
+
+    /// **The desync checksum** — identities, a canonical provenance rendering,
+    /// and an authored id. No `Entity` appears in any of them, so this is
+    /// comparable between peers without a mapping pass.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.minted.len() as u64);
+        // `BTreeMap`, so this walk is ordered by identity on every peer.
+        for (occurrence, description) in &self.minted {
+            put_str(&mut bytes, occurrence.as_str());
+            // The compatibility rendering, not `Debug`: `canonical_summary` is
+            // the spelling the plan dumps and snapshot blobs already use.
+            put_str(&mut bytes, &description.origin.canonical_summary());
+            put_str(&mut bytes, &description.held_item);
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// **Record how to remake what the simulation minted, at the instant a
+/// checkpoint commits.**
+///
+/// ⚠ **an empty capture is a real answer and is written**, for the same reason
+/// the custody capture writes one: leaving the previous checkpoint's rows in
+/// place would let a later death rebuild something the player had already
+/// legitimately parted with.
+///
+/// ⚠ **the population is `SpawnOrigin::Dynamic` AND in custody.** Dynamic,
+/// because an authored occurrence is rebuilt by its record and a second
+/// description of it here would be a competing authority. In custody, because
+/// that is the only question this value serves — a minted object lying in a
+/// loaded room is answered by the object itself, and one in an unloaded room is
+/// beyond what a checkpoint remembers at all.
+///
+/// ⭐ **it reads [`ItemCustody`], the item domain's own authority, rather than
+/// the [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
+/// projection the custody capture reads.** Each domain captures from what it
+/// owns. The projection drops a row for a room-fixture hand, so this map can
+/// carry a description the custody baseline has no row for; a surplus
+/// description is never consulted, whereas a missing one would lose an object.
+pub fn capture_minted_item_baseline(
+    mut commits: MessageReader<CheckpointCommitted>,
+    carried: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+    baseline: Option<ResMut<MintedItemBaseline>>,
+) {
+    // Drained unconditionally, like every other reader of this channel: a commit
+    // seen during a load must not be re-read against a world that has moved on.
+    let committed = commits.read().count() > 0;
+    let Some(mut baseline) = baseline else {
+        return;
+    };
+    if !committed {
+        return;
+    }
+    let minted: BTreeMap<SimId, MintedItemDescription> = carried
+        .iter()
+        .filter(|(_, _, _, custody)| !custody.in_world())
+        .filter_map(|(occurrence, origin, ground, _)| {
+            // ⛔ the DISCRIMINATOR IS THE PROVENANCE COMPONENT, never the shape
+            // of the id string. `SimId::as_str`'s doc is explicit that the
+            // spelling is a legibility convenience and that nothing may recover
+            // a fact from it — provenance is `SpawnOrigin` precisely so a change
+            // to the id grammar cannot silently change reconstruction.
+            matches!(origin, SpawnOrigin::Dynamic { .. }).then(|| {
+                (
+                    occurrence.clone(),
+                    MintedItemDescription {
+                        origin: origin.clone(),
+                        held_item: ground.spec.id.clone(),
+                    },
+                )
+            })
+        })
+        .collect();
+    if baseline.minted != minted {
+        baseline.minted = minted;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    fn horizon_world() -> App {
+        let mut app = App::new();
+        app.add_message::<CheckpointCommitted>()
+            .init_resource::<MintedItemBaseline>()
+            .add_systems(Update, capture_minted_item_baseline);
+        app
+    }
+
+    fn ground(spec_id: &str) -> GroundItem {
+        GroundItem {
+            spec: ambition_characters::brain::HeldItemSpec {
+                id: spec_id.into(),
+                melee: None,
+                ranged: None,
+                use_behavior: ambition_characters::brain::HeldUseBehavior::ThrowOnUse,
+            },
+            pos: Vec2::new(11.0, 22.0),
+            vel: Vec2::ZERO,
+            half_extent: Vec2::splat(18.0),
+        }
+    }
+
+    fn carried(app: &mut App, occurrence: SimId, origin: SpawnOrigin, spec_id: &str) -> Entity {
+        let holder = app.world_mut().spawn_empty().id();
+        app.world_mut()
+            .spawn((
+                occurrence,
+                origin,
+                ground(spec_id),
+                ItemCustody::Held { holder },
+                RoomScopedEntity,
+            ))
+            .id()
+    }
+
+    /// **A carried runtime mint is described; a carried AUTHORED occurrence is
+    /// not.**
+    ///
+    /// ⭐ both terms are observed, because the failure that matters is a capture
+    /// that describes everything: an authored occurrence with a row here would be
+    /// rebuilt from a snapshot's copy of its spec instead of from the record that
+    /// owns it, and a content edit would stop taking effect.
+    #[test]
+    fn the_capture_describes_the_minted_and_ignores_the_authored() {
+        let mut app = horizon_world();
+        let thrower = SimId::player_slot(0);
+        let mint = SimId::spawned(&thrower, 0);
+        carried(
+            &mut app,
+            mint.clone(),
+            SpawnOrigin::Dynamic {
+                parent: thrower.clone(),
+                sequence: 0,
+            },
+            "javelin",
+        );
+        carried(
+            &mut app,
+            SimId::placement("ground_axe"),
+            SpawnOrigin::Authored {
+                source: "hub".into(),
+                instance: "ground_axe".into(),
+            },
+            "axe",
+        );
+
+        app.world_mut().write_message(CheckpointCommitted);
+        app.update();
+
+        let baseline = app.world().resource::<MintedItemBaseline>();
+        assert_eq!(baseline.len(), 1, "only the runtime mint owes a description");
+        assert_eq!(
+            baseline.description_of(&mint),
+            Some(&MintedItemDescription {
+                origin: SpawnOrigin::Dynamic {
+                    parent: thrower,
+                    sequence: 0,
+                },
+                held_item: "javelin".into(),
+            }),
+        );
+        assert!(baseline
+            .description_of(&SimId::placement("ground_axe"))
+            .is_none());
+    }
+
+    /// **A mint that appears AFTER the commit is not in the baseline.**
+    ///
+    /// ⛔ this is the poison against the cheap wrong answer — a map written at
+    /// the MINT site rather than captured at the commit. Such a map grows
+    /// forever, and it would describe an object the checkpoint never saw.
+    #[test]
+    fn a_mint_after_the_commit_has_no_row() {
+        let mut app = horizon_world();
+        app.world_mut().write_message(CheckpointCommitted);
+        app.update();
+        assert!(app.world().resource::<MintedItemBaseline>().is_empty());
+
+        let thrower = SimId::player_slot(0);
+        let late = SimId::spawned(&thrower, 0);
+        carried(
+            &mut app,
+            late.clone(),
+            SpawnOrigin::Dynamic {
+                parent: thrower,
+                sequence: 0,
+            },
+            "javelin",
+        );
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<MintedItemBaseline>()
+                .description_of(&late)
+                .is_none(),
+            "nothing was committed after the mint, so the checkpoint cannot know about it"
+        );
+    }
+
+    /// **A later commit with nothing carried overwrites an earlier one's rows.**
+    ///
+    /// ⛔ the failure this pins is a capture that skips the write when the map
+    /// would be empty: the previous checkpoint's descriptions survive, and a
+    /// death then rebuilds an object the player had thrown away and re-banked
+    /// without.
+    #[test]
+    fn committing_with_nothing_minted_in_hand_clears_the_earlier_rows() {
+        let mut app = horizon_world();
+        let thrower = SimId::player_slot(0);
+        let mint = SimId::spawned(&thrower, 0);
+        let item = carried(
+            &mut app,
+            mint,
+            SpawnOrigin::Dynamic {
+                parent: thrower,
+                sequence: 0,
+            },
+            "javelin",
+        );
+        app.world_mut().write_message(CheckpointCommitted);
+        app.update();
+        assert!(!app.world().resource::<MintedItemBaseline>().is_empty());
+
+        *app.world_mut().get_mut::<ItemCustody>(item).expect("custody") = ItemCustody::InWorld;
+        app.world_mut().write_message(CheckpointCommitted);
+        app.update();
+        assert!(
+            app.world().resource::<MintedItemBaseline>().is_empty(),
+            "the second checkpoint saw an empty hand and must say so"
+        );
+    }
+}

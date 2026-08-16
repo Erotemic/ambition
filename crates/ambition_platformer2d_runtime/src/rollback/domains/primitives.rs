@@ -186,6 +186,29 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
         ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::checksum,
     );
+    // ⭐ **THE THIRD BASELINE, and it is the one that says HOW rather than
+    // WHERE.** The two above are identities: which occurrence, whose hand. This
+    // one is the item domain's durable DESCRIPTION of an instance the simulation
+    // minted — provenance plus the authored id of its spec — because a
+    // runtime-minted occurrence is carryable, so it can enter the custody
+    // baseline, and no authored record anywhere can rebuild it.
+    //
+    // ⚠ same argument as its siblings for why it is registered rather than
+    // declared derived: nothing republishes a captured description, and the
+    // commit that writes it lands mid-frame.
+    //
+    // ⛔ **no `Entity` and no copied spec.** The checksum walks a `BTreeMap`
+    // keyed by `SimId`, and each row projects `SpawnOrigin::canonical_summary`
+    // plus a spec ID string — a reference into the item catalog, never a copy of
+    // it, so a content edit cannot be overridden by an old snapshot.
+    app.rollback_resource_clone_checksum::<
+        ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline,
+    >(
+        OWNER,
+        "resource.minted_item_baseline",
+        "bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
+        ambition_platformer2d_actor_monolith::items::pickup::minted_horizon::MintedItemBaseline::checksum,
+    );
     // ⭐ **AND THE TWO CHANNELS THAT DRIVE THEM.** A reader's cursor is `Local`
     // state GGRS never rewinds, so a rewind past a commit leaves the capture's
     // cursor beyond a message the new timeline has not sent — or before one it

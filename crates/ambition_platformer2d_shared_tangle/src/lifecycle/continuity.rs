@@ -426,6 +426,12 @@ impl AuthoredOccurrences {
     /// exactly right, because a thing in a hand is not a thing in a room.
     /// Materialization is the one reconstruction road that is not a room's, and
     /// it is the custody domain's precisely because of that.
+    ///
+    /// ⚠ **"from the record that minted it" is the AUTHORED half, 2026-08-16.**
+    /// A runtime-minted occurrence has no record in any room, so the same leg
+    /// rebuilds one from a durable description the checkpoint captured of it —
+    /// `items::pickup::minted_horizon`. Neither describer is this ledger's, and
+    /// neither belongs in it.
     pub const fn baseline_is_a_copy_of_this() {}
 
     /// **A reinstatement is NOT room-local, and the residency it restores is

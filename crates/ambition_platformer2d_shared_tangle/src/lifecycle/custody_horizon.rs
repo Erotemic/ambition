@@ -161,6 +161,20 @@ pub fn capture_custody_baseline(
 /// needs the authored record, the recipe and the family's components, none of
 /// which this crate can name. Recording a custodian by identity is what makes
 /// that possible from here; performing it is not.
+///
+/// ⭐⭐ **AND IT DECIDES WHERE THE THIRD BASELINE LIVES, 2026-08-16.**
+/// Materializing from a record is bounded by *"some room authors this id"*, and a
+/// RUNTIME-MINTED occurrence
+/// ([`SpawnOrigin::Dynamic`](crate::construction::SpawnOrigin)) is on the other
+/// side of that boundary: room-scoped and carryable, so it reaches the rows
+/// above, and describable by no record anywhere. What rebuilds one is a durable
+/// DESCRIPTION captured at the same commit — provenance plus the authored id of
+/// its item spec — and that value is
+/// `items::pickup::minted_horizon::MintedItemBaseline`, in the item domain, for
+/// exactly the reason the retraction is: this crate cannot see a `GroundItem`'s
+/// spec, and *what an item is* is not a question it may answer.
+///
+/// ⇒ the baseline is a projection of DOMAINS. These rows stay identities.
 #[allow(dead_code)]
 pub const fn retraction_needs_both_halves_of_a_fork() {}
 

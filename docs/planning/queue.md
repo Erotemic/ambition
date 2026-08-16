@@ -2734,6 +2734,34 @@ verdict.
 
 - ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
 
+⚠⚠ **THREE OF THIS ROW'S "NEXT" CLAIMS WENT STALE ON 2026-08-16 — read this
+before working any of them.** Everything below is still accurate about the
+FIGHTERS; what changed is everything around them.
+
+```text
+"THE VFX/SFX ROAD IS BUILT AND UNREACHABLE"   -> REACHABLE (D128 slice, ebc8877ee)
+   an effect is a NAME now; ExplosionKind and its three reconstruction tables are
+   deleted; GameAssets.fx is an engine-owned home. 189 rows <-> 189 cues, and the
+   generic sheets are registered by the ENGINE rather than by Ambition's intro.
+
+"the visual fixes ship UNSEEN"                -> SEEN (D130, de0f25373)
+   capture_scene grew `--press touch:XxY`; the two-CPU match is photographable.
+   ⭐ and the first look found a real defect nobody had seen.
+
+"does a watcher SEE the two kits behave differently?"  -> ⛔ ASK IT AGAIN, the
+   previous answer was measured against a BROKEN MATCH. D131: mary_o and sanic
+   author `max_health: 1`, so one point of damage read as a full meter and
+   Mary-O hit 4200% in six seconds. The stage now declares the pool every
+   fighter's percent is read against (77f246821). **Nobody has watched a match
+   since that fix** — so the standing product question is genuinely OPEN again,
+   and now askable for the first time.
+```
+
+⇒ **the cheap next step for this row is one capture of a two-CPU match**, using
+the nine-tap command in `capture_scene`'s header, to answer the question the row
+was opened to ask. ⛔ do not re-derive the tooling or re-measure the repertoire
+first — both are done.
+
 ✔✔ **FIRST FIGHTER LANDED AND VERIFIED (George Booul, 2026-08-15)** — Smash lib
 73, Smash app 21, characters 531, core 393, app_it 365, gate clean.
 

@@ -1720,6 +1720,46 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
+- ▢ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
+  BEEN ASKED TO AGREE. (opened 2026-08-16, exposed by closing the minted case)**
+
+⭐ **the durable-save frontier's first real problem, and it is not "write a file".**
+Two mechanisms already persist the player's possessions, by different keys, on
+different clocks, with no relationship between them:
+
+```text
+DURABLE SAVE      items/persist.rs mirrors OwnedItems (the 24-slot catalog) and
+(disk, on load)   BodyWallet into AmbitionGameSave, keyed by stable `dialog_id`
+                  -> restores a COUNT
+
+CHECKPOINT        MintedItemBaseline + CustodyBaseline capture at a shrine rest
+(memory, on death)-> restores an INSTANCE into a specific hand, keyed by SimId
+```
+
+⛔⛔ **and the same physical object crosses between them, by design.** The
+inventory menu equips straight out of the count table; throwing what it equipped
+mints an instance (`SimId::spawned`) — that is the production road D125's last
+slice was built on. So one gun sword can be a row in `OwnedItems` at the same
+time as an occurrence in the custody baseline.
+
+⇒ the failure this predicts, and it should be **written as a fixture before it is
+designed**: save with a count of 1, load, mint an instance of that same spec,
+bank it at a checkpoint, die. Does the player end up holding it **and** owning
+it? Is the count decremented once, twice, or never? ⚠ nobody knows, because no
+test has ever put both authorities in the same sentence.
+
+⭐ **this is the "one class wide" seam already measured on D125**: 5 of 6 catalog
+classes are counts forever and their readers legitimately want a quantity; the
+whole problem is the **nine held weapons/abilities that are an instance and a
+count at once**. ⛔ so the answer is NOT to give the count table a row per
+object — that was already rejected. It is to decide which authority owns those
+nine, and to make the other one *derive* rather than *store*.
+
+⚠ related and unclosed in the same area: a minted instance **not in a hand** at
+the commit — lying in a room, or in flight — is still undescribed and still lost.
+That is exactly where *"a hand needs less than a world"* stops paying: it needs a
+position, and position is the first thing the description would grow.
+
 - ▢ **D131 — PERCENT ACCRUES ON A CLOCK, WITH NO HIT AND NO OPPONENT, ON HALF
   THE CAST. (opened 2026-08-16, the first thing seen when the camera finally
   worked)**

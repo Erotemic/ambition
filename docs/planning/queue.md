@@ -2011,6 +2011,51 @@ read-model whose whole body-cluster group is optional). Widening the rule tonigh
 would have reddened a crate this slice did not analyse; it is recorded in that
 policy's rationale.
 
+- ▢ **D137 — THE DOC-LINK RATCHET IS RED, IT IS PROBABLY OURS, AND IT IS IN NO
+  GATE. (opened 2026-08-16)**
+
+```text
+ambition_platformer2d_actor_monolith   131  ⛔ ROSE from 122
+ambition_characters                     51  ⛔ ROSE from 39
+```
+
+⛔ **`python3 scripts/check_doc_link_ratchet.py --check` fails**, and like the
+workspace policy suite before it (D134), **nothing per-turn runs it** — the gate
+is `cargo check -p ambition_app --all-targets` + the app suite + Smash.
+
+⭐⭐ **and this is very likely a debt THIS session created**, which is why it is
+opened rather than merely noticed. 2026-08-16 deleted or moved an unusual amount:
+`ExplosionKind` + three tables, `move_vfx_kind`, `explosion_anim`,
+`explosion_sfx`, `WorldManifest`, `LdtkHotReloadState`, `poll_ldtk_file_changes`,
+`InventoryRestored`, `DeathRules`'s `Resource` impl, `sync_hosted_sanic_wallet_shield`,
+the LDtk `manifest.rs` and `hot_reload.rs`. **Every deletion that leaves a
+`` [`Item`] `` reference behind makes one of these.**
+
+⇒ the ratchet's own message states the stake better than a summary can:
+
+> *A deletion that leaves its references behind turns a doc comment into a
+> description of a world that no longer exists — **which in this repository is
+> where the reasoning lives.***
+
+⚠ that is not decoration. This project keeps its ARGUMENTS in doc comments — why
+a thing is shaped as it is, what was tried, what must not be re-derived. A broken
+link is a citation into a deleted world, and the next reader cannot tell whether
+the claim survived the deletion.
+
+⇒ **the work**: `cargo doc -p <crate> --no-deps`, read the warnings, and for each
+one decide whether the reference should be **repointed** (the thing moved) or the
+**sentence rewritten** (the thing is gone and the claim needs restating). ⛔ do
+not bulk-delete the brackets — that converts a detectable break into an
+undetectable stale sentence, which is strictly worse.
+
+⭐ **one worker already showed the right discipline here**: it banked only its own
+crate's improvement (`ambition_combat` 17 → 13) rather than laundering the two
+rises with `--update`. ⇒ ⛔ **never run `--update` to clear someone else's rise.**
+
+⚠ **and the gating question is the same one D134 raised and left with Jon**
+(`awaiting-maintainer-decision.md` item 13). Do not answer it by adding a check;
+measure the cost and let him decide.
+
 - ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
   2026-08-16, with five instances measured in one night as its evidence)**

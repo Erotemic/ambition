@@ -508,6 +508,185 @@ rebound this" with "this mode ships this" — decide that before writing.
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D147–D154 — THE D140–D145 REVIEW FINDINGS. (external review, 2026-08-16,
+  read against the `2381e3a7e` snapshot)**
+
+⚠⚠ **PROVENANCE, and it governs how to start each one.** These eight came from a
+STRUCTURAL SOURCE REVIEW. The reviewer states plainly that they *"couldn't
+independently run Cargo in this review environment"* and *"treated the commits'
+reported green suites as evidence rather than rerunning them."* So every finding
+below is a READING, not a measurement. ⛔ **Probe each one before fixing it** —
+the failing case is written into each row precisely so it can be run first. A
+finding that cannot be made to fail is a finding about the reader, not the code.
+
+Jon's disposition, verbatim: *"We also need to take care of the reviewer comments
+after this… probably want to document these in case we don't get to them in this
+session."* ⇒ **these queue BEHIND D146**, in the order below, which is the
+reviewer's own recommended order and not the severity order.
+
+⭐ the reviewer's reason for that order is worth keeping: the first three *"aren't
+generic cleanup for its own sake: each one removes a piece of backend ceremony or
+hidden state that future agents would otherwise repeatedly have to understand."*
+
+**Explicitly NOT findings** — the reviewer looked and cleared these: the volume of
+new moveset lines (*"genuine fighter design… D146 should centralize repertoire
+ceremony, not homogenize moves"*), `MatchAbilities::levelled(SMASH_FIGHTER_KIT)`
+as policy (Jon's own ruling; only the `None` bridge below is at issue), the new
+camera work, and the smash submodule gitlinks (map/SFX/sprite all match their
+archived `main` heads; the music renderer being ahead is the known unrelated dirt).
+
+- ▢ **D147 — GENERIC MATCH ACTIVATION KNOWS THE STOCKS RULESET'S PRIVATE LATCH.
+  (review finding 1, HIGH, refactor)**
+
+D140 fixed the never-ending second match by inserting
+`StocksMatchSettled(false)` inside the GENERIC `activate_the_prepared_match`.
+It works and it is committed, but the dependency points the wrong way: the
+generic activation road now knows that one particular ruleset keeps a
+process-global boolean latch that needs clearing. The comment written at the
+time already concedes the smell — *"a composition that never installed the stocks
+ruleset still activates matches"* — and installs the resource anyway.
+
+Wanted: activation publishes a match identity; the stocks ruleset OBSERVES that
+lifecycle and initialises its own state. ⭐ the stronger form the reviewer
+proposes is to stop modelling `StocksMatchSettled(bool)` as a timeless global at
+all — it is *the stocks outcome for match X*, and keyed that way it goes stale by
+construction when the identity changes, with nobody to remember to reset it.
+⚠ this is the coupling that will tax every future match rule, which is why it is
+first.
+
+- ▢ **D148 — A TEAM VICTORY CAN ANNOUNCE THE LAST SURVIVING TEAMMATE INSTEAD OF
+  THE TEAM. (review finding 2, HIGH, a real bug with a stated repro)**
+
+The D140 winner text means to say `WINNER: Red` for a team and a fighter's own
+name for a solo. It decides which by COUNTING CURRENTLY RESIDENT FIGHTER BODIES
+on the winning side: one body ⇒ print that body's name.
+
+Repro to run FIRST: Red = Alice + Bob, Blue = George + Pirate. Eliminate Alice
+early so her body despawns. Bob wins. At victory the ECS census finds exactly one
+Red body, so the banner reads `WINNER: Bob` — contradicting the rule the code
+itself states.
+
+⭐ **the general error is the familiar one: BODY RESIDENCY used to recover stable
+match-participant identity.** The frozen roster / prepared-match semantics already
+hold the answer. Wants a regression fixture with a two-person team whose teammate
+was eliminated earlier — the census-based version passes every single-elimination
+test, which is why it shipped.
+
+- ▢ **D149 — MOVE VFX BYPASSES `FxRequest`, SO FOURTEEN MOVESETS HAND-PAIR EVERY
+  SOUND. (review finding 3, MED-HIGH, refactor after D146)**
+
+⭐ **the reviewer calls this the most valuable post-D146 cleanup for making
+character authoring agent-friendly**, and it is the one that pays D144 back.
+
+The engine already has the abstraction: `FxRequest`, whose own doc says the
+simulation writes ONE request for an effect's visual *and paired sound* so the
+caller need not remember both, and `process_fx_requests` fans it out to
+`VfxMessage::Effect` + `effect_cue(effect)` → `SfxMessage`. But
+`dispatch_move_events` takes `MoveEventKind::Vfx` and writes `VfxMessage::Effect`
+DIRECTLY, going around the pairing. So every authored burst in the new tables is
+a manual `Vfx(x)` + `Sfx("vfx.…x.loop")` couple, and several characters now carry
+a test whose entire job is *"every VFX has somebody remembering to put an SFX
+beside it"* — infrastructure making content authors remember backend details.
+
+Wanted: the authored thing is a presentation effect (`effect`, `position`,
+`scale`) whose sound DEFAULTS to its companion, with `sound = override(…)` and
+`sound = silent` as the exceptions. The `.loop` cases are exactly why an override
+must exist; they are not a reason to hand-pair the normal ones fourteen times.
+⚠ this removes ceremony only — not one fighter mechanic changes.
+
+- ▢ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
+  finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect)**
+
+Not introduced by D145; D145 touched this authority boundary and left the hole.
+Allegiance is reconstructed EVERY TICK by querying the firing `Entity`, and the
+code states the consequence as intended behaviour: if the firer despawned
+mid-flight the shot becomes indiscriminate environmental damage.
+
+In a four-fighter match that reads: fighter fires → loses their final stock →
+body despawns → next tick the owner lookup fails → **the shot in flight turns on
+everybody, including its own team.** A shot does not become neutral because the
+body that fired it stopped being resident.
+
+Wants stable combat attribution carried BY THE SHOT — who fired me, which side
+was I on — independent of owner-body lifetime, with reflection able to rewrite it
+deliberately. ⭐ this is the same occurrence-vs-entity distinction D125 is
+already working through. ⚠ do this before four-player/team matches are showcase
+material.
+
+- ▢ **D151 — `MatchAbilities`' `None → permitted` BRIDGE MAKES PERMISSION INTO A
+  GRANT. (review finding 5, MEDIUM, retire the bridge)**
+
+Not a new user-visible regression — the pre-D142 code had equivalent migration
+behaviour — but D142 promoted it into the new abstraction, where it is now the
+thing the API's own documentation invites you to rely on:
+
+```rust
+authored.unwrap_or(self.permitted).union(self.granted).intersect(self.permitted)
+```
+
+So `MatchAbilities::at_most(kit).apply(None)` MANUFACTURES the whole kit, despite
+`at_most` being documented as *"a ceiling only — grant nothing."* The tests
+knowingly preserve this as a migration bridge.
+
+⛔ **it gets worse in exactly the use the docs propose for fighter individuality**:
+`granted = basic kit`, `permitted = basic kit + wall jump`, meaning "the one
+character who authored a wall jump keeps it." An UNAUTHORED character takes the
+`None` arm and receives basic + wall jump — mere permission became a grant.
+
+Wanted: `None` means *no authored claim* (a baseline), never *the ruleset
+ceiling*. ⚠ **dovetails with D143** (the kit-less seat), and D144's now-explicit
+roster is what makes retiring it affordable.
+
+- ▢ **D152 — EMPOWERMENT EXPIRY IS A PER-GAME SCHEDULING FOOTGUN. (review finding
+  6, move lifecycle ownership into the engine)**
+
+Predates the review; smash's respawn protection proved it real. Smash had to add
+`run_empowerments` to its own schedule or a two-second invulnerability becomes
+PERMANENT invulnerability. Mary-O and Sanic each independently remember to
+install the same system.
+
+The current justification is that games differ on whether they want
+`apply_contact_harm`. ⭐ **the reviewer accepts that and separates the two
+responsibilities**: contact-harm INTERPRETATION is a ruleset choice; ticking,
+expiry and releasing projected state are a domain INVARIANT. An author should be
+able to write `Empowered::for_seconds(…, 2.0)` without knowing there is a system
+elsewhere that must be scheduled or the duration is infinite.
+
+- ▢ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)**
+
+In the hall-loading repair: `for index in asset.spec.used_pages()` now skips a
+page the realization does not have (`error!(…); continue;`), which correctly
+avoids waiting on sparse placeholder handles — that was the permanent-spinner fix
+and it should stay. But if a spec says page 12 is REQUIRED and the realization
+holds five slots, the sequence is now: log an error → omit the required page from
+the manifest → the barrier can report Ready → reveal the room with missing
+presentation.
+
+Wanted invariant, the inverse of the spinner fix: **a semantically required page
+that is absent fails PREPARATION explicitly** — a manifest construction failure or
+an explicit failed dependency, not log-and-continue.
+
+- ▢ **D154 — AUTHORED VFX IS ONLY HALF BODY-LOCAL: POSITION IS TRANSFORMED,
+  ORIENTATION IS NOT. (review finding 8, take with the next directional pass)**
+
+`d6d5810b8` gave `MoveEventKind::Vfx` an `at` and a `scale`, and correctly
+transforms `at` through committed facing and the body's gravity frame. But the
+message it produces is only `VfxMessage::Effect { pos, fx, scale }`, and the
+renderer builds `Transform::from_translation(…)` — no facing/mirror, no rotation,
+no body frame.
+
+So a left-facing fighter puts `air_slice` at the correct left-hand POSITION with
+the artwork still oriented as though facing right; sideways gravity has the
+analogous defect. Invisible for radial effects, visibly wrong for `air_slice`,
+`relative_velocity_arrows`, `paired_trajectory`, streaks, and any future
+sword/beam.
+
+Wanted: the presentation event carries a small semantic POSE — position,
+body-frame orientation, facing/mirror, scale — instead of accreting one isolated
+presentation field at a time. ⚠ not urgent, but **fix it before agents author
+hundreds more directional effects against the incomplete contract**, because the
+cost is in the content written against it, not in the field.
+
 - ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
   "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**
 

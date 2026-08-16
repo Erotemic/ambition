@@ -3431,31 +3431,6 @@ mod tests {
         assert_eq!(remaining(&mut app), Some(0.0));
     }
 
-    /// **The vault is a SECRET: reachable only through the pipe, and sealed.**
-    ///
-    /// This is geometry, and geometry is exactly the thing that is invisible in a
-    /// headless build and expensive to eyeball in a running one. A vault whose
-    /// wall is one tile short, or whose arrival lands inside the stone, is a
-    /// silently broken secret — the pipe still "works", you just fall through the
-    /// world or get stuck. So: assert the arrival is inside the chamber, that the
-    /// chamber is under the ground slab, and that both warp ends actually
-    /// overlap a body standing where the player would be.
-    /// **A room offers exactly the tubes ITS OWN blocks author.**
-    ///
-    /// ⛔⛔ **every tube in the game used to be 1-1's (2026-08-15).** The reader
-    /// held one flat process-global list built from `authored_room(1-1)`, so a
-    /// warp pipe drawn in any other level was a green box: paired, validated,
-    /// and completely inert. `mary_o_1_3` shipped with two such pairs.
-    ///
-    /// ⛔ **and the obvious wrong repair — one flat list of EVERY room's tubes —
-    /// is worse than the bug, which is why this compares two lists rather than
-    /// counting one.** An area's blocks are LEVEL-LOCAL (`compose_runtime_area`
-    /// takes `min_x`/`min_y` over that area's own levels, and every Mary-O area
-    /// is one level), so every room starts at the same origin and 1-1's pipes
-    /// live at coordinates 1-3 also uses. A flat list would let a body standing
-    /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
-    /// geometry — a warp into stone rather than a warp that does nothing.
-    #[test]
     /// **EVERY AUTHORED ENEMY STARTS FACING LEFT, AND THE FILE IS WHERE IT SAYS SO.**
     ///
     /// ⛔ **the construction test one crate down pins the FUNCTION, not the
@@ -3497,6 +3472,21 @@ mod tests {
         );
     }
 
+    /// **A room offers exactly the tubes ITS OWN blocks author.**
+    ///
+    /// ⛔⛔ **every tube in the game used to be 1-1's (2026-08-15).** The reader
+    /// held one flat process-global list built from `authored_room(1-1)`, so a
+    /// warp pipe drawn in any other level was a green box: paired, validated,
+    /// and completely inert. `mary_o_1_3` shipped with two such pairs.
+    ///
+    /// ⛔ **and the obvious wrong repair — one flat list of EVERY room's tubes —
+    /// is worse than the bug, which is why this compares two lists rather than
+    /// counting one.** An area's blocks are LEVEL-LOCAL (`compose_runtime_area`
+    /// takes `min_x`/`min_y` over that area's own levels, and every Mary-O area
+    /// is one level), so every room starts at the same origin and 1-1's pipes
+    /// live at coordinates 1-3 also uses. A flat list would let a body standing
+    /// in 1-3 press into 1-1's tube and arrive at 1-1's coordinates inside 1-3's
+    /// geometry — a warp into stone rather than a warp that does nothing.
     #[test]
     fn each_room_offers_exactly_the_tubes_its_own_blocks_author() {
         let mut offered_anywhere = 0;
@@ -3641,6 +3631,15 @@ mod tests {
         );
     }
 
+    /// **The vault is a SECRET: reachable only through the pipe, and sealed.**
+    ///
+    /// This is geometry, and geometry is exactly the thing that is invisible in a
+    /// headless build and expensive to eyeball in a running one. A vault whose
+    /// wall is one tile short, or whose arrival lands inside the stone, is a
+    /// silently broken secret — the pipe still "works", you just fall through the
+    /// world or get stuck. So: assert the arrival is inside the chamber, that the
+    /// chamber is under the ground slab, and that both warp ends actually
+    /// overlap a body standing where the player would be.
     #[test]
     fn the_pipe_leads_into_a_sealed_vault_and_back_out() {
         use ambition_platformer2d::engine_core::AabbExt;

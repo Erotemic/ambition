@@ -2879,6 +2879,111 @@ the nine-tap command in `capture_scene`'s header, to answer the question the row
 was opened to ask. ⛔ do not re-derive the tooling or re-measure the repertoire
 first — both are done.
 
+✔✔ **DONE 2026-08-16, AND SOMEBODY HAS FINALLY WATCHED A MATCH.** Twenty-one
+frames across two matches through the shipped shell, `--route smash_select --include-ui` plus the
+documented nine taps, `--warmup` swept 240/300/330/345/360/375/390/405/420/600/
+900/1400/2400 (a frame count is match time, because the press sequence restarts
+the capture clock). ⭐ **the answer is split, and the split is the finding: the
+two AUTHORED kits do read as two different fighters, and the MATCH is not a
+fight — every stock in both matches was lost to the void at ≤6% damage.**
+
+⛔⛔ **AND THE DOCUMENTED NINE TAPS SEAT THE WRONG PAIR.** `747x121` is grid cell
+3 and `425x121` is cell 0 — **Sanic and Player Robot v3, the two fighters on the
+generic `smash_fighter_kit()` floor**. George Booul is cell 1 (`touch:532x121`)
+and the Pirate Admiral cell 4 (`touch:855x121`) in the host's 5x3 grid. So the
+command this row points at to ask *"do the two kits behave differently"* seats
+the two bodies that have no authored kit at all. ⇒ **fix the two literals in
+`capture_scene`'s header and in
+`the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`** (~15 min);
+every future look through the documented command otherwise answers the standing
+question with the wrong pair. ⚠ the doc block already warns these two points rot
+— it is the ROSTER ORDER that moved, not the layout.
+
+```text
+GENERIC PAIR (documented taps) — Sanic vs Player Robot v3
+ f240  4.0s  2% / 0%   3-3   both bodies STACKED at one spawn point, "GO!"
+ f300  5.0s  5% / 0%   3-3   trading at centre-left
+ f330  5.5s  6% / 0%   3-3   BOTH off the left ledge; robot drawn PAST the
+                             left screen edge; camera still framing the platform
+ f345  5.75s 6% / 0%   3-3   Sanic falling, drawn BEHIND the virtual joystick
+ f360  6.0s  6% / 0%   3-3   ⛔ EMPTY STAGE — the KO happens off-camera
+ f375  6.25s 0% / 0%   2-2   both respawn STACKED again, mid-air
+ f600 10.0s  0% / 0%   1-1   two stocks each, gone, to nothing
+ f900 15.0s  4% / 0%   1-1   idle, ~300px apart
+f1400 23.3s  "seat 2 wins" — Player Robot v3 survives at 0%, 1/3
+f2400 40.0s  back on the select screen, all four cards NOT PLAYING
+
+AUTHORED PAIR (portraits swapped to cells 1 and 4) — George vs the Admiral
+ f240  4.0s 29% / 36%  3-3   ⭐ 36% traded in FOUR SECONDS; two visibly
+                             different kits; both fighters bark
+ f360  6.0s 34% / 36%  3-3   the Admiral's anchor/wheel FX plays, ~250px across
+ f480  8.0s  0% / 0%   2-2   double KO between 6s and 8s
+ f600 10.0s  0% / 11%  2-2
+ f900 15.0s  "seat 1 wins" — George survives at 0%, 1/3
+```
+
+⭐ **the percents are SANE and D131's fix holds**: nothing above 36% anywhere in
+either match, and `--combat-overlay` reads **100/100 over both fighters**. The
+4200% meter is gone.
+
+⚠ **what is wrong, in the order I would spend on it:**
+
+1. ⛔⛔ **EVERY STOCK IS A SELF-KO.** Five of six stocks in the generic match and
+   all five in the authored one were spent at ≤6%; the winner of BOTH matches
+   finished at **0% having taken zero damage all match**. This is not new
+   behaviour — `ladder_probe`'s own header already measured "5.0s / 9.8s to
+   first self-KO" and noted every level lost all three stocks that way — but
+   it is the first time it has been seen as *the whole product experience*. The
+   named cause is in this row: `RecoveryPolicy::DRIFT_AND_JUMP` cannot see the
+   ledge grab these fighters author. ⇒ the largest slice here, days.
+2. ⛔ **THE CAMERA DOES NOT FOLLOW A FIGHTER OFF THE STAGE.** f330 draws the
+   robot past the left screen edge, f345 draws Sanic behind the touch stick,
+   f360 is an EMPTY STAGE, and expr f360 clips George's nameplate at x=0. The
+   one moment a platform fighter must show is the one it never shows. ⇒ the
+   framing policy exists (`CameraSnapshot2d`); it needs *frame every live seat*
+   rather than one focus. Half a day, and it makes defect 1 legible.
+3. ⛔ **BOTH SEATS SPAWN AND RESPAWN AT ONE POINT, OVERLAPPING** (f240, f375,
+   f420) — `respawn_placement(stage_centre())` for both. Same shared
+   `ActorConfig.spawn.pos` this row already blames for the bit-symmetric brains.
+   ⇒ an offset by seat index plus a test, an hour.
+4. ⚠ **THE WINNER CARD NAMES A SEAT** — "seat 2 wins" / "seat 1 wins", never the
+   fighter — and there is NO results screen: by f2400 the shell is back on the
+   lobby with all four cards cleared, so a couch rematch re-seats everybody.
+   ⇒ `victory_banner` wants a display name, an hour; the rematch flow is a
+   product decision.
+5. ⚠ **HIT BARKS DRAW AS A SCREEN-WIDE CAPTION ACROSS THE PLAY AREA.** expr f240
+   renders "GO!" and *"Either you are on the stage or you are not."* on the SAME
+   LINE, so the countdown is illegible; f360/f600 keep a full-width quote beside
+   the action. ⭐ they are the combat hit barks (`ambition_content::banter`) and
+   the catalog `fallback_dialogue` — so their presence is real evidence hits are
+   landing, and their placement is the bug. ⇒ scale + placement, hours.
+6. ⚠ **AN UNTEXTURED BODY-SIZED QUAD** (~64x85px at 1280x720, olive) is drawn
+   beside Player Robot v3 during exchanges (f240, f300). ⛔ NOT a combat volume —
+   `--combat-overlay` outlines the real hit/hurt boxes and leaves this one
+   unoutlined — and NOT a named actor (`--dev-overlays` gives it no nameplate).
+   Absent from the authored-kit match, which draws real FX art. Suspect the
+   "bare colored rectangle (no entity sprite available, no atlas)" fallback in
+   `ambition_render`'s `rendering/actors/mod.rs` (~line 597), i.e. something in
+   the generic kit's effect path binds no sprite. ⇒ an hour to identify.
+7. ⚠ **VFX SCALE**: the Admiral's wheel/anchor effect is ~250px across against a
+   ~45px fighter (expr f360) and occludes both the fighter and the stage. The
+   art road works — the sizing is authored against nothing.
+8. ⚠ **`capture_scene` prints no pose for the state it exists to photograph**:
+   its `subject at (x,y)` line is `PrimaryPlayerOnly`, and a two-CPU match has no
+   primary player, so every log above is silent about where anybody was. ⇒ print
+   each `MatchSeat` body, ~20 lines.
+
+⇒ **the plain answer to the standing question:** *not yet, and the reason is no
+longer the fighters.* With George Booul and the Pirate Admiral seated, a watcher
+sees two mechanically different bodies inside four seconds — different
+silhouettes, different effects, a cutlass against a Boolean ghost, 36% traded —
+so **"content underuse" is answered: the authored kits DO read**. What the same
+watcher does not see is a fight: the match is over in 13-23 seconds, every stock
+is lost to the void at nearly zero percent, the camera is pointing at an empty
+platform when it happens, and the game announces *"seat 2 wins"*. ⛔ **the next
+spend is the stage-return loop (1 + 2), not more repertoire** — a fighter that
+cannot get back on the stage has no room to show a repertoire at all.
+
 ✔✔ **FIRST FIGHTER LANDED AND VERIFIED (George Booul, 2026-08-15)** — Smash lib
 73, Smash app 21, characters 531, core 393, app_it 365, gate clean.
 

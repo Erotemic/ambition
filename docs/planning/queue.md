@@ -411,19 +411,42 @@ probably non standard. Will need to have control profiles eventually."*
 **THREE ITEMS, in the order they should be done. Everything below is MEASURED,
 not assumed — the reading was done 2026-08-16 before any of it was written.**
 
-**1 ▢ DASH OUT OF THE SMASH KIT, and the double jump compensates.**
-One line: `dash: true` comes out of `SMASH_FIGHTER_KIT`
-(`game/ambition_demo_smash/src/lib.rs`). ⭐ it reaches all fourteen at once
-because D142 made the stage GRANT that kit rather than mask with it — before
-that this would have been fourteen edits.
-⚠ **the jump number is a MEASUREMENT, not a multiplier.** Measure the current
-jump arc against the stage's own gaps (`smash_stage()`'s platform, the 420px
-platform in a 960px world) before picking one; the ledge grab and the up-B
-recoveries all landed since the arc was last tuned.
-⚠ **`dash` is also `AbilitySet::dash`, which the DASH-ATTACK press has no
-relationship to** — check whether anything in the sixteen-press vocabulary reads
-it before removing, and whether the CPU brain's `smash_dash_to_close` policy
-depends on it (`BrainProfile::smash_dash_to_close`, set on the PCA among others).
+**1 ✔ DASH OUT OF THE SMASH KIT — CLOSED 2026-08-16 (`6db8cab2c`, `a7b5ab681`,
+`f4210ba19`, `c0208b21b`). NO COMPENSATING NUMBER: measured, nothing became
+unreachable.**
+It was not one line. ⛔⛔ **the kernel filled the shared dodge/dash buffer only
+for `abilities.dash`, so deleting `dash: true` alone would have deleted the
+DODGE from all fourteen fighters in silence** — `apply_dodge` returns on
+`buffer_dash <= 0.0` and nothing would have filled it. `apply_intent` now gates
+on `dash || dodge` (the same question `movement_actions` already asks to earn
+the slot) and the field is `buffer_burst`.
+⭐ **the jump measurement came back NO, and the reason is better than the
+answer.** `removing_the_dash_from_a_dodging_kit_changes_no_reach` drives the
+real kernel through `probe_recovery` on a smash-shaped stage: furthest offstage
+recovery is IDENTICAL with the dash bit on and off at every height (170/150/140
+px by drift+jump; 180/150/130 with a burst press), because dodge outranks dash
+on the shared press and a fighter authors an air-dodge window — airborne, its
+press was ALREADY an air dodge, so **the dash bit was dead weight in that kit**.
+Poison column (dash, NO dodge) reaches 370/330/280, so the instrument can see a
+dash. And the stage is ONE contiguous 480px platform: ground traversal has no
+gap to clear.
+⭐ the CPU's `smash_dash_to_close` was already locomotion (full throttle) with
+an optional `dash_pressed` riding along; the press is gone and the verb is now
+`SpecificAction::Sprint` / `sprint_to_close` / `smash_sprint_to_close`, because
+closing distance is not a capability. Nothing in the sixteen-press repertoire or
+any authored `MoveSpec` read `AbilitySet::dash`.
+▢ **FOUND WHILE HERE, for a later slice — the stage levels ABILITIES but not
+MOVEMENT TUNING.** Only the demo's own three characters author
+`movement_tuning` (jump squat + the air-dodge window); the other eleven
+fighters have neither. Pre-existing (D144 levelled abilities, not tuning), and
+now more visible: an airborne burst press on those eleven resolves to nothing at
+all. Wants the `MatchAbilities::levelled` treatment for tuning.
+▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
+not the burst button.** In the genre a dodge is shield + direction. Recorded,
+not done — it belongs with item 2/3 below.
+▢ minor: `resolve_dash` (`affordances/resolvers.rs`) still labels the grounded
+prompt "Dash" for a body that now rolls; it reads `is_aerial` and never the
+ability set. HUD naming, not behaviour.
 
 **2 ▢ SHIELD IS ITS OWN INPUT ACTION UNDER ANOTHER NAME, AND A POLICY CLEARS
 IT.** ⛔⛔ **an earlier note here said "there is no `Shield` action". That was

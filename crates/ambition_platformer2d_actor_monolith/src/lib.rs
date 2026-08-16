@@ -113,6 +113,7 @@ pub mod session;
 pub mod shrine;
 mod snapshot_impls;
 pub mod time;
+pub mod world_facts;
 pub mod world;
 
 // Public re-exports double as the external API for bins, tests, and docs.

@@ -956,6 +956,24 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // **The condition catalog**: which questions the installed domains can
+    // answer, and the function that answers each.
+    //
+    // ⭐ IMMUTABLE ONCE THE SIMULATION STARTS, AND STRUCTURALLY SO. `publish` is
+    // private to its module; the only way in is `PublishCondition` on `App`, and
+    // a tick holds a `World`, never an `App`. So a rewind restoring this would
+    // restore a byte-identical value — there is no timeline in which the set of
+    // questions the engine can answer differs.
+    //
+    // ⚠ this waiver is about the CATALOG, not about answers. An evaluator reads
+    // live state, and that state is registered by whichever domain owns it; the
+    // day rule EXECUTION gains runtime state (a cursor, a latch, a timer), that
+    // state is a different value with a different answer, and D127's M4 says so
+    // explicitly.
+    (
+        "ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog",
+        "published during plugin build only; `publish` is private and a tick has no `App`",
+    ),
     // **The game's death rules** (ADR 0033): how long a death holds, and the
     // roster question that decides a level reset.
     //

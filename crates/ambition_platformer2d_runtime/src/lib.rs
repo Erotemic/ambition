@@ -65,9 +65,11 @@ pub mod projectile_schedule;
 pub mod rollback;
 mod room_schedule;
 pub mod room_transition;
+/// The reset horizon's composition: where checkpoint capture and restore sit in
+/// the tick, and the ordering edges that make them one transaction.
+pub mod checkpoint_horizon;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
-pub mod checkpoint_horizon;
 pub mod sandbox_reset;
 pub mod session_world;
 mod sim_core_resources;
@@ -485,6 +487,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // ordered against that consumer's set, and the two are one
             // transaction: put the world back, then rebuild the room from it.
             .add(checkpoint_horizon::CheckpointHorizonPlugin)
+            // The world-fact domain's authored-condition provider. Added here
+            // because composition is where plugins are chosen — ⛔ NOT because
+            // anything central knows what conditions exist. The item domain
+            // publishes its own from `ItemPickupSimulationPlugin`, and neither
+            // names the other.
+            .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

@@ -1,0 +1,200 @@
+//! **What can authored content ask this engine, and does asking work?**
+//!
+//! The condition contract's whole claim is that a domain publishes its own
+//! questions and nothing central learns they exist. That claim is only worth
+//! anything about the **composed** engine — a contract that works in a hand-built
+//! `App` and is wired up nowhere is vocabulary nobody speaks.
+//!
+//! ⭐ so this file drives the real host: the real plugin group, the real item
+//! domain, the real save layer, a real authored occurrence, and a real pressed
+//! pickup. ⛔ **it publishes no condition of its own.** The unit tests beside the
+//! contract prove a stranger can publish one; this proves the engine actually
+//! did.
+//!
+//! ⚠ **and it is deliberately thin on assertions about WHICH conditions exist.**
+//! Pinning the full catalog would make every new provider a failing test, which
+//! is the opposite of the property being built — new questions are supposed to be
+//! cheap. What is pinned is that two independent domains are present and that
+//! asking them returns real answers about real state.
+
+use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_platformer2d::platformer::authored_logic::{
+    ConditionArg, ConditionCatalog, ConditionId, ConditionOutcome,
+};
+use ambition_platformer2d::platformer::sim_id::SimId;
+
+use crate::common::{base, fixed_60hz_room_sim};
+
+const ROOM: &str = "blink_run";
+
+fn catalog(sim: &Platformer2dSimHarness) -> ConditionCatalog {
+    sim.world()
+        .get_resource::<ConditionCatalog>()
+        .expect(
+            "the composed engine publishes at least one condition, so the catalog resource exists",
+        )
+        .clone()
+}
+
+fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[ConditionArg]) -> ConditionOutcome {
+    catalog(sim).evaluate(sim.world(), id, args)
+}
+
+/// **TWO INDEPENDENT DOMAINS PUBLISHED QUESTIONS INTO ONE CATALOG.**
+///
+/// ⭐ neither names the other, and neither is listed anywhere central: the item
+/// domain publishes from its own simulation plugin, the world-fact domain from a
+/// plugin of its own. What composed them is composition.
+#[test]
+fn the_composed_engine_publishes_questions_from_more_than_one_domain() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    let catalog = catalog(&sim);
+
+    let domains: Vec<&str> = catalog
+        .describe_all()
+        .map(|descriptor| descriptor.id.domain())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    assert!(
+        domains.len() >= 2,
+        "the contract's acceptance is that a SECOND domain costs nothing central; \
+         found only {domains:?}"
+    );
+    assert!(domains.contains(&"custody"), "{domains:?}");
+    assert!(domains.contains(&"world"), "{domains:?}");
+}
+
+/// **EVERY PUBLISHED QUESTION DESCRIBES ITSELF WELL ENOUGH TO BE USED.**
+///
+/// ⭐ this is the discovery half, and it is an acceptance criterion rather than
+/// polish: an agent that can list the questions but cannot tell what they take
+/// has to read the engine's source, which is the thing this program exists to
+/// stop.
+#[test]
+fn every_published_question_carries_a_schema_an_agent_could_act_on() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+    let catalog = catalog(&sim);
+
+    assert!(!catalog.is_empty(), "nothing published");
+    for descriptor in catalog.describe_all() {
+        let id = &descriptor.id;
+        assert!(!descriptor.summary.is_empty(), "`{id}` has no summary");
+        assert!(
+            id.as_str().contains('.'),
+            "`{id}` is not namespaced by its owning domain"
+        );
+        for param in descriptor.params {
+            assert!(!param.name.is_empty(), "`{id}` has an unnamed parameter");
+            assert!(
+                !param.summary.is_empty(),
+                "`{id}` parameter `{}` has no summary, so an author cannot tell what to pass",
+                param.name
+            );
+        }
+    }
+}
+
+/// **ASKING THE ITEM DOMAIN ABOUT A REAL OCCURRENCE TRACKS REAL STATE.**
+///
+/// ⭐⭐ **the interesting assertion is the THIRD one.** Satisfied-then-not is a
+/// property any boolean would have; the third answer — *unanswerable* about an
+/// identity this world never authored — is what stops a gate that opens on the
+/// negation from standing open in a level that has no key.
+#[test]
+fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    let is_held = ConditionId::new("custody", "is_held");
+
+    // The one authored ground item, found through the same road the checkpoint
+    // fixture uses: lying in the world, so nobody has it yet.
+    let (authored, at) = {
+        let mut query = sim.world_mut().query::<(
+            &SimId,
+            &ambition_platformer2d::actors::items::pickup::GroundItem,
+            &ambition_platformer2d::actors::items::pickup::ItemCustody,
+        )>();
+        let found: Vec<(SimId, (f32, f32))> = query
+            .iter(sim.world())
+            .filter(|(_, _, custody)| custody.in_world())
+            .map(|(id, ground, _)| (id.clone(), (ground.pos.x, ground.pos.y)))
+            .collect();
+        assert_eq!(found.len(), 1, "'{ROOM}' authors exactly one ground item");
+        found[0].clone()
+    };
+
+    assert_eq!(
+        ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())]),
+        ConditionOutcome::NotSatisfied,
+        "it is lying on the floor"
+    );
+
+    // Pick it up through the ordinary pressed pickup.
+    sim.teleport_player(at);
+    for _ in 0..40 {
+        sim.step(AgentAction {
+            attack: true,
+            ..base()
+        });
+        sim.step(base());
+        if ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())])
+            == ConditionOutcome::Satisfied
+        {
+            break;
+        }
+    }
+    assert_eq!(
+        ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())]),
+        ConditionOutcome::Satisfied,
+        "the pressed pickup took custody, and the domain says so"
+    );
+
+    // ⭐ the third answer.
+    let never_authored = SimId::placement("a_key_this_world_does_not_have");
+    let outcome = ask(&sim, &is_held, &[ConditionArg::Reference(never_authored)]);
+    assert!(
+        matches!(outcome, ConditionOutcome::Unanswerable(_)),
+        "an occurrence this world never authored is UNANSWERABLE, not false — a \
+         gate opening on the negation would stand open forever. Got {outcome:?}"
+    );
+    assert!(
+        !outcome.is_satisfied(),
+        "and unanswerable must never read as satisfied"
+    );
+}
+
+/// **ASKING THE WORLD-FACT DOMAIN READS THE REAL SAVE.**
+///
+/// ⚠ **an unset flag is `NotSatisfied` here, unlike the custody case**, and the
+/// asymmetry is the point rather than an inconsistency: a flag namespace is open,
+/// so *"has this happened yet"* is a meaningful question about a fact nobody has
+/// recorded. Answering *unanswerable* would leave every flag-gated thing stuck
+/// until something set its flag once.
+#[test]
+fn the_world_fact_domain_answers_from_the_save_layer() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+
+    let flag_set = ConditionId::new("world", "flag_set");
+    let flag = "a_fact_this_run_has_not_recorded";
+
+    assert_eq!(
+        ask(&sim, &flag_set, &[ConditionArg::Name(flag.to_string())]),
+        ConditionOutcome::NotSatisfied
+    );
+
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(flag, true);
+
+    assert_eq!(
+        ask(&sim, &flag_set, &[ConditionArg::Name(flag.to_string())]),
+        ConditionOutcome::Satisfied,
+        "the domain reads the live save rather than a copy taken at startup"
+    );
+}

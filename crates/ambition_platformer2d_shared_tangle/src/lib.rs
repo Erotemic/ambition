@@ -4,6 +4,7 @@
 //! schedule seams without depending on `ambition_platformer2d_actor_monolith`, content,
 //! presentation, app assembly, or devtool modules.
 
+pub mod authored_logic;
 pub mod app_finalization;
 pub mod binding;
 pub mod body;

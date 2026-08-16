@@ -10,6 +10,8 @@
 //! One held item at a time; `Attack` picks up / uses and `Shield + Attack`
 //! throws.
 
+pub mod conditions;
+
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
@@ -51,6 +53,15 @@ pub struct ItemPickupSimulationPlugin;
 impl Plugin for ItemPickupSimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // ⭐ **THE ITEM DOMAIN PUBLISHES ITS OWN QUESTION.** Registered from the
+        // domain's own plugin and naming no other domain — which is the whole
+        // acceptance for the condition contract: a provider that had to be
+        // listed somewhere central would not be a provider, it would be a case
+        // in somebody else's match.
+        {
+            use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
+            app.publish_condition(conditions::is_held_descriptor(), conditions::is_held);
+        }
         // **Durable room state, and the only leg of it that has a producer.**
         // Inserted here because this is where the producer is registered; every
         // consumer takes it as an `Option`, so a composition without this plugin

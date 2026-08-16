@@ -435,12 +435,38 @@ an optional `dash_pressed` riding along; the press is gone and the verb is now
 `SpecificAction::Sprint` / `sprint_to_close` / `smash_sprint_to_close`, because
 closing distance is not a capability. Nothing in the sixteen-press repertoire or
 any authored `MoveSpec` read `AbilitySet::dash`.
-▢ **FOUND WHILE HERE, for a later slice — the stage levels ABILITIES but not
-MOVEMENT TUNING.** Only the demo's own three characters author
-`movement_tuning` (jump squat + the air-dodge window); the other eleven
-fighters have neither. Pre-existing (D144 levelled abilities, not tuning), and
-now more visible: an airborne burst press on those eleven resolves to nothing at
-all. Wants the `MatchAbilities::levelled` treatment for tuning.
+
+**1b ✔ THE STAGE LEVELS ABILITIES AND NOW SUPPLIES THE BODY THEY RUN ON —
+CLOSED 2026-08-16 (`9817eb949`, `205e52a5e`, `6a74247b5`, `441a0b7cc`).**
+Found while doing item 1: only the demo's own three characters authored
+`movement_tuning`, so an airborne burst press on everybody else resolved to
+nothing at all once `dash` left the kit. ⛔ **measured on the COMPOSED HOST it
+was worse than eleven of fourteen: it was TWELVE**, because two of those three
+ids are stand-ins the host drops for the real lineage — `player_robot_v3` fought
+with the exploration protagonist's 110 px/s melee recoil and no air dodge.
+⭐ `MatchBody` (core, beside `MatchAbilities`) is the six numbers a MODE owns —
+`slash_recoil`, `jump_squat_time`, the air-dodge window/speed/endlag, the tumble
+floor — and `over` composes them onto whatever body a fighter brought;
+`MatchParticipantRoster::fighter_body` carries it and `MatchRules::body_over`
+states the composition once.
+⛔⛔ **a whole `MovementTuning` was tried FIRST and was wrong**: it spreads
+`..DEFAULT_TUNING`, so it states every field whether or not its author had an
+opinion, and `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored`
+caught it in one run — the crawler's authored 80 px/s became the engine's 270.
+That is the trap `MatchAbilities` already names on the grant side.
+▢ **STILL DEAD, and both are product calls rather than engine gaps.** Mary-O is
+granted `double_jump` and authors `air_jumps: 0` (her SMB1 convergence), and
+`air_jumps` is NOT a mode's number — in the genre it is per-fighter. Sanic moves
+by `SurfaceMomentum`, which has no `AxisManeuverState`, so no stage can give him
+an evade window, a parry or a tumble; `perception_body_for` reads
+`AxisSweptMotion::default()` for him and is right to.
+▢ **AND A LEVELLED STAGE WHERE THIRTEEN BODIES ARE FLOATIER THAN THE
+FOURTEENTH.** The deleted per-character block was ALSO declaring those three
+PLAYER-GRADE (`..DEFAULT_TUNING`: gravity 2500, run accel 5200) where a seat
+that authors nothing takes `BodyMovementTuning::BASELINE`, the generic ACTOR
+body (gravity 1450, run accel 650). It is stated explicitly on the three now, so
+nothing moved; which base a platform fighter uses is the decision left.
+
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,
 not done — it belongs with item 2/3 below.

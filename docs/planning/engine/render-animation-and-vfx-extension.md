@@ -168,6 +168,16 @@ branch **every time** and every `Feel` class degrades to one particle burst.
 ⇒ **engine-level FX-sheet registration is the prerequisite.** Widening the
 vocabulary buys nothing while there is no art to name.
 
+⭐⭐ **and the reason it is absent is structural: THE ENGINE HAS NO WAY TO SHIP THE
+ART IT ITSELF DRAWS.** Every registration site in the workspace is a *game*
+system hand-rolling the same load — `game/ambition_content/src/intro/plugin.rs`
+for Ambition's props, `game/ambition_demo_sanic/src/lib.rs` for one ring sheet —
+so a sheet the ENGINE draws (`spawn_explosion` reaches for `generic_explosions`
+by name, from `ambition_render`) exists only if some game happens to have
+declared it. That is the same shape as an engine system reading a resource no
+engine plugin inserts, and it will recur for every future built-in presentation
+asset, not just effects.
+
 ### The one real design constraint
 
 `MoveSpec::presentation_problems`' oracle is already INJECTED — `prefab_registry`

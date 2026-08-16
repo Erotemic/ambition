@@ -1689,6 +1689,14 @@ addresses the art and the sound together, in the data, with no Rust in the
 middle. The engine owes ONE mapping (name → which sheet holds the row), not the
 three tables `ExplosionKind` currently needs.
 
+⇒ **the design, the deletion gate and the Enoki bearing live in
+[`engine/render-animation-and-vfx-extension.md`](engine/render-animation-and-vfx-extension.md)
+§ "MEASURED 2026-08-16"** — that plan already owned this ground (its VFX-08 names
+the sibling defect), so the row points rather than restates. ⛔ the deletion gate
+is `ExplosionKind` + `move_vfx_kind` + `explosion_anim` + `explosion_sfx`; a
+slice that adds a new message beside `VfxMessage::Explosion` has wrapped the old
+model, not removed it.
+
 ⚠ **remaining showcase weaknesses, in order:**
 - **the mirror match is bit-symmetric.** Brains seed from the level alone
   (`0x5F37_7A11 * (level+1)`) and the comment approves. A per-body seed was tried

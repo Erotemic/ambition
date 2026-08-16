@@ -1847,6 +1847,25 @@ believe it** — widen the sample across the other eleven fighters before chasin
 it. ⛔ do not start from the characters; start from **whatever advances damage per
 frame** and ask what admits these two and not those two.
 
+⛔ **TWO LEADS ALREADY DEAD (2026-08-16) — do not re-run them:**
+
+1. ⊘ **"their own demo's systems are running in Smash."** `ambition_demo_smash`
+   and `ambition_demo_smash_app` name **neither** `demo_sanic` nor `demo_mary_o`,
+   in any `.rs` or `.toml`. The crossover characters bring their catalog rows and
+   their art, not their game's plugins.
+2. ⊘ **"the two that accrue are the two whose sheets do not author a body."**
+   Falsified 4/4: `george_booul` is ALSO `authored_body: false` and takes **zero**
+   damage in every sample, while `player_robot_v3` is `true`. Body-geometry
+   provenance does not split the cast the way the damage does.
+
+⭐ **what the control does establish, and it narrows the search a lot**: the
+character that accrues is the VICTIM, and the opponent is uninvolved — so the
+source is **the character's own body or the stage**, not an attack resolving from
+the other side. Look for something that emits a hit, or writes damage, per frame
+at a body, and admits `sanic`/`mary_o` while refusing `player_robot_v3`/
+`george_booul`. ⚠ D128 records the shape of a near neighbour already fixed once:
+a swing broadcast a body-scanning volume that **came back around to its owner**.
+
 ⚠ pair it with the second defect in the same match: **both fighters lose a stock
 at the same instant while one of them is at 0%.**
 

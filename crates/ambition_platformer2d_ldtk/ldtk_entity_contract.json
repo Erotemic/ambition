@@ -845,8 +845,16 @@
         16
       ],
       "consumed_elsewhere": true,
-      "note": "read off the raw LdtkProject by its own consumer; the converter emits nothing.",
-      "fields": []
+      "note": "read off the raw LdtkProject by its own consumers; the converter emits nothing. TWO consumers: the encounter seal (phase-driven, no gated_by) and the authored condition gate (gated_by present).",
+      "fields": [
+        {
+          "name": "gated_by",
+          "kind": "string",
+          "required": false,
+          "on_invalid": "open",
+          "note": "names a world-fact flag; the wall stands until `world.flag_set(<gated_by>)` is satisfied. ABSENT means this wall belongs to the encounter consumer or is inert - which is why it is optional and why an unknown flag is not refused: a flag that has never been set is a legitimate authored state, so refusing unknown names would refuse every wall gated on a fact the run has not reached yet."
+        }
+      ]
     }
   ]
 }

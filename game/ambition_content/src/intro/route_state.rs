@@ -75,141 +75,20 @@ pub fn emit_intro_flag_chains(
     }
 }
 
-/// LockWalls in the intro slice whose collision should be removed
-/// once the named flag is set in save. Each entry is
-/// `(lock_id_on_LockWall_entity, unlock_flag)`.
-///
-/// LockWalls without an associated EncounterTrigger are inert in the
-/// stock runtime — the entity exists in LDtk but no system inserts a
-/// blocking solid into the engine's `world.blocks`. The system below
-/// reads from this table to provide that wiring for the cartography
-/// route: while the unlock flag is clear, an `intro_lock:<id>` solid
-/// block is inserted in the active room; once the flag flips, the
-/// block is removed and the player can walk through.
-pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
-    ("alice_private_return_lock", "bob_field_survey_received"),
-    ("gate_alice_private_lock", "bob_field_survey_received"),
-];
-
-// The intro-specific dialog redirect table moved into the unified
-// data-driven registry at `assets/data/dialogue/registry.ron`
-// alongside the sandbox redirects. The boss/flag gate predicates are
-// the same shape; `dialog::redirect_post_quest_dialog` now walks both
-// families in one pass. Adding a new intro flag swap is a one-row
-// edit in the RON file.
-
-/// Pure computational core of [`sync_intro_flag_gated_lock_walls`].
-/// Given the LDtk project, the active room id, and a save snapshot,
-/// returns the (lock_id, min, size) triples that should be present
-/// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
-/// system can be tested without spinning up a full ECS world.
-pub fn compute_intro_flag_gated_lock_walls(
-    project: &ambition_platformer2d_ldtk::LdtkProject,
-    active_room_id: &str,
-    save: &ambition_persistence::save_data::AmbitionGameSaveData,
-) -> Vec<(
-    String,
-    ambition_platformer2d_core::Vec2,
-    ambition_platformer2d_core::Vec2,
-)> {
-    let mut out: Vec<(
-        String,
-        ambition_platformer2d_core::Vec2,
-        ambition_platformer2d_core::Vec2,
-    )> = Vec::new();
-    for level in &project.levels {
-        if level.active_area() != active_room_id {
-            continue;
-        }
-        for entity in level.all_entity_instances() {
-            if entity.identifier != "LockWall" {
-                continue;
-            }
-            let Some(id) = ambition_platformer2d_ldtk::field_string(entity, "id") else {
-                continue;
-            };
-            let id_trim = id.trim();
-            let Some((_, flag)) = INTRO_FLAG_GATED_LOCK_WALLS
-                .iter()
-                .find(|(lock, _)| *lock == id_trim)
-            else {
-                continue;
-            };
-            if save.flag(flag) {
-                continue;
-            }
-            let min = ambition_platformer2d_core::Vec2::new(entity.px[0] as f32, entity.px[1] as f32);
-            let size = ambition_platformer2d_core::Vec2::new(entity.width as f32, entity.height as f32);
-            out.push((id_trim.to_string(), min, size));
-        }
-    }
-    out
-}
-
-/// Per-frame contribution of the intro flag-gated lock walls onto the
-/// collision overlay's `gate_solids`. Mirrors the encounter system's
-/// `contribute_encounter_lock_walls` but driven by the save layer rather than
-/// encounter phase: the walls are derived each frame and folded into the
-/// per-frame overlay, never mutated into the authored `RoomGeometry` base (the
-/// resolved authored-base model). Delegates the LDtk-walking policy to
-/// [`compute_intro_flag_gated_lock_walls`] so it stays testable in isolation.
-///
-/// Runs in `WorldPrep` after the overlay rebuild clears `gate_solids` (so the
-/// contribution is a clean per-frame derive) and before the WorldPrep collision
-/// consumers. The `intro_lock:<id>` block name lets the render layer surface
-/// each wall as a `LockWallVisual`, same as encounter lock walls.
-/// Per-frame cache for [`sync_intro_flag_gated_lock_walls`]: the overlay is
-/// rebuilt every frame so the blocks must be re-pushed, but the walls only
-/// change with the active room or the save flags. The uncached compute walked
-/// every LDtk level's `active_area()` field strings per frame — the single
-/// hottest our-code symbol in the serialized headless boss profile (~1.8%).
-#[derive(Default)]
-pub struct IntroLockWallCache {
-    room: Option<String>,
-    walls: Vec<(
-        String,
-        ambition_platformer2d_core::Vec2,
-        ambition_platformer2d_core::Vec2,
-    )>,
-}
-
-pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_platformer2d_ldtk::ActiveLdtkProject>>,
-    room_set: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
-    >,
-    save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
-    overlay: Option<
-        ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
-    >,
-    mut cache: Local<IntroLockWallCache>,
-) {
-    let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
-        (project, room_set, save, overlay)
-    else {
-        return;
-    };
-    let active_room_id = &room_set.active_spec().id;
-    // The cached walls are a function of THREE inputs: the save flags, the
-    // active room, and the LDtk project the walls are computed FROM. The
-    // project is the one that used to be missing — a hot reload that swaps
-    // `ActiveLdtkProject` under an unchanged room id and save state kept
-    // serving walls computed from the replaced project.
-    if save.is_changed()
-        || project.is_changed()
-        || cache.room.as_deref() != Some(active_room_id.as_str())
-    {
-        cache.walls = compute_intro_flag_gated_lock_walls(&project.0, active_room_id, save.data());
-        cache.room = Some(active_room_id.clone());
-    }
-    for (id, min, size) in &cache.walls {
-        overlay.gate_solids.push(ambition_platformer2d_core::Block::solid(
-            format!("intro_lock:{id}"),
-            *min,
-            *size,
-        ));
-    }
-}
+// ⭐⭐ **THE FLAG-GATED LOCK WALLS LEFT THIS FILE, AND THE TABLE THEY READ WENT
+// WITH THEM** (2026-08-15). `INTRO_FLAG_GATED_LOCK_WALLS` paired two lock-wall
+// ids with the flag that opened them, in Rust, in this crate — so the wall was
+// in the level and the reason it opened was in the compiler. An agent reading
+// the level saw a `LockWall` and no way to find out what it was waiting for.
+//
+// The pair now lives on the LDtk entity as a `gated_by` field, and the system
+// that reads it is `ambition_platformer2d_actor_monolith::world::gated_lock_walls`
+// — an ENGINE system, so every game gets flag-gated walls without Rust. It asks
+// the `world.flag_set` condition through the shared catalog rather than reading
+// the save, which is what lets a later wall be gated on something that is not a
+// flag at all.
+//
+// ⛔ do not reintroduce a table here. Adding a gated wall is an LDtk edit.
 
 #[cfg(test)]
 mod tests;

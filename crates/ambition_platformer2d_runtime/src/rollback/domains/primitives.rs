@@ -204,6 +204,25 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.reset_to_checkpoint",
     );
+    // ⭐ **A MEMO, and memos are usually rollback state — this one is not, and
+    // the reason is worth stating rather than assuming.** It caches which
+    // `LockWall`s a room AUTHORS, keyed on the active room and the loaded LDtk
+    // project. It does NOT cache which of them are standing: that is asked fresh
+    // every frame through the wall's own condition.
+    //
+    // ⛔ the version this replaced DID cache the standing set, and therefore had
+    // to watch the save — which is exactly the shape that makes a memo rollback
+    // state, because the save rewinds. Separating "what exists" from "what is
+    // open" is what made this declarable.
+    //
+    // ⚠ neither remaining input can move inside a rollback window: a room
+    // transition commits only on a confirmed frame, and a project swap is a hot
+    // reload.
+    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::world::gated_lock_walls::GatedLockWallCache>(
+        OWNER,
+        "derived.gated_lock_wall_cache",
+        "authored gated walls for the active room; recomputed from the room set and LDtk project",
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

@@ -125,6 +125,18 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 .before(crate::features::update_ecs_hazards)
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
+        // ⭐ **ITS SIBLING: the walls an AUTHORED CONDITION opens** rather than an
+        // encounter phase. Same slot, same reasons, and registered beside it so
+        // the two roads into `gate_solids` are visible in one place — this one
+        // arrived from `ambition_content`, where being invisible next to its
+        // sibling was part of how it went unnoticed that its data lived in Rust.
+        app.add_systems(
+            sim,
+            crate::world::gated_lock_walls::sync_authored_gated_lock_walls
+                .after(crate::features::FeatureWorldOverlaySet)
+                .before(crate::features::update_ecs_hazards)
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+        );
     }
 }
 

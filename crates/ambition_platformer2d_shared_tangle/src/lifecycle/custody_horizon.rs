@@ -139,6 +139,7 @@ pub fn capture_custody_baseline(
 ///
 /// ⇒ `restore_custody_to_checkpoint` therefore lives with the item domain, which
 /// can see both halves. The CAPTURE stays here because it reads only identities.
+#[allow(dead_code)]
 pub const fn retraction_needs_both_halves_of_a_fork() {}
 
 #[cfg(test)]

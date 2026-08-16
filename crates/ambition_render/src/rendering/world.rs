@@ -1131,7 +1131,7 @@ fn spawn_authored_interactable(
 /// system writes `intro_lock:<id>` blocks. Both are surfaced with the
 /// same `LockWallTile` sprite so a Task 08 conditional gate reads the
 /// same way as an encounter-driven slam.
-const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "intro_lock:"];
+const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "gated_lock:"];
 
 fn is_lock_wall_block(name: &str) -> bool {
     LOCK_WALL_BLOCK_PREFIXES

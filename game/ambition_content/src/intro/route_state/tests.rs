@@ -25,143 +25,17 @@ fn chain_table_has_no_trigger_equals_target() {
     }
 }
 
-/// Hand-build a minimal LdtkProject with a single level whose
-/// activeArea = "alice_relay" and one LockWall entity matching a
-/// known intro gated lock id.
-fn synthetic_alice_relay_project() -> ambition_platformer2d_ldtk::LdtkProject {
-    use ambition_platformer2d_ldtk::{
-        LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
-    };
-    use serde_json::Value;
-
-    let lock_wall = LdtkEntityInstance {
-        iid: "LockWall-test-alice".into(),
-        identifier: "LockWall".into(),
-        pivot: vec![0.0, 0.0],
-        px: [800, 624],
-        width: 96,
-        height: 112,
-        field_instances: vec![
-            LdtkFieldInstance {
-                identifier: "id".into(),
-                value: Value::String("alice_private_return_lock".into()),
-                real_editor_values: vec![Value::Null],
-            },
-            LdtkFieldInstance {
-                identifier: "name".into(),
-                value: Value::String("alice_private_return_lock".into()),
-                real_editor_values: vec![Value::Null],
-            },
-        ],
-    };
-    let area_field = LdtkFieldInstance {
-        identifier: "activeArea".into(),
-        value: Value::String("alice_relay".into()),
-        real_editor_values: vec![Value::Null],
-    };
-    LdtkProject {
-        json_version: "1.5.3".into(),
-        levels: vec![LdtkLevel {
-            identifier: "alice_relay".into(),
-            iid: "level-iid".into(),
-            world_x: 0,
-            world_y: 0,
-            px_wid: 1024,
-            px_hei: 768,
-            field_instances: vec![area_field],
-            layer_instances: vec![LdtkLayerInstance {
-                identifier: "Ambition".into(),
-                layer_type: "Entities".into(),
-                c_wid: 64,
-                c_hei: 48,
-                grid_size: 16,
-                entity_instances: vec![lock_wall],
-                int_grid_csv: Vec::new(),
-                grid_tiles: Vec::new(),
-            }],
-        }],
-    }
-}
-
-/// Without the unlock flag, compute_intro_flag_gated_lock_walls
-/// should return the LockWall's footprint.
-#[test]
-fn lock_wall_compute_returns_block_when_flag_clear() {
-    let project = synthetic_alice_relay_project();
-    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
-    assert_eq!(walls.len(), 1, "expected one lock wall");
-    let (id, min, size) = &walls[0];
-    assert_eq!(id, "alice_private_return_lock");
-    assert_eq!(*min, ambition_platformer2d_core::Vec2::new(800.0, 624.0));
-    assert_eq!(*size, ambition_platformer2d_core::Vec2::new(96.0, 112.0));
-}
-
-/// Once the unlock flag flips, compute should drop the LockWall
-/// from the returned set.
-#[test]
-fn lock_wall_compute_drops_block_when_flag_set() {
-    let project = synthetic_alice_relay_project();
-    let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    save.set_flag("bob_field_survey_received", true);
-    let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
-    assert!(walls.is_empty(), "expected no lock walls after unlock");
-}
-
-/// A non-active room's lock walls should not appear in the
-/// active-room block list — the system only operates on the
-/// current room.
-#[test]
-fn lock_wall_compute_skips_other_rooms() {
-    let project = synthetic_alice_relay_project();
-    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
-    assert!(walls.is_empty(), "expected no lock walls for inactive room");
-}
-
-/// A LockWall whose id is not in the registry table must be left
-/// alone — the system only manages flag-gated locks, not every
-/// LockWall in the project.
-#[test]
-fn lock_wall_compute_ignores_unregistered_ids() {
-    use ambition_platformer2d_ldtk::LdtkFieldInstance;
-    let mut project = synthetic_alice_relay_project();
-    // Mutate the one entity's `id` field to something not in
-    // INTRO_FLAG_GATED_LOCK_WALLS.
-    if let Some(entity) = project.levels[0].layer_instances[0]
-        .entity_instances
-        .first_mut()
-    {
-        entity.field_instances = vec![LdtkFieldInstance {
-            identifier: "id".into(),
-            value: serde_json::Value::String("encounter_owned_lock".into()),
-            real_editor_values: vec![serde_json::Value::Null],
-        }];
-    }
-    let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
-    assert!(
-        walls.is_empty(),
-        "registered-id-only filter should exclude this"
-    );
-}
+// ⭐ **THE LOCK-WALL TESTS MOVED WITH THE CAPABILITY** (2026-08-15) to
+// `ambition_platformer2d_actor_monolith::world::gated_lock_walls`. Their
+// invariants survive restated against the authored `gated_by` field instead of
+// the const table that used to hold the pairing — including the hot-reload cache
+// invalidation regression, which is the one worth not losing.
 
 // The Yarn migration retired `redirect_post_quest_dialog`:
 // boss-cleared / flag-set redirects are now inline `<<if>>`
 // branches inside the `.yarn` files. The runtime is exercised
 // by running the actual dialog; the tests above used to pin
 // the per-frame redirect dispatch, which no longer exists.
-
-#[test]
-fn flag_gated_lock_walls_have_unique_ids() {
-    let mut ids = std::collections::BTreeSet::new();
-    for (lock_id, _flag) in INTRO_FLAG_GATED_LOCK_WALLS.iter().copied() {
-        assert!(
-            ids.insert(lock_id),
-            "duplicate LockWall id in INTRO_FLAG_GATED_LOCK_WALLS: {lock_id}"
-        );
-    }
-}
 
 /// Setting `bob_field_survey_received` should cause the
 /// emit_intro_flag_chains system to write
@@ -334,86 +208,74 @@ fn emit_chains_promotes_p5_to_route_memory() {
     assert!(save.data().flag("route_memory_received"));
 }
 
-/// **The wall cache must observe the PROJECT, not just save + room.** A hot
-/// reload that swaps `ActiveLdtkProject` under an unchanged room id and save
-/// state used to keep serving walls computed from the replaced project — the
-/// invalidation checked `save.is_changed()` and the room string only.
+
+/// **THE INTRO WORLD SAYS WHICH FLAG OPENS WHICH WALL — in the level, not in
+/// Rust.**
+///
+/// ⛔⛔ **the engine tests pin the FUNCTION; this pins the WIRING**, and that
+/// distinction has cost this project a session before: enemy facing was plumbed,
+/// tested and green the entire time enemies walked the wrong way, because
+/// nothing asserted the authored world ever *said* which way.
+///
+/// Here the equivalent failure is silent and total: `gated_by` is optional by
+/// design (an encounter's walls carry none), so a world that lost the field
+/// would produce two walls that simply never appear. No error, no warning — the
+/// player just walks through a door that was supposed to be locked.
+///
+/// ⚠ this reads the shipped `.ldtk` rather than a fixture, on purpose. A
+/// regenerate, an editor session, or a careless merge is exactly what this
+/// defends against, and none of those touch a fixture.
 #[test]
-fn lock_walls_recompute_when_the_project_resource_changes() {
-    use ambition_platformer2d_actor_monolith::rooms::{RoomSet, RoomSpec};
-    use ambition_platformer2d_ldtk::ActiveLdtkProject;
-    use ambition_platformer2d_core as ae;
-    use ambition_persistence::save::AmbitionGameSave;
-    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
-    use bevy::app::{App, Update};
+fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
+    let text = include_str!("../../../assets/worlds/intro.ldtk");
+    let project: serde_json::Value =
+        serde_json::from_str(text).expect("intro.ldtk parses");
 
-    let mut app = App::new();
-    app.insert_resource(ActiveLdtkProject(synthetic_alice_relay_project()));
-    app.insert_resource(AmbitionGameSave::default());
-    app.insert_resource(FeatureEcsWorldOverlay::default());
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        RoomSet::from_parts(
-            "alice_relay",
-            vec![RoomSpec::new(
-                "alice_relay",
-                ae::World::new(
-                    "alice_relay",
-                    ae::Vec2::new(1024.0, 768.0),
-                    ae::Vec2::ZERO,
-                    Vec::new(),
-                ),
-            )],
-            Vec::new(),
-        ),
-    );
-    // Mirror the production ordering contract: the overlay rebuild clears
-    // `gate_solids` each frame BEFORE this system re-contributes.
-    app.add_systems(
-        Update,
-        (
-            |mut overlay: bevy::prelude::ResMut<FeatureEcsWorldOverlay>| {
-                overlay.gate_solids.clear();
-            },
-            super::sync_intro_flag_gated_lock_walls,
-        )
-            .chain(),
-    );
-
-    app.update();
-    assert_eq!(
-        app.world()
-            .resource::<FeatureEcsWorldOverlay>()
-            .gate_solids
-            .len(),
-        1,
-        "baseline: the synthetic project contributes its one lock wall"
-    );
-
-    // A quiet frame keeps serving the cached wall.
-    app.update();
-    assert_eq!(
-        app.world()
-            .resource::<FeatureEcsWorldOverlay>()
-            .gate_solids
-            .len(),
-        1
-    );
-
-    // Replace the project with one that has NO lock wall — same room id, same
-    // save state. Only the project resource changes.
-    {
-        let mut project = app.world_mut().resource_mut::<ActiveLdtkProject>();
-        project.0.levels[0].layer_instances[0]
-            .entity_instances
-            .clear();
+    let mut gated: std::collections::BTreeMap<String, String> = Default::default();
+    let mut lock_walls = 0usize;
+    for level in project["levels"].as_array().into_iter().flatten() {
+        for layer in level["layerInstances"].as_array().into_iter().flatten() {
+            for entity in layer["entityInstances"].as_array().into_iter().flatten() {
+                if entity["__identifier"] != "LockWall" {
+                    continue;
+                }
+                lock_walls += 1;
+                let fields: std::collections::BTreeMap<&str, &serde_json::Value> = entity
+                    ["fieldInstances"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|f| Some((f["__identifier"].as_str()?, &f["__value"])))
+                    .collect();
+                let (Some(id), Some(flag)) = (
+                    fields.get("id").and_then(|v| v.as_str()),
+                    fields.get("gated_by").and_then(|v| v.as_str()),
+                ) else {
+                    continue;
+                };
+                if !flag.trim().is_empty() {
+                    gated.insert(id.to_string(), flag.to_string());
+                }
+            }
+        }
     }
-    app.update();
+
+    // ⭐ the non-vacuity guard: a world that lost its LockWalls entirely would
+    // satisfy every assertion below by having nothing to check.
     assert!(
-        app.world()
-            .resource::<FeatureEcsWorldOverlay>()
-            .gate_solids
-            .is_empty(),
-        "the wall result tracks the replaced project"
+        lock_walls >= 2,
+        "intro.ldtk authors only {lock_walls} LockWall(s); this test is about them"
+    );
+    assert_eq!(
+        gated
+            .iter()
+            .map(|(id, flag)| (id.as_str(), flag.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("alice_private_return_lock", "bob_field_survey_received"),
+            ("gate_alice_private_lock", "bob_field_survey_received"),
+        ],
+        "these two pairs used to live in a Rust const table; they now live in the \
+         level, and losing them there is silent"
     );
 }

@@ -33,7 +33,6 @@ use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::{intro_npc_sprite_rows, intro_prop_sprite_rows};
-use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Intro portal IDs. The gate stack room places:
 /// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
@@ -82,7 +81,10 @@ pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
-        let sim = app.sim_schedule();
+        // ⭐ **this plugin no longer touches the sim schedule at all** — the one
+        // system that did was the flag-gated lock walls, and that capability is
+        // an engine system now. What is left here is content INSTALLATION, which
+        // is what an intro-content plugin should be.
         app.init_resource::<IntroSpritesInstalled>()
             .init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
@@ -105,18 +107,6 @@ impl Plugin for IntroPlugin {
                     install_intro_gated_zones_system,
                     super::route_state::emit_intro_flag_chains,
                 ),
-            )
-            // The flag-gated lock walls contribute to the collision overlay's
-            // `gate_solids` (not the authored base), so they run a phase earlier
-            // in WorldPrep — after the overlay rebuild clears gate_solids, before
-            // the WorldPrep collision consumers — exactly like the encounter
-            // lock-wall contributor.
-            .add_systems(
-                sim,
-                super::route_state::sync_intro_flag_gated_lock_walls
-                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
-                    .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its

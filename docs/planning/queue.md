@@ -107,8 +107,35 @@ whenever a lane returns; ⛔ do not let a lane finish with nothing dispatched.
 | Mary-O allows one fireball; should allow two | small, and the number is content, not engine |
 | ~~the multi-coin block's coin-pop VFX~~ | ✔ **RESOLVED 2026-08-15 and it was never missing** — it landed in `943a9aa0c`; four demo shells had no `VfxMessage` reader, so it drew in the full game and nowhere else. ⛔ the doc entry said otherwise for a day |
 | the snake and AI slop are far too big, and the snake sprite may not match its box | ⚠ related to the player-side sprite/box unit mismatch at the top of that file — the two may be one bug |
-| **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs.** The snake is too big, the player hurtbox mismatches, and Sanic is too small — all in games that scale sprites differently. ⇒ take the three together and look for the common unit conversion, ⛔ do not fix Sanic's scale in isolation |
+| **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs** — see the measurement below |
 | **drop `pocket` and `versus` from the main game-selection shell** (Jon, 2026-08-15) — *"They can just be standalone exes for tests."* | ⭐ a SHELL-COMPOSITION change, not a deletion: both keep their binaries and their suites. ⚠ the shell's roster is the thing a player sees first, and two test fixtures sitting in it is the demo gate leaking the other way — the shell advertising what the engine can compose rather than what the player can play |
+
+⭐⭐ **THE SPRITE/BOX CLUSTER HAS A MEASURED SHAPE — started 2026-08-15, NOT
+finished.** Three reports (snake too big · player hurtbox mismatched · Sanic too
+small) are one question: **there are TWO sizing roads and a body's size depends
+on which one it is on.**
+
+```text
+published road   collision derived from the sprite's own body_metrics,
+                 quad size stated explicitly by ActorRenderSize
+legacy road      collision * collision_scale, a hand-tuned per-character
+                 number in character_catalog.ron ranging 1.15 .. 2.1
+```
+
+`ActorRenderSize`'s own doc says it: *"Absent ⇒ the actor uses the legacy
+`collision_scale` render path."*
+
+⭐ **measured: 194 of 195 spritesheet specs already publish `body_metrics`** (only
+`weird_hermit` does not), so the DATA is not the gap. ⇒ the open question is
+**adoption at the consumer**: which bodies actually receive `ActorRenderSize`,
+and which silently fall through to a number somebody eyeballed once.
+`posed_body.rs:237` is the one insertion site found so far, plus two in
+`pose_view.rs`.
+
+⛔ **do not fix Sanic's scale in isolation** — a fourth hand-tuned constant is
+what this cluster is made of. ⚠ and ⛔ do not delete `collision_scale` before
+counting: a shipped capability can have zero adopters, and so can a legacy path
+still carrying half the roster.
 
 ⚠ **the sprite/box pair is the cluster worth taking together**: the player hurtbox
 and the snake box both come down to sprite and collision numbers never having

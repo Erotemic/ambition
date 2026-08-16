@@ -65,6 +65,36 @@ substrate had overtaken the two fronts printed above it:
    the whole problem is the **nine held weapons/abilities that are an instance and
    a count at once**. ⛔ so do not give the count table a row per object.
 
+   ✔✔ **AND THOSE NINE ARE NOW DECIDED (2026-08-16, `284ebd00d`): the INSTANCE is
+   the authority and the catalog PROJECTS it.** A picked-up object writes nothing
+   to the count table; `OwnedItems::count` reports `stored(item).max(equipped ==
+   item)`, and `to_persisted` writes only the stored quantity, so a hand never
+   reaches disk as a row. The two populations are now **disjoint** — a row is a
+   quantity with no object, an object is an occurrence the checkpoint owns — so
+   the disagreement has nowhere left to live. Exactly nine items answer
+   `held_item_id().is_some()`, which is the class, checkable.
+
+   ⛔⛔ **what that fixed was a DUPLICATION GLITCH, and the measurement is worth
+   keeping**: the pickup used to `grant(item, 1)` beside taking custody, so ONE
+   acquisition left TWO records and only the object's rewound. Acquire a weapon
+   after a checkpoint and die — the object returns to its pedestal, the catalog
+   row stays, the menu equips the phantom, and throwing it **mints a second real
+   weapon** that the durable save then writes to disk.
+
+   ⚠⚠ **and it traded that for a LOSS which is not a resting state: a held weapon
+   carried across a SAVE/LOAD is now gone**, because the durable save describes no
+   custody at all. ⇒ durable custody is the BLOCKING item, not a nice-to-have.
+   ⚠ the granted-quantity half is still open and its gate is named:
+   **`OwnedItems` joining the checkpoint baseline, with the mint spending the row
+   in that same change and not before** — spending it earlier turns the phantom
+   into an annihilation whenever a death retracts a post-checkpoint mint.
+
+   ⛔ **and the reason none of this was ever caught is structural**: the
+   durable-save leg (`InventoryRestored` + both persist systems) is installed by
+   `install_menu_setup_and_hotkeys`, inside the **visible-binary-only**
+   presentation plugins. **No headless composition schedules it**, so one of the
+   two authorities does not exist in the test harness at all.
+
    ✔ **inventory OWNERSHIP is settled (Jon's reviewer, 2026-08-15): the BODY owns
    its inventory and capabilities.** Participant entitlements and possession-transfer
    policy are separate concerns with different owners and lifetimes. ⇒ `OwnedItems`

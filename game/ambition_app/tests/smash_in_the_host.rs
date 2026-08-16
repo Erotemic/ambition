@@ -1101,14 +1101,85 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     for _ in 0..240 {
         app.update();
     }
-    let before = x(&app, slug_body);
+
     const FRAMES: usize = 40;
-    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
-    for _ in 0..FRAMES {
-        app.update();
+    let hitstun = |app: &App, body: Entity| -> f32 {
+        app.world()
+            .get::<ambition_platformer2d::characters::actor::BodyCombat>(body)
+            .map(|combat| combat.hitstun_timer)
+            .unwrap_or(0.0)
+    };
+
+    // ⛔⛔ **THE OPPONENT IS A CONFOUNDER, and it became one the day the CPU got
+    // better at its job** (2026-08-15). This pressed once and asserted the
+    // distance covered, which is only a reading of TOP SPEED while nobody
+    // touches the body. Measured when the fighter brain stopped mirroring its
+    // own attack directions: the goblin now connects inside the window, the slug
+    // spent 18 of these 40 frames in hitstun, took 1.5% damage and peaked at
+    // 215 px/s — knockback, not locomotion — and the assertion below read that
+    // as "this body is being driven at somebody else's top speed".
+    //
+    // ⚠ **it is NOT enough to move the window earlier**: probed at the GO beat
+    // itself and the goblin is on top of the slug even sooner (28 of 40 frames
+    // in hitstun, 0 -> 10.5%). On a 480px stage there is no quiet moment.
+    //
+    // ⭐ so the press is RETRIED until one lands undisturbed, and each attempt is
+    // constructed exactly like the original — 40 frames from a standstill, which
+    // is what the calibrated numbers below encode. The direction alternates so
+    // the slug walks back toward the middle instead of off the lip, and an
+    // attempt is thrown away if the body was in hitstun at any point during it
+    // OR in the settling frames before it.
+    let mut travelled = None;
+    let mut attempts = 0usize;
+    for attempt in 0..12 {
+        // Settle: let any carried launch bleed off, and refuse to start an
+        // attempt while still reeling. `hitstun_timer` ends WITH the carried
+        // momentum window, so a few clear frames on top of it is a body under
+        // its own power again.
+        let mut clear = 0usize;
+        for _ in 0..240 {
+            app.update();
+            clear = if hitstun(&app, slug_body) > 0.0 {
+                0
+            } else {
+                clear + 1
+            };
+            if clear >= 20 {
+                break;
+            }
+        }
+        if clear < 20 {
+            continue;
+        }
+
+        let key = if attempt % 2 == 0 {
+            KeyCode::ArrowRight
+        } else {
+            KeyCode::ArrowLeft
+        };
+        let before = x(&app, slug_body);
+        let mut disturbed = false;
+        Buttonlike::press(&key, app.world_mut());
+        for _ in 0..FRAMES {
+            app.update();
+            disturbed |= hitstun(&app, slug_body) > 0.0;
+        }
+        Buttonlike::release(&key, app.world_mut());
+        attempts += 1;
+        if !disturbed {
+            travelled = Some((x(&app, slug_body) - before).abs());
+            break;
+        }
     }
-    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
-    let travelled = (x(&app, slug_body) - before).abs();
+
+    let travelled = travelled.unwrap_or_else(|| {
+        panic!(
+            "the slug was hit during every one of {attempts} undisturbed-press \
+             attempts, so its top speed could not be read from motion at all. \
+             That is a finding about the stage rather than about this body, and \
+             it makes every number below meaningless"
+        )
+    });
 
     assert!(
         travelled > 1.0,

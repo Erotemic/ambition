@@ -164,6 +164,26 @@ touch the stall fuse — that one is answered by committing something.
   ground nobody runs proves nothing. The goal guard now runs its suite; that is a
   backstop, not a substitute for running it beside the change that could break
   it.
+* ⚠ **THE ADR-BACKED POLICY SUITE IS NOT IN THE PER-TURN GATE — RUN IT YOURSELF
+  WHEN YOU MOVE A BOUNDARY.** `cargo test -p ambition_workspace_policy` — **~6 s
+  warm, and it rebuilds nothing**, because that crate links no production crate
+  and reads the repository as data. It IS in `./run_tests.sh` (the backbone's
+  `cargo test --workspace`); it is in neither the goal guard nor
+  `scripts/gate_suite.py`, so on an ordinary turn nobody watches it. Three
+  change-shapes redden it, and each looks harmless from inside the diff:
+  * **a new dependency edge** — the runtime's allowlist is a SECOND file to edit,
+    and its own comments record that lag three separate times;
+  * **deleting a compatibility facade** — a laundered edge becomes a declared one
+    and reads as a brand-new violation. One such deletion (2026-08-15) produced
+    seven red sites across three policies, unseen until D134 went looking;
+  * **an ADR 0024 movement/authority seam** — `Option<&MotionModel>`, a bare
+    `kin.pos = ` or `kinematics.vel = `.
+
+  ⛔ **and a policy is not a lint to silence.** If it fires and you believe the
+  architecture deliberately changed, change the policy and write the argument into
+  its own `rationale` field — that is what the field is for, and the allowlist
+  already carries three such arguments. A waiver that merely quiets it is the one
+  outcome that is worse than the red.
 * ⛔ **A COMPILING GAME CAN STILL DRAW THE WRONG ART, AND NO SUITE SEES IT.**
   `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` are what the runtime loads
   under the Low / Medium / Potato quality profiles. A stale PNG there is a valid

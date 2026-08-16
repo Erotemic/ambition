@@ -333,6 +333,73 @@ the guard's check list is yours, and adding a red check would stop every
 autonomous run until the twelve are cleared. The alternative is to treat the
 suite as advisory and fix the twelve on their own merits.
 
+#### ⭐ UPDATE 2026-08-16 (D134): the twelve are ZERO, so the objection above no longer applies
+
+**The reason not to add it was that it was RED.** It is not: `cargo test -p
+ambition_workspace_policy` is **34/34, 0 violations**. The decision is still
+yours — I did not touch `.goal/active.json` — but here is everything it costs,
+measured rather than estimated, so the call is cheap to make:
+
+```text
+what it costs      6.2 s / 9.7 s / 8.6 s wall, warm, three consecutive runs
+                   (the suite's own libtest line reports 5.2–9.9 s)
+what it REbuilds   nothing. `ambition_workspace_policy` links no production
+                   crate — it reads the repository as data — so an engine source
+                   edit does not invalidate its build. The cost above is
+                   essentially all runtime, on every turn, forever.
+against            check [4] `cargo test -p ambition_app --test app_it` = 158.6 s
+                   ⇒ adding it is a ~5% increase on the guard's dominant check
+```
+
+⚠ **and "nothing watches it" was half wrong, which changes the shape of the
+question.** `./run_tests.sh` DOES run it — the backbone job is
+`cargo test --workspace` and the suite is workspace member `tests/ambition_workspace_policy`
+(verified with `./run_tests.sh --list`). What it is absent from is the *per-turn*
+gate: the goal guard's 8 checks, `scripts/gate_suite.py` (which runs only
+`-p ambition_app --test app_it`), and AGENTS.md's stated gate. ⇒ the real question
+is not "is it checked at all" but **"is it checked on the turn that breaks it"** —
+and the answer today is no, which is how one facade deletion on 2026-08-15 turned
+into seven red sites nobody saw.
+
+⇒ **what I did instead, being non-blocking:** AGENTS.md's Verification section now
+names the suite and the three change-shapes that redden it, with the cost above.
+That is a documented pre-landing step, not a gate. If you want the gate, the line
+is:
+
+```json
+{"name": "the ADR-backed workspace policy suite is green", "cmd": "$HOME/.cargo/bin/cargo test -p ambition_workspace_policy --quiet"}
+```
+
+⭐ **the three kinds above, resolved** — and note that only ONE of the twelve was
+debt in the ordinary sense:
+
+1. ✔ **kind 1 was right, and it was the only assessment that needed re-checking.**
+   `phases` is a `BTreeMap` now (the site had moved to `:199`). The hash order
+   never reached an observable — the `collect` was immediately `sort_by`'d — so
+   this was a hazard removed, not a defect fixed. The test that guarded it was
+   itself weak (it would have stayed green through a revert to `HashMap`, because
+   only the checksum was asserted); it now asserts the CONTAINER's key order and
+   was poison-tested red against `HashMap`.
+2. ✔ **kind 2 split three ways rather than being three of a kind.**
+   `movement-model-is-never-optional` was a REAL ADR 0024 §1 violation and was
+   hiding a second one the rule could not spell (`Option<&ae::MotionModel>` in
+   `perception_body_for`, whose `None` arm read a missing component as
+   `AxisSweptMotion::default()`) — both non-optional now.
+   `player-fallback-update-documented` was **deleted**: `333c48376` deleted its
+   subject (the slot board and the `PlayerSlot` anchor) months before the rule
+   noticed. The two pose/velocity writes were **policy imprecision** — a pre-spawn
+   `ActorClusterSeed` and an off-sim `BodyClusterScratch`, neither of which has an
+   authority to route through — and both now say their state at construction.
+3. ✔ **kind 3 was the interesting one and it went the other way.** `cargo tree`
+   settles it: `ambition_platformer2d_ldtk`'s entire transitive closure contains
+   ZERO occurrences of `ambition_platformer2d_runtime` or
+   `ambition_platformer2d_actor_monolith`, and the monolith — long allowed — has
+   linked it directly all along. **The edge is downward, and the two rules were
+   stating one wrong fact twice.** They were changed, with the argument written
+   into their own rationale fields. ⚠ the concern they were groping at is real and
+   survives as **queue D135**: `PlatformerSessionWorld` carries a format-specific
+   `LdtkRuntimeIndex` field that five RON-only games fill with `::default()`.
+
 ## ✔ CLOSED 2026-08-15 — every submodule remote is reachable and current
 
 **Was:** `git push` in `tools/ambition_sfx_renderer` failed with *"correct access

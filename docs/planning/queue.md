@@ -1950,8 +1950,112 @@ the commit — lying in a room, or in flight — is still undescribed and still 
 That is exactly where *"a hand needs less than a world"* stops paying: it needs a
 position, and position is the first thing the description would grow.
 
-- ▢ **D134 — THE ADR-BACKED POLICY SUITE IS RED AND NOT IN ANY GATE.
-  (opened 2026-08-16, found in passing)**
+- ✔ **D134 — CLOSED 2026-08-16. The suite is 34/34, zero violations; the gating
+  call is Jon's and is costed in `awaiting-maintainer-decision.md` item 13.**
+
+⭐ **the twelve were four different things wearing one label**, and the count was
+the least informative fact about them:
+
+```text
+1  hazard, not defect   gate_portal `phases` HashMap -> BTreeMap. The flagged
+                        site collect()s and immediately sort_by()s, so the hash
+                        order NEVER reached an observable. Fixed anyway, because
+                        the ordering should be the type's property rather than
+                        the next editor's discipline.
+2  REAL ADR 0024 §1     `Option<&MotionModel>` — and it was hiding a SECOND one
+                        the rule could not spell (`Option<&ae::MotionModel>` in
+                        `perception_body_for`, whose `None` arm read a missing
+                        component as `AxisSweptMotion::default()`).
+2  policy imprecision   a PRE-SPAWN `ActorClusterSeed` and an off-sim
+                        `BodyClusterScratch`. Neither is an entity; neither has a
+                        frame or an integrator, so there is no authority to route
+                        through. Both now state their initial state at
+                        construction (`place_at`, `with_velocity`).
+1  contract OUTLIVED    `player-fallback-update-documented` demanded a review
+   its subject          marker for a slot-ordered fallback `333c48376` deleted.
+                        DELETED, with a tombstone; its sibling on `save_sync.rs`
+                        still guards the one surviving fallback.
+7  the POLICY was       runtime -> ldtk. See below.
+   wrong
+```
+
+⭐⭐ **THE `runtime → ldtk` CLUSTER WAS NOT AN UPWARD DEPENDENCY, AND `cargo tree`
+SETTLES IT IN ONE LINE.** `ambition_platformer2d_ldtk`'s entire transitive closure
+contains **zero** occurrences of `ambition_platformer2d_runtime` or
+`ambition_platformer2d_actor_monolith`; its own dependencies are
+`asset_manager`, `entity_catalog`, `platformer2d_core`, `shared_tangle` and
+`platformer2d_world` — the same graph depth as `ambition_platformer2d_world`,
+which the runtime's allowlist has permitted all along. And the monolith, also
+allowed, has linked it directly the whole time. ⇒ **the edge is downward**, and
+`runtime-manifest-deny` + `runtime-source-no-upper` were stating one wrong fact
+twice. Both changed, with the argument written into their own `rationale` fields.
+⚠ `bevy_ecs_ldtk` stays denied in both: the runtime may compose the adapter, never
+the backend the adapter exists to contain — poison-tested red to prove that half
+still has teeth.
+
+⚠ **and the story is on its THIRD instance in the same file.** The allowlist
+already carries two comments saying a laundered edge became a declared one when a
+facade was deleted (`ambition_sprite_sheet`, `ambition_character_sprites`); this is
+the same event for the monolith's `ldtk_world` facade, deleted 2026-08-15. ⇒ the
+lesson is not about LDtk: **deleting a compatibility facade reddens a boundary
+policy, every time, and it is the second file nobody remembers to edit.**
+
+⚠ **the concern the deny row was groping at is real and is now D135**, separated
+from the manifest edge it could not express.
+
+⚠ **one blind spot left standing, deliberately and named**: the movement rule
+matches SPELLINGS, and `Option<&ae::MotionModel>` — `ae::` being the alias most of
+the workspace imports engine-core under — escapes it. One production site still
+uses it (`ambition_sim_view/src/combat_geometry_view.rs:152`, an observation
+read-model whose whole body-cluster group is optional). Widening the rule tonight
+would have reddened a crate this slice did not analyse; it is recorded in that
+policy's rationale.
+
+- ▢ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
+  FIELD, AND FIVE GAMES FILL IT WITH `::default()`.
+  (opened 2026-08-16, split out of D134)**
+
+`PlatformerSessionWorld` has `runtime_rooms: LdtkRuntimeIndex`, and
+`PreparedPlatformerSource` carries it through four public constructors. Sanic,
+Mary-O, Pocket, TwinTrack and Smash are RON-authored and every one of them
+constructs `LdtkRuntimeIndex::default()` for a world it will never install — the
+type's own `Default` doc says so out loud (*"the 'no LDtk world installed'
+index"*). ⇒ **a format adapter's type is a member of the engine's canonical
+session world**, which is the thing the deny row was pointing at before D134
+established that the manifest edge itself is legitimate.
+
+⭐ **it is smaller than it looks, and the measurement is why**: the struct's
+fields are all `std` (`String`, two `BTreeMap`s, two `u64`) plus a plain POD, and
+**exactly one method touches `bevy_ecs_ldtk`** — `level_set_for` returning
+`LevelSet`, called from exactly one place, inside the LDtk crate itself
+(`bevy_runtime/asset.rs`). The rollback domain needs only `Component + Clone` and
+`active_area() -> &str`.
+
+⇒ **the shape**: move the struct down to `ambition_platformer2d_world` (a shared
+dependency of ldtk, runtime, monolith, provider and content, so it is cycle-free —
+⛔ moving it UP into the runtime is not, since `monolith → ldtk` and
+`provider → ldtk` both exist), rename it for what it is (an active-area index, not
+an LDtk one), and leave `level_set_for` / `from_project` behind in the LDtk crate
+as free functions over the moved type. **The cost is the rename**: 58 `.rs`
+references across 15 crates, of which ~25 are `::default()` in demo/provider
+construction.
+
+⚠ **do not start this by moving the type.** Start by asking whether a RON-only
+game should carry the field at all — if the honest answer is "no", the fix is a
+different shape (the index becomes optional session state a format installs)
+and the rename is wasted work.
+
+**D134 as it was OPENED, kept for the record. ⛔ two of its claims did not
+survive contact and are struck below** — read the closure above first:
+
+- ⊘ *"a `std` hash container … is the exact defect ADR 0023 exists to forbid"* —
+  the site sorted before folding, so no observable ever saw the hash order. The
+  hazard was real; the defect was not.
+- ⊘ *"an upward dependency the policy denies twice over"* — `cargo tree` says the
+  ldtk crate sits BELOW the runtime and below the monolith. The policy was wrong,
+  not the manifest.
+- ⊘ *"NOTHING RUNS IT"* — `./run_tests.sh` does, via `cargo test --workspace`.
+  What no gate runs is the suite **on the turn that breaks it**.
 
 ⛔⛔ **`cargo test -p ambition_workspace_policy` fails with 12 violations in the
 `engine` scope, and NOTHING RUNS IT.** The standing gate is

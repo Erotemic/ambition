@@ -1940,6 +1940,18 @@ frame** and ask what admits these two and not those two.
    a hazard, a drown/lava timer, a form-loss rule.
    ⚠ **and this predicts the standalone `ambition_demo_smash_app` would NOT show
    it**, which is a cheap confirming experiment before touching any code.
+
+   ⚠ **two narrowings from a first pass, so the next one starts further along:**
+   - ⊘ **it is not an emitted HIT from either demo crate.** The only
+     `HitEvent` writer in both is `demo_mary_o/src/snake.rs` (an enemy's
+     contact), and neither crate emits anything per-frame at a protagonist.
+     ⇒ suspect a **direct write to the body's damage**, or a shared engine
+     system the demo plugin *configures* rather than one the demo owns.
+   - ⭐ **whatever it is keys on CHARACTER IDENTITY, not on the seat or on
+     "the player"** — that is what the swap-to-P2 control proves, and it is a
+     strong filter: look for a system whose query or lookup names
+     `SANIC_CHARACTER_ID` / the Mary-O equivalent, or reads `WornCharacter`,
+     rather than one that acts on `PrimaryPlayer` or `ControlledSubject`.
 2. ⊘ **"the two that accrue are the two whose sheets do not author a body."**
    Falsified 4/4: `george_booul` is ALSO `authored_body: false` and takes **zero**
    damage in every sample, while `player_robot_v3` is `true`. Body-geometry

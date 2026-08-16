@@ -659,6 +659,12 @@ fn add_world_fingerprint_sections(
     // The LDtk index carries deterministic area-to-level membership and area
     // bounds used by streaming/level selection. Its mutable revision/sync
     // cursors are deliberately excluded.
+    //
+    // ⚠ a RON-authored definition installs NO index, and the section it writes
+    // is byte-for-byte what an empty index wrote before the field became
+    // optional: one `area\t<id>\t\t-` row per room. That equality is the reason
+    // this slice does not move any content fingerprint.
+    let installed_index = source.installed_ldtk_index();
     let mut runtime_index = String::new();
     let mut area_ids = source
         .room_set()
@@ -669,13 +675,15 @@ fn add_world_fingerprint_sections(
     area_ids.sort_unstable();
     area_ids.dedup();
     for area_id in area_ids {
-        let mut level_iids = source.runtime_rooms().level_iids_for(area_id);
+        let mut level_iids = installed_index
+            .map(|index| index.level_iids_for(area_id))
+            .unwrap_or_default();
         level_iids.sort();
         runtime_index.push_str("area\t");
         runtime_index.push_str(area_id);
         runtime_index.push('\t');
         runtime_index.push_str(&level_iids.join(","));
-        if let Some(bounds) = source.runtime_rooms().area_bounds(area_id) {
+        if let Some(bounds) = installed_index.and_then(|index| index.area_bounds(area_id)) {
             runtime_index.push_str(&format!(
                 "\t{},{},{},{}",
                 bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y,
@@ -1198,6 +1206,13 @@ impl PlatformerSessionBuilder<'_, '_> {
         default_character_id: &str,
     ) -> SessionBuildResult {
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
+        // **The authoring format's own session state, installed beside the
+        // canonical bundle rather than inside it.** `None` for every
+        // RON-authored game, and the component is then simply ABSENT from the
+        // session root — which is what the LDtk systems' `SessionWorldRef`
+        // reads as "no LDtk world here", instead of an empty index that made
+        // them run and find nothing every tick.
+        let installed_ldtk_index = prepared_content.source().installed_ldtk_index().cloned();
         let prepared_identity: PreparedContentIdentity = prepared_content.identity();
         // Live moving-platform state derives from the activating room. Rooms
         // without authored platforms (every current demo) reset it to empty.
@@ -1211,7 +1226,6 @@ impl PlatformerSessionBuilder<'_, '_> {
             ambition_platformer2d_actor_monolith::session::setup::SimulationSetup {
                 world: &live_world.geometry,
                 room_set: &live_world.room_set,
-                ldtk_index: &live_world.runtime_rooms,
                 editable_abilities: &self.editable_abilities,
                 tuning: &self.tuning,
                 initial_body: &live_world.initial_body,
@@ -1285,6 +1299,10 @@ impl PlatformerSessionBuilder<'_, '_> {
             activation_id: activation.activation_id,
             scope,
         });
+
+        if let Some(index) = installed_ldtk_index {
+            self.commands.entity(world).insert(index);
+        }
 
         SessionBuildResult { player, world }
     }
@@ -1368,7 +1386,6 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1395,7 +1412,6 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1432,7 +1448,6 @@ mod tests {
                 room_set.active_spec().metadata.clone(),
             ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
-            ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
         )
     }
 
@@ -1556,7 +1571,6 @@ mod tests {
                 ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
                     selected.to_string(),
                 ),
-                ambition_platformer2d_ldtk::LdtkRuntimeIndex::default(),
             );
             let mut epochs = ContentEpochSequence::default();
             prepare_platformer_content(

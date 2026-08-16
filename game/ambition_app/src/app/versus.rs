@@ -34,7 +34,7 @@ use ambition_platformer2d::actors::character_runtime::{
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+    ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
@@ -139,7 +139,6 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
         geometry,
         metadata,
         StartingCharacter::new(FIGHTERS[0]),
-        LdtkRuntimeIndex::default(),
     )
 }
 

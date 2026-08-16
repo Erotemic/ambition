@@ -1729,7 +1729,6 @@ impl Plugin for MaryODemoContentPlugin {
             ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
                 provider::MARY_O_CHARACTER_ID,
             ),
-            ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
         let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
             app,
@@ -1758,9 +1757,6 @@ fn mary_o_setup(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::RoomSet,
-    >,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
     editable_abilities: bevy::prelude::Res<
         ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet,
@@ -1796,7 +1792,6 @@ fn mary_o_setup(
         ambition_platformer2d::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &tuning,
             initial_body: &initial_body,

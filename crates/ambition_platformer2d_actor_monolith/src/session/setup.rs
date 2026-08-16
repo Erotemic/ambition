@@ -18,7 +18,6 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::Platformer2dStartupAssets;
-use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::rooms::RoomSet;
 use crate::session::data::Platformer2dGameplayDefaultsHandle;
@@ -43,7 +42,6 @@ pub const DEFAULT_PLAYER_HEALTH: i32 = 20;
 pub struct SimulationSetup<'a> {
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
-    pub ldtk_index: &'a LdtkRuntimeIndex,
     pub editable_abilities: &'a EditableAbilitySet,
     pub tuning: &'a ae::ActiveMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
@@ -119,7 +117,6 @@ pub fn simulation_world(
     let SimulationSetup {
         world,
         room_set,
-        ldtk_index,
         editable_abilities,
         tuning,
         initial_body,
@@ -151,10 +148,12 @@ pub fn simulation_world(
     // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
     // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
     // so this function must not assume the LDtk asset type is available.
-    // Suppress the unused-binding warnings until follow-up patches retire
-    // the `ldtk_index` / `asset_server` params or move them.
+    // ⭐ `ldtk_index` is GONE (2026-08-16). It was borrowed here, silenced with
+    // `let _ =`, and read by nothing — a dead parameter that nonetheless made
+    // the LDtk index look like something simulation setup needed, which is part
+    // of why it stayed a mandatory member of the canonical session world for so
+    // long. Suppress the remaining unused binding until `asset_server` follows.
     let _ = asset_server;
-    let _ = ldtk_index;
 
     // The session's content generation, published for the commit boundary:
     // every later room transaction (transition, reset, reconstruction) must be

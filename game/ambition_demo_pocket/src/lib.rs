@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+    ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
@@ -203,7 +203,6 @@ fn pocket_prepared_session_world() -> PreparedPlatformerSource {
         geometry,
         metadata,
         StartingCharacter::new(POCKET_CHARACTER_ID),
-        LdtkRuntimeIndex::default(),
     )
 }
 

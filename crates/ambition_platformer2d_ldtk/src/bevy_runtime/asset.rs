@@ -79,10 +79,15 @@ pub struct LdtkRuntimeIndex {
     synced_revision: u64,
 }
 
-/// The "no LDtk world installed" index: no areas, no levels. RON-only
-/// apps (demo shells, generated-room fixtures) run the spine against this
-/// and every rebuild is a no-op; installing a real project replaces it
-/// via `from_project`.
+/// The "no LDtk world installed" index: no areas, no levels.
+///
+/// ⚠ **this is a starting point for a world being BUILT, not a value a game
+/// without an LDtk world should hold.** Until 2026-08-16 it was the latter: the
+/// index was a mandatory member of `PlatformerSessionWorld`, so five
+/// RON-authored games constructed one of these to satisfy a constructor and the
+/// spine then rebuilt against it every tick, finding nothing. Those sessions
+/// now carry NO index at all and [`ldtk_world_installed`] skips the spine
+/// outright. Reach for this only where an index will actually be filled.
 impl Default for LdtkRuntimeIndex {
     fn default() -> Self {
         Self {
@@ -161,6 +166,27 @@ impl LdtkRuntimeIndex {
     pub fn mark_level_set_synced(&mut self) {
         self.synced_revision = self.revision;
     }
+}
+
+/// **Run condition: did an authoring format install an LDtk world into the
+/// live session?**
+///
+/// The index is optional session state now, so its ABSENCE is the honest
+/// statement that this game has no LDtk world — and every system below reads it
+/// through a `SessionWorldRef`, which is a `Single` and would otherwise fail
+/// its parameter validation once a tick in all five RON-authored games. Gating
+/// on the component means the whole spine simply does not run there, rather
+/// than running against an empty index and finding nothing.
+pub fn ldtk_world_installed(
+    roots: Query<
+        (),
+        (
+            With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+            With<LdtkRuntimeIndex>,
+        ),
+    >,
+) -> bool {
+    !roots.is_empty()
 }
 
 pub fn sync_ldtk_level_set(

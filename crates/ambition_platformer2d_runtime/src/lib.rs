@@ -149,7 +149,11 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
-    pub use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
+    // ⛔ `LdtkRuntimeIndex` is deliberately NOT re-exported here (removed
+    // 2026-08-16). A demo shell is a RON-authored consumer; it existed in this
+    // list only so such a consumer could hand an empty index to a constructor
+    // that demanded one, which is a fixture module laundering a format
+    // dependency into games that have none.
     pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,

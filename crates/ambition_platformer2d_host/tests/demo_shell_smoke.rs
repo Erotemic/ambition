@@ -72,7 +72,6 @@ impl Plugin for FixtureContentPlugin {
             RoomGeometry(world),
             ambition_platformer2d_runtime::demo_fixture::ActiveRoomMetadata::default(),
             ambition_platformer2d_runtime::demo_fixture::StartingCharacter::default(),
-            ambition_platformer2d_runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
         let content = ambition_platformer2d_provider::prepare_platformer_content_for_app(
             app,
@@ -102,9 +101,6 @@ fn fixture_setup(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    ldtk_index: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_runtime::demo_fixture::LdtkRuntimeIndex,
-    >,
     editable_abilities: Res<ambition_platformer2d_runtime::demo_fixture::EditableAbilitySet>,
     tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
     initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -128,7 +124,6 @@ fn fixture_setup(
         ambition_platformer2d_runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &tuning,
             initial_body: &initial_body,

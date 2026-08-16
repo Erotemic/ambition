@@ -16,6 +16,7 @@ mod common;
 // module for why `autotests = false` makes that a real hazard).
 mod app_it_sync;
 
+mod a_ron_game_installs_no_ldtk_world;
 mod a_save_remembers_where_you_left_things;
 mod actor_phase_split;
 mod app_local_catalog_composition;

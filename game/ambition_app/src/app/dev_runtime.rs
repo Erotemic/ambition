@@ -408,12 +408,17 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     let mut candidate_index = ldtk_index.clone();
     candidate_index.replace_from_project(&transaction.project, transaction.next_spec.id.clone());
-    let candidate_source = prepared_content.source().with_world(
-        transaction.next_room_set.clone(),
-        RoomGeometry(transaction.next_spec.world.clone()),
-        rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
-        candidate_index.clone(),
-    );
+    let candidate_source = prepared_content
+        .source()
+        .with_world(
+            transaction.next_room_set.clone(),
+            RoomGeometry(transaction.next_spec.world.clone()),
+            rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
+        )
+        // ⚠ `with_world` carries the OLD index forward on purpose, so the road
+        // that reloaded an LDtk project has to state its replacement. This is
+        // that road, and the reload is exactly what changed the index.
+        .with_installed_ldtk_index(candidate_index.clone());
     let candidate_content = ambition_platformer2d::provider::prepare_world_replacement_candidate(
         prepared_content,
         candidate_source,

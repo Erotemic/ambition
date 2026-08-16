@@ -10,7 +10,6 @@ use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::session::{data, setup};
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d::engine_core::RoomGeometry;
-use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 
@@ -82,9 +81,6 @@ pub(super) fn setup_simulation_system(
     sandbox_data_asset: Option<Res<data::Platformer2dGameplayDefaultsHandle>>,
     sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
     asset_server: Res<AssetServer>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ldtk_world::LdtkRuntimeIndex,
-    >,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -101,7 +97,6 @@ pub(super) fn setup_simulation_system(
         setup::SimulationSetup {
             world: &world,
             room_set: &room_set,
-            ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &active_tuning,
             initial_body: &initial_body,

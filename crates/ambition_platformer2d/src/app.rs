@@ -1728,7 +1728,7 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
 
     Some(Box::new(move |app: &mut App| {
         use crate::runtime::demo_fixture::{
-            ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+            ActiveRoomMetadata, RoomSet, StartingCharacter,
         };
         let Some(first) = rooms.first().cloned() else {
             return;
@@ -1746,7 +1746,6 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
             geometry,
             metadata,
             StartingCharacter::new(starting_character.clone()),
-            LdtkRuntimeIndex::default(),
         );
         crate::provider::PlatformerExperienceAuthoring::new(
             id.clone(),

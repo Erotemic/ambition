@@ -2057,13 +2057,23 @@ in any slice yet, and two of them predicted it would not. ⇒ **a slice that cla
 this row should say what it did to that number, or say why the number is
 dominated by something it did not touch.**
 
-⚠ **D135 is the first executable instance and is IN FLIGHT — do not duplicate
-it.** This row is the umbrella; work it by taking the next instance, not by
-re-measuring the pattern.
+⚠ **D135 was the first executable instance and is DONE (2026-08-16).** ⇒ **and it
+answered the standing number above with a NO, which is the more useful answer**:
+the footprint did not move, because `ambition_platformer2d_ldtk` is held in a
+movement-only game's closure by the MONOLITH — seven production files needing
+nine symbols (`WorldManifest`, `LdtkProject`, `ActiveLdtkProject`,
+`LdtkHotReloadState`, `poll_ldtk_file_changes`, the `field_*` readers) — and not
+by the session world at all. ⇒ **the next instance to take is a monolith carve at
+the world-manifest / asset-catalog seam**, not another composition tidy: that is
+the one of the nine symbols that is not obviously LDtk-shaped, and until it moves
+this counter cannot. This row is still the umbrella; work it by taking that
+instance, not by re-measuring the pattern.
 
-- ▢ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
+- ✔ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
   FIELD, AND FIVE GAMES FILL IT WITH `::default()`.
-  (opened 2026-08-16, split out of D134)**
+  (opened 2026-08-16, split out of D134; DONE 2026-08-16 — read the ⇒ closure at
+  the end of this row, which chose shape (2) and struck two of the row's own
+  numbers)**
 
 `PlatformerSessionWorld` has `runtime_rooms: LdtkRuntimeIndex`, and
 `PreparedPlatformerSource` carries it through four public constructors. Sanic,
@@ -2094,6 +2104,105 @@ construction.
 game should carry the field at all — if the honest answer is "no", the fix is a
 different shape (the index becomes optional session state a format installs)
 and the rename is wasted work.
+
+⇒ ✔✔ **THE ANSWER WAS "NO", SHAPE (2) LANDED, AND THE MOVE+RENAME WAS NEVER
+STARTED — 2026-08-16.** The row's own warning was worth every line of it: the
+58-site rename would have been wasted work.
+
+⭐ **the measurement that decided it — who reads the field, on what road.** Ten
+readers, and only two are engine-side. **(a) FIVE are LDtk's own systems**
+(`sync_ldtk_level_set` plus the four `rebuild_ldtk_runtime_*_index`), all in
+`ambition_platformer2d_ldtk`, all reading it through a `SessionWorldRef`.
+**(b) the monolith's `SimulationSetup::ldtk_index` WAS DEAD** — borrowed,
+silenced with `let _ = ldtk_index;`, read by nothing, and its comment promised a
+"follow-up patch" that never came. It is the reason the field looked like
+something simulation setup needed. **(c) the provider's content digest** writes a
+`world.runtime-index` section that, for a RON game, is one `area\t<id>\t\t-` row
+per room — i.e. nothing. **(d) the rollback checksum** hashes `active_area()`,
+which mirrors `RoomSet::active_spec().id` that `root.room_set` already checksums.
+⇒ nothing engine-side needs an active-area index regardless of format. **And
+exactly ONE site in the workspace ever built a non-default index**
+(`from_project`, in `ambition_app`). Shape (1) was indicated by nothing.
+
+⇒ **what shipped**: `PreparedPlatformerSource` holds `Option<LdtkRuntimeIndex>`,
+private, `None` by default; `new` / `for_match` / `with_world` LOST the
+parameter; the LDtk road states its own installation with
+`.with_installed_ldtk_index(..)`; and `PlatformerSessionWorld` — the canonical
+bundle — no longer carries the field at all. The provider inserts the component
+onto the session root only when a format installed one, so a RON-authored root
+carries nothing for it.
+
+⭐ **and the deletion went further than the field, because the field was
+propping up three other things.** ⇥ `ambition_platformer2d_runtime::demo_fixture`
+re-exported `LdtkRuntimeIndex` **so RON demo shells could hand an empty index to
+a constructor that demanded one** — a fixture module laundering a format
+dependency into games that have none. Gone. ⇥ **three setup systems — Sanic's,
+Mary-O's and `ambition_app`'s — took a `SessionWorldRef<LdtkRuntimeIndex>`
+parameter purely to forward it to the dead monolith field.** Two of those are
+RON games *querying the session root for LDtk state in order to boot*; had the
+component simply been made absent without removing them, `Single` validation
+would have failed and neither demo would have started. Gone. ⇥ and
+`LdtkRuntimeSpinePlugin`'s six-system chain now carries
+`.run_if(ldtk_world_installed)`: every game composing the runtime plugin group
+used to run all six each sim tick, and in the five RON games they rebuilt against
+an empty index and found nothing, forever. **The optional field is what finally
+made that statable.**
+
+⛔ **two of this row's own numbers were wrong, struck here rather than quietly
+fixed.** ⊘ *"~25 `::default()` in demo/provider construction"* — it is **14**,
+and 4 of those were `#[cfg(test)]` fixtures inside the provider. The overcount
+came from a grep that swept `.claude/worktrees/` clones. ⊘ *"58 `.rs` references
+across 15 crates"* — the real workspace figure is 56, same cause. ⇒ the honest
+deletion is **14 `::default()` constructions, every one of them gone**, plus the
+dead monolith parameter, three system parameters, and the `demo_fixture`
+re-export. Five games and the provider's test fixtures no longer name
+`LdtkRuntimeIndex` at all; `ambition_platformer2d_provider/src/lifecycle.rs`
+names it **zero** times.
+
+⛔⛔ **`capability-footprint-may-not-grow` DID NOT MOVE, and the row asked the
+right question in asking.** Still **42 crates linked, 15 a movement-only game
+never asked for**, with `ambition_platformer2d_ldtk` still among the fifteen. ⇒
+**the footprint is dominated by the MONOLITH, not by the session world.** Seven
+production files under `ambition_platformer2d_actor_monolith/src` still need nine
+distinct symbols from that crate — `WorldManifest` (the asset catalog),
+`LdtkProject` + `LdtkLevel` + `field_string`/`field_f32` (encounter loading and
+gated lock walls), `ActiveLdtkProject` (encounter systems, the map menu),
+`LdtkHotReloadState` + `poll_ldtk_file_changes` (hot reload, settings) and
+`LdtkVocabulary`. `LdtkRuntimeIndex` was never what held that edge, so removing
+it could not have moved the counter. ⚠ **that is worth more than a moved number**:
+it says the next slice against this ratchet is a monolith carve — specifically
+the world-manifest/asset-catalog seam, which is the only one of the nine that is
+not obviously LDtk-shaped — and not another session-world tidy.
+
+⇒ **the guard**: `game/ambition_app/tests/a_ron_game_installs_no_ldtk_world.rs`,
+two tests that are one claim. ⛔ *"Sanic has no LDtk index"* is trivially
+satisfied by never inserting the component anywhere — which is what a bad
+implementation of this change looks like, and it would delete level streaming
+from the shipped game while turning the file green. So the absence is asserted
+only beside a POSITIVE observation that the LDtk-authored game installs a real,
+**non-empty** index (`active_area()` is the field `from_project` fills and
+`Default` leaves blank, so it separates an installation from the placeholder).
+Both host-driven. ⚠ **the negative fixture was CAUGHT not reaching its state**:
+written with `.start_at_launcher()` it never activated a session in 240 frames
+and said so rather than passing vacuously. Falsified by restoring the old
+behaviour (`insert(installed_ldtk_index.unwrap_or_default())`) — red, with
+`session-start experience=ambition_versus` / `room-loaded versus_arena` in the
+trace proving it reached a live session first — then restored and re-run green.
+
+⚠ **rollback schema stayed at 34 and needed no bump, verified rather than
+assumed**: the fingerprint is computed from the REGISTRATION list
+(`registry.rs::schema_dump`), no registration changed, and no coverage sweep
+fails on a registered component being ABSENT — every sweep runs
+entity→registry, so a registered type carried by nobody contributes no entity.
+(`inert_registrations` is the near miss and is also presence-driven.) The content
+digest is likewise unmoved: the section a `None` index writes is byte-identical
+to what an empty index wrote, which is why no fingerprint shifted.
+
+⚠ **one thing the D134 note got right and this row should not lose**: the fix did
+not touch a single manifest edge. The runtime still declares
+`ambition_platformer2d_ldtk`, correctly. A dependency-denylist row could not have
+stated this wart, and removing the wart did not move a dependency count — two
+instruments, two facts.
 
 **D134 as it was OPENED, kept for the record. ⛔ two of its claims did not
 survive contact and are struck below** — read the closure above first:

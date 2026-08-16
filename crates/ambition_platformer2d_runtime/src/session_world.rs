@@ -1,10 +1,24 @@
 //! Prepared platformer definitions and canonical live session components.
 //!
 //! [`PreparedPlatformerSource`] is immutable preparation input/output: it owns
-//! authored catalogs, room graph/geometry, starting-character selection, and
-//! the LDtk runtime index. [`PlatformerSessionWorld`] is the mutable live bundle
-//! lowered from that source during activation. Runtime requests are created at
-//! activation and never participate in content identity.
+//! authored catalogs, room graph/geometry and starting-character selection.
+//! [`PlatformerSessionWorld`] is the mutable live bundle lowered from that
+//! source during activation. Runtime requests are created at activation and
+//! never participate in content identity.
+//!
+//! ⛔ **an authoring FORMAT's state is not a member of the canonical session
+//! world.** Until 2026-08-16 the bundle carried `runtime_rooms:
+//! LdtkRuntimeIndex` unconditionally, so all five RON-authored games — Sanic,
+//! Mary-O, Pocket, TwinTrack, Smash — had to construct an
+//! `LdtkRuntimeIndex::default()` whose own doc calls it *"the 'no LDtk world
+//! installed' index"* for a world they never install. The measurement that
+//! decided the shape: every system that consumes the index for real work lives
+//! in `ambition_platformer2d_ldtk` and reads it through a `SessionWorldRef`, the
+//! monolith's `SimulationSetup::ldtk_index` was dead (`let _ = ldtk_index;`),
+//! and exactly ONE site in the workspace ever built a non-default index. ⇒ the
+//! index is state a FORMAT INSTALLS — see
+//! [`PreparedPlatformerSource::with_installed_ldtk_index`] — not a field every
+//! game owes.
 
 use bevy::prelude::*;
 
@@ -45,7 +59,10 @@ pub struct PreparedPlatformerSource {
     /// [`InitialBodyPolicy`]; a match experience declares
     /// [`InitialBodyPolicy::NoInitialBody`] and realizes its own cast.
     initial_body: InitialBodyPolicy,
-    runtime_rooms: LdtkRuntimeIndex,
+    /// **The active-area index an authoring FORMAT installed, if any.** `None`
+    /// for every RON-authored game, which is what makes this optional rather
+    /// than a field they fill with an empty value — see the module header.
+    installed_ldtk_index: Option<LdtkRuntimeIndex>,
 }
 
 impl PreparedPlatformerSource {
@@ -56,7 +73,6 @@ impl PreparedPlatformerSource {
         geometry: RoomGeometry,
         active_room: ActiveRoomMetadata,
         starting_character: StartingCharacter,
-        runtime_rooms: LdtkRuntimeIndex,
     ) -> Self {
         Self {
             catalogs: PlatformerSessionCatalogs::provider(provider),
@@ -65,7 +81,7 @@ impl PreparedPlatformerSource {
             active_room,
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             starting_character,
-            runtime_rooms,
+            installed_ldtk_index: None,
         }
     }
 
@@ -88,7 +104,6 @@ impl PreparedPlatformerSource {
         geometry: RoomGeometry,
         active_room: ActiveRoomMetadata,
         catalog_default: StartingCharacter,
-        runtime_rooms: LdtkRuntimeIndex,
     ) -> Self {
         Self {
             catalogs: PlatformerSessionCatalogs::provider(provider),
@@ -97,8 +112,21 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: catalog_default,
             initial_body: InitialBodyPolicy::NoInitialBody,
-            runtime_rooms,
+            installed_ldtk_index: None,
         }
+    }
+
+    /// **Install an authoring format's active-area index onto this definition.**
+    ///
+    /// The one road that calls this is the LDtk one — initial preparation and
+    /// hot reload, both in the LDtk-authored game. A RON-authored game never
+    /// calls it and therefore carries no index at all, which is the whole point:
+    /// the absence is the honest statement that no world was installed, where
+    /// an empty index was a value five games had to invent.
+    #[must_use]
+    pub fn with_installed_ldtk_index(mut self, index: LdtkRuntimeIndex) -> Self {
+        self.installed_ldtk_index = Some(index);
+        self
     }
 
     pub fn catalogs(&self) -> &PlatformerSessionCatalogs {
@@ -120,8 +148,11 @@ impl PreparedPlatformerSource {
     pub fn initial_body(&self) -> &InitialBodyPolicy {
         &self.initial_body
     }
-    pub fn runtime_rooms(&self) -> &LdtkRuntimeIndex {
-        &self.runtime_rooms
+    /// The installed active-area index, or `None` when no authoring format
+    /// installed one. ⚠ read it as a question, never unwrapped: a RON-authored
+    /// session legitimately has no answer.
+    pub fn installed_ldtk_index(&self) -> Option<&LdtkRuntimeIndex> {
+        self.installed_ldtk_index.as_ref()
     }
     pub fn active_room_id(&self) -> &str {
         self.room_set.active_spec().id.as_str()
@@ -129,12 +160,17 @@ impl PreparedPlatformerSource {
 
     /// Build an off-to-the-side candidate with a replacement authored world.
     /// The active prepared object is untouched until the caller commits it.
+    ///
+    /// ⚠ the installed index CARRIES OVER unchanged. A format that reloaded its
+    /// own world states the replacement with
+    /// [`Self::with_installed_ldtk_index`]; a format that did not, and a game
+    /// that installed nothing, both get the honest answer without saying
+    /// anything.
     pub fn with_world(
         &self,
         room_set: RoomSet,
         geometry: RoomGeometry,
         active_room: ActiveRoomMetadata,
-        runtime_rooms: LdtkRuntimeIndex,
     ) -> Self {
         Self {
             catalogs: self.catalogs.clone(),
@@ -143,7 +179,7 @@ impl PreparedPlatformerSource {
             active_room,
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
-            runtime_rooms,
+            installed_ldtk_index: self.installed_ldtk_index.clone(),
         }
     }
 
@@ -155,14 +191,18 @@ impl PreparedPlatformerSource {
         let mut room_set = self.room_set.clone();
         room_set.active = room_set.room_index_by_id(room_id)?;
         let active_spec = room_set.active_spec().clone();
-        let mut runtime_rooms = self.runtime_rooms.clone();
-        runtime_rooms.set_active_area(active_spec.id.clone());
-        Some(self.with_world(
+        let mut candidate = self.with_world(
             room_set,
             RoomGeometry(active_spec.world),
             ActiveRoomMetadata(active_spec.metadata),
-            runtime_rooms,
-        ))
+        );
+        // Only a session that HAS an installed index has an active area to
+        // normalize; a RON-authored one tracks its active room in `RoomSet`
+        // alone, which the clone above already carries.
+        if let Some(index) = candidate.installed_ldtk_index.as_mut() {
+            index.set_active_area(active_spec.id.clone());
+        }
+        Some(candidate)
     }
 
     pub fn instantiate_live(&self) -> PlatformerSessionWorld {
@@ -173,7 +213,6 @@ impl PreparedPlatformerSource {
             active_room: self.active_room.clone(),
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
-            runtime_rooms: self.runtime_rooms.clone(),
             requests: PlatformerSessionRequests::default(),
         }
     }
@@ -187,6 +226,13 @@ pub struct PlatformerSessionRequests {
 
 /// Mutable components owned by the canonical live session root. This bundle is
 /// constructed only by lowering an immutable [`PreparedPlatformerSource`].
+///
+/// ⛔ **every field here is something EVERY platformer session has.** An
+/// authoring format's own state — the LDtk active-area index is the only
+/// current example — is installed as a SEPARATE component on the same root by
+/// the road that installed the format, so a game that uses no such format
+/// carries nothing for it. Adding a field that some games would fill with an
+/// empty value is the defect this bundle was carved to remove.
 #[derive(Bundle, Clone)]
 pub struct PlatformerSessionWorld {
     pub catalogs: PlatformerSessionCatalogs,
@@ -195,7 +241,6 @@ pub struct PlatformerSessionWorld {
     pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
     pub initial_body: InitialBodyPolicy,
-    pub runtime_rooms: LdtkRuntimeIndex,
     pub requests: PlatformerSessionRequests,
 }
 

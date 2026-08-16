@@ -47,8 +47,8 @@ impl AmbitionPreparedWorld {
                 geometry,
                 active_room,
                 self.starting_character.clone(),
-                self.ldtk_index.clone(),
             )
+            .with_installed_ldtk_index(self.ldtk_index.clone())
         } else {
             PreparedPlatformerSource::for_match(
                 AMBITION_EXPERIENCE,
@@ -56,8 +56,8 @@ impl AmbitionPreparedWorld {
                 geometry,
                 active_room,
                 self.starting_character.clone(),
-                self.ldtk_index.clone(),
             )
+            .with_installed_ldtk_index(self.ldtk_index.clone())
         }
     }
 }

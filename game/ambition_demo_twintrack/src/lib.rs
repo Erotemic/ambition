@@ -37,7 +37,7 @@ use ambition_platformer2d::relativity2d::{
     SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTracked2d,
 };
 use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+    ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
 use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
@@ -641,7 +641,6 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
         ae::RoomGeometry(room.world.clone()),
         ActiveRoomMetadata(room.metadata),
         StartingCharacter::new(TWINTRACK_CHARACTER_ID),
-        LdtkRuntimeIndex::default(),
     )
 }
 

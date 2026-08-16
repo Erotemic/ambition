@@ -7,7 +7,7 @@ use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+    ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
 
 use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_speedway};
@@ -95,7 +95,6 @@ fn sanic_prepared_session_world() -> PreparedPlatformerSource {
         source.geometry,
         source.metadata,
         source.starting_character,
-        LdtkRuntimeIndex::default(),
     )
 }
 

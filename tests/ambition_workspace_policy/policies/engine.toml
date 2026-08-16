@@ -1766,7 +1766,8 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # the edge also had to leave a DENYLIST** — see the long note on
     # `engine.runtime-manifest-deny` for the `cargo tree` evidence that it is a
     # downward edge, and for the wart (a format-specific field on the canonical
-    # session world) that the deny row was standing in for. In this list's own
+    # session world) that the deny row was standing in for, fixed by D135 on
+    # 2026-08-16 without this edge moving at all. In this list's own
     # terms: it sits at the same graph depth as `ambition_platformer2d_world`
     # above, it names no app/content/host/render crate, and
     # `ambition_platformer2d_actor_monolith` — already allowed — has linked it all
@@ -1804,16 +1805,27 @@ severity = "error"
 # `ambition_sprite_sheet` and `ambition_character_sprites`: a laundered edge
 # becoming a declared one reads as a new violation and is not one.
 #
-# ⚠ **the real concern the row was groping at survives, and it is not a manifest
-# edge.** `PlatformerSessionWorld` carries `runtime_rooms: LdtkRuntimeIndex` as a
-# bundle field, so every RON-only game — Sanic, Mary-O, Pocket, TwinTrack, Smash —
-# constructs an `LdtkRuntimeIndex::default()` it will never fill, and the type's
-# own `Default` doc says so out loud ("the 'no LDtk world installed' index").
-# A format-specific member of the CANONICAL SESSION WORLD is a real wart; a
-# dependency-denylist row is simply not the instrument that can state it. Leaving
-# it here to gesture at the wart is what turned one deleted facade into seven red
-# sites across three policies, in a suite no gate was watching. See queue D135 for
-# the shape and cost of generalising the type.
+# ✔ **the real concern the row was groping at is FIXED (D135, 2026-08-16), and it
+# was never a manifest edge.** `PlatformerSessionWorld` carried `runtime_rooms:
+# LdtkRuntimeIndex` as a mandatory bundle field, so every RON-only game — Sanic,
+# Mary-O, Pocket, TwinTrack, Smash — constructed an `LdtkRuntimeIndex::default()`
+# it would never fill, and the type's own `Default` doc said so out loud ("the 'no
+# LDtk world installed' index"). The index is OPTIONAL session state a format
+# installs now (`PreparedPlatformerSource::with_installed_ldtk_index`), inserted
+# beside the canonical bundle rather than inside it, so a RON-authored session
+# root carries no such component at all.
+#
+# ⛔ **and the fix did NOT move this manifest edge, which is the lesson.** The
+# runtime still declares `ambition_platformer2d_ldtk` — it installs the room-load
+# spine and owns the rollback domain — and `capability-footprint-may-not-grow`
+# still reads 42/15 with `ambition_platformer2d_ldtk` among the fifteen, because
+# what holds it in a movement-only game's closure is the MONOLITH: seven
+# production files there need `WorldManifest`, `LdtkProject`, `ActiveLdtkProject`,
+# `LdtkHotReloadState`, `poll_ldtk_file_changes` and the `field_*` readers. ⇒ a
+# dependency-denylist row could not have stated the wart, and removing the wart
+# does not move a dependency count. Two different instruments, two different
+# facts — which is exactly why leaving this row here to gesture at the wart
+# turned one deleted facade into seven red sites across three policies.
 #
 # ⭐ `bevy_ecs_ldtk` STAYS DENIED, and that is the half with teeth: the runtime
 # may compose the adapter crate; it may not name the third-party backend the

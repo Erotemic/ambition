@@ -2175,7 +2175,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
 /// The stage, as the shared preparation lifecycle wants it.
 fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPlatformerSource {
     use ambition_platformer2d::runtime::demo_fixture::{
-        ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
+        ActiveRoomMetadata, RoomSet, StartingCharacter,
     };
 
     let room = smash_stage();
@@ -2192,7 +2192,6 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
         geometry,
         metadata,
         StartingCharacter::new(SMASH_CHARACTER_ID),
-        LdtkRuntimeIndex::default(),
     )
 }
 

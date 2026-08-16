@@ -1639,6 +1639,19 @@ Named: `super_sanic` (top — Jon's report exactly), `robot` (171 frames, top),
 `super_sanic` is cut, and the super skin is the same body with `spikes_up=True`.
 Spikes down, fine; spikes up, cut.
 
+⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
+YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,
+`robot_caster`/`diver`/`miner`/`runner`) are all auto-emitted from
+`robot_spritesheet.yaml`; the two `sandbag_*_review` come from
+`sandbag_spritesheet.yaml`; `ninja_shadow_oni_leader` and `ninja_shadow_duelist`
+share `ninja_spritesheet.yaml`. ⇒ **~15 authoring sources, and the single largest
+is the robot family**, whose cut edge is `top` — where
+`player_robot_v3.py` records the antenna spike sitting. `robot_spritesheet.png`
+is EMBEDDED in `ambition_asset_manager`, so this ships. ⚠ the current player
+draws `player_robot_v3`, which is the CLEANEST sheet measured (margin 20) — so
+name which sheet a given character actually draws before calling any of this
+player-visible.
+
 ⛔ **why nothing caught it**: the drawing canvas IS the logical frame, so overflow
 is clipped at draw time, before anything downstream can see it. The only
 frame-bound assert in the pipeline is the packer's post-trim losslessness check

@@ -485,6 +485,11 @@ tackon_targets=(
     noether_vfx
     patent_clerk_vfx
     pca_vfx
+    # Detached leader-specific effects for the Pirate Admiral and Shadow Oni
+    # Leader. Their metadata stays character-contextual while the runtime
+    # presentation seam remains generic.
+    pirate_admiral_vfx
+    ninja_shadow_oni_leader_vfx
     generic_explosions
     smirking_behemoth_boss
     solid_snake

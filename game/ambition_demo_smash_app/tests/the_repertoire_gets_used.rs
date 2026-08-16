@@ -611,9 +611,16 @@ mod the_decision_log {
                 // `no-route` means two different things — the repertoire offered
                 // nothing, or the kernel declined everything it was offered — and
                 // only the second is a tuning question. `pressed` is what the
-                // decision actually armed, which on the negative branch is the
-                // ranking fallback rather than the search's answer (see the ⛔
-                // note in `decision.rs`); that is the number this exists to show.
+                // decision actually armed.
+                //
+                // ⭐ **`-> pressed none` on the negative branch is now the
+                // CORRECT reading, and it is what this row exists to keep
+                // honest** (2026-08-15). It used to print `-> pressed
+                // excluded_middle` there — the static `lift_speed` ranking
+                // overriding the search that had just declined that very move —
+                // on 97 of 100 of George's recovery decisions. If a name ever
+                // reappears in that column, a ranking has grown back in front of
+                // the kernel.
                 let proposed = text(fact, "recovery_routes").unwrap_or("[]");
                 let pressed = text(fact, "attack").unwrap_or("?");
                 let outcome = match (

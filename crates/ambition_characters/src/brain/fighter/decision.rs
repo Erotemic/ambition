@@ -518,42 +518,51 @@ fn decide(
             .route
             .and_then(|index| route_moves.get(index))
             .map(|candidate| (candidate.binding, candidate.move_id.clone())),
-        // ⛔⛔ **THE TINY-RISING-AERIAL TRAP IS STILL LIVE ON THIS ARM, and it is
-        // named here because reading the two files apart hides it.**
+        // ⭐⭐ **THE SEARCH RAN AND ENDORSED NOTHING ⇒ THROW NOTHING.** The
+        // kernel is the authority on which authored action is useful from here,
+        // and it is the authority in BOTH directions — a negative is its answer,
+        // not its silence.
         //
-        // This arm covers two very different cases: (a) an ordinary situation, no
-        // recovery search ran, and the ranking below is exactly right; and (b)
-        // `Situation::Recovery`, the search RAN, and nothing it probed regained
-        // support. In case (b) `options.attacks` is `lifting_candidates` sorted
-        // by `lift_speed` descending — so `.first()` is *the move that pushes
-        // hardest against gravity*, which is precisely the static ranking
-        // `RecoveryLens::best_route` was built to replace. `lifting_candidates`'
-        // own doc spells out the consequence: *"If a caller ever takes `.first()`
-        // here as the recovery, the tiny-rising-aerial trap is back."* This is
-        // that caller.
+        // ⛔⛔ **this arm used to fall through to `options.attacks.first()`, which
+        // in `Recovery` is `lifting_candidates` sorted by `lift_speed`
+        // descending** — *the move that pushes hardest against gravity*, chosen
+        // before anything knew where the body was, which is precisely the static
+        // ranking [`super::recovery::RecoveryLens::best_route`] exists to
+        // replace. `lifting_candidates`' own doc named the consequence in
+        // advance: *"If a caller ever takes `.first()` here as the recovery, the
+        // tiny-rising-aerial trap is back."*
         //
-        // ⚠ **it is INVISIBLE on a fighter with one lifting move** (George Booul
-        // authors exactly one, so `.first()` is his Up-B and the fallback is
-        // correct for him) and it BITES on a fighter with two: the Pirate
-        // Admiral's `air_up` advertises 360 and his `grapple_line` — the move
-        // that actually gets him home — advertises 300, so a doomed-looking
-        // search makes him throw his juggle aerial at the blastzone.
+        // ⭐ **and it was not a rare branch — it was almost the whole branch.**
+        // Measured 2026-08-15 over CPU-versus-CPU matches on the smash stage:
+        // `Situation::Recovery` was a THIRD of every decision George Booul made,
+        // the search endorsed a route in **3 of 100** of them, and the remaining
+        // 97 pressed his Up-B out of this fallback. He spent a third of the match
+        // firing a recovery the kernel had just finished saying would not work,
+        // could not act while it played, and started three distinct moves out of
+        // sixteen authored.
         //
-        // ⚠ **and the search's negative is BOUNDED and deliberately pessimistic**
-        // (perceived terrain only, every blast margin zeroed, a 2 s horizon), so
-        // "nothing found" is not a rare branch.
+        // ⚠ **and pressing it was not the safe half.** A grid over the real stage
+        // (`excluded_middle` = `Set (0, -1020)`) says a straight-up burst ERASES
+        // the drift that would have carried him back across, so from beside the
+        // lip he rockets past it and returns to the same place; the search had
+        // probed exactly that move from exactly that state and answered no. There
+        // is no information in overriding it — the ranking knows strictly less
+        // than the search that just ran.
         //
-        // ⛔ NOT fixed blind. The obvious repair — rank the failures by how dead
-        // they are (`NoSupportFoundBy { reset }`) and press the least dead, the
-        // way `RefinedChoice::least_bad_movement` already does for movement — is
-        // a behaviour change whose falsifier needs a fixture where two routes
-        // fail DIFFERENTLY, and this codebase's own rule is that a reasoned
-        // falsifier is not a falsifier. What landed instead is the measurement:
-        // `recovery_routes` publishes the proposal list beside `recovery_move`,
-        // so the histogram says whether the Admiral is pressing `grapple_line` or
-        // `air_up` when the search comes back empty. See
-        // `dev/journals/code_smells.md`.
-        _ => refined
+        // ⇒ so this is not "rank the failures by how dead they are"
+        // (`least_bad_route`, the repair the journal proposed): there is nothing
+        // to rank, because the alternative to a route the kernel rejected is
+        // KEEPING it. A recovery spent early is a recovery you do not have when
+        // the edgeguard comes, which is the same fighting-game fact the
+        // buttons-only baseline already encodes by going first.
+        //
+        // ⚠ the movement half is untouched and still runs: `Recover` was chosen
+        // above, the body is still steering home, and the next decision (five
+        // ticks later) asks the kernel again from wherever the drift has got to.
+        Some(_) => None,
+        // An ordinary situation: no recovery search ran, and the ranking is
+        // exactly right.
+        None => refined
             .as_ref()
             .and_then(|refined| refined.binding.zip(refined.move_id.clone()))
             .or_else(|| {
@@ -563,6 +572,15 @@ fn decide(
                     .map(|attack| (attack.binding, attack.move_id.clone()))
             }),
     };
+    // **AIM THE STICK NOW, PRESS THE BUTTON LATER — because that is what a hand
+    // does.** The direction is a SUSTAIN (`clear_edges` leaves `attack_axis`
+    // alone, exactly as it leaves `jump_held`) and the button is an EDGE, so the
+    // decision that chooses a move sets the stick and the maturing press only
+    // has to close the circuit. See [`aim_the_stick`] for the two bugs this
+    // ordering deletes.
+    if let Some((binding, _)) = wants_attack.as_ref() {
+        aim_the_stick(*binding, view.self_view.facing, frame);
+    }
     if let (Some((binding, _)), None) = (wants_attack.as_ref(), state.pending_press) {
         let jitter = if cfg.profile.execution_noise > 0.0 {
             let sample = next_signed_unit(&mut state.noise).abs();
@@ -570,6 +588,14 @@ fn decide(
         } else {
             0
         };
+        // ⛔ **THE PRESS CANNOT OUTLIVE THE DECISION THAT MEANT IT.**
+        // `cfg.interval()` is *"how long this body is COMMITTED to whatever it
+        // decides: exactly until it decides again"*, and the aimed stick above
+        // is held for exactly that long. A jitter that reached the next decision
+        // would mature a press against a stick the NEXT decision aimed —
+        // reachable at `execution_noise >= 1.0`, and it would press the new
+        // direction with the old button.
+        let jitter = jitter.min(cfg.interval().saturating_sub(1));
         state.pending_press = Some(PendingAttack {
             ticks: jitter,
             binding: *binding,
@@ -637,30 +663,93 @@ struct DecisionSummary<'a, 'k> {
     proposed_routes: &'a [&'k AttackCandidate],
 }
 
-/// **Press the move the brain chose**, in the ordinary gesture vocabulary.
+/// **How far the brain pushes the stick for a move that is NOT a smash.**
 ///
-/// The verb picks the button and the direction picks the stick, which is exactly
-/// what `resolve_attack_gesture` reads and `move_for_directional_verb` resolves —
-/// so a fighter reaches its up-tilt the same way a player does, and a move with
-/// no binding was never in the kit to be chosen.
+/// ⭐ between the body's `directional_deadzone` (0.5) and its `flick_threshold`
+/// (0.8), and both halves are load-bearing: below the deadzone the direction
+/// does not register at all and the press falls back to the neutral move; at or
+/// above the flick threshold [`crate::actor::attack_gesture::resolve_attack_gesture`]
+/// records a FLICK, and a press inside the flick window is a **smash whatever
+/// the strength hint says** (`strong_hint || recent_matches`).
 ///
-/// ⚠ **the axis is in the BODY's local frame and the direction is relative to
-/// FACING**, so `Forward` is `+x` and `Back` is `-x` before the frame applies
-/// facing (`attack_dir_from_axis` multiplies `axis.x * facing`, and the emitted
-/// axis is pre-facing). Up is NEGATIVE y — the screen convention `InputState`
-/// carries, stated here because getting it backwards silently swaps a body's
-/// up-tilt and its down-air.
-fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut ActorControlFrame) {
+/// ⛔ so a brain that shoved the stick to 1.0 for every direction could not ask
+/// for a tilt at all — which is what it did until 2026-08-15, and why George's
+/// forward TILT was measured 8–12 times per match in the decision log while the
+/// body's own move ledger recorded `smash_forward`.
+///
+/// ⚠ the numbers it sits between are `AttackGestureTuning`'s DEFAULTS, and the
+/// brain cannot see a body's tuning. A body that retunes them far enough to
+/// swallow this deflection loses the CPU's tilts and keeps everything else; that
+/// is a coupling worth stating rather than a fact worth threading, because the
+/// same partial-deflection-means-tilt convention is what a human's stick obeys.
+const TILT_DEFLECTION: f32 = 0.65;
+
+/// **AIM THE ATTACK STICK** — the direction half of a chosen move, written at
+/// DECISION time and held until the next decision, the way a hand holds a stick.
+///
+/// ⭐ the axis is in the body's **gravity-local** frame, the same frame
+/// [`ActorControlFrame::locomotion`] is in and the same one a human's stick
+/// arrives in — `attack_dir_from_axis` multiplies `axis.x` by the body's
+/// `facing` to recover *forward*, so the CALLER owes it a facing-independent
+/// vector. Up is NEGATIVE y, the screen convention `InputState` carries.
+///
+/// ⛔⛔ **the two bugs this deletes, both measured on 2026-08-15 in a
+/// CPU-versus-CPU match, and both invisible to every test in the repo:**
+///
+/// * **the mirror.** This wrote `Forward` as `+x` — a FACING-relative vector into
+///   a gravity-local field — so the resolver multiplied by facing a second time
+///   and every forward/back attack chosen while the body faced LEFT came out
+///   reversed. George Booul's side special was selected 19–24 times per match
+///   and performed **zero** times: `special_forward` mirrored to `Back`, no
+///   `special_back` verb exists, and the chain fell back to `special` — which is
+///   why the move ledger recorded two `bivalence` presses the decision log never
+///   selected. That disagreement is the falsifier; nothing else produces it.
+/// * **the accidental smash.** See [`TILT_DEFLECTION`].
+///
+/// ⚠ a `Neutral` direction is a CENTRED stick, and centring it re-arms the
+/// flick detector — which is correct: the next directional press is then a fresh
+/// gesture rather than the tail of this one.
+fn aim_the_stick(
+    binding: super::options::AttackBinding,
+    facing: f32,
+    frame: &mut ActorControlFrame,
+) {
     use super::options::AttackVerb;
     use crate::actor::attack_gesture::AttackDir;
 
+    // A body whose facing has not been established yet still has to aim
+    // somewhere; `+1` keeps `Forward` meaning `+x` rather than collapsing the
+    // whole gesture to a centred stick.
+    let facing = if facing < 0.0 { -1.0 } else { 1.0 };
+    // A SMASH is the full shove that the body reads as a flick; everything else
+    // is the partial deflection a tilt/aerial is made of.
+    let push = match binding.verb {
+        AttackVerb::Smash => 1.0,
+        // ⚠ a SPECIAL has no tilt/smash distinction — `move_for_directional_verb`
+        // only needs the direction to clear the deadzone — but it takes the same
+        // partial deflection so that a special press can never leave a flick
+        // armed behind it and turn the FOLLOWING tilt into a smash.
+        AttackVerb::Basic | AttackVerb::Special => TILT_DEFLECTION,
+    };
     frame.attack_axis = match binding.direction {
         AttackDir::Neutral => ae::LocalAxes::ZERO,
-        AttackDir::Forward => ae::LocalAxes::new(1.0, 0.0),
-        AttackDir::Back => ae::LocalAxes::new(-1.0, 0.0),
-        AttackDir::Up => ae::LocalAxes::new(0.0, -1.0),
-        AttackDir::Down => ae::LocalAxes::new(0.0, 1.0),
+        AttackDir::Forward => ae::LocalAxes::new(push * facing, 0.0),
+        AttackDir::Back => ae::LocalAxes::new(-push * facing, 0.0),
+        AttackDir::Up => ae::LocalAxes::new(0.0, -push),
+        AttackDir::Down => ae::LocalAxes::new(0.0, push),
     };
+}
+
+/// **Press the move the brain chose** — the BUTTON half only; the stick was
+/// aimed by the decision that chose the move ([`aim_the_stick`]).
+///
+/// The verb picks the button and the held stick picks the variant, which is
+/// exactly what `resolve_attack_gesture` reads and `move_for_directional_verb`
+/// resolves — so a fighter reaches its up-tilt the same way a player does, and a
+/// move with no binding was never in the kit to be chosen.
+fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut ActorControlFrame) {
+    use super::options::AttackVerb;
+
     match binding.verb {
         AttackVerb::Basic => {
             frame.melee_pressed = true;

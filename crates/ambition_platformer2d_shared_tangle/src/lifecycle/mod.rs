@@ -38,6 +38,8 @@
 
 mod cleanup;
 mod continuity;
+mod custody_horizon;
+pub mod horizon;
 mod markers;
 mod round;
 mod session;
@@ -45,8 +47,15 @@ mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use continuity::{
-    project_custody_onto_authored_occurrences, AuthoredOccurrences, OccurrenceDisposition,
+    capture_occurrence_baseline, project_custody_onto_authored_occurrences,
+    restore_occurrence_baseline, AuthoredOccurrences, OccurrenceBaseline, OccurrenceDisposition,
     OccurrenceWhereabouts, RoomOccurrenceOutlook,
+};
+pub use custody_horizon::{
+    capture_custody_baseline, retract_custody_to_checkpoint, CustodyBaseline,
+};
+pub use horizon::{
+    CheckpointCapture, CheckpointCommitted, CheckpointRestore, ResetToCheckpoint,
 };
 pub use markers::{
     FeatureSimEntity, InCustodyOf, LoadingZoneVisual, ModeScopedEntity, PlayerVisual, RoomResident,

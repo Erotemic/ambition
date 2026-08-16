@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v31
+ggrs-rollback-schema-v32
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -384,6 +384,7 @@ resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canoni
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.enemy_projectile_state	resource-canonical	EnemyProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -394,6 +395,7 @@ resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec
 resource.input_stream_recorder	resource-clone	InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.inventory_restored	resource-clone	InventoryRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
 resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection

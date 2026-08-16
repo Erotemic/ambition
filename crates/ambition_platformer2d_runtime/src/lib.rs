@@ -67,6 +67,7 @@ mod room_schedule;
 pub mod room_transition;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
+pub mod checkpoint_horizon;
 pub mod sandbox_reset;
 pub mod session_world;
 mod sim_core_resources;
@@ -479,6 +480,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // emits the request: without a consumer here, a standalone demo
             // binary writes the message into a channel nothing drains.
             .add(RoomReplaySchedulePlugin)
+            // The reset horizon (checkpoint baseline capture + restore). Added
+            // immediately after the replay consumer because its restore set is
+            // ordered against that consumer's set, and the two are one
+            // transaction: put the world back, then rebuild the room from it.
+            .add(checkpoint_horizon::CheckpointHorizonPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

@@ -373,8 +373,14 @@ impl AuthoredOccurrences {
     /// above is an argument, not a measurement.
     pub const fn rewind_argument() {}
 
-    /// **The BASELINE horizon is a COPY of this ledger, and that is the whole
-    /// design.**
+    /// **This ledger's contribution to the BASELINE horizon is a copy of
+    /// itself** — see [`OccurrenceBaseline`], which is that copy.
+    ///
+    /// ⛔ **and a copy of this is NOT the whole baseline**, which is what this
+    /// note used to imply. It is one domain's share of it. The custody leg is
+    /// [`super::CustodyBaseline`], owned elsewhere, because "what happened to
+    /// this authored occurrence" and "what is this body carrying" are different
+    /// questions. [`super::horizon`] states the rule.
     ///
     /// The maintainer's rule (2026-08-15) is that checkpoint state IS the reset
     /// baseline: ordinary traversal preserves current whereabouts; a death
@@ -398,20 +404,20 @@ impl AuthoredOccurrences {
     /// second authority that disagrees with the checkpoint the moment content
     /// changes.
     ///
-    /// ⚠ **WHAT WOULD HAVE TO EXIST, and none of it does:**
-    /// 1. a checkpoint COMMIT that is a world event rather than a body position.
-    ///    `heal_save_shrine_system` writes `PersistedCheckpoint { room, x, y }`
-    ///    and nothing else; there is no moment at which a copy could be taken.
-    /// 2. a death/retry road that RESTORES a baseline. Today the only road is
-    ///    the sandbox reset, which rebuilds the start room from records and is
-    ///    the empty baseline, not a restore.
-    /// 3. ⛔⛔ **a body INVENTORY.** An `InCustody` row names a live
-    ///    relationship, so it cannot be restored on its own: "the key stays
-    ///    acquired" is a claim about a hand that a death emptied. `OwnedItems`
-    ///    is a process-global count table with no row per object, so restoring
-    ///    an occurrence INTO a body is a fact nothing can currently state. This
-    ///    is the boundary — the second line of the maintainer's fixture needs
-    ///    it, and inventing it is inventing a save system.
+    /// ⭐ **the three things this note said did not exist now do** (2026-08-15):
+    /// [`super::CheckpointCommitted`] is the world event, [`super::ResetToCheckpoint`]
+    /// is the death road that restores rather than empties, and the custody leg
+    /// is [`super::CustodyBaseline`] — which names the CUSTODIAN, because an
+    /// `InCustody` row does not and "the key stays acquired" is a claim about a
+    /// particular hand.
+    ///
+    /// ⚠ **what is still owed**, and it is the second half of that custody leg:
+    /// an occurrence whose baseline says a body was carrying it, and which is
+    /// NOT live in that body's hand at restore time, cannot be put back —
+    /// nothing mints an occurrence directly into custody. Today it cannot
+    /// happen, because a held occurrence is resident in no room and therefore
+    /// survives every sweep a death crosses. It becomes reachable the moment a
+    /// death destroys the carrier.
     pub const fn baseline_is_a_copy_of_this() {}
 
     /// **A reinstatement is NOT room-local, and the residency it restores is
@@ -432,6 +438,125 @@ impl AuthoredOccurrences {
     /// the scope marker owes a room key and this ledger's `Placed { room, .. }`
     /// becomes the thing that names it.
     pub const fn residency_is_reconstructed_not_room_local() {}
+}
+
+/// **The occurrence domain's share of the reset baseline** — horizon 2 of the
+/// three, holding exactly what horizon 1 held at the last committed checkpoint.
+///
+/// ⭐ **a whole-value copy, and that is not laziness.** The alternative — record
+/// which rows changed since the checkpoint — needs a diff that stays correct
+/// across rollback, room streaming and a producer that republishes the whole leg
+/// every tick. The ledger is a few dozen rows of two small variants; the copy is
+/// the cheap side of that trade by a wide margin.
+///
+/// ⛔⛔ **UNLIKE the ledger it copies, this is NOT derived and MUST be declared
+/// to rollback with a real VALUE projection.** Every row of `AuthoredOccurrences`
+/// is republished from live state, which is what lets it be declared derived;
+/// nothing republishes a baseline. It is written once at a checkpoint commit —
+/// an event inside the rollback window, since a shrine is touched mid-frame —
+/// and a rewind past that commit would leave the world holding a baseline from a
+/// future that got un-happened. That is the same trap
+/// [`AuthoredOccurrences::rewind_argument`] names for
+/// [`OccurrenceWhereabouts::Consumed`], reached by a different route.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct OccurrenceBaseline(AuthoredOccurrences);
+
+impl OccurrenceBaseline {
+    /// The remembered ledger. Read by the fixture and by a durable-save writer;
+    /// ⛔ not a place to mutate the baseline from, which is why there is no
+    /// `_mut`.
+    pub fn remembered(&self) -> &AuthoredOccurrences {
+        &self.0
+    }
+
+    /// **The desync checksum for this baseline** — entity-free, and covering
+    /// every field a peer could disagree about.
+    ///
+    /// ⭐ **the projection lives with the value, not with the registration.**
+    /// A checksum written beside the registry has to reach through the value's
+    /// privacy to do its job, and then silently stops covering whatever a later
+    /// field adds. Here the match below is exhaustive, so a new
+    /// [`OccurrenceWhereabouts`] variant is a compile error rather than a fact
+    /// that quietly stopped being checked.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{
+            checksum_bytes, put_str, put_u64, put_u8, put_vec2,
+        };
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.0.rows.len() as u64);
+        // `BTreeMap`, so this walk is ordered by identity on every peer.
+        for (sim_id, whereabouts) in &self.0.rows {
+            put_str(&mut bytes, sim_id.as_str());
+            match whereabouts {
+                OccurrenceWhereabouts::InCustody => put_u8(&mut bytes, 0),
+                OccurrenceWhereabouts::Placed { room, at } => {
+                    put_u8(&mut bytes, 1);
+                    put_str(&mut bytes, room);
+                    put_vec2(&mut bytes, *at);
+                }
+                OccurrenceWhereabouts::Consumed => put_u8(&mut bytes, 2),
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// **Record what the world remembers, at the instant a checkpoint commits.**
+///
+/// ⚠ **it captures even when the ledger is empty, and that matters.** An empty
+/// baseline is a real answer — "at this checkpoint, nothing had been moved" —
+/// and skipping the write would leave a stale baseline from an earlier
+/// checkpoint in place, so a death would restore a world two checkpoints old.
+/// The absence of a ledger resource entirely is the only case that writes
+/// nothing, because there is then nothing in this domain to remember.
+pub fn capture_occurrence_baseline(
+    mut commits: bevy::prelude::MessageReader<super::CheckpointCommitted>,
+    occurrences: Option<bevy::prelude::Res<AuthoredOccurrences>>,
+    baseline: Option<ResMut<OccurrenceBaseline>>,
+) {
+    // Drained unconditionally: a commit seen during a load must not be re-read
+    // on a later frame and charged to a world that has moved on.
+    let committed = commits.read().count() > 0;
+    let (Some(occurrences), Some(mut baseline)) = (occurrences, baseline) else {
+        return;
+    };
+    if !committed {
+        return;
+    }
+    if baseline.0 != *occurrences {
+        baseline.0 = occurrences.clone();
+    }
+}
+
+/// **Put the remembered ledger back, on a death.**
+///
+/// ⭐ **this restores the LEDGER and nothing else, on purpose.** It does not
+/// touch a single occurrence in the world: the rebuild that follows reads the
+/// restored ledger and reaches the right answer for every authored record by
+/// itself — suppress what the baseline says is elsewhere, reinstate what it says
+/// is lying somewhere, author the rest as written. Teaching this system to also
+/// fix up live entities would give the world two authorities on the same
+/// question, and the whole point of `outlook_for` is that there is one.
+///
+/// ⚠ **the ONE thing it cannot reach is an occurrence in a hand**, because a
+/// held occurrence is resident in no room and no rebuild sees it. That leg is
+/// [`super::retract_custody_to_checkpoint`], and it belongs to the custody
+/// domain because a hand is not room state.
+pub fn restore_occurrence_baseline(
+    mut resets: bevy::prelude::MessageReader<super::ResetToCheckpoint>,
+    baseline: Option<bevy::prelude::Res<OccurrenceBaseline>>,
+    occurrences: Option<ResMut<AuthoredOccurrences>>,
+) {
+    let requested = resets.read().count() > 0;
+    let (Some(baseline), Some(mut occurrences)) = (baseline, occurrences) else {
+        return;
+    };
+    if !requested {
+        return;
+    }
+    if *occurrences != baseline.0 {
+        *occurrences = baseline.0.clone();
+    }
 }
 
 /// **Custody is the first thing that gives an occurrence a whereabouts.**

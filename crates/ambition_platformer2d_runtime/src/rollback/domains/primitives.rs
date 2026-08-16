@@ -157,6 +157,35 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.placement_continuity",
         "authored-occurrence whereabouts; republished from live state while its room is loaded",
     );
+    // ⭐⭐ **THE TWO BASELINES ARE THE OPPOSITE CASE, AND THAT CONTRAST IS THE
+    // WHOLE REASON THEY SIT HERE.** The ledger above is derived because live
+    // state republishes every row of it. Nothing republishes a baseline: it is
+    // written once, at a checkpoint commit, which is a shrine touched MID-FRAME
+    // and therefore squarely inside the rollback window. Rewind across that
+    // commit with these declared derived and the world keeps a baseline taken
+    // from a future that got un-happened — so the next death restores a world
+    // that never existed.
+    //
+    // ⚠ this is exactly the trap the note above predicts for
+    // `OccurrenceWhereabouts::Consumed`, arrived at from the other direction: an
+    // accumulating value needs a real VALUE projection, not a presence probe.
+    // ⛔ **CHECKSUMMED, not plain clones.** `rollback_resource_clone` records
+    // "state checksum supplied by another authoritative projection", and for
+    // these that sentence would be false: nothing else projects a baseline, so a
+    // plain clone would put them in the snapshot and leave desync detection
+    // blind to them. The projections live on the values themselves.
+    app.rollback_resource_clone_checksum::<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>(
+        OWNER,
+        "resource.occurrence_baseline",
+        "bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",
+        ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline::checksum,
+    );
+    app.rollback_resource_clone_checksum::<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>(
+        OWNER,
+        "resource.custody_baseline",
+        "bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
+        ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::checksum,
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

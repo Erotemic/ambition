@@ -247,7 +247,18 @@ use super::{
 /// which was a true sentence about the switch ids and sprite names sharing the
 /// resource and a false one about the timer. The phase now has its own resource
 /// so the waiver's claim about the remaining one is true.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 31;
+/// ⚠ **v32 (2026-08-15): the RESET BASELINE joins the wire format.**
+/// `resource.occurrence_baseline` and `resource.custody_baseline` are what a
+/// death restores — the occurrence ledger and the hands, as they stood at the
+/// last committed checkpoint.
+///
+/// ⭐ **they are the first values here that NOTHING republishes**, and that is
+/// why they had to join rather than be declared derived like the live ledger
+/// they copy. A checkpoint commits from a shrine touched mid-frame, so the write
+/// is squarely inside the rollback window; a peer that rewound past it and did
+/// not restore these would hold a baseline recorded in a timeline that no longer
+/// happened, and would put the world back to it on the next death.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 32;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

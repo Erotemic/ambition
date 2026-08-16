@@ -481,6 +481,92 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
     );
 }
 
+/// **THE 3-2-1-GO IS ON THE SCREEN.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"I think there is also a countdown
+/// to start the match, but there is no visual indication of that countdown, like
+/// a 3, 2, 1, go."* There WAS a countdown — the fighters are held and released
+/// by it — and it announced itself into a channel nothing draws. Every existing
+/// test proved the HOLD (the fighters do not move during the ceremony); none
+/// asked whether a player could see why.
+///
+/// ⭐ so this watches the slot the stage DECLARES, `smash_announce`: the centred
+/// card the HUD renders, beside the fighter percents that were always visible.
+/// Before the rewiring the slot was declared and never written once, so this
+/// finds an empty card for the whole ceremony.
+///
+/// ⚠ **it asserts the COUNT, not the tick.** Which frame carries "2" is a tuning
+/// fact about `opening_countdown_ticks`; that a player is counted in with three
+/// numbers and then told to go is the genre's shape and the thing that was
+/// missing.
+#[test]
+fn the_opening_countdown_is_something_a_player_can_see() {
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let slot = ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
+    let countdown = ambition_demo_smash::smash_roster([
+        ambition_demo_smash::SMASH_CHARACTER_ID,
+        ambition_demo_smash::SMASH_OPPONENT_ID,
+    ])
+    .opening_countdown_ticks as usize;
+
+    let mut said: Vec<String> = Vec::new();
+    let mut cleared_after = false;
+    // The ceremony, plus enough afterwards for the GO card to retire.
+    for _ in 0..(countdown * 3 + 240) {
+        app.update();
+        let shown = app
+            .world()
+            .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .and_then(|readouts| readouts.get(&slot))
+            .map(ambition_platformer2d::presentation::HudReadout::text);
+        match shown {
+            Some(text) => {
+                if said.last() != Some(&text) {
+                    said.push(text);
+                }
+                // A card coming back after the ceremony retired would mean the
+                // clear is fighting a writer.
+                cleared_after = false;
+            }
+            None => cleared_after = !said.is_empty(),
+        }
+    }
+
+    assert_eq!(
+        said,
+        vec![
+            "3".to_string(),
+            "2".to_string(),
+            "1".to_string(),
+            "GO!".to_string()
+        ],
+        "the opening card showed {said:?} — a player is counted in with three \
+         numbers and then told to go, or the ceremony is invisible"
+    );
+    assert!(
+        cleared_after,
+        "the GO card never came down, so it sits on top of the match it announced"
+    );
+}
+
 /// **A MATCH SOMEBODY WINS ACTUALLY ENDS.**
 ///
 /// ⛔⛔ reported from the couch, 2026-08-15: *"there seems like several cases

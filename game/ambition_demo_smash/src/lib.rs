@@ -608,9 +608,29 @@ pub fn publish_smash_hud(
 ///
 /// ⭐ **DERIVED from the clock, so it cannot drift from the release.** The
 /// number on screen and the tick the bodies are freed are two readings of one
-/// pure function of `now - activated_on`; a separate timer for the banner would
+/// pure function of `now - activated_on`; a separate timer for the card would
 /// be a second authority on when the round starts, and the two would disagree
 /// on the frame anybody looked closely.
+///
+/// ⛔⛔ **AND IT USED TO BE INVISIBLE** — reported from the couch, 2026-08-15:
+/// *"I think there is also a countdown to start the match, but there is no
+/// visual indication of that countdown, like a 3, 2, 1, go."* Exactly right, and
+/// the reason is that this wrote a `GameplayBannerRequested`. Nothing DRAWS a
+/// `GameplayBanner`: its one reader in the whole workspace is the app's debug
+/// HUD text, which prefixes it `FEATURE:` and is gated on `player.single()` — so
+/// in a CPU-versus-CPU match, which has no primary player, not even the debug
+/// line appeared. The ceremony ran, the fighters were held and released, and the
+/// screen said nothing.
+///
+/// ⇒ it writes [`SMASH_ANNOUNCE_HUD_SLOT`] instead — the centred 34pt gold card
+/// this demo has DECLARED since the HUD landed and never once written to. Same
+/// road as the fighter percents beside it, which are visibly drawn.
+///
+/// ⭐ **and the `Local` is gone with the banner.** A readout is idempotent (a map
+/// insert), so writing the same word every tick is free, while a banner message
+/// re-requested every tick would never let the next card through — which is what
+/// the state existed to prevent. The system is now a pure function of the clock
+/// in fact as well as in prose.
 fn announce_the_opening_countdown(
     active: Option<
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
@@ -619,46 +639,48 @@ fn announce_the_opening_countdown(
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
     >,
     tick: Option<bevy::prelude::Res<ambition_platformer2d::time::SimTick>>,
-    mut said: bevy::prelude::Local<Option<String>>,
-    mut banner: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::GameplayBannerRequested,
-    >,
+    settled: Option<bevy::prelude::Res<ambition_platformer2d::combat::stocks::StocksMatchSettled>>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     use ambition_platformer2d::actors::character_runtime::OpeningPhase;
     let (Some(active), Some(prepared), Some(tick)) = (active, prepared, tick) else {
-        *said = None;
         return;
     };
     let Some(elapsed) = active.ticks_since_activation(tick.get()) else {
         return;
     };
-    if !prepared.rules().opens_suspended || prepared.rules().opening_countdown_ticks == 0 {
+    let rules = prepared.rules();
+    if !rules.opens_suspended || rules.opening_countdown_ticks == 0 {
         return;
     }
-    let word = match prepared.rules().opening_phase(elapsed) {
-        OpeningPhase::Counting { beats_remaining } => beats_remaining.to_string(),
-        // The release beat says GO once and then stops: `elapsed` keeps growing,
-        // and a banner re-requested every tick for the rest of the match would
-        // never let the winner card through.
-        OpeningPhase::Live => "GO!".to_string(),
+    let total = u64::from(rules.opening_countdown_ticks);
+    // One beat, from the ruleset's own arithmetic rather than a second constant:
+    // `opening_phase` divides the countdown by `opening_beats()` exactly this
+    // way, so "GO!" holds for as long as each number did.
+    let per_beat = total.div_ceil(u64::from(rules.opening_beats().max(1)));
+    let word = match rules.opening_phase(elapsed) {
+        OpeningPhase::Counting { beats_remaining } => Some(beats_remaining.to_string()),
+        // GO holds one beat past the release and then the card comes down. The
+        // fighters are already moving; a "GO!" that stayed up would be sitting
+        // on the match it announced.
+        OpeningPhase::Live if elapsed < total + per_beat => Some("GO!".to_string()),
+        OpeningPhase::Live => None,
     };
-    if said.as_deref() == Some(word.as_str()) {
-        return;
+    match word {
+        Some(word) => readouts.set(
+            SMASH_ANNOUNCE_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare(word),
+        ),
+        // ⚠ **the slot has ONE owner at a time, and after the match is decided
+        // it is the winner's.** Clearing unconditionally here would wipe the
+        // victory card off the screen on the very next tick.
+        None => {
+            if !settled.is_some_and(|settled| settled.0) {
+                readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
+            }
+        }
     }
-    if matches!(said.as_deref(), Some("GO!")) {
-        return;
-    }
-    *said = Some(word.clone());
-    banner.write(ambition_platformer2d::combat::GameplayBannerRequested::new(
-        word,
-        // A beat, near enough: long enough to read, short enough that the next
-        // number replaces it rather than queueing behind it.
-        OPENING_BEAT_SECONDS,
-    ));
 }
-
-/// How long one counted number holds, in seconds of banner time.
-const OPENING_BEAT_SECONDS: f32 = 0.9;
 
 /// Put a respawning fighter back over the platform.
 ///
@@ -858,17 +880,29 @@ fn return_to_the_select_screen_when_the_match_ends(
 // with that experience (see the scope in `SmashExperiencePlugin`).
 
 /// Say who won, once.
+///
+/// ⛔⛔ **this wrote a `GameplayBannerRequested` too, and so the winner card was
+/// as invisible as the countdown was** — see
+/// [`announce_the_opening_countdown`] for why nothing draws that channel. The
+/// demo has declared a centred announce slot the whole time; this writes it.
+///
+/// ⚠ **written once and never cleared, deliberately.** A readout persists until
+/// somebody replaces or clears it, and 4.5 s later
+/// [`return_to_the_select_screen_when_the_match_ends`] leaves the stage and the
+/// experience's whole HUD declaration goes with it. So the card stands for
+/// exactly as long as the results screen does, with no timer to keep in step
+/// with the route change.
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
-    mut banner: bevy::prelude::MessageWriter<
-        ambition_platformer2d::combat::GameplayBannerRequested,
-    >,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for outcome in decided.read() {
-        banner.write(ambition_platformer2d::combat::GameplayBannerRequested::new(
-            victory_banner(outcome.winner.as_deref()),
-            3.0,
-        ));
+        readouts.set(
+            SMASH_ANNOUNCE_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(
+                outcome.winner.as_deref(),
+            )),
+        );
     }
 }
 
@@ -2309,67 +2343,65 @@ mod tests {
         );
     }
 
-    /// **The banner says who won, once per ending.**
-    ///
-    /// The plugin's half of the seam, driven through the message the engine
-    /// actually writes rather than by calling `victory_banner` directly — which
-    /// would test the string and not the wiring.
-    #[test]
-    fn deciding_the_match_raises_a_banner_naming_the_winner() {
+    /// Run `announce_the_winner` over one decision and hand back the announce
+    /// slot's text, or `None` if nothing was written to it.
+    fn announced_outcome(winner: Option<&str>) -> Option<String> {
         use bevy::prelude::*;
 
         let mut app = App::new();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
-        app.add_message::<ambition_platformer2d::combat::GameplayBannerRequested>();
+        app.init_resource::<ambition_platformer2d::presentation::HudReadouts>();
         app.add_systems(Update, announce_the_winner);
         app.update();
 
         app.world_mut()
             .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
             .write(ambition_platformer2d::actor::StocksMatchDecided {
-                winner: Some("seat 2".to_string()),
+                winner: winner.map(str::to_string),
             });
         app.update();
 
-        let messages = app
-            .world()
-            .resource::<Messages<ambition_platformer2d::combat::GameplayBannerRequested>>();
-        let mut cursor = messages.get_cursor();
-        let raised: Vec<_> = cursor.read(messages).collect();
-        assert_eq!(
-            raised.len(),
-            1,
-            "the ending raised {} banners; a ruleset that announces twice \
-             announces on every frame after the match ends",
-            raised.len()
-        );
-        assert_eq!(raised[0].text, "seat 2 wins");
+        app.world()
+            .resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .get(&SMASH_ANNOUNCE_HUD_SLOT.into())
+            .map(ambition_platformer2d::presentation::HudReadout::text)
     }
 
-    /// A DRAW reaches the banner as a draw, not as a winner with an empty name.
+    /// **The CARD says who won.**
+    ///
+    /// The plugin's half of the seam, driven through the message the engine
+    /// actually writes rather than by calling `victory_banner` directly — which
+    /// would test the string and not the wiring.
+    ///
+    /// ⛔ **it asserted a `GameplayBannerRequested` until 2026-08-15, and that is
+    /// why the winner card was invisible while this test was green.** Nothing in
+    /// the workspace DRAWS a `GameplayBanner`: its only reader is the app's debug
+    /// HUD line, gated on `player.single()`, so a CPU-versus-CPU ending showed
+    /// nothing at all. The claim is now made against the readout the stage
+    /// declares and the HUD actually renders — the same road as the fighter
+    /// percents — which is strictly the stronger thing to assert.
+    ///
+    /// ⚠ the old test also guarded *"a ruleset that announces twice announces on
+    /// every frame after the match ends"*. That hazard is gone by construction
+    /// rather than by assertion: a readout is a map insert, so writing it twice
+    /// is writing it once.
+    #[test]
+    fn deciding_the_match_shows_a_card_naming_the_winner() {
+        assert_eq!(
+            announced_outcome(Some("seat 2")).as_deref(),
+            Some("seat 2 wins"),
+            "the ending wrote no announce card, so the stage says nothing about \
+             who won"
+        );
+    }
+
+    /// A DRAW reaches the card as a draw, not as a winner with an empty name.
     #[test]
     fn a_drawn_match_is_announced_as_one() {
-        use bevy::prelude::*;
-
-        let mut app = App::new();
-        app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
-        app.add_message::<ambition_platformer2d::combat::GameplayBannerRequested>();
-        app.add_systems(Update, announce_the_winner);
-        app.update();
-        app.world_mut()
-            .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
-            .write(ambition_platformer2d::actor::StocksMatchDecided { winner: None });
-        app.update();
-
-        let messages = app
-            .world()
-            .resource::<Messages<ambition_platformer2d::combat::GameplayBannerRequested>>();
-        let mut cursor = messages.get_cursor();
-        let raised: Vec<_> = cursor.read(messages).collect();
+        let said = announced_outcome(None).expect("a draw is still an ending");
         assert!(
-            raised[0].text.contains("Draw"),
-            "a draw was announced as a win: {}",
-            raised[0].text
+            said.contains("Draw"),
+            "a draw was announced as a win: {said}"
         );
     }
 

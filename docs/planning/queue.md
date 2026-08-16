@@ -2093,6 +2093,28 @@ What the slice did:
   measurement: that crate was already in the sentinel's closure, and it is a leaf
   with zero `ambition_*` dependencies, taken without its `bevy` feature.
 
+⭐⭐⭐ **A PLUGIN THAT IS ADDED AND THEN DECLINES TO RUN IS STILL ADDED**
+(`d0ed12edb`, 2026-08-16) — this is the sharpening D135 earned and did not get.
+D135 made the LDtk spine's six systems decline to RUN in the five RON games, via
+`run_if(ldtk_world_installed)`. But the plugin was still ADDED: its six index
+resources were still initialized, its systems were still in the schedule graph,
+and **`root.ldtk_runtime_index` was still a row in those games' snapshot schema —
+the fingerprint two peers must agree on.** ⇒ `run_if` stops EXECUTION; it does not
+stop PRESENCE, and presence is what the wire format counts.
+
+⇒ `PlatformerEnginePlugins` no longer adds `LdtkRuntimeSpinePlugin` and
+`register_engine_rollback_state` no longer registers the index; both moved behind
+`LdtkWorldPlugin`, which **Ambition — the game that actually has an LDtk world —
+adds after the engine group.** The row's registration is byte-identical (same
+name, kind, projection), so the LDtk composition's schema dump is unchanged and
+no schema bump is owed.
+
+⚠ **an honest deferral recorded with it**: the registration lives in the RUNTIME
+crate rather than in `ambition_platformer2d_ldtk`, because the floor trait
+`RollbackRegistrar` carries only the RESOURCE method and this index is a
+COMPONENT on the session root. **Widening the floor is a separate slice**, and
+saying so beats a facade.
+
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):
 

@@ -149,6 +149,21 @@ legacy road      collision * collision_scale, a hand-tuned per-character
 ⭐ **measured: 194 of 196 spritesheet specs already publish `body_metrics`**, so
 the DATA is not the gap.
 
+⚠⚠ **THE NEXT ISSUE THIS EXPOSED — A BODY WHOSE COLLISION SIZE COULD DEPEND ON
+THE GRAPHICS SETTING.** **Twelve sheets declare `authored_body: true` in every
+reduced quality tier and NOT at full resolution** — `player_extended`, the three
+`player_*_review` sheets, and eight `robot_*` variants (37 authored in
+`sprites/`, 49 in each tier). ⛔ not a rounding artifact: `player_extended` reads
+**67 × 165** at full res against **35 × 84** in `0_5x`, i.e. 70 × 168 doubled — a
+genuinely different rectangle. Mtimes say the TIERS are newer (0_5x 2026-08-08 vs
+full-res 2026-07-29), so `regen_visual_quality_variants.sh` applies a generator
+`body_inset` the full-res road was never regenerated to carry. ⭐ today it is
+latent only by luck — `authored_body_pixel_size` is called with the bare target
+id, so full-res always wins — and the rot widens every time one road is
+regenerated without the other. ⇒ owed: regenerate those twelve at full res, and
+tie the tiers' `body_pixel_bbox` to the full-res one by scale so they cannot
+diverge again.
+
 ✔✔ **THE ADOPTION COUNT IS IN (2026-08-16), AND IT IS THE WHOLE ANSWER: TWO.**
 The decision site is `posed_body_for` in
 `character_runtime/presentation.rs` — a definition authoring
@@ -167,36 +182,52 @@ sheets publishing the body_metrics the good road needs        194 of 196
 ⇒ ⭐⭐ **`world_per_pixel` IS the common unit Jon's hurtbox note says was never
 established** — one number saying how much world a sheet pixel covers.
 
-⛔⛔ **AND THE "TWO ADOPTERS" COUNT WAS STILL TOO GENEROUS — THE REAL ANSWER IS
-ONE, AND IT NAMES JON'S BUG EXACTLY.** Both call sites are CONDITIONAL, and the
-player's is **dormant**:
+⛔⛔ **CORRECTION 2026-08-16 — A PARAGRAPH HERE CLAIMED "only 6 of 194 sheets
+declare `authored_body: true`, and `player_robot_v3` is not one of them". BOTH
+HALVES WERE FALSE, and it was a TRUNCATED SEARCH, not a wrong reading.** The
+scan matched `authored_body` only within the first 400 characters after
+`body_metrics: Some(`; in v3's record the flag sits **2,070 characters in**,
+after the per-animation table. Measured with no window:
 
-```rust
-// player_robot_lineage.rs
-if let Some(body_px) = authored_body_pixel_size(sheet) {   // <- returns None for v3
-    definition = definition.with_sprite_authored_body(DEFAULT_PLAYER_BODY_HEIGHT / body_px.y);
-}
+```text
+sheets with body_metrics            194
+declaring authored_body: true        37     (NOT 6)
+player_robot_v3 among them          YES     — and `robot`, `player_robot_v2`,
+                                              noether, alice, bob, and 30 more
 ```
 
-`authored_body_pixel_size` returns `None` unless the sheet's `body_metrics`
-declares **`authored_body: true`**, and **only 6 of 194 sheets do**: `mary_o_v2`
-and its two forms, two Sanic props, one boss. **`player_robot_v3` is not one of
-them.** ⇒ the capability has effectively **one real character adopter, Mary-O**;
-the player's wiring is already written and simply never fires.
+⇒ the player's call site is **not dormant, it fires today**, and the lineage
+additionally hangs a `forgiving_hurtbox` off it. ⛔ **the third truncation error
+of this campaign, and the second to reach Jon as a finding.** Do not report an
+absence from a windowed search.
 
-⭐⭐⭐ **and the code comment beside it already describes Jon's report, in his
-words**: sheets without an authored body *"keep exactly the path they have today
-and opt in when someone authors them"* — because their boxes are **"still raw
-silhouettes, arms and all."** Jon: *"It should be under the main head, and well
-within the player arms."* Same defect, written down on both sides and never
-joined up.
+✔ **and the report it was aimed at is ALREADY FIXED** (renderer `dd744b4`,
+*"v3 authors his collision box instead of measuring the idle alpha bbox"*).
+Measured on the shipped sheet: authored body **57 × 91** against a drawn idle
+silhouette of **71 × 103** — 7 px clear of each arm, 10 px under the antenna,
+2 px above the shoe line, **0.71× the area**. Jon reported the old box at
+1.28× wide / 1.29× tall; it is now 0.80× / 0.88×.
 
-⇒ **the executable next step is ART, not Rust**: author a body bbox for
-`player_robot_v3` so its sheet ships `authored_body: true`. The dormant call site
-then fires on its own and the box becomes the authored one — ⛔ no engine change,
-no fourth constant, and nothing to migrate. ⚠ do the same read for the snake and
-Sanic before touching either: the question for each is *"does its sheet declare
-an authored body?"*, and for 188 of 194 sheets the answer is no.
+⛔⛔ **BUT NOTHING COULD SEE THAT, WHICH IS THE REAL GAP AND IT IS NOW CLOSED**
+(`4213db3d4`). Two tests already pinned that box — one against standing height,
+one against the hurtbox it carries — and **poisoning `body_pixel_bbox` back out
+to the full silhouette leaves BOTH GREEN**: the height still resolves, and a
+hurtbox that is a fraction of whatever box it is handed is still a fraction. The
+one claim nobody checked was the claim in the report. ⭐ the new test compares
+the two rectangles **data-to-data**: the atlas packer already trims every frame
+to its opaque bbox and records where it sat, so the union of a row's `off`/`w`/`h`
+IS the silhouette, in `body_pixel_bbox`'s own pixel space — no PNG decode, no
+magic numbers, survives a redraw. Falsified both ways, and the vacuity guard is
+the one that matters: an untrimmed frame reports the whole 256×256 logical frame
+and would wave through a body box of any size.
+
+⚠ **what SURVIVES the correction**: `with_sprite_authored_body` still has **two
+character adopters** (v3 and Mary-O) against 33 hand-tuned `collision_scale`
+rows, so the cluster's shape is unchanged — the count was wrong, the diagnosis
+was not. And **the snake and Sanic genuinely do not declare an authored body**
+(`solid_snake`, both `snakes_on_a_*`, `sanic`, `super_sanic` all measured; only
+Sanic's two PROPS are authored), so those two reports really are the same bug and
+the fix is the same three-line edit in each renderer target.
 
 ⛔ **do not fix Sanic's scale in isolation** — a fourth hand-tuned constant is
 what this cluster is made of. ⚠ and ⛔ do not delete `collision_scale` before

@@ -3551,3 +3551,99 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
     eprintln!("[seat factions] {rows:?}");
     assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
 }
+
+/// **A FIGHTER WITH NO DASH STILL RUNS THE LENGTH OF THE STAGE.** (D146)
+///
+/// Jon, 2026-08-16: *"now that each character has an up-b, I think we can likely
+/// also remove everyone's ability to dash in smash. Dash should be an ability for
+/// ambition, it doesn't map into a smash vocabulary."* `AbilitySet::dash` left
+/// [`ambition_demo_smash::SMASH_FIGHTER_KIT`] that day.
+///
+/// ⛔ **the risk the removal carried was not running, it was the DODGE.** The
+/// kernel filled the shared burst buffer only for `abilities.dash`, so deleting
+/// one line would have deleted the evade from all fourteen fighters in silence.
+/// The gate now reads `dash || dodge` (`apply_intent`), and the kit assertion
+/// below is what stops this file passing over a fighter that quietly lost both.
+///
+/// ⚠ **behavioural, and it loops on the PROPERTY.** `app.update()` is not a tick
+/// of sim time, so a fixed count would be measuring the machine. This runs until
+/// the fighter has covered real ground or a generous ceiling expires.
+#[test]
+fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = open_the_lobby();
+    decide_a_solo_match(&mut app);
+    for _ in 0..300 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    settle(&mut app);
+
+    let body = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        assert!(!rows.is_empty(), "a started match seated no fighter at all");
+        rows[0].1
+    };
+
+    // **NON-VACUITY, and it is the whole reason the distance below means
+    // anything.** A fighter that still carried the dash would cover this ground
+    // whatever the kit said, and a fighter that had lost the dodge along with it
+    // would also pass a pure distance check while being the actual defect.
+    {
+        let abilities = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyAbilities>(body)
+            .expect("a seated fighter carries its ability set")
+            .abilities;
+        assert!(
+            !abilities.dash,
+            "this fighter still owns the traversal burst, so the distance below \
+             proves nothing about a stage that removed it"
+        );
+        assert!(
+            abilities.dodge,
+            "the fighter lost the DODGE along with the dash — that is the silent \
+             half of D146 and it is what `apply_intent`'s gate exists to prevent"
+        );
+        assert!(
+            abilities.move_horizontal,
+            "running is `move_horizontal` and this fighter does not have it"
+        );
+    }
+
+    wait_for_the_round_to_go_live(&mut app);
+    let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+    let start = x(&app, body);
+
+    // Hold a direction — ordinary locomotion, no burst press anywhere.
+    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+    let mut covered = 0.0_f32;
+    let mut updates = 0;
+    // ⛔ the ceiling is a GIVE-UP bound, not the measurement: the loop exits the
+    // instant the property holds, and the assertion below is about the distance.
+    while updates < 1_200 {
+        app.update();
+        updates += 1;
+        covered = (x(&app, body) - start).abs();
+        if covered >= 200.0 {
+            break;
+        }
+    }
+    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+
+    assert!(
+        covered >= 200.0,
+        "a fighter holding a direction covered only {covered:.1}px in {updates} \
+         updates. The stage is one contiguous 480px platform — crossing it is \
+         `move_horizontal` against the body's own top speed and nothing else — so \
+         a fighter that cannot cross it has lost its LOCOMOTION, not its dash"
+    );
+    eprintln!("[d146] a dash-less fighter covered {covered:.1}px in {updates} updates");
+}

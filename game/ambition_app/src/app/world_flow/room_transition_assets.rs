@@ -1157,6 +1157,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `init_asset` is a trait method, and this module imports Bevy by name
+    // rather than by prelude glob — so the trait has to be named too.
+    use bevy::asset::AssetApp;
     use bevy::prelude::App;
 
     #[test]

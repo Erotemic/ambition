@@ -1618,13 +1618,61 @@ including complete per-move sets for both expressive fighters
 `reductio_drop/bounce/impact`; `vfx.pirate_admiral.grapple_cast/catch/tension`,
 `heave_to_anchor/brake`, `cutlass_wake/clash`) — and **ZERO are referenced from
 any Rust file**. George's four specials all play the generic robot slash.
-⛔⛔ **and the two new FX spritesheets are unreachable BY DESIGN**: `move_vfx_kind`
+⛔⛔ **and the new FX spritesheets are unreachable BY DESIGN**: `move_vfx_kind`
 maps only five effect names and `MoveSpec::presentation_problems` **REFUSES**
 anything else at startup, so an authored move cannot name the new art even after
-the sheets are registered. ⇒ that refusal is the exact edit. ⚠ also:
-`generic_explosions` is registered only by Ambition's intro plugin, so every
-`Feel` class degrades to one burst in the standalone demo, and **no SFX bank is
-resident in the demo app at all**.
+the sheets are registered.
+
+⭐⭐ **MEASURED 2026-08-16, and it reorders the work — the refusal is the THIRD
+edit, not the first.** Three findings, each read off the shipped data rather than
+inferred:
+
+1. ⛔⛔ **THE SHEETS ARE ABSENT FROM EVERY DEMO, NOT MERELY LIMITED.** The FX
+   sheets are registered by exactly one table — Ambition's intro
+   (`game/ambition_content/src/intro/sprites.rs`) — into
+   `GameAssets.characters.props`, *a map keyed by the LDtk `Prop.kind` field*.
+   The Smash/Sanic/Mary-O apps register character sheets only, so
+   `spawn_explosion` takes its `else` branch (a particle burst) **every time**.
+   ⇒ engine-level FX-sheet registration is the PREREQUISITE; the vocabulary
+   widening buys little until it lands, because there is no art to name.
+2. ⭐⭐ **THE ART AND THE AUDIO ALREADY AGREE NAME FOR NAME.** Four generic
+   sheets ship 65 rows — `generic_action_fx` 18, `generic_world_fx` 18,
+   `generic_exotic_fx` 24, `generic_explosions` 5 — and `sfx.bank` ships
+   `vfx.<family>.<row>` for **every one of them** (`dash_streak`, `ice_shatter`,
+   `sonic_boom`, `rune_burst`, …). One authored name can therefore yield both
+   the clip and its paired cue with no third table.
+3. ⛔ **so `ExplosionKind` is a hand-kept transliteration of a naming the data
+   already carries twice.** Its 5 variants ARE the 5 rows of
+   `generic_explosions`, and three tables reconstruct that: `move_vfx_kind`
+   (name→enum), `explosion_anim` (enum→`CharacterAnim`, i.e. FX rows addressed
+   as *Idle/Walk/Run/Hit/Slash*), `explosion_sfx` (enum→cue). ⇒ the deletion is
+   those three, and the seam to delete them into **already exists**:
+   `SheetRecord::first_bound_row(chain)` was built 2026-08-11 as *"the seam that
+   lets an authored CLIP be drawn without an engine enum variant"*.
+
+⚠ **the one real design constraint**: `presentation_problems`' oracle is already
+INJECTED (`prefab_registry.rs` passes `|id| move_vfx_kind(id).is_some()`), but it
+runs at **roster install** — a pure function with no Bevy world and no loaded
+assets. So a widened vocabulary cannot be read off the sheets at validation time;
+it needs a declared table in the `sfx_ids!` shape (one declaration emitting both
+the constants and the name list) **pinned by a test that reads the shipped
+`_spritesheet.ron` rows and asserts set equality BOTH ways**, or the refusal has
+to be dropped in favour of SFX's own policy (open vocabulary, a counted miss).
+⚠ also: **no SFX bank is resident in the demo app at all**, so the paired cue
+half is a second registration gap with the same shape as (1).
+
+⭐ **the CONTENT half of this road advanced 2026-08-16** — the maintainer's four
+VFX-authoring commits in each renderer submodule (George Booul's Boolean ghosts,
+the pirate and ninja leaders', Oiler's, each with its procedural SFX companion)
+are now consumed by the superproject (`989dc3318`). Checking that pointer
+advance against *"does the root actually consume it?"* found the pipeline gap
+that shape always hides: `george_booul_vfx` and `oiler_vfx` were authored in the
+submodule and named in **no line of `regen_sprites.sh`**. George's sheet is
+published only because someone ran a focused `--target`; a fresh clone's regen
+would have dropped it. Roster fixed and the invariant now stated over discovery
+rather than once per sheet (`b2e3eeafe`). ▢ **still owed: Oiler is authored,
+rostered, and UNPUBLISHED** — no sheet in `assets/sprites/`, zero `vfx.oiler.*`
+cues in `sfx.bank`. A regen + SFX pack run publishes it; neither has been run.
 
 ⚠ **remaining showcase weaknesses, in order:**
 - **the mirror match is bit-symmetric.** Brains seed from the level alone

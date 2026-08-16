@@ -160,10 +160,50 @@ substrate had overtaken the two fronts printed above it:
    went red. The baseline answers HOW to rebuild; the custody baseline still
    decides WHETHER and INTO WHOSE HAND. Schema 32 → 33.
 
-   ⭐ **the frontier is now DURABLE SAVE ITSELF** — the horizons are distinct and
-   both materialization cases are closed, so what remains is genuinely the third
-   horizon: writing this to disk, and deciding which ids survive a load versus
-   which may be regenerated deterministically.
+   ✔✔✔ **AND THE THIRD HORIZON LANDED (2026-08-16, `28c927505`) — ALL THREE NOW
+   EXIST AND ARE DISTINCT.** A save carried counts, flags and a body position and
+   nothing about what became of anything the world authored, so everything above
+   survived a death and evaporated on a load.
+
+   ⭐⭐⭐ **THE RESULT WORTH KEEPING: the on-disk form is the CHECKPOINT'S OWN
+   DESCRIPTION, SERIALIZED — not a fourth description of the same facts.**
+   `AmbitionGameSaveData` gained three `#[serde(default)]` lists that are
+   `AuthoredOccurrences`, `CustodyBaseline` and `MintedItemBaseline` field for
+   field. **That the file needed no field the checkpoint had not already measured
+   is the finding, not a convenience**: identity + provenance +
+   definition-REFERENCE was derived from what a checkpoint owes a hand, and a save
+   asks the same question — *how would you make this again?* — and gets the same
+   answer.
+
+   ⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** `restore_durable_horizon` adopts
+   the ledger and the three baselines from the file and writes one
+   `ResetToCheckpoint`; everything after that is the road a death already takes.
+   ⇒ the durable slice is **two systems and no reconstruction logic**, and there
+   is still exactly ONE authority on what a room owes the world.
+
+   ⭐ **the defect only the fixture could find, and its fix is the reusable
+   part**: a session builds its start room BEFORE any file is read, so the instant
+   the loaded ledger arrives the world holds an occurrence the file says is
+   elsewhere — and the placement recorder republished the stale position over the
+   loaded row, sending the object back to the room the player carried it out of
+   and resurrecting terminal rows by the same tick order. The fix is an
+   **INVARIANT, not a filter**: an occurrence comes to rest here only if its row
+   says `InCustody` or already says `Placed` here, *because an object cannot
+   change rooms without being carried*. ⛔ it REFUSES rather than repairs, so it
+   does not become a second reconstruction authority.
+
+   ⚠ disk added exactly one constraint the memory horizons did not have: **INTEGER
+   pixels**, because a float costs the save's `Eq` derive and a `NaN` makes the
+   value-comparing autosave rewrite the file every frame forever.
+
+   ⇒ **still open, and these are the durable frontier now**: a runtime mint **not
+   in a hand** at save time is undescribed and lost (the description remembers no
+   position — exactly where *"a hand needs less than a world"* stops paying);
+   `Consumed` round-trips through the file and still has **no live producer**;
+   `load_save_at_startup` is still presentation-only, so a headless composition
+   mirrors into `AmbitionGameSave` and never writes a FILE; and ⚠ **the body
+   resumes at the shrine while the objects resume at the autosave's instant** —
+   two different times in one load.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See

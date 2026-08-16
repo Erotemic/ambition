@@ -3275,3 +3275,126 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
         ambition_demo_smash::SMASH_PERCENT_REFERENCE
     );
 }
+
+/// **AND WHAT DOES A FIGHTER WITH NO TABLE ACTUALLY SWING?** (Jon, 2026-08-16)
+///
+/// `smash_roster_movesets`'s kit census reads the CHARACTER, and four of the
+/// fourteen resolve to nothing there — Mary-O, Sanic, Alice and Bob author no
+/// moveset and no action set, because standing in a room and talking is what
+/// they were authored for. Read at the character, every one of their sixteen
+/// presses is silent.
+///
+/// ⛔ **that is not what a player gets, and the difference is the stage.** The
+/// unarmed floor lives in `DeclaredCombatRules::unarmed_melee` now — *"a STAGE
+/// states what an unarmed fighter swings for"* — so the seat is armed on the way
+/// in. A report that stopped at the character would say four fighters cannot
+/// attack, which is false and is exactly the kind of true-measurement-wrong-
+/// conclusion this repo keeps paying for.
+///
+/// So this seats two of them for real and asks the LIVE body.
+#[test]
+fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::entity_catalog::AttackDir::*;
+
+    let presses: [(
+        &str,
+        &str,
+        ambition_platformer2d::entity_catalog::AttackDir,
+        bool,
+    ); 16] = [
+        ("jab", "attack", Neutral, true),
+        ("ftilt", "attack", Forward, true),
+        ("utilt", "attack", Up, true),
+        ("dtilt", "attack", Down, true),
+        ("fsmash", "smash", Forward, true),
+        ("usmash", "smash", Up, true),
+        ("dsmash", "smash", Down, true),
+        ("nair", "attack", Neutral, false),
+        ("fair", "attack", Forward, false),
+        ("bair", "attack", Back, false),
+        ("uair", "attack", Up, false),
+        ("dair", "attack", Down, false),
+        ("nspecial", "special", Neutral, true),
+        ("sspecial", "special", Forward, true),
+        ("uspecial", "special", Up, true),
+        ("dspecial", "special", Down, true),
+    ];
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    // Two of the four with no table of their own: a crossover protagonist and a
+    // Hall NPC, so the answer is not about one provider.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            "mary_o".to_string(),
+            "npc_alice".to_string(),
+        ]));
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..90 {
+        app.update();
+    }
+
+    // ⛔⛔ **THE THIRD ROUTE: what did the STAGE declare?** The seat's kit is
+    // built from `DeclaredCombatRules::unarmed_melee` for a character that
+    // states none of its own, so an empty seat is either a stage that declared
+    // nothing or a declaration that did not reach the publisher.
+    let declared = app
+        .world()
+        .get_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
+        .map(|rules| rules.unarmed_melee.is_some());
+    eprintln!("[unarmed declaration] DeclaredCombatRules::unarmed_melee present = {declared:?}");
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d::combat::moveset::ActorMoveset,
+        Option<&ambition_platformer2d::combat::components::CombatKit>,
+    )>();
+    let mut rows: Vec<(usize, String)> = query
+        .iter(world)
+        .map(|(seat, moveset, kit)| {
+            let mut resolved: Vec<String> = Vec::new();
+            for (label, base, dir, grounded) in &presses {
+                let id = moveset
+                    .0
+                    .move_for_directional_verb(base, *dir, *grounded)
+                    .map(|mv| mv.id.clone())
+                    .unwrap_or_else(|| "SILENT".to_string());
+                resolved.push(format!("{label}={id}"));
+            }
+            // ⛔⛔ **THE SECOND ROUTE, and the report is wrong without it.** A
+            // moveset is one road to a swing; `CombatKit::innate_melee` is the
+            // other — the preset swipe an action set carries — and a body with
+            // an empty timeline table can still hit somebody through it. Reading
+            // only the first would report "this fighter cannot attack" off a
+            // measurement that never asked.
+            (
+                seat.0,
+                format!(
+                    "  seat {}  moves={:<3} innate={:?}\n           {}",
+                    seat.0,
+                    moveset.0.moves.len(),
+                    kit.map(|kit| (
+                        kit.innate_melee.is_some(),
+                        kit.innate_ranged.is_some(),
+                        kit.innate_special.is_some()
+                    )),
+                    resolved.join(" ")
+                ),
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seat, _)| *seat);
+    eprintln!(
+        "[unarmed on the stage]\n{}",
+        rows.iter()
+            .map(|(_, row)| row.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
+}

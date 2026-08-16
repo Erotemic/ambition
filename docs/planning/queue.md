@@ -458,6 +458,52 @@ exactly one winner is announced, and that no fighter travels more than 8px after
 the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
 why the existing ones passed.
 
+- ▢ **D143 — FOUR SELECTABLE FIGHTERS CANNOT ATTACK AT ALL. The stage's unarmed
+  declaration does not reach the seat. (found 2026-08-16 while answering Jon's
+  moveset census)**
+
+**MEASURED THREE WAYS, in the shipped host, seating `mary_o` and `npc_alice`
+through the real select screen** (`smash_in_the_host::report_what_an_unarmed_
+fighter_swings_once_the_stage_has_armed_it`):
+
+```text
+  character kit      moves = 0
+  live ActorMoveset  all sixteen presses resolve to SILENT
+  live CombatKit     innate_melee / innate_ranged / innate_special all None
+  the STAGE          DeclaredCombatRules::unarmed_melee  present = true
+```
+
+⇒ the declaration EXISTS and the body does not have it. `mary_o`, `sanic`,
+`npc_alice` and `npc_bob` are four of the fourteen selectable fighters, and on
+the shipped stage they cannot hit anybody.
+
+⛔⛔ **the guard that should have caught this SUPPLIES the missing value itself.**
+`smash_roster_movesets::the_match_gives_every_seat_a_kit_that_can_hit` calls
+`roster_seeded(.., Some(MeleeActionSpec::Swipe(..)))` — passing the swipe in by
+hand, with a comment saying the shipped experience puts it on
+`DeclaredCombatRules::unarmed_melee`. So it proves the SEATING half and never
+reads the resource, which is the half that is broken. A fixture that
+manufactures the value under test cannot fail on its absence.
+
+**Most likely cause, not yet confirmed**: the publisher reads
+`rules.as_deref().and_then(|rules| rules.unarmed_melee.clone())` at the moment
+START is pressed — on the SELECT route, deliberately *before* the route changes
+(*"the roster is inserted BEFORE the route changes, and the order is the whole
+correctness argument"*). If the declaration is installed with the GAMEPLAY route,
+it is not there yet and `None` is what gets published. ⚠ the probe above reads
+the resource AFTER the match is live, which is why it sees `true`; nothing has
+yet read it at publish time.
+
+**Next step**: instrument the publisher (or assert on `MatchParticipant::
+action_set` in the roster the shipped screen actually publishes, rather than one
+a fixture built) and confirm the ordering before changing anything.
+
+⚠ **and the product question rides along, already filed**: whether the peaceful
+cast should be armed by the stage at all or be re-authored as fighters is Jon's
+(`awaiting-maintainer-decision.md`). This row is the PLUMBING half — the stage
+says a thing and the body does not hear it — which is a defect under either
+answer.
+
 - ✔ **D142 — CLOSED 2026-08-16. A match could only ever TAKE verbs away, so no
   stage could promise a fighter anything. (Jon)**
 

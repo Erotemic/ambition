@@ -727,3 +727,112 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
         );
     }
 }
+
+/// **WHO HAS A FULL SMASH KIT, AND WHAT IS EACH MISSING?** (Jon, 2026-08-16)
+///
+/// The census above answers *does this fighter author a table at all*. This one
+/// answers the question that follows it: a table with a jab and one aerial is
+/// authored, and it is not a moveset. Sixteen presses is what a platform fighter
+/// asks a character for.
+///
+/// ⭐⭐ **IT RESOLVES EACH PRESS THE WAY A BODY DOES**, through
+/// `move_for_directional_verb`, rather than asking whether a verb key exists.
+/// The difference is the whole finding: `directional_verb_chain` FALLS BACK, so
+/// a fighter with no forward tilt does not press nothing — it presses its jab
+/// again. A key-existence census reports that as "missing" and a player
+/// experiences it as "this character has no forward tilt", and only one of those
+/// two readings tells you what to author.
+///
+/// ⚠ **and it reads the MERGED kit** (`PreparedKit::projectable_moveset`), not
+/// `authored_moveset`. Authored moves OVERLAY the kit derived from the action
+/// set rather than replacing it, so a character can reach a press through either
+/// — the body resolves the merge, so the merge is what a report about the body
+/// has to read.
+const SMASH_KIT: &[(
+    &str,
+    &str,
+    ambition_platformer2d::entity_catalog::AttackDir,
+    bool,
+)] = {
+    use ambition_platformer2d::entity_catalog::AttackDir::*;
+    &[
+        ("jab", "attack", Neutral, true),
+        ("ftilt", "attack", Forward, true),
+        ("utilt", "attack", Up, true),
+        ("dtilt", "attack", Down, true),
+        ("fsmash", "smash", Forward, true),
+        ("usmash", "smash", Up, true),
+        ("dsmash", "smash", Down, true),
+        ("nair", "attack", Neutral, false),
+        ("fair", "attack", Forward, false),
+        ("bair", "attack", Back, false),
+        ("uair", "attack", Up, false),
+        ("dair", "attack", Down, false),
+        ("nspecial", "special", Neutral, true),
+        ("sspecial", "special", Forward, true),
+        ("uspecial", "special", Up, true),
+        ("dspecial", "special", Down, true),
+    ]
+};
+
+#[test]
+fn report_the_smash_kit_every_selectable_fighter_has() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
+    let grid = SmashRoster::assemble(registry);
+
+    let mut rows: Vec<String> = Vec::new();
+    for id in grid.ids() {
+        let Some(prepared) = registry.get(id) else {
+            continue;
+        };
+        let authored = prepared.authored_moveset.is_some();
+        let Some(moveset) = prepared.kit.projectable_moveset() else {
+            rows.push(format!("  {id:<34} NO KIT AT ALL"));
+            continue;
+        };
+        // What each press resolves to, and whether it is a move of its own.
+        let mut distinct: Vec<&str> = Vec::new();
+        let mut shared: Vec<String> = Vec::new();
+        let mut silent: Vec<&str> = Vec::new();
+        let mut seen: std::collections::BTreeMap<String, &str> = Default::default();
+        for (label, base, dir, grounded) in SMASH_KIT {
+            match moveset.move_for_directional_verb(base, *dir, *grounded) {
+                None => silent.push(label),
+                Some(mv) => match seen.get(mv.id.as_str()) {
+                    // A press that resolves to a move an EARLIER press already
+                    // claimed is a fallback, not a move: the body swings the
+                    // same timeline for both.
+                    Some(owner) => shared.push(format!("{label}={owner}")),
+                    None => {
+                        seen.insert(mv.id.clone(), label);
+                        distinct.push(label);
+                    }
+                },
+            }
+        }
+        rows.push(format!(
+            "  {id:<34} {}  {:>2}/16 distinct  moves={:<3} | doubles-up: {:<28} | silent: {}",
+            if authored { "authored" } else { "DERIVED " },
+            distinct.len(),
+            moveset.moves.len(),
+            if shared.is_empty() {
+                "-".to_string()
+            } else {
+                shared.join(" ")
+            },
+            if silent.is_empty() {
+                "-".to_string()
+            } else {
+                silent.join(" ")
+            }
+        ));
+    }
+    eprintln!("[smash kit census]\n{}", rows.join("\n"));
+    assert!(rows.len() >= 8, "the grid did not assemble: {rows:?}");
+}

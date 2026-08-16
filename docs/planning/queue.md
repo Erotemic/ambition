@@ -146,12 +146,32 @@ legacy road      collision * collision_scale, a hand-tuned per-character
 `ActorRenderSize`'s own doc says it: *"Absent ⇒ the actor uses the legacy
 `collision_scale` render path."*
 
-⭐ **measured: 194 of 195 spritesheet specs already publish `body_metrics`** (only
-`weird_hermit` does not), so the DATA is not the gap. ⇒ the open question is
-**adoption at the consumer**: which bodies actually receive `ActorRenderSize`,
-and which silently fall through to a number somebody eyeballed once.
-`posed_body.rs:237` is the one insertion site found so far, plus two in
-`pose_view.rs`.
+⭐ **measured: 194 of 196 spritesheet specs already publish `body_metrics`**, so
+the DATA is not the gap.
+
+✔✔ **THE ADOPTION COUNT IS IN (2026-08-16), AND IT IS THE WHOLE ANSWER: TWO.**
+The decision site is `posed_body_for` in
+`character_runtime/presentation.rs` — a definition authoring
+`BodySource::SpriteAuthored { world_per_pixel }` gets `SpritePosedBody`, and
+`sync_sprite_posed_bodies` then keeps its collision box, sprite quad and quad
+offset all derived from the sheet, *"so none of the three can drift from the
+other two"*. `BodySource::Explicit` and `None` get nothing and fall to the legacy
+path.
+
+```text
+with_sprite_authored_body callers   2   (player_robot_lineage, mary_o)
+character_catalog.ron rows with a hand-tuned collision_scale   33   (1.1 .. 4.5)
+sheets publishing the body_metrics the good road needs        194 of 196
+```
+
+⇒ ⭐⭐ **`world_per_pixel` IS the common unit Jon's hurtbox note says was never
+established** — one number saying how much world a sheet pixel covers. It exists,
+it works, it has two users, and thirty-three bodies are still sized by a constant
+somebody eyeballed once. **Snake too big, Sanic too small and the player hurtbox
+being wider than the art are three of those thirty-three.** ⇒ the executable
+next step is *migrate a body to `SpriteAuthored` and see whether its report
+disappears*, starting with whichever of the three has a sheet whose
+`body_metrics` look right — not a fourth constant.
 
 ⛔ **do not fix Sanic's scale in isolation** — a fourth hand-tuned constant is
 what this cluster is made of. ⚠ and ⛔ do not delete `collision_scale` before

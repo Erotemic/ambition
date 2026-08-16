@@ -30,14 +30,32 @@
 //!   cargo run --release -p ambition_app_tools --bin capture_scene -- \
 //!       --route smash_select /tmp/match.png 1280x720 --warmup 420 --include-ui \
 //!       --press touch:167x523,touch:167x523,touch:482x523,touch:482x523,\
-//! touch:586x446,touch:747x121,touch:622x446,touch:425x121,touch:1191x446
+//! touch:586x446,touch:532x121,touch:622x446,touch:855x121,touch:1191x446
 //!
-//! ⚠ **the portrait taps are the two that can rot** — `747x121` and `425x121`
-//! are grid cells, and the grid re-flows when the host's roster changes size.
-//! The role buttons, tokens and START do not depend on the roster at all.
+//! ⚠ **the portrait taps are the two that can rot** — `532x121` and `855x121`
+//! are grid cells, and the grid re-flows when the host's roster changes size
+//! OR ORDER. The role buttons, tokens and START do not depend on the roster at
+//! all.
 //! `smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`
 //! drives exactly these numbers through the real host and fails when one stops
 //! landing on the widget it names.
+//!
+//! ⛔⛔ **THEY HAD ROTTED, AND FOR MONTHS, AND THE GUARD STAYED GREEN**
+//! (fixed 2026-08-16, queue D128). They read `747x121` and `425x121` — grid
+//! cells 3 and 0, **Sanic and Player Robot v3** — and the guard only asserted
+//! the two picks DIFFER, which stays true however far the grid slides under
+//! them. So the one command this repo points at to ask *"do the two AUTHORED
+//! kits read differently on screen"* seated Sanic, who has no authored
+//! repertoire at all, and two capture passes answered that question against the
+//! wrong match. ⚠ what moved was the ROSTER ORDER, not the layout — the warning
+//! above was right and the check under it was not measuring the thing the
+//! warning was about. The guard now asserts both seats wear a fighter with an
+//! `authored_moveset`, which is the property the command exists to photograph.
+//!
+//! ⭐ the current cells: `532x121` is **George Booul** (cell 1, the demo's own
+//! fighter) and `855x121` is the **Pirate Admiral** (cell 4, Ambition's). With
+//! those two seated a watcher sees two mechanically different bodies inside four
+//! seconds — different silhouettes, different effects, 36% traded.
 
 use std::path::PathBuf;
 
@@ -1174,6 +1192,10 @@ fn apply_capture_snapshot(
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
             chart_transit: None,
+            // ⚠ this is the `--fit-room` / focus-point path, which deliberately
+            // BYPASSES the live resolve; a captured MATCH goes through
+            // `resolve_camera_observation` and gets the cast's box from there.
+            must_frame_world: None,
             ease_tuning: *ease_tuning,
             screen_framing: None,
             reference_frame: Default::default(),

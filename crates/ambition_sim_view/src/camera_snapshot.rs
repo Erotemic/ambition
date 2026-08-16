@@ -334,6 +334,36 @@ pub struct CameraSnapshotResolveInput<'a> {
     /// today. `None` whenever nothing is mapping the world, which is almost
     /// every frame and every capture.
     pub chart_transit: Option<CameraChartTransit>,
+    /// **A world box the room clamp is not allowed to hide** — the declared
+    /// cast's bounding box, in world coordinates.
+    ///
+    /// ⛔⛔ **THE CLAMP IS WHY A PLATFORM FIGHTER'S CAMERA SHOWED AN EMPTY
+    /// PLATFORM AT EVERY KNOCKOUT** (queue D128 item 2, measured 2026-08-16).
+    /// The framing above already frames every live seat correctly; the room
+    /// clamp then threw that centre away, because *the region a body can be
+    /// in is bigger than the region the room draws*. A stage's blast margins
+    /// are outside `world.size` by construction — that is what a blast margin
+    /// IS — so a fighter in the blast zone is somewhere a room-clamped camera
+    /// can never look. Worse, the smash stage's view is WIDER than its world,
+    /// so `clamp_or_center` pinned the camera at the world centre for the whole
+    /// match: 149 body-frames of a live fighter drawn outside the frame, up to
+    /// 180 units past the edge, and the KO itself happening off-screen.
+    ///
+    /// ⭐ **it CORRECTS the clamped centre, and only by what is needed.** The
+    /// centres that hold this box are a closed interval per axis, and the
+    /// already-clamped target is clamped into it (see [`hold_camera_target`]).
+    /// While the box sits comfortably inside the view that interval is wide,
+    /// the target is already inside it, and nothing changes — so the ordinary
+    /// easing and the room clamp behave exactly as before everywhere the game
+    /// is not asking to look outside the room on purpose, and this is `None`
+    /// for every exploration room and every capture.
+    ///
+    /// ⚠ deliberately NOT reusing [`Self::extra_clamp_center_world`]: that is
+    /// the portal adapter's padding POINT, with its own diagnostic
+    /// (`unpadded_center_world`) reporting the camera without it. Two writers
+    /// with different meanings on one field is a fork waiting to happen, and
+    /// this one is a BOX because a pair of fighters is a box.
+    pub must_frame_world: Option<ae::Aabb>,
 }
 
 /// Resolve a camera snapshot for an arbitrary focus.
@@ -572,6 +602,10 @@ pub fn resolve_follow_camera_snapshot(
         bounds,
         active_zone,
         None,
+        // ⚠ the must-frame relaxation applies to the UNPADDED diagnostic too:
+        // `unpadded_center_world` reports the camera without the portal
+        // adapter's PADDING, not without the framing the game asked for.
+        input.must_frame_world,
     );
     let (host_x, host_y) = if let Some(padding_center) = input.extra_clamp_center_world {
         clamp_camera_target(
@@ -582,6 +616,7 @@ pub fn resolve_follow_camera_snapshot(
             bounds,
             active_zone,
             Some(padding_center),
+            input.must_frame_world,
         )
     } else {
         (normal_host_x, normal_host_y)
@@ -763,6 +798,7 @@ fn rolled_view_half_extents(half_view_w: f32, half_view_h: f32, roll_radians: f3
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn clamp_camera_target(
     world: &ae::World,
     target: ae::Vec2,
@@ -771,6 +807,7 @@ fn clamp_camera_target(
     mode: CameraClampMode,
     zone: Option<&CameraZoneSpec>,
     extra_clamp_center_world: Option<ae::Vec2>,
+    must_frame_world: Option<ae::Aabb>,
 ) -> (f32, f32) {
     match mode {
         CameraClampMode::None => (target.x, target.y),
@@ -782,6 +819,7 @@ fn clamp_camera_target(
                     half_view_w,
                     half_view_h,
                     extra_clamp_center_world,
+                    must_frame_world,
                 );
             };
             let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
@@ -796,9 +834,15 @@ fn clamp_camera_target(
                 max_y,
                 extra_clamp_center_world,
             );
-            (
-                clamp_or_center(target.x, min_x, max_x),
-                clamp_or_center(target.y, min_y, max_y),
+            hold_camera_target(
+                world,
+                (
+                    clamp_or_center(target.x, min_x, max_x),
+                    clamp_or_center(target.y, min_y, max_y),
+                ),
+                half_view_w,
+                half_view_h,
+                must_frame_world,
             )
         }
         CameraClampMode::RoomBounds => clamp_to_world_bounds(
@@ -807,6 +851,7 @@ fn clamp_camera_target(
             half_view_w,
             half_view_h,
             extra_clamp_center_world,
+            must_frame_world,
         ),
     }
 }
@@ -817,6 +862,7 @@ fn clamp_to_world_bounds(
     half_view_w: f32,
     half_view_h: f32,
     extra_clamp_center_world: Option<ae::Vec2>,
+    must_frame_world: Option<ae::Aabb>,
 ) -> (f32, f32) {
     let min_x = -world.size.x * 0.5 + half_view_w;
     let max_x = world.size.x * 0.5 - half_view_w;
@@ -830,9 +876,72 @@ fn clamp_to_world_bounds(
         max_y,
         extra_clamp_center_world,
     );
+    hold_camera_target(
+        world,
+        (
+            clamp_or_center(target.x, min_x, max_x),
+            clamp_or_center(target.y, min_y, max_y),
+        ),
+        half_view_w,
+        half_view_h,
+        must_frame_world,
+    )
+}
+
+/// Pull a clamped camera centre back until it HOLDS `must_frame_world`, moving
+/// it as little as possible. See
+/// [`CameraSnapshotResolveInput::must_frame_world`].
+///
+/// The centres that hold the box on one axis are exactly `[box_max - half_view,
+/// box_min + half_view]` — the closed interval on which the whole box projects
+/// inside the view — so the correction is a plain clamp into it, exactly the
+/// shape [`apply_soft_subject_framing`] uses for a screen region.
+///
+/// ⭐ **it runs AFTER the room clamp and wins**, and that ordering is the whole
+/// point rather than an ordering detail: this is the one caller that is asking
+/// to look outside the room on purpose. While the box sits comfortably inside
+/// the view the interval is wide, the eased target is already inside it, and
+/// this changes nothing — so the ordinary smoothing is untouched and only the
+/// frames where the cast would otherwise leave the screen are corrected. That
+/// is what closes the last of the gap the ease itself opens: an 8 Hz target
+/// ease lags a body being launched by roughly `v / 8` units, which measured 46
+/// units past the edge at the moment of a knockout — the one frame a platform
+/// fighter must show.
+///
+/// ⚠ **a box wider than the view centres on it instead**, which is the honest
+/// answer to an impossible request: nothing holds it, so show the middle. In
+/// practice the framing floor has already widened the view past the cast, so
+/// this arm is the degenerate case rather than the working one.
+fn hold_camera_target(
+    world: &ae::World,
+    clamped: (f32, f32),
+    half_view_w: f32,
+    half_view_h: f32,
+    must_frame_world: Option<ae::Aabb>,
+) -> (f32, f32) {
+    let Some(box_world) = must_frame_world else {
+        return clamped;
+    };
+    // World→centered-render flips y, so the box's world TOP becomes its render
+    // maximum. Convert both corners and re-derive the extents rather than
+    // assuming which one is which.
+    let a = world_to_centered_render(world, box_world.min);
+    let b = world_to_centered_render(world, box_world.max);
+    let render_min = ae::Vec2::new(a.x.min(b.x), a.y.min(b.y));
+    let render_max = ae::Vec2::new(a.x.max(b.x), a.y.max(b.y));
+
+    let axis = |value: f32, low: f32, high: f32, half: f32| -> f32 {
+        let lo = high - half;
+        let hi = low + half;
+        if lo <= hi {
+            value.clamp(lo, hi)
+        } else {
+            (low + high) * 0.5
+        }
+    };
     (
-        clamp_or_center(target.x, min_x, max_x),
-        clamp_or_center(target.y, min_y, max_y),
+        axis(clamped.0, render_min.x, render_max.x, half_view_w),
+        axis(clamped.1, render_min.y, render_max.y, half_view_h),
     )
 }
 
@@ -989,10 +1098,14 @@ pub struct ResolvedCameraSnapshot {
 /// must not fall back to the world origin, because "the camera is at 0,0" looks
 /// exactly like "the camera is broken" and this repo has shipped that before.
 struct CastFraming {
-    centre: ae::Vec2,
-    /// The cast's bounding box plus margin. Used both as the framing base size
-    /// and as a FLOOR on the view, so a pair that separates stays on screen.
-    view: ae::Vec2,
+    /// **The cast's bounding box — the ONE fact this is.**
+    ///
+    /// The centre to point at, the floor on how wide to open, and the region
+    /// the room clamp may not hide are all read off it, which is why it is
+    /// carried as a box rather than as a centre and a size: those two were
+    /// smoothed separately, and a box has one hysteresis instead of two that
+    /// can disagree.
+    bounds: ae::Aabb,
     /// The body the presented-pose sample is taken from — the first seat, so
     /// the choice is stable rather than whichever entity sorted first.
     anchor: bevy::prelude::Entity,
@@ -1032,7 +1145,48 @@ const CAST_FRAMING_MARGIN: f32 = 48.0;
 /// camera settling rather than a cut; it is deliberately slower than the
 /// widening it undoes, which is the same shape `CameraEaseTuning` already
 /// declares for the encounter zoom (out 1.6, in 0.9).
+///
+/// ⭐ **THE SAME RATE NOW CARRIES THE CENTRE, and it was not re-tuned to do it**
+/// (2026-08-16, queue D128 item 2). It applies per EDGE of the presented cast
+/// box rather than to the box's size, so the identical asymmetry that made the
+/// zoom stop cutting makes the centre stop cutting. Measured on the same
+/// fixture, largest single-frame camera-CENTRE step:
+///
+/// ```text
+///   on an elimination     209.6 -> 27.0    (a 248.8-unit collapse absorbed)
+///   on a respawn teleport 251, 203, 202, 179 -> 153, 78, 63, 41
+/// ```
+///
+/// ⚠ the surviving 153 is an OPEN — a fighter respawns at the platform while
+/// the survivor is off the left edge, so the box grows outward — and outward is
+/// immediate by the policy above, on purpose.
 const CAST_FRAMING_CLOSE_HZ: f32 = 5.0;
+
+/// Move one edge of the presented cast box toward where the cast really is.
+///
+/// `outward` is `+1` for a MAXIMUM edge and `-1` for a MINIMUM one — the sign in
+/// which that edge grows the box. An edge moving outward is ADOPTED (a fighter
+/// flying must never leave the frame while the camera catches up); an edge
+/// moving inward EASES at [`CAST_FRAMING_CLOSE_HZ`].
+///
+/// ⭐⭐ **easing the BOX is what gives the centre its smoothing for free, and
+/// that is the whole reason the framing is carried as a box rather than as a
+/// size.** Until the room clamp was taught to let the camera leave the room
+/// (see [`CameraSnapshotResolveInput::must_frame_world`]) the framing CENTRE was
+/// pinned, so only the size could move and only the size needed easing. A centre
+/// that can travel has the identical discontinuity the size had, and more often:
+/// an eliminated body is removed, and a knocked-out body TELEPORTS back to the
+/// spawn point on every respawn — measured at 302, 314, 319 and 616 units of
+/// cast-centre jump in a single frame across one match. Absorbing those in the
+/// box absorbs them once, for the centre, the zoom and the clamp together,
+/// instead of three times in three shapes.
+fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32) -> f32 {
+    if (current - previous) * outward >= 0.0 {
+        current
+    } else {
+        previous + (current - previous) * alpha
+    }
+}
 
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
@@ -1056,11 +1210,10 @@ fn frame_the_cast(
     }
     let anchor = anchor?;
     Some(CastFraming {
-        centre: (min + max) / 2.0,
-        view: ae::Vec2::new(
-            (max.x - min.x) + CAST_FRAMING_MARGIN * 2.0,
-            (max.y - min.y) + CAST_FRAMING_MARGIN * 2.0,
-        ),
+        bounds: ae::Aabb {
+            min: min.into(),
+            max: max.into(),
+        },
         anchor,
     })
 }
@@ -1103,7 +1256,7 @@ pub fn resolve_camera_observation(
     // spans is a fact about the world this system resolves ONCE, above the
     // per-observer loop, while `CameraEaseState` is per view. Presentation-only
     // either way — nothing in the simulation reads it.
-    mut live_cast_view: bevy::prelude::Local<Option<ae::Vec2>>,
+    mut live_cast: bevy::prelude::Local<Option<ae::Aabb>>,
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1162,6 +1315,10 @@ pub fn resolve_camera_observation(
     // The home avatar remains the source of blink easing and the base size when
     // there IS one, because those are its presentation state. When there is not,
     // the CONTROLLED SUBJECT supplies the frame on its own.
+    // Set only by the FRAMED-CAST arm below: every other follow has a single
+    // subject the ordinary clamp already keeps on screen, and relaxing a room
+    // clamp for one of those would just show the void beside the room.
+    let mut must_frame_world: Option<ae::Aabb> = None;
     let home = player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc));
     let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
@@ -1192,44 +1349,82 @@ pub fn resolve_camera_observation(
                         // ⚠ forget the eased framing with the cast, or the next
                         // match opens by closing in from the last one's final
                         // spread instead of at its own true framing.
-                        *live_cast_view = None;
+                        *live_cast = None;
                         return;
                     };
-                    // The bounds decide the ZOOM as well as the centre: two
+                    // The box decides the ZOOM as well as the centre: two
                     // fighters that run apart must both stay on screen, and a
                     // fixed view centred between them is how one of them walks
                     // off it. A FLOOR, so authored zoom still wins when wider.
                     //
-                    // ⭐ **and it CLOSES on an ease while it OPENS immediately.**
-                    // See [`CAST_FRAMING_CLOSE_HZ`]: a fighter flying off is a
-                    // continuous input and needs no help, but a fighter taken out
-                    // of play collapses the bounding box in one frame, which is
-                    // the snap Jon reported. Per axis, so a pair that separates
-                    // horizontally while settling vertically does both.
+                    // ⭐ **and every edge OPENS immediately while it CLOSES on
+                    // an ease.** See [`CAST_FRAMING_CLOSE_HZ`] and
+                    // [`ease_cast_edge`]: a fighter flying off is a continuous
+                    // input and needs no help, but a fighter taken out of play —
+                    // or teleported back to the spawn point on a respawn —
+                    // collapses the box in one frame, which is the snap Jon
+                    // reported. Per EDGE, so a pair that separates one way while
+                    // settling the other does both, and so the centre gets the
+                    // same hysteresis the size does.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
-                    let presented = match *live_cast_view {
-                        Some(previous) => ae::Vec2::new(
-                            if cast.view.x >= previous.x {
-                                cast.view.x
-                            } else {
-                                previous.x + (cast.view.x - previous.x) * alpha
-                            },
-                            if cast.view.y >= previous.y {
-                                cast.view.y
-                            } else {
-                                previous.y + (cast.view.y - previous.y) * alpha
-                            },
-                        ),
+                    let bounds = match *live_cast {
+                        Some(previous) => ae::Aabb {
+                            min: ae::Vec2::new(
+                                ease_cast_edge(previous.min.x, cast.bounds.min.x, alpha, -1.0),
+                                ease_cast_edge(previous.min.y, cast.bounds.min.y, alpha, -1.0),
+                            )
+                            .into(),
+                            max: ae::Vec2::new(
+                                ease_cast_edge(previous.max.x, cast.bounds.max.x, alpha, 1.0),
+                                ease_cast_edge(previous.max.y, cast.bounds.max.y, alpha, 1.0),
+                            )
+                            .into(),
+                        },
                         // The first frame ADOPTS rather than easing: a match must
                         // open already framed, not zoom in from nothing.
-                        None => cast.view,
+                        None => cast.bounds,
                     };
-                    *live_cast_view = Some(presented);
+                    *live_cast = Some(bounds);
+                    let centre: ae::Vec2 = bounds.center().into();
+                    let span: ae::Vec2 = (bounds.max - bounds.min).into();
+                    let presented = span + ae::Vec2::splat(CAST_FRAMING_MARGIN * 2.0);
                     base_view = base_view.max(presented);
+                    // **AND THE CLAMP IS TOLD WHAT IT MAY NOT HIDE.** Framing the
+                    // cast is worth nothing if the room clamp then throws the
+                    // centre away, which is exactly what it did — see
+                    // `CameraSnapshotResolveInput::must_frame_world`.
+                    //
+                    // ⚠ the PRESENTED box, not the cast's raw one: the presented
+                    // box contains the raw one on every frame that matters (an
+                    // edge moving outward is adopted), and holding the raw box
+                    // would make the clamp cut back the instant a body left play
+                    // while the view was still easing out there — the eased close
+                    // and a hard clamp fighting over the same frame.
+                    must_frame_world = Some(bounds);
                     (
                         ae::BodyKinematics {
-                            pos: cast.centre,
+                            pos: centre,
+                            // ⛔⛔ **`size` LEFT AT `Default` PUT THE WHOLE CAST
+                            // HALF A SCREEN BELOW THE FRAME** (found 2026-08-16,
+                            // queue D128 item 2). `CameraFocus2d::stable_center`
+                            // subtracts `(base_size.y - size.y) / 2` so a
+                            // CROUCHING body does not make the camera bob — a
+                            // correct compensation for a real body, and this arm
+                            // hands it a `base_size` of the framing VIEW against
+                            // a `size` of ZERO, so the "resize" it compensated
+                            // for was 225 units of nothing. Measured: the cast's
+                            // centre sat at y=366 while the camera targeted
+                            // y=202, which is why a fighter falling off the
+                            // bottom left the frame with the camera still on the
+                            // platform.
+                            //
+                            // ⭐ the framed CAST is not a body that crouches:
+                            // its extent and its baseline extent are the same
+                            // number by construction, so saying so once here
+                            // makes the compensation vanish instead of being
+                            // special-cased downstream.
+                            size: presented,
                             ..Default::default()
                         },
                         // The PRESENTED framing, not the raw box — the two must
@@ -1341,6 +1536,7 @@ pub fn resolve_camera_observation(
                 // ACTUAL final orientation instead of one the renderer
                 // overwrites afterwards.
                 chart_transit: presentation.chart_transit,
+                must_frame_world,
             },
             Some(&mut *camera_state),
         );
@@ -1644,6 +1840,7 @@ mod m2_forward_scroll_tests {
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
                 chart_transit: None,
+                must_frame_world: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing: None,
                 reference_frame: Default::default(),
@@ -1771,6 +1968,7 @@ mod soft_framing_tests {
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
                 chart_transit: None,
+                must_frame_world: None,
                 ease_tuning: CameraEaseTuning::default(),
                 screen_framing,
                 reference_frame: Default::default(),
@@ -2290,6 +2488,7 @@ mod observer_roll_continuity_tests {
                 mode: CameraSnapshotResolveMode::Eased,
                 extra_clamp_center_world: None,
                 chart_transit: transit,
+                must_frame_world: None,
                 ease_tuning: Default::default(),
                 screen_framing: None,
                 reference_frame: CameraReferenceFrame::SubjectFrame,

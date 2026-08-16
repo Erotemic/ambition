@@ -2734,8 +2734,13 @@ fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
 ///
 /// ⚠ **the whole road, not the arithmetic**: a finger through this host's real
 /// input stack, ending in a `MatchParticipantRoster` of two CPUs on two
-/// DIFFERENT fighters — which is the state a watcher has to be able to
-/// photograph to answer "do the two kits behave differently at all".
+/// fighters that each AUTHOR A REPERTOIRE — which is the state a watcher has to
+/// be able to photograph to answer "do the two kits behave differently at all".
+///
+/// ⛔⛔ **"two DIFFERENT fighters" was the old claim and it was a check that
+/// could not fail** (fixed 2026-08-16, queue D128). See the assertion at the
+/// bottom for what replaced it and why the replacement is not two hard-coded
+/// ids.
 #[test]
 fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     use ambition_demo_smash::select::SlotPick;
@@ -2746,8 +2751,17 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     const ROLE_BUTTON_1: Vec2 = Vec2::new(482.0, 523.0);
     const TOKEN_HOME_0: Vec2 = Vec2::new(586.0, 446.0);
     const TOKEN_HOME_1: Vec2 = Vec2::new(622.0, 446.0);
-    const PORTRAIT_A: Vec2 = Vec2::new(747.0, 121.0);
-    const PORTRAIT_B: Vec2 = Vec2::new(425.0, 121.0);
+    // ⛔⛔ **THESE TWO WERE `747x121` AND `425x121` UNTIL 2026-08-16 AND THEY
+    // SEATED THE WRONG PAIR** (queue D128). Those are grid cells 3 and 0 —
+    // Sanic, who has no authored repertoire at all, and Player Robot v3 — so
+    // the command this row points at to ask *"do the two AUTHORED kits read
+    // differently"* answered with a body that has no authored kit. The check
+    // below only asserted the two picks DIFFER, so it stayed green the whole
+    // time. `532x121` is cell 1 (George Booul) and `855x121` is cell 4 (the
+    // Pirate Admiral): the demo's own fighter against Ambition's, the pair the
+    // question is about.
+    const PORTRAIT_A: Vec2 = Vec2::new(532.0, 121.0);
+    const PORTRAIT_B: Vec2 = Vec2::new(855.0, 121.0);
     const START: Vec2 = Vec2::new(1191.0, 446.0);
 
     /// One tap of the glass, the way winit reports one: a `Started` and an
@@ -2829,11 +2843,6 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
         "a documented portrait tap chose no fighter: {picks:?} — a `Random` \
          here means the tap missed the grid and the token went home"
     );
-    assert_ne!(
-        picks[0], picks[1],
-        "both documented portrait taps landed on the SAME fighter, so the \
-         capture cannot show two kits side by side"
-    );
 
     tap(&mut app, START);
     settle(&mut app);
@@ -2851,6 +2860,69 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
             .all(|seat| seat.controller.brain_profile().is_some()),
         "a seat the screen made a CPU arrived as a human, so the capture \
          photographs a fighter nobody is driving"
+    );
+
+    // ⭐⭐ **AND THE CLAIM THAT SURVIVES A ROSTER REORDER: both seats wear a
+    // fighter that AUTHORS ITS OWN MOVE TIMELINES.**
+    //
+    // ⛔ this used to be `assert_ne!(picks[0], picks[1])` and nothing else —
+    // "two different fighters" — which is a check that cannot fail for the
+    // reason it exists. Every reorder of `SMASH_ROSTER` re-flows the grid under
+    // these two literal points, and "different" stays true however far they
+    // slide: for months they sat on Sanic, whose repertoire is the shared
+    // stand-in table, and the documented command kept answering this row's
+    // standing product question with a body that has nothing to show.
+    //
+    // ⭐ the property the command is FOR is not "two cells" but "two authored
+    // kits", so that is what is asserted, against the same oracle
+    // `smash_roster_movesets::the_grid_fighters_with_a_real_repertoire_only_grow`
+    // ratchets — `PreparedCharacterDefinition::authored_moveset`, the field the
+    // stage actually reads. ⛔ deliberately NOT two hard-coded ids: naming
+    // `smash_george_booul` and `npc_pirate_admiral` here would pin WHICH
+    // fighters, and the header's promise is about what a watcher can SEE, which
+    // any two authored fighters keep. Reorder the roster and this fails with the
+    // fighter it drifted onto; author a kit for Sanic and it goes on passing.
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
+    let seated: Vec<(String, bool)> = roster
+        .participants
+        .iter()
+        .map(|seat| {
+            let authored = registry
+                .get(seat.character.as_str())
+                .is_some_and(|definition| definition.authored_moveset.is_some());
+            (seat.character.as_str().to_string(), authored)
+        })
+        .collect();
+    // A vacuity guard on the oracle itself: an `authored_moveset` that had
+    // silently become `None` for EVERYBODY would make the assertion below a
+    // statement about a field nothing fills, so prove the grid still has a
+    // generic fighter to fail against.
+    assert!(
+        app.world()
+            .resource::<ambition_demo_smash::select::SmashRoster>()
+            .ids()
+            .any(|id| registry
+                .get(id)
+                .is_some_and(|definition| definition.authored_moveset.is_none())),
+        "every fighter on the grid reports an authored moveset, so the check \
+         below cannot distinguish the authored pair from the generic floor and \
+         is proving nothing"
+    );
+    assert!(
+        seated.iter().all(|(_, authored)| *authored),
+        "a documented portrait tap seated a fighter with NO authored moveset: \
+         {seated:?}. The grid re-flowed under these literal points and the \
+         command in `capture_scene`'s header now photographs the generic floor \
+         — which is exactly how this row's product question got answered wrong \
+         twice. Re-derive the two portrait points from `SelectLayout::portrait` \
+         for the cells the authored fighters now occupy, and fix the header."
+    );
+    assert_ne!(
+        seated[0].0, seated[1].0,
+        "both documented portrait taps landed on the SAME fighter, so the \
+         capture cannot show two kits side by side"
     );
 }
 

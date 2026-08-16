@@ -433,6 +433,8 @@ fn resolve_headless_snapshot(
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
             chart_transit: None,
+            // A headless ROOM portrait frames a point, never a cast.
+            must_frame_world: None,
             ease_tuning:
                 ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
             screen_framing: None,

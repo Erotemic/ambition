@@ -1103,3 +1103,247 @@ fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines
         );
     }
 }
+
+/// **YOU CAN SEE THE THING THAT DECIDES EVERY MATCH.**
+///
+/// ⛔⛔ **every stock in a platform fighter is spent OFF the stage, and the
+/// camera was framing the empty platform while it happened** (queue D128 item 2,
+/// measured 2026-08-16 by photographing a real two-CPU match through the shipped
+/// shell). f330 drew a fighter past the left screen edge, f345 drew the other
+/// one behind the virtual joystick, and at f360 the stage was EMPTY — both
+/// fighters gone, camera still on the platform, the knockout happening
+/// off-screen. A watcher could not see the one moment the genre is about.
+///
+/// ⭐ **the framing policy was never the problem** — `frame_the_cast` already
+/// framed every live seat. Three things downstream threw that framing away, and
+/// this test is red on each of them:
+///
+/// ```text
+///   the ROOM CLAMP        a blast zone is OUTSIDE `world.size` by construction,
+///                         so the region a body can die in is precisely the
+///                         region a room-clamped camera cannot look at. On this
+///                         stage the view is also WIDER than the world, so
+///                         `clamp_or_center` pinned the camera at the world
+///                         centre for the entire match.
+///   `stable_center`       the synthesized cast body had `size: ZERO` against a
+///                         `base_size` of the framing VIEW, so the crouch
+///                         compensation shifted the frame half a screen: the
+///                         cast's centre at y=366 targeted as y=202.
+///   the TARGET EASE       8 Hz lags a launched body by ~v/8 — 46 units past the
+///                         edge at the moment of the knockout.
+/// ```
+///
+/// ⚠ **the non-vacuity guard is the LEAVING**, and it is doing real work: a
+/// match where nobody was ever knocked off the platform keeps every fighter
+/// inside any frame at all, and this fixture is a live fight rather than a
+/// scripted one. So it first proves a body reached the blast zone — OUTSIDE the
+/// room's own bounds — and only then asks what the camera was showing.
+#[test]
+fn every_live_fighter_stays_inside_the_frame() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    // BOTH seats CPU, so bodies actually get launched.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let room = ambition_demo_smash::smash_stage().world.size;
+    let mut left_the_room = 0usize;
+    let mut escaped: Vec<String> = Vec::new();
+    let mut worst = 0.0f32;
+    let mut observed = 0usize;
+    for tick in 0..2_400 {
+        app.update();
+        let view = {
+            let world = app.world_mut();
+            let observer = ambition_platformer2d::sim_view::the_only_view(world);
+            world
+                .entity(observer)
+                .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .map(|resolved| {
+                    (
+                        resolved.snapshot.center_world,
+                        resolved.snapshot.visible_view,
+                    )
+                })
+        };
+        let Some((center, visible)) = view else {
+            continue;
+        };
+        let world = app.world_mut();
+        let mut seats = world.query::<(&MatchSeat, &BodyKinematics)>();
+        let bodies: Vec<(usize, ambition_platformer2d::engine_core::Vec2)> = seats
+            .iter(world)
+            .map(|(seat, kin)| (seat.0, kin.pos))
+            .collect();
+        if bodies.is_empty() {
+            continue;
+        }
+        observed += 1;
+        let half = visible / 2.0;
+        for (seat, pos) in bodies {
+            if pos.x < 0.0 || pos.x > room.x || pos.y < 0.0 || pos.y > room.y {
+                left_the_room += 1;
+            }
+            // How far past the nearest screen edge this body is drawn.
+            let over = ((pos.x - center.x).abs() - half.x).max((pos.y - center.y).abs() - half.y);
+            if over > 0.0 {
+                worst = worst.max(over);
+                if escaped.len() < 8 {
+                    escaped.push(format!(
+                        "  t{tick} seat {seat} at ({:.0},{:.0}) is {over:.0} units outside a \
+                         {:.0}x{:.0} frame centred ({:.0},{:.0})",
+                        pos.x, pos.y, visible.x, visible.y, center.x, center.y
+                    ));
+                }
+            }
+        }
+    }
+
+    assert!(
+        observed > 600,
+        "only {observed} frames had a cast at all, so this watched almost no match"
+    );
+    assert!(
+        left_the_room > 20,
+        "no fighter was ever outside the room's own bounds in this match ({left_the_room} \
+         body-frames), so nobody was knocked off the stage and the claim below is about a \
+         camera that never had to follow anybody anywhere"
+    );
+    assert!(
+        escaped.is_empty(),
+        "a live fighter was drawn OUTSIDE the frame on {} body-frames, worst {worst:.0} units \
+         past the edge — the knockout that decides the match happens off-screen:\n{}",
+        escaped.len(),
+        escaped.join("\n")
+    );
+}
+
+/// **AND THE FRAME DOES NOT CUT WHEN A FIGHTER LEAVES PLAY.**
+///
+/// The companion to [`the_camera_closes_no_faster_than_it_opened`], and it
+/// exists because that one made this one reachable. That test measures the view
+/// SIZE, which was the only thing the cast framing could move while the room
+/// clamp had the centre pinned at the world's middle. Now that the centre
+/// travels — it must, or a fighter cannot be followed off the stage — it has
+/// the same discontinuity the size had: an eliminated body is taken out of play
+/// and the cast's box collapses between two frames, jumping its centre back to
+/// the platform.
+///
+/// ⭐ measured on this fixture before the framing was carried as an eased BOX:
+/// a 248.8-unit collapse of the cast's own centre came out as a **209.6-unit
+/// camera step in one frame**, against ~33 in an ordinary frame. It is now 27.
+///
+/// ⚠ **it compares the ELIMINATION frame against the ordinary ones**, which is
+/// the only comparison that means anything here: a cast centre that is tracking
+/// a fast fight moves a long way per frame quite correctly, and a threshold in
+/// units would be a guess about how hard fighters hit.
+///
+/// ⚠ **the non-vacuity guard is the JUMP the framing had to absorb**: a match
+/// where the two fighters happened to be standing together at the knockout
+/// collapses its own centre by nothing at all, and would satisfy this however
+/// broken the absorption was.
+#[test]
+fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use ambition_platformer2d::engine_core::Vec2;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let mut previous: Option<(usize, Vec2, Vec2)> = None;
+    let mut worst_ordinary_step = 0.0f32;
+    let mut worst_elimination_step = 0.0f32;
+    let mut biggest_absorbed_jump = 0.0f32;
+    for _ in 0..5_400 {
+        app.update();
+        let camera = {
+            let world = app.world_mut();
+            let observer = ambition_platformer2d::sim_view::the_only_view(world);
+            world
+                .entity(observer)
+                .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .map(|resolved| resolved.snapshot.center_world)
+        };
+        let Some(camera) = camera else { continue };
+        // The cast's TRUE centre and population — the input the framing absorbs.
+        let (members, true_centre) = {
+            let world = app.world_mut();
+            let mut seats = world.query::<(&MatchSeat, &BodyKinematics)>();
+            let mut min = Vec2::new(f32::MAX, f32::MAX);
+            let mut max = Vec2::new(f32::MIN, f32::MIN);
+            let mut members = 0usize;
+            for (_, kin) in seats.iter(world) {
+                members += 1;
+                min = min.min(kin.pos - kin.size / 2.0);
+                max = max.max(kin.pos + kin.size / 2.0);
+            }
+            (members, (min + max) / 2.0)
+        };
+        if members == 0 {
+            previous = None;
+            continue;
+        }
+        if let Some((previous_members, previous_true, previous_camera)) = previous {
+            let step = (camera - previous_camera).length();
+            if members < previous_members {
+                worst_elimination_step = worst_elimination_step.max(step);
+                biggest_absorbed_jump =
+                    biggest_absorbed_jump.max((true_centre - previous_true).length());
+            } else {
+                worst_ordinary_step = worst_ordinary_step.max(step);
+            }
+        }
+        previous = Some((members, true_centre, camera));
+    }
+
+    assert!(
+        biggest_absorbed_jump > 60.0,
+        "the cast's own centre never jumped by more than {biggest_absorbed_jump:.1} units when a \
+         fighter was removed, so there was no discontinuity to absorb and this measured nothing"
+    );
+    assert!(
+        worst_ordinary_step > 1.0,
+        "the camera centre never moved by more than {worst_ordinary_step:.2} units in a frame \
+         while everybody was in play — it is pinned again, and the comparison below is between \
+         two kinds of nothing"
+    );
+    assert!(
+        worst_elimination_step <= worst_ordinary_step,
+        "the camera jumped {worst_elimination_step:.1} units on the frame a fighter was taken out \
+         of play, against at most {worst_ordinary_step:.1} in an ordinary frame, absorbing a \
+         {biggest_absorbed_jump:.1}-unit collapse — that is a cut back to the platform, which is \
+         the thing Jon reported about the zoom and is now possible for the centre too"
+    );
+}

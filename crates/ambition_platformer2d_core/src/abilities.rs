@@ -677,9 +677,130 @@ impl MatchAbilities {
     }
 }
 
+/// **WHAT A MATCH SAYS ABOUT ITS FIGHTERS' BODIES** — the small set of numbers
+/// a MODE owns, composed over whatever body each fighter brings.
+///
+/// ⛔⛔ **[`MatchAbilities`] can GUARANTEE a verb, and a granted verb whose
+/// tuning window is zero is a DEAD GRANT.** That is the defect this type exists
+/// for and it is the one above, one layer down.
+/// [`DEFAULT_TUNING`](crate::DEFAULT_TUNING) holds `air_dodge_time`,
+/// `tumble_speed` and `jump_squat_time` at zero DELIBERATELY — an air dodge that
+/// was on by default would take the airborne burst press away from every
+/// exploration body in the game — so a stage that grants `dodge` to a cast it
+/// did not author hands out a verb whose window never opens. Measured on the
+/// composed host, 2026-08-16: twelve of the fourteen fighters on the smash grid.
+///
+/// ⛔⛔ **AND IT IS NOT A `MovementTuning`, which is the whole design.** A mode
+/// that supplied a WHOLE body would overwrite every number the fighter brought:
+/// tried first, and `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored`
+/// caught it immediately — the slug's authored 80 px/s crawl became the engine's
+/// 270 px/s run, because a full `MovementTuning` spread over `DEFAULT_TUNING`
+/// states every field whether or not its author had an opinion about it. That is
+/// the same trap [`MatchAbilities`] names on the grant side (*"the Puppy Slug
+/// jumping and dashing like a humanoid"*), and the same body found it.
+///
+/// ⇒ **a mode states THESE and nothing else**, and everything else about a body
+/// — its gait, its jump arc, its gravity, its air control — stays the
+/// character's. Mary-O keeps her SMB1 convergence on a platform-fighter stage
+/// and gets an air dodge; the crawler keeps its crawl.
+///
+/// ⚠ **the list is meant to be short and every entry is a decision.** Adding a
+/// field here is declaring that a MODE owns that number for every fighter alive,
+/// which is exactly the claim that must not be made casually — and it is why
+/// this is a narrow struct rather than a partial `MovementTuning`, which would
+/// need a per-field "did the stage mean this" signal nothing in the value
+/// carries.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MatchBody {
+    /// **How far a melee press shoves its own owner backwards** (px/s).
+    ///
+    /// A mode owns it because a fighting game's attack economy is nothing like
+    /// an exploration game's: measured 2026-07-31, a fighter brain presses
+    /// attack on most decisions, so the engine's 110 px/s recoil RATCHETS — 200,
+    /// 310, 420, 530 px/s in exact 110 steps against a 270 px/s run — and every
+    /// CPU on a platform-fighter stage swung itself off the edge, backwards.
+    pub slash_recoil: f32,
+    /// **Grounded crouch before takeoff** (seconds). A fighter's jump is
+    /// COMMITTAL and an explorer's is not; three frames is the universal jump
+    /// squat in the genre, and it is what makes an opponent's jump a READ.
+    pub jump_squat_time: f32,
+    /// **How long an airborne evade lasts** (seconds). `0.0` — the engine
+    /// default — is no air dodge at all, which is what makes this the field the
+    /// whole type was written for.
+    pub air_dodge_time: f32,
+    /// Speed of that evade (px/s).
+    pub air_dodge_speed: f32,
+    /// Recovery on the far side of it (seconds), so it is a read rather than a
+    /// panic button.
+    pub air_dodge_endlag: f32,
+    /// **Launch speed above which a hit sends a body TUMBLING** (px/s), and the
+    /// landing that follows is a knockdown unless it is teched. `0.0` is no
+    /// floor game — right for a wandering enemy, wrong for a fighter.
+    pub tumble_speed: f32,
+}
+
+impl MatchBody {
+    /// **The body a fighter actually plays with: this mode's numbers over the
+    /// body the fighter brought.**
+    ///
+    /// One `..base` spread, so a field this type does not name cannot be
+    /// disturbed by a mode — no per-field merge, no reconstruction of anybody's
+    /// intent, and adding a field here is a compile-visible act.
+    pub const fn over(
+        self,
+        base: crate::movement::MovementTuning,
+    ) -> crate::movement::MovementTuning {
+        crate::movement::MovementTuning {
+            slash_recoil: self.slash_recoil,
+            jump_squat_time: self.jump_squat_time,
+            air_dodge_time: self.air_dodge_time,
+            air_dodge_speed: self.air_dodge_speed,
+            air_dodge_endlag: self.air_dodge_endlag,
+            tumble_speed: self.tumble_speed,
+            ..base
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **A MODE STATES ITS OWN NUMBERS AND DISTURBS NOTHING ELSE.**
+    ///
+    /// ⛔ the poison is the second half: the first implementation of this made a
+    /// mode supply a whole `MovementTuning`, and the number that caught it was a
+    /// crawler's authored top speed becoming the engine's default run.
+    #[test]
+    fn a_match_body_states_its_own_fields_over_the_one_a_fighter_brought() {
+        let brought = crate::movement::MovementTuning {
+            max_run_speed: 80.0,
+            jump_speed: 450.0,
+            air_dodge_time: 0.0,
+            ..crate::DEFAULT_TUNING
+        };
+        let stage = MatchBody {
+            slash_recoil: 0.0,
+            jump_squat_time: 0.05,
+            air_dodge_time: 0.2,
+            air_dodge_speed: 440.0,
+            air_dodge_endlag: 0.16,
+            tumble_speed: 500.0,
+        };
+        let played = stage.over(brought);
+
+        assert_eq!(
+            played.air_dodge_time, 0.2,
+            "the mode's own window did not reach the body, so every verb it \
+             grants that the engine defaults to zero is a dead grant"
+        );
+        assert_eq!(
+            (played.max_run_speed, played.jump_speed),
+            (80.0, 450.0),
+            "the mode overwrote a gait and a jump arc it never spoke about — a \
+             crawler on a fighting stage becomes a humanoid"
+        );
+    }
 
     /// A kit with a hole in it, and a kit with something extra: the two shapes
     /// a character can disagree with a mode about.

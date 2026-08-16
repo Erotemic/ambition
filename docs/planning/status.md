@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `9290cf96f` (2026-08-16 local project date).
+**Snapshot:** `8d183a68b` (2026-08-16 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -272,9 +272,38 @@ substrate had overtaken the two fronts printed above it:
    names HUD ownership and input routing, which this slice did not touch.
    ⛔ do not expand into networking; the deferred half needs a real product need
    for a second view.
-6. **Capability/runtime composition.** Make optional capabilities honest in
-   dependency and composition topology. See
+6. **Capability/runtime composition — ⭐ PROMOTED TO THE LEDGER 2026-08-16 as
+   D136, and its evidence arrived all at once.** Make optional capabilities
+   honest in dependency and composition topology. See
    [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+
+   ⚠ **this sits at 6 by the 2026-08-15 ordering and the ordering has NOT been
+   re-litigated — but read this before trusting the rank.** Five independent
+   slices on 2026-08-16 turned out to be one failure: the engine cannot ship the
+   art it draws (every sprite-registration site is a *game* system); the
+   durable-save leg exists only in the visible binary, so one of two persistence
+   authorities is absent from every headless harness; the shell composes every
+   experience into one process, so a demo's rules reach another demo's fighter;
+   a crate edge two policies forbade turned out legitimate only because a facade
+   deletion converted a laundered edge into a declared one; and the canonical
+   session world carried a format-specific field five games filled with
+   `::default()`.
+
+   ⭐ **the through-line: none is a bug in the ordinary sense — each is a place
+   where "who is this for?" was answered by whoever installed it first and never
+   written down.** ⇒ the composition-shaped slices have been paying more than the
+   feature-shaped ones: naming a schedule order let `conversation` leave the
+   monolith, giving the engine a home for its own art made 189 shipped effects
+   reachable, and making a load a checkpoint resume deleted a whole
+   reconstruction road instead of adding one.
+
+   ⛔ **the standing number, and it has not moved**:
+   `capability-footprint-may-not-grow` still reads **42 crates linked, 15 a
+   movement-only game never asked for**. D135 measured why — the **monolith**
+   holds `ambition_platformer2d_ldtk` in that closure through nine symbols, of
+   which `WorldManifest` is an asset catalog that merely lives in the format
+   crate. ⇒ **a slice claiming this front must say what it did to that number, or
+   why the number is dominated by something it did not touch.**
 7. **Public SDK, authoring ergonomics, performance and iteration.** See
    [`engine/public-sdk-1.0.md`](engine/public-sdk-1.0.md) and
    [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md).

@@ -346,6 +346,118 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
     );
 }
 
+/// **TWO FIGHTERS ON ONE FACTION AND TWO TEAMS: THE SHOT LANDS.** (Jon,
+/// 2026-08-16: *"PCA's glider doesn't do any damage or hit anyone."*)
+///
+/// ⛔⛔ **it was never about the glider.** Measured on the shipped stage, every
+/// seat comes back `ActorFaction::Player` with a team of its own (`seat 1`,
+/// `seat 2`) — which is right, because a Hall NPC and a demo protagonist are not
+/// enemies of each other outside the match. Melee asks
+/// `targeting::team_allows_damage` and lands. This loop asked the faction-only
+/// `damage_lands` and spared every shot as an ally, so NO projectile from ANY
+/// fighter could hit anybody on a crossover grid.
+///
+/// ⭐ `StrikeVictim` has carried the victim's `team` the whole time — its own
+/// doc says *"Outranks faction for 'may this land'"* — and this loop was the one
+/// caller that never asked for it. The fix is `damage_lands_between`, the
+/// team-aware sibling melee already used.
+#[test]
+fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
+    use ambition_combat::targeting::MatchTeam;
+
+    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+    let pos = ae::Vec2::new(300.0, 100.0);
+
+    // The firer and the victim: one faction, two teams — a match.
+    let firer = app
+        .world_mut()
+        .spawn((
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let victim = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("seat_two_fighter"),
+            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 2"),
+        ))
+        .id();
+    // ⛔ THE POISON, in the fixture: a body on the FIRER'S OWN team, overlapping
+    // the same shot. Without it a predicate that simply stopped consulting
+    // anything would pass this test.
+    let teammate = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("same_team_fighter"),
+            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+
+    spawn_owned_glider(&mut app, pos, firer);
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    let hit = |who: Entity| {
+        cap.0.iter().any(|e| {
+            matches!(e.source, HitSource::Projectile)
+                && e.target == crate::features::HitTarget::Body(who)
+        })
+    };
+    assert!(
+        hit(victim),
+        "a fighter's shot passed through an opponent it shares a faction with — \
+         the projectile loop is deciding on factions and cannot see the match"
+    );
+    assert!(
+        !hit(teammate),
+        "the shot also hit the firer's own team, so it is not consulting teams — \
+         it has stopped consulting anything"
+    );
+}
+
+/// A shot owned by `firer`, overlapping `pos`. Like
+/// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
+/// what is under test is a fact about the owner (its team).
+fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
+    use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeq};
+    let projectile = crate::enemy_projectile::EnemyProjectileState::build(ProjectileSpawn {
+        origin: pos,
+        dir: ae::Vec2::new(1.0, 0.0),
+        speed: 200.0,
+        damage: 3,
+        max_lifetime: 2.0,
+        half_extent: ae::Vec2::new(8.0, 8.0),
+        owner_id: "pca_glider".into(),
+        gravity: 0.0,
+        visual_id: String::new(),
+        bounces: 0,
+        bounce_on_world_contact: false,
+    });
+    let seq: ProjectileSeq = {
+        let mut counter = app
+            .world_mut()
+            .get_resource_or_insert_with(ProjectileSeqCounter::default);
+        counter.next()
+    };
+    app.world_mut().spawn((
+        projectile.body.kin,
+        projectile.body.game,
+        seq,
+        ProjectileOwnerId(projectile.owner_id),
+        ProjectileOwner(firer),
+        crate::projectile::LiveProjectile,
+        crate::enemy_projectile::EnemyProjectile,
+        bevy::prelude::Name::new("Owned glider (test)"),
+    ));
+}
+
 /// Parry-reflect: an enemy shot overlapping a **parrying** player flips to
 /// the player's faction and reverses (+boosts) its velocity, so the same
 /// faction-aware routing now sends it back at the enemies — deflect the

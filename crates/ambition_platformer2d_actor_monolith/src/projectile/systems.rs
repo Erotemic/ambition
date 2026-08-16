@@ -12,9 +12,9 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::features::{
-    damage_lands, ActorAggression, ActorFaction, BossClusterRef, BossConfig, BreakableFeature,
-    CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitKnockbackMagnitude,
-    HitMode, HitSource, HitTarget,
+    ActorAggression, ActorFaction, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb,
+    FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
+    HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -486,17 +486,33 @@ pub fn step_projectiles(
     // Still bundled into ONE tuple slot to stay under Bevy's 16-param ceiling, but
     // one member SHORTER: `victim_frames` left, because a per-victim component
     // belongs to the victim view rather than to a lookup query beside it.
-    // - `owner_combat` — the firer's REAL faction + optional grudge, looked up from
-    //   the projectile's owner entity (player / enemy / boss / player-robot). The
-    //   faction RETIRES the binary `ProjectileGameplay.faction` (damage routes off the
-    //   owner, not a side label); the grudge is the per-entity DAMAGE override that
-    //   lets a shot hit a same-faction body its firer feuds with (an `Npc` duelist's
-    //   bolt). Read-only, so it may overlap `victims`.
+    // - `owner_combat` — the firer's REAL faction, optional grudge and MATCH TEAM,
+    //   looked up from the projectile's owner entity (player / enemy / boss /
+    //   player-robot). The faction RETIRES the binary `ProjectileGameplay.faction`
+    //   (damage routes off the owner, not a side label); the grudge is the
+    //   per-entity DAMAGE override that lets a shot hit a same-faction body its
+    //   firer feuds with (an `Npc` duelist's bolt). Read-only, so it may overlap
+    //   `victims`.
+    //
+    //   ⛔⛔ **THE TEAM JOINED IT 2026-08-16, and its absence was Jon's report**:
+    //   *"PCA's glider doesn't do any damage or hit anyone."* Measured on the
+    //   shipped stage, both seats come back `ActorFaction::Player` with teams
+    //   `seat 1` and `seat 2` — melee asks `team_allows_damage` and lands, this
+    //   loop asked `damage_lands` and spared every shot as an ally. It was never
+    //   about the glider: NO projectile from ANY fighter could hit anybody on a
+    //   crossover grid, because a Hall NPC and a demo protagonist are not
+    //   enemies of each other outside the match. `StrikeVictim` has carried the
+    //   victim's `team` the whole time — *"Outranks faction for 'may this
+    //   land'"* — and this was the one caller that never asked for it.
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
     // - `visual_catalog` — the open, content-owned projectile art registry; the
     //   detonation-FX pick resolves a shot's visual id through it.
     (owner_combat, boss_catalog, visual_catalog): (
-        Query<(&ActorFaction, Option<&ActorAggression>)>,
+        Query<(
+            &ActorFaction,
+            Option<&ActorAggression>,
+            Option<&ambition_combat::targeting::MatchTeam>,
+        )>,
         Res<crate::boss_encounter::BossCatalog>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
     ),
@@ -540,11 +556,13 @@ pub fn step_projectiles(
         // attack (hits breakables/actors/bosses); any other firer's shot is hostile
         // (damages the player + relational foes).
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
-        let firer_faction: Option<ActorFaction> = owner_combat_data.map(|(f, _)| *f);
+        let firer_faction: Option<ActorFaction> = owner_combat_data.map(|(f, _, _)| *f);
+        let firer_team: Option<&ambition_combat::targeting::MatchTeam> =
+            owner_combat_data.and_then(|(_, _, team)| team);
         // The firer's personal grudge — the per-entity damage override (a duelist's
         // shot lands on the rival it feuds with even at the same faction).
         let firer_grudge: Option<Entity> = owner_combat_data
-            .and_then(|(_, agg)| agg)
+            .and_then(|(_, agg, _)| agg)
             .and_then(|a| a.grudge);
         let indiscriminate = firer_faction.is_none();
 
@@ -603,11 +621,17 @@ pub fn step_projectiles(
                 // An owned shot lands on a faction-foe OR a same-faction body its
                 // firer holds a grudge against; an indiscriminate (ownerless) shot
                 // lands on everyone — there is no ally to spare.
+                // ⭐ `damage_lands_BETWEEN`, so the TEAMS decide when both
+                // bodies are seated and the factions decide when they are not.
+                // The plain `damage_lands` this used to call cannot see a match
+                // at all — see the note on `owner_combat` above.
                 let can_hit = indiscriminate
                     || firer_faction.is_some_and(|f| {
-                        damage_lands(
+                        ambition_combat::targeting::damage_lands_between(
                             f,
                             victim.effective_faction(),
+                            firer_team,
+                            victim.team,
                             friendly_fire,
                             firer_grudge,
                             victim.entity,

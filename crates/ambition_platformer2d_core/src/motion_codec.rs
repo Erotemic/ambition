@@ -136,7 +136,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.pre_wall_vel_age);
     put_f32(out, state.buffer_jump);
     put_f32(out, state.jump_squat_timer);
-    put_f32(out, state.buffer_dash);
+    put_f32(out, state.buffer_burst);
     put_f32(out, state.buffer_blink);
     put_f32(out, state.dash_timer);
     put_bool(out, state.blink_hold_active);
@@ -174,7 +174,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         pre_wall_vel_age: r.f32()?,
         buffer_jump: r.f32()?,
         jump_squat_timer: r.f32()?,
-        buffer_dash: r.f32()?,
+        buffer_burst: r.f32()?,
         buffer_blink: r.f32()?,
         dash_timer: r.f32()?,
         blink_hold_active: r.bool()?,

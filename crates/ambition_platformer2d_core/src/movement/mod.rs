@@ -365,7 +365,7 @@ fn update_body_simulation_inner(
 
         let dec = |v: f32| (v - dt).max(0.0);
         state.buffer_jump = dec(state.buffer_jump);
-        state.buffer_dash = dec(state.buffer_dash);
+        state.buffer_burst = dec(state.buffer_burst);
         state.coyote_timer = dec(state.coyote_timer);
         state.drop_through_timer = dec(state.drop_through_timer);
         clusters.jump.ladder_jump_boost = dec(clusters.jump.ladder_jump_boost);

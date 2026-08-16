@@ -97,10 +97,15 @@ pub struct AxisManeuverState {
     pub wall_climbing: bool,
     pub pre_wall_vel: Vec2,
     pub pre_wall_vel_age: f32,
-    /// Buffered MOVEMENT actions (jump/dash/blink press windows). Combat
+    /// Buffered MOVEMENT actions (jump/burst/blink press windows). Combat
     /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
     pub buffer_jump: f32,
-    pub buffer_dash: f32,
+    /// The BURST press window — one buffer for the one button that dodge and
+    /// dash share (see [`crate::movement::abilities::BurstManeuver`]). ⛔ it was
+    /// `buffer_dash`, and the name was load-bearing in the wrong direction:
+    /// `apply_intent` filled it only for `abilities.dash`, so a body authored
+    /// with the dodge and not the traversal burst could never spend an evade.
+    pub buffer_burst: f32,
     pub buffer_blink: f32,
     /// Time left in a committed jump-squat (see
     /// [`crate::movement::tuning::AxisLocomotion::jump_squat_time`]). Non-zero
@@ -176,7 +181,7 @@ impl Default for AxisManeuverState {
             pre_wall_vel_age: 0.0,
             buffer_jump: 0.0,
             jump_squat_timer: 0.0,
-            buffer_dash: 0.0,
+            buffer_burst: 0.0,
             buffer_blink: 0.0,
             dash_timer: 0.0,
             blink_hold_active: false,

@@ -22,10 +22,13 @@ use crate::MotionFrame;
 
 /// **What the shared burst button would actually DO right now.**
 ///
-/// Dodge and dash are one input. Which maneuver a press produces is decided by
-/// the body's current state — grounded or not, dodge cooldown, air-dodge budget
-/// and endlag, dash charges and cooldown — and not by which abilities the body
-/// owns. A body that owns both and is mid-dodge-cooldown DASHES.
+/// Dodge and dash are one input — the BURST press, which is why the buffer it
+/// fills is [`AxisManeuverState::buffer_burst`] and not either verb's name.
+/// Which maneuver a press produces is decided by the body's current state —
+/// grounded or not, dodge cooldown, air-dodge budget and endlag, dash charges
+/// and cooldown — and not by which abilities the body owns. A body that owns
+/// both and is mid-dodge-cooldown DASHES; a body that owns only ONE of them
+/// still buffers the press, because owning EITHER earns the button.
 ///
 /// ⛔⛔ **the reason this is a named value and not two booleans**: an autonomous
 /// driver was choosing its maneuver from `can_dodge` / `can_dash`, which are
@@ -115,7 +118,7 @@ fn dash_available(abilities: &BodyAbilities, dash: &BodyDashState) -> bool {
 }
 
 /// Facing + input buffering: turn to face the stick (only when grounded or
-/// flying), and buffer jump/dash presses for the short windows the sim phase
+/// flying), and buffer jump/burst presses for the short windows the sim phase
 /// consumes them in. The intent step at the head of the control phase.
 pub(super) fn apply_intent(
     kinematics: &mut BodyKinematics,
@@ -134,8 +137,16 @@ pub(super) fn apply_intent(
     if input.jump_pressed() && abilities.abilities.jump {
         state.buffer_jump = tuning.locomotion.jump_buffer;
     }
-    if input.dash_pressed() && abilities.abilities.dash {
-        state.buffer_dash = tuning.abilities.dash_buffer;
+    // ⛔⛔ **THE BURST PRESS IS GATED ON OWNING A BURST, NOT ON OWNING DASH.**
+    // This read `abilities.abilities.dash` alone, so a body authored
+    // `dodge: true, dash: false` could never dodge: nothing ever filled the
+    // buffer `apply_dodge` spends, and the dodge ability was inert on every body
+    // that did not ALSO carry the traversal burst it has nothing to do with.
+    // Invisible while the shipped fighter kit happened to author both.
+    // `movement_actions` in the character action scheme already asks the
+    // question this way (`dash || dodge` earns the slot); the kernel now agrees.
+    if input.dash_pressed() && (abilities.abilities.dash || abilities.abilities.dodge) {
+        state.buffer_burst = tuning.abilities.dash_buffer;
     }
 }
 
@@ -163,10 +174,10 @@ pub(super) fn apply_fly_toggle(
     }
 }
 
-/// **The evade, on the ground and in the air.** A buffered dash spent by a body
-/// that owns the dodge ability becomes a roll when its feet are down and an air
-/// dodge when they are not (the dodge ability claims the dash buffer before
-/// `apply_dash` would).
+/// **The evade, on the ground and in the air.** A buffered burst press spent by
+/// a body that owns the dodge ability becomes a roll when its feet are down and
+/// an air dodge when they are not (the dodge ability claims
+/// [`AxisManeuverState::buffer_burst`] before `apply_dash` would).
 ///
 /// The two share the buffer, the ability gate and the i-frame *idea*, and
 /// nothing else — see [`AxisManeuverState::air_dodge_timer`] for why they do not
@@ -194,7 +205,7 @@ pub(super) fn apply_dodge(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if state.buffer_dash <= 0.0 {
+    if state.buffer_burst <= 0.0 {
         return;
     }
     // The ONE availability rule (see [`BurstManeuver`]) — the same expression
@@ -216,7 +227,7 @@ pub(super) fn apply_dodge(
         state.dodge_roll_timer = tuning.abilities.dodge_roll_time;
         state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
-        state.buffer_dash = 0.0;
+        state.buffer_burst = 0.0;
         events.op_clusters(combo_trace, MovementOp::DodgeRoll);
         return;
     }
@@ -241,7 +252,7 @@ pub(super) fn apply_dodge(
     state.fast_falling = false;
     state.phased_jump.clear();
     dodge.air_dodge_spent = true;
-    state.buffer_dash = 0.0;
+    state.buffer_burst = 0.0;
     events.op_clusters(combo_trace, MovementOp::AirDodge);
 }
 
@@ -356,8 +367,9 @@ pub(super) fn cut_ascent_now(
 /// `integrate_velocity_clusters`'s `dash.timer > 0` branch). Picks Dash vs
 /// DoubleDash by the charge count before decrement. No-op unless the actor has
 /// the dash ability + a buffered press + a free charge + the cooldown clear, so
-/// an actor without dash (no buffered press / `abilities.dash == false`) pays
-/// only the gate check.
+/// an actor without dash (`abilities.dash == false`) pays only the gate check —
+/// note it may still have BUFFERED the press, because the burst button belongs
+/// to dodge as well.
 ///
 /// Order: runs in the CONTROL phase after the input buffer is populated and
 /// after dodge (which consumes the same buffer on the ground first).
@@ -373,14 +385,14 @@ pub(super) fn apply_dash(
     events: &mut FrameEvents,
 ) {
     // Same shared rule as the dodge step above — see [`BurstManeuver`].
-    if state.buffer_dash > 0.0 && dash_available(abilities, dash) {
+    if state.buffer_burst > 0.0 && dash_available(abilities, dash) {
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
         let aim = input.local_axis().normalize_or(fallback);
         kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
         state.dash_timer = tuning.abilities.dash_time;
         state.phased_jump.clear();
         dash.cooldown = tuning.abilities.dash_cooldown;
-        state.buffer_dash = 0.0;
+        state.buffer_burst = 0.0;
         let before = dash.charges_available;
         dash.charges_available = dash.charges_available.saturating_sub(1);
         let op = if before >= 2 {
@@ -413,6 +425,140 @@ mod burst_maneuver_tests {
         abilities
     }
 
+    /// **A BODY THAT OWNS THE DODGE AND NOT THE DASH ACTUALLY DODGES.**
+    ///
+    /// ⛔⛔ the regression this pins: `apply_intent` gated the shared burst press
+    /// on `abilities.dash`, so `dodge: true, dash: false` filled no buffer and
+    /// `apply_dodge` returned on its `buffer_burst <= 0.0` guard every single
+    /// time. Nothing saw it, because the one shipped body carrying the dodge
+    /// carried the dash beside it — and the moment a game drops the traversal
+    /// burst from its kit (D146: dash leaves the smash vocabulary) every fighter
+    /// loses the evade silently.
+    ///
+    /// ⭐ it goes through `apply_intent` on purpose. Writing `buffer_burst`
+    /// directly is what every other test here does, and that is exactly the step
+    /// with the bug in it — a test that skipped it would have passed before the
+    /// fix.
+    ///
+    /// The poison row is the third: a body owning NEITHER verb must still buffer
+    /// NOTHING, or the gate has simply been replaced by `true` and the first two
+    /// rows prove nothing about it.
+    #[test]
+    fn the_burst_press_belongs_to_whichever_burst_the_body_owns() {
+        let tuning = AxisSweptParams::default();
+        let mut input = InputState::default();
+        input
+            .movement
+            .set_pressed(crate::movement::input::MovementAction::Dash, true);
+        let grounded = BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        };
+
+        let kit = |dodge: bool, dash: bool| {
+            let mut abilities = BodyAbilities::default();
+            abilities.abilities.dodge = dodge;
+            abilities.abilities.dash = dash;
+            abilities
+        };
+
+        // (label, abilities, expected maneuver)
+        let cases = [
+            (
+                "dodge only — the D146 smash fighter",
+                kit(true, false),
+                BurstManeuver::GroundDodge,
+            ),
+            (
+                "dash only — Ambition's traversal kit",
+                kit(false, true),
+                BurstManeuver::Dash,
+            ),
+            (
+                "neither — the press means nothing",
+                kit(false, false),
+                BurstManeuver::None,
+            ),
+        ];
+
+        for (label, abilities, expected) in cases {
+            let mut kinematics = BodyKinematics::default();
+            let mut state = AxisManeuverState::default();
+            let mut combo_trace = BodyComboTrace::default();
+            let flight = crate::body_clusters::BodyFlightState::default();
+            apply_intent(
+                &mut kinematics,
+                &grounded,
+                &flight,
+                &mut state,
+                &abilities,
+                input,
+                tuning,
+            );
+            assert_eq!(
+                state.buffer_burst > 0.0,
+                expected != BurstManeuver::None,
+                "{label}: the press was {} but the body {} a burst it owns",
+                if state.buffer_burst > 0.0 {
+                    "buffered"
+                } else {
+                    "dropped"
+                },
+                if expected == BurstManeuver::None {
+                    "owns no"
+                } else {
+                    "owns"
+                },
+            );
+            let mut dodge = BodyDodgeState::default();
+            let mut dash = BodyDashState {
+                charges_available: 1,
+                ..Default::default()
+            };
+            // Carry the buffer `apply_intent` just decided into the real steps.
+            let mut run_state = state;
+            let performed = {
+                let mut events = FrameEvents::default();
+                let frame = MotionFrame::from_direction(bevy_math::Vec2::new(0.0, 1.0), 900.0);
+                apply_dodge(
+                    &mut kinematics,
+                    &mut dodge,
+                    &mut run_state,
+                    &grounded,
+                    &abilities,
+                    &mut combo_trace,
+                    input,
+                    frame,
+                    tuning,
+                    &mut events,
+                );
+                let dodged = run_state.dodge_roll_timer > 0.0;
+                apply_dash(
+                    &mut kinematics,
+                    &mut dash,
+                    &mut run_state,
+                    &abilities,
+                    &mut combo_trace,
+                    input,
+                    frame,
+                    tuning,
+                    &mut events,
+                );
+                if dodged {
+                    BurstManeuver::GroundDodge
+                } else if run_state.dash_timer > 0.0 {
+                    BurstManeuver::Dash
+                } else {
+                    BurstManeuver::None
+                }
+            };
+            assert_eq!(
+                performed, expected,
+                "{label}: the body performed {performed:?} on a burst press"
+            );
+        }
+    }
+
     /// Run the kernel's two burst steps in their real order against a buffered
     /// press, and report which maneuver the BODY performed.
     fn what_the_body_does(
@@ -424,7 +570,7 @@ mod burst_maneuver_tests {
     ) -> BurstManeuver {
         let mut kinematics = BodyKinematics::default();
         let mut state = AxisManeuverState::default();
-        state.buffer_dash = 0.1;
+        state.buffer_burst = 0.1;
         let mut combo_trace = BodyComboTrace::default();
         let mut events = FrameEvents::default();
         let frame = MotionFrame::from_direction(bevy_math::Vec2::new(0.0, 1.0), 900.0);

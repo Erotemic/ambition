@@ -126,7 +126,7 @@ pub(super) fn tick_knockdown(
         state.knockdown_timer = dec(state.knockdown_timer);
         // See the note at the landing below: a prone body owes nothing to a
         // press that happened while it was in the air.
-        state.buffer_dash = 0.0;
+        state.buffer_burst = 0.0;
         state.buffer_jump = 0.0;
         resolve_getup(kinematics, state, input, frame, combo_trace, events);
         return InputState::default();
@@ -187,12 +187,12 @@ pub(super) fn tick_knockdown(
     // Touched down while still tumbling — the moment the floor game is decided.
     //
     // ⛔ **and the input buffers do not survive it.** Measured: a tech press
-    // that missed its window still sat in `buffer_dash`, so the body that hit
+    // that missed its window still sat in `buffer_burst`, so the body that hit
     // the floor emitted `[DodgeRoll, Knockdown]` on the same tick — it dodge
     // rolled out of a knockdown it was simultaneously entering. Neutralizing the
     // input for the rest of the step does not help: a buffer is input that
     // already happened.
-    state.buffer_dash = 0.0;
+    state.buffer_burst = 0.0;
     state.buffer_jump = 0.0;
     state.tumble_timer = 0.0;
     state.tumble_until_landing = false;

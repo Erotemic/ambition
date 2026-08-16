@@ -445,19 +445,42 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // is worth a note here and probably an engine-side registration
             // later.
             ambition_platformer2d::actors::features::empowerment::run_empowerments,
-            take_eliminated_fighters_out_of_play,
             announce_the_winner,
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::FighterStocksSpent);
+        // ⛔⛔ **THE ONE RULE THAT CANNOT RUN ALONGSIDE THE DECISION**, pulled out
+        // of the chain above and ordered behind it.
+        //
+        // Reported from the couch (2026-08-15): *"there seems like several cases
+        // where everyone but one player dying will not cause a match to end
+        // correctly."* This system DESPAWNS an eliminated body, and
+        // `decide_stocks_match` reads the sides off the bodies that still exist —
+        // so despawning the last loser deletes its side from the question, and
+        // `last_side_standing` sees ONE side, and one side is not a match. It
+        // answers `None`, forever, and the match never ends.
+        //
+        // Both systems sat in `CombatSet::Settle` with nothing ordering them, and
+        // the chain above inserts an `ApplyDeferred` between its members, so the
+        // despawn lands part-way through the set. Whether a match ended depended
+        // on how the scheduler broke a tie — which is why it was *"several
+        // cases"* rather than always.
+        //
+        // ⚠ **only this one waits.** The HUD, the countdown and the respawn
+        // placement are still meant to run beside the engine's answer rather than
+        // behind it — see `FighterStocksSpent`'s own note — and putting the whole
+        // chain behind the decision would take that away to fix one member.
+        let remove_the_eliminated = take_eliminated_fighters_out_of_play
+            .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+            .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided);
         if self.hosted {
-            app.add_systems(
-                sim,
-                rules.run_if(ambition_platformer2d::runtime::in_mode(SMASH_MODE)),
-            );
+            let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
+            app.add_systems(sim, rules.run_if(gate.clone()));
+            app.add_systems(sim, remove_the_eliminated.run_if(gate));
         } else {
             app.add_systems(sim, rules);
+            app.add_systems(sim, remove_the_eliminated);
         }
     }
 }

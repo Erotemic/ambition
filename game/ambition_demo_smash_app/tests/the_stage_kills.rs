@@ -481,6 +481,103 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
     );
 }
 
+/// **A MATCH SOMEBODY WINS ACTUALLY ENDS.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"there seems like several cases
+/// where everyone but one player dying will not cause a match to end
+/// correctly."* Every other test in this file measures a KNOCKOUT — the launch,
+/// the blast boundary, the stock spend, the respawn, the body that stops
+/// falling. None of them asks the question a viewer asks, which is whether the
+/// match is over when only one fighter is left.
+///
+/// ⚠ **"several cases" is the shape of a SCHEDULING AMBIGUITY, and that is what
+/// it was.** `decide_stocks_match` reads the sides off the bodies that still
+/// exist; `take_eliminated_fighters_out_of_play` despawns an eliminated body.
+/// Both sat in `CombatSet::Settle` with nothing ordering them, and the ruleset's
+/// `.chain()` inserts an `ApplyDeferred` that makes the despawn visible part-way
+/// through the set. Lose the last loser's row and `last_side_standing` sees ONE
+/// side — and one side is not a match, so it answers `None` forever. Whether a
+/// match ended depended on how the scheduler broke a tie, which is why it
+/// happened in some compositions and not others.
+///
+/// ⭐ PROBED RED: with `take_eliminated_fighters_out_of_play` ordered
+/// `.before(MatchOutcomeDecided)` instead of after — the broken order, made
+/// explicit — this runs a full match, watches a fighter be eliminated, and never
+/// settles.
+///
+/// ⚠ **the elimination is asserted first**, because a match that simply never
+/// got anybody killed would settle nothing and the claim below would be about a
+/// fight that did not happen.
+#[test]
+fn a_match_whose_last_loser_is_removed_still_decides() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::combat::components::FighterStocks;
+    use ambition_platformer2d::combat::stocks::StocksMatchSettled;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    // BOTH seats CPU, so somebody actually loses. `smash_roster` makes seat 0 a
+    // human with no controller, which is a match one fighter cannot lose.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    // ⚠ **seats, not stocks.** A fighter reduced to zero is ELIMINATED and
+    // removed in the same breath, so a poll of `FighterStocks` never sees the
+    // zero — which is the very removal this test is about. The cast SHRINKING is
+    // the observation that survives it.
+    let mut most_seats = 0usize;
+    let mut fewest_seats = usize::MAX;
+    let mut settled_on = None;
+    for tick in 0..5_400 {
+        app.update();
+        {
+            let world = app.world_mut();
+            let mut q = world.query::<(&MatchSeat, &FighterStocks)>();
+            let seats = q.iter(world).count();
+            if seats > 0 {
+                most_seats = most_seats.max(seats);
+                fewest_seats = fewest_seats.min(seats);
+            }
+        }
+        if app
+            .world()
+            .get_resource::<StocksMatchSettled>()
+            .is_some_and(|s| s.0)
+        {
+            settled_on = Some(tick);
+            break;
+        }
+    }
+    let settled = settled_on.is_some();
+
+    assert!(
+        most_seats >= 2 && fewest_seats < most_seats,
+        "the cast never shrank (peak {most_seats} seats, low {fewest_seats}), so \
+         nobody was eliminated in ninety seconds and this match never reached the \
+         question it exists to ask"
+    );
+    assert!(
+        settled,
+        "a fighter ran out of stocks and the match never decided — the state a \
+         player sees as a stage that keeps going with one fighter on it \
+         (peak {most_seats} seats, low {fewest_seats})"
+    );
+}
+
 /// ⛔⛔ **DELETED 2026-08-11 (ledger D90): `losing_a_stock_announces_a_body_
 /// restart`.** It teleported a fighter to `y = 100_000` and waited for
 /// `BodyLifetime::restart_pending` to appear.

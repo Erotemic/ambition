@@ -80,6 +80,36 @@ pub struct FighterStockSpent {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FighterStocksSpent;
 
+/// **The set the match-end decision runs in — after this, the outcome for this
+/// tick is settled.**
+///
+/// ⭐ the twin of [`FighterStocksSpent`], and it exists because "run alongside
+/// the decision" is safe for most of a ruleset and fatal for one kind of rule.
+/// The note above is right that a game's HUD, its respawn placement and its
+/// countdown are meant to run beside the engine's answer rather than behind it.
+/// But a rule that **REMOVES A PARTICIPANT** is not running alongside the
+/// question — it is destroying the question's input.
+///
+/// ⛔⛔ **and that is a defect somebody played, not a hypothetical** (reported
+/// 2026-08-15: *"there seems like several cases where everyone but one player
+/// dying will not cause a match to end correctly"*). Smash's
+/// `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body, and
+/// `decide_stocks_match` reads the sides off the bodies that still exist. Both
+/// sat in `CombatSet::Settle` with no ordering between them, and the ruleset's
+/// own `.chain()` inserts an `ApplyDeferred`, so the despawn becomes visible
+/// part-way through the set. Lose the last loser's row and
+/// [`last_side_standing`] sees ONE side — and one side is not a match, so it
+/// answers `None`, forever. Whether a match ends therefore depended on how the
+/// scheduler happened to break a tie, which differs between the standalone demo
+/// and the hosted app: *"several cases"* is what an ambiguity looks like from
+/// the couch.
+///
+/// ⚠ so a ruleset orders **only its participant-removing rules** against this.
+/// Ordering a whole rules chain behind it would take away the concurrency the
+/// note above is protecting.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MatchOutcomeDecided;
+
 /// Spend one stock per knockout, and clear the meter of anyone coming back.
 ///
 /// ⚠ **a fighter already eliminated is skipped, not spent again.** Without the

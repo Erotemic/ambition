@@ -1950,6 +1950,47 @@ the commit — lying in a room, or in flight — is still undescribed and still 
 That is exactly where *"a hand needs less than a world"* stops paying: it needs a
 position, and position is the first thing the description would grow.
 
+- ▢ **D134 — THE ADR-BACKED POLICY SUITE IS RED AND NOT IN ANY GATE.
+  (opened 2026-08-16, found in passing)**
+
+⛔⛔ **`cargo test -p ambition_workspace_policy` fails with 12 violations in the
+`engine` scope, and NOTHING RUNS IT.** The standing gate is
+`cargo check -p ambition_app --all-targets` + the app suite + Smash; this suite is
+in none of them. ⇒ a set of invariants each carrying an `owners` list, a
+`source_doc` and a written rationale has been failing unobserved. ⚠ pre-existing —
+none of them belongs to the work landed tonight.
+
+**The 12, by policy** (`tests/ambition_workspace_policy/policies/engine.toml`):
+
+```text
+engine.determinism                     (ADR 0023)
+  world/src/rooms/gate_portal.rs:199   iterates `phases`, a std hash container —
+                                       RandomState order differs BETWEEN RUNS
+engine.movement-model-is-never-optional (ADR 0024 §1)
+  features/ecs/actors/update.rs:237    names Option<&MotionModel>
+engine.player-fallback-update-documented
+  features/ecs/actors/update.rs        must contain AMBITION_REVIEW(determinism)
+engine.pose-writes-are-authority-only
+  features/ecs/actor_clusters.rs:686   seed.kin.pos = start;
+engine.velocity-writes-are-authority-only
+  characters/src/brain/fighter/recovery.rs:286   body.kinematics.vel = at.vel;
+engine.runtime-manifest-allow / -deny / runtime-source-no-upper   (7 sites)
+  runtime -> ambition_platformer2d_ldtk, a dependency the manifest both fails to
+  allow and explicitly denies, plus 5 source spellings of it
+```
+
+⭐⭐ **the determinism one is the reason this row is not merely housekeeping**: a
+`std` hash container iterated in `gate_portal` is the exact defect ADR 0023
+exists to forbid, and it differs **between runs of the same build** — which is
+what every rollback checksum and every replay claim in this repo assumes cannot
+happen. ⚠ the `runtime → ldtk` cluster is 7 of the 12 and is one architectural
+fact, not seven: an upward dependency the policy denies twice over.
+
+⇒ **two decisions are owed, and they are different**: (a) fix the violations, and
+(b) decide whether this suite joins the gate — because a policy suite nobody runs
+is a check that cannot fail, which this project already ruled is worse than no
+check at all. ⛔ do not fix (a) and leave (b), or it silently reddens again.
+
 - ▢ **D131 — PERCENT ACCRUES ON A CLOCK, WITH NO HIT AND NO OPPONENT, ON HALF
   THE CAST. (opened 2026-08-16, the first thing seen when the camera finally
   worked)**

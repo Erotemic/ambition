@@ -1051,6 +1051,38 @@ silently reshuffles four domains unless the order is first said out loud as sets
 ⚠ the plugin also owns `ActiveConversation`, the `ConversationCutBark` channel,
 seven `NarrativeInputPlugin` registrations and a second load-bearing `.chain()`
 in `Update` — so "the carve is a Cargo.toml" is false in five separate ways.
+⚠ the chain is TEN systems, not eleven; the count in the earlier note was wrong.
+
+✔✔ **STEP 1.5 LANDED 2026-08-16, and the deliberate DELETION is the proof: the
+anonymous chain no longer exists.** It is `FeatureInteractionSet` —
+`NarrativeIntake → Actuate → Continuity → CutBarkCast → HoldProjection →
+WorldObjects → SwitchIndex` — in `ambition_platformer2d_shared_tangle::schedule`,
+beside `ProgressionSet`/`PlayerInputSet` and following their template exactly:
+the phase owner `.chain()`s the SET LIST once, every domain says only which phase
+it is in, and each of the five prose rationales now lives on the variant it
+explains. ⭐ **the vocabulary lives BELOW the monolith on purpose** — a set enum
+in `features` would have re-pinned `conversation` by the schedule the instant it
+stopped importing `features`, which is the same bug one level up.
+`ConversationPlugin` owns `ActiveConversation`, `ConversationCutBark`, its
+presentation pair and its three sim systems. Four schedule-graph tests assert the
+edges AS THE PLUGIN COMPOSES THEM, and all four were probe-falsified.
+
+⭐ **only ONE of the seven `NarrativeInputPlugin` installs was conversation's**, and
+that is a seam rather than a shortfall: a ledger payload belongs to whoever
+CONSUMES it, three are `features` types a carved crate could not name, and three
+more are applied by `features::bus`/`items::narrative`. Conversation provides the
+MECHANISM and registers `ConversationEnded` alone.
+
+⭐⭐ **REMEASURED after the change: extracting `conversation` really is a
+`Cargo.toml` now.** `conversation/` holds **zero non-doc `crate::` paths**; every
+surviving coupling is an inward CALLER edge (`features/ecs/interact.rs`,
+`features/npcs.rs`, `schedule/input_systems.rs`, plus the runtime's rollback
+registration and `ambition_content`'s Yarn reads) and becomes a path rename. Its
+eleven Cargo deps all sit below the monolith, so none cycles. ⛔ **one stale note
+corrected en route**: `features/mod.rs` called `speak_conversation_cut_barks` *"the
+ONE thing `crate::conversation` reaches back into `features` for"* — it is not,
+and has not been since the bark port landed; the re-export has zero consumers
+workspace-wide.
 
 ⇒ **every other leaf is NOT YET on this plan's own scorecard:** `menu` is the
 sole namer of `ambition_menu`, but the crate also arrives through render and the

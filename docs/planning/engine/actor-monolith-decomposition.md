@@ -579,12 +579,16 @@ own.
    line does this character say"* — a CAST question, not a continuity one.
    Install a small port (a resource holding a fn, or a trait object) that the
    monolith fills; leave the cast lookup behind.
-1b. **⭐ THE PLUGIN, and it was missed until 2026-08-15.** `conversation` owns no
-   registration: `features::FeatureInteractionSchedulePlugin` does all of it and
-   interleaves three of its systems into an anonymous `.chain()` with the
-   switch/chest systems. Give the module a `ConversationPlugin` and name the
-   cross-domain order as SETS first — see the 2026-08-15 section below. Step 2
-   is not reachable before this.
+1b. ✔ **DONE 2026-08-16 — THE PLUGIN, missed until 2026-08-15.** `conversation`
+   owned no registration: `features::FeatureInteractionSchedulePlugin` did all of
+   it and interleaved three of its systems into an anonymous `.chain()` with the
+   switch/chest systems. `conversation::ConversationPlugin` now owns
+   `ActiveConversation`, `ConversationCutBark`, the `ConversationEnded` ledger
+   install, the presentation pair and its three sim systems; the anonymous chain
+   is replaced by `FeatureInteractionSet`, a seven-variant vocabulary in
+   `ambition_platformer2d_shared_tangle` (deliberately BELOW the monolith, so a
+   carved crate can still name it). Four schedule-graph tests assert the edges as
+   the plugin composes them. See the 2026-08-15/16 section below.
 2. **Move `conversation/` + `dialog.rs`** into `crates/ambition_conversation`.
 3. **`ambition_dialog` becomes a `[dev-dependency]`** of the monolith — the two
    test files still name `DialogState`, and a dev-dependency does not reach a
@@ -900,10 +904,45 @@ owns the registrations and states the cross-domain order as NAMED SETS; the
 per-payload installs whose `T` is a `features` type stay with `features`, which
 is the correct seam rather than a leftover.
 
-⚠ **not attempted this session, and the reason is a constraint rather than a
-judgement**: it is a simulation-ordering change in the actor-update hub, and an
-unordered Bevy reader is deterministically wrong, so it wants a session that can
-run the suite. The measurement is recorded so the next one does not redo it.
+✔ **DONE 2026-08-16, and the shape held.** The anonymous chain is gone. Its
+replacement is `FeatureInteractionSet` — `NarrativeIntake → Actuate → Continuity
+→ CutBarkCast → HoldProjection → WorldObjects → SwitchIndex` — living in
+`ambition_platformer2d_shared_tangle::schedule` beside `ProgressionSet` and
+`PlayerInputSet`, whose template it follows exactly: the phase owner declares the
+total order once with `.chain()` over the set list, and each domain says only
+which phase it is in. Every prose rationale moved onto the variant it explains.
+`ConversationPlugin` places three systems, `features` places the other seven, and
+neither reads the other's placement.
+
+⭐ **the judgement worth recording: only ONE of the seven `NarrativeInputPlugin`
+installs was conversation's.** A ledger payload belongs to whoever CONSUMES it —
+three are `features` types a carved crate could not name, and three more are
+applied by `features::bus` / `items::narrative`. `conversation` provides the
+ledger MECHANISM and registers only `ConversationEnded`, the payload it both
+defines and consumes. Moving all seven would have made the new crate a registrar
+for other domains' vocabulary.
+
+⭐⭐ **REMEASURED after the change, and the header's old claim is finally true:
+what is left really is a `Cargo.toml`.** `conversation/` contains **zero non-doc
+`crate::` paths**; every surviving coupling is an inward CALLER edge
+(`features/ecs/interact.rs`, `features/npcs.rs`, `schedule/input_systems.rs`,
+plus `ambition_platformer2d_runtime`'s rollback registration and
+`ambition_content`'s Yarn reads), which become `ambition_conversation::` path
+renames. The Cargo dependencies it needs — `ambition_characters`,
+`ambition_combat`, `ambition_dialog`, `ambition_geometry`, `ambition_input`,
+`ambition_interaction`, `ambition_platformer2d_core`,
+`ambition_platformer2d_shared_tangle`, `ambition_time`, `ambition_vfx`, `bevy` —
+are all crates the monolith already sits above, so none cycles. ⚠ the one thing
+to re-check when doing it is the `ParticipantId` ↔ `PlayerSlot` correspondence
+`opening.rs` deliberately does not own.
+
+⛔ **and a stale note was corrected while measuring**: `features/mod.rs` claimed
+`speak_conversation_cut_barks` was *"the ONE thing `crate::conversation` reaches
+back into `features` for"*. It is not, and had not been since the bark port
+landed — continuity WRITES `ConversationCutBark` and the cast READS it, so the
+arrow points the same way as every other edge. The re-export itself has zero
+consumers workspace-wide; the plugin names `npcs::speak_conversation_cut_barks`
+directly.
 
 ⭐ **the durable lesson: a module with zero inward imports can still be pinned by
 the schedule.** The C4e accounting, the module header, and this plan all counted

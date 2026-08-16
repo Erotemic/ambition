@@ -531,6 +531,79 @@ pub enum PlayerSimulationSet {
     Outcome,
 }
 
+/// **The phases inside [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`].**
+///
+/// Same shape and same reason as [`ProgressionSet`] and [`PlayerInputSet`], with
+/// one difference that is the point of the whole vocabulary: this phase held ONE
+/// anonymous `.chain()` of ten systems spanning **four domains** —
+/// `conversation`, the interaction feature systems, the NPC cast, and
+/// `encounter` — and every cross-domain interleave in it was load-bearing and
+/// recorded ONLY as adjacency in a tuple plus prose at the call site.
+///
+/// ⭐ **the generalisable finding this enum exists for: a module with zero
+/// inward imports can still be pinned by the SCHEDULE.** `conversation` measured
+/// 1,836 lines with zero `crate::` edges in either direction and its own header
+/// claimed *"the carve is a Cargo.toml"* — but three of its systems sat wedged
+/// between `interact_ecs_actors_and_switches` and the chest systems in a chain
+/// it could not name, so lifting it out of the crate would have silently
+/// dissolved the ordering. An import graph cannot see a `.chain()`.
+///
+/// ⚠ **naming these changed no order.** The variants are the boundaries the
+/// prose comments already drew; each one carries the sentence that justified it.
+/// The chain is declared once (`FeatureInteractionSchedulePlugin`) and every
+/// domain plugin only says which phase it belongs to — so `conversation` states
+/// its own placement against a vocabulary that lives BELOW the monolith and
+/// survives the carve.
+///
+/// ⛔ **`.chain()` on the set list, not `(a, b).before(c)`.** `(A, B).before(C)`
+/// orders both A and B before C and says nothing about A vs C's siblings; only a
+/// chain states a total order. And because Bevy inserts sync points on
+/// dependency edges after flattening sets to systems, the `ApplyDeferred`
+/// boundaries the original per-system chain provided are preserved — which
+/// matters at [`Self::SwitchIndex`], whose whole job is to see what the systems
+/// before it just spawned or despawned.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum FeatureInteractionSet {
+    /// **The narrative running out of lines is an INPUT to the simulation**, and
+    /// it lands before anything judges the conversation for separation —
+    /// otherwise a conversation that ended this frame gets barked about on its
+    /// way out.
+    NarrativeIntake,
+    /// **Somebody pressed Interact**: actors and switches. The phase that OPENS
+    /// a conversation, which is why [`Self::Continuity`] may not precede it.
+    Actuate,
+    /// **The break rule.** ⚠ AFTER [`Self::Actuate`]: a dialogue opened this
+    /// frame must not be judged for separation before the bodies that opened it
+    /// have been read. Both use the same `strict_intersects` reach, so a
+    /// conversation cannot begin and immediately break.
+    Continuity,
+    /// **The CAST half of the break**: continuity said who should speak, this
+    /// says what they say. Immediately after [`Self::Continuity`], so the bubble
+    /// lands on the same tick the conversation ended.
+    ///
+    /// ⭐ **a slot `conversation` names and the cast fills.** The set is declared
+    /// by the ordering vocabulary and its member lives in `features::npcs`,
+    /// which is the temporal twin of the `ConversationCutBark` message port:
+    /// continuity owns WHEN, the cast owns WHAT.
+    CutBarkCast,
+    /// **The hold, PROJECTED** — whatever [`Self::Continuity`] decided (a break,
+    /// a body that stopped existing, or nothing at all), the world is made to
+    /// match the authority on the same frame. ⛔ it is not a "release": it both
+    /// takes and releases the hold, because a projection that only let go would
+    /// be a second rule about when to hold.
+    HoldProjection,
+    /// **Interactable world objects**: chests opening, breakables breaking,
+    /// falling chests falling, and the save → switch mirror. Downstream of
+    /// [`Self::Actuate`] because that is what opens a chest.
+    WorldObjects,
+    /// **The encounter switch index, rebuilt last.** It is a cache of
+    /// `SwitchFeature + SwitchOn` over the whole world, so it must observe every
+    /// switch mutation this phase makes — the Interact toggle in
+    /// [`Self::Actuate`] and the save mirror in [`Self::WorldObjects`] — or the
+    /// encounter arms a frame late off a stale index.
+    SwitchIndex,
+}
+
 /// Bevy run condition: returns `true` only in [`GameMode::Playing`].
 ///
 /// Use this to gate simulation systems that must not run while paused,

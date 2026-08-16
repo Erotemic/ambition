@@ -61,25 +61,47 @@
 //! port) is done.
 //!
 //! ⛔⛔ **and "the carve is a `Cargo.toml`" — which this paragraph said until
-//! 2026-08-15 — is FALSE, for a reason an import count cannot see.** The
+//! 2026-08-15 — was FALSE, for a reason an import count cannot see.** The
 //! accounting above measures `crate::` paths. It does not measure the SCHEDULE,
-//! and the schedule is where this module is still joined to `features`:
-//! `features::FeatureInteractionSchedulePlugin` owns every registration this
-//! module has — [`ActiveConversation`], [`ConversationCutBark`], the
-//! `NarrativeInputPlugin` installs, and the systems — and it interleaves three
+//! and the schedule was where this module stayed joined to `features`:
+//! `features::FeatureInteractionSchedulePlugin` owned every registration this
+//! module had — [`ActiveConversation`], [`ConversationCutBark`], the
+//! `NarrativeInputPlugin` installs, and the systems — and it interleaved three
 //! of them into ONE anonymous `.chain()` with `interact_ecs_actors_and_switches`,
 //! `npcs::speak_conversation_cut_barks` and the chest/breakable systems. Every
-//! interleave is load-bearing and documented only in prose at the call site.
-//!
-//! ⇒ **the prerequisite is a `ConversationPlugin` here that owns those
-//! registrations, with the cross-domain order stated as NAMED SETS instead of
-//! adjacency in a chain.** Only then is what is left a `Cargo.toml`. ⚠ the
-//! per-payload `NarrativeInputPlugin::<T>` installs do NOT all move: `T` is
-//! sometimes a `features` type, and those stay with their owner — which is the
-//! correct seam, not a leftover.
+//! interleave was load-bearing and documented only in prose at the call site.
 //!
 //! ⭐ the generalisable lesson: **a module with zero inward imports can still be
 //! pinned by the schedule.** Count the registrations, not only the paths.
+//!
+//! ✔ **RESOLVED 2026-08-16.** [`ConversationPlugin`] owns this module's
+//! registrations, and the anonymous chain is gone: the phase's order is
+//! [`FeatureInteractionSet`](ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet),
+//! a named vocabulary in `ambition_platformer2d_shared_tangle` — BELOW the
+//! monolith, so it survives the carve. ⚠ the per-payload
+//! `NarrativeInputPlugin::<T>` installs did NOT all move: `T` is sometimes a
+//! `features` type, and every payload belongs to whoever consumes it, so only
+//! [`ConversationEnded`] came along. See [`plugin`] for the reasoning.
+//!
+//! ⇒ **MEASURED 2026-08-16, and what is left really is a `Cargo.toml`.**
+//! `conversation/` contains **zero non-doc `crate::` paths** — every remaining
+//! coupling is an INWARD caller edge, which is the direction a carve wants:
+//! `features/ecs/interact.rs` calls [`DialogueDispatch`]/[`character_id_of`],
+//! `features/npcs.rs` answers [`ConversationCutBark`], `schedule/input_systems`
+//! reads [`ActiveConversation`], and outside the crate
+//! `ambition_platformer2d_runtime` rollback-registers the authority while
+//! `ambition_content` reads it from Yarn commands. Those become
+//! `ambition_conversation::` path renames, not blockers.
+//!
+//! ⚠ **the one thing to check before doing it** is the `ParticipantId` ↔
+//! `PlayerSlot` correspondence recorded above: [`opening`] takes the owner as a
+//! parameter precisely so it does not become a second owner of it, and a new
+//! crate must not quietly re-acquire that. The Cargo dependencies it would need
+//! — `ambition_characters`, `ambition_combat`, `ambition_dialog`,
+//! `ambition_geometry`, `ambition_input`, `ambition_interaction`,
+//! `ambition_platformer2d_core`, `ambition_platformer2d_shared_tangle`,
+//! `ambition_time`, `ambition_vfx`, `bevy` — are all crates the monolith already
+//! sits above, so none of them cycles.
 //!
 //! ## The files
 //!
@@ -98,12 +120,14 @@
 //! - [`rules`] — when a conversation ENDS, and the bark that says so.
 //! - [`ui_bridge`] — the text box as a projection, and the narrative end as the
 //!   ledger's first payload.
+//! - [`plugin`] — what this module registers, and the phases its systems name.
 
 mod authority;
 mod hold;
 mod instance;
 mod ledger;
 mod opening;
+mod plugin;
 mod rules;
 mod ui_bridge;
 
@@ -117,6 +141,7 @@ pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
 pub use opening::{character_id_of, DialogueDispatch};
+pub use plugin::ConversationPlugin;
 pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
 pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,

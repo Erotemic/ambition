@@ -12,8 +12,9 @@ mod input_systems;
 mod schedule;
 
 pub use ambition_platformer2d_shared_tangle::schedule::{
-    BossSteerSlot, CombatSet, Platformer2dSimulationPhaseMonolith, PlayerInputSet,
-    PlayerSimulationSet, PresentationSetupSet, RoomTransitionSet, SimulationSetupSet, WorldPrepSet,
+    BossSteerSlot, CombatSet, FeatureInteractionSet, Platformer2dSimulationPhaseMonolith,
+    PlayerInputSet, PlayerSimulationSet, PresentationSetupSet, RoomTransitionSet,
+    SimulationSetupSet, WorldPrepSet,
 };
 pub use input_systems::declare_gameplay_input_context;
 #[cfg(feature = "input")]

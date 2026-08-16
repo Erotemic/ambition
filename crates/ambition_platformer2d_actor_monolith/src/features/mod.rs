@@ -101,11 +101,19 @@ pub(crate) use ecs::{
     spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
-// ⭐ **the ONE thing `crate::conversation` reaches back into `features` for**: a
-// bark line for a character in a situation. Named explicitly rather than opening
-// the whole `npcs` module, because when the conversation module is carved out
-// this single function IS its port — and a `pub(crate) mod` would have hidden
-// how small the remaining coupling is.
+// ⭐ **the CAST half of the conversation port**: a bark line for a character in
+// a situation. Named explicitly rather than opening the whole `npcs` module,
+// because when the conversation module is carved out this single function is
+// what answers its `ConversationCutBark`, and a `pub(crate) mod` would have
+// hidden how small the remaining coupling is.
+//
+// ⚠ **corrected 2026-08-16: this is NOT an edge `conversation` reaches back
+// through, which is what the note here claimed.** Continuity never calls it —
+// it writes the message and this reads it, so the arrow points from `features`
+// into `conversation` like every other one. Measured: `conversation/` contains
+// zero non-doc `crate::` paths. The temporal half of the same port is
+// `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in
+// below.
 pub use npcs::speak_conversation_cut_barks;
 
 pub use components::{
@@ -731,32 +739,40 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
 }
 
 /// Schedules `FeatureInteraction`: switches, chests, breakables, save sync,
-/// and encounter switch-index rebuild.
+/// and encounter switch-index rebuild — and **declares the cross-domain order
+/// the phase runs in.**
+///
+/// ⛔ **this used to be ONE anonymous `.chain()` of ten systems across FOUR
+/// domains** (`conversation`, the interaction features, the NPC cast,
+/// `encounter`), with every interleave load-bearing and recorded only as
+/// adjacency in a tuple plus prose here. That is how `conversation` — 1,836
+/// lines with zero `crate::` imports in either direction — stayed pinned inside
+/// the monolith while every import measure said it was free.
+///
+/// ⭐ **the order is now
+/// [`FeatureInteractionSet`](crate::schedule::FeatureInteractionSet)**, and each
+/// prose rationale lives on the variant it explains rather than beside the
+/// system it happened to precede. This plugin declares the total order ONCE and
+/// each domain only says which phase it is in — `conversation` says so from
+/// [`crate::conversation::ConversationPlugin`], naming nothing in `features`.
 pub struct FeatureInteractionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
         use bevy::prelude::IntoScheduleConfigs;
-        // The conversation authority is sim state and lives for the whole App;
-        // the UI projection that follows it is presentation and runs outside the
-        // simulation schedule, so a rewind cannot un-close a box the player
-        // already watched close.
-        app.init_resource::<crate::conversation::ActiveConversation>();
-        // ⛔ **REGISTER THE CHANNEL THE PORT ASKS THROUGH.** The break rule
-        // writes it and the cast answers it, both in this plugin's chain — so
-        // this plugin owns the registration. Leaving it to whoever else wanted
-        // the message is how the effect quarantine once worked in a shipped app
-        // and nowhere else; here it failed parameter validation on frame one of
-        // the sandbox harness.
-        app.add_message::<crate::conversation::ConversationCutBark>();
-        // ⚠ **the ledger is NOT rollback state, and that is the whole design.**
-        // It is the record of what the narrative — which runs outside the
-        // simulation — told the simulation, stamped with the tick it applies
-        // from. A rewind restores what the simulation DECIDED; erasing what it
-        // was TOLD is how the replay reaches a different answer. The plugin
-        // installs the ledger, its release at the head of the sim frame, and the
-        // prune that ages a record out once its tick can never be replayed.
+        use crate::schedule::FeatureInteractionSet;
+
+        // ⭐ **the conversation domain installs itself**: the authority, the
+        // cut-bark port channel, its own narrative payload, its presentation
+        // pair, and its three sim systems placed by PHASE. Nothing about
+        // conversation is registered here any more.
+        app.add_plugins(crate::conversation::ConversationPlugin);
+        // ⚠ **the ledger payloads that are NOT conversation's.** The ledger is
+        // the record of what the narrative — which runs outside the simulation —
+        // told the simulation, stamped with the tick it applies from. A rewind
+        // restores what the simulation DECIDED; erasing what it was TOLD is how
+        // the replay reaches a different answer.
         //
         // ⚠ **one per payload, and the list IS the classification** — the
         // counterpart to the table in `crate::dialog::yarn_bindings`. A
@@ -764,8 +780,15 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // story; a presentation-facing one must NOT be here, because deferring
         // a sound to a simulation tick would delay it for no reason. Content
         // registers its own vocabulary the same way, so this names no content.
+        //
+        // ⛔ **these stay here on purpose, and it is a seam rather than a
+        // leftover.** A payload belongs to whoever CONSUMES it: three of these
+        // are `features` types that a carved-out conversation crate could not
+        // name at all, and the other three are applied by `features::bus` and
+        // `crate::items::narrative`. Conversation provides the ledger MECHANISM
+        // and registers only `ConversationEnded`, the payload it both defines
+        // and consumes.
         app.add_plugins((
-            crate::conversation::NarrativeInputPlugin::<crate::conversation::ConversationEnded>::default(),
             crate::conversation::NarrativeInputPlugin::<ambition_combat::events::SetFlagRequested>::default(),
             crate::conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
             crate::conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
@@ -773,66 +796,77 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             crate::conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             crate::conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
         ));
-        // The TWO presentation halves of the seam: one projects the box from the
-        // authority (and detaches from it), one observes the runner finishing and
-        // records it for the simulation. Neither runs in the sim schedule, which
-        // is what keeps a rewind from replaying a side effect onto state it does
-        // not rewind.
+
+        // ⭐⭐ **THE ORDER, SAID OUT LOUD.** Every reason each boundary exists is
+        // on the `FeatureInteractionSet` variant; the shape of the statement is
+        // the part that belongs here.
         //
-        // ⛔ **`.chain()`, and the order is load-bearing.** "The runner is not
-        // active" is how the second one recognises a finished conversation — and
-        // on the frame a conversation OPENS that is also true until the first one
-        // has run. Unordered, a conversation could be recorded as finished on the
-        // tick it began, and the simulation would close it before a line was
-        // ever shown.
-        app.add_systems(
-            bevy::prelude::Update,
+        // ⛔ **`.chain()` over the whole list, deliberately** — `(A, B).before(C)`
+        // would order both A and B before C and say nothing about A vs B, which
+        // is exactly the gap that let ten systems look ordered while three of the
+        // eleven pairwise contracts were unstated. A chain is a total order.
+        //
+        // ⛔ **the `ApplyDeferred` boundaries survive.** The old per-system chain
+        // inserted a sync point between every pair; Bevy inserts sync points on
+        // dependency edges after sets are flattened to their members, so the
+        // set-level chain reproduces them at every phase boundary. That is load
+        // bearing at `SwitchIndex`, which is a whole-world cache of switch
+        // components and must see the spawns and despawns the phases before it
+        // queued.
+        app.configure_sets(
+            sim,
             (
-                crate::conversation::project_the_dialog_ui_from_the_conversation,
-                crate::conversation::publish_the_narrative_end,
+                FeatureInteractionSet::NarrativeIntake,
+                FeatureInteractionSet::Actuate,
+                FeatureInteractionSet::Continuity,
+                FeatureInteractionSet::CutBarkCast,
+                FeatureInteractionSet::HoldProjection,
+                FeatureInteractionSet::WorldObjects,
+                FeatureInteractionSet::SwitchIndex,
             )
-                .chain(),
+                .chain()
+                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
         );
+
+        app.add_systems(
+            sim,
+            interact_ecs_actors_and_switches.in_set(FeatureInteractionSet::Actuate),
+        );
+        // The cast half of the conversation break. It sits in a set the
+        // conversation ordering vocabulary declares and this domain fills —
+        // the temporal twin of the `ConversationCutBark` message port.
+        app.add_systems(
+            sim,
+            npcs::speak_conversation_cut_barks.in_set(FeatureInteractionSet::CutBarkCast),
+        );
+        // ⚠ still `.chain()`, and that is not the anonymous chain this plugin
+        // used to be: all four are interaction-feature systems with no
+        // cross-domain contract between them, so the order is INTERNAL and the
+        // sync points between them are preserved verbatim from before.
         app.add_systems(
             sim,
             (
-                // The narrative running out of lines is an INPUT to the
-                // simulation, and it lands before anything judges the
-                // conversation for separation — otherwise a conversation that
-                // ended this frame gets barked about on its way out.
-                crate::conversation::close_conversation_on_narrative_end,
-                interact_ecs_actors_and_switches,
-                // ⚠ AFTER the interaction that starts a conversation, in the
-                // same chain: a dialogue opened this frame must not be judged
-                // for separation before the bodies that opened it have been
-                // read. Both use the same `strict_intersects` reach, so a
-                // conversation cannot begin and immediately break.
-                crate::conversation::break_dialogue_on_hit_or_separation,
-                // The CAST half of the break: continuity said who should speak,
-                // this says what they say. Immediately after, so the bubble
-                // lands on the same tick the conversation ended.
-                npcs::speak_conversation_cut_barks,
-                // The hold is PROJECTED after, in the same chain: whatever the
-                // rule above decided — a break, a body that stopped existing, or
-                // nothing at all — the world is made to match the authority on
-                // the same frame. ⛔ it is not a "release": it both takes and
-                // releases the hold, because a projection that only let go would
-                // be a second rule about when to hold.
-                crate::conversation::project_conversation_hold,
                 open_ecs_chests,
                 update_ecs_breakables,
                 update_ecs_falling_chests,
                 sync_ecs_switches_from_save,
-                crate::encounter::rebuild_encounter_switch_index,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
+                .in_set(FeatureInteractionSet::WorldObjects),
+        );
+        app.add_systems(
+            sim,
+            crate::encounter::rebuild_encounter_switch_index
+                .in_set(FeatureInteractionSet::SwitchIndex),
         );
     }
 }
 
 #[cfg(test)]
 mod actor_movement_tests;
+
+#[cfg(test)]
+mod feature_interaction_order_tests;
 
 #[cfg(test)]
 mod sim_clock_tests {

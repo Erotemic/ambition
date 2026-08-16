@@ -122,10 +122,17 @@ These cards are capability fronts, not a serial mega-campaign.
   capability closure or iteration cost. Do not carve by line count. Use
   [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-- ▢ **Capability/runtime composition.** Make optional capabilities honest in
+- ▢ **Capability/runtime composition — PROMOTED TO THE LEDGER 2026-08-16 as D136;
+  do not promote it a second time.** Make optional capabilities honest in
   Cargo dependency closure and runtime/plugin assembly; a minimal consumer
   should not silently inherit unrelated domains. Use
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+  ⭐ promoted because five independent slices in one night turned out to be this
+  same failure — the engine unable to ship its own art, a persistence authority
+  absent from every headless harness, a demo's rules reaching another demo's
+  fighter, a laundered crate edge becoming a declared one, and a format-specific
+  field in the canonical session world. The card could not have made that
+  argument; the instances can.
 
 - ▢ **Public SDK 1.0.** Continue hiding implementation topology behind semantic
   game concepts and close real provider ergonomics gaps through real consumers,

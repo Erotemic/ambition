@@ -2011,6 +2011,56 @@ read-model whose whole body-cluster group is optional). Widening the rule tonigh
 would have reddened a crate this slice did not analyse; it is recorded in that
 policy's rationale.
 
+- ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
+  installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
+  2026-08-16, with five instances measured in one night as its evidence)**
+
+Plan: [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
+Card text: *"Make optional capabilities honest in Cargo dependency closure and
+runtime/plugin assembly; a minimal consumer should not silently inherit unrelated
+domains."* ⚠ **it was reachable from `tracks.md` and from NO ledger row** — the
+same strandedness that made seven designed Engine 1.0 plans invisible on
+2026-08-14. Promoted rather than re-derived.
+
+⭐⭐ **it is promoted now because five independent slices on 2026-08-16 all turned
+out to be the same failure**, which is a much stronger argument than the card
+could make on its own:
+
+```text
+D128  the engine cannot ship the art IT draws — every sprite-registration site
+      is a GAME system, so `spawn_explosion` reaching for `generic_explosions`
+      works only if some game happened to declare it
+D132  the durable-save leg is installed by the visible-binary-only presentation
+      assembly, so ONE OF TWO persistence authorities does not exist in any
+      headless harness — which is why they had never met in a test
+D131  the shell composes every experience into one process, so a DEMO's rules
+      reach a fighter from a different demo (leading hypothesis, and it explains
+      the cast split exactly)
+D134  `runtime → ldtk` was forbidden by two policies nothing ran; the EDGE turned
+      out legitimate and downward — but only because a facade deletion converted
+      a laundered edge into a declared one, for the THIRD time in that file
+D135  the canonical session world carries an authoring-format-specific field, and
+      five RON-only games construct `::default()` for a world they never install
+```
+
+⇒ **the through-line: none of these is a bug in the ordinary sense.** Each is a
+place where *"who is this for?"* was answered by whoever installed it first, and
+never written down. ⭐ that is why the composition-shaped slices have been paying
+more than the feature-shaped ones this week — naming the schedule order let
+`conversation` leave, giving the engine a home for its own art made effects
+reachable, and making a load a checkpoint resume removed a whole reconstruction
+road.
+
+⚠ **the standing number to move**: `capability-footprint-may-not-grow` reads
+**42 crates linked, 15 a movement-only game never asked for**. ⛔ it has not moved
+in any slice yet, and two of them predicted it would not. ⇒ **a slice that claims
+this row should say what it did to that number, or say why the number is
+dominated by something it did not touch.**
+
+⚠ **D135 is the first executable instance and is IN FLIGHT — do not duplicate
+it.** This row is the umbrella; work it by taking the next instance, not by
+re-measuring the pattern.
+
 - ▢ **D135 — THE CANONICAL SESSION WORLD CARRIES AN AUTHORING-FORMAT-SPECIFIC
   FIELD, AND FIVE GAMES FILL IT WITH `::default()`.
   (opened 2026-08-16, split out of D134)**

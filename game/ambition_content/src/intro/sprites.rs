@@ -52,7 +52,8 @@ pub fn intro_npc_sprite_rows(
             "creator_spritesheet.png",
             intro_sheet("creator", t),
         ),
-        // Oiler: street mechanic (dedicated toon-adapter sheet).
+        // Oiler: street mechanic (direct-SVG multiview rig, since 2026-08-16 —
+        // the toon-adapter sheet this used to name is no longer published).
         ("Oiler", "oiler_spritesheet.png", intro_sheet("oiler", t)),
         // Gate Janitor: Kernel Guide placeholder until a dedicated
         // janitor sheet lands.

@@ -394,6 +394,84 @@ the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.
 
 Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
+- ▢ **D146 — THE SMASH CONTROLLER, AND DASH LEAVING THE VOCABULARY. (Jon,
+  2026-08-16, three asks in one message + one follow-up)**
+
+Jon, verbatim: *"Another thing to note is I don't think the special button is
+mapped to a game pad for smash. My preferred smash layout for a xbox controller
+is a=normal, x=special, b=jump, y=grab (we don't have grab yet), left trigger is
+shield. The rest of the bindings are normal I think. Now that each character has
+an up-b, I think we can likely also remove everyone's ability to dash in smash.
+Dash should be an ability for ambition, it doesn't map into a smash vocabulary.
+We may need to give everyone extra height for their double jump to compensate."*
+
+And the follow-up: *"Well, B=jump is the way I like my smash controller, It's
+probably non standard. Will need to have control profiles eventually."*
+
+**THREE ITEMS, in the order they should be done. Everything below is MEASURED,
+not assumed — the reading was done 2026-08-16 before any of it was written.**
+
+**1 ▢ DASH OUT OF THE SMASH KIT, and the double jump compensates.**
+One line: `dash: true` comes out of `SMASH_FIGHTER_KIT`
+(`game/ambition_demo_smash/src/lib.rs`). ⭐ it reaches all fourteen at once
+because D142 made the stage GRANT that kit rather than mask with it — before
+that this would have been fourteen edits.
+⚠ **the jump number is a MEASUREMENT, not a multiplier.** Measure the current
+jump arc against the stage's own gaps (`smash_stage()`'s platform, the 420px
+platform in a 960px world) before picking one; the ledge grab and the up-B
+recoveries all landed since the arc was last tuned.
+⚠ **`dash` is also `AbilitySet::dash`, which the DASH-ATTACK press has no
+relationship to** — check whether anything in the sixteen-press vocabulary reads
+it before removing, and whether the CPU brain's `smash_dash_to_close` policy
+depends on it (`BrainProfile::smash_dash_to_close`, set on the PCA among others).
+
+**2 ▢ SHIELD IS NOT ITS OWN INPUT ACTION, so the layout cannot express it.**
+⛔⛔ measured: there is no `Shield` in `Platformer2dInputActionMonolith`.
+`InputState::shield_held` is DERIVED — `starting_character.rs` sets it when a
+body's special action is the `bubble_shield` key and `special_pressed` is up. So
+*"X = special, LT = shield"* is not a rebinding: the two are the same button
+today, and shield has to be lifted out of the special slot first.
+
+**3 ▢ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT.**
+⛔ measured: `Special` has NO gamepad binding at all. The action enum says so in
+its own comment — *"a per-preset keyboard key (gamepad Special awaits the remap
+pass)"*. Today's pad map (`ambition_input/src/presets.rs`): Jump→South(A),
+Attack→West(X), Blink→East(B), Projectile→North(Y), Dash→RightTrigger2,
+Utility→LeftTrigger, Modifier→LeftTrigger2.
+
+Jon's smash layout: **A = normal, X = special, B = jump, Y = grab (does not
+exist yet), LT = shield.**
+
+⭐ **the seam exists and is the right one**: `BindingRecipe { base, overrides }`
+in `ambition_input/src/bindings.rs`, whose overrides are documented as *"a LAYER
+on the base, never a replacement"*. A smash profile is expressible without
+forking the preset — which is also the shape the *"control profiles eventually"*
+Jon named will want.
+⚠ **A=jump is right for Ambition and B=jump is right for his smash**, so this
+must NOT become a global preset edit. ⚠ `BindingOverride` is currently a
+SETTINGS type (a user remap); using it for a mode's layout conflates "the player
+rebound this" with "this mode ships this" — decide that before writing.
+⚠ **Y = grab is blocked**: grabs are not in the vocabulary yet (see below).
+
+**Standing items this row touches but does not close:**
+* ▢ **the press vocabulary grows past sixteen** — Jon, on the kit census:
+  *"16 is the current target, but we will need to do more (trips, grabs, falls,
+  techs, etc…)"*. `SMASH_KIT` in `smash_roster_movesets.rs` is the list, and the
+  ratchet reads its length, so adding a press raises the bar by itself.
+* ◐ **D143** — the stage's `unarmed_melee` still does not reach a kit-less seat.
+  Unreachable from the grid now that all fourteen author tables; real for the
+  next character seated without one.
+* ⊙ **the PCA's own kit** still has no `double_jump`, `fast_fall` or `dodge` as a
+  CREATURE — it gets them on the stage from the floor. Whether the automaton
+  should have them in its own room is Jon's.
+* ⊙ **Sanic's kit is `[RunJump]`** — what a runner's kit should actually be (a
+  double jump? a fast fall?) is open. Only the ban is settled: never fly, blink
+  or wall climb, in any iteration.
+* ▢ **`ambition_demo_smash` carries its own FORK of the moveset authoring
+  helpers** (`crate::moveset`, with a `Feel` tag the shared one has no concept
+  of). D144 moved the shared copy down to `ambition_characters`; unifying the
+  fork is its own change and would expose what the fork hides.
+
 - ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
   "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**
 

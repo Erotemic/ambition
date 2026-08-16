@@ -394,6 +394,49 @@ the baseline** rather than fail. ⇒ **record baselines from the MAIN tree only.
 
 Case file: [`../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md`](../archive/planning-superseded/2026-08-14/d126-resolve-order-and-uncalled-capabilities.md).
 
+- ▢ **D140 — A SECOND MATCH NEVER STARTS AND NEVER ENDS: "GO!" stays up, and
+  nothing can win. (Jon, 2026-08-16, REPRODUCIBLE)**
+
+Jon, verbatim: *"sometimes in a 4 player cpu battle, when someone wins it ends I
+with 'Go'. Maybe that is a side effect of starting one match, and then doing
+another match? I thought we had tests for that. Probably worth strenthening
+them. When there is only 1 player alive or 1 team alive for team matches the
+time in the game should freeze with 'WINNER: <name>' to show the match is over,
+and not let players continue to play after the match ends. COnfirming a test.
+cpu vs cpu on a fresh match, got seat 2 wins. Running back and doing another cpu
+vs cpu after gets a 3 2 1 go, but the GO stays on the screen for the entire
+match, and the match does not end. I can quit to title and then do another match
+which does a 3, 2, 1, go, but again the go still appears on the screen, and the
+match does not end when there is only 1 player left. On a fresh start, with 4
+player cpu free for all, the 3, 2, 1, go happened, and the go disappaeared, and
+the game ended when someone won with the screen text confirmation. But then
+another cpu vs cpu the go issue appears again, so this is reproducible."*
+
+⭐ **the repro is exact and it is a SEQUENCE, which is why a test missed it**:
+match 1 is correct in every shape he tried (2-CPU and 4-CPU free-for-all).
+Match 2 — reached either by rematch OR by quitting to title first — hangs at
+"GO!" and never resolves a winner. So the defect is in what the FIRST match
+leaves behind, and quitting to the title does not clear it.
+
+⇒ **two things are stuck together and they may be one bug**: the countdown
+never retires (its state stays at GO), and the victory condition never fires
+(one fighter alive does not end the match). A countdown that never leaves GO
+would explain both if the win check is gated on the match having STARTED and
+the start edge is what never arrives on the second run.
+
+**Falsifier, and Jon named it:** *"I thought we had tests for that. Probably
+worth strenthening them."* ⇒ the guard must run TWO matches in one app — the
+existing ones almost certainly assert one — and assert on the second that the
+countdown has retired and that a last-fighter-standing ends the match. ⛔ a test
+that builds a fresh app per match cannot fail this bug, which is very likely why
+the current ones pass.
+
+**And the product rule he stated**, which is the acceptance for the end of a
+match: *"the time in the game should freeze with 'WINNER: <name>' ... and not
+let players continue to play after the match ends"* — a frozen clock, the
+winner NAMED (not "seat 2 wins", which is D128 item 4), and inputs no longer
+moving anybody.
+
 - ▢ **D138 — OILER FIGHTS IN HIS OLD BODY: the SVG rig is his portrait and
   nothing else. (Jon, 2026-08-16)**
 
@@ -444,6 +487,13 @@ sheet swap owes three regenerations, not one**: `--target <t>`, then
 `regen_visual_quality_variants.sh --target <t>`, then the four ultrapack tiers.
 ⚠ this is very likely why Jon saw the old sprite after a regen that did replace
 the sheet.
+
+✔✔ **BOTH HALVES DONE 2026-08-16.** The body swap landed (`69eee645f`) and the
+kit followed (`bd6cbf775` + `95b45b6cc`): sixteen moves, eighteen of his
+twenty-three effects bound, the geyser as his Up-B. He is off `KNOWN_UNARMED`.
+⚠ what is left is a BALANCE pass with real eyes — he finished the observed match
+at 36% against George's 5% and lost, which is the design's direction but a
+bigger margin than intended.
 
 **SECOND HALF — Jon, 2026-08-16:** *"It might be the case that we have to author
 more oiler poses so he has a full smash moveset and can use some of his new

@@ -1305,6 +1305,127 @@ fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
     );
 }
 
+/// **OILER RIDES HIS OWN GEYSER, ON A BODY THE SHIPPED HOST SEATED.**
+///
+/// ⭐ the acceptance claim for the kit Jon asked for on 2026-08-16, measured
+/// where it matters: not "the table compiles" (his own unit tests say that) but
+/// *the table reached a fighter the select screen produced*. Everything between
+/// the authored function and this assertion — provider registration,
+/// preparation, `authored_moveset`, the seat's kit, the moveset overlay — is a
+/// place it could vanish silently, and the body would go on swinging the
+/// stage's generic swipe with nothing in the log.
+///
+/// ⛔ **the RECOVERY specifically, because it is the move a policy layer reads.**
+/// `lift_speed` is derived from `Set` impulses only, so a geyser that arrived
+/// with the wrong impulse mode would be invisible to `lifting_candidates` and
+/// the CPU would drift at a stage it could reach.
+///
+/// ⚠ **the goblin is the CONTROL and it is not decoration.** He is seated beside
+/// Oiler and authors a table too — so if the stage were handing both bodies one
+/// kit, the assertions above would still hold for whichever fighter's table won.
+/// The goblin has no way home at all by design (`goblin_moveset`: *"a goblin
+/// that could pogo off a body would out-recover a character built around
+/// recovery being its problem"*), so "exactly one of these two seats advertises
+/// a lift" is the claim that says two different tables arrived.
+#[test]
+fn oiler_seated_in_the_host_rides_his_own_geyser() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::entity_catalog::AttackDir;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            "npc_oiler".to_string(),
+            "goblin".to_string(),
+        ]));
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d::combat::moveset::ActorMoveset,
+    )>();
+    let mut seats: Vec<(
+        usize,
+        ambition_platformer2d::entity_catalog::MovesetContract,
+    )> = query
+        .iter(world)
+        .map(|(seat, moveset)| (seat.0, moveset.0.clone()))
+        .collect();
+    seats.sort_by_key(|(seat, _)| *seat);
+    assert_eq!(
+        seats.len(),
+        2,
+        "expected two seated fighters; got {}. A seat with no moveset at all \
+         means nothing reached the body",
+        seats.len()
+    );
+
+    // Which seat is which is decided by the roster order above, but reading it
+    // off the TABLE rather than off the index is what keeps this honest if that
+    // ordering ever changes.
+    let (oiler, control) = if seats[0].1.moves.iter().any(|m| m.id == "oil_geyser") {
+        (&seats[0].1, &seats[1].1)
+    } else {
+        (&seats[1].1, &seats[0].1)
+    };
+
+    let geyser = oiler
+        .moves
+        .iter()
+        .find(|m| m.id == "oil_geyser")
+        .unwrap_or_else(|| {
+            panic!(
+                "neither seat carries `oil_geyser`. Oiler's authored table did \
+                 not reach a body, so he is swinging the stage's floor: {:?}",
+                oiler.moves.iter().map(|m| &m.id).collect::<Vec<_>>()
+            )
+        });
+    let frames = geyser.frame_data();
+    assert_eq!(
+        frames.lift_speed,
+        ambition_content::oiler_moveset::GEYSER_SPEED,
+        "the geyser arrived without the rise it was authored with, so every \
+         policy layer that reads `lift_speed` is blind to it"
+    );
+
+    // And the press reaches it — from the AIR, which is the only posture that
+    // matters for a way home.
+    assert_eq!(
+        oiler
+            .move_for_directional_verb("special", AttackDir::Up, false)
+            .map(|m| m.id.as_str()),
+        Some("oil_geyser"),
+        "the up-special press does not resolve to the geyser on a live body"
+    );
+
+    // ⛔ THE CONTROL: the other seat is a different table, and it has no way
+    // home. One kit handed to both bodies would fail here.
+    let control_lifts: Vec<&str> = control
+        .moves
+        .iter()
+        .filter(|m| m.frame_data().lift_speed > 0.0)
+        .map(|m| m.id.as_str())
+        .collect();
+    assert!(
+        control_lifts.is_empty(),
+        "the seat beside Oiler also advertises a way home ({control_lifts:?}), \
+         so both bodies are wearing one table and the assertions above are that \
+         table read twice"
+    );
+    assert!(
+        !control.moves.iter().any(|m| m.id == "oil_geyser"),
+        "both seats carry the geyser"
+    );
+}
+
 /// **HOW MANY OF THE GRID'S FIGHTERS STATE THEIR OWN MOVES** — P3.26's number.
 ///
 /// P3.24's ratchet asks this of the whole prepared cast. This asks it of the
@@ -1341,10 +1462,18 @@ fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
 ///   smash_george_booul          sanic
 ///   npc_pirate_admiral          npc_alice
 ///   npc_ninja_shadow_oni_leader npc_bob
-///   perfect_cellular_automaton  npc_oiler
-///   goblin                      npc_noether
-///   special_patent_clerk        npc_carl_stargan
+///   perfect_cellular_automaton  npc_noether
+///   goblin                      npc_carl_stargan
+///   special_patent_clerk
+///   npc_oiler                   ⭐ crossed over 2026-08-16
 /// ```
+///
+/// ⚠ **Oiler crossing is NOT the paragraph above being walked back.** The
+/// silent column is peaceful characters on a fighting grid, deliberately; he
+/// left it because Jon asked for a kit by name, not because the ratchet
+/// instructed one. `oiler_moveset` is what he swings and
+/// `oiler_seated_in_the_host_rides_his_own_geyser` below is the proof it
+/// reaches a live body.
 ///
 /// ⚠ the numbers are NOT asserted, deliberately — a count assertion here would
 /// fail on every authoring commit and teach people to edit the number. The
@@ -2794,8 +2923,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
         layout.role_button(1)
     );
     assert!(
-        layout.token_home(0).contains(TOKEN_HOME_0)
-            && layout.token_home(1).contains(TOKEN_HOME_1),
+        layout.token_home(0).contains(TOKEN_HOME_0) && layout.token_home(1).contains(TOKEN_HOME_1),
         "the documented token taps are off the tokens: {:?} / {:?}",
         layout.token_home(0),
         layout.token_home(1)
@@ -2884,7 +3012,8 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // fighter it drifted onto; author a kit for Sanic and it goes on passing.
     let registry = app
         .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>();
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
     let seated: Vec<(String, bool)> = roster
         .participants
         .iter()

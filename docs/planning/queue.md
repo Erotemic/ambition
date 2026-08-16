@@ -107,6 +107,8 @@ whenever a lane returns; ⛔ do not let a lane finish with nothing dispatched.
 | Mary-O allows one fireball; should allow two | small, and the number is content, not engine |
 | ~~the multi-coin block's coin-pop VFX~~ | ✔ **RESOLVED 2026-08-15 and it was never missing** — it landed in `943a9aa0c`; four demo shells had no `VfxMessage` reader, so it drew in the full game and nowhere else. ⛔ the doc entry said otherwise for a day |
 | the snake and AI slop are far too big, and the snake sprite may not match its box | ⚠ related to the player-side sprite/box unit mismatch at the top of that file — the two may be one bug |
+| **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs.** The snake is too big, the player hurtbox mismatches, and Sanic is too small — all in games that scale sprites differently. ⇒ take the three together and look for the common unit conversion, ⛔ do not fix Sanic's scale in isolation |
+| **drop `pocket` and `versus` from the main game-selection shell** (Jon, 2026-08-15) — *"They can just be standalone exes for tests."* | ⭐ a SHELL-COMPOSITION change, not a deletion: both keep their binaries and their suites. ⚠ the shell's roster is the thing a player sees first, and two test fixtures sitting in it is the demo gate leaking the other way — the shell advertising what the engine can compose rather than what the player can play |
 
 ⚠ **the sprite/box pair is the cluster worth taking together**: the player hurtbox
 and the snake box both come down to sprite and collision numbers never having
@@ -1534,15 +1536,64 @@ meaningful chance to regain the stage`, and `two different authored kits →
 observably different fighting behavior`. ⛔ *"the special exists"* and *"the
 special occurred somewhere in 1800 ticks"* are both rejected as evidence.
 
-⚠ **a confirmed defect, unfixed as of 2026-08-15:**
-`brain/fighter/decision.rs:523` falls back with
-`.or_else(|| options.attacks.first().map(|a| a.binding))`, against `options.rs:367`
-which says in so many words that taking `.first()` as the recovery brings the
-tiny-rising-aerial trap back. ⭐⭐ **the poison fixture is still owed: a tiny
-upward attack must NOT suppress another viable recovery merely because
-`lift_speed > 0`.** ⚠ a second unexplained observation: in a MIRROR match, seat 0
-used zero specials and zero routes while seat 1 used six of each — if that
-reproduces it is seat-dependent and it undercuts every other measurement.
+✔✔ **THE CPU LANE LANDED AND WAS MEASURED (2026-08-15).** Distinct attacks used
+per match **5-6 of 16 → 9**; all four of George's specials now appear;
+`modus_ponens` was **selected 19-24 times a match and performed ZERO**. The
+duelist's whole vertical game (`air_up`, `air_down`, `smash_up`, `tilt_up`) was
+absent and is now present.
+
+⭐⭐ **the two causes, and BOTH of my stated hypotheses were wrong:**
+1. **the brain could not AIM.** The attack stick wrote a facing-relative `+x`
+   into a field the resolver multiplies by facing, so every forward/back attack
+   chosen while facing left came out reversed — and it shoved to full deflection,
+   which the gesture resolver reads as a FLICK, so **the brain could not ask for
+   a tilt at all**. ⛔ that, not seat-keyed input, was the mirror asymmetry.
+2. **the `.first()` fallback was worse than its doc warned.** The kernel's route
+   search endorsed a recovery in **3 of 100** `Situation::Recovery` decisions;
+   the other 97 pressed the Up-B anyway. Deleted outright — a search that
+   endorses nothing now presses nothing. ⚠ `least_bad_route` was proposed and
+   REJECTED after a grid over the real stage: there is nothing to rank, because
+   George's `Set (0, -1020)` erases the drift that would carry him back.
+
+✔ **Jon's three couch items, all fixed:** the camera close was **237-361 units in
+ONE frame** against a 33-49/frame open ramp (now eased, 68.9); the match-end race
+is Smash despawning the eliminated body while `decide_stocks_match` reads sides
+off bodies that still exist, with nothing ordering them; and the countdown **was
+running** — it announced into `GameplayBannerRequested`, which **nothing in the
+workspace draws**. ⛔ the winner card had the identical defect and its unit test
+was green throughout, because it asserted the message.
+
+⇒ ⭐⭐ **NEXT, and it is the highest-value thing left in this lane: THE VFX/SFX
+ROAD IS BUILT AND UNREACHABLE.** **166 `vfx.*` cues ship in `sfx.bank`**,
+including complete per-move sets for both expressive fighters
+(`vfx.george_booul.up_b.{windup,launch,ascent,tail}`, `modus_ponens_dash/impact`,
+`reductio_drop/bounce/impact`; `vfx.pirate_admiral.grapple_cast/catch/tension`,
+`heave_to_anchor/brake`, `cutlass_wake/clash`) — and **ZERO are referenced from
+any Rust file**. George's four specials all play the generic robot slash.
+⛔⛔ **and the two new FX spritesheets are unreachable BY DESIGN**: `move_vfx_kind`
+maps only five effect names and `MoveSpec::presentation_problems` **REFUSES**
+anything else at startup, so an authored move cannot name the new art even after
+the sheets are registered. ⇒ that refusal is the exact edit. ⚠ also:
+`generic_explosions` is registered only by Ambition's intro plugin, so every
+`Feel` class degrades to one burst in the standalone demo, and **no SFX bank is
+resident in the demo app at all**.
+
+⚠ **remaining showcase weaknesses, in order:**
+- **the mirror match is bit-symmetric.** Brains seed from the level alone
+  (`0x5F37_7A11 * (level+1)`) and the comment approves. A per-body seed was tried
+  and **reverted** — `ActorConfig.spawn.pos` is shared between seats at the
+  construction site, so it differentiated nothing.
+- **the recovery search cannot see the LEDGE GRAB.** These fighters author
+  `ledge_grab: true`, the engine implements grab/hang/climb/getup fully, and
+  `RecoveryPolicy::DRIFT_AND_JUMP` never presses toward it — so a body beside the
+  lip is reported unrecoverable where a player would catch it.
+- **the two expressive fighters never meet** — the instrument lives in the demo,
+  the Admiral in `ambition_content`. ⭐ provider-composition evidence, correctly
+  reported rather than solved by violating the demo gate.
+- ⚠ **the repertoire histograms are single samples**: `build_demo_app` does not
+  pin `TimeUpdateStrategy` the way `smash_in_the_host` does, and two full-file
+  runs gave different hashes. Directions of change are far larger than the
+  variance; the exact counts are not reproducible yet.
 
 ⭐ **the question, and it is a product question rather than an architecture one:**
 

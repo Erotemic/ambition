@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `5f9948df5` (2026-08-16 local project date).
+**Snapshot:** `9290cf96f` (2026-08-16 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -81,9 +81,10 @@ substrate had overtaken the two fronts printed above it:
    row stays, the menu equips the phantom, and throwing it **mints a second real
    weapon** that the durable save then writes to disk.
 
-   ⚠⚠ **and it traded that for a LOSS which is not a resting state: a held weapon
-   carried across a SAVE/LOAD is now gone**, because the durable save describes no
-   custody at all. ⇒ durable custody is the BLOCKING item, not a nice-to-have.
+   ⚠⚠ **it traded that for a LOSS — a held weapon carried across a SAVE/LOAD was
+   gone — and ✔ THAT IS CLOSED** (`28c927505`, falsifier B): the object persists
+   as an OCCURRENCE, never as a quantity, so the duplication it replaced does not
+   return by the new road either.
    ⚠ the granted-quantity half is still open and its gate is named:
    **`OwnedItems` joining the checkpoint baseline, with the mint spending the row
    in that same change and not before** — spending it earlier turns the phantom

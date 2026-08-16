@@ -251,6 +251,22 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
 /// ⚠ **`shield`, `dodge` and `ledge_grab` are what make this a platform fighter**
 /// rather than two bodies running at each other. All three already existed in
 /// the engine with nothing switched on.
+///
+/// ⭐⭐ **`dash` IS ABSENT, AND THAT IS THE POINT** (Jon, 2026-08-16: *"now that
+/// each character has an up-b, I think we can likely also remove everyone's
+/// ability to dash in smash. Dash should be an ability for ambition, it doesn't
+/// map into a smash vocabulary."*). `AbilitySet::dash` is not running — running
+/// is `move_horizontal` against the body's own top speed, and it consults no
+/// ability bit beyond that one. `dash` is a DISCRETE charge-gated burst that
+/// REPLACES the velocity vector for a window (`apply_dash`), which is a
+/// traversal verb from Ambition's exploration kit and not one of a platform
+/// fighter's sixteen presses. Dropping it leaves the burst BUTTON meaning
+/// exactly one thing here — the dodge — which is what it means in the genre.
+///
+/// ⛔ removing it was a two-part change, not a deleted line: the kernel used to
+/// fill the shared burst buffer only for `abilities.dash`, so this edit alone
+/// would have deleted the DODGE from all fourteen fighters in silence. See
+/// `apply_intent` in `movement/abilities.rs`.
 pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
     ambition_platformer2d::engine_core::AbilitySet {
         move_horizontal: true,
@@ -258,7 +274,6 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
         variable_jump: true,
         double_jump: true,
         fast_fall: true,
-        dash: true,
         attack: true,
         pogo: true,
         directional_primary: true,
@@ -2223,7 +2238,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // ⚠ `fly`/`blink` deliberately absent: this is a platform fighter's
             // ground game, not the exploration protagonist's traversal kit, and
             // the July measurement of two seats disagreeing was exactly a
-            // duelist meeting a body that could fly.
+            // duelist meeting a body that could fly. `dash` left for the same
+            // reason on 2026-08-16 — see [`SMASH_FIGHTER_KIT`], which this must
+            // keep agreeing with or the stage's ceiling silently trims it.
             definition =
                 definition.with_abilities(ambition_platformer2d::engine_core::AbilitySet {
                     move_horizontal: true,
@@ -2231,7 +2248,6 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     variable_jump: true,
                     double_jump: true,
                     fast_fall: true,
-                    dash: true,
                     attack: true,
                     pogo: true,
                     directional_primary: true,

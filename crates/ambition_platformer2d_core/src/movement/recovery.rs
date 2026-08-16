@@ -1224,3 +1224,203 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod dodge_shadows_the_dash {
+    //! **What a platform fighter LOSES when the dash leaves its kit: nothing.**
+    //!
+    //! D146 (Jon, 2026-08-16): *"now that each character has an up-b, I think we
+    //! can likely also remove everyone's ability to dash in smash… We may need to
+    //! give everyone extra height for their double jump to compensate."* This is
+    //! the measurement that answered the second sentence, and the answer is no.
+
+    use super::*;
+    use crate::abilities::AbilitySet;
+    use crate::body_clusters::BodyClusterScratch;
+    use crate::movement::input::{ActionEdges, Edge, MovementAction};
+    use crate::movement::tuning::{AxisSweptParams, MovementTuning, DEFAULT_TUNING};
+    use crate::reference_frame::LocalAxes;
+    use crate::{Block, MotionFrame, Vec2, World};
+
+    /// The shipped platform-fighter kit, with the traversal burst switched on or
+    /// off. Everything else is held identical — the whole point is that ONE bit
+    /// is the variable.
+    fn kit(dash: bool) -> AbilitySet {
+        AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            dash,
+            attack: true,
+            pogo: true,
+            directional_primary: true,
+            shield: true,
+            dodge: true,
+            ledge_grab: true,
+            ..AbilitySet::NONE
+        }
+    }
+
+    /// The fighter's authored movement tuning — the jump squat and the air-dodge
+    /// window a platform fighter authors on top of the engine defaults.
+    fn fighter_tuning() -> AxisSweptParams {
+        MovementTuning {
+            jump_squat_time: 3.0 / 60.0,
+            air_dodge_time: crate::movement::tuning::AIR_DODGE_TIME,
+            air_dodge_speed: crate::movement::tuning::AIR_DODGE_SPEED,
+            air_dodge_endlag: crate::movement::tuning::AIR_DODGE_ENDLAG,
+            tumble_speed: 500.0,
+            ..DEFAULT_TUNING
+        }
+        .axis_swept_params()
+    }
+
+    /// A stage shaped like the smash demo's: ONE contiguous 480x32 platform in a
+    /// 640x480 room, its top face at y = 300 and its left ledge at x = 80.
+    ///
+    /// ⚠ **there is no gap on it, and that is half the verdict.** Crossing this
+    /// stage is `move_horizontal` and nothing else; no jump, no burst and no
+    /// ability bit is between a fighter and the far ledge. The only reachability
+    /// question a fighter stage HAS is getting back to a ledge from off it, which
+    /// is what the probe below measures.
+    fn stage() -> World {
+        World::new(
+            "smash-shaped stage",
+            Vec2::new(640.0, 480.0),
+            Vec2::new(320.0, 204.0),
+            vec![Block::solid(
+                "platform",
+                Vec2::new(80.0, 300.0),
+                Vec2::new(480.0, 32.0),
+            )],
+        )
+    }
+
+    /// [`RecoveryPolicy::DRIFT_AND_JUMP`] plus ONE press of the shared burst
+    /// button, a few steps in — what a player recovering offstage does.
+    ///
+    /// ⛔ the shipped policy deliberately presses nothing but drift and jump, so
+    /// on its own it could never tell a dash-capable body from a dash-less one.
+    /// A comparison run under it would have been a check that cannot fail.
+    fn drift_jump_and_burst_press(at: RecoveryStep) -> InputState {
+        let side = [0.0_f32, -1.0, 1.0].get(at.effort).copied().unwrap_or(0.0);
+        let jump = Edge {
+            pressed: !at.on_ground && !at.rising,
+            held: true,
+            released: false,
+        };
+        let burst = Edge {
+            pressed: at.step == 6,
+            held: at.step == 6,
+            released: false,
+        };
+        InputState {
+            axes: LocalAxes::new(side, 0.0),
+            movement: ActionEdges::<MovementAction>::EMPTY
+                .with(MovementAction::Jump, jump)
+                .with(MovementAction::Dash, burst),
+            ..Default::default()
+        }
+    }
+
+    const DRIFT_JUMP_AND_BURST_PRESS: RecoveryPolicy = RecoveryPolicy {
+        name: "drift+jump+burst-press",
+        efforts: 3,
+        input: drift_jump_and_burst_press,
+        burst: None,
+    };
+
+    /// The furthest offstage x-offset from the left ledge (x = 80) this policy
+    /// gets this body home from, starting `dy` below the platform's top face.
+    /// `-1.0` means it never got home from any offset.
+    fn furthest_recovered(abilities: AbilitySet, policy: RecoveryPolicy, dy: f32) -> f32 {
+        let world = stage();
+        let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 1.0) * crate::movement::GRAVITY)
+            .expect("gravity is non-zero");
+        let mut best = -1.0_f32;
+        let mut dx = 0.0_f32;
+        while dx <= 700.0 {
+            let mut body =
+                BodyClusterScratch::new_with_abilities(Vec2::new(80.0 - dx, 300.0 + dy), abilities);
+            body.model = crate::movement::MotionModel::axis_swept(fighter_tuning());
+            body.ground.on_ground = false;
+            let probe = RecoveryProbe::default().with_policy(policy);
+            if probe_recovery(&world, &body, frame, probe).regained() {
+                best = dx;
+            }
+            dx += 10.0;
+        }
+        best
+    }
+
+    /// **A BODY THAT OWNS THE DODGE CAN NEVER SPEND ITS PRESS ON A DASH, SO
+    /// TAKING THE DASH AWAY COSTS IT NOTHING.**
+    ///
+    /// Dodge outranks dash on the shared burst press ([`super::super::abilities::
+    /// BurstManeuver`]), and a platform fighter authors an air-dodge window — so
+    /// airborne, every press it makes is already an air dodge. The dash bit was
+    /// dead weight in that kit, which is the whole reason D146 could remove it
+    /// without a compensating number.
+    ///
+    /// Measured on the smash-shaped stage, furthest offstage recovery in px:
+    ///
+    /// ```text
+    ///   dy   drift+jump      +burst press      poison: dash, NO dodge
+    ///  -40   170 / 170       180 / 180          370
+    ///    0   150 / 150       150 / 150          330
+    ///   40   140 / 140       130 / 130          280
+    ///  120    -1 /  -1        -1 /  -1           -1
+    /// ```
+    ///
+    /// ⭐ **the poison column is the whole test.** Strip the DODGE and the same
+    /// press reaches `apply_dash`, and the body recovers from twice as far — so
+    /// the instrument plainly CAN see a dash, and the identical columns are a
+    /// fact about the kit rather than about a probe that never pressed anything.
+    ///
+    /// ⚠ the deep rows (`dy >= 120`) are where an up-B earns its keep; the
+    /// buttons alone reach nothing from there WITH or WITHOUT the dash.
+    #[test]
+    fn removing_the_dash_from_a_dodging_kit_changes_no_reach() {
+        let mut saw_a_reachable_row = false;
+        let mut saw_the_poison_pay_off = false;
+        for dy in [-40.0_f32, 0.0, 40.0] {
+            for policy in [RecoveryPolicy::DRIFT_AND_JUMP, DRIFT_JUMP_AND_BURST_PRESS] {
+                let without = furthest_recovered(kit(false), policy, dy);
+                let with = furthest_recovered(kit(true), policy, dy);
+                assert_eq!(
+                    without, with,
+                    "dy={dy}, policy {}: the fighter reaches {without}px without the \
+                     dash and {with}px with it — the dash is doing work in this kit \
+                     after all, and D146 removed a real option",
+                    policy.name
+                );
+                if without > 0.0 {
+                    saw_a_reachable_row = true;
+                }
+            }
+            // POISON: the same press on a body that owns the dash and NOT the
+            // dodge reaches `apply_dash`, and gets home from much further.
+            let dash_only = AbilitySet {
+                dodge: false,
+                ..kit(true)
+            };
+            let poisoned = furthest_recovered(dash_only, DRIFT_JUMP_AND_BURST_PRESS, dy);
+            let dodging = furthest_recovered(kit(true), DRIFT_JUMP_AND_BURST_PRESS, dy);
+            if poisoned > dodging + 50.0 {
+                saw_the_poison_pay_off = true;
+            }
+        }
+        assert!(
+            saw_a_reachable_row,
+            "no row recovered from anywhere, so the equality above compared two \
+             failures and proved nothing"
+        );
+        assert!(
+            saw_the_poison_pay_off,
+            "stripping the DODGE did not extend the reach on any row, so this \
+             probe cannot see a dash and the equality it asserts is vacuous"
+        );
+    }
+}

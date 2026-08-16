@@ -1709,44 +1709,52 @@ The working command is in `capture_scene`'s header and guarded by
 `smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`,
 which drives the same literals through the real host.
 
-### ⭐⭐ AND THE MATCH, WATCHED — three things are wrong with it
+### ⭐⭐ AND THE MATCH, WATCHED — the percent runs away on its own
 
-Sanic (CPU) vs Player Robot v3 (CPU), 3 stocks, sampled at 240/300/360/420/600/
-900/1400/2400 frames.
+Three CPU-vs-CPU matches, sampled by frame. All 1280x720, `--include-ui`.
 
 ```text
-frame   Sanic          Robot
- 240    200%  3/3      0%  3/3     (the "GO!" banner is still up)
- 300    500%  3/3      0%  3/3
- 360    600%  3/3      0%  3/3
- 420      0%  2/3      0%  2/3
- 600      0%  1/3      0%  1/3
- 900    400%  1/3      0%  1/3
-1400    (gone)         0%  1/3
-2400    back on the select screen, all four slots reset
+P1 vs P2                       frame  P1              P2
+Sanic      vs Player Robot v3   240   200%  3/3       0%  3/3   ("GO!" still up)
+                                300   500%  3/3       0%  3/3
+                                360   600%  3/3       0%  3/3
+                                420     0%  2/3       0%  2/3
+                                600     0%  1/3       0%  1/3
+                                900   400%  1/3       0%  1/3
+                               1400   (eliminated)    0%  1/3
+                               2400   back on select, all four slots reset
+Mary-O     vs George Booul      360  4200%  3/3       0%  3/3
+Player Robot v3 vs Sanic        360     0%  3/3     600%  3/3   ⭐ THE CONTROL
 ```
 
-1. **⛔⛔ THE DAMAGE IS ENTIRELY ONE-WAY.** The robot is at **0% in every single
-   sample**. Sanic takes ~100%/second, continuously, from the first frame — 200%
-   before the `GO!` banner has cleared. That is not a trade, and it is not a hit
-   landing; it is a continuous source.
-2. **⛔ BOTH SPAWN ON THE SAME POINT.** At frame 240 the two sprites are drawn
-   overlapping. That is the obvious suspect for (1): a contact/hurt volume the
-   two share from the first tick.
-3. **⛔ BOTH LOSE A STOCK AT THE SAME MOMENT, and one of them is at 0%.** 3/3 →
-   2/3 → 1/3 happens to BOTH between the same samples while the robot has taken
-   no damage at all. Then they diverge (Sanic is eliminated by 1400; the robot
-   keeps its last stock), so it is not one shared counter — but two simultaneous
-   KOs where only one fighter was ever damaged wants explaining.
+1. **⛔⛔ THE PERCENT IS NOT COMING FROM THE OPPONENT.** ⭐ **the seat swap is
+   the control**: move Sanic from P1 to P2 and the damage moves WITH HIM, and
+   he reads **600% at frame 360 in both runs — the identical number**, against
+   two different opponents doing two different things. In the Mary-O run the two
+   fighters are not even near each other (Mary-O on the platform's right edge,
+   George Booul floating off-stage several body-widths away) and Mary-O is at
+   **4200%** in six seconds. ⇒ this accrues on a CLOCK, per character, with no
+   opponent involvement.
+2. **⛔ AND IT SPLITS THE CAST IN HALF.** `player_robot_v3` and `george_booul`
+   read **0% in every sample of every match**; `sanic` and `mary_o` run away.
+   ⚠ that is the demo's own fighters versus the CROSSOVER cast, which is the
+   first thing to check — but two characters a side is a small sample, so widen
+   it before believing the split.
+3. **⛔ BOTH LOSE A STOCK AT THE SAME MOMENT, and one of them is at 0%.** In the
+   Sanic run 3/3 → 2/3 → 1/3 happens to BOTH between the same samples while the
+   robot has taken no damage at all. Then they diverge (Sanic is eliminated by
+   1400, the robot keeps its last stock), so it is not one shared counter — but
+   two simultaneous KOs where only one fighter was ever damaged wants explaining.
 
-⭐ what is RIGHT: the stage draws, the fighters draw at sane relative scale, both
-kits animate (the robot is mid-swing with a visible purple weapon at 900), the
-HUD is legible and correct, the match ENDS on its own and returns to a fully
+⭐ what is RIGHT: the stage draws, the fighters draw at sane relative scale,
+both kits animate (the robot is mid-swing with a visible purple weapon at 900),
+the HUD is legible and correct, the match ENDS on its own and returns to a fully
 reset select screen. Nothing is missing; the fight itself is wrong.
 
 ⇒ **this is D128's "does a watcher SEE the two kits behave differently" cashing
-in, and the answer is worse than 'no': one kit never takes a point of damage.**
-Next queue row should be (1)+(2) together — they are probably one bug.
+in, and the answer is worse than 'no': half the cast is on fire from the first
+frame.** Next row is (1)+(2) together — start from whatever ticks percent
+without a hit.
 
 - ▢ **D129 — The sprite pipeline CUTS ART AT THE LOGICAL FRAME AND NOTHING NOTICES.
   (opened 2026-08-16 from a maintainer observation, measured the same day)**

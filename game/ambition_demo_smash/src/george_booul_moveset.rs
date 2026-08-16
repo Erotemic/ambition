@@ -518,6 +518,60 @@ pub fn george_booul_moveset() -> MovesetContract {
     );
     moves.push(feel(down_b, Feel::Dive));
 
+    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
+    //
+    // ⭐⭐ **JON DESCRIBED THIS MOVE BY NAME**: *"A down-b that has special
+    // airborne properties should also have an effect on ground. Think of bowser
+    // down b. In the air he just does a downward slam, but on the ground, it
+    // causes him to jump in an arc and then slam."* `reductio` is
+    // `airborne_only` — a commanded plunge — so pressed with his feet down the
+    // directional chain walked past it to `bivalence`, his NEUTRAL special. A
+    // player pressed down-B and got the wrong move.
+    //
+    // ⛔ **it also made a census lie.** The kit report probed specials standing
+    // on the ground, found `dspecial` resolving to the neutral-B, and recorded
+    // George as missing a down-B he has had all along. The census asks both
+    // postures now; this is the move it was asking for.
+    //
+    // **DOWN, ON THE GROUND — `reductio_ad_absurdum`.** Assume you are above me.
+    // With his feet on the stage that assumption is false, so he MAKES it true
+    // first: a short arc up, and then the same contradiction, derived on the way
+    // down. ⚠ the plunge impulse and the active window are `reductio`'s numbers
+    // — this is the same argument with a premise added, not a second move.
+    let mut ground_down_b = strike(
+        "reductio_ad_absurdum",
+        "special",
+        0.34,
+        0.24,
+        0.22,
+        (4.0, 30.0),
+        (24.0, 26.0),
+        16,
+        150.0,
+        3.00,
+        Some((0.0, 1.0)),
+    );
+    ground_down_b.gates = grounded_only();
+    // ⛔⛔ **THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY.** `strike`'s
+    // frame data derives `lift_speed` from `Set` impulses only — *"an `Add`
+    // states no speed, so no static reader may claim one for it"* — and
+    // `excluded_middle` is the one move in this table allowed to advertise a way
+    // home. Written as a `Set`, this hop told the recovery policy that George's
+    // DOWN-B is a recovery: offstage the CPU would press it and slam itself into
+    // the blast zone. The test below caught it, which is what it is for.
+    //
+    // ⚠ and an `Add` is honest here for the same reason it is wrong on the up-B:
+    // this move is grounded-only, so he is standing still when it fires and there
+    // is no momentum for it to compose with.
+    let ground_down_b = impulse(ground_down_b, 0.10, (200.0, -620.0), ImpulseMode::Add);
+    let ground_down_b = impulse(ground_down_b, 0.34, (0.0, 1500.0), ImpulseMode::Set);
+    let ground_down_b = on_hit(
+        ground_down_b,
+        ambition_platformer2d::characters::technique::POGO_BOUNCE_KEY,
+    );
+    let ground_down_b = committed_tail(ground_down_b, 0.86, 0.10);
+    moves.push(feel(ground_down_b, Feel::Dive));
+
     let verbs = [
         ("attack", "jab"),
         ("attack_forward", "tilt_forward"),
@@ -534,7 +588,8 @@ pub fn george_booul_moveset() -> MovesetContract {
         ("special", "bivalence"),
         ("special_forward", "modus_ponens"),
         ("special_up", "excluded_middle"),
-        ("special_down", "reductio"),
+        ("special_down", "reductio_ad_absurdum"),
+        ("special_air_down", "reductio"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -609,7 +664,11 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(moveset.verbs.len(), 16);
+        assert_eq!(
+            moveset.verbs.len(),
+            17,
+            "sixteen presses, and the down-B answers in BOTH postures"
+        );
     }
 
     /// **THE EXCLUDED MIDDLE, AS AN ASSERTION.**

@@ -47,7 +47,7 @@
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
-use crate::moveset_authoring::{
+use ambition_characters::moveset_authoring::{
     airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
     strike_tag, vfx_at,
 };
@@ -394,7 +394,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         Some((0.8, -0.60)),
         None,
     );
-    n_b.gates = grounded_only();
+    n_b.gates = either_posture();
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
     let n_b = sfx(n_b, 0.04, "vfx.carl_stargan.cosmic_calendar_sweep");
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
@@ -484,6 +484,46 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let down_b = on_contact(down_b, "player.hit");
     moves.push(down_b);
 
+    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
+    //
+    // Jon: *"A down-b that has special airborne properties should also have an
+    // effect on ground. Think of bowser down b. In the air he just does a
+    // downward slam, but on the ground, it causes him to jump in an arc and then
+    // slam. Specials can have different effects in different contexts that
+    // should be ok, and makes for a richer smash game, although in most cases
+    // they shouldn't be context dependent."*
+    //
+    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // directional chain walks straight past it to the NEUTRAL special, so a
+    // player pressing down-B in the air got the neutral-B. `special_air_down`
+    // sits ahead of `special_down` in that chain and has the whole time; this is
+    // the two-form move it exists for.
+    // **DOWN, IN THE AIR.** The grounded form works the floor; with none under
+    // him he takes it down with him instead.
+    let mut air_down_b = strike(
+        "falling_horizon",
+        "air_down",
+        0.11,
+        0.10,
+        0.25,
+        (0.0, 24.0),
+        (22.0, 22.0),
+        10,
+        100.0,
+        1.76,
+        Some((0.0, 1.0)),
+        None,
+    );
+    air_down_b.gates = airborne_only();
+    air_down_b.landing_lag_s = Some(0.30);
+    let air_down_b = impulse(air_down_b, 0.11, (0.0, 1220.0), ImpulseMode::Set);
+    // ⚠ this table's own rule: every move throws an effect and every effect is
+    // heard. The dot he points at is under him now.
+    let air_down_b = vfx_at(air_down_b, 0.11, "pale_blue_dot_ping", (0.0, 22.0), POKE_FX);
+    let air_down_b = sfx(air_down_b, 0.11, "vfx.carl_stargan.pale_blue_dot_ping");
+    let air_down_b = on_contact(air_down_b, "player.hit");
+    moves.push(air_down_b);
+
     let verbs = [
         ("attack", "jab"),
         ("attack_forward", "tilt_forward"),
@@ -501,6 +541,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         ("special_forward", "planetary_orbit"),
         ("special_up", "starstuff"),
         ("special_down", "pale_blue_dot"),
+        ("special_air_down", "falling_horizon"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -533,8 +574,10 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(set.verbs.len(), 16);
-        assert_eq!(set.moves.len(), 16);
+        // Seventeen: sixteen presses, and the down-B answers in BOTH postures
+        // (Jon's Bowser ruling, 2026-08-16).
+        assert_eq!(set.verbs.len(), 17);
+        assert_eq!(set.moves.len(), 17);
     }
 
     /// **REACH IS BOUGHT WITH TIME, AS AN ASSERTION.**

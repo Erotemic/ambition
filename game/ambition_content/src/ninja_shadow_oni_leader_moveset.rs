@@ -42,7 +42,11 @@
 
 use ambition_platformer2d::entity_catalog::MovesetContract;
 
-use crate::moveset_authoring::{airborne_only, grounded_only, strike};
+use ambition_characters::moveset_authoring::{
+    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
+    vfx_at,
+};
+use ambition_platformer2d::entity_catalog::ImpulseMode;
 
 /// See the module doc. Eleven moves, the genre's standard verb map.
 pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
@@ -250,8 +254,191 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     d_air.gates = airborne_only();
     moves.push(d_air);
 
+    // ── 2026-08-16: THE FIVE THAT WERE MISSING ───────────────────────────────
+    //
+    // Jon: *"Let's complete the kit for all characters … We can invent whatever
+    // special we want for oni and goblin … I think oni has a bunch of sfx and
+    // vfx ready for it."* He does: fourteen authored rows on his own FX sheet,
+    // and this table had never named ONE of them. Every effect below is his.
+    //
+    // ⭐ **the axis holds through all five.** Fastest to start, shortest active
+    // window, recovery of more than three times it — a special that opened
+    // slowly or lingered would be a different character wearing the mask.
+
+    // ⛔ **the forward tilt, which fell down the chain to the jab.** `missed_
+    // answer_cut` is the row for it: the answer that goes through where you were.
+    let mut f_tilt = strike(
+        "tilt_forward",
+        "attack_side",
+        0.04,
+        0.04,
+        0.22,
+        (30.0, -2.0),
+        (20.0, 13.0),
+        5,
+        66.0,
+        1.22,
+        Some((1.0, -0.28)),
+        None,
+    );
+    f_tilt.gates = grounded_only();
+    let f_tilt = vfx_at(f_tilt, 0.04, "missed_answer_cut", (30.0, -2.0), 0.9);
+    let f_tilt = sfx(f_tilt, 0.04, "enemy.shadow_oni.slash");
+    let f_tilt = on_contact(f_tilt, "player.hit");
+    moves.push(f_tilt);
+
+    // **NEUTRAL — `shadow_answer`.** The bark, as a move: *"The shadow answers."*
+    // The shortest active window on the grid, four frames of eye-flash telegraph
+    // in front of it, and a recovery you pay whether or not it landed.
+    let mut n_b = strike(
+        "shadow_answer",
+        "attack",
+        0.06,
+        0.04,
+        0.34,
+        (26.0, -4.0),
+        (26.0, 22.0),
+        12,
+        112.0,
+        2.05,
+        Some((0.9, -0.50)),
+        None,
+    );
+    n_b.gates = either_posture();
+    let n_b = committed_tail(n_b, 0.62, 0.0);
+    let n_b = vfx_at(n_b, 0.02, "oni_eye_flash", (0.0, -10.0), 0.8);
+    let n_b = sfx(n_b, 0.02, "enemy.shadow_oni.alert");
+    let n_b = vfx_at(n_b, 0.06, "shadow_answer_slash", (26.0, -4.0), 1.15);
+    let n_b = sfx(n_b, 0.06, "enemy.shadow_oni.slash");
+    let n_b = on_contact(n_b, "player.hit");
+    moves.push(n_b);
+
+    // **SIDE — `iaijutsu`.** The draw and the cut are one motion, so the impulse
+    // and the active window are the same instant. He crosses the distance
+    // already having swung.
+    let mut side_b = strike(
+        "iaijutsu",
+        "attack_side",
+        0.05,
+        0.05,
+        0.30,
+        (34.0, 0.0),
+        (30.0, 16.0),
+        11,
+        106.0,
+        1.95,
+        Some((0.95, -0.35)),
+        None,
+    );
+    side_b.gates = either_posture();
+    let side_b = impulse(side_b, 0.05, (700.0, 0.0), ImpulseMode::Set);
+    let side_b = committed_tail(side_b, 0.58, 0.0);
+    let side_b = vfx_at(side_b, 0.01, "silent_step", (0.0, 14.0), 0.8);
+    let side_b = vfx_at(side_b, 0.05, "iaijutsu_glint", (34.0, 0.0), 1.0);
+    let side_b = sfx(side_b, 0.05, "enemy.shadow_oni.slash");
+    let side_b = on_contact(side_b, "player.hit");
+    moves.push(side_b);
+
+    // **UP — `smoke_fold`. THE RECOVERY**, and the reason this batch is not
+    // cosmetic: with no special at all he had a double jump and nothing else.
+    // He does not climb — he leaves, and arrives. ⭐ the hit is on the ARRIVAL,
+    // not the departure, so covering the spot he left is not a punish.
+    let mut up_b = strike(
+        "smoke_fold",
+        "attack_up",
+        0.05,
+        0.05,
+        0.26,
+        (0.0, -8.0),
+        (20.0, 30.0),
+        8,
+        84.0,
+        1.60,
+        Some((0.15, -1.0)),
+        None,
+    );
+    up_b.gates = either_posture();
+    up_b.landing_lag_s = Some(0.30);
+    let up_b = impulse(up_b, 0.05, (0.0, -780.0), ImpulseMode::Set);
+    let up_b = committed_tail(up_b, 0.52, 0.0);
+    let up_b = vfx_at(up_b, 0.0, "blink_depart", (0.0, 0.0), 1.0);
+    let up_b = sfx(up_b, 0.0, "enemy.shadow_oni.vanish");
+    let up_b = vfx_at(up_b, 0.05, "smoke_fold", (0.0, 4.0), 1.1);
+    let up_b = sfx(up_b, 0.05, "faction.ninja.smoke_poof");
+    let up_b = vfx_at(up_b, 0.10, "blink_arrive", (0.0, -8.0), 1.0);
+    let up_b = on_contact(up_b, "player.hit");
+    moves.push(up_b);
+
+    // **DOWN — `command_seal`.** *"A leader's hardest order is the one obeyed
+    // instantly."* He plants a seal and the ring closes on it: no displacement,
+    // no reach, and the longest tail he owns. The order is given; standing there
+    // while it is obeyed is the cost.
+    let mut down_b = strike(
+        "command_seal",
+        "attack_down",
+        0.06,
+        0.05,
+        0.36,
+        (0.0, 6.0),
+        (38.0, 26.0),
+        10,
+        98.0,
+        1.75,
+        Some((0.65, -0.70)),
+        None,
+    );
+    down_b.gates = grounded_only();
+    let down_b = committed_tail(down_b, 0.70, 0.0);
+    let down_b = vfx_at(down_b, 0.0, "command_seal", (0.0, 10.0), 1.0);
+    let down_b = sfx(down_b, 0.0, "enemy.shadow_oni.alert");
+    let down_b = vfx_at(down_b, 0.06, "counter_ring", (0.0, 6.0), 1.2);
+    let down_b = sfx(down_b, 0.06, "faction.ninja.parry_flash");
+    let down_b = on_contact(down_b, "player.hit");
+    moves.push(down_b);
+
+    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
+    //
+    // Jon: *"A down-b that has special airborne properties should also have an
+    // effect on ground. Think of bowser down b. In the air he just does a
+    // downward slam, but on the ground, it causes him to jump in an arc and then
+    // slam. Specials can have different effects in different contexts that
+    // should be ok, and makes for a richer smash game, although in most cases
+    // they shouldn't be context dependent."*
+    //
+    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // directional chain walks straight past it to the NEUTRAL special, so a
+    // player pressing down-B in the air got the neutral-B. `special_air_down`
+    // sits ahead of `special_down` in that chain and has the whole time; this is
+    // the two-form move it exists for.
+    // **DOWN, IN THE AIR — `falling_seal`.** The order is given on the way
+    // down. Same seal, no floor to plant it on, so it closes around him as he
+    // drops — and he arrives with it.
+    let mut air_down_b = strike(
+        "falling_seal",
+        "air_down",
+        0.05,
+        0.05,
+        0.28,
+        (0.0, 22.0),
+        (24.0, 22.0),
+        9,
+        92.0,
+        1.70,
+        Some((0.0, 1.0)),
+        None,
+    );
+    air_down_b.gates = airborne_only();
+    air_down_b.landing_lag_s = Some(0.28);
+    let air_down_b = impulse(air_down_b, 0.05, (0.0, 1250.0), ImpulseMode::Set);
+    let air_down_b = vfx_at(air_down_b, 0.0, "command_seal", (0.0, 0.0), 0.9);
+    let air_down_b = vfx_at(air_down_b, 0.05, "counter_ring", (0.0, 18.0), 1.0);
+    let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.parry_flash");
+    let air_down_b = on_contact(air_down_b, "player.hit");
+    moves.push(air_down_b);
+
     let verbs = [
         ("attack", "jab"),
+        ("attack_forward", "tilt_forward"),
         ("attack_up", "tilt_up"),
         ("attack_down", "tilt_down"),
         ("smash_forward", "smash_forward"),
@@ -262,6 +449,11 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
+        ("special", "shadow_answer"),
+        ("special_forward", "iaijutsu"),
+        ("special_up", "smoke_fold"),
+        ("special_down", "command_seal"),
+        ("special_air_down", "falling_seal"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -315,7 +507,11 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(moveset.verbs.len(), 11);
+        assert_eq!(
+            moveset.verbs.len(),
+            17,
+            "sixteen presses, and the down-B answers in BOTH postures"
+        );
     }
 
     /// **THE SHADOW ANSWERS: he is quicker to start than the quickest body that

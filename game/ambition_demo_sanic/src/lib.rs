@@ -690,6 +690,7 @@ pub mod badnik;
 pub mod ball_dash;
 pub mod monitors;
 pub mod provider;
+pub mod smash_moveset;
 
 pub use provider::{
     sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
@@ -761,10 +762,18 @@ pub fn install_sanic_content(app: &mut App) {
                 ],
             ),
         ] {
+            // ⭐ **AND THE SMASH TABLE, on both iterations** (2026-08-16). A
+            // census of the crossover grid found him at 0/16 with every press
+            // silent. ⛔ it is unreachable on the speedway: his rows author
+            // `abilities: Some([RunJump])`, which has no `attack`, so the table
+            // says what the swing IS and the ability still says there is none.
+            // ⚠ his spin dash and transform stay TECHNIQUES — see
+            // `declare_sanic_techniques` — and this table does not touch them.
             app.register_character(
                 CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
                     .with_sheet(sheet)
-                    .with_voice(voice),
+                    .with_voice(voice)
+                    .with_moveset(smash_moveset::sanic_moveset()),
             );
         }
     }

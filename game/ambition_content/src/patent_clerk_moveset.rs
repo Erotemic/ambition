@@ -56,7 +56,7 @@
 
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
-use crate::moveset_authoring::{
+use ambition_characters::moveset_authoring::{
     airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
     vfx_at,
 };
@@ -379,7 +379,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         Some((0.9, -0.45)),
         None,
     );
-    n_b.gates = grounded_only();
+    n_b.gates = either_posture();
     let n_b = committed_tail(n_b, 0.66, 0.0);
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = sfx(n_b, 0.22, "vfx.patent_clerk.light_cone");
@@ -474,6 +474,44 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let down_b = on_contact(down_b, "player.hit");
     moves.push(down_b);
 
+    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
+    //
+    // Jon: *"A down-b that has special airborne properties should also have an
+    // effect on ground. Think of bowser down b. In the air he just does a
+    // downward slam, but on the ground, it causes him to jump in an arc and then
+    // slam. Specials can have different effects in different contexts that
+    // should be ok, and makes for a richer smash game, although in most cases
+    // they shouldn't be context dependent."*
+    //
+    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // directional chain walks straight past it to the NEUTRAL special, so a
+    // player pressing down-B in the air got the neutral-B. `special_air_down`
+    // sits ahead of `special_down` in that chain and has the whole time; this is
+    // the two-form move it exists for.
+    // **DOWN, IN THE AIR — `falling_simultaneity`.** Two clocks still slice one
+    // moment with no floor between them; he brings the slice down.
+    let mut air_down_b = strike(
+        "falling_simultaneity",
+        "air_down",
+        0.12,
+        0.10,
+        0.26,
+        (0.0, 24.0),
+        (22.0, 22.0),
+        10,
+        98.0,
+        1.72,
+        Some((0.0, 1.0)),
+        None,
+    );
+    air_down_b.gates = airborne_only();
+    air_down_b.landing_lag_s = Some(0.32);
+    let air_down_b = impulse(air_down_b, 0.12, (0.0, 1250.0), ImpulseMode::Set);
+    let air_down_b = vfx_at(air_down_b, 0.12, "clock_sync", (0.0, 20.0), SWING_FX);
+    let air_down_b = sfx(air_down_b, 0.12, "vfx.patent_clerk.clock_sync");
+    let air_down_b = on_contact(air_down_b, "player.hit");
+    moves.push(air_down_b);
+
     let verbs = [
         ("attack", "jab"),
         ("attack_forward", "tilt_forward"),
@@ -491,6 +529,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         ("special_forward", "reference_frame"),
         ("special_up", "elevator_thought"),
         ("special_down", "synchronize_clocks"),
+        ("special_air_down", "falling_simultaneity"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -549,7 +588,11 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(moveset.verbs.len(), 16);
+        assert_eq!(
+            moveset.verbs.len(),
+            17,
+            "sixteen presses, and the down-B answers in BOTH postures"
+        );
     }
 
     /// **The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.**

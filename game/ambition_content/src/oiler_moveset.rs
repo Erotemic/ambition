@@ -57,7 +57,7 @@ use ambition_platformer2d::entity_catalog::{
     HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
-use crate::moveset_authoring::{
+use ambition_characters::moveset_authoring::{
     airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
     strike_tag, vfx,
 };

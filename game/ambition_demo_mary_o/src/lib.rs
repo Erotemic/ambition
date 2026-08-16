@@ -33,6 +33,7 @@ pub mod powerups;
 pub mod provider;
 pub mod quasar_shader;
 pub mod scenery;
+pub mod smash_moveset;
 pub mod snake;
 pub mod star;
 pub mod stomp;
@@ -1499,11 +1500,18 @@ pub fn install_mary_o_content(app: &mut App) {
                 ],
             ),
         ] {
+            // ⭐ **AND THE SMASH TABLE, on every form** (2026-08-16). A census
+            // of the crossover grid found her at 0/16 with every press silent.
+            // ⛔ it is unreachable in HER game: her catalog row authors
+            // `abilities: Some([RunJump])`, which has no `attack`, so the table
+            // says what the swing IS and the ability still says there is none.
+            // See `smash_moveset` for the whole argument.
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
                     .with_sprite_authored_body(powerups::mary_o_world_per_pixel())
-                    .with_voice(voice),
+                    .with_voice(voice)
+                    .with_moveset(smash_moveset::mary_o_moveset()),
             );
         }
     }

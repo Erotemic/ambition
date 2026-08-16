@@ -26,6 +26,7 @@ pub mod binding_namespaces;
 pub mod boss_encounter;
 pub mod brain;
 pub mod equipment;
+pub mod moveset_authoring;
 pub mod moveset_prefabs;
 pub mod perception;
 pub mod prepared;

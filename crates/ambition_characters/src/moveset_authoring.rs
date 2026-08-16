@@ -1,6 +1,20 @@
 //! **The primitives a character's move table is written with** — shared, because
 //! the second character to author one must not begin by copying the first.
 //!
+//! ⭐⭐ **IT MOVED DOWN HERE ON 2026-08-16, and the reason is the same one that
+//! moved `build_actor_moveset`**: it lived in `ambition_content`, so a character
+//! belonging to any OTHER provider could not use it. Mary-O and Sanic are
+//! registered by their own demos, both were 0/16 on the smash grid, and neither
+//! demo depends on Ambition's content crate — so completing their kits meant
+//! either a fourth copy of these helpers or moving the one copy to a crate
+//! everybody already has. `ambition_characters` is where the character model
+//! lives and where `moveset_prefabs` already derives a table from an action set;
+//! authoring one by hand belongs beside it.
+//!
+//! ⚠ `ambition_demo_smash` still carries its OWN fork of these (`crate::moveset`
+//! in that crate, with a `Feel` tag this one has no concept of). Unifying it is
+//! its own change and would expose what the fork hides; it is not this one.
+//!
 //! ⭐ these came out of `player_robot_moveset.rs` when the goblin needed a real
 //! repertoire (Jon's second redirect, P6: `smash_fighter_kit()`'s goal is
 //! DELETION, and every character that gains a table removes an adopter). They
@@ -13,8 +27,8 @@
 //! RULESET's. That is what lets one table read as Hollow-Knight combat in one
 //! game and a platform fighter in another.
 
-use ambition_characters::moveset_prefabs::SLASH_ARC_VFX;
-use ambition_platformer2d::entity_catalog::{
+use crate::moveset_prefabs::SLASH_ARC_VFX;
+use ambition_entity_catalog::{
     ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveGates, MoveSpec,
     MoveWindow, VolumeShape, WindowTag,
 };

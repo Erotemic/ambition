@@ -458,9 +458,15 @@ exactly one winner is announced, and that no fighter travels more than 8px after
 the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
 why the existing ones passed.
 
-- ▢ **D143 — FOUR SELECTABLE FIGHTERS CANNOT ATTACK AT ALL. The stage's unarmed
-  declaration does not reach the seat. (found 2026-08-16 while answering Jon's
-  moveset census)**
+- ◐ **D143 — the stage's unarmed declaration does not reach the seat. NO LONGER
+  REACHABLE FROM THE GRID (2026-08-16), and the plumbing gap stands. (found while
+  answering Jon's moveset census)**
+
+⭐ **the four fighters it was about now author sixteen moves each** (D144), so
+nothing on the shipped grid depends on the unarmed floor any more. What is still
+true is the defect itself: a character that authors no table reaches a seat with
+nothing, on a stage that declared a swipe for exactly that case. The next kit-less
+character to be seated finds it again.
 
 **MEASURED THREE WAYS, in the shipped host, seating `mary_o` and `npc_alice`
 through the real select screen** (`smash_in_the_host::report_what_an_unarmed_
@@ -503,6 +509,141 @@ cast should be armed by the stage at all or be re-authored as fighters is Jon's
 (`awaiting-maintainer-decision.md`). This row is the PLUMBING half — the stage
 says a thing and the body does not hear it — which is a defect under either
 answer.
+
+- ✔ **D144 — CLOSED 2026-08-16. Every selectable fighter has the full sixteen-press
+  smash kit. (Jon)**
+
+Jon, verbatim: *"Let's complete the kit for all characters, authoring new moves
+when we need to. 16 is the current target, but we will need to do more (trips,
+grabs, falls, techs, etc…). We can invent whatever special we want for oni and
+goblin. It doesn't have to be fancy we can use generic sfx / vfx, although I think
+oni has a bunch of sfx and vfx ready for it."*
+
+**Measured first, and the measurement moved twice.** The census resolves each
+press the way a body does (`move_for_directional_verb`, on the MERGED kit) rather
+than asking whether a verb key exists — `directional_verb_chain` FALLS BACK, so a
+missing forward tilt is not silence, it is the jab again.
+
+⛔ **and asking only ONE POSTURE invented a gap**: George Booul's down-B is a
+commanded plunge and is `airborne_only` by design, so probed standing it fell to
+his neutral-B and read as missing. He was 16/16 all along. A press is covered when
+SOME posture reaches a move of its own.
+
+```text
+                        before        after      what was written
+  robot v3               12/16        16/16      ftilt + side/up/down-B
+  george booul           16/16        16/16      (the census was wrong)
+  pirate admiral         15/16        16/16      ftilt
+  goblin                 11/16        16/16      ftilt + all four specials
+  shadow oni leader      11/16        16/16      ftilt + all four specials
+  perfect cellular auto   8/16        16/16      fifteen — it had one move
+  mary_o / sanic          0/16        16/16      sixteen each
+  npc_alice / npc_bob     0/16        16/16      sixteen each
+  oiler/noether/stargan/clerk        16/16       already complete
+```
+
+⭐⭐ **the up-B is the half that is not cosmetic.** The goblin, the Oni, the
+automaton, both protagonists and both Hall NPCs had NO special at all — on a
+platform fighter that is no way back to the stage. Every one of them has a
+recovery now.
+
+⚠ **`moveset_authoring` moved down to `ambition_characters`**, for the same
+reason `build_actor_moveset` did: it lived in `ambition_content`, so a character
+belonging to any other provider could not use it. Mary-O and Sanic are registered
+by their own demos, which do not depend on Ambition's content crate — the choice
+was a fourth copy of the helpers or one move. ⛔ `ambition_demo_smash` still
+carries its own fork (`crate::moveset`, with a `Feel` tag this one has no concept
+of); unifying it is its own change.
+
+⛔⛔ **AND IT CHANGES NOTHING IN MARY-O'S OR SANIC'S OWN GAMES.** Both author
+`abilities: Some([RunJump])`, which carries no `attack`: a move table is *what the
+swing IS* and the ability is *whether this body may swing at all*. Their sixteen
+moves are unreachable at home and reach a body the moment a stage GRANTS the verb
+(D142's `MatchAbilities::levelled`). That split is what makes "a classic
+platformer protagonist on a fighting grid" expressible rather than a
+contradiction. ⚠ Sanic's spin dash and transform stay TECHNIQUES and are not
+touched.
+
+⚠ **`hall_humanoids` emptied itself**, exactly as its own rule said it would
+(*"If one of them grows a moveset or a distinct build, it earns its own file that
+day"*): all four left within a week and what survives is the one fact they still
+share, the 210 px/s humanoid walk.
+
+⭐⭐ **AND A SPECIAL OWES AN ANSWER IN BOTH POSTURES** (Jon, later the same day):
+*"A down-b that has special airborne properties should also have an effect on
+ground. Think of bowser down b … Specials can have different effects in different
+contexts that should be ok, and makes for a richer smash game, although in most
+cases they shouldn't be context dependent."*
+
+⛔ **the mechanism was already in the engine and nothing had used it.**
+`directional_verb_chain` puts `special_air_down` ahead of `special_down` in the
+airborne chain, so a two-form move is AUTHORED, not engineered. What the rule
+found:
+
+```text
+  george booul, sanic     air-only down-B  -> pressed grounded, gave the NEUTRAL-B
+  nine others             ground-only down-B -> pressed airborne, same fallback
+  goblin, sanic, clerk    ground-only NEUTRAL-B -> pressed airborne, SILENT
+                          (`special` is the last candidate in the chain)
+```
+
+⇒ George gets the literal Bowser shape — a grounded arc, then the same plunge —
+Sanic gets a hop into his ball drop, nine fighters get an air form of their down-B,
+and the three neutral-Bs become `either_posture`. ⚠ the arcs are `ImpulseMode::Add`,
+not `Set`: `lift_speed` is derived from `Set` impulses, and written that way the
+hop told the recovery policy that a DOWN-B was a way home. George's own up-B poison
+caught it.
+
+**The census asks both postures now** and reports which one failed and what it got
+instead (`dspecial/air=nspecial`).
+
+⚠ **three guards changed with the population, and none was weakened**:
+Oiler's geyser control said *"the other seat has no way home"* — impossible once
+everybody has an up-B, so it now asserts both seats advertise one and they DIFFER;
+`the_grid_fighters_that_state_their_own_moves_only_grow`'s control arm asked to be
+checked before the silent column emptied and is flipped to assert it IS empty; and
+`the_grid_fighters_with_a_real_repertoire_only_grow` is DELETED by its own closing
+line (*"P3.24 is DONE — in which case delete it rather than leave it passing"*),
+its guard living on in the two above.
+
+⛔ **and one test was passing on a margin nobody had measured.**
+`a_respawning_fighter_is_briefly_untouchable` ran 300 `app.update()`s and called it
+five seconds; probed, the grant went 1.967s → 0.233s over those 300 updates, so the
+SIM advanced 1.73s. It failed because the app got heavier, not because respawn
+protection changed. It runs until the grant ends now, with a ceiling.
+
+**The census is a RATCHET now** — `report_the_smash_kit_every_selectable_fighter_has`
+fails on a fighter that drops below the full kit, and reads the target from
+`SMASH_KIT.len()` so trips/grabs/techs joining the vocabulary raises the bar by
+themselves rather than by editing a number.
+
+- ✔ **D145 — CLOSED 2026-08-16. No projectile could hit anybody on the smash
+  stage. (Jon, opportunistic)**
+
+Jon, verbatim: *"Another thing to note is that PCA's glider doesn't do any damage
+or hit anyone. Not the priority right now, but if you see the issue
+opportunistically fix it."*
+
+⛔⛔ **it was never about the glider.** Melee and projectiles asked different
+questions about who may be hit, and only one of them knew what a match is:
+
+```text
+  melee        targeting::team_allows_damage(attacker_team, victim_team)
+  projectile   damage_lands(firer_faction, victim_faction, ..)   <- no team, ever
+```
+
+**Measured on the shipped stage**: both seats come back `ActorFaction::Player`
+with teams `seat 1` and `seat 2` — which is correct, because a Hall NPC and a demo
+protagonist are not enemies of each other outside the match. So melee landed and
+every shot was spared as an ally. ⇒ **no projectile from any fighter could hit
+anybody**: not the glider, not the admiral's grapeshot, not Oiler's.
+
+⭐ **the fix is one call.** `damage_lands_between` — the team-aware sibling melee
+already used — existed, and `StrikeVictim` has carried the victim's `team` the
+whole time with the doc *"Outranks faction for 'may this land'"*. This loop was
+the one caller that never asked for it. Guarded by a fixture with the poison
+inside it: a body on the FIRER'S OWN team, overlapping the same shot, that must
+NOT be hit.
 
 - ✔ **D142 — CLOSED 2026-08-16. A match could only ever TAKE verbs away, so no
   stage could promise a fighter anything. (Jon)**

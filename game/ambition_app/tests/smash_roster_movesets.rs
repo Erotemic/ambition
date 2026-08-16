@@ -339,144 +339,21 @@ fn the_grid_offers_only_named_and_seatable_fighters() {
     }
 }
 
-/// **AND THE QUESTION THIS FILE IS NAMED FOR — who actually has a REPERTOIRE?**
-///
-/// ⛔ the file is titled *"Does every fighter on the smash grid have a
-/// MOVESET?"*, quotes Jon asking for movesets, and then measures ACTION SETS: a
-/// preset melee, one swing, the thing a body reaches for. That was the honest
-/// measurement in August when nobody authored a moveset — a census of a set
-/// everyone was empty in reports nothing. Four characters author one now, so the
-/// question the title asks is finally answerable, and it is the one P3.24's
-/// count is supposed to be falling on.
-///
-/// ```text
-///   action set   CAN this body swing            (a preset, one melee)
-///   moveset      what its eleven presses ARE    (jab, tilts, smashes, aerials)
-/// ```
-///
-/// ⚠ **a ratchet, not a target**, exactly like `KNOWN_UNARMED` above: the list
-/// is the record of who still takes the generic floor, and it may only shrink.
-/// Authoring a repertoire is a content job and this exists so the count cannot
-/// quietly grow while one is being done.
-#[test]
-fn the_grid_fighters_with_a_real_repertoire_only_grow() {
-    /// Grid fighters that author their OWN move timelines.
-    ///
-    /// ⚠ **measured 2026-08-12 against the shipped host: SEVEN of fourteen.**
-    /// The seven on the generic floor are Mary-O and Sanic (other demos'
-    /// protagonists, who bring their own bodies but no smash table) and the five
-    /// Hall NPCs who were authored to stand in a room and talk.
-    const WITH_REPERTOIRE: &[&str] = &[
-        // The protagonist's canonical table, consumed identically by both games
-        // (redirect §15) — the reason it lives on the Robot provider at all.
-        "player_robot_v3",
-        // Ambition's own, written to remove adopters from the generic floor
-        // (P3.24): shorter/faster/weaker than the robot, longer/slower/harder,
-        // and the heavyweight controller respectively.
-        "goblin",
-        "npc_pirate_admiral",
-        "special_patent_clerk",
-        // ⭐ **THE TWO I DID NOT EXPECT, and the test found them rather than my
-        // memory.** I wrote this list from what I knew had been authored — the
-        // robot's table plus the three written to remove adopters — and it was
-        // wrong by two, in the direction that matters least and proves the most:
-        // there is MORE authored content than the person writing the ratchet
-        // believed.
-        //
-        // The demo's own fighter, whose eleven-move table is built on the law of
-        // the excluded middle its catalog row quotes. It reaches the HOST grid
-        // because the smash provider registers it, which is the crossover
-        // working.
-        "smash_george_booul",
-        // The Perfect Cellular Automaton's Cellular Pulse — a real
-        // `MovesetContract`, authored when its ninety-line archetype row was
-        // deleted (D89).
-        "perfect_cellular_automaton",
-        // The counter-puncher, authored from his own BARKS — the fourth adopter
-        // removed from the generic floor, and this ratchet is what asked for him
-        // by name the moment his table landed.
-        "npc_ninja_shadow_oni_leader",
-        // ⭐ **THE FIFTH, and the first authored from the ART inward** (Jon,
-        // 2026-08-16). Twenty-three of Oiler's own effects had been rendered and
-        // packed — the three-row `oil_geyser_{emerge,stream,impact}` set among
-        // them — with nothing in any table naming one. His sixteen moves bind
-        // eighteen of them; the Up-B IS the geyser.
-        "npc_oiler",
-        // ⭐ **THE SIXTH, and she came with the art already finished** (Jon,
-        // 2026-08-16). Emmy's rig publishes 123 rows — grabs, throws, techs,
-        // ledge options, a shield break — and not one of them had ever been asked
-        // for a hitbox. Her sixteen moves bind all twelve of her own effects.
-        "npc_noether",
-        // ⭐ **THE SEVENTH AND EIGHTH, on the same day and for the same reason**
-        // (Jon, 2026-08-16: *"We need to make sure they also have full smash
-        // movesets."*). Carl Stargan stands on 133 authored rows — the largest
-        // vocabulary here — and had one swipe; the Clerk was already on this
-        // list above with eleven moves and no specials, so no way back to the
-        // stage at all, and he now has the five that were missing.
-        "npc_carl_stargan",
-    ];
-
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    app.update();
-    let registry = app
-        .world()
-        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
-    );
-    let grid = SmashRoster::assemble(registry);
-    assert!(
-        grid.len() >= 8,
-        "the assembled grid is {} fighters — too short to be the shipped host's",
-        grid.len()
-    );
-
-    let mut authored: Vec<&str> = Vec::new();
-    let mut generic: Vec<&str> = Vec::new();
-    for id in grid.ids() {
-        let has = registry
-            .get(id)
-            .is_some_and(|definition| definition.authored_moveset.is_some());
-        if has {
-            authored.push(id);
-        } else {
-            generic.push(id);
-        }
-    }
-    eprintln!("[repertoires] authored={authored:?}\n              generic={generic:?}");
-
-    let lost: Vec<&&str> = WITH_REPERTOIRE
-        .iter()
-        .filter(|id| !authored.contains(id))
-        .collect();
-    assert!(
-        lost.is_empty(),
-        "these fighters authored their own moves and no longer reach the grid \
-         with them: {lost:?}. A repertoire that stops arriving is silent — the \
-         body still swings, it just swings the generic floor's swipe."
-    );
-
-    // ⭐ the ratchet's other half: a NEW repertoire must be recorded here, so
-    // the count is a fact rather than a memory.
-    let unrecorded: Vec<&&str> = authored
-        .iter()
-        .filter(|id| !WITH_REPERTOIRE.contains(id))
-        .collect();
-    assert!(
-        unrecorded.is_empty(),
-        "these fighters author a repertoire and the ledger above does not say \
-         so: {unrecorded:?}. Add them — the list is what makes P3.24's count \
-         mean something."
-    );
-
-    // ⛔ and the poison: some fighter must still be on the generic floor, or
-    // this test has stopped distinguishing anything and P3.24 is DONE — in
-    // which case delete it rather than leave it passing.
-    assert!(
-        !generic.is_empty(),
-        "every grid fighter authors a repertoire, so the generic floor has no \
-         adopters left: P3.24 is complete and this ratchet should go with it"
-    );
-}
+// ⛔⛔ **`the_grid_fighters_with_a_real_repertoire_only_grow` IS DELETED
+// (2026-08-16), and its own last line is what deleted it**: *"some fighter must
+// still be on the generic floor, or this test has stopped distinguishing
+// anything and P3.24 is DONE — in which case delete it rather than leave it
+// passing."* Every fighter on the grid authors a repertoire now (D144), so the
+// count it ratcheted has reached the cast and the list it kept was the whole
+// roster written out twice.
+//
+// ⭐ **the guard it provided did not go with it, and is stronger where it
+// landed.** *"A repertoire that stops arriving"* is caught by
+// `smash_in_the_host::the_grid_fighters_that_state_their_own_moves_only_grow`,
+// whose control arm now asserts the silent column is EMPTY, and by
+// `report_the_smash_kit_every_selectable_fighter_has` below, which fails when a
+// fighter drops below the full sixteen-press kit rather than when it loses its
+// table entirely.
 
 /// **THE STAND-IN ROBOTS STEP ASIDE IN A HOST THAT CARRIES THE REAL LINEAGE —
 /// and the copies stay in the standalone demo for a reason that is not
@@ -748,32 +625,68 @@ fn the_platformer_protagonists_keep_their_own_kits_at_home() {
 /// set rather than replacing it, so a character can reach a press through either
 /// — the body resolves the merge, so the merge is what a report about the body
 /// has to read.
-const SMASH_KIT: &[(
-    &str,
-    &str,
-    ambition_platformer2d::entity_catalog::AttackDir,
-    bool,
-)] = {
+const SMASH_KIT: &[(&str, &str, ambition_platformer2d::entity_catalog::AttackDir)] = {
     use ambition_platformer2d::entity_catalog::AttackDir::*;
     &[
-        ("jab", "attack", Neutral, true),
-        ("ftilt", "attack", Forward, true),
-        ("utilt", "attack", Up, true),
-        ("dtilt", "attack", Down, true),
-        ("fsmash", "smash", Forward, true),
-        ("usmash", "smash", Up, true),
-        ("dsmash", "smash", Down, true),
-        ("nair", "attack", Neutral, false),
-        ("fair", "attack", Forward, false),
-        ("bair", "attack", Back, false),
-        ("uair", "attack", Up, false),
-        ("dair", "attack", Down, false),
-        ("nspecial", "special", Neutral, true),
-        ("sspecial", "special", Forward, true),
-        ("uspecial", "special", Up, true),
-        ("dspecial", "special", Down, true),
+        ("jab", "attack", Neutral),
+        ("ftilt", "attack", Forward),
+        ("utilt", "attack", Up),
+        ("dtilt", "attack", Down),
+        ("fsmash", "smash", Forward),
+        ("usmash", "smash", Up),
+        ("dsmash", "smash", Down),
+        ("nair", "attack", Neutral),
+        ("fair", "attack", Forward),
+        ("bair", "attack", Back),
+        ("uair", "attack", Up),
+        ("dair", "attack", Down),
+        ("nspecial", "special", Neutral),
+        ("sspecial", "special", Forward),
+        ("uspecial", "special", Up),
+        ("dspecial", "special", Down),
     ]
 };
+
+/// Which postures a press is asked in.
+///
+/// ```text
+///   jab, tilts, smashes   grounded
+///   aerials               airborne   — same verbs, told apart by nothing else
+///   specials              BOTH
+/// ```
+///
+/// ⛔⛔ **asking only one posture INVENTS A GAP and HIDES another.** George
+/// Booul's down-B is a commanded plunge and is `airborne_only`; probed standing
+/// on the ground it is skipped by its own gate, falls down the directional chain
+/// to his neutral-B, and reads as "missing" in a census that never left the
+/// floor. He had it all along. Meanwhile nine other fighters had the mirror
+/// defect — a grounded-only down-B that walked past itself in the AIR — and a
+/// grounded-only census could not see any of them.
+fn postures(label: &str) -> &'static [bool] {
+    match label {
+        "nair" | "fair" | "bair" | "uair" | "dair" => &[false],
+        "nspecial" | "sspecial" | "uspecial" | "dspecial" => &[true, false],
+        _ => &[true],
+    }
+}
+
+/// Whether EVERY posture this press is asked in owes an answer of its own.
+///
+/// ⭐ **Jon's ruling, 2026-08-16**: *"A down-b that has special airborne
+/// properties should also have an effect on ground. Think of bowser down b. In
+/// the air he just does a downward slam, but on the ground, it causes him to
+/// jump in an arc and then slam. Specials can have different effects in
+/// different contexts that should be ok, and makes for a richer smash game,
+/// although in most cases they shouldn't be context dependent."*
+///
+/// ⇒ a special gated to one posture is NOT covered by answering in that one.
+/// Pressed in the other, the chain walks past it to the character's neutral
+/// special — or to nothing at all — and the player pressed down-B and got
+/// something else. `special_air_down` is the verb that expresses the two-form
+/// move and it has been in the chain the whole time.
+fn every_posture_must_answer(label: &str) -> bool {
+    matches!(label, "nspecial" | "sspecial" | "uspecial" | "dspecial")
+}
 
 #[test]
 fn report_the_smash_kit_every_selectable_fighter_has() {
@@ -796,43 +709,90 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
             rows.push(format!("  {id:<34} NO KIT AT ALL"));
             continue;
         };
-        // What each press resolves to, and whether it is a move of its own.
         let mut distinct: Vec<&str> = Vec::new();
-        let mut shared: Vec<String> = Vec::new();
-        let mut silent: Vec<&str> = Vec::new();
+        let mut wrong: Vec<String> = Vec::new();
         let mut seen: std::collections::BTreeMap<String, &str> = Default::default();
-        for (label, base, dir, grounded) in SMASH_KIT {
-            match moveset.move_for_directional_verb(base, *dir, *grounded) {
-                None => silent.push(label),
-                Some(mv) => match seen.get(mv.id.as_str()) {
-                    // A press that resolves to a move an EARLIER press already
-                    // claimed is a fallback, not a move: the body swings the
-                    // same timeline for both.
-                    Some(owner) => shared.push(format!("{label}={owner}")),
-                    None => {
-                        seen.insert(mv.id.clone(), label);
-                        distinct.push(label);
+        for (label, base, dir) in SMASH_KIT {
+            let reached: Vec<Option<String>> = postures(label)
+                .iter()
+                .map(|grounded| {
+                    moveset
+                        .move_for_directional_verb(base, *dir, *grounded)
+                        .map(|mv| mv.id.clone())
+                })
+                .collect();
+            // A press that reaches only moves an EARLIER press already claimed
+            // is a fallback, not a move of its own: the body swings the same
+            // timeline for both.
+            let its_own = |id: &Option<String>| {
+                id.as_ref().is_some_and(|id| {
+                    !seen.contains_key(id.as_str()) || seen[id.as_str()] == *label
+                })
+            };
+            let answered = if every_posture_must_answer(label) {
+                reached.iter().all(its_own)
+            } else {
+                reached.iter().any(its_own)
+            };
+            if answered {
+                distinct.push(label);
+            } else {
+                for (grounded, id) in postures(label).iter().zip(reached.iter()) {
+                    let posture = if *grounded { "ground" } else { "air" };
+                    match id {
+                        None => wrong.push(format!("{label}/{posture}=nothing")),
+                        Some(other) if !its_own(id) => {
+                            wrong.push(format!("{label}/{posture}={}", seen[other.as_str()]))
+                        }
+                        Some(_) => {}
                     }
-                },
+                }
+            }
+            for id in reached.iter().flatten() {
+                seen.entry(id.clone()).or_insert(label);
             }
         }
         rows.push(format!(
-            "  {id:<34} {}  {:>2}/16 distinct  moves={:<3} | doubles-up: {:<28} | silent: {}",
+            "  {id:<34} {}  {:>2}/{} presses  moves={:<3} | not its own: {}",
             if authored { "authored" } else { "DERIVED " },
             distinct.len(),
+            SMASH_KIT.len(),
             moveset.moves.len(),
-            if shared.is_empty() {
+            if wrong.is_empty() {
                 "-".to_string()
             } else {
-                shared.join(" ")
-            },
-            if silent.is_empty() {
-                "-".to_string()
-            } else {
-                silent.join(" ")
+                wrong.join(" ")
             }
         ));
     }
     eprintln!("[smash kit census]\n{}", rows.join("\n"));
     assert!(rows.len() >= 8, "the grid did not assemble: {rows:?}");
+
+    // ⭐⭐ **A RATCHET, because the target is settled** (Jon: *"16 is the current
+    // target, but we will need to do more (trips, grabs, falls, techs, etc…)"*).
+    //
+    // ⚠ **it fails on a DROP, never on the target moving.** When trips, grabs
+    // and techs join the vocabulary, `SMASH_KIT` grows and this reads the new
+    // length by itself — the number is not a copy of the target, it IS the
+    // target.
+    let short: Vec<&String> = rows
+        .iter()
+        .filter(|row| {
+            !row.contains(&format!(
+                "{:>2}/{} presses",
+                SMASH_KIT.len(),
+                SMASH_KIT.len()
+            ))
+        })
+        .collect();
+    assert!(
+        short.is_empty(),
+        "{} selectable fighter(s) are short of the full {}-press kit:\n{}\n\n\
+         A press with no move of its own is not silence — `directional_verb_chain` \
+         falls back, so it swings something ELSE and reads as a character missing \
+         a move rather than as a bug.",
+        short.len(),
+        SMASH_KIT.len(),
+        rows.join("\n")
+    );
 }

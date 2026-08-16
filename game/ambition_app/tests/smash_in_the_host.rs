@@ -1406,8 +1406,18 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
         "the up-special press does not resolve to the geyser on a live body"
     );
 
-    // ⛔ THE CONTROL: the other seat is a different table, and it has no way
-    // home. One kit handed to both bodies would fail here.
+    // ⛔ THE CONTROL: the other seat is a DIFFERENT table.
+    //
+    // ⚠ **it used to read "and it has no way home", and that stopped being true
+    // on 2026-08-16** — every fighter on the grid has an up-B now, which is the
+    // whole of D144 and the half of it that is not cosmetic. A poison that says
+    // "nobody else has one" cannot survive the work that gave everybody one, and
+    // keeping it would have meant deleting somebody's recovery to keep a test
+    // green.
+    //
+    // ⭐ so it asks the question that still discriminates, and asks it of the
+    // same field: both seats advertise a way home, and they are DIFFERENT ones.
+    // One kit handed to both bodies fails here exactly as before.
     let control_lifts: Vec<&str> = control
         .moves
         .iter()
@@ -1415,10 +1425,16 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
         .map(|m| m.id.as_str())
         .collect();
     assert!(
-        control_lifts.is_empty(),
-        "the seat beside Oiler also advertises a way home ({control_lifts:?}), \
-         so both bodies are wearing one table and the assertions above are that \
-         table read twice"
+        !control_lifts.is_empty(),
+        "the seat beside Oiler advertises no way home at all — every fighter on \
+         this grid has an up-B, so this seat is wearing something older than the \
+         cast"
+    );
+    assert!(
+        !control_lifts.contains(&"oil_geyser"),
+        "the seat beside Oiler rides HIS geyser ({control_lifts:?}), so both \
+         bodies are wearing one table and the assertions above are that table \
+         read twice"
     );
     assert!(
         !control.moves.iter().any(|m| m.id == "oil_geyser"),
@@ -1500,14 +1516,26 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
         "no fighter on the grid states its own move timelines, so every pick \
          fights with the stage's unarmed declaration: {silent:?}"
     );
+    // ⭐⭐ **THE CONTROL ARM FIRED, AND IT WAS INTENDED** (2026-08-16). It read
+    // *"every fighter on the grid now states its own moves … check that was
+    // intended before deleting `DeclaredCombatRules::unarmed_melee`"*, and the
+    // answer is Jon's: *"Let's complete the kit for all characters, authoring
+    // new moves when we need to."* Mary-O, Sanic, Alice and Bob author sixteen
+    // moves each; the silent column is empty on purpose.
+    //
+    // ⚠ **so the arm is restated rather than deleted, because the thing it was
+    // protecting is still true**: `unarmed_melee` is what lets a KIT-LESS
+    // character be selectable, the grid simply no longer has one. D143 records
+    // the defect that the declaration does not actually reach a seat — which is
+    // now unreachable from this grid and still real for the next character
+    // seated without a table.
     assert!(
-        !silent.is_empty(),
-        "every fighter on the grid now states its own moves ({authored:?}). \
-         ⛔ do NOT read that as P3.26 finishing: the fighters that were silent \
-         were peaceful ON PURPOSE, so this means somebody gave the peaceful \
-         cast attacks. Check that was intended before deleting \
-         `DeclaredCombatRules::unarmed_melee` — it is what lets a peaceful \
-         character be selectable at all"
+        silent.is_empty(),
+        "these fighters reach the grid with no move timelines of their own: \
+         {silent:?}. Every selectable character has authored a table since \
+         2026-08-16, so one arriving silent is a repertoire that stopped \
+         reaching the registry rather than a peaceful character on a fighting \
+         grid"
     );
 }
 
@@ -1936,6 +1964,37 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     app.update();
     app.update();
 
+    // ⛔⛔ **HOLD THE OPPONENT STILL, and the reason is a measurement.** This
+    // test is about a TIMER — does the grant end — and it used to be able to
+    // ignore the other fighter because that fighter could not do much. Every
+    // fighter on the grid authors sixteen moves now (D144), so over the five
+    // seconds below the CPU took the victim's next stock, the ruleset granted a
+    // FRESH protection for the new respawn, and the test read that one: probed,
+    // it found `remaining: 0.233s` on a match that was not over
+    // (`settled = false`). Nothing was stuck; a second knockout had happened.
+    //
+    // ⇒ suspending the other seats isolates the grant from the fight, which is
+    // what a test of the grant should have done from the start. `ScriptedControl`
+    // is the engine's own word for "a sequence drives this body" — the same
+    // instrument the opening countdown uses.
+    {
+        let world = app.world_mut();
+        let mut others = world.query_filtered::<
+            Entity,
+            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+        >();
+        // ⚠ **the VICTIM too.** Suspending only its opponent was not enough: a
+        // CPU-driven body walks itself off a platform-fighter stage, loses the
+        // next stock on its own, and takes a fresh grant with it. Nothing here
+        // needs anybody to act.
+        let ids: Vec<Entity> = others.iter(world).collect();
+        for other in ids {
+            world
+                .entity_mut(other)
+                .insert(ambition_platformer2d::characters::brain::ScriptedControl);
+        }
+    }
+
     let protection = app.world().get::<Empowered>(victim).copied();
     let protection = protection.expect(
         "a fighter that just lost a stock came back with no protection at all, so \
@@ -1953,15 +2012,38 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     );
 
     // ⛔ **and it wears off.** A grant with no end is worse than none.
-    for _ in 0..300 {
-        app.update();
-    }
-    assert!(
-        app.world()
+    //
+    // ⚠ **run until it does, rather than for a fixed number of frames.** This
+    // counted 300 `app.update()`s and called that five seconds, which is only
+    // true if one update carries one tick of SIM time — and it does not. Probed
+    // 2026-08-16: over 300 updates the grant went from 1.967s to 0.233s, so the
+    // simulation advanced 1.73s while the loop believed it had advanced 5.00s.
+    // The test was passing on a margin nobody had measured, and it started
+    // failing when the app got heavier rather than when anything about the grant
+    // changed.
+    //
+    // ⭐ the CLAIM is unchanged — the protection ends — and it is now asserted
+    // against the protection instead of against a frame count.
+    let mut updates = 0;
+    let expired = loop {
+        if app
+            .world()
             .get::<Empowered>(victim)
             .copied()
-            .is_none_or(|later| !later.traits.holds(Empowerment::UNTOUCHABLE)),
-        "five seconds after respawning, the fighter is still untouchable"
+            .is_none_or(|later| !later.traits.holds(Empowerment::UNTOUCHABLE))
+        {
+            break true;
+        }
+        if updates >= 2_000 {
+            break false;
+        }
+        app.update();
+        updates += 1;
+    };
+    assert!(
+        expired,
+        "the respawn protection never ended in {updates} updates: {:?}",
+        app.world().get::<Empowered>(victim).copied()
     );
 }
 
@@ -3026,18 +3108,27 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
         .collect();
     // A vacuity guard on the oracle itself: an `authored_moveset` that had
     // silently become `None` for EVERYBODY would make the assertion below a
-    // statement about a field nothing fills, so prove the grid still has a
-    // generic fighter to fail against.
+    // statement about a field nothing fills.
+    //
+    // ⭐ **it used to prove that by finding a fighter on the GENERIC FLOOR to
+    // fail against, and there is no longer one** — which is this comment's own
+    // prediction coming true. It said *"author a kit for Sanic and it goes on
+    // passing"*; on 2026-08-16 Sanic, Mary-O, Alice and Bob all authored one
+    // (D144) and the grid ran out of generic fighters entirely.
+    //
+    // ⇒ the guard asks the hazard directly instead: is the field FILLED for
+    // anybody? A field nothing writes fails here exactly as before, and the
+    // proof no longer depends on a population the content work was trying to
+    // empty.
     assert!(
         app.world()
             .resource::<ambition_demo_smash::select::SmashRoster>()
             .ids()
             .any(|id| registry
                 .get(id)
-                .is_some_and(|definition| definition.authored_moveset.is_none())),
-        "every fighter on the grid reports an authored moveset, so the check \
-         below cannot distinguish the authored pair from the generic floor and \
-         is proving nothing"
+                .is_some_and(|definition| definition.authored_moveset.is_some())),
+        "no fighter on the grid reports an authored moveset, so the check below \
+         is a statement about a field nothing fills"
     );
     assert!(
         seated.iter().all(|(_, authored)| *authored),
@@ -3396,5 +3487,67 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+    assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
+}
+
+/// **WHY THE AUTOMATON'S GLIDER HITS NOBODY.** (Jon, 2026-08-16: *"PCA's glider
+/// doesn't do any damage or hit anyone."*)
+///
+/// ⛔⛔ **melee and projectiles ask DIFFERENT QUESTIONS about who may be hit**,
+/// and only one of them knows what a match is:
+///
+/// ```text
+///   melee        `targeting::team_allows_damage(attacker_team, victim_team)`
+///                — when both bodies are SEATED, the teams decide
+///   projectile   `damage_lands(firer_faction, victim_faction, ..)`
+///                — factions decide; `MatchTeam` appears nowhere in
+///                  `projectile/systems.rs`
+/// ```
+///
+/// So a stage that seats every fighter under ONE faction — which is what a
+/// crossover grid does, since a Hall NPC and a demo protagonist are not enemies
+/// of each other outside the match — gives melee a clean answer and leaves every
+/// shot spared as an ally.
+///
+/// This measures the seats rather than arguing from the code: if the two seats
+/// come back on the same faction with different teams, the asymmetry above is
+/// the whole of Jon's report.
+#[test]
+fn report_the_factions_and_teams_a_seated_fighter_carries() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            "perfect_cellular_automaton".to_string(),
+            "goblin".to_string(),
+        ]));
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..90 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &MatchSeat,
+        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
+    )>();
+    let mut rows: Vec<(usize, String, String)> = query
+        .iter(world)
+        .map(|(seat, faction, team)| {
+            (
+                seat.0,
+                format!("{faction:?}"),
+                team.map_or("-".to_string(), |t| t.as_str().to_string()),
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seat, ..)| *seat);
+    eprintln!("[seat factions] {rows:?}");
     assert_eq!(rows.len(), 2, "the stage seated {} fighters", rows.len());
 }

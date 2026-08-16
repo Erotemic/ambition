@@ -54,9 +54,9 @@
 
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
-use crate::moveset_authoring::{
+use ambition_characters::moveset_authoring::{
     airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    vfx,
+    vfx, vfx_at,
 };
 
 /// **How far across the grapple hauls him**, engine units per second along
@@ -465,6 +465,33 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.chink");
     moves.push(down_b);
 
+    // ── 2026-08-16: THE ONE THAT WAS MISSING ─────────────────────────────────
+    //
+    // ⛔ **the forward tilt.** With all four specials authored, this was the only
+    // press on the admiral that fell down the directional chain — a fighter
+    // carrying a cutlass answering "forward" with a jab. A LEVEL CUT at chest
+    // height: the longest tilt on the grid, because reach is what the cutlass is
+    // for, and slower than the goblin's whole jab because carrying one costs.
+    let mut f_tilt = strike(
+        "tilt_forward",
+        "attack_side",
+        0.10,
+        0.08,
+        0.20,
+        (38.0, -4.0),
+        (26.0, 14.0),
+        7,
+        78.0,
+        1.30,
+        Some((1.0, -0.30)),
+        None,
+    );
+    f_tilt.gates = grounded_only();
+    let f_tilt = vfx_at(f_tilt, 0.10, "air_slice", (38.0, -4.0), 1.0);
+    let f_tilt = sfx(f_tilt, 0.10, "enemy.pirate.cutlass_swing");
+    let f_tilt = on_contact(f_tilt, "player.hit");
+    moves.push(f_tilt);
+
     let verbs = [
         ("attack", "jab"),
         ("attack_up", "tilt_up"),
@@ -477,6 +504,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
+        ("attack_forward", "tilt_forward"),
         ("special", "grapeshot"),
         ("special_forward", "boarding_run"),
         ("special_up", "grapple_line"),
@@ -548,7 +576,7 @@ mod tests {
                 "verb `{verb}` binds move `{id}`, which this table does not define"
             );
         }
-        assert_eq!(moveset.verbs.len(), 15);
+        assert_eq!(moveset.verbs.len(), 16);
     }
 
     /// The commanded (`Set`) velocity a move states, if it states one.

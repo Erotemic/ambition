@@ -25,7 +25,11 @@ use ambition_platformer2d::entity_catalog::{
 // ⭐ the authoring primitives are SHARED (`moveset_authoring`), so the goblin's
 // table below is written with the same `strike` this one is rather than a copy
 // of it. They left this file the day a second character authored moves.
-use crate::moveset_authoring::{airborne_only, grounded_only, strike};
+use ambition_characters::moveset_authoring::{
+    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
+    vfx_at,
+};
+use ambition_platformer2d::entity_catalog::ImpulseMode;
 
 /// **The fighter repertoire**, as one authored contract.
 ///
@@ -270,8 +274,162 @@ pub fn player_robot_moveset() -> MovesetContract {
     d_air.autocancel_after_s = Some(0.40);
     moves.push(d_air);
 
+    // ── 2026-08-16: THE FOUR THAT WERE MISSING ───────────────────────────────
+    //
+    // Jon: *"Let's complete the kit for all characters."* Measured first, the
+    // PROTAGONIST was 12/16 — no forward tilt, and one special answering all
+    // four directions, because the Hadouken arrives from the DERIVED kit (the
+    // action set's ranged spec) and nothing had ever authored the other three.
+    //
+    // ⚠ **authored moves overlay the derived kit, they do not replace it**, so
+    // the Hadouken stays exactly where it is and keeps `special`. These three
+    // take the directions it was standing in for.
+
+    // ⛔ **the forward tilt.** Without one the commonest press in the genre falls
+    // down the directional chain to the jab — the hole five of the ten authored
+    // tables had. A straight servo-driven extension: longer than the jab, slower,
+    // and it moves you.
+    let mut f_tilt = strike(
+        "tilt_forward",
+        "attack_side",
+        0.07,
+        0.07,
+        0.17,
+        (30.0, -2.0),
+        (20.0, 14.0),
+        6,
+        72.0,
+        1.28,
+        Some((1.0, -0.26)),
+        None,
+    );
+    f_tilt.gates = grounded_only();
+    let f_tilt = vfx_at(f_tilt, 0.07, "air_slice", (30.0, -2.0), 0.8);
+    let f_tilt = sfx(f_tilt, 0.07, "player.directional_primary");
+    let f_tilt = on_contact(f_tilt, "player.hit");
+    moves.push(f_tilt);
+
+    // **SIDE — `rocket_dash`.** The dash it has at home, spent as one committed
+    // pass instead of a movement option. ⭐ `Set`, so it crosses the same
+    // distance whatever it was doing — a recovery mix-up rather than a
+    // momentum bonus.
+    let mut side_b = strike(
+        "rocket_dash",
+        "dash",
+        0.12,
+        0.10,
+        0.26,
+        (28.0, 0.0),
+        (24.0, 18.0),
+        10,
+        104.0,
+        1.95,
+        Some((0.95, -0.38)),
+        None,
+    );
+    side_b.gates = either_posture();
+    let side_b = impulse(side_b, 0.12, (660.0, 0.0), ImpulseMode::Set);
+    let side_b = committed_tail(side_b, 0.60, 0.05);
+    let side_b = vfx_at(side_b, 0.12, "dash_streak", (0.0, 0.0), 1.0);
+    let side_b = sfx(side_b, 0.12, "player.dash");
+    let side_b = on_contact(side_b, "player.hit");
+    moves.push(side_b);
+
+    // **UP — `thruster_climb`. THE RECOVERY.** At home this body can FLY; a
+    // platform fighter does not get flight, so the thrusters get one burst and
+    // then it is falling again. That is the same fact stated under two rulesets,
+    // which is what the ability mask is for.
+    let mut up_b = strike(
+        "thruster_climb",
+        "fly",
+        0.07,
+        0.12,
+        0.20,
+        (0.0, -12.0),
+        (20.0, 30.0),
+        7,
+        86.0,
+        1.62,
+        Some((0.12, -1.0)),
+        None,
+    );
+    up_b.gates = either_posture();
+    up_b.landing_lag_s = Some(0.28);
+    let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
+    let up_b = committed_tail(up_b, 0.50, 0.20);
+    let up_b = vfx_at(up_b, 0.07, "steam_vent", (0.0, 18.0), 1.0);
+    let up_b = sfx(up_b, 0.07, "player.fly.start");
+    let up_b = vfx_at(up_b, 0.19, "energy_release", (0.0, -12.0), 0.9);
+    let up_b = on_contact(up_b, "player.hit");
+    moves.push(up_b);
+
+    // **DOWN — `stabilizer_slam`.** It drops its weight through its stabilizers
+    // and the floor answers. Wide, flat, grounded-only, and slow enough that
+    // whiffing it is the whole risk.
+    let mut down_b = strike(
+        "stabilizer_slam",
+        "attack_down",
+        0.14,
+        0.09,
+        0.30,
+        (0.0, 20.0),
+        (40.0, 12.0),
+        9,
+        90.0,
+        1.55,
+        Some((0.75, -0.62)),
+        None,
+    );
+    down_b.gates = grounded_only();
+    let down_b = committed_tail(down_b, 0.62, 0.0);
+    let down_b = vfx_at(down_b, 0.14, "shockwave", (0.0, 20.0), 1.1);
+    let down_b = sfx(down_b, 0.14, "player.land.heavy");
+    let down_b = vfx_at(down_b, 0.14, "hit_metal", (0.0, 16.0), 0.8);
+    let down_b = on_contact(down_b, "player.hit");
+    moves.push(down_b);
+
+    // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
+    //
+    // Jon: *"A down-b that has special airborne properties should also have an
+    // effect on ground. Think of bowser down b. In the air he just does a
+    // downward slam, but on the ground, it causes him to jump in an arc and then
+    // slam. Specials can have different effects in different contexts that
+    // should be ok, and makes for a richer smash game, although in most cases
+    // they shouldn't be context dependent."*
+    //
+    // ⛔ a special gated to ONE posture is not answered in the other — the
+    // directional chain walks straight past it to the NEUTRAL special, so a
+    // player pressing down-B in the air got the neutral-B. `special_air_down`
+    // sits ahead of `special_down` in that chain and has the whole time; this is
+    // the two-form move it exists for.
+    // **DOWN, IN THE AIR — `stabilizer_dive`.** The same stabilizers, with no
+    // floor to put them through: it drives them downward and brings the floor
+    // to them.
+    let mut air_down_b = strike(
+        "stabilizer_dive",
+        "air_down",
+        0.10,
+        0.10,
+        0.24,
+        (0.0, 24.0),
+        (20.0, 22.0),
+        9,
+        96.0,
+        1.72,
+        Some((0.0, 1.0)),
+        None,
+    );
+    air_down_b.gates = airborne_only();
+    air_down_b.landing_lag_s = Some(0.30);
+    let air_down_b = impulse(air_down_b, 0.10, (0.0, 1250.0), ImpulseMode::Set);
+    let air_down_b = vfx_at(air_down_b, 0.10, "hit_metal", (0.0, 20.0), 0.9);
+    let air_down_b = sfx(air_down_b, 0.10, "player.fast_fall");
+    let air_down_b = on_contact(air_down_b, "player.hit");
+    moves.push(air_down_b);
+
     let verbs = [
         ("attack", "jab"),
+        ("attack_forward", "tilt_forward"),
         ("attack_up", "tilt_up"),
         ("attack_down", "tilt_down"),
         ("smash_forward", "smash_forward"),
@@ -282,6 +440,12 @@ pub fn player_robot_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
+        // ⚠ `special` is deliberately ABSENT: the Hadouken comes from the
+        // derived kit and authoring a second binding here would replace it.
+        ("special_forward", "rocket_dash"),
+        ("special_up", "thruster_climb"),
+        ("special_down", "stabilizer_slam"),
+        ("special_air_down", "stabilizer_dive"),
     ]
     .into_iter()
     .map(|(verb, id)| (verb.to_string(), id.to_string()))
@@ -304,7 +468,12 @@ mod tests {
                 "verb `{verb}` names move `{id}`, which is not in the contract"
             );
         }
-        assert_eq!(set.verbs.len(), 11, "the full directional repertoire");
+        assert_eq!(
+            set.verbs.len(),
+            16,
+            "the full directional repertoire, minus `special` — the Hadouken \
+             arrives from the DERIVED kit and this table must not rebind it"
+        );
     }
 
     /// **The protagonist states its own verbs, so a match stops guessing.**

@@ -25,6 +25,8 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 mod goblin;
 mod hall_humanoids;
 mod npc_ai_slop;
+mod npc_alice;
+mod npc_bob;
 mod npc_burning_flying_shark;
 mod npc_carl_stargan;
 mod npc_dividing_mite;
@@ -106,7 +108,11 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_carl_stargan"], npc_carl_stargan::author),
     // AC5: the last characters that could not build their own body. Each was
     // missing only locomotion — see the module doc.
-    (&["npc_alice", "npc_bob"], hall_humanoids::author),
+    // ⭐ Alice and Bob left that file the day they grew repertoires
+    // (2026-08-16) — the same rule, the third and fourth time this week. Same
+    // walk, same health, sixteen new answers each.
+    (&["npc_alice"], npc_alice::author),
+    (&["npc_bob"], npc_bob::author),
     // ⭐ Emmy left that file the day she grew a repertoire (2026-08-16) — the
     // second time this week the rule fired. 123 authored rows, and nothing had
     // ever asked one of them for a hitbox.

@@ -1216,7 +1216,14 @@
             body_kind: Standard,
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
+            // ⭐ 2026-08-16: he authors a sixteen-move smash repertoire
+            // (`oiler_moveset`), and an ability and a repertoire are different
+            // questions — *may this body attack* versus *what the attack is*. A
+            // `peaceful` row answered the first one NO, so the table could never
+            // reach a fighter. His brain stays `patrol_peaceful`: what he does in
+            // the Hall is a policy, not a capability, and his own bark already
+            // says "Maintenance mode: hostile!" when somebody starts it.
+            default_action_set: "striker_swipe",
             tags: ["intro", "mechanic"],
         barks: (
             on_hit: ["Quit messing with my tools!", "Spanner's just decorative? Think again.", "That dented my dignity."],

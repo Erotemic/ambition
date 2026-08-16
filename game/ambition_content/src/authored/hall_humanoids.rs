@@ -1,4 +1,4 @@
-//! **THE FOUR HALL HUMANOIDS** — Alice, Bob, Emmy No-Ether and Oiler.
+//! **THE HALL HUMANOIDS** — Alice, Bob and Emmy No-Ether.
 //!
 //! They are the last four characters that could not build a body from their own
 //! definition, and every one of them was missing exactly one fact: **locomotion**.
@@ -25,10 +25,15 @@
 //! and encoding her placement's `stand_still` as a zero run speed would put a
 //! controller policy inside a body fact where nothing could ever override it.
 //!
-//! ⚠ **one file for four**, the same P2.16 rule the pirate crew file follows:
-//! four files differing by nothing at all would be the copy `AUTHORED_CAST`
+//! ⚠ **one file for the rest**, the same P2.16 rule the pirate crew file
+//! follows: files differing by nothing at all would be the copy `AUTHORED_CAST`
 //! exists to refuse. If one of them grows a moveset or a distinct build, it
 //! earns its own file that day.
+//!
+//! ⭐ **Oiler did, on 2026-08-16** — a sixteen-move smash repertoire built on
+//! his own twenty-three rendered effects. He is [`super::npc_oiler`] now, and he
+//! still takes [`HUMANOID_RUN_SPEED`] from here, because a mechanic with a
+//! wrench walks like the folk he walks among.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::MoveStyleSpec;
@@ -38,7 +43,7 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// 170 and the salvage guard's 225 — these are folk, not fighters, and the
 /// number is Jon's kind of tuning: change it after playing, not by reopening a
 /// decision.
-const HUMANOID_RUN_SPEED: f32 = 210.0;
+pub(super) const HUMANOID_RUN_SPEED: f32 = 210.0;
 
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes these characters buildable — there is no second list to remember.

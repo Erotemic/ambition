@@ -13,6 +13,7 @@
 //! RULESET's. That is what lets one table read as Hollow-Knight combat in one
 //! game and a platform fighter in another.
 
+use ambition_characters::moveset_prefabs::SLASH_ARC_VFX;
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveGates, MoveSpec,
     MoveWindow, VolumeShape, WindowTag,
@@ -96,6 +97,28 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
 pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
         volume.hit_sfx = Some(cue.to_string());
+    }
+    m
+}
+
+/// **HOW THE SWING ITSELF IS DRAWN** — the strike-presentation tag every volume
+/// this move throws carries.
+///
+/// ⛔ **this is NOT an FX-sheet row name.** `HitVolume::vfx` is a two-word
+/// vocabulary ([`SLASH_ARC_VFX`] /
+/// [`SLASH_POKE_VFX`](ambition_characters::moveset_prefabs::SLASH_POKE_VFX))
+/// that the move runtime
+/// reads twice: it picks the arc-vs-jab shape drawn out of the spawned volume,
+/// and it is the flag that makes a volume prefer the sprite manifest's authored
+/// hit polygon for this move's clip over the synthetic box. A sheet row name put
+/// here would silently take a move off both paths. Per-move ART is a
+/// [`vfx`] EVENT; this is how the SWING reads.
+///
+/// [`strike`] tags every volume `slash_arc`, which is right for a committed
+/// swing and wrong for a poke — so this exists for the pokes.
+pub fn strike_tag(mut m: MoveSpec, tag: &str) -> MoveSpec {
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.vfx = Some(tag.to_string());
     }
     m
 }
@@ -199,8 +222,9 @@ pub fn strike(
                     on_hit,
                     // The blade tag: the move runtime draws the slash from the
                     // SAME spawned volume, so the hitbox and the arc can never
-                    // point different ways.
-                    vfx: Some("slash_arc".to_string()),
+                    // point different ways. ⚠ a POKE wants the other tag — see
+                    // [`strike_tag`].
+                    vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,
                 }],
                 motion_scale: 1.0,

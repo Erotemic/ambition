@@ -460,6 +460,44 @@ them after his MOVES (`toggle_state`, `and_zap`, `not_fade`, `hit`, `death`,
 `oiler_vfx` is on the sprite roster. ⛔ do not start this before the body swap
 above is verified in a capture; a moveset on the wrong body is two problems.
 
+✔✔ **THE SECOND HALF LANDED 2026-08-16** (`3f7d265` in the sprite submodule,
+superproject commit below). Sixteen moves in
+`game/ambition_content/src/oiler_moveset.rs`, eight new side-view rig clips, and
+Oiler's row moved from `peaceful` to `striker_swipe`. **Both census ratchets
+moved in the same change and are green**: he left `KNOWN_UNARMED` (8 → 7) and
+joined `WITH_REPERTOIRE` (7 → 8) in `smash_roster_movesets.rs`. The Up-B IS the
+geyser — a commanded `Set` rise that stages `oil_geyser_emerge` (the tell, before
+the burst), `oil_geyser_stream` ×3 across the climb, and `oil_geyser_impact` at
+the crest; eighteen of his twenty-three rendered effects are now bound.
+
+⭐ **the architecture carried it with ONE new authoring primitive and no engine
+change** — `moveset_authoring::strike_tag`, because `strike` tags every volume
+`slash_arc` and a poke wants `slash_poke`. No character-ID branch anywhere.
+
+⛔⛔ **two traps found here, both silent, both now guarded:**
+**(1) a `MoveEventKind::Vfx` event plays NO SOUND.** The paired `vfx.<family>.<row>`
+cue is only looked up on the `FxRequest` path; a move's `Vfx` writes
+`VfxMessage::Effect` straight through and `spawn_effect` emits nothing. A
+perfectly correct effect name is a perfectly silent animation, visible only by
+watching with the volume up. ⇒ every burst is authored as a `Vfx`+`Sfx` PAIR and
+`every_burst_in_this_table_is_heard` asserts it.
+**(2) four oiler cues pack with a `.loop` suffix the sprite row does not carry**
+(`vfx.oiler.oil_geyser_stream.loop`, `gate_calibration`, `invariant_loop`,
+`portal_leak`), so the mechanically derived cue for those four misses the bank
+outright. Nothing strips or adds it. Spelled out at the call site.
+
+⚠ **and the poses were the expensive half for a reason worth keeping.** Oiler's
+arms are 26.5px long from a shoulder 25.6px above the hanging wrist — already at
+near-full extension at rest. Every hand target picked by eye landed outside the
+reachable circle, the IK clamped it, and all eight "big" swings collapsed onto
+the same 45° pose. ⇒ **author arm poses as ANGLES on the reachable circle**
+(`_arm_envelope` reads the shoulder and bone lengths off the rig document), never
+as (x, y) guesses.
+
+**Remaining:** the sheet has one upward and one downward swing, so `tilt_up`/
+`smash_up` share `attack_up` and `tilt_down`/`smash_down`/`air_down` share
+`attack_down` — honest, and thinner than the table.
+
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 

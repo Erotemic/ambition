@@ -43,7 +43,11 @@ const KNOWN_UNARMED: &[&str] = &[
     "sanic",
     "npc_alice",
     "npc_bob",
-    "npc_oiler",
+    // ⭐ **OILER LEFT THIS LIST 2026-08-16, which is what it is for.** He authors
+    // a sixteen-move repertoire now (`oiler_moveset`) and his row names
+    // `striker_swipe` instead of `peaceful`, because those are two different
+    // facts and a fighter needs both: the row says he MAY swing, the table says
+    // what the swing IS. He is on `WITH_REPERTOIRE` below.
     "npc_noether",
     // ⭐ **ARRIVED 2026-08-12, and arriving is the point.** Jon added Stargan to
     // the grid on 2026-08-11 and he was never on it: `SmashRoster::assemble`
@@ -391,6 +395,12 @@ fn the_grid_fighters_with_a_real_repertoire_only_grow() {
         // removed from the generic floor, and this ratchet is what asked for him
         // by name the moment his table landed.
         "npc_ninja_shadow_oni_leader",
+        // ⭐ **THE FIFTH, and the first authored from the ART inward** (Jon,
+        // 2026-08-16). Twenty-three of Oiler's own effects had been rendered and
+        // packed — the three-row `oil_geyser_{emerge,stream,impact}` set among
+        // them — with nothing in any table naming one. His sixteen moves bind
+        // eighteen of them; the Up-B IS the geyser.
+        "npc_oiler",
     ];
 
     let mut app =

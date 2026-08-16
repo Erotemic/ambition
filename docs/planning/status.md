@@ -297,6 +297,36 @@ substrate had overtaken the two fronts printed above it:
    reachable, and making a load a checkpoint resume deleted a whole
    reconstruction road instead of adding one.
 
+   ✔✔ **THE MECHANISM EXISTED ONE NOUN SHORT (2026-08-16, `03d4c8d22`) — that is
+   the reusable finding.** `DeathRules` was a bare `Resource` inserted at
+   plugin-build time by THREE games; the type was the key, so the third
+   `insert_resource` won. The shell composes Mary-O after Sanic, so **every Smash
+   match in the shipped host ran under her 3.2s level replay**, in an arena whose
+   own rules want `LevelReset::Never`. Inert only because an `Unbounded` fighter
+   writes no death message.
+
+   ⛔ **the shell's `ExperienceScopeBuilder` was the WRONG tool** — it releases
+   what a session published, on route DEPARTURE, and has no ENTERING half.
+   ⭐⭐ **the right one already existed and was one noun short**:
+   `runtime::mode_scope` scopes a hosted game's **SYSTEMS** and its **ENTITIES**
+   to the rooms tagged with its mode — every Sanic and Mary-O system is already
+   gated through it — **and it had no word for a RULE.**
+
+   ⇒ a game now declares into `DeclaredDeathRules` under the rooms it governs,
+   using the same answer its `RulesPlugin` already gives when gating systems;
+   `governing(mode)` is the one place the question is answered; an unclaimed room
+   reads the engine default and a second claim on one scope **panics at build**.
+
+   ⭐ **and the second instance wanted a DIFFERENT, smaller cure** — Sanic's
+   wallet shield is not a global but a system whose POPULATION was every
+   `PrimaryPlayer` in the process. Its `hosted` fork is deleted outright: the
+   standalone binary loads the same mode-tagged speedway, so the flag was
+   answering a question the room already answers.
+
+   ⇒ **the lesson to carry: when a scoping concept exists, ask what KINDS of
+   thing it scopes, not whether it exists.** Systems and entities were covered;
+   rules were not, and nothing said so.
+
    ⛔ **the standing number, and it has not moved**:
    `capability-footprint-may-not-grow` still reads **42 crates linked, 15 a
    movement-only game never asked for**. ⛔⛔ **and D135's answer for WHY was

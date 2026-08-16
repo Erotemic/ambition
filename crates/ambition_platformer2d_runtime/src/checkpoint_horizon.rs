@@ -35,8 +35,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     capture_custody_baseline, capture_occurrence_baseline, restore_occurrence_baseline,
-    retract_custody_to_checkpoint, CheckpointCapture, CheckpointCommitted, CheckpointRestore,
-    CustodyBaseline, OccurrenceBaseline, ResetToCheckpoint,
+    CheckpointCapture, CheckpointCommitted, CheckpointRestore, CustodyBaseline, OccurrenceBaseline,
+    ResetToCheckpoint,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt,
@@ -90,8 +90,25 @@ impl Plugin for CheckpointHorizonPlugin {
         app.add_systems(
             sim,
             // Same independence on the way back: the ledger restore touches no
-            // entity, and the custody retraction touches no ledger row.
-            (restore_occurrence_baseline, retract_custody_to_checkpoint).in_set(CheckpointRestore),
+            // entity, the custody retraction touches no ledger row, and the
+            // resume touches neither — it records an intent that the room
+            // transition reads two phases later, by which time both have landed.
+            //
+            // ⭐⭐ **the resume is the leg that makes the other two SAFE.** Alone,
+            // they put the ledger back and take the unbanked object out of the
+            // hand, and the object then exists nowhere — the room replay resets
+            // feature state in place and never re-runs authored construction.
+            // The fixture found exactly that: zero occurrences of an identity
+            // that should have been lying on its pedestal.
+            (
+                restore_occurrence_baseline,
+                // ⚠ **the item domain's**, not the lifecycle crate's, because
+                // taking an object out of a hand retracts both halves of a
+                // forked relation and only this crate can see both.
+                ambition_platformer2d_actor_monolith::items::pickup::restore_custody_to_checkpoint,
+                ambition_platformer2d_actor_monolith::shrine::resume_at_checkpoint_on_reset,
+            )
+                .in_set(CheckpointRestore),
         );
     }
 }

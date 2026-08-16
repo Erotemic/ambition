@@ -268,6 +268,7 @@ message.boss_phase_changed	message-clear	BossPhaseChanged	clear abandoned-future
 message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
 message.camera_shake_request	message-clear	CameraShakeRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.challenge_requested	message-clear	ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.checkpoint_committed	message-clear	CheckpointCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clear_portals	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -310,6 +311,7 @@ message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future m
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping

@@ -186,6 +186,24 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
         ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::checksum,
     );
+    // ⭐ **AND THE TWO CHANNELS THAT DRIVE THEM.** A reader's cursor is `Local`
+    // state GGRS never rewinds, so a rewind past a commit leaves the capture's
+    // cursor beyond a message the new timeline has not sent — or before one it
+    // already consumed. Either direction is a baseline recorded for a world that
+    // did not happen, and the value is not self-correcting: nothing republishes
+    // a baseline, so the mistake survives until the next checkpoint.
+    //
+    // ⚠ a WAIVER would have been available and would have been wrong. The
+    // question a waiver answers is *"can a stale cursor change the
+    // simulation?"*, and here it decides what a later death restores.
+    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>(
+        OWNER,
+        "message.checkpoint_committed",
+    );
+    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>(
+        OWNER,
+        "message.reset_to_checkpoint",
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

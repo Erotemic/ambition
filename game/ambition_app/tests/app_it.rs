@@ -38,6 +38,7 @@ mod composes_through_the_sdk;
 mod content_dormancy;
 mod crouch_stability;
 mod d71_transaction_census;
+mod death_restores_the_checkpoint;
 mod dash_stability;
 mod declared_art_resolves;
 mod desync_canary;

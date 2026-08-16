@@ -610,6 +610,187 @@ pub fn project_custody_onto_residency(
     }
 }
 
+/// **PUT THE HANDS BACK TO WHAT THE CHECKPOINT SAW — the item domain's leg of
+/// the reset horizon, and both directions of it.**
+///
+/// ```text
+/// carried now, NOT in the baseline   → take it back: unequip, despawn, let the rebuild author it
+/// in the baseline, NOT in that hand  → put it back: reset custody and re-equip
+/// in the baseline AND in that hand   → nothing to do
+/// ```
+///
+/// ⭐⭐ **ONE system for both directions, deliberately.** They read one value and
+/// they are the same decision seen from two sides; split across two systems,
+/// each would have to re-derive what the other concluded, and the pair would
+/// drift the first time only one of them learned about a new case.
+///
+/// ⛔⛔ **IT LIVES HERE, NOT WITH THE BASELINE, BECAUSE CUSTODY IS A FORKED
+/// RELATION.** `ItemCustody`/`InCustodyOf` on the object and `HeldItem` on the
+/// body are two halves of one fact, and `HeldItem` is in a crate the lifecycle
+/// crate cannot see. A retraction that answered only the half it could reach
+/// left the body holding a spec whose object no longer existed, and the player
+/// could never pick anything up again — the acceptance fixture caught exactly
+/// that, and caught it because it drove a SECOND pickup.
+///
+/// ⛔ **and the tempting generic repair is worse than the bug**: "empty any hand
+/// whose spec matches nothing in that body's custody" would disarm every
+/// authored fighter on its first frame, because a character definition's
+/// `held_item` puts a `HeldItem` on a body with no world object behind it at all.
+///
+/// ⭐ **it goes through [`equip_held_spec`] and [`unequip_held`] rather than
+/// inserting and removing [`HeldItem`].** Those verbs also swap the body's
+/// `ActionSet` and its `StashedActionSet`, so a hand-written `remove::<HeldItem>`
+/// leaves the body wielding the item's attack verbs with no item — which is what
+/// the first draft of this did.
+///
+/// ⚠ **[`InCustodyOf`] is NOT written here.** It is derived from `ItemCustody`
+/// by [`project_custody_onto_residency`] on the same tick; writing it too would
+/// be a second producer of a projected value.
+///
+/// ⛔ **it must NOT touch the ledger.** The occurrence leg restores that whole
+/// value from its own baseline. Two systems retracting one fact is how a
+/// retraction survives one of them being deleted and quietly stops working.
+///
+/// ⚠ **the case that is still NOT handled, precisely:** a baseline row whose
+/// occurrence has no live entity at all — carried at the checkpoint, later put
+/// down in a room that then unloaded, then a death. Its ledger row says
+/// `InCustody`, so the rebuild suppresses it, and nothing mints an occurrence
+/// directly into a hand. Reachable only across a room transition, which is why
+/// the fixture does not reach it.
+#[allow(clippy::too_many_arguments)]
+pub fn restore_custody_to_checkpoint(
+    mut commands: Commands,
+    mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
+    baseline: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+    mut items: Query<(
+        Entity,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut GroundItem,
+        &mut ItemCustody,
+    )>,
+    mut bodies: Query<(
+        Entity,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &mut ActionSet,
+        Option<&HeldItem>,
+        Option<&StashedActionSet>,
+    )>,
+    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    let requested = resets.read().count() > 0;
+    let Some(baseline) = baseline else {
+        return;
+    };
+    if !requested {
+        return;
+    }
+
+    // Bodies by identity, so a baseline row can name the hand it belongs to.
+    // ⚠ a `BTreeMap` rather than the query's order: this drives despawns, and
+    // Bevy's iteration order is an archetype accident.
+    let by_identity: std::collections::BTreeMap<
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+        Entity,
+    > = bodies
+        .iter()
+        .map(|(entity, sim_id, _, _, _)| (sim_id.clone(), entity))
+        .collect();
+
+    // Collected first: the loop below borrows `bodies` mutably, and an item's
+    // decision needs the whole item view.
+    let decisions: Vec<(Entity, Option<Entity>, HeldItemSpec)> = items
+        .iter()
+        .filter_map(|(entity, occurrence, ground, custody)| {
+            let wanted = baseline
+                .custodian_of(occurrence)
+                .and_then(|custodian| by_identity.get(custodian).copied());
+            let now = match *custody {
+                ItemCustody::Held { holder } => Some(holder),
+                ItemCustody::InWorld => None,
+            };
+            // Agrees with the checkpoint already, including "in nobody's hands
+            // then, in nobody's hands now" — which is the overwhelming majority.
+            if wanted == now {
+                return None;
+            }
+            Some((entity, wanted, ground.spec.clone()))
+        })
+        .collect();
+
+    // ⛔⛔ **RETRACTIONS FIRST, REINSTATEMENTS SECOND, AND THE ORDER IS THE BUG
+    // THIS PARAGRAPH EXISTS FOR.** A body has one hand. Interleaved, an
+    // occurrence being put back can be equipped while the object being taken
+    // away is still in that hand; the equip and the unequip are both commands on
+    // one entity, the later one wins, and `return_released_items` then sees a
+    // hand whose spec does not match and releases the object this reset just put
+    // there. The fixture reported it as `InWorld` — the reinstatement had
+    // happened and been quietly undone one phase later.
+    let (reinstate, retract): (Vec<_>, Vec<_>) = decisions
+        .into_iter()
+        .partition(|(_, wanted, _)| wanted.is_some());
+
+    for (entity, wanted, spec) in retract.into_iter().chain(reinstate) {
+        match wanted {
+            // ── the checkpoint saw this in a hand; put it back there ──────────
+            Some(holder) => {
+                let Ok((_, _, mut action_set, _, _)) = bodies.get_mut(holder) else {
+                    continue;
+                };
+                equip_held_spec(
+                    &mut commands,
+                    holder,
+                    &mut action_set,
+                    spec,
+                    owned.as_deref_mut(),
+                );
+                if let Ok((_, _, mut ground, mut custody)) = items.get_mut(entity) {
+                    *custody = ItemCustody::Held { holder };
+                    // A carried item is not in flight — the same zeroing the
+                    // pickup does, and for the same fuse-arming reason.
+                    ground.vel = Vec2::ZERO;
+                }
+            }
+            // ── acquired after the checkpoint; take it back ───────────────────
+            None => {
+                if let ItemCustody::Held { holder } = *items
+                    .get(entity)
+                    .map(|(_, _, _, custody)| custody)
+                    .unwrap_or(&ItemCustody::InWorld)
+                {
+                    // The hand FIRST, while the object is still here to be
+                    // identified by. Compared by SPEC ID for the same reason
+                    // `return_released_items` does: an equip-swap can leave the
+                    // body holding something else entirely, and stripping THAT
+                    // hand would take away an item this reset has no claim on.
+                    if let Ok((_, _, mut action_set, held, stashed)) = bodies.get_mut(holder) {
+                        if held.is_some_and(|held| held.id() == spec.id.as_str()) {
+                            unequip_held(
+                                &mut commands,
+                                holder,
+                                &mut action_set,
+                                stashed,
+                                owned.as_deref_mut(),
+                            );
+                        }
+                    }
+                }
+                // ⭐ a DESPAWN, and that is the point rather than a shortcut. The
+                // identity lives in the record that minted it, so letting the
+                // rebuild author it again produces the SAME `SimId` at the
+                // AUTHORED position — which is "the key went back on its
+                // pedestal". Moving the live entity would need this system to
+                // know where the record puts it, a question
+                // `RoomOccurrenceOutlook` already owns.
+                ambition_platformer2d_shared_tangle::lifecycle::despawn_scoped_entity(
+                    &mut commands,
+                    entity,
+                );
+            }
+        }
+    }
+}
+
 /// **WHERE A CARRIED OCCURRENCE CAME TO REST — the second producer of the
 /// whereabouts ledger, and the first one that outlives the thing it describes.**
 ///

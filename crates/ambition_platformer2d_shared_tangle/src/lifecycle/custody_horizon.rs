@@ -25,12 +25,9 @@
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::{Commands, Entity, MessageReader, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{MessageReader, Query, ResMut, Resource, With};
 
-use super::{
-    horizon::{CheckpointCommitted, ResetToCheckpoint},
-    InCustodyOf, RoomScopedEntity,
-};
+use super::{horizon::CheckpointCommitted, InCustodyOf, RoomScopedEntity};
 use crate::sim_id::SimId;
 
 /// **Which occurrence each body was carrying at the last committed
@@ -127,64 +124,34 @@ pub fn capture_custody_baseline(
     }
 }
 
-/// **Take back what was picked up after the checkpoint.**
+/// ⛔⛔ **THE RETRACTION IS NOT HERE, AND THAT IS A LAYERING FACT RATHER THAN
+/// AN OVERSIGHT.** Taking an object back out of a hand means retracting BOTH
+/// sides of a forked relation: `InCustodyOf` on the object, which this crate
+/// owns, and `HeldItem` on the body, which lives in `ambition_combat` — a crate
+/// this one does not and must not depend on. A retraction that answered only the
+/// half it can see leaves the body permanently holding a ghost and refusing
+/// every future pickup, which is exactly what the acceptance fixture caught.
 ///
-/// ⭐⭐ **the retraction is a DESPAWN, and that is the point rather than a
-/// shortcut.** An authored occurrence's identity lives in the record that minted
-/// it, not in the entity: destroying the entity and letting the rebuild author
-/// it again from the record produces the *same* `SimId` at the *authored*
-/// position, which is precisely "the key went back on its pedestal". Moving the
-/// live entity back instead would need this system to know where the record puts
-/// it — a second answer to a question `RoomOccurrenceOutlook` already owns.
+/// ⚠ **and the tempting generic repair is WRONG**: "empty a hand whose spec
+/// matches nothing in that body's custody" would disarm every authored fighter,
+/// because a character definition's `held_item` puts a `HeldItem` on a body with
+/// no world object behind it at all.
 ///
-/// ⚠ **and the rebuild reaches the right answer without being told.** The
-/// occurrence ledger has been restored to the baseline by then, and a baseline
-/// that never saw this object has no row for it — so its disposition is
-/// `Authored`, as written. ⛔ this system therefore must NOT also clear the
-/// ledger row: two systems retracting one fact is how a retraction survives one
-/// of them being deleted and stops working anyway.
-///
-/// ⚠ **an occurrence the baseline says WAS carried is left strictly alone**,
-/// including when it is now in a different body's hands. Moving it back would
-/// need a road that mints an occurrence directly into custody, which does not
-/// exist; the gap is named at `AuthoredOccurrences::baseline_is_a_copy_of_this`
-/// and is unreachable while a held occurrence is resident in no room.
-pub fn retract_custody_to_checkpoint(
-    mut commands: Commands,
-    mut resets: MessageReader<ResetToCheckpoint>,
-    baseline: Option<Res<CustodyBaseline>>,
-    carried: Query<(Entity, &SimId), (With<InCustodyOf>, With<RoomScopedEntity>)>,
-) {
-    let requested = resets.read().count() > 0;
-    let Some(baseline) = baseline else {
-        return;
-    };
-    if !requested {
-        return;
-    }
-    for (entity, occurrence) in &carried {
-        if baseline.was_carried(occurrence) {
-            continue;
-        }
-        super::despawn_scoped_entity(&mut commands, entity);
-    }
-}
+/// ⇒ `restore_custody_to_checkpoint` therefore lives with the item domain, which
+/// can see both halves. The CAPTURE stays here because it reads only identities.
+pub const fn retraction_needs_both_halves_of_a_fork() {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use bevy::prelude::*;
 
-    /// A world with the two systems registered and the resources a host installs.
+    /// A world with the capture registered and the resources a host installs.
     fn horizon_world() -> App {
         let mut app = App::new();
         app.add_message::<CheckpointCommitted>()
-            .add_message::<ResetToCheckpoint>()
             .init_resource::<CustodyBaseline>()
-            .add_systems(
-                Update,
-                (capture_custody_baseline, retract_custody_to_checkpoint).chain(),
-            );
+            .add_systems(Update, capture_custody_baseline);
         app
     }
 
@@ -202,41 +169,26 @@ mod tests {
             .id()
     }
 
-    /// **The whole rule in one world: what the checkpoint saw stays, what it did
-    /// not see goes back.**
+    /// **The capture names the HAND, not merely that somebody had it.**
     ///
-    /// ⭐ **both halves are asserted from ONE reset**, because either alone
-    /// passes for the wrong reason — a system that despawns nothing satisfies
-    /// "the committed one survived", and a system that despawns everything
-    /// satisfies "the uncommitted one was taken back".
+    /// ⭐ that distinction is the whole reason this value exists: an
+    /// `OccurrenceWhereabouts::InCustody` row already says "somebody has it",
+    /// which is enough to stop the room minting a second one and not enough to
+    /// put it back.
     #[test]
-    fn a_reset_keeps_what_the_checkpoint_saw_and_takes_back_what_it_did_not() {
+    fn a_capture_records_which_body_was_carrying_what() {
         let mut app = horizon_world();
         let hand = body(&mut app, 0);
-        let committed = carried_by(&mut app, "key", hand);
+        carried_by(&mut app, "key", hand);
 
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
 
         assert_eq!(
-            app.world().resource::<CustodyBaseline>().custodian_of(&SimId::placement("key")),
+            app.world()
+                .resource::<CustodyBaseline>()
+                .custodian_of(&SimId::placement("key")),
             Some(&SimId::player_slot(0)),
-            "the capture must name the hand, not merely that somebody had it"
-        );
-
-        // Picked up AFTER the checkpoint: no row, so a reset owes it back.
-        let uncommitted = carried_by(&mut app, "torch", hand);
-        app.world_mut().write_message(ResetToCheckpoint);
-        app.update();
-
-        assert!(
-            app.world().get_entity(committed).is_ok(),
-            "an occurrence the checkpoint saw in a hand must survive the reset"
-        );
-        assert!(
-            app.world().get_entity(uncommitted).is_err(),
-            "an occurrence acquired after the checkpoint must be taken back, so the \
-             rebuild can author it at its record's position"
         );
     }
 
@@ -255,7 +207,6 @@ mod tests {
         app.update();
         assert!(!app.world().resource::<CustodyBaseline>().is_empty());
 
-        // The object leaves the hand, and a SECOND checkpoint commits.
         app.world_mut().entity_mut(early).remove::<InCustodyOf>();
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
@@ -263,35 +214,22 @@ mod tests {
             app.world().resource::<CustodyBaseline>().is_empty(),
             "the second checkpoint saw empty hands and must say so"
         );
-
-        // Picked up again after C1, then a death.
-        app.world_mut().entity_mut(early).insert(InCustodyOf(hand));
-        app.world_mut().write_message(ResetToCheckpoint);
-        app.update();
-        assert!(
-            app.world().get_entity(early).is_err(),
-            "C1 saw empty hands, so the reset owes this object back to the world"
-        );
     }
 
-    /// **A custodian with no identity contributes no row — and the reset then
-    /// takes the object back rather than silently keeping it.**
+    /// **A custodian with no identity contributes no row.**
     ///
     /// ⚠ this documents a real edge rather than defending one: the conservative
     /// direction for a snapshot is to forget, because the alternative is a
-    /// baseline claiming a hand a restore could never find.
+    /// baseline claiming a hand a restore could never find. The live suppression
+    /// leg is unaffected — it reads `InCustodyOf` and never asks who.
     #[test]
     fn an_unnameable_hand_leaves_no_baseline_row() {
         let mut app = horizon_world();
         let anonymous = app.world_mut().spawn_empty().id();
-        let held = carried_by(&mut app, "key", anonymous);
+        carried_by(&mut app, "key", anonymous);
 
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
         assert!(app.world().resource::<CustodyBaseline>().is_empty());
-
-        app.world_mut().write_message(ResetToCheckpoint);
-        app.update();
-        assert!(app.world().get_entity(held).is_err());
     }
 }

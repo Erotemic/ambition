@@ -258,6 +258,12 @@ use super::{
 /// is squarely inside the rollback window; a peer that rewound past it and did
 /// not restore these would hold a baseline recorded in a timeline that no longer
 /// happened, and would put the world back to it on the next death.
+///
+/// ⚠ **their two channels join too** (`message.checkpoint_committed`,
+/// `message.reset_to_checkpoint`). A reader's cursor is `Local` state GGRS never
+/// rewinds, and for an ordinary channel a stale cursor costs one duplicated or
+/// skipped read; for these it decides whether a baseline is recorded at all, and
+/// nothing later re-derives the answer.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 32;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

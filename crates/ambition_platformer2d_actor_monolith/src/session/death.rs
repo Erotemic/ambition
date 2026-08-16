@@ -128,6 +128,18 @@ pub fn close_death_interlude(
     mut closing: Query<&mut DeathInterlude>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     mut replay: MessageWriter<RoomReplayRequested>,
+    // ⭐ **the horizon half of the same consequence.** `RoomReplayRequested`
+    // says "rebuild the active room"; this says "and rebuild it from the last
+    // committed checkpoint rather than from the world that just killed you".
+    //
+    // ⛔⛔ **they are two channels because `RoomReplayRequested` is ALSO how
+    // content announces a level COMPLETION** — Mary-O's flag, Sanic's act
+    // clear, a dialogue's "try again". Restoring a reset baseline when the
+    // player just won would take the reward back off them, and a single
+    // channel makes that indistinguishable from a death.
+    mut restore: Option<
+        MessageWriter<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
+    >,
 ) {
     let mut any_closed = false;
     for mut window in &mut closing {
@@ -152,6 +164,14 @@ pub fn close_death_interlude(
     // entire reason the condition is a query rather than a flag on the death.
     if still_playing.iter().next().is_some() {
         return;
+    }
+    // ⚠ **ORDER OF WRITES IS IRRELEVANT; ORDER OF READS IS NOT.** Both land in
+    // this frame's channels and the schedule decides which consumer sees its
+    // own first — `CheckpointRestore` is configured before `RoomReplayApplied`
+    // precisely so the ledger is back to the baseline before anything rebuilds
+    // a room against it.
+    if let Some(restore) = restore.as_mut() {
+        restore.write(ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint);
     }
     replay.write(RoomReplayRequested);
 }

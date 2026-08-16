@@ -99,15 +99,41 @@ substrate had overtaken the two fronts printed above it:
    owes; this one starts from an occurrence resident in no room**, so the authored
    definition has to be reachable BY IDENTITY.
 
-   ⭐ **the frontier is now DURABLE SAVE** — *"has no runtime cleanup scope"*
-   still does not mean *"correctly saved and restored"*, and the reset horizon
-   deliberately did not answer it. ⚠ **and the restore's own residual is the same
-   question in miniature:** materialization is bounded by *"some room authors a
-   record with this id"*, so a **runtime-minted** instance (`SimId::spawned` — a
-   thrown object, an enemy death drop) is carryable, can enter the custody
-   baseline, and **no record anywhere can rebuild it**. Closing that needs a
-   durable INSTANCE DESCRIPTION rather than a pointer at an authored record —
-   which is precisely what durable save needs too.
+   ✔✔ **AND THE RUNTIME-MINTED CASE CLOSED TOO** (2026-08-16, `88b611caf`),
+   which was the residual named directly above. **The minimal durable
+   description of an occurrence the simulation itself made is three things and
+   no more:**
+
+   ```text
+   identity     the occurrence's own SimId
+   provenance   SpawnOrigin::Dynamic { parent, sequence }
+   definition   the item spec's authored id — a REFERENCE, never a copy
+   ```
+
+   ⛔ no position, no velocity, **no component snapshot** — that would be
+   rollback wearing save's clothes. *"A hand needs strictly less than a world"*
+   held: a held object has no place, the hand supplies one.
+
+   ⭐⭐ **the third field is the one nobody would have predicted, and it is the
+   durable-save lesson.** An instance rebuilt without its `SpawnOrigin` cannot
+   say which spawner it descends from — the state that component's own doc
+   refuses to let anyone spell — so it would survive exactly ONE death and then
+   be invisible to the next capture. ⇒ **a description that restores the thing
+   is not sufficient; it must also restore the thing's ABILITY TO BE DESCRIBED
+   AGAIN.** The mint site was not stating provenance at all, so identity and
+   provenance are now minted together and *"dynamic, parent unknown"* stays
+   unspellable.
+
+   ⭐ and the snapshot-versus-registry property is MEASURED, not asserted: turned
+   into a growing registry of every mint, the banked-item fixture stayed green
+   and `a_runtime_mint_the_checkpoint_never_saw_is_not_resurrected_by_a_death`
+   went red. The baseline answers HOW to rebuild; the custody baseline still
+   decides WHETHER and INTO WHOSE HAND. Schema 32 → 33.
+
+   ⭐ **the frontier is now DURABLE SAVE ITSELF** — the horizons are distinct and
+   both materialization cases are closed, so what remains is genuinely the third
+   horizon: writing this to disk, and deciding which ids survive a load versus
+   which may be regenerated deterministically.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See

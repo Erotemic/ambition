@@ -227,7 +227,89 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // and nothing else changes.
     roster.fighter_abilities =
         Some(ambition_platformer2d::engine_core::MatchAbilities::levelled(SMASH_FIGHTER_KIT));
+    // **AND THE BODY THOSE VERBS RUN ON.**
+    //
+    // ⛔⛔ **a granted verb whose WINDOW is zero is a DEAD GRANT**, and the line
+    // above was handing out exactly that. `dodge` reached all fourteen fighters;
+    // `DEFAULT_TUNING.air_dodge_time` is `0.0`, so `available_dodge` fell
+    // straight through for every fighter whose character had not authored a
+    // fighter's body — which, measured on the composed host on 2026-08-16, was
+    // TWELVE of the fourteen (`player_robot_v3` among them: the demo's careful
+    // tuning was on `smash_duelist_a`, the STAND-IN the host drops).
+    //
+    // ⚠ **it did not read as broken until slice 1.** Those twelve had `dash`
+    // from the kit, so an airborne burst press fell out of the dodge and into
+    // `apply_dash` and they air-dashed. Removing `dash` — correctly — left the
+    // press meaning nothing at all.
+    //
+    // ⭐ the same shape as `fighter_abilities` one line up, one layer down: what
+    // a fighter's body IS was a property of the CHARACTER, so a stage could
+    // promise a verb and had no way to supply what the verb needs.
+    roster.fighter_body = Some(SMASH_FIGHTER_BODY);
 }
+
+/// **THE PLATFORM-FIGHTER BODY** — the movement feel every fighter on this
+/// stage plays with, said ONCE.
+///
+/// ⚠ **it states SIX numbers and disturbs nothing else** — see
+/// [`MatchBody`](ambition_platformer2d::engine_core::MatchBody). Mary-O keeps
+/// her SMB1 gravity and jump arc on this stage and gets an air dodge; the
+/// crawler keeps its crawl. The composition is stated in
+/// `MatchRules::body_over` and nowhere else.
+///
+/// ⛔ **authored HERE, not in the engine.** Every number below is zero or
+/// otherwise in `DEFAULT_TUNING` for a reason that is still correct, and the
+/// reasons are the point:
+///
+/// * **`slash_recoil: 0.0`.** The engine's 110 px/s backwards on every melee
+///   press is a feel detail for the exploration protagonist, whose swings are
+///   occasional and whose rooms have walls. A fighter brain presses attack on
+///   most decisions, so the recoils RATCHET — measured 2026-07-31 with
+///   `AMBITION_FIGHTER_TRACE=1`: 200, 310, 420, 530 px/s in exact 110 steps
+///   against a 270 px/s run, while the brain's own emitted input pointed the
+///   other way. **Every CPU on this stage swung itself off the edge,
+///   backwards.** The A/B, same build, this number alone: at 110 a level 9
+///   survives 5.2 s and loses 3 stocks; at 0 it survives 15.1 s and at rollout
+///   depth 0 does not self-KO AT ALL in a 60 s match.
+/// * **`jump_squat_time: 3/60`.** A fighter's jump is COMMITTAL; an explorer's
+///   is not. Three frames of grounded crouch before takeoff is the universal
+///   jump squat in Smash Ultimate, and it is what makes an opponent's jump a
+///   READ rather than an instant escape. Everything downstream already exists:
+///   a body struck during the crouch loses the leap, and a tap released inside
+///   it still short-hops. `DEFAULT_TUNING` keeps `0.0` because a squat is not a
+///   better jump, it is a different game's jump — Mary-O's SMB1 convergence
+///   requires the leap on the press tick, and the exploration protagonist was
+///   tuned without one.
+/// * **the AIR DODGE.** The engine default is `0.0` — no window — because an
+///   airborne burst press is the exploration protagonist's air dash and a
+///   default-on evade would take that press away from every wandering body in
+///   the game. A platform fighter is the body that wants it: one directional
+///   evade per trip through the air, refunded on landing, with endlag on the
+///   far side so it is a read rather than a panic button.
+/// * **`tumble_speed: 500.0` — THE FLOOR GAME.** Above this launch speed a hit
+///   sends the body tumbling, and the landing that follows is a knockdown
+///   unless it is teched. 500 px/s sits above a jab's shove and below a smash's
+///   launch, so the state a player enters is the one a player earned. The
+///   engine default is `0.0` (no floor game) because a wandering enemy that had
+///   to stand up after every hit would be a different game for the exploration
+///   side.
+///
+/// ⭐ **it was authored on THREE CHARACTERS and is now authored on the STAGE**
+/// (D146 slice 1b). The three blocks were one expression in one loop, so they
+/// could not disagree with each other — and they could not reach the other
+/// eleven fighters either, two of the three are stand-ins the composed host
+/// drops, and the demo's own comment had already named the shape: *"The match
+/// then stamped one flat set over every body, so what a fighter could do was a
+/// property of the MATCH."*
+pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
+    ambition_platformer2d::engine_core::MatchBody {
+        slash_recoil: 0.0,
+        jump_squat_time: 3.0 / 60.0,
+        air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
+        air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
+        air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
+        tumble_speed: 500.0,
+    };
 
 /// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.
 ///
@@ -2163,63 +2245,40 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 SMASH_GEORGE_BOOUL => 1.35,
                 _ => 1.0,
             });
-            // **A PLATFORM FIGHTER DOES NOT RECOIL LIKE AN EXPLORER.**
-            // (measured 2026-07-31, `ladder_probe` + `AMBITION_FIGHTER_TRACE=1`)
+            // ⛔⛔ **THE PLATFORM FIGHTER'S BODY IS NOT AUTHORED HERE ANY MORE**
+            // (2026-07-31 authored it; D146 slice 1b moved it, 2026-08-16).
             //
-            // `SLASH_RECOIL` is 110 px/s BACKWARDS on every melee press — a feel
-            // detail for the exploration protagonist, whose swings are
-            // occasional and whose rooms have walls. A fighter brain presses an
-            // attack on most decisions, so the recoils RATCHET: the trace reads
-            // 200, 310, 420, 530 px/s in exact 110 steps, against a 270 px/s
-            // run, while the brain's own emitted input points the other way.
-            // **Every CPU on this stage swung itself off the edge, backwards.**
+            // Six numbers stood on this line — `slash_recoil: 0.0`, a
+            // three-frame jump squat, the air-dodge window and a 500 px/s tumble
+            // floor. Every one was right and none of them could reach the other
+            // eleven fighters, and two of the three ids this loop registers are
+            // STAND-INS that the composed host drops — so on the shipped host
+            // they reached exactly ONE fighter (George), and `player_robot_v3`
+            // fought with the exploration protagonist's melee recoil and no air
+            // dodge at all. What a fighter's body is on THIS STAGE is a rule of
+            // the MATCH, so `apply_smash_match_rules` declares
+            // [`SMASH_FIGHTER_BODY`] once and seating composes it onto every
+            // seat — see `MatchParticipantRoster::fighter_body`.
             //
-            // The A/B is unambiguous. Same build, `slash_recoil` alone:
+            // ⭐⭐ **WHAT IS LEFT IS THE OTHER HALF OF WHAT THAT BLOCK WAS
+            // SAYING, and it was invisible until the six moved.** It spread
+            // `..DEFAULT_TUNING`, so it also declared these three to be
+            // PLAYER-GRADE bodies — gravity 2500, run accel 5200, air accel
+            // 3100 — while a seat that authors nothing takes
+            // `BodyMovementTuning::BASELINE`, the generic ACTOR body: gravity
+            // 1450, run accel 650. Deleting the line outright made George
+            // floaty and sluggish, and the smash app's own repertoire probes
+            // caught it in one run (three distinct moves out of sixteen, and no
+            // recovery thrown in 1800 ticks).
             //
-            //     110 (engine default)   level 9 survives 5.2s, loses 3 stocks
-            //       0                    level 9 survives 15.1s; at rollout
-            //                            depth 0 it does not self-KO AT ALL in
-            //                            a 60s match
-            //
-            // So the number is authored HERE rather than changed in the engine:
-            // it is this game's kit that is wrong for it, not every game's.
-            // Mary-O and the exploration protagonist keep the recoil they were
-            // tuned with.
-            // **A FIGHTER'S JUMP IS COMMITTAL; AN EXPLORER'S IS NOT.**
-            //
-            // Three frames of grounded crouch before takeoff — the universal
-            // jump-squat in Smash Ultimate, and the window that makes an
-            // opponent's jump a READ rather than an instant escape. Everything
-            // downstream of it already exists: a body struck during the crouch
-            // loses the leap, and a tap released inside it still short-hops.
-            //
-            // ⛔ authored HERE, not in the engine. `DEFAULT_TUNING` keeps 0.0
-            // because a squat is not a better jump, it is a different game's
-            // jump — Mary-O's SMB1 convergence requires the leap on the press
-            // tick, and the exploration protagonist was tuned without one.
-            definition.movement_tuning = Some(ambition_platformer2d::engine_core::MovementTuning {
-                slash_recoil: 0.0,
-                jump_squat_time: 3.0 / 60.0,
-                // **THE AIR DODGE, AUTHORED HERE** — the engine default is 0.0
-                // (no window) because an airborne dash press is the exploration
-                // protagonist's air dash and a default-on evade would take that
-                // press away from every wandering body in the game. A platform
-                // fighter is the body that wants it: one directional evade per
-                // trip through the air, refunded on landing, with endlag on the
-                // far side so it is a read rather than a panic button.
-                air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
-                air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
-                air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
-                // **THE FLOOR GAME.** Above this launch speed a hit sends the
-                // body tumbling, and the landing that follows is a knockdown
-                // unless it is teched. 500 px/s sits above a jab's shove and
-                // below a smash's launch, so the state a player enters is the
-                // one a player earned — the engine default is 0.0 (no floor
-                // game), because a wandering enemy that had to stand up after
-                // every hit would be a different game for the exploration side.
-                tumble_speed: 500.0,
-                ..ambition_platformer2d::engine_core::DEFAULT_TUNING
-            });
+            // ⚠ **so it is stated deliberately now, as the one thing it means.**
+            // ⛔ **and it is a FINDING, not a resolution: eleven of the fourteen
+            // fighters on the grid still play on the ACTOR baseline** — a
+            // levelled stage where thirteen bodies are floatier than the
+            // fourteenth is half a decision, and which base a platform fighter
+            // uses is a product call rather than a side effect of this commit.
+            // Filed for a later slice.
+            definition.movement_tuning = Some(ambition_platformer2d::engine_core::DEFAULT_TUNING);
             // **WHAT THIS FIGHTER'S BODY CAN DO — authored on the CHARACTER,
             // which is why the shield, the dodge and the ledge exist in this
             // demo at all.**
@@ -2342,6 +2401,82 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
 mod tests {
     use super::*;
     use ambition_platformer2d::engine_core::AabbExt;
+
+    /// **THE STAGE OPENS A WINDOW FOR EVERY VERB IT GRANTS.** (D146 slice 1b)
+    ///
+    /// ⛔⛔ **a granted verb whose tuning window is zero is a DEAD GRANT**, and
+    /// it is invisible: nothing refuses it, nothing logs it, and the press
+    /// simply means nothing. [`MatchAbilities::is_coherent`] asks the same
+    /// question about the two ABILITY statements — *is everything granted also
+    /// permitted* — and this is the same question one layer down, against the
+    /// numbers the verbs run on.
+    ///
+    /// ⚠ **the pairs are hand-listed and that is the point**: adding a verb to
+    /// [`SMASH_FIGHTER_KIT`] whose window the engine defaults to zero is exactly
+    /// the mistake this catches, and only a list written against the KIT can
+    /// catch it. The air dodge is here because it was the one that bit; the
+    /// others are here because they are the rest of what the stage promises.
+    #[test]
+    fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
+        // What a fighter that brought nothing of its own plays with here: the
+        // stage's numbers over the engine's, which is the body twelve of the
+        // fourteen grid fighters actually get.
+        let body = SMASH_FIGHTER_BODY.over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
+        let kit = SMASH_FIGHTER_KIT;
+        let dead: Vec<&str> = [
+            // (granted?, the number without which the verb does nothing, name)
+            (kit.dodge, body.air_dodge_time, "dodge (in the air)"),
+            (kit.dodge, body.dodge_roll_time, "dodge (on the ground)"),
+            (kit.dodge, body.dodge_roll_speed, "dodge (on the ground)"),
+            (kit.double_jump, f32::from(body.air_jumps), "double_jump"),
+            (kit.fast_fall, body.fast_fall_speed, "fast_fall"),
+            (kit.shield, body.parry_window_time, "shield (the parry)"),
+            (
+                kit.ledge_grab,
+                body.ledge_momentum.window,
+                "ledge_grab (the momentum carry)",
+            ),
+            (kit.pogo, body.pogo_speed, "pogo"),
+        ]
+        .into_iter()
+        .filter(|(granted, window, _)| *granted && *window <= 0.0)
+        .map(|(_, _, verb)| verb)
+        .collect();
+        assert!(
+            dead.is_empty(),
+            "the stage GRANTS {dead:?} and supplies a body in which the verb \
+             does nothing — see `MatchParticipantRoster::fighter_body`"
+        );
+        // ⛔ **NON-VACUITY, and it is the whole test.** Every window above is
+        // non-zero in `DEFAULT_TUNING` EXCEPT the air dodge, which the engine
+        // holds at 0.0 deliberately — so a body that had stopped carrying the
+        // stage's own numbers would still pass the loop above.
+        assert_eq!(
+            ambition_platformer2d::engine_core::DEFAULT_TUNING.air_dodge_time,
+            0.0,
+            "the engine opened an air-dodge window by default, which changes \
+             every exploration body in the game and makes this test vacuous"
+        );
+        assert!(
+            body.air_dodge_time > 0.0,
+            "the stage's body no longer opens the one window the engine \
+             deliberately leaves shut"
+        );
+    }
+
+    /// **AND THE ROSTER IS WHERE IT SAYS SO.** The test above measures the
+    /// constant; this measures that the stage actually declares it, which is the
+    /// half that can be deleted without breaking a compile.
+    #[test]
+    fn the_roster_supplies_the_fighters_body() {
+        let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
+        assert_eq!(
+            roster.fighter_body,
+            Some(SMASH_FIGHTER_BODY),
+            "the stage grants a platform fighter's verbs and supplies no body \
+             to run them on"
+        );
+    }
 
     /// **A stocks roster declares the pair the engine insists on.**
     #[test]

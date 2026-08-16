@@ -1666,8 +1666,45 @@ asserts exact arity so the verb takes exactly one argument, and
 `ParamKind::Reference` is refused rather than coerced from a quoted string —
 that refusal is M2's to replace.
 
-⚠ **HALF the milestone, and the missing half is the interesting one: COMMANDS
-HAVE NO PROVIDER CONTRACT.** Conclusive grep — no `PublishCommand`, no command
+✔✔ **AND THE CONDITION HALF NOW HAS A SECOND, VERY DIFFERENT CONSUMER
+(`61b4cd836`, 2026-08-16): AUTHORED DIALOGUE.** One verb —
+`condition("domain.question", <arg>)` — names no question, no domain and no flag;
+it forwards whatever a `.yarn` line asks to whichever domain published the answer.
+**Publishing a condition makes it askable from authored dialogue with no edit to
+a bridge or a vocabulary table**, which is the same behavioural acceptance the
+second provider had. `inventory.holds` was added as a third provider in ONE line
+of composition.
+
+⛔⛔ **AND IT REFUTED A PREMISE THAT THREE MODULE HEADERS ASSERTED.** They all
+said Yarn library functions cannot be Bevy systems and so cannot reach `&World` —
+which is why `YarnStateMirror` existed at all. Measured at HEAD it is **false**:
+`bevy_yarnspinner` advances the interpreter from `continue_runtime`, an
+**exclusive system**, and threads `&mut World` down through
+`Dialogue::continue_with_world` to `YarnFn::call_with_world`, and
+`SystemId<In<P>, O>` implements `YarnFn`. ⇒ a Yarn function IS a Bevy system and
+DOES get the live world. **A design constraint recorded in three places was never
+re-measured.**
+
+⭐ **deletions, which is what makes it a slice rather than an addition**: `flag(id)`,
+`inventory_has(item)`, both mirror slices, the per-frame inventory refill with its
+legacy-alias table, `normalize_item_id` (a second copy of `Item::from_dialog_id`'s
+rule), `mirror_inventory_has`, `Item::legacy_dialog_alias` (zero adopters once the
+refill went) and three tests that pinned them. What survives of the mirror is
+documented as a **projection**: boss/quest state, visit counts, wallet and content
+`extras` have no published condition, and two of those return `f32`, which a
+boolean verb cannot express.
+
+⚠ **two limits recorded rather than hidden.** Yarn's VM asserts a call's argument
+count equals the registered function's parameter count and counts `Option`
+parameters, so a variadic bridge is **not expressible** — the verb takes exactly
+one argument, which every published condition wants. And a `ParamKind::Reference`
+argument is **REFUSED with a reason** rather than coerced from a quoted string:
+⭐ *a `.yarn` literal is not an identity, and answering confidently about
+whichever occurrence happens to share the spelling is worse than not answering.*
+The refusal is something M2 can replace; a wrong answer is something M2 would
+have to find first.
+
+⚠ **THE STILL-MISSING HALF: COMMANDS HAVE NO PROVIDER CONTRACT.** Conclusive grep — no `PublishCommand`, no command
 catalog, nothing. ⭐ **that half is not "one more of the same"**: a condition is a
 *question about the world* and is safe precisely because it cannot change
 anything, while a command mutates and therefore owes **authority** (who may run

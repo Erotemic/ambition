@@ -678,11 +678,21 @@ were found by RUNNING it rather than by poisoning it:
    reinstatement was equipped over an occupied hand and `return_released_items`
    quietly undid it one phase later.
 
-⚠ **still owed:** a baseline row whose occurrence has no live entity at all
-(carried at the checkpoint, later put down in a room that then unloaded, then a
-death). Its ledger row says `InCustody` so the rebuild suppresses it, and nothing
-mints an occurrence directly into a hand. Reachable only across a room
-transition.
+⭐ **the gap that looked save-destroying is NOT** — measured, not reasoned
+(`a_banked_object_left_in_an_unloaded_room_survives_a_death`). A baseline row
+whose occurrence has no live entity (banked, carried next door, put down, that
+room unloaded, then a death) would seem to be erased: the restore overwrites the
+`Placed` row that was the only memory of where it lay, after which every room
+suppresses it. ⭐ **`republish_custody`'s retract-by-RESETTING rule saves it in a
+case it was not written for** — the custody leg is rebuilt from live state every
+tick, so the unsupported `InCustody` row is dropped and the home room authors the
+object at its pedestal. ⇒ the player loses the *acquired* property they banked,
+which is wrong but recoverable; the object is not destroyed, which would not be.
+
+⚠ **and that safety is CONDITIONAL, so it is pinned by a characterisation test.**
+It holds only because nothing lets an `InCustody` row outlive live custody. ⛔ a
+durable save that writes the ledger straight to disk breaks exactly that, and the
+annihilation becomes real.
 
 ⭐⭐ **MAINTAINER DECISION 2026-08-15 — the CHECKPOINT is the reset baseline.**
 Death/retry restores the latest committed checkpoint; traversal and unload

@@ -34,7 +34,7 @@
 //! authored it.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::engine_core::ControlFrame;
+use ambition_platformer2d::engine_core::{AabbExt, ControlFrame};
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::Entity;
 
@@ -309,5 +309,146 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
         &reward,
         "putting the reward down happened after C1 and was never banked, so the \
          reset owes it back to the hand it was in at C1",
+    );
+}
+
+/// The room next door, used only to take an object somewhere and leave it there.
+const NEIGHBOUR: &str = "duel_arena";
+/// Where to go NEXT, so the neighbour unloads.
+///
+/// ⚠ **the basement is a ONE-WAY hub — nothing authors a door back into it** —
+/// and leaving by a third door is what actually unloads the room the object was
+/// left in. Dying inside the neighbour would not reproduce the defect: the
+/// object is still live at restore time, and the custody leg puts it straight
+/// back into the hand.
+const ONWARD: &str = "central_hub_complex";
+
+/// Stand in the `Door` zone of the active room that leads to `target` and hold
+/// Interact until the room actually changes.
+///
+/// The door is chosen by asking the room graph where each zone GOES —
+/// `transition_for_player` is the same resolver the crossing itself uses —
+/// because this room authors eighteen of them and "the first one" is a coin flip.
+fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
+    let before = sim.observation().active_room.clone();
+    let zone = {
+        let world = sim.world_mut();
+        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let room_set = query
+            .iter(world)
+            .next()
+            .expect("the session has an active room set");
+        room_set
+            .active_loading_zones()
+            .iter()
+            .find(|zone| {
+                room_set
+                    .transition_for_player(
+                        zone.aabb,
+                        ambition_platformer2d::engine_core::Vec2::ZERO,
+                        true,
+                    )
+                    .and_then(|t| room_set.rooms.get(t.target_room))
+                    .is_some_and(|destination| destination.id == target)
+            })
+            .cloned()
+            .unwrap_or_else(|| panic!("'{before}' has no door to '{target}'"))
+    };
+    let center = zone.aabb.center();
+    sim.teleport_player((center.x, center.y));
+    for _ in 0..90 {
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            sim.step_n(base(), 30);
+            return;
+        }
+    }
+    panic!("held Interact in the '{before}' door to '{target}' for 90 frames and never crossed");
+}
+
+/// **A BANKED OBJECT LEFT IN A ROOM THAT THEN UNLOADS COMES BACK — at its
+/// pedestal, not in the hand, and that degradation is the point.**
+///
+/// ⭐⭐ **THE ANNIHILATION THIS WAS WRITTEN TO CATCH DOES NOT HAPPEN, AND THE
+/// REASON IS WORTH MORE THAN THE TEST.** The danger looked real: restoring the
+/// ledger overwrites what the world currently knows, so a baseline saying
+/// `InCustody` replaces the `Placed { room, at }` row that is the only memory of
+/// where an unloaded object lies. Nothing carries it, every room then suppresses
+/// it, and nothing mints an occurrence directly into a hand.
+///
+/// ⭐ **what saves it is `republish_custody`'s retract-by-RESETTING rule**, in a
+/// case it was not written for. The custody leg is rebuilt from live state every
+/// tick, so the `InCustody` row the restore just wrote is dropped on the next
+/// step by the same write that keeps the others — leaving no row at all, which
+/// means `Authored`, which means the home room builds it from its record.
+///
+/// ⇒ the object returns to its **pedestal**. The player loses the "still
+/// acquired" property they had banked, which is wrong but recoverable; the
+/// object is not destroyed, which would not be.
+///
+/// ⚠ **so this is a CHARACTERISATION test, and it should be read as one.** It
+/// pins the degradation that a ledger-restore-plus-self-healing-republish
+/// produces today. If a later change makes an `InCustody` row survive without
+/// live custody behind it — a durable save writing the ledger straight to disk
+/// is the obvious way — the annihilation becomes real and this goes red.
+///
+#[test]
+fn a_banked_object_left_in_an_unloaded_room_survives_a_death() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 8);
+
+    let reward = SimId::placement(REWARD);
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+
+    // Banked: the checkpoint sees it in hand.
+    commit_a_checkpoint(&mut sim);
+
+    // Carried next door and put down there. Custody crosses rooms, so it
+    // arrives still held.
+    walk_to(&mut sim, NEIGHBOUR);
+    assert_still_held(
+        &mut sim,
+        &reward,
+        "custody crosses a room boundary, so the object arrives still in hand",
+    );
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+
+    // Onward. The neighbour unloads and takes the object's ENTITY with it; only
+    // the ledger's `Placed` row remembers where it lies.
+    walk_to(&mut sim, ONWARD);
+    assert!(
+        occurrences(&mut sim, &reward).is_empty(),
+        "the neighbour must actually have unloaded, or this test measures nothing"
+    );
+
+    die(&mut sim);
+
+    let live = occurrences(&mut sim, &reward);
+    assert_eq!(
+        live.len(),
+        1,
+        "⛔ the object must come back exactly once. ZERO means it was ANNIHILATED \
+         — the baseline said a hand, the world said an unloaded room, and \
+         restoring one over the other erased the only record of where it was. \
+         TWO means the suppression and the authoring disagreed. Got {live:?}"
+    );
+    assert!(
+        live[0].1.in_world(),
+        "it comes back at its pedestal, not in the hand: nothing mints an \
+         occurrence directly into custody, so the self-healing custody republish \
+         drops the unsupported row and the home room authors it afresh. Got {:?}",
+        live[0].1
     );
 }

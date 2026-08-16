@@ -1135,6 +1135,98 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     }
 }
 
+/// **A MATCH STATES ITS OWN NUMBERS ON EVERY SEAT'S BODY, AND DISTURBS NOTHING
+/// ELSE.** (D146 slice 1b)
+///
+/// ⛔⛔ **the defect is a DEAD GRANT, one layer below the abilities defect.**
+/// `fighter_abilities` can GUARANTEE a verb — and the tuning that verb needs was
+/// authorable only on a CHARACTER. `DEFAULT_TUNING` leaves `air_dodge_time` at
+/// `0.0` deliberately (a default-on air dodge would steal the airborne burst
+/// press from every exploration body), so a stage that granted `dodge` to a cast
+/// it did not author handed out a verb whose window never opened: measured on
+/// the composed host, twelve of the fourteen fighters on the smash grid.
+///
+/// ⚠ **BOTH halves, because either alone passes over a bug.** A supply that
+/// reached nobody is the defect; a supply that carried a whole `MovementTuning`
+/// is the OTHER one, and it was real — the first implementation turned a
+/// crawler's authored 80 px/s into the engine's default run, which is the trap
+/// `MatchAbilities` names on the grant side. `MatchRules::body_over` is where
+/// the composition is stated.
+#[test]
+fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else() {
+    let mut app = seating_app();
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+
+    // A character with a body of its own: the fighter somebody designed.
+    let springy = ambition_platformer2d_core::MovementTuning {
+        jump_speed: 999.0,
+        ..ambition_platformer2d_core::DEFAULT_TUNING
+    };
+    // And the stage's six numbers, none of which is a jump arc.
+    let stage = ambition_platformer2d_core::MatchBody {
+        slash_recoil: 0.0,
+        jump_squat_time: 0.05,
+        air_dodge_time: 0.2,
+        air_dodge_speed: 440.0,
+        air_dodge_endlag: 0.16,
+        tumble_speed: 500.0,
+    };
+    assert_eq!(
+        ambition_platformer2d_core::DEFAULT_TUNING.air_dodge_time,
+        0.0,
+        "the engine default opened an air-dodge window on its own, so this test \
+         can no longer tell a supplied window from a defaulted one"
+    );
+
+    app.register_character(
+        CharacterDefinition::new("springy", "Springy", "demo").with_movement_tuning(springy),
+    );
+    app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("springy"), cpu("plain")],
+        fighter_body: Some(stage),
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+    )>();
+    let found: Vec<(String, Option<ambition_platformer2d_core::MovementTuning>)> = bodies
+        .iter(world)
+        .map(|(worn, tuning)| (worn.id().to_string(), tuning.map(|tuning| tuning.0)))
+        .collect();
+    assert_eq!(found.len(), 2, "the roster seated {} fighters", found.len());
+
+    for (id, tuning) in found {
+        let tuning = tuning.unwrap_or_else(|| {
+            panic!("`{id}` was seated with no body at all, in a match that declares one")
+        });
+        // ⭐ **EVERY seat, whatever its character brought.** This is the whole
+        // fix: the window the stage's granted verbs run on reaches the fighter
+        // that authored a body and the one that authored none alike.
+        assert_eq!(
+            tuning.air_dodge_time, 0.2,
+            "`{id}` was seated without the window the match states, so every \
+             verb the match GRANTS whose window the engine defaults to zero is \
+             a dead grant"
+        );
+        if id == "springy" {
+            assert_eq!(
+                tuning.jump_speed, 999.0,
+                "the match overwrote a jump arc it never spoke about — a mode \
+                 states `MatchBody`'s fields and nothing else"
+            );
+        }
+    }
+}
+
 /// **A fighter that opens suspended is suspended on the tick it appears.**
 /// (queue Y′8 / H5's second half, 2026-07-29)
 ///

@@ -301,6 +301,37 @@ pub struct MatchParticipantRoster {
     /// same reason `opens_suspended` is: the engine does not get an opinion about
     /// what a fighter may do.
     pub fighter_abilities: Option<ambition_platformer2d_core::MatchAbilities>,
+    /// **THE BODY A FIGHTER PLAYS THIS MATCH WITH** — the movement feel a mode
+    /// supplies to a character that authored none.
+    ///
+    /// `None` leaves every seat on whatever its character has, which is right
+    /// for a match staged inside one game, where the cast and the physics were
+    /// written together.
+    ///
+    /// ⛔⛔ **`fighter_abilities` GRANTS verbs, and a granted verb whose WINDOW
+    /// is zero is a dead grant.** That is the defect this field exists for, and
+    /// it is the abilities defect one layer down. The engine's default tuning
+    /// leaves `air_dodge_time`, `jump_squat_time` and `tumble_speed` at zero
+    /// deliberately — an air dodge that was on by default would steal the
+    /// airborne burst press from every exploration body in the game — so a stage
+    /// that GRANTS `dodge` to a cast it did not author hands out a verb whose
+    /// window never opens. Measured on the composed host, 2026-08-16: twelve of
+    /// the fourteen fighters on the smash grid carried no tuning at all, so
+    /// twelve of fourteen had a dodge they could not use in the air (and the
+    /// engine's 110 px/s `slash_recoil`, which the smash demo had already
+    /// measured walking its CPUs backwards off the stage).
+    ///
+    /// ⚠ **it is NOT a whole `MovementTuning`, and that is the design** — see
+    /// [`MatchBody`](ambition_platformer2d_core::MatchBody). A mode states the
+    /// handful of numbers a MODE owns and composes them over the body each
+    /// fighter brought, so a gait, a jump arc and a gravity nobody asked it
+    /// about stay the character's. It is applied by
+    /// [`MatchRules::body_over`](super::prepared_match::MatchRules::body_over),
+    /// which is where the composition is stated once.
+    ///
+    /// On the roster for the same reason as `fighter_abilities`: the engine does
+    /// not get an opinion about what a fighter on this stage feels like.
+    pub fighter_body: Option<ambition_platformer2d_core::MatchBody>,
     /// **How many stocks each fighter starts with, if this match runs on
     /// stocks.** (S4)
     ///

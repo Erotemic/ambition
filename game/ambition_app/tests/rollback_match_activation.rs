@@ -104,6 +104,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
         opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(11),
         fighter_abilities: None,
+        fighter_body: None,
         fighter_stocks: None,
         fighter_health_pool: None,
         // A fixture's roster has no publisher: nothing else in this App claims
@@ -706,6 +707,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
+        fighter_body: None,
         fighter_stocks: None,
         fighter_health_pool: None,
         published_by: None,
@@ -843,6 +845,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
         opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
+        fighter_body: None,
         fighter_stocks: None,
         fighter_health_pool: None,
         published_by: None,

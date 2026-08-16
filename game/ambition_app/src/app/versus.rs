@@ -300,6 +300,15 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
             fast_fall: true,
             ..ae::AbilitySet::basic()
         })),
+        // **NONE, and it is a decision.** This stage's cast is
+        // `versus_fighters::duelists()`, two characters authored FOR it, so the
+        // body they play with is already the one they were tuned with — there is
+        // no fighter here whose feel came from somebody else's game. The smash
+        // stage next door supplies one because it seats a crossover cast that
+        // never agreed to be a platform fighter (see
+        // `MatchParticipantRoster::fighter_body`), and this duel wants none of
+        // its extras: no jump squat, no air dodge, no floor game.
+        fighter_body: None,
         // S4: NOT a stocks match yet, and the `None` is a decision rather than a
         // gap. The shipped stage settles ROUNDS off health, and switching it to
         // stocks changes what a versus match IS — a product call, not a

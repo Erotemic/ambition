@@ -274,6 +274,17 @@ pub struct PreparedSeat {
     /// so a match that forbids `shield` would otherwise seat a fighter whose kit
     /// was derived as though it still had one, with nothing coming to correct it.
     pub effective_abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// **The body this seat plays with** — the character's own movement feel, or
+    /// the one the match supplies to a character that authored none (see
+    /// [`MatchRules::body_over`]).
+    ///
+    /// ⭐ **resolved here for the same reason
+    /// [`Self::effective_abilities`](Self::effective_abilities) is**: the seat
+    /// carries the answer, so the body that is BUILT and the body a test or a
+    /// UI reads cannot be two derivations of one question. It is handed to
+    /// `grant_prepared_character_body`, the one place a prepared definition
+    /// becomes a body.
+    pub effective_movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
 }
 
 /// What every fighter in this match plays under.
@@ -287,6 +298,11 @@ pub struct MatchRules {
     /// `None` to leave every character's own kit alone. See
     /// [`MatchAbilities`](ambition_platformer2d_core::MatchAbilities).
     pub abilities: Option<ambition_platformer2d_core::MatchAbilities>,
+    /// **The body this match supplies to a fighter whose character authored
+    /// none** — see
+    /// [`MatchParticipantRoster::fighter_body`](super::staging::MatchParticipantRoster::fighter_body),
+    /// the field it is carried from, and [`Self::body_over`] for the precedence.
+    pub body: Option<ambition_platformer2d_core::MatchBody>,
     /// **The pool this match gives every seat**, or `None` to keep each
     /// character's own. See
     /// [`MatchParticipantRoster::fighter_health_pool`](super::staging::MatchParticipantRoster::fighter_health_pool)
@@ -340,6 +356,45 @@ impl MatchRules {
     /// each authored for themselves.
     pub fn pool_over(&self, authored: i32) -> i32 {
         self.health_pool.map(|pool| pool.max(1)).unwrap_or(authored)
+    }
+
+    /// **THE BODY A SEAT PLAYS WITH: this match's own numbers, over the body the
+    /// fighter brought.** Stated once, here.
+    ///
+    /// ```text
+    ///   match says nothing   ->  whatever the fighter brought, untouched
+    ///   match declares       ->  MatchBody::over(the character's body, else the built one)
+    /// ```
+    ///
+    /// ⭐ **it is not a precedence question, which is why it does not read like
+    /// [`Self::pool_over`] one function up.** A pool is ONE number and two
+    /// authorities have to be ranked; a body is fifty numbers and a mode has an
+    /// opinion about six of them.
+    /// [`MatchBody`](ambition_platformer2d_core::MatchBody) is exactly those
+    /// six, so the composition disturbs nothing else and the character keeps its
+    /// gait, its jump arc and its gravity whether or not it authored a
+    /// `MovementTuning` at all.
+    ///
+    /// ⛔ **a whole `MovementTuning` here was tried first and was wrong.** It
+    /// carried `..DEFAULT_TUNING`, so it stated every field whether or not the
+    /// stage had an opinion — and
+    /// `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored` caught
+    /// it: the crawler's authored 80 px/s became the engine's 270 px/s run.
+    ///
+    /// ⚠ **`built` is what the body would have moved by with no marker at all**
+    /// — its `ActorConfig` tuning, which is what
+    /// `EnemyRuntime::integrate_body` falls back to. It is a parameter rather
+    /// than a default because a mode composing over the WRONG base is exactly
+    /// the bug above wearing a smaller hat.
+    pub fn body_over(
+        &self,
+        authored: Option<ambition_platformer2d_core::MovementTuning>,
+        built: ambition_platformer2d_core::MovementTuning,
+    ) -> Option<ambition_platformer2d_core::MovementTuning> {
+        match self.body {
+            Some(body) => Some(body.over(authored.unwrap_or(built))),
+            None => authored,
+        }
     }
 
     pub fn death_policy(&self) -> ambition_characters::actor::DeathPolicy {
@@ -622,6 +677,7 @@ pub fn prepare_match(
     let rules = MatchRules {
         stocks: roster.fighter_stocks,
         abilities: roster.fighter_abilities,
+        body: roster.fighter_body,
         health_pool: roster.fighter_health_pool,
         opens_suspended: roster.opens_suspended,
         opening_countdown_ticks: roster.opening_countdown_ticks,
@@ -926,6 +982,15 @@ pub fn prepare_match(
             participant.action_set.as_ref(),
         );
         let moveset = moveset.0;
+        // **THE BODY THIS SEAT WOULD HAVE MOVED BY**, read before the seed is
+        // handed over: it is the fallback `EnemyRuntime::integrate_body` uses
+        // for a body carrying no authored feel, and it is the base a match's own
+        // numbers compose over. See `MatchRules::body_over`.
+        let built_body = seed
+            .config
+            .tuning
+            .movement
+            .body_tuning(seed.config.tuning.max_run_speed);
         seats.push(PreparedSeat {
             seat: index,
             feature_id: body_id,
@@ -945,6 +1010,15 @@ pub fn prepare_match(
             action_set: overlay_action_set,
             combat_kit: overlay_combat_kit,
             effective_abilities: seat_abilities,
+            // ⭐ **THE BODY, RESOLVED BESIDE THE VERBS** — and it has to be, or
+            // the stage grants a verb whose window never opens. See
+            // `MatchRules::body_over`.
+            //
+            // ⚠ the base is the seed's OWN tuning, which is what the integrator
+            // falls back to when a body carries no marker — so a mode's six
+            // numbers land on the body this fighter would otherwise have had,
+            // and nothing else about it moves.
+            effective_movement_tuning: rules.body_over(definition.movement_tuning, built_body),
             moveset,
         });
     }
@@ -1331,6 +1405,12 @@ fn realize_seat(
         &seat.definition,
         cast_generation,
         crate::character_runtime::presentation::KitOwnership::CallerResolved,
+        // ⭐ **AND THE BODY THE MATCH RESOLVED**, for the same reason the kit is
+        // `CallerResolved`: preparation already weighed the character's own feel
+        // against the stage's (`MatchRules::body_over`), and a materializer that
+        // re-read the definition would silently drop the stage's body — which is
+        // the whole of D146 slice 1b.
+        seat.effective_movement_tuning,
     );
     body
 }

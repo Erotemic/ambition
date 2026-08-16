@@ -1616,6 +1616,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
             definition,
             prepared.generation(),
             crate::character_runtime::KitOwnership::Grant,
+            // A room placement answers to no match: the character's own feel is
+            // the whole answer here (see `MatchRules::body_over`).
+            definition.movement_tuning,
         );
         // **THE WEAPON THE CHARACTER CARRIES.** The plan resolves its held item
         // from `enemy.spec`, which for a character-first body is inert — so a

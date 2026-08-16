@@ -312,10 +312,19 @@ pub struct GrantedBodyFacts {
 
 impl GrantedBodyFacts {
     /// What projecting `prepared` onto a body WILL grant.
-    fn of(prepared: &super::PreparedCharacterDefinition) -> Self {
+    ///
+    /// ⚠ `movement_tuning` is the CALLER's resolved answer, not
+    /// `prepared.movement_tuning`: a seat in a match may be granted a body its
+    /// character never authored, and a record that read the definition would
+    /// then fail to retract exactly the fact that WAS granted. See
+    /// [`grant_prepared_character_body`].
+    fn of(
+        prepared: &super::PreparedCharacterDefinition,
+        movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
+    ) -> Self {
         Self {
             hurtboxes: prepared.hurtboxes.is_some(),
-            movement_tuning: prepared.movement_tuning.is_some(),
+            movement_tuning: movement_tuning.is_some(),
             posed_body: posed_body_for(prepared).is_some(),
         }
     }
@@ -528,6 +537,12 @@ pub fn project_prepared_character_definitions(
             } else {
                 KitOwnership::Grant
             },
+            // **This body answers to no match**, so the character's own feel is
+            // the whole answer. A SEAT resolves the same question against its
+            // match's rules and hands the result in — see
+            // `MatchRules::body_over`, which is the only place the two are
+            // weighed against each other.
+            prepared.movement_tuning,
         );
     }
 }
@@ -580,6 +595,15 @@ pub fn grant_prepared_character_body(
     prepared: &super::PreparedCharacterDefinition,
     generation: super::definition::CharacterCatalogGeneration,
     kit: KitOwnership,
+    // **THE BODY THIS ENTITY PLAYS WITH, already resolved by the caller.**
+    //
+    // ⛔ **NOT read off `prepared` here, and that is the whole point.** A seat
+    // in a match answers to the MATCH's body as well as its character's, and
+    // that weighing belongs in one place (`MatchRules::body_over`) rather than
+    // in the materializer, which would then be a second authority on it — the
+    // shape the kit already paid for once (`KitOwnership::CallerResolved`).
+    // A caller with no match to answer to passes `prepared.movement_tuning`.
+    movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
 ) {
     {
         // ⭐⭐ **THE APPLIED-TEMPLATE STAMP FOR GAMEPLAY, written at CONSTRUCTION**
@@ -614,7 +638,7 @@ pub fn grant_prepared_character_body(
         commands.entity(entity).insert(ProjectedCharacterKit {
             id: prepared.id.as_str().to_string(),
             generation,
-            granted: GrantedBodyFacts::of(prepared),
+            granted: GrantedBodyFacts::of(prepared, movement_tuning),
         });
         // **THE KIT, for the bodies the persona derive cannot see.**
         // (Phase B, 2026-07-29)
@@ -725,7 +749,7 @@ pub fn grant_prepared_character_body(
         // policy against `Option<Res<CharacterCatalog>>` — and requiring it
         // broke three fixtures that deliberately run character demand with NO
         // catalog, which is a state another test exists to name.
-        if let Some(tuning) = prepared.movement_tuning {
+        if let Some(tuning) = movement_tuning {
             commands
                 .entity(entity)
                 .insert(ambition_platformer2d_core::AuthoredMovementTuning(tuning));

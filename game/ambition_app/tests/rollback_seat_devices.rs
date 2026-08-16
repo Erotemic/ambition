@@ -129,6 +129,7 @@ fn two_human_roster() -> MatchParticipantRoster {
         opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
+        fighter_body: None,
         fighter_stocks: None,
         fighter_health_pool: None,
         published_by: None,

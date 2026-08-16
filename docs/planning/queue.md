@@ -425,12 +425,25 @@ relationship to** — check whether anything in the sixteen-press vocabulary rea
 it before removing, and whether the CPU brain's `smash_dash_to_close` policy
 depends on it (`BrainProfile::smash_dash_to_close`, set on the PCA among others).
 
-**2 ▢ SHIELD IS NOT ITS OWN INPUT ACTION, so the layout cannot express it.**
-⛔⛔ measured: there is no `Shield` in `Platformer2dInputActionMonolith`.
-`InputState::shield_held` is DERIVED — `starting_character.rs` sets it when a
-body's special action is the `bubble_shield` key and `special_pressed` is up. So
-*"X = special, LT = shield"* is not a rebinding: the two are the same button
-today, and shield has to be lifted out of the special slot first.
+**2 ▢ SHIELD IS ITS OWN INPUT ACTION UNDER ANOTHER NAME, AND A POLICY CLEARS
+IT.** ⛔⛔ **an earlier note here said "there is no `Shield` action". That was
+WRONG and is corrected 2026-08-16** — re-measured: `control.rs:128` reads
+`shield_held: actions.pressed(&…::QuickAction)`, the gamepad binds QuickAction
+to RightTrigger, and `derive_action_scheme` already gates
+`(abilities.shield, ControlSlot::QuickAction, ids::SHIELD)`. The semantic action
+EXISTS; its NAME lies.
+⛔ **the real defect is the clearing policy.** `gate_worn_player_control`
+(`starting_character.rs`, `With<PlayerEntity>`) does
+`if !allows_body_shield && !holds_item { control.0.shield_held = false; }`,
+where `allows_body_shield` is *the body's special is the `bubble_shield` key*.
+So a human smash fighter with `AbilitySet::shield` but any ordinary special has
+its guard cleared EVERY FRAME and can never shield. The question that gate asks
+should be *does this body have the shield ability*, not *is its special the
+robot's folded bubble*.
+⚠ renaming `QuickAction` → `Shield` is the honest fix, but `BindingOverride`
+keys an action by the `Debug` SPELLING of the enum and ignores unknown names, so
+a rename silently drops a user's existing remap of that action. Cheap to handle,
+must not be forgotten.
 
 **3 ▢ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT.**
 ⛔ measured: `Special` has NO gamepad binding at all. The action enum says so in

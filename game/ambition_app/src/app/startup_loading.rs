@@ -90,6 +90,7 @@ impl DirectStartupLoadingState {
 #[derive(SystemParam)]
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
+    images: Res<'w, Assets<Image>>,
     game_assets: ResMut<'w, GameAssets>,
     asset_catalog:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -314,6 +315,7 @@ fn drive_direct_startup_loading(
 
     let summary = inspect_startup_manifest(
         &assets.asset_server,
+        &assets.images,
         state
             .manifest
             .as_ref()
@@ -454,9 +456,10 @@ fn build_startup_manifest(
 
 fn inspect_startup_manifest(
     asset_server: &AssetServer,
+    images: &Assets<Image>,
     manifest: &StartupAssetManifest,
 ) -> StartupReadinessSummary {
-    let room = inspect_room_asset_manifest(asset_server, &manifest.room);
+    let room = inspect_room_asset_manifest(asset_server, Some(images), &manifest.room);
     let mut summary = StartupReadinessSummary {
         settled: room.settled,
         total: room.total + manifest.supporting.len(),

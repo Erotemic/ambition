@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bevy::asset::{LoadState, UntypedAssetId};
+use bevy::asset::{AssetId, LoadState};
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::{
     AssetServer, Assets, DetectChanges, Handle, Image, Res, ResMut, Resource, Time,
@@ -46,7 +46,7 @@ use ambition_platformer2d::runtime::room_transition::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RoomAssetDependency {
     pub(crate) label: String,
-    pub(crate) asset_id: UntypedAssetId,
+    pub(crate) asset_id: AssetId<Image>,
 }
 
 /// Deterministic dependency set for one target room under the currently
@@ -118,6 +118,9 @@ pub(crate) struct RoomTransitionAssetContext<'w> {
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     >,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
+    /// Main-world images are the readiness authority for handles that were
+    /// inserted directly instead of requested through `AssetServer`.
+    pub(crate) images: Option<Res<'w, Assets<Image>>>,
     pub(crate) layouts: Option<ResMut<'w, Assets<TextureAtlasLayout>>>,
     pub(crate) quality: Option<Res<'w, ResolvedVisualQuality>>,
     /// The engine's per-character load ledger. Not optional: the engine plugin
@@ -160,15 +163,24 @@ impl RoomAssetReadiness {
 }
 
 fn add_image_handle(
-    by_label: &mut BTreeMap<String, UntypedAssetId>,
+    by_label: &mut BTreeMap<String, AssetId<Image>>,
     label: impl Into<String>,
     handle: &Handle<Image>,
 ) {
-    by_label.insert(label.into(), UntypedAssetId::from(handle));
+    // A default handle is a placeholder, not a load request. Sparse packed
+    // character sheets intentionally leave unused page slots defaulted so the
+    // animator can keep indexing `pages[frame_page]` without decoding pages it
+    // never samples. Putting that placeholder into an activation manifest makes
+    // the barrier wait forever: AssetServer quite correctly reports that no
+    // such load exists and nothing can ever advance it.
+    if handle == &Handle::default() {
+        return;
+    }
+    by_label.insert(label.into(), handle.id());
 }
 
 fn add_character_asset(
-    by_label: &mut BTreeMap<String, UntypedAssetId>,
+    by_label: &mut BTreeMap<String, AssetId<Image>>,
     label: &str,
     asset: &CharacterSpriteAsset,
 ) {
@@ -176,13 +188,27 @@ fn add_character_asset(
         add_image_handle(by_label, format!("{label}:page:0"), &asset.texture);
         return;
     }
-    for (index, page) in asset.pages.iter().enumerate() {
+
+    // `pages` is indexed by the source page number and therefore includes
+    // placeholder slots for sparse packed sheets. The sheet spec is the
+    // semantic authority for which pages any frame can actually draw from.
+    // Manifest only those pages; an unused pack page is not a presentation
+    // dependency of this character.
+    for index in asset.spec.used_pages() {
+        let Some(page) = asset.pages.get(index as usize) else {
+            bevy::log::error!(
+                target: "ambition_platformer2d::room_transition",
+                "character asset '{label}' references page {index}, but its realization has only {} page slot(s)",
+                asset.pages.len(),
+            );
+            continue;
+        };
         add_image_handle(by_label, format!("{label}:page:{index}"), &page.texture);
     }
 }
 
 fn add_boss_asset(
-    by_label: &mut BTreeMap<String, UntypedAssetId>,
+    by_label: &mut BTreeMap<String, AssetId<Image>>,
     label: &str,
     asset: &BossSpriteAsset,
 ) {
@@ -192,7 +218,7 @@ fn add_boss_asset(
 }
 
 fn add_named_character(
-    by_label: &mut BTreeMap<String, UntypedAssetId>,
+    by_label: &mut BTreeMap<String, AssetId<Image>>,
     assets: &GameAssets,
     character_id: &str,
 ) {
@@ -271,7 +297,7 @@ fn add_room_specific_sprites(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &GameAssets,
-    by_label: &mut BTreeMap<String, UntypedAssetId>,
+    by_label: &mut BTreeMap<String, AssetId<Image>>,
 ) {
     // The static entity sheet set is small, shared by most rooms, and loaded as
     // the sandbox core. Including every present handle makes room reveal wait
@@ -419,7 +445,7 @@ pub(crate) fn build_loaded_room_asset_manifest(
     // Multiple authored names can intentionally resolve to the same handle.
     // Keep one deterministic label per runtime asset id so progress totals are
     // about actual loads rather than aliases.
-    let mut seen = Vec::<UntypedAssetId>::new();
+    let mut seen = Vec::<AssetId<Image>>::new();
     let dependencies = by_label
         .into_iter()
         .filter_map(|(label, asset_id)| {
@@ -439,6 +465,7 @@ pub(crate) fn build_loaded_room_asset_manifest(
 
 pub(crate) fn inspect_room_asset_manifest(
     asset_server: &AssetServer,
+    images: Option<&Assets<Image>>,
     manifest: &RoomAssetManifest,
 ) -> RoomAssetReadiness {
     let mut readiness = RoomAssetReadiness {
@@ -446,20 +473,26 @@ pub(crate) fn inspect_room_asset_manifest(
         ..Default::default()
     };
     for dependency in &manifest.dependencies {
-        if asset_server.is_loaded_with_dependencies(dependency.asset_id.clone()) {
-            readiness.settled += 1;
-            continue;
-        }
-        match asset_server.load_state(dependency.asset_id.clone()) {
-            LoadState::Failed(_) => {
+        // `AssetServer` is authoritative only for handles it owns. A directly
+        // inserted/procedural image has no server load state; for that case the
+        // main-world `Assets<Image>` collection is the readiness authority.
+        // Treating `None` as `NotLoaded` is another permanent-barrier bug: the
+        // image can already be usable while the server will never start a load.
+        match asset_server.get_load_state(dependency.asset_id) {
+            Some(_) if asset_server.is_loaded_with_dependencies(dependency.asset_id) => {
+                readiness.settled += 1;
+            }
+            Some(LoadState::Failed(_)) => {
                 readiness.settled += 1;
                 readiness.failed.push(dependency.label.clone());
             }
-            LoadState::NotLoaded | LoadState::Loading => {
+            Some(LoadState::NotLoaded | LoadState::Loading | LoadState::Loaded) => {
                 readiness.pending.push(dependency.label.clone());
             }
-            LoadState::Loaded => {
-                // The root asset has loaded but one of its dependencies has not.
+            None if images.is_some_and(|images| images.contains(dependency.asset_id)) => {
+                readiness.settled += 1;
+            }
+            None => {
                 readiness.pending.push(dependency.label.clone());
             }
         }
@@ -663,7 +696,7 @@ pub(crate) fn contribute_room_transition_assets_system(
         active.prefetch_hit &= assets_promoted;
     }
     let manifest_is_empty = manifest.is_empty();
-    let readiness = inspect_room_asset_manifest(asset_server, &manifest);
+    let readiness = inspect_room_asset_manifest(asset_server, context.images.as_deref(), &manifest);
     active.observe_asset_progress(readiness.settled, readiness.total, now.unwrap_or_default());
     contributed.manifest = Some(Arc::new(manifest));
 
@@ -719,6 +752,7 @@ pub(crate) fn contribute_room_transition_assets_system(
 /// unit progress into its required load work.
 pub(crate) fn poll_room_transition_asset_readiness_system(
     asset_server: Res<AssetServer>,
+    images: Option<Res<Assets<Image>>>,
     time: Res<Time<Real>>,
     mut transitions: ResMut<RoomTransitionLoadState>,
     contributed: Res<ContributedRoomAssets>,
@@ -739,7 +773,7 @@ pub(crate) fn poll_room_transition_asset_readiness_system(
         return;
     };
 
-    let readiness = inspect_room_asset_manifest(&asset_server, manifest);
+    let readiness = inspect_room_asset_manifest(&asset_server, images.as_deref(), manifest);
     if !readiness.failed.is_empty() {
         let detail = format!(
             "room '{}' failed to load {} activation-critical asset(s): {}",
@@ -914,7 +948,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     ),
     mut assets: ResMut<GameAssets>,
     catalog: Res<Platformer2dAssetCatalog>,
-    asset_server: Res<AssetServer>,
+    (asset_server, images): (Res<AssetServer>, Option<Res<Assets<Image>>>),
     (mut layouts, mut character_load_states, prepared_characters, authored_sheets): (
         ResMut<Assets<TextureAtlasLayout>>,
         // Grouped with `layouts` to stay under Bevy's SystemParam arity limit.
@@ -1112,7 +1146,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         if entry.settled_at.is_some() {
             continue;
         }
-        if inspect_room_asset_manifest(&asset_server, &entry.manifest).is_terminal() {
+        if inspect_room_asset_manifest(&asset_server, images.as_deref(), &entry.manifest)
+            .is_terminal()
+        {
             entry.settled_at = Some(time.elapsed());
         }
     }
@@ -1121,6 +1157,69 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy::prelude::App;
+
+    #[test]
+    fn placeholder_image_handles_never_enter_room_manifests() {
+        let mut images = Assets::<Image>::default();
+        let real = images.add(Image::default());
+
+        let mut dependencies = BTreeMap::new();
+        add_image_handle(
+            &mut dependencies,
+            "character:packed:unused-page",
+            &Handle::<Image>::default(),
+        );
+        add_image_handle(&mut dependencies, "character:packed:used-page", &real);
+
+        assert_eq!(dependencies.len(), 1);
+        assert_eq!(
+            dependencies.get("character:packed:used-page"),
+            Some(&real.id()),
+            "a sparse packed sheet's placeholder page is not a load dependency",
+        );
+    }
+
+    #[test]
+    fn room_readiness_asks_the_owner_of_an_image_handle() {
+        let mut app = App::new();
+        app.add_plugins(bevy::app::TaskPoolPlugin::default());
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let reserved = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .reserve_handle();
+        let present = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+
+        let manifest = RoomAssetManifest {
+            room_id: "direct-image-room".to_owned(),
+            dependencies: vec![
+                RoomAssetDependency {
+                    label: "reserved".to_owned(),
+                    asset_id: reserved.id(),
+                },
+                RoomAssetDependency {
+                    label: "present".to_owned(),
+                    asset_id: present.id(),
+                },
+            ],
+        };
+        let readiness = inspect_room_asset_manifest(
+            &asset_server,
+            Some(app.world().resource::<Assets<Image>>()),
+            &manifest,
+        );
+
+        assert_eq!(readiness.settled, 1);
+        assert_eq!(readiness.pending, vec!["reserved".to_owned()]);
+        assert!(readiness.failed.is_empty());
+    }
 
     #[test]
     fn manifest_equality_is_the_prefetch_promotion_contract() {

@@ -490,6 +490,14 @@ tackon_targets=(
     # presentation seam remains generic.
     pirate_admiral_vfx
     ninja_shadow_oni_leader_vfx
+    # ⛔ these two were AUTHORED IN THE SUBMODULE AND NEVER LISTED HERE
+    # (found 2026-08-16). `george_booul_vfx` ships a published sheet only because
+    # someone ran it with a focused `--target`, so a fresh clone's regen would
+    # silently drop it; `oiler_vfx` has a renderer target, no published sheet at
+    # all, and no cues in `sfx.bank`. A regen roster that omits a real target is
+    # exactly the fresh-clone hazard this list exists to close.
+    george_booul_vfx
+    oiler_vfx
     generic_explosions
     smirking_behemoth_boss
     solid_snake

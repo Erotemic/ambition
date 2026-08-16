@@ -1026,63 +1026,46 @@ by the SCHEDULE.** Step 1.5 is therefore a `ConversationPlugin` owning those
 registrations and stating the cross-domain order as **named sets** — a
 simulation-ordering change that wants a session able to run the suite.
 
-✔ **RE-VERIFIED 2026-08-16, still exactly as described** —
-`features/mod.rs::FeatureInteractionSchedulePlugin` holds ONE anonymous
-`.chain()` of eleven systems spanning four domains, in this order:
+✔✔ **STEP 1.5 LANDED 2026-08-16 (`bc187bc98`) — THE CHAIN IS GONE AND THE CARVE
+IS NOW GENUINELY A CARGO.TOML.** `FeatureInteractionSchedulePlugin` held ONE
+anonymous `.chain()` of **ten** systems across four domains (this row said
+eleven; it was ten), and the whole cross-domain ordering contract was adjacency
+in that tuple plus five prose comments. `FeatureInteractionSet` now names the
+phases — `NarrativeIntake · Actuate · Continuity · CutBarkCast · HoldProjection ·
+WorldObjects · SwitchIndex` — and every rationale lives on the variant it
+explains rather than beside the system it happened to precede. It follows the
+existing `ProgressionSet` / `PlayerInputSet` template rather than inventing a
+shape: the phase owner chains the SET LIST once, each domain states only which
+phase it is in.
 
-```text
-conversation  close_conversation_on_narrative_end
-interaction   interact_ecs_actors_and_switches
-conversation  break_dialogue_on_hit_or_separation
-npcs          speak_conversation_cut_barks
-conversation  project_conversation_hold
-interaction   open_ecs_chests · update_ecs_breakables ·
-              update_ecs_falling_chests · sync_ecs_switches_from_save
-encounter     rebuild_encounter_switch_index
-```
+⭐⭐⭐ **AND THE PLACEMENT IS THE TRANSFERABLE LESSON — the set vocabulary lives
+in `shared_tangle`, BELOW the monolith, on purpose.** A set enum defined in
+`features` would have re-pinned `conversation` by the schedule the moment it
+stopped importing `features` — *the same bug, one level up.* ⇒ **when you name an
+ordering so a module can leave, the NAME has to live somewhere the module can
+still reach after it has left.**
 
-⭐⭐ **the ordering contract exists ONLY as adjacency in that tuple plus prose at
-the call site** — five separate comments explain why each neighbour must follow
-the last (a conversation opened this frame must not be judged for separation
-before the bodies that opened it are read; the bark lands on the tick the
-conversation ended; the hold is projected after whatever decided it). ⇒ **that is
-the carve blocker, and naming it is the deliverable**: extracting `conversation`
-silently reshuffles four domains unless the order is first said out loud as sets.
-⚠ the plugin also owns `ActiveConversation`, the `ConversationCutBark` channel,
-seven `NarrativeInputPlugin` registrations and a second load-bearing `.chain()`
-in `Update` — so "the carve is a Cargo.toml" is false in five separate ways.
-⚠ the chain is TEN systems, not eleven; the count in the earlier note was wrong.
+⭐ **`ConversationPlugin` owns** `ActiveConversation`, the `ConversationCutBark`
+port channel, the `ConversationEnded` ledger install, the `Update` presentation
+pair and its three sim systems. ⚠ **only ONE of the seven `NarrativeInputPlugin`
+installs moved, and that is the seam rather than a shortfall**: a ledger payload
+belongs to whoever CONSUMES it — three are `features` types a carved crate could
+not name, three more are applied by `features::bus` and `items::narrative`.
+**Conversation provides the mechanism, not the vocabulary.**
 
-✔✔ **STEP 1.5 LANDED 2026-08-16, and the deliberate DELETION is the proof: the
-anonymous chain no longer exists.** It is `FeatureInteractionSet` —
-`NarrativeIntake → Actuate → Continuity → CutBarkCast → HoldProjection →
-WorldObjects → SwitchIndex` — in `ambition_platformer2d_shared_tangle::schedule`,
-beside `ProgressionSet`/`PlayerInputSet` and following their template exactly:
-the phase owner `.chain()`s the SET LIST once, every domain says only which phase
-it is in, and each of the five prose rationales now lives on the variant it
-explains. ⭐ **the vocabulary lives BELOW the monolith on purpose** — a set enum
-in `features` would have re-pinned `conversation` by the schedule the instant it
-stopped importing `features`, which is the same bug one level up.
-`ConversationPlugin` owns `ActiveConversation`, `ConversationCutBark`, its
-presentation pair and its three sim systems. Four schedule-graph tests assert the
-edges AS THE PLUGIN COMPOSES THEM, and all four were probe-falsified.
+✔ **four schedule-graph tests assert the edges AS THE PLUGIN COMPOSES THEM** —
+set-to-set dependencies, nesting in the containing phase, each system's
+membership, and that nothing sits in the phase outside a named set — all four
+probe-falsified by breaking the composition rather than reasoned about. ⭐ that
+is the shape that beats a hand-listed chain, which pins the function and not the
+wiring.
 
-⭐ **only ONE of the seven `NarrativeInputPlugin` installs was conversation's**, and
-that is a seam rather than a shortfall: a ledger payload belongs to whoever
-CONSUMES it, three are `features` types a carved crate could not name, and three
-more are applied by `features::bus`/`items::narrative`. Conversation provides the
-MECHANISM and registers `ConversationEnded` alone.
-
-⭐⭐ **REMEASURED after the change: extracting `conversation` really is a
-`Cargo.toml` now.** `conversation/` holds **zero non-doc `crate::` paths**; every
-surviving coupling is an inward CALLER edge (`features/ecs/interact.rs`,
-`features/npcs.rs`, `schedule/input_systems.rs`, plus the runtime's rollback
-registration and `ambition_content`'s Yarn reads) and becomes a path rename. Its
-eleven Cargo deps all sit below the monolith, so none cycles. ⛔ **one stale note
-corrected en route**: `features/mod.rs` called `speak_conversation_cut_barks` *"the
-ONE thing `crate::conversation` reaches back into `features` for"* — it is not,
-and has not been since the bark port landed; the re-export has zero consumers
-workspace-wide.
+⇒ ▢ **STEP 2 IS NOW UNBLOCKED AND MEASURED**: `conversation/` holds zero non-doc
+`crate::` paths and every surviving coupling is an inward caller edge, so
+extracting it to its own crate really is a Cargo.toml. ⚠ decide whether it is
+WORTH it before doing it — 1,836 of 117k lines, and a new crate does not shrink
+`capability-footprint`'s closure. The blocker was the finding; the extraction is
+optional.
 
 ⇒ **every other leaf is NOT YET on this plan's own scorecard:** `menu` is the
 sole namer of `ambition_menu`, but the crate also arrives through render and the

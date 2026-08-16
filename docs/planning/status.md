@@ -71,14 +71,27 @@ substrate had overtaken the two fronts printed above it:
    is therefore a **migration/compatibility representation**, not an undecided
    authority — ⛔ and it is no longer an open architecture question anywhere.
 
-   ⭐ **the live frontier is now PERSISTENT OCCURRENCE CONTINUITY**, exposed by the
-   cross-room custody slice: *when authored placement P has produced a runtime
-   occurrence that has since moved, been consumed, been destroyed or entered
-   custody elsewhere, how does world reconstruction know what should happen to P?*
-   That sits underneath persistent items, moved NPCs, opened mechanisms, destroyed
-   objects, relocated quest objects, persistent populations, room streaming and
-   save/load. ⛔ **do not answer it by teaching the room loader to inspect
-   inventories** — that is another composition census.
+   ✔ **PERSISTENT OCCURRENCE CONTINUITY LANDED** (2026-08-15, both legs): a
+   `Placed` row suppresses the home room and reinstates the occurrence where it
+   lies, as ONE decision, so an object carried between rooms and put down comes
+   back where it was left with the same `SimId`. ⛔ it was NOT answered by
+   teaching the room loader to inspect inventories — custody owns residency, and
+   room transition still does not know items exist.
+
+   ✔ **AND THE RESET HORIZON ON TOP OF IT** (2026-08-15): three horizons are now
+   distinct — *current world truth* (the ledger), *checkpoint/reset truth*
+   (`lifecycle::horizon`, restored on death), *durable save truth* (still
+   undesigned). The checkpoint baseline is a **projection of domains**, each
+   capturing from its own live authority; ⛔ it is deliberately NOT one resource
+   holding every reset-relevant fact. Seven beats of the maintainer's rule hold
+   through production roads, including the one no `KeyItem => survives` rule can
+   produce: one death, two objects of the same kind, opposite answers.
+
+   ⭐ **the frontier is now DURABLE SAVE** — *"has no runtime cleanup scope"*
+   still does not mean *"correctly saved and restored"*, and the reset horizon
+   deliberately did not answer it. ⚠ one named gap first: a baseline row whose
+   occurrence has no live entity cannot be put back, because nothing mints an
+   occurrence directly into a hand.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See

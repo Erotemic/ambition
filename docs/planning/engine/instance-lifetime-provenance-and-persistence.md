@@ -170,29 +170,56 @@ room from authored records alone and restores nothing outside room scope.
 
 ### ✔ How the three horizons actually compose (answered 2026-08-15)
 
-⭐⭐ **the baseline horizon is a COPY of the whereabouts ledger, taken at a commit
-and written back on death.** That is the whole mechanism, and **all three of the
-maintainer's lines fall out of it with ZERO item-kind knowledge** — line 3 works
-because the temporary item's row simply is not in the C1 copy.
+✔✔ **HORIZON 2 IS BUILT (2026-08-15). All three of the maintainer's lines hold
+through production roads** — `game/ambition_app/tests/death_restores_the_checkpoint.rs`,
+seven beats in `central_hub_basement`, including the one that kills the
+item-kind reading: one death, two objects of the same kind, opposite answers,
+separated only by which side of the checkpoint each acquisition fell on.
 
-⭐ **and a reset is the DEGENERATE CASE — "restore the empty baseline"** — so
-death/retry and reset unify naturally rather than needing to be reconciled. ⚠ they
-are *not* merged in code today, and that is deliberate; the unification is a
-prediction the implementation has not yet had to honour.
+⛔⛔ **BUT THE PREDICTION THIS SECTION MADE WAS WRONG, AND THE CORRECTION IS THE
+PART WORTH KEEPING.** It said the baseline *is* a copy of the whereabouts
+ledger. It is not — it is a **projection of DOMAINS**, each capturing from its
+own live authority:
 
-⛔⛔ **the boundary, and it is where this stops:** line 2 (*"the key stays
-acquired"*) is an **INVENTORY claim, not a whereabouts claim.** An `InCustody` row
-names a live relationship between an item and a holder; it cannot be restored on
-its own, and `OwnedItems` is a count table with no row per object. ⇒ horizon 2
-needs three things that **do not exist**:
+```text
+lifecycle::horizon    two messages, two sets, and NOTHING else
+OccurrenceBaseline    what became of each authored occurrence
+CustodyBaseline       which BODY was carrying which occurrence, both by SimId
+```
 
-1. a **checkpoint commit** that is a world event rather than a body position;
-2. a **death road that restores** rather than rebuilding;
-3. a **body inventory** — which is exactly the leg D125 has been deferring.
+A single ledger copy cannot express line 2, and this section said why without
+drawing the conclusion: an `InCustody` row says *somebody* has it, which is
+enough to stop a room minting a second one and **not enough to put it back**.
+The custodian's identity is a fact the BODY's domain owns, and stuffing it into
+the occurrence ledger would put two questions with different owners and
+lifetimes on one value.
 
-⇒ so the horizons are: **1 built · 2 designed and blocked on the inventory leg ·
-3 still separate.** ⛔ do not fake horizon 2 with an item-kind rule to make the
-fixture pass — that is precisely what the decision forbids.
+⭐ **and a reset really is the DEGENERATE CASE**: a host that never emits
+`CheckpointCommitted` restores the empty baseline, which is what a sandbox reset
+means. That prediction held.
+
+⭐⭐ **three things the fixture found that this design did not**, all by being
+run:
+
+1. **restoring the ledger and emptying the hand DELETES the object.** The room
+   replay resets features in place and never re-runs authored construction, so
+   nothing authored it back. ⇒ a death is a checkpoint **resume**: it records the
+   same `LifecycleIntent::Transition` a session-start resume records.
+2. **custody is a FORKED relation** — `ItemCustody` on the object, `HeldItem` on
+   the body. Retracting one half left the body holding a ghost and refusing every
+   later pickup. ⛔ the tempting generic repair would disarm every authored
+   fighter, whose `held_item` needs no world object at all.
+3. **a hand must be EMPTIED before it can be FILLED.**
+
+⚠ **what horizon 2 still cannot do:** put back a baseline row whose occurrence
+has no live entity — carried at the checkpoint, later put down in a room that
+then unloaded, then a death. Nothing mints an occurrence directly into a hand.
+Reachable only across a room transition.
+
+✔ **the body-inventory leg this section said was blocking is answered for this
+customer and no further.** `CustodyBaseline` records physical custody by
+identity at a horizon boundary; `OwnedItems` was not migrated, and ⛔ should not
+be on this customer's account.
 
 ⚠ **and treat the current residency mechanism as a bridge, not the answer.**
 `InCustodyOf` / `RoomResident` is right for today's **single-active-room** host,

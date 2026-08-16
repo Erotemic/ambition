@@ -646,6 +646,44 @@ P must NOT respawn, and the original occurrence still exists elsewhere.`
 Terminal cases to follow: **destroyed permanently** ⇒ never recreate;
 **intentionally resettable** ⇒ may recreate.
 
+✔✔ **THE CHECKPOINT/RESET HORIZON LANDED 2026-08-15.** Seven beats of the
+maintainer's rule hold end to end through production roads
+(`death_restores_the_checkpoint.rs`, `central_hub_basement`): an object acquired
+before any checkpoint goes back on its pedestal; acquired-then-banked stays in
+hand with the pedestal empty; and one death reaches **two opposite answers about
+two objects of the same kind in the same frame**, separated only by which side of
+the checkpoint each acquisition fell on. ⛔ that last beat is what no
+`KeyItem => survives` rule can produce.
+
+⭐ **the baseline is a projection of DOMAINS, not a resource.**
+`lifecycle::horizon` owns two messages and two sets and nothing else;
+`OccurrenceBaseline` and `CustodyBaseline` are captured by their own domains from
+their own live authorities. Both are checksummed rollback state (schema v32) —
+the first values here that nothing republishes, so the derived declaration the
+live ledger enjoys would be a lie for them.
+
+⭐⭐ **three defects the fixture found that reasoning did not**, and all three
+were found by RUNNING it rather than by poisoning it:
+1. **restoring the ledger and emptying the hand DELETES the object** — the room
+   replay resets features in place and never re-runs authored construction, so
+   nothing authored it back. ⇒ a death is a checkpoint RESUME: it records the
+   same `LifecycleIntent::Transition` a session-start resume records, and
+   same-room re-entry rebuilds correctly.
+2. **custody is a FORKED relation** — `ItemCustody` on the object,
+   `HeldItem` on the body. Retracting one half left the body holding a ghost and
+   refusing every future pickup. ⛔ the tempting generic repair ("empty a hand
+   matching nothing in custody") would disarm every authored fighter, because a
+   character definition's `held_item` needs no world object.
+3. **a hand must be EMPTIED before it can be FILLED** — interleaved, the
+   reinstatement was equipped over an occupied hand and `return_released_items`
+   quietly undid it one phase later.
+
+⚠ **still owed:** a baseline row whose occurrence has no live entity at all
+(carried at the checkpoint, later put down in a room that then unloaded, then a
+death). Its ledger row says `InCustody` so the rebuild suppresses it, and nothing
+mints an occurrence directly into a hand. Reachable only across a room
+transition.
+
 ⭐⭐ **MAINTAINER DECISION 2026-08-15 — the CHECKPOINT is the reset baseline.**
 Death/retry restores the latest committed checkpoint; traversal and unload
 preserve current state. ⛔⛔ **not** `KeyItem => survives reset` — a key item

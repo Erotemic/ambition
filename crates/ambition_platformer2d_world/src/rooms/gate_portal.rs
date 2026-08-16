@@ -144,9 +144,19 @@ impl GatePortalRegistry {
 /// and `is_portal` would then answer `false` for a gate that exists. Authored
 /// content and simulated state are different concerns; only the second one
 /// rewinds.
+///
+/// ⛔⛔ **`BTreeMap`, and the ordering is the TYPE'S job rather than the
+/// reader's.** This was a `std::collections::HashMap` whose one reader
+/// (`gate_portal_phases_checksum`) collected and sorted before folding — correct,
+/// and correct only for as long as every future reader remembered to. `RandomState`
+/// is seeded per map instance, so an unsorted iteration here would fold zone
+/// phases in an order that differs between two peers holding identical state, and
+/// the desync detector would manufacture desyncs (ADR 0023 N0.3). An ordered
+/// container makes that unreachable instead of merely unwritten: `.iter()` is
+/// key order, for every reader, forever.
 #[derive(Resource, Default, Debug, Clone, PartialEq)]
 pub struct GatePortalPhases {
-    pub phases: std::collections::HashMap<String, GatePortalPhase>,
+    pub phases: std::collections::BTreeMap<String, GatePortalPhase>,
 }
 
 impl GatePortalPhases {
@@ -180,9 +190,12 @@ impl GatePortalPhases {
 /// checksum that saw only *which zones have a phase* would agree with the bug.
 /// Every field that decides when `Opening` becomes `On` is projected here.
 ///
-/// ⛔ **keys are SORTED before hashing.** `phases` is a `HashMap`, and hashing it
-/// in iteration order would make the checksum disagree between two peers holding
-/// identical state — a desync detector that manufactures desyncs.
+/// ⛔ **keys are folded in KEY ORDER, and the container is what guarantees it.**
+/// Hashing zone phases in an arbitrary order would make the checksum disagree
+/// between two peers holding identical state — a desync detector that
+/// manufactures desyncs. `phases` was a `HashMap` and this function collected +
+/// sorted to defend against that; it is a `BTreeMap` now, so `.iter()` IS key
+/// order and there is no second discipline to remember. See the field's own note.
 ///
 /// ⚠ **it lives beside the type, not in the rollback runtime.** It moved here
 /// because it is domain semantics: it names every [`GatePortalPhase`] variant
@@ -196,12 +209,9 @@ impl GatePortalPhases {
 pub fn gate_portal_phases_checksum(phases: &GatePortalPhases) -> u64 {
     use ambition_platformer2d_core::snapshot::{checksum_bytes, put_f32, put_str, put_u64, put_u8};
 
-    let mut ordered: Vec<(&String, &GatePortalPhase)> = phases.phases.iter().collect();
-    ordered.sort_by(|left, right| left.0.cmp(right.0));
-
     let mut bytes = Vec::new();
-    put_u64(&mut bytes, ordered.len() as u64);
-    for (zone_id, phase) in ordered {
+    put_u64(&mut bytes, phases.phases.len() as u64);
+    for (zone_id, phase) in &phases.phases {
         put_str(&mut bytes, zone_id);
         match phase {
             GatePortalPhase::Off => put_u8(&mut bytes, 0),
@@ -492,12 +502,19 @@ mod tests {
         );
     }
 
-    /// ⛔ **the projection must not read `HashMap` iteration order.** Two peers
-    /// holding identical state build their maps by different insertion routes and
-    /// hash their keys with different per-instance seeds; folding in iteration
-    /// order would report a desync between two worlds that agree.
+    /// ⛔ **the projection must not read INSERTION order, and the container must
+    /// not have one to read.** Two peers holding identical state build their maps
+    /// by different routes; folding in anything but key order would report a
+    /// desync between two worlds that agree.
+    ///
+    /// ⭐ **this asserts the CONTAINER's property, not just the checksum's.** The
+    /// checksum used to collect-and-sort, so a revert of `phases` to a `HashMap`
+    /// would leave this test green while re-arming the hazard. The key-sequence
+    /// assertion below is the half that goes red on that revert — with a `HashMap`
+    /// the two maps carry different per-instance `RandomState` seeds and iterate
+    /// in two different arbitrary orders, neither of them sorted.
     #[test]
-    fn the_phase_projection_ignores_hash_map_insertion_order() {
+    fn the_phase_projection_folds_in_key_order_whatever_the_insertion_order() {
         let entries: Vec<(&str, GatePortalPhase)> = vec![
             ("gate.alpha", GatePortalPhase::On),
             ("gate.bravo", GatePortalPhase::Opening { elapsed: 0.1 }),
@@ -514,10 +531,25 @@ mod tests {
         let reversed = phases_of(&reversed_entries);
 
         assert_eq!(forward, reversed, "the two maps must hold the same state");
+
+        let sorted_keys: Vec<&str> = {
+            let mut keys: Vec<&str> = entries.iter().map(|(id, _)| *id).collect();
+            keys.sort_unstable();
+            keys
+        };
+        for built in [&forward, &reversed] {
+            let seen: Vec<&str> = built.phases.keys().map(String::as_str).collect();
+            assert_eq!(
+                seen, sorted_keys,
+                "the phase container must ITERATE in key order — an unordered one \
+                 puts the checksum back on a discipline the next editor can drop"
+            );
+        }
+
         assert_eq!(
             gate_portal_phases_checksum(&forward),
             gate_portal_phases_checksum(&reversed),
-            "the projection must sort its keys, not fold them in iteration order"
+            "the projection must fold in key order, not in iteration order"
         );
     }
 

@@ -76,26 +76,21 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             fly_toggle: true,
             shield: true,
             dash: true,
-            // ⛔⛔ **AUTHORED, because an unauthored verb is a verb the SMASH
-            // MASK cannot give back** (Jon, 2026-08-16: *"ensure that every
-            // character in smash is authored with the ledge grab ability"*).
+            // ⚠ **AND NOTHING ABOUT A PLATFORM FIGHTER.** This kit is a duel
+            // arena's and describes the CREATURE: what it may do wherever it
+            // stands. It has no double jump, no fast fall, no dodge and no ledge
+            // grab, and on the smash grid it had none of them either — because
+            // `fighter_abilities` was a lone MASK and a mask can only remove.
+            // The one fighter on that roster whose sheet has ten ledge rows
+            // drawn for it was the one who could not use them.
             //
-            // `fighter_abilities` is an INTERSECTION, so the stage's ledge grab
-            // reaches a fighter only if the fighter's own kit has one. Every
-            // other character on that grid authors NO kit and therefore takes
-            // the stage's set verbatim — the PCA authors one, so it was the
-            // single fighter on the roster who could not grab a ledge, and its
-            // sheet has ten ledge rows drawn for it. That is the shape this
-            // whole design is meant to have: authoring a kit is how a body
-            // states what it is, and a kit written for the duel arena said
-            // nothing about a stage that did not exist yet.
-            //
-            // ⚠ `double_jump`, `fast_fall` and `dodge` are still absent (they
-            // are `basic()`'s answers, not decisions made here), which on a
-            // platform fighter is a real recovery handicap. Left alone
-            // deliberately: that is a balance call about this character and Jon
-            // asked for the ledge.
-            ledge_grab: true,
+            // ⭐ **the stage GRANTS its kit now** (`MatchAbilities::levelled`, Jon
+            // 2026-08-16), so this row is deliberately left alone: a character
+            // does not carry verbs to compensate for a mode. An earlier pass
+            // authored `ledge_grab: true` here and it is removed with the reason
+            // that justified it — if the PCA should grab ledges in its OWN room
+            // as well, that is a statement about the creature and a different
+            // decision.
             ..ambition_platformer2d_core::AbilitySet::basic()
         })
         .with_autonomous_profile(BrainProfile {

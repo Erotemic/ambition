@@ -578,9 +578,208 @@ impl AbilityGrant {
     }
 }
 
+/// **WHAT A MATCH SAYS ITS FIGHTERS MAY DO**, as two statements rather than one.
+///
+/// A mode has two different things to say about a body's verbs, and the day they
+/// were one field only one of them could be true at a time:
+///
+/// ```text
+///   granted    every fighter HAS these, whatever its character authored
+///   permitted  and no fighter has anything OUTSIDE these
+/// ```
+///
+/// ⇒ `effective = (authored ∪ granted) ∩ permitted`, which is
+/// [`Self::apply`] and is the whole rule.
+///
+/// ⛔⛔ **A MASK ALONE COULD NOT GUARANTEE A FLOOR, and that is the defect this
+/// type exists for** (Jon, 2026-08-16: *"in smash all characters should be sure
+/// they are granted the basic smash abilities"*). While a match declared one set
+/// and INTERSECTED it, a character that authored its own kit could only ever
+/// have FEWER verbs than the mode named — so the Perfect Cellular Automaton,
+/// whose kit was written for a duel arena on [`AbilitySet::basic`], arrived on a
+/// platform-fighter stage with no double jump, no fast fall, no dodge and no
+/// ledge grab, and the stage had no way to say otherwise. Every character that
+/// gains an authored kit is one more chance at that, and the count of those is
+/// meant to GROW.
+///
+/// ⛔ **and a grant alone is not the answer either.** A mode that simply stamped
+/// its set over every body manufactures capabilities the body never had — the
+/// Puppy Slug jumping and dashing like a humanoid, which is why the mask
+/// replaced the grant in the first place. It also hands back verbs a character
+/// deliberately REFUSED: the robot lineage states *"`reset` stays out … authoring
+/// it would hand every game that seats the robot a way to teleport home"*, and a
+/// mode whose set happened to include `reset` would undo that.
+///
+/// Both statements are needed because they answer different questions. A stage
+/// says which it means with [`Self::levelled`] or [`Self::at_most`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MatchAbilities {
+    /// **Every fighter has these**, whatever its character authored. The floor a
+    /// mode guarantees — for a platform fighter, the verbs without which a body
+    /// is not playable on the stage at all.
+    pub granted: AbilitySet,
+    /// **And nothing outside these.** The ceiling a mode permits — for a
+    /// platform fighter, the reason an exploration protagonist's flight and
+    /// blink do not come to the fight.
+    pub permitted: AbilitySet,
+}
+
+impl MatchAbilities {
+    /// **One kit, for everybody.** `granted == permitted`, so every fighter in
+    /// the match has precisely this set and a character's own kit changes
+    /// nothing — which is what a levelled versus stage means and says.
+    ///
+    /// ⚠ the day a stage wants a fighter's own flavour to survive (a wall jump
+    /// on the characters that have one), it widens `permitted` past `granted`
+    /// rather than reaching for a third operator.
+    pub const fn levelled(kit: AbilitySet) -> Self {
+        Self {
+            granted: kit,
+            permitted: kit,
+        }
+    }
+
+    /// **A ceiling only** — grant nothing, permit `kit`. The behaviour a lone
+    /// mask had: a character keeps what it authored, minus anything this mode
+    /// forbids.
+    pub const fn at_most(kit: AbilitySet) -> Self {
+        Self {
+            granted: AbilitySet::NONE,
+            permitted: kit,
+        }
+    }
+
+    /// The verbs a body seated under these rules actually has.
+    ///
+    /// ⚠ **`None` means the character stated nothing, and it takes the mode's
+    /// ceiling** — the migration bridge, expressed as the DEFAULT rather than as
+    /// a branch. Almost every character in the repo authors no verbs, so
+    /// removing this would strip a crossover cast down to whatever construction
+    /// happened to build. It disappears one character at a time, and the day it
+    /// is unreachable this line is `unwrap_or(AbilitySet::NONE)`.
+    pub fn apply(self, authored: Option<AbilitySet>) -> AbilitySet {
+        authored
+            .unwrap_or(self.permitted)
+            .union(self.granted)
+            .intersect(self.permitted)
+    }
+
+    /// **Is the declaration coherent — is everything GRANTED also PERMITTED?**
+    ///
+    /// A mode that guarantees a verb it also forbids is a contradiction nothing
+    /// downstream can act on: [`Self::apply`] intersects last, so the verb is
+    /// silently dropped and the stage seats bodies that cannot do the thing it
+    /// promised. One equality rather than a named list of offenders, because the
+    /// answer a caller needs is *"is this declaration sound"* and a stage's own
+    /// test is where the reading happens.
+    pub fn is_coherent(self) -> bool {
+        self.granted.union(self.permitted) == self.permitted
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A kit with a hole in it, and a kit with something extra: the two shapes
+    /// a character can disagree with a mode about.
+    fn crawler() -> AbilitySet {
+        AbilitySet {
+            move_horizontal: true,
+            attack: true,
+            ..AbilitySet::NONE
+        }
+    }
+
+    fn fighter_kit() -> AbilitySet {
+        AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            double_jump: true,
+            attack: true,
+            ..AbilitySet::NONE
+        }
+    }
+
+    /// **A LEVELLING GRANTS WHAT A CHARACTER LACKS AND FORBIDS WHAT IT ADDS.**
+    /// Both halves in one assertion, because a `granted` that worked while
+    /// `permitted` did nothing would pass half of this.
+    #[test]
+    fn a_levelling_grants_the_missing_and_removes_the_extra() {
+        let rules = MatchAbilities::levelled(fighter_kit());
+
+        // The character is short a jump. The mode guarantees one.
+        let short = rules.apply(Some(crawler()));
+        assert!(
+            short.jump && short.double_jump,
+            "a levelling match left a fighter without the jump it declares"
+        );
+
+        // The character brings flight. The mode does not permit it.
+        let extra = rules.apply(Some(AbilitySet {
+            fly: true,
+            ..fighter_kit()
+        }));
+        assert!(
+            !extra.fly,
+            "a levelling match let a character smuggle in a verb outside its kit"
+        );
+        assert_eq!(
+            extra,
+            fighter_kit(),
+            "every fighter under a levelling has the SAME kit, whatever it authored"
+        );
+    }
+
+    /// **A CEILING CAN ONLY EVER TAKE AWAY** — the behaviour a lone mask had,
+    /// and the one the versus stage still wants.
+    #[test]
+    fn a_ceiling_only_rule_never_manufactures_a_verb() {
+        let rules = MatchAbilities::at_most(fighter_kit());
+        let seated = rules.apply(Some(crawler()));
+        assert!(
+            !seated.jump && !seated.double_jump,
+            "a ceiling handed a crawler a jump it never authored"
+        );
+        assert!(
+            seated.attack && seated.move_horizontal,
+            "the seat received nothing at all, so the line above proves nothing"
+        );
+    }
+
+    /// **AN UNAUTHORED CHARACTER TAKES THE CEILING** — the migration bridge,
+    /// and the reason `apply` defaults rather than branches. Almost every
+    /// character in the repo authors no verbs.
+    #[test]
+    fn a_character_that_authors_nothing_takes_what_the_mode_permits() {
+        assert_eq!(
+            MatchAbilities::at_most(fighter_kit()).apply(None),
+            fighter_kit()
+        );
+        assert_eq!(
+            MatchAbilities::levelled(fighter_kit()).apply(None),
+            fighter_kit()
+        );
+    }
+
+    /// **A VERB GRANTED BUT NOT PERMITTED IS A CONTRADICTION**, and `apply`
+    /// resolves it silently in favour of the ceiling — so the declaration has to
+    /// be checkable before anybody seats a body under it.
+    #[test]
+    fn a_grant_outside_the_ceiling_is_reported_as_incoherent() {
+        assert!(MatchAbilities::levelled(fighter_kit()).is_coherent());
+        assert!(MatchAbilities::at_most(fighter_kit()).is_coherent());
+        let contradictory = MatchAbilities {
+            granted: fighter_kit(),
+            permitted: crawler(),
+        };
+        assert!(!contradictory.is_coherent());
+        assert!(
+            !contradictory.apply(Some(fighter_kit())).jump,
+            "the contradiction resolves toward the ceiling, which is why it has \
+             to be reported rather than reasoned about at the seat"
+        );
+    }
 
     #[test]
     fn sandbox_all_has_no_compatibility_warnings() {

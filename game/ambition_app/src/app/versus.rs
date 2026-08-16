@@ -286,11 +286,20 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // ⚠ deliberately the SAME shape as the Smash stage's floor minus its
         // platform-fighter extras: this stage is a duel on one screen, and its
         // opponent brain does not use a dodge or a ledge.
-        fighter_abilities: Some(ae::AbilitySet {
+        //
+        // ⭐ **`at_most`, which is exactly what this has always been** — a
+        // CEILING and no floor. The smash stage next door levels instead
+        // (`MatchAbilities::levelled`); saying which of the two a stage means is
+        // the whole point of the type, and this one means *"a character keeps
+        // what it authored, minus what this duel forbids"*. A floor here would
+        // hand the robot lineage the `reset` its definition deliberately refuses
+        // — `basic()` grants one — which is the trap that stopped this being a
+        // grant in the first place.
+        fighter_abilities: Some(ae::MatchAbilities::at_most(ae::AbilitySet {
             attack: true,
             fast_fall: true,
             ..ae::AbilitySet::basic()
-        }),
+        })),
         // S4: NOT a stocks match yet, and the `None` is a decision rather than a
         // gap. The shipped stage settles ROUNDS off health, and switching it to
         // stocks changes what a versus match IS — a product call, not a

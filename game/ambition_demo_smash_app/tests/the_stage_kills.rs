@@ -1019,8 +1019,8 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
 /// and the engine has had the machinery all along — a bubble shield with a parry
 /// window, a dodge roll with i-frames, a full ledge system. What nothing checked
 /// was the whole distance between the two: a definition authors an `AbilitySet`,
-/// preparation folds it, seating builds a body, and a match may MASK it
-/// (`fighter_abilities` is an intersection, so a stage that forgot a verb
+/// preparation folds it, seating builds a body, and a match may narrow it
+/// (`fighter_abilities` carries a ceiling, so a stage that forgot a verb
 /// silently removes it). Every step of that had its own test; the chain did not.
 ///
 /// ⛔ **which is exactly how these three went missing before.** The row records
@@ -1033,21 +1033,36 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
 /// `fly` and `blink` are the exploration protagonist's traversal kit and are
 /// stated absent on purpose ("this is a platform fighter's ground game").
 ///
-/// ⛔⛔ **what the two falsifiers actually measured, which is narrower than
-/// "the character decides" and is the real contract** (run 2026-08-13):
+/// ⛔⛔ **THE CONTRACT CHANGED ON 2026-08-16 AND THIS TEST IS WHERE IT SHOWS.**
+/// It was measured under a lone mask (run 2026-08-13):
 ///
 /// ```text
 ///   character drops `shield`         -> body cannot shield   (character NECESSARY)
 ///   character adds `fly`, mask omits -> body still cannot    (mask NECESSARY)
-///   character adds `fly`, mask adds  -> body CAN fly         (both SUFFICIENT)
 /// ```
 ///
-/// ⇒ that is `AbilitySet` INTERSECTION, end to end, through a live stage: a
-/// character states what its body can do, a ruleset states what this mode
-/// permits, and a verb needs both. The middle row is the one worth keeping —
-/// authoring a capability onto a character is NOT enough to smuggle it into a
-/// mode, which is what makes P3.25's mask a real restriction rather than
-/// decoration. The first row is P4.29/30/32's actual subject.
+/// The first row is what Jon overruled — *"in smash all characters should be
+/// sure they are granted the basic smash abilities"* — because a mask can only
+/// ever REMOVE, so a fighter whose kit was written for somewhere else arrived
+/// here missing verbs and the stage had no way to say otherwise. This stage
+/// declares [`MatchAbilities::levelled`] now, so the contract reads:
+///
+/// ```text
+///   character drops `shield`, stage GRANTS it   -> body CAN shield   (the floor holds)
+///   character adds `fly`, stage does not PERMIT -> body still cannot (the ceiling holds)
+/// ```
+///
+/// ⇒ two statements, and each is load-bearing on a different row. The second is
+/// unchanged and is still the one that matters most: authoring a capability onto
+/// a character is NOT enough to smuggle it into a mode. The first is now the
+/// stage's promise rather than the character's, which is what P4.29/30/32 wanted
+/// all along — those three verbs reach every seat because the stage says so, not
+/// because three fighters happened to author them.
+///
+/// ⚠ **the fighters here author the kit anyway**, so this seats bodies that
+/// agree with the stage. The disagreement — a character SHORT of the kit — is
+/// pinned where it can be constructed on purpose, in
+/// `prepared_match::tests::a_levelling_match_hands_every_fighter_the_kit_it_declares`.
 #[test]
 fn a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines() {
     use ambition_platformer2d::actor::MatchSeat;

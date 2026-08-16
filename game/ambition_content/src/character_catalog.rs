@@ -558,11 +558,15 @@ mod tests {
     /// **AND HOW MANY STATE THEIR OWN VERBS** — P3.25's number, measured the same
     /// way and for the same reason.
     ///
-    /// ⭐ `effective_abilities` is an INTERSECTION when a character authors an
-    /// `AbilitySet` — the mode may forbid and may never grant — but its third arm
-    /// is `(None, mode) => mode`: a character that authors nothing takes the
-    /// mode's whole set as a GRANT. That arm is the scaffold P3.25 deletes, and
-    /// it disappears when this count reaches the cast.
+    /// ⭐ `effective_abilities` reads `(authored ∪ granted) ∩ permitted`, and its
+    /// default is the bridge: a character that authors nothing is treated as
+    /// having whatever the mode PERMITS. That default is the scaffold P3.25
+    /// deletes, and it disappears when this count reaches the cast.
+    ///
+    /// ⚠ it is no longer a lone intersection (2026-08-16): a mode may now
+    /// GUARANTEE a floor as well as forbid, which is how a levelling stage
+    /// promises every fighter the same kit. That changes what the bridge is
+    /// worth, not whether it is scaffolding.
     ///
     /// ⚠ **a FLOOR again, and the control is the same**: it must not yet be
     /// everybody, because the day it is, the bridge is dead and this test should

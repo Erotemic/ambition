@@ -1791,7 +1791,9 @@ fn the_matchs_declared_abilities_reach_every_seat() {
             }),
             cpu("duelist"),
         ],
-        fighter_abilities: Some(ambition_platformer2d_core::AbilitySet::basic()),
+        fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::levelled(
+            ambition_platformer2d_core::AbilitySet::basic(),
+        )),
         ..Default::default()
     });
 
@@ -1861,10 +1863,12 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
     );
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("duelist")],
-        fighter_abilities: Some(AbilitySet {
-            shield: false,
-            ..authored
-        }),
+        fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
+            AbilitySet {
+                shield: false,
+                ..authored
+            },
+        )),
         ..Default::default()
     });
     finalize_and_update(&mut app);
@@ -2129,16 +2133,27 @@ fn a_cpu_seats_policy_resolves_in_a_provider_or_not_at_all() {
     );
 }
 
-/// **A MATCH CANNOT HAND A BODY A VERB IT DOES NOT HAVE.**
+/// **A MATCH THAT DECLARES A CEILING CANNOT HAND A BODY A VERB IT DOES NOT
+/// HAVE.**
 ///
 /// ⭐ Jon's compositional acceptance test, in miniature: *"Forcing Puppy Slug
 /// into Smash gives you Puppy Slug, even if Puppy Slug is a terrible fighter …
 /// Jump → no jump if its body cannot jump."* The character here authors a
-/// crawler's kit — it moves and it attacks — and the match declares the
-/// platform-fighter floor including a jump and a double jump.
+/// crawler's kit — it moves and it attacks — and the match permits a
+/// platform-fighter kit including a jump and a double jump.
 ///
-/// The seat gets the INTERSECTION. A ruleset may forbid; only a character may
-/// grant.
+/// The seat gets the INTERSECTION. Under [`MatchAbilities::at_most`] a ruleset
+/// may forbid and only a character may grant.
+///
+/// ⛔⛔ **AND THAT IS NOW A CHOICE A STAGE MAKES, not the only law** (Jon,
+/// 2026-08-16: *"in smash all characters should be sure they are granted the
+/// basic smash abilities"*). The two rulings are in tension and both are real:
+/// a match that MANUFACTURES capabilities is what made a slug jump like a
+/// humanoid, and a match that cannot GUARANTEE them is what sent a fighter onto
+/// a platform-fighter stage with no double jump. `MatchAbilities` makes the
+/// disagreement expressible instead of picking a winner — this test owns the
+/// `at_most` half, its sibling below owns the `levelled` half, and the smash
+/// stage has chosen to level.
 ///
 /// ⛔ the poison is in the fixture, not in an extra assertion: the declared set
 /// contains `jump`, so a regression to the old "stamp the match's set onto every
@@ -2160,14 +2175,16 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
 
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("crawler")],
-        fighter_abilities: Some(ambition_platformer2d_core::AbilitySet {
-            move_horizontal: true,
-            jump: true,
-            double_jump: true,
-            dash: true,
-            attack: true,
-            ..ambition_platformer2d_core::AbilitySet::NONE
-        }),
+        fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
+            ambition_platformer2d_core::AbilitySet {
+                move_horizontal: true,
+                jump: true,
+                double_jump: true,
+                dash: true,
+                attack: true,
+                ..ambition_platformer2d_core::AbilitySet::NONE
+            },
+        )),
         ..Default::default()
     });
 
@@ -2201,6 +2218,82 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
         attack,
         "the seat received nothing at all, so the assertion above proves nothing \
          — `attack` is authored by the character AND declared by the match"
+    );
+}
+
+/// **AND A MATCH THAT LEVELS HANDS IT ONE ANYWAY — deliberately.**
+///
+/// The other half of the pair above, and the reason `MatchAbilities` has two
+/// fields. Same crawler, same kit, same declared verbs — the only difference is
+/// that the match GRANTS them rather than permitting them, and the answer flips.
+///
+/// ⭐ **this is what Jon asked for on the smash stage** (2026-08-16): *"in smash
+/// all characters should be sure they are granted the basic smash abilities"*.
+/// A platform fighter whose seats might not be able to jump is not a platform
+/// fighter; a crossover stage that seats fourteen games' worth of cast cannot
+/// discover that one of them was authored somewhere with no double jump.
+///
+/// ⚠ **the cost is stated rather than hidden**: forcing a Puppy Slug onto a
+/// levelling stage gives you a Puppy Slug that jumps. That is the trade a stage
+/// makes when it writes `levelled`, and the stage next door (`versus`) writes
+/// `at_most` and does not make it.
+#[test]
+fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("crawler", "Puppy Slug", "demo").with_abilities(
+            ambition_platformer2d_core::AbilitySet {
+                move_horizontal: true,
+                attack: true,
+                ..ambition_platformer2d_core::AbilitySet::NONE
+            },
+        ),
+    );
+
+    let kit = ambition_platformer2d_core::AbilitySet {
+        move_horizontal: true,
+        jump: true,
+        double_jump: true,
+        dash: true,
+        attack: true,
+        ..ambition_platformer2d_core::AbilitySet::NONE
+    };
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("crawler")],
+        fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::levelled(kit)),
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let kits: Vec<(
+        ambition_platformer2d_core::AbilitySet,
+        ambition_platformer2d_core::AbilitySet,
+    )> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyAbilities,
+            &ambition_platformer2d_core::AbilityBase,
+        ), With<MatchSeat>>();
+        q.iter(world)
+            .map(|(abilities, base)| (abilities.abilities, base.abilities))
+            .collect()
+    };
+    assert_eq!(kits.len(), 1, "one seat, one kit");
+    let (effective, base) = kits[0];
+    assert_eq!(
+        effective, kit,
+        "a levelling match seated a fighter with something other than the kit it \
+         declared, so the guarantee is not a guarantee"
+    );
+    // ⛔ **the BASE too, not only the effective set.** The effective set is
+    // recomputed every frame against the editable mask for a player-driven body,
+    // so a guarantee written only to `BodyAbilities` is undone next tick by a
+    // system behaving correctly.
+    assert_eq!(
+        base, kit,
+        "the guarantee reached `BodyAbilities` and not `AbilityBase`, so it \
+         survives exactly one frame"
     );
 }
 

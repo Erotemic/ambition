@@ -263,8 +263,9 @@ pub struct PreparedSeat {
     /// See [`Self::identity_kit`]. Derived from [`Self::action_set`] by the same
     /// overlay call, so it can never describe a different repertoire.
     pub combat_kit: crate::combat::components::CombatKit,
-    /// **What this body may actually do** — the character's authored verbs
-    /// intersected with whatever the match forbids (see [`effective_abilities`]).
+    /// **What this body may actually do** — the character's authored verbs,
+    /// widened by what the match GUARANTEES and narrowed by what it PERMITS
+    /// (see [`effective_abilities`]).
     ///
     /// ⛔⛔ **resolved BEFORE the kit is derived, and this is not a refactor.**
     /// The overlay ran against the seed's PRE-MASK abilities and the mask was
@@ -282,7 +283,10 @@ pub struct PreparedSeat {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MatchRules {
     pub stocks: Option<u32>,
-    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// **What this match says its fighters may do** — a floor and a ceiling, or
+    /// `None` to leave every character's own kit alone. See
+    /// [`MatchAbilities`](ambition_platformer2d_core::MatchAbilities).
+    pub abilities: Option<ambition_platformer2d_core::MatchAbilities>,
     /// **The pool this match gives every seat**, or `None` to keep each
     /// character's own. See
     /// [`MatchParticipantRoster::fighter_health_pool`](super::staging::MatchParticipantRoster::fighter_health_pool)
@@ -972,30 +976,30 @@ pub fn prepare_match(
     })
 }
 
-/// **What this fighter may do: the CHARACTER supplies the verbs, the RULESET
-/// takes some away.**
-///
-/// ⛔ **the direction is the architecture, and it used to run backwards.** A
-/// match declared one flat set — *"every fighter in this match has the same
-/// verbs"* — and stamped it onto every body, because seats disagreed wildly
-/// (an adopted seat had fly, blink and shield; a spawned one had jump) and
-/// nothing else could level them. That levelling is the reason a Puppy Slug in
-/// a fighter seat would jump and dash like a humanoid: the match manufactured
-/// capabilities the body never had.
+/// **What this fighter may do: the CHARACTER states its verbs, the MATCH states
+/// a floor and a ceiling.**
 ///
 /// ```text
-/// character authors verbs   +   ruleset masks   ⇒   what this body may do
-/// authored, mode says nothing        →  the character's own kit
-/// authored, mode declares a set      →  the intersection: a mode may FORBID
-/// unauthored, mode declares a set    →  the mode's set  (migration bridge)
-/// unauthored, mode says nothing      →  whatever construction built
+///   effective = (authored ∪ granted) ∩ permitted
 /// ```
 ///
-/// ⚠ **the third row is a bridge and is meant to shrink.** Almost every
-/// character in the repo authors no verbs, so removing it today would strip the
-/// Smash cast down to whatever the archetype happened to grant. It disappears
-/// one character at a time, and the day it is unreachable this function is two
-/// lines shorter.
+/// ⛔ **the direction is the architecture, and it has run backwards in both
+/// directions.** A match first declared one flat set and STAMPED it onto every
+/// body, which is why a Puppy Slug in a fighter seat jumped and dashed like a
+/// humanoid — capabilities the body never had. Replacing the stamp with a MASK
+/// fixed that and lost the other half: a mode could then only ever take verbs
+/// away, so a character whose kit was written for somewhere else arrived on a
+/// platform-fighter stage missing its double jump and the stage had no way to
+/// say otherwise (Jon, 2026-08-16). [`MatchAbilities`] says both, and this is
+/// where its two statements meet the character's.
+///
+/// ```text
+/// character authors verbs   +   the match's two statements   ⇒   this body
+/// authored, match says nothing     →  the character's own kit
+/// authored, match declares         →  (kit ∪ granted) ∩ permitted
+/// unauthored, match declares       →  the ceiling  (migration bridge — see `apply`)
+/// unauthored, match says nothing   →  whatever construction built
+/// ```
 ///
 /// ⭐ **it takes the two AUTHORITIES rather than a built seat** (GPT 5.6 §3), so
 /// preparation can answer this BEFORE deriving the kit. It could only be asked
@@ -1003,12 +1007,11 @@ pub fn prepare_match(
 /// ability-dependent kit; with that pass gone the ordering became observable.
 pub fn effective_abilities(
     authored: Option<ambition_platformer2d_core::AbilitySet>,
-    mask: Option<ambition_platformer2d_core::AbilitySet>,
+    rules: Option<ambition_platformer2d_core::MatchAbilities>,
 ) -> Option<ambition_platformer2d_core::AbilitySet> {
-    match (authored, mask) {
-        (Some(authored), Some(mask)) => Some(authored.intersect(mask)),
-        (Some(authored), None) => Some(authored),
-        (None, mode) => mode,
+    match rules {
+        Some(rules) => Some(rules.apply(authored)),
+        None => authored,
     }
 }
 

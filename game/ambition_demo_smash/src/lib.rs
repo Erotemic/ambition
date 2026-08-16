@@ -199,27 +199,60 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // "what a fighter may do is a rule of the match" - and this demo declared
     // nothing, so the levelling never ran.
     //
-    // ⚠ SPELLED OUT rather than a named set, and both named candidates were
-    // tried and measured first. `basic()` has no double jump and no attack, so
-    // it would REMOVE verbs both duelists already had. `sane_subset()` reads
-    // like a fighter's kit in its first ten lines and is not one - measured, it
-    // also grants fly, blink, precision_blink, wall climb and pogo, so declaring
-    // it made the two seats agree that they could both FLY. This is the actual
-    // floor of a platform fighter: run, jump, double jump, fast fall, dash,
-    // attack. WHICH verbs is a product call and this is the one place to change
-    // it; that the two seats agree is not.
+    // ⚠ WHICH verbs is a product call and [`SMASH_FIGHTER_KIT`] is the one place
+    // to change it; that the two seats agree is not.
     //
-    // ⭐ **IT IS A MASK NOW, NOT A GRANT** (2026-08-11). A character that
-    // authors its own verbs keeps them, intersected with this — so a mode may
-    // FORBID flight and may not hand a jump to a body that has none. A
-    // character that authors nothing still takes this set verbatim, which is
-    // the migration bridge and is meant to shrink to nothing.
+    // ⭐⭐ **IT IS A LEVELLING, AND IT SAYS SO IN ONE WORD** (Jon, 2026-08-16:
+    // *"in smash all characters should be sure they are granted the basic smash
+    // abilities"*). `MatchAbilities::levelled` GRANTS this kit to every fighter
+    // and PERMITS nothing outside it, so the answer does not depend on what a
+    // character happened to author.
     //
-    // ⚠ widened by the three verbs the grant could never carry: `shield`,
-    // `dodge` and `ledge_grab` are what make this a platform fighter rather
-    // than two bodies running at each other, and all three already existed in
-    // the engine with nothing switched on.
-    roster.fighter_abilities = Some(ambition_platformer2d::engine_core::AbilitySet {
+    // ⛔ **it was a lone MASK for five days and that could not guarantee
+    // anything.** A mask can only ever REMOVE, so a character whose kit was
+    // written somewhere else arrived here missing verbs the stage thought it had
+    // handed out: the Perfect Cellular Automaton's kit is a duel arena's, built
+    // on `AbilitySet::basic()`, and it reached this stage with no double jump,
+    // no fast fall, no dodge and no ledge grab. Twelve of the fourteen author no
+    // kit at all, so nothing exercised the rule and the gap was invisible.
+    //
+    // ⚠ **and it is not a GRANT either**, which is the trap on the other side —
+    // see `MatchAbilities`. The ceiling is what keeps an exploration
+    // protagonist's flight and blink out of the fight, and what stops a mode
+    // handing back a verb a character deliberately refused.
+    //
+    // ⭐ the day a fighter should bring its own flavour here — a wall jump on
+    // the characters that have one, the way a real platform fighter does — this
+    // becomes a `MatchAbilities` whose `permitted` is wider than its `granted`,
+    // and nothing else changes.
+    roster.fighter_abilities =
+        Some(ambition_platformer2d::engine_core::MatchAbilities::levelled(SMASH_FIGHTER_KIT));
+}
+
+/// **THE BASIC SMASH ABILITIES** — the verbs every fighter on this stage has.
+///
+/// Jon named this list on 2026-08-16 (*"all characters should be sure they are
+/// granted the basic smash abilities"*) and it is one constant so that the
+/// stage, the tests and any future reader read the same one.
+///
+/// ⚠ **SPELLED OUT rather than a named engine set, and both candidates were
+/// tried and measured first.** `basic()` has no double jump and no attack, so it
+/// would REMOVE verbs the duelists already had. `sane_subset()` reads like a
+/// fighter's kit in its first ten lines and is not one — measured, it also
+/// grants fly, blink, precision_blink, wall climb and pogo, so declaring it made
+/// two seats agree that they could both FLY.
+///
+/// ⚠ **`fly` and `blink` are absent deliberately**: this is a platform fighter's
+/// ground game, not the exploration protagonist's traversal kit, and the July
+/// measurement of two seats disagreeing was exactly a duelist meeting a body
+/// that could fly. `interact` and `reset` are absent for the same reason a
+/// fighter has no talk button and no teleport home.
+///
+/// ⚠ **`shield`, `dodge` and `ledge_grab` are what make this a platform fighter**
+/// rather than two bodies running at each other. All three already existed in
+/// the engine with nothing switched on.
+pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
+    ambition_platformer2d::engine_core::AbilitySet {
         move_horizontal: true,
         jump: true,
         variable_jump: true,
@@ -233,8 +266,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
         dodge: true,
         ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE
-    });
-}
+    };
 
 /// The same roster, at a named ladder level.
 ///

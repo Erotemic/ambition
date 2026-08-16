@@ -458,6 +458,61 @@ exactly one winner is announced, and that no fighter travels more than 8px after
 the end. ⛔ a test that builds a fresh app per match cannot fail this, which is
 why the existing ones passed.
 
+- ✔ **D142 — CLOSED 2026-08-16. A match could only ever TAKE verbs away, so no
+  stage could promise a fighter anything. (Jon)**
+
+Jon, verbatim: *"Sanic should never have fly, blink, or wall climb in any
+iteration. PCA needs double jump, fast fall, and dodge. In fact, in smash all
+characters should be sure they are granted the basic smash abilities, but we want
+to do this in an elegant way."*
+
+⭐ **the elegant way is that a match has TWO things to say, not one.**
+`MatchParticipantRoster::fighter_abilities` carried a single `AbilitySet` that
+was intersected, so a mode could forbid and never guarantee. It is a
+`MatchAbilities` now:
+
+```text
+  granted    every fighter HAS these, whatever its character authored
+  permitted  and no fighter has anything OUTSIDE these
+  effective = (authored ∪ granted) ∩ permitted
+```
+
+⇒ smash declares `MatchAbilities::levelled(SMASH_FIGHTER_KIT)` — granted ==
+permitted, one kit for everybody — and versus declares `at_most(..)`, which is
+exactly the lone mask it always was. The four-row bridge table in
+`effective_abilities` collapses to `rules.apply(authored)`, with the
+unauthored-character bridge expressed as a DEFAULT (`unwrap_or(permitted)`)
+rather than a branch.
+
+⭐⭐ **it makes a real tension EXPRESSIBLE instead of picking a winner.** Jon's
+older compositional ruling is pinned by a test — *"Forcing Puppy Slug into Smash
+gives you Puppy Slug … Jump → no jump if its body cannot jump"* — and today's is
+its opposite. Both are right about different modes: a match that MANUFACTURES
+capabilities is what made a slug jump like a humanoid, and a match that cannot
+GUARANTEE them is what sent the PCA onto a platform-fighter stage with no double
+jump. The two halves are now two tests (`a_match_cannot_grant_a_verb_the_
+character_does_not_have` for `at_most`, `a_levelling_match_hands_every_fighter_
+the_kit_it_declares` for `levelled`), and a stage picks in one word.
+⚠ **the cost, stated**: a Puppy Slug forced onto the smash grid now jumps.
+
+**What changed in play: one fighter.** Every other seat resolves to the same kit
+it had — the robot and the duelists author supersets of the stage's kit, and
+twelve of the fourteen author nothing. The PCA gains `double_jump`, `fast_fall`,
+`dodge`, `pogo`, `directional_primary` and `ledge_grab`, which is Jon's first
+sentence.
+
+⚠ **its own row is deliberately NOT patched.** An earlier pass authored
+`ledge_grab: true` onto the PCA to work around the mask; that is removed with the
+reason that justified it. A character does not carry verbs to compensate for a
+mode — whether the PCA should grab ledges in its OWN room is a separate call.
+
+**Sanic authors `[RunJump]` on BOTH iterations** (base and super), replacing an
+earlier `[SaneSubset]` that granted fly, fly_toggle, blink, precision_blink,
+wall_jump, wall_cling and wall_climb — three of the four verbs Jon named it
+against. The super form is SPEED (its momentum row), not a capability unlock.
+⛔ everything that makes the demo Sanic is elsewhere and stays there: the
+momentum model rides the loop, and spin dash and the transform are TECHNIQUES.
+
 - ✔ **D141 — CLOSED 2026-08-16. One fighter on the smash grid could not grab a
   ledge, and the ledge lived at home on two who should not have it. (Jon)**
 

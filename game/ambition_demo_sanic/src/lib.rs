@@ -547,33 +547,40 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player"],
-            // ⛔⛔ **WHAT THIS BODY MAY DO, STATED** (Jon, 2026-08-16: *"we need
-            // to make sure mary-o and sanic do NOT get this ability in their
-            // games"*, about the ledge grab).
+            // ⛔⛔ **WHAT THIS BODY MAY DO, STATED** (Jon, 2026-08-16: *"Sanic
+            // should never have fly, blink, or wall climb in any iteration"*,
+            // and *"we need to make sure mary-o and sanic do NOT get this
+            // ability in their games"* about the ledge grab).
             //
             // A row that authors no grants falls back to the DEV SANDBOX set
             // (`EditableAbilitySet::default()` is `sandbox_all`), so Sanic was
-            // quietly carrying every verb in the engine at home — ledge grab,
-            // swim, glide, dodge and a bubble shield — while his control gate
-            // resolved Attack and Utility onto his own techniques and hid it.
-            // Mary-O's row has said `abilities: Some([RunJump])` since her demo
-            // landed, for exactly this reason; his never did.
+            // quietly carrying every verb in the engine at home — flight, blink,
+            // wall climb, a ledge grab, swim, glide, dodge and a bubble shield —
+            // while his control gate resolved Attack and Utility onto his own
+            // techniques and hid it. Mary-O's row has said
+            // `abilities: Some([RunJump])` since her demo landed, for exactly
+            // this reason; his never did.
             //
-            // ⚠ `SaneSubset` rather than a Sonic kit spelled out. It is the
-            // engine's own named baseline and it excludes the five verbs above
-            // BY NAME ("mid-game upgrades"), which is the claim being made here;
-            // what a runner's kit should actually be — no double jump? no
-            // blink? — is a design question about this character and is not
-            // answered by a note about the ledge. What must be true today is
-            // that his own game does not hand him one.
+            // ⭐ **`RunJump`, which is the whole of a classic runner's kit**:
+            // steer, jump, and let go of the button to jump shorter. Everything
+            // that makes this a Sanic demo is somewhere else and stays there —
+            // the momentum model below is what rides the loop, and spin dash and
+            // the transform are TECHNIQUES (`declare_sanic_techniques`), which
+            // are named actions on the body rather than engine verbs.
+            //
+            // ⛔ **an earlier pass wrote `[SaneSubset]` here and that was
+            // wrong**: it is the engine's mid-game baseline, and measured it
+            // grants fly, fly_toggle, blink, precision_blink, wall_jump,
+            // wall_cling and wall_climb. It answered the ledge question and
+            // three of the four Jon named it against.
             //
             // ⭐ **and it does not touch him on the SMASH grid.** A catalog grant
-            // list is read by `session/setup` for a session's own avatar; a
-            // match seat reads the CHARACTER DEFINITION and intersects it with
-            // the stage's declared set. Sanic authors no definition kit, so he
-            // still takes Smash Siblings' floor — ledge grab included — which is
-            // the other half of what Jon asked for.
-            abilities: Some([SaneSubset]),
+            // list is read by `session/setup` for a session's own avatar; a match
+            // seat takes the stage's own `MatchAbilities`, which GRANTS the
+            // platform-fighter kit to every fighter. So Sanic still counts in
+            // with a double jump and a ledge grab over there, and runs a Sonic
+            // game here.
+            abilities: Some([RunJump]),
             // The MOVEMENT identity that makes this a Sanic demo: the worn home
             // box opts into `MotionModel::SurfaceMomentum` (rides the speedway +
             // loop), which is also what `ball_dash` requires to charge/launch.
@@ -615,6 +622,13 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player", "super", "transformation"],
+            // ⭐ **THE SAME KIT AS THE BASE ROW, and "any iteration" is Jon's
+            // own scope** (2026-08-16). The super form is FASTER — the momentum
+            // params below are the transformation — and a form that also gained
+            // verbs would make the D key a capability unlock. ⛔ Super Sonic
+            // flies in the games he comes from; he does not here, and this line
+            // is where that is decided rather than inherited from a sandbox
+            // default nobody wrote for him.
             // The SUPER form is a real transformation, not a palette swap: the
             // boosted movement is authored ON the identity row (classic Super
             // Sonic ratios over the base row — ~2x accel, ~5/3 top speed,
@@ -625,6 +639,7 @@ const SANIC_CATALOG_RON: &str = r#"(
             // authority, no save/restore bookkeeping. The jump apex stays
             // under the spring perch's 256px lift (840² / 2g ≈ 243px) so the
             // perch remains spring-served even for a super runner.
+            abilities: Some([RunJump]),
             momentum: Some((
                 ground_accel: 1800.0,
                 top_speed: 2000.0,

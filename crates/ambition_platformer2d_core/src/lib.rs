@@ -52,7 +52,7 @@ pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
 // the main mechanics API while the internals stay organized by concern.
-pub use abilities::{AbilityGrant, AbilitySet};
+pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,

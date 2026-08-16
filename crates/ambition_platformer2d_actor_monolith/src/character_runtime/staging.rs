@@ -300,7 +300,7 @@ pub struct MatchParticipantRoster {
     /// It is a rule of the MATCH rather than something seating decides, for the
     /// same reason `opens_suspended` is: the engine does not get an opinion about
     /// what a fighter may do.
-    pub fighter_abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    pub fighter_abilities: Option<ambition_platformer2d_core::MatchAbilities>,
     /// **How many stocks each fighter starts with, if this match runs on
     /// stocks.** (S4)
     ///

@@ -1,0 +1,943 @@
+//! **Emmy No-Ether's repertoire** — a theorem, as a fighter.
+//!
+//! Jon, 2026-08-16: *"We also want to give her a full smash kit like we did with
+//! Oiler. Again, we should have the vfx and sfx for this."*
+//!
+//! ⭐ **the sixth adopter removed from `smash_fighter_kit()`.** She stood on the
+//! Super Smash Siblings grid with a `peaceful` catalog row — no melee at all —
+//! on top of the fullest animation vocabulary in the project: **123 authored
+//! rows**, grabs and throws and techs and ledge options and a shield break,
+//! rendered and unreachable. Twelve of her own effects sat on
+//! `noether_vfx_spritesheet.ron` with twelve matching cues in the packed bank.
+//! This table is the wire between them.
+//!
+//! ## The character, from her own theorem
+//!
+//! Noether's theorem: **every differentiable symmetry has a conserved
+//! quantity**. Both halves of that sentence are mechanical here.
+//!
+//! ```text
+//!   SYMMETRY      her mirrored pair is IDENTICAL      facing does not matter
+//!   CONSERVATION  damage x active time is INVARIANT   force and reach trade
+//! ```
+//!
+//! **The symmetry.** Her forward and back aerials are the same move: same
+//! damage, same knockback, same growth, same windows. Every other fighter in
+//! this crate authors a back-air that differs from its forward-air, because
+//! that is the genre's habit; hers cannot, because a fighter whose theorem is
+//! invariance may not care which way she is facing.
+//!
+//! **The conserved quantity.** Every striking move in this table satisfies
+//! `damage x active_seconds = `[`NOETHER_IMPULSE`] to within
+//! [`INVARIANT_BAND`]. A move that hits hard is out for almost no time; a move
+//! that stays out barely hurts. So she has no move that both damages and kills —
+//! the quantity is conserved, and what a player chooses is where on the curve to
+//! spend it.
+//!
+//! ⛔ **this is a real trade and not a re-skin.** Oiler's table holds EVERY box
+//! out for at least 0.10s and torques exactly one bolt to kill; hers pays for
+//! every point of damage in window time. Landing her forward smash is the
+//! hardest single thing any authored fighter here asks for, and it is also the
+//! only way she takes a stock quickly. Both claims are tested COMPARATIVELY
+//! against Oiler and the goblin for exactly that reason.
+//!
+//! ## What the engine could not express, and what that changed
+//!
+//! ⚠ the blueprint that ships with her sheet calls her neutral special *"a held
+//! field that returns what it absorbs"* — a counter. **`MoveSpec` has no absorb,
+//! armour or reflect**, so a counter is not authorable today and inventing one
+//! for a single character would be the wrong shape (see
+//! `docs/planning/queue.md`, D139). Her `conservation_law` is instead the thing
+//! the runtime CAN say and that reads the same on screen: a field that pays out
+//! three times on one press, at even intervals, for as long as she holds the
+//! ground she claimed.
+//!
+//! ⭐ and her Up-B genuinely **does not attack**, which the blueprint asked for
+//! and which nothing else on the grid does. It is the only recovery here with no
+//! hitbox at all: she cannot trade with an edgeguard, she can only beat it.
+//!
+//! ## The effects are the move, not decoration
+//!
+//! ⭐ **an effect is a NAME.** `invariant_core` addresses a row on a shipped FX
+//! sheet and needs no table, enum or registry to reach the screen.
+//!
+//! ⛔⛔ **a `Vfx` event is SILENT on its own** — the paired-cue lookup only runs
+//! on the `FxRequest` path — so every burst below is authored as a PAIR, and
+//! `every_burst_in_this_table_is_heard` keeps it that way.
+//!
+//! ⛔ **five of her twelve cues carry a `.loop` suffix the sprite row does not**
+//! (`vfx.noether.invariant_core.loop`, `conserved_current`, `group_orbit`,
+//! `paired_trajectory`, `conserved_pair_exchange`). The derived
+//! `vfx.<family>.<row>` name misses the bank for all five, which is why they are
+//! spelled out here rather than generated.
+
+use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_platformer2d::entity_catalog::{
+    ClipBinding, HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
+    WindowTag,
+};
+
+use crate::moveset_authoring::{
+    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
+    strike_tag, vfx,
+};
+
+/// **The conserved quantity**: `damage x active_seconds`, in damage-seconds.
+///
+/// ⚠ this is the character, not a tuning constant fitted to the numbers after
+/// the fact. Retuning Emmy means moving a move ALONG the curve — buy damage with
+/// window time, or window time with damage — never off it. A move that broke the
+/// invariant would be a move her theorem does not describe.
+pub const NOETHER_IMPULSE: f32 = 0.90;
+
+/// How far a move may sit off the invariant. Damage is an integer and time is
+/// authored in hundredths, so exact products are not available at every point on
+/// the curve; this is the rounding, not a licence.
+pub const INVARIANT_BAND: f32 = 0.12;
+
+/// The launcher's growth. The blueprint calls `symmetry_break` *"the moment the
+/// invariant stops holding"*, and it is the one move that grows like it.
+pub const BREAK_GROWTH: f32 = 3.15;
+
+/// What every other move of hers grows at, at most.
+pub const ORDINARY_GROWTH: f32 = 1.95;
+
+/// The rise her ethereal lift commands, in px/s.
+///
+/// ⭐ authored as a SPEED and applied with [`ImpulseMode::Set`], for the reason
+/// every recovery in this repo is: an Emmy pressing this at terminal velocity
+/// gets exactly the climb a standing one does. An additive impulse is weakest
+/// precisely when it is the only thing between her and the blast zone.
+pub const LIFT_SPEED: f32 = 940.0;
+
+/// When the lift takes hold, and when it lets go.
+pub const LIFT_AT_S: f32 = 0.18;
+/// ⛔ **not a feel number.** Under the engine baseline the lift climbs
+/// `LIFT_SPEED^2 / 2g` and takes `LIFT_SPEED / g` to do it; a tail shorter than
+/// twice that hands her back above where it found her on every press, which is
+/// flight rather than a recovery. `the_lift_is_a_save_and_not_a_flight` holds
+/// the arithmetic.
+pub const LIFT_ENDS_S: f32 = 1.16;
+
+/// The active seconds a move keeps a box in the world, summed over its windows.
+pub fn total_active_s(spec: &MoveSpec) -> f32 {
+    spec.windows
+        .iter()
+        .filter(|w| matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty())
+        .map(|w| (w.end_s - w.start_s).max(0.0))
+        .sum()
+}
+
+/// The conserved quantity, measured off a built move.
+pub fn conserved_impulse(spec: &MoveSpec) -> f32 {
+    let damage = spec
+        .windows
+        .iter()
+        .flat_map(|w| w.volumes.iter())
+        .map(|v| v.damage as f32)
+        .fold(0.0_f32, f32::max);
+    damage * total_active_s(spec)
+}
+
+/// One further term of the conservation field: the same box, later, at the same
+/// strength. The GAP is what makes it rehit — a window that starts after a gap
+/// is a box that went away and came back.
+fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
+    let mut term = MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::Active,
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    };
+    term.volumes.push(HitVolume {
+        shape: VolumeShape::Rect {
+            offset: (0.0, 18.0),
+            half_extents: (34.0, 20.0),
+        },
+        damage: 3,
+        knockback: 58.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((0.2, -0.9)),
+        on_hit: None,
+        vfx: Some(SLASH_POKE_VFX.to_string()),
+        hit_sfx: None,
+    });
+    term
+}
+
+/// See the module doc. Sixteen moves: the genre's standard verb map, every clip
+/// a row her rig actually publishes.
+pub fn noether_moveset() -> MovesetContract {
+    let mut moves = Vec::new();
+
+    // ── the ground game ──────────────────────────────────────────────────────
+    //
+    // ⚠ **every clip below is one of her 123 authored rows.** Where the sheet has
+    // no row for a genre verb (she has no `attack_side` and no `smash_forward`),
+    // the move takes the SIGNATURE row that draws that idea — `generator_strike`
+    // for the committed forward swing, `symmetry_break` for the smash — rather
+    // than a clip name that would fall down the structural chain to `idle`.
+
+    // Five damage held out for nearly a fifth of a second: the cheap end of the
+    // curve, and the easiest thing she has to land.
+    let mut jab = strike(
+        "jab", "jab", 0.05, 0.18, 0.14, (26.0, -6.0), (16.0, 13.0), 5, 44.0, 1.05, None, None,
+    );
+    jab.gates = grounded_only();
+    let jab = strike_tag(jab, SLASH_POKE_VFX);
+    let jab = vfx(jab, 0.05, "generator_steps");
+    let jab = sfx(jab, 0.05, "vfx.noether.generator_steps");
+    moves.push(jab);
+
+    // The committed swing the blueprint calls *"her fastest way to say no"*.
+    // Nine damage buys a tenth of a second.
+    let mut f_tilt = strike(
+        "tilt_forward",
+        "generator_strike",
+        0.10,
+        0.10,
+        0.20,
+        (32.0, -4.0),
+        (22.0, 16.0),
+        9,
+        76.0,
+        1.55,
+        Some((1.0, -0.30)),
+        None,
+    );
+    f_tilt.gates = grounded_only();
+    f_tilt.start_impulse = Some((130.0, 0.0));
+    let f_tilt = vfx(f_tilt, 0.10, "generator_steps");
+    let f_tilt = sfx(f_tilt, 0.10, "vfx.noether.generator_steps");
+    let f_tilt = vfx(f_tilt, 0.13, "symmetry_axis_snap");
+    let f_tilt = sfx(f_tilt, 0.13, "vfx.noether.symmetry_axis_snap");
+    let f_tilt = on_contact(f_tilt, "player.hit");
+    moves.push(f_tilt);
+
+    let mut up_tilt = strike(
+        "tilt_up",
+        "attack_up",
+        0.09,
+        0.15,
+        0.18,
+        (6.0, -26.0),
+        (17.0, 23.0),
+        6,
+        70.0,
+        1.50,
+        Some((0.1, -1.0)),
+        None,
+    );
+    up_tilt.gates = grounded_only();
+    let up_tilt = vfx(up_tilt, 0.09, "group_orbit");
+    let up_tilt = sfx(up_tilt, 0.09, "vfx.noether.group_orbit.loop");
+    let up_tilt = on_contact(up_tilt, "player.hit");
+    moves.push(up_tilt);
+
+    let mut down_tilt = strike(
+        "tilt_down",
+        "attack_down",
+        0.08,
+        0.15,
+        0.18,
+        (24.0, 15.0),
+        (22.0, 11.0),
+        6,
+        66.0,
+        1.45,
+        Some((0.9, -0.35)),
+        None,
+    );
+    down_tilt.gates = grounded_only();
+    let down_tilt = vfx(down_tilt, 0.08, "conserved_current");
+    let down_tilt = sfx(down_tilt, 0.08, "vfx.noether.conserved_current.loop");
+    let down_tilt = on_contact(down_tilt, "player.hit");
+    moves.push(down_tilt);
+
+    // ── the smashes: the expensive end of the curve ──────────────────────────
+
+    // **The launcher.** Fifteen damage for six hundredths of a second — the
+    // narrowest window any authored fighter here asks a player to hit, and the
+    // only move of hers that grows like a kill move.
+    let mut f_smash = strike(
+        "smash_forward",
+        "symmetry_break",
+        0.20,
+        0.06,
+        0.34,
+        (36.0, -8.0),
+        (26.0, 22.0),
+        15,
+        124.0,
+        BREAK_GROWTH,
+        Some((1.0, -0.55)),
+        None,
+    );
+    f_smash.gates = grounded_only();
+    f_smash.smash_charge_mult = 1.85;
+    let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
+    let f_smash = vfx(f_smash, 0.02, "symmetry_axis_snap");
+    let f_smash = sfx(f_smash, 0.02, "vfx.noether.symmetry_axis_snap");
+    let f_smash = vfx(f_smash, 0.20, "broken_symmetry_shards");
+    let f_smash = sfx(f_smash, 0.20, "vfx.noether.broken_symmetry_shards");
+    let f_smash = on_contact(f_smash, "player.hit");
+    moves.push(f_smash);
+
+    let mut up_smash = strike(
+        "smash_up",
+        "smash_up",
+        0.17,
+        0.075,
+        0.30,
+        (2.0, -34.0),
+        (20.0, 28.0),
+        12,
+        112.0,
+        ORDINARY_GROWTH,
+        Some((0.0, -1.0)),
+        None,
+    );
+    up_smash.gates = grounded_only();
+    up_smash.smash_charge_mult = 1.70;
+    let up_smash = vfx(up_smash, 0.17, "group_orbit");
+    let up_smash = sfx(up_smash, 0.17, "vfx.noether.group_orbit.loop");
+    let up_smash = on_contact(up_smash, "player.hit");
+    moves.push(up_smash);
+
+    // ⭐ the down smash is the up smash REFLECTED: same damage, same window, same
+    // growth, opposite launch. Her table is meant to look like this.
+    let mut down_smash = strike(
+        "smash_down",
+        "smash_down",
+        0.17,
+        0.075,
+        0.30,
+        (0.0, 20.0),
+        (34.0, 14.0),
+        12,
+        112.0,
+        ORDINARY_GROWTH,
+        Some((0.0, 1.0)),
+        None,
+    );
+    down_smash.gates = grounded_only();
+    down_smash.smash_charge_mult = 1.70;
+    let down_smash = vfx(down_smash, 0.17, "conserved_current");
+    let down_smash = sfx(down_smash, 0.17, "vfx.noether.conserved_current.loop");
+    let down_smash = on_contact(down_smash, "player.hit");
+    moves.push(down_smash);
+
+    // ── the air game ─────────────────────────────────────────────────────────
+
+    let mut n_air = strike(
+        "air_neutral",
+        "air_neutral",
+        0.08,
+        0.11,
+        0.20,
+        (0.0, -6.0),
+        (26.0, 24.0),
+        8,
+        78.0,
+        1.60,
+        Some((0.5, -0.75)),
+        None,
+    );
+    n_air.gates = airborne_only();
+    n_air.landing_lag_s = Some(0.16);
+    n_air.autocancel_after_s = Some(0.30);
+    let n_air = vfx(n_air, 0.08, "group_orbit");
+    let n_air = sfx(n_air, 0.08, "vfx.noether.group_orbit.loop");
+    let n_air = on_contact(n_air, "player.hit");
+    moves.push(n_air);
+
+    // ⭐⭐ **THE SYMMETRY, and it is the whole character in two moves.** The
+    // forward and back aerials are built from the same numbers by construction —
+    // one `for` over the two ids rather than two hand-written blocks, so they
+    // cannot drift apart in a later retune. A fighter whose theorem is invariance
+    // does not get to care which way she is facing.
+    for (id, clip, dir_x) in [
+        ("air_forward", "air_forward", 1.0_f32),
+        ("air_back", "air_back", -1.0_f32),
+    ] {
+        let mut aerial = strike(
+            id,
+            clip,
+            0.10,
+            0.10,
+            0.22,
+            (28.0 * dir_x, -4.0),
+            (22.0, 18.0),
+            9,
+            84.0,
+            1.70,
+            Some((dir_x, -0.45)),
+            None,
+        );
+        aerial.gates = airborne_only();
+        aerial.landing_lag_s = Some(0.18);
+        aerial.autocancel_after_s = Some(0.32);
+        let aerial = vfx(aerial, 0.10, "paired_trajectory");
+        let aerial = sfx(aerial, 0.10, "vfx.noether.paired_trajectory.loop");
+        let aerial = on_contact(aerial, "player.hit");
+        moves.push(aerial);
+    }
+
+    let mut up_air = strike(
+        "air_up",
+        "air_up",
+        0.08,
+        0.15,
+        0.19,
+        (2.0, -28.0),
+        (18.0, 24.0),
+        6,
+        72.0,
+        1.55,
+        Some((0.0, -1.0)),
+        None,
+    );
+    up_air.gates = airborne_only();
+    up_air.landing_lag_s = Some(0.14);
+    up_air.autocancel_after_s = Some(0.28);
+    let up_air = vfx(up_air, 0.08, "equivalence_bridge");
+    let up_air = sfx(up_air, 0.08, "vfx.noether.equivalence_bridge");
+    let up_air = on_contact(up_air, "player.hit");
+    moves.push(up_air);
+
+    // The spike. Ten damage buys the second-narrowest window she has.
+    let mut d_air = strike(
+        "air_down",
+        "air_down",
+        0.12,
+        0.09,
+        0.24,
+        (0.0, 24.0),
+        (18.0, 26.0),
+        10,
+        96.0,
+        1.80,
+        Some((0.0, 1.0)),
+        None,
+    );
+    d_air.gates = airborne_only();
+    d_air.landing_lag_s = Some(0.26);
+    d_air.autocancel_after_s = Some(0.34);
+    let d_air = vfx(d_air, 0.12, "ether_cancel");
+    let d_air = sfx(d_air, 0.12, "vfx.noether.ether_cancel");
+    let d_air = on_contact(d_air, "player.hit");
+    moves.push(d_air);
+
+    // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
+
+    // **NEUTRAL — `conservation_law`.** She claims a piece of ground and it keeps
+    // paying. Three terms at even intervals, identical every time: what the field
+    // returns does not decay, which is the conservation idea stated as a move.
+    //
+    // ⛔ **not the counter the sheet's blueprint imagined** — `MoveSpec` has no
+    // absorb or reflect, and inventing one for one character would be the wrong
+    // shape. See the module doc.
+    let mut n_b = strike(
+        "conservation_law",
+        "conservation_law",
+        0.16,
+        0.10,
+        // ⚠ long enough to CONTAIN the two further terms below (they end at
+        // 0.66) — the builder's own `debug_assert` caught this at 0.34 and it is
+        // the reason the assert is there: windows pushed after construction do
+        // not extend the move.
+        0.44,
+        (0.0, 18.0),
+        (34.0, 20.0),
+        3,
+        58.0,
+        1.35,
+        Some((0.2, -0.9)),
+        None,
+    );
+    n_b.gates = grounded_only();
+    let mut n_b = strike_tag(n_b, SLASH_POKE_VFX);
+    // Even gaps, identical terms — the invariant holding, three times.
+    n_b.windows.push(field_term(0.36, 0.46));
+    n_b.windows.push(field_term(0.56, 0.66));
+    debug_assert!(
+        n_b.duration_s >= 0.66,
+        "the last term of the field must fit inside the move"
+    );
+    let n_b = vfx(n_b, 0.0, "invariant_core");
+    let n_b = sfx(n_b, 0.0, "vfx.noether.invariant_core.loop");
+    let n_b = vfx(n_b, 0.16, "conserved_pair_exchange");
+    let n_b = sfx(n_b, 0.16, "vfx.noether.conserved_pair_exchange.loop");
+    let n_b = vfx(n_b, 0.56, "conservation_transfer");
+    let n_b = sfx(n_b, 0.56, "vfx.noether.conservation_transfer");
+    let n_b = vfx(n_b, 0.66, "proof_complete");
+    let n_b = sfx(n_b, 0.66, "vfx.noether.proof_complete");
+    let n_b = on_contact(n_b, "player.hit");
+    moves.push(n_b);
+
+    // **SIDE — `symmetry_shift`.** A lateral displacement that keeps her facing.
+    //
+    // ⭐⭐ **the impulse is NEGATIVE, and that is the move.** Body-local x runs
+    // toward her facing, so a negative one carries her AWAY from what she is
+    // looking at without turning her round — the blueprint's *"reposition without
+    // conceding the neutral"*. Every other displacing special in this repo
+    // commits you to the direction you are moving; this one buys distance and
+    // keeps the threat pointed where it was.
+    let mut side_b = strike(
+        "symmetry_shift",
+        "symmetry_shift",
+        0.14,
+        0.225,
+        0.28,
+        (18.0, -2.0),
+        (24.0, 20.0),
+        4,
+        62.0,
+        1.40,
+        Some((-0.6, -0.55)),
+        None,
+    );
+    side_b.gates = either_posture();
+    let side_b = impulse(side_b, 0.14, (-640.0, 0.0), ImpulseMode::Set);
+    let side_b = committed_tail(side_b, 0.62, 0.55);
+    let side_b = vfx(side_b, 0.14, "equivalence_bridge");
+    let side_b = sfx(side_b, 0.14, "vfx.noether.equivalence_bridge");
+    let side_b = vfx(side_b, 0.30, "paired_trajectory");
+    let side_b = sfx(side_b, 0.30, "vfx.noether.paired_trajectory.loop");
+    let side_b = on_contact(side_b, "player.hit");
+    moves.push(side_b);
+
+    // **UP — `ethereal_lift`. THE RECOVERY, AND IT DOES NOT ATTACK.**
+    //
+    // ⭐⭐ the blueprint asked for exactly this — *"Rises, does not attack — the
+    // traversal motif, not a second offensive option"* — and nothing else on the
+    // grid is shaped like it. Every other authored recovery here carries a box,
+    // so an edgeguard is a trade you might win by pressing anyway. Hers is a pure
+    // traversal: she cannot trade with the person waiting for her, only beat
+    // them. That is a real cost, deliberately paid, and it is why her side
+    // special buys distance rather than damage.
+    let mut up_b = MoveSpec {
+        id: "ethereal_lift".to_string(),
+        // The same structural fallback chain every `strike` authors, because a
+        // recovery that cannot find its row must still RUN — the timeline is the
+        // move, the drawing is not.
+        clip: ClipBinding {
+            clip: "ethereal_lift".to_string(),
+            fallbacks: vec![
+                "jump".to_string(),
+                "fall".to_string(),
+                "idle".to_string(),
+            ],
+        },
+        duration_s: LIFT_ENDS_S,
+        windows: vec![MoveWindow {
+            start_s: 0.0,
+            end_s: LIFT_AT_S,
+            tag: WindowTag::Startup,
+            volumes: Vec::new(),
+            motion_scale: 1.0,
+            sustain_effect: None,
+        }],
+        events: Vec::new(),
+        gates: either_posture(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: Some(0.24),
+        autocancel_after_s: None,
+    };
+    up_b.windows.push(MoveWindow {
+        start_s: LIFT_AT_S,
+        end_s: LIFT_ENDS_S,
+        tag: WindowTag::Recovery,
+        volumes: Vec::new(),
+        // Enough authority to choose where she lands and none to cancel — the
+        // same helpless tail every recovery here pays.
+        motion_scale: 0.14,
+        sustain_effect: None,
+    });
+    let up_b = impulse(up_b, LIFT_AT_S, (0.0, -LIFT_SPEED), ImpulseMode::Set);
+    let up_b = vfx(up_b, 0.04, "invariant_core");
+    let up_b = sfx(up_b, 0.04, "vfx.noether.invariant_core.loop");
+    let up_b = vfx(up_b, LIFT_AT_S, "group_orbit");
+    let up_b = sfx(up_b, LIFT_AT_S, "vfx.noether.group_orbit.loop");
+    let up_b = vfx(up_b, 0.62, "conserved_current");
+    let up_b = sfx(up_b, 0.62, "vfx.noether.conserved_current.loop");
+    moves.push(up_b);
+
+    // **DOWN — `invariant_field`.** A low, wide field that denies the ground in
+    // front of her. The widest box in the table and the cheapest damage on it.
+    let mut down_b = strike(
+        "invariant_field",
+        "invariant_field",
+        0.14,
+        0.15,
+        0.30,
+        (14.0, 20.0),
+        (40.0, 13.0),
+        6,
+        74.0,
+        1.50,
+        Some((0.8, -0.5)),
+        None,
+    );
+    down_b.gates = grounded_only();
+    let down_b = vfx(down_b, 0.14, "invariant_core");
+    let down_b = sfx(down_b, 0.14, "vfx.noether.invariant_core.loop");
+    let down_b = vfx(down_b, 0.22, "conserved_current");
+    let down_b = sfx(down_b, 0.22, "vfx.noether.conserved_current.loop");
+    let down_b = on_contact(down_b, "player.hit");
+    moves.push(down_b);
+
+    let verbs = [
+        ("attack", "jab"),
+        ("attack_forward", "tilt_forward"),
+        ("attack_up", "tilt_up"),
+        ("attack_down", "tilt_down"),
+        ("smash_forward", "smash_forward"),
+        ("smash_up", "smash_up"),
+        ("smash_down", "smash_down"),
+        ("attack_air", "air_neutral"),
+        ("attack_air_forward", "air_forward"),
+        ("attack_air_back", "air_back"),
+        ("attack_air_up", "air_up"),
+        ("attack_air_down", "air_down"),
+        ("special", "conservation_law"),
+        ("special_forward", "symmetry_shift"),
+        ("special_up", "ethereal_lift"),
+        ("special_down", "invariant_field"),
+    ]
+    .into_iter()
+    .map(|(verb, id)| (verb.to_string(), id.to_string()))
+    .collect();
+
+    // ⭐ **the invariant is checked WHERE IT IS AUTHORED.** A move edited off the
+    // curve stops being Emmy's before anything else notices, and the builder is
+    // the last place that holds the whole table at once.
+    debug_assert!(
+        moves
+            .iter()
+            .filter(|m| conserved_impulse(m) > 0.0)
+            .all(|m| (conserved_impulse(m) - NOETHER_IMPULSE).abs() <= INVARIANT_BAND),
+        "a Noether move left the conservation curve"
+    );
+
+    MovesetContract { moves, verbs }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+    fn find(set: &MovesetContract, id: &str) -> MoveSpec {
+        set.moves
+            .iter()
+            .find(|m| m.id == id)
+            .unwrap_or_else(|| panic!("{id} exists"))
+            .clone()
+    }
+
+    fn growth(m: &MoveSpec) -> f32 {
+        m.windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.knockback_growth)
+            .fold(0.0f32, f32::max)
+    }
+
+    fn damage(m: &MoveSpec) -> i32 {
+        m.windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.damage)
+            .fold(0, i32::max)
+    }
+
+    fn knockback(m: &MoveSpec) -> f32 {
+        m.windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| v.knockback)
+            .fold(0.0f32, f32::max)
+    }
+
+    /// **Every verb she binds resolves to a move that exists.**
+    ///
+    /// ⛔ a verb bound to a missing id is silence at the press: the runtime looks
+    /// the move up, finds nothing, and the button does nothing at all.
+    #[test]
+    fn every_bound_verb_names_a_move_that_exists() {
+        let set = noether_moveset();
+        let ids: std::collections::BTreeSet<&str> =
+            set.moves.iter().map(|m| m.id.as_str()).collect();
+        for (verb, id) in &set.verbs {
+            assert!(
+                ids.contains(id.as_str()),
+                "verb `{verb}` binds move `{id}`, which this table does not define"
+            );
+        }
+        assert_eq!(set.verbs.len(), 16);
+        assert_eq!(set.moves.len(), 16);
+    }
+
+    /// **THE SYMMETRY, AS AN ASSERTION — and the poison is every other fighter.**
+    ///
+    /// Her forward and back aerials must be the same move in everything but the
+    /// direction they point. ⛔ **the second half is what makes this a claim about
+    /// EMMY** rather than about aerials in general: Oiler's pair and the goblin's
+    /// pair differ, so a table that accidentally satisfied the first assertion
+    /// would still be saying something true only of her.
+    #[test]
+    fn her_forward_and_back_aerials_are_the_same_move() {
+        let set = noether_moveset();
+        let f = find(&set, "air_forward");
+        let b = find(&set, "air_back");
+        assert_eq!(damage(&f), damage(&b), "same damage");
+        assert_eq!(knockback(&f), knockback(&b), "same knockback");
+        assert_eq!(growth(&f), growth(&b), "same growth");
+        assert_eq!(f.duration_s, b.duration_s, "same clock");
+        assert_eq!(
+            total_active_s(&f),
+            total_active_s(&b),
+            "same time in the world"
+        );
+
+        // ⛔ the poison: nobody else on the grid is symmetric, so this is a
+        // statement about her and not about the genre.
+        let oiler = crate::oiler_moveset::oiler_moveset();
+        let of = find(&oiler, "air_forward");
+        let ob = find(&oiler, "air_back");
+        assert!(
+            damage(&of) != damage(&ob) || knockback(&of) != knockback(&ob),
+            "Oiler's aerial pair differs — if it stopped differing this test \
+             would stop being about Emmy"
+        );
+    }
+
+    /// **THE CONSERVED QUANTITY, AS AN ASSERTION.**
+    ///
+    /// Every striking move sits on `damage x active_seconds =` [`NOETHER_IMPULSE`]
+    /// within [`INVARIANT_BAND`]. ⛔ **and the band is not wide enough to be
+    /// vacuous**: the same measurement over Oiler's table — a fighter authored
+    /// from the opposite idea — has to miss it, or this asserts nothing.
+    #[test]
+    fn every_strike_she_throws_conserves_the_same_quantity() {
+        let set = noether_moveset();
+        let mut striking = 0;
+        for m in &set.moves {
+            let impulse = conserved_impulse(m);
+            if impulse == 0.0 {
+                continue;
+            }
+            striking += 1;
+            assert!(
+                (impulse - NOETHER_IMPULSE).abs() <= INVARIANT_BAND,
+                "`{}` is at {impulse:.3} damage-seconds, off the curve at \
+                 {NOETHER_IMPULSE} +/- {INVARIANT_BAND}",
+                m.id
+            );
+        }
+        assert!(striking >= 14, "only {striking} moves strike at all");
+
+        let oiler = crate::oiler_moveset::oiler_moveset();
+        let off_curve = oiler
+            .moves
+            .iter()
+            .map(conserved_impulse)
+            .filter(|i| *i > 0.0 && (i - NOETHER_IMPULSE).abs() > INVARIANT_BAND)
+            .count();
+        assert!(
+            off_curve >= 6,
+            "only {off_curve} of Oiler's moves miss Emmy's curve, so the curve is \
+             a description of fighters in general rather than of her"
+        );
+    }
+
+    /// **The launcher is the ONE move whose growth leaves the ordinary band** —
+    /// the blueprint's *"the moment the invariant stops holding"*.
+    #[test]
+    fn exactly_one_move_grows_like_a_kill_move() {
+        let set = noether_moveset();
+        let loud: Vec<&str> = set
+            .moves
+            .iter()
+            .filter(|m| growth(m) > ORDINARY_GROWTH)
+            .map(|m| m.id.as_str())
+            .collect();
+        assert_eq!(loud, ["smash_forward"], "one break, and it is the break");
+        assert_eq!(growth(&find(&set, "smash_forward")), BREAK_GROWTH);
+    }
+
+    /// **Her recovery does not attack, and nothing else on the grid is like it.**
+    ///
+    /// The blueprint asked for exactly this. ⛔ the poison is Oiler's geyser,
+    /// which DOES carry a box — so this is a statement about a deliberate trade
+    /// and not about recoveries generally.
+    #[test]
+    fn her_recovery_carries_no_hitbox_and_that_is_unusual() {
+        let set = noether_moveset();
+        let lift = find(&set, "ethereal_lift");
+        assert!(
+            lift.windows.iter().all(|w| w.volumes.is_empty()),
+            "the ethereal lift is a traversal, not a second offensive option"
+        );
+        assert_eq!(conserved_impulse(&lift), 0.0);
+
+        let oiler = crate::oiler_moveset::oiler_moveset();
+        let geyser = find(&oiler, "oil_geyser");
+        assert!(
+            geyser.windows.iter().any(|w| !w.volumes.is_empty()),
+            "Oiler's recovery hits — if it stopped, hers would no longer be the \
+             one that gives that up"
+        );
+    }
+
+    /// **The lift is a save, not flight** — held by arithmetic rather than by a
+    /// cooldown, exactly as Oiler's geyser is.
+    #[test]
+    fn the_lift_is_a_save_and_not_a_flight() {
+        // Engine baseline gravity, the same number the geyser's guard uses.
+        const G: f32 = 2200.0;
+        let climb_s = LIFT_SPEED / G;
+        assert!(
+            LIFT_ENDS_S >= 2.0 * climb_s,
+            "the lift ends at {LIFT_ENDS_S}s but its own arc takes {:.2}s up and \
+             the same down, so repeated presses would gain height",
+            climb_s
+        );
+        let set = noether_moveset();
+        let lift = find(&set, "ethereal_lift");
+        assert!(
+            lift.windows
+                .iter()
+                .all(|w| !matches!(w.tag, WindowTag::Cancelable { .. })),
+            "a cancelable window would let her re-press before the arc is spent"
+        );
+    }
+
+    /// **The side special buys distance BACKWARD without turning her round.**
+    #[test]
+    fn the_symmetry_shift_retreats_without_conceding_the_facing() {
+        let set = noether_moveset();
+        let shift = find(&set, "symmetry_shift");
+        let displacement = shift
+            .events
+            .iter()
+            .find_map(|e| match &e.kind {
+                MoveEventKind::Impulse { local, .. } => Some(*local),
+                _ => None,
+            })
+            .expect("the shift commands a displacement");
+        assert!(
+            displacement.0 < 0.0,
+            "body-local +x is her facing, so a retreat that keeps the facing has \
+             to be negative; got {displacement:?}"
+        );
+    }
+
+    /// **Every burst she shows is one somebody can hear.**
+    ///
+    /// ⛔ a `Vfx` event plays no sound on its own — the paired-cue lookup only
+    /// runs on the `FxRequest` path — so a move with an effect and no cue is a
+    /// silent animation, and nothing else in the build reports it.
+    #[test]
+    fn every_burst_in_this_table_is_heard() {
+        let set = noether_moveset();
+        for m in &set.moves {
+            let cues: std::collections::BTreeSet<String> = m
+                .events
+                .iter()
+                .filter_map(|e| match &e.kind {
+                    MoveEventKind::Sfx { cue } => Some(cue.clone()),
+                    _ => None,
+                })
+                .collect();
+            let bursts: std::collections::BTreeSet<String> = m
+                .events
+                .iter()
+                .filter_map(|e| match &e.kind {
+                    MoveEventKind::Vfx { effect } => Some(effect.clone()),
+                    _ => None,
+                })
+                .collect();
+            assert!(
+                !bursts.is_empty(),
+                "`{}` throws no effect at all — it is one of Emmy's, and she has \
+                 twelve of them",
+                m.id
+            );
+            for burst in &bursts {
+                assert!(
+                    cues.iter().any(|c| c.contains(burst.as_str())),
+                    "`{}` shows `{burst}` and never names a cue for it, so it \
+                     plays in silence",
+                    m.id
+                );
+            }
+        }
+    }
+
+    /// **THE ART IS HERS, AND IT ALL SHIPS.**
+    ///
+    /// ⭐ the oracle is the ART — `is_authored_effect` reads the rows out of the
+    /// baked manifests — so this asks exactly what the renderer will ask.
+    #[test]
+    fn the_kit_looks_like_emmy_and_the_art_all_ships() {
+        let set = noether_moveset();
+        let mut effects = std::collections::BTreeSet::new();
+        for m in &set.moves {
+            for problem in
+                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
+            {
+                panic!("{problem}");
+            }
+            for ev in &m.events {
+                if let MoveEventKind::Vfx { effect } = &ev.kind {
+                    effects.insert(effect.clone());
+                }
+            }
+        }
+        assert_eq!(
+            effects.len(),
+            12,
+            "all twelve of her rendered rows are bound, and nothing else is: \
+             {effects:?}"
+        );
+        for effect in &effects {
+            let authored = ambition_platformer2d::sprite_sheet::fx::authored_effect(effect)
+                .unwrap_or_else(|| panic!("`{effect}` ships"));
+            assert!(
+                authored.sheet.contains("noether"),
+                "`{effect}` is drawn off `{}`, which is not Emmy's sheet",
+                authored.sheet
+            );
+        }
+    }
+
+    /// **Every clip she names is a row her rig actually publishes.**
+    ///
+    /// ⛔ the structural fallback chain means a missing clip is SILENT: the move
+    /// still runs, drawn as `idle`. That is the right runtime behaviour and the
+    /// wrong authoring outcome, so the table is checked against the sheet here.
+    #[test]
+    fn every_clip_names_a_row_her_sheet_carries() {
+        let set = noether_moveset();
+        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_target(
+            "noether",
+        )
+        .expect("Emmy's sheet is baked into the registry");
+        let rows: std::collections::BTreeSet<&str> =
+            record.rows.iter().map(|r| r.animation.as_str()).collect();
+        for m in &set.moves {
+            assert!(
+                rows.contains(m.clip.clip.as_str()),
+                "`{}` draws `{}`, which her sheet does not publish — it would \
+                 fall down the chain to `idle`",
+                m.id,
+                m.clip.clip
+            );
+        }
+    }
+}

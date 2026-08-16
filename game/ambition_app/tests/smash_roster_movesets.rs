@@ -48,7 +48,9 @@ const KNOWN_UNARMED: &[&str] = &[
     // `striker_swipe` instead of `peaceful`, because those are two different
     // facts and a fighter needs both: the row says he MAY swing, the table says
     // what the swing IS. He is on `WITH_REPERTOIRE` below.
-    "npc_noether",
+    //
+    // ⭐ **AND EMMY LEFT IT THE SAME DAY**, for the same two reasons. The list is
+    // down to six.
     // ⭐ **ARRIVED 2026-08-12, and arriving is the point.** Jon added Stargan to
     // the grid on 2026-08-11 and he was never on it: `SmashRoster::assemble`
     // filters on the prepared REGISTRY, nothing registered him, and a dropped
@@ -401,6 +403,11 @@ fn the_grid_fighters_with_a_real_repertoire_only_grow() {
         // them — with nothing in any table naming one. His sixteen moves bind
         // eighteen of them; the Up-B IS the geyser.
         "npc_oiler",
+        // ⭐ **THE SIXTH, and she came with the art already finished** (Jon,
+        // 2026-08-16). Emmy's rig publishes 123 rows — grabs, throws, techs,
+        // ledge options, a shield break — and not one of them had ever been asked
+        // for a hitbox. Her sixteen moves bind all twelve of her own effects.
+        "npc_noether",
     ];
 
     let mut app =

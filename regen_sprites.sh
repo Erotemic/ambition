@@ -403,6 +403,14 @@ review_cues=(
 faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
 
 tackon_targets=(
+    # ⛔ **Emmy is named here because the glob above cannot see her.**
+    # `rig_targets` globs `rigged/*.rig.json`, and her rig moved into
+    # `rigged/noether/noether_side.rig.json` when she became a multiview target —
+    # so for weeks she was published only by a STALE top-level
+    # `rigged/noether.rig.json` left behind by that move, whose 128x128 /
+    # ground_y=101 constants a sprite module then restated. That file is deleted
+    # (2026-08-16); this line is what keeps her published.
+    noether
     # Oiler's body is the direct-SVG multiview rig
     # (data/characters/oiler/oiler-multiview.svg + rigged/oiler/*.rig.json),
     # not the toon render of configs/review/oiler.yaml. Jon, 2026-08-16:

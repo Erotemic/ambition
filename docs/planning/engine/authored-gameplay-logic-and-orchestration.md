@@ -265,10 +265,6 @@ recalled; ⭐ **genuine incompatibilities were found and they narrowed the desig
 (sequencing is out); no universal abstraction was assumed; two proof customers
 are named with their expected deletions. See the M0 result above.
 
-⚠ **M1 is now the next executable step, and it is still not authorized to
-start** — priority rises when the customers are ready or product work starts
-repeatedly demanding bespoke Rust behavior wiring.
-
 ### M1 — vocabulary/provider contract
 
 Prototype the smallest domain-owned contract by which **two** domains expose
@@ -277,6 +273,41 @@ semantic conditions/commands to preparation and discovery.
 **Acceptance:** domain ownership stays local; a composed read-only catalog
 enumerates both; ⭐ **no central engine enum is edited to add the second
 provider** — this is the behavioral test, not a review opinion.
+
+✔✔ **MET FOR CONDITIONS, 2026-08-15 — and this milestone said "not authorized to
+start" for a day after it had already been satisfied.** ⛔ that is the failure
+this program's own routing warns about; check HEAD before scheduling a milestone.
+
+Landed evidence, all at HEAD:
+
+```text
+contract   shared_tangle::authored_logic — ConditionId (domain.question),
+           ConditionDescriptor, ConditionOutcome, ConditionCatalog.
+           `publish` is PRIVATE; the only way in is `PublishCondition for App`.
+provider 1 items/pickup/mod.rs        -> custody.is_held
+provider 2 world_facts.rs             -> world.flag_set
+consumer   world/gated_lock_walls.rs  -> asks world.flag_set, names no flag
+deletion   INTRO_FLAG_GATED_LOCK_WALLS + its 136-line const table, replaced by
+           an authored `gated_by` field on the LDtk LockWall entity
+```
+
+⭐ **all three acceptance clauses hold, including the behavioural one**: adding
+the second provider edited no central enum — each domain publishes from its own
+plugin — and `a_provider_that_names_no_other_domain_can_publish_and_be_asked`
+pins exactly that.
+
+⚠ **HALF the milestone, and the half that is missing is the interesting one:
+COMMANDS have no provider contract at all.** Grep is conclusive — no
+`PublishCommand`, no command catalog, nothing. Conditions are *questions about
+the world*, which are safe because they cannot change it; a command mutates, so
+it owes what a condition does not: authority (who may run it), ordering (when in
+the frame), and rollback semantics. ⇒ **M1's remainder is not "one more of the
+same"**, and M4's warning applies to it directly rather than to M2.
+
+⇒ **the next executable step is either M1-commands or M2**, and they are not
+independent: M2 prepares a *condition/command program*, so a program with no
+command vocabulary can only ever be a predicate. ⚠ M4 is still a design input to
+both, not a cleanup after them.
 
 ### M2 — prepared rule representation
 

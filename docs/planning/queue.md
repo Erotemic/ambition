@@ -110,6 +110,27 @@ whenever a lane returns; ⛔ do not let a lane finish with nothing dispatched.
 | **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs** — see the measurement below |
 | **drop `pocket` and `versus` from the main game-selection shell** (Jon, 2026-08-15) — *"They can just be standalone exes for tests."* | ⭐ a SHELL-COMPOSITION change, not a deletion: both keep their binaries and their suites. ⚠ the shell's roster is the thing a player sees first, and two test fixtures sitting in it is the demo gate leaking the other way — the shell advertising what the engine can compose rather than what the player can play |
 
+### ▢ Two things found in passing 2026-08-15, logged rather than fixed
+
+**1. ⚠ TWO WORLDS FAIL LDtk VALIDATION TODAY, and the tool writes them anyway.**
+`sandbox.ldtk` and `mary_o.ldtk` emit `error:` diagnostics on every edit —
+cross-world `LoadingZone` targets (intro names sandbox's rooms and vice versa, so
+a SINGLE-FILE validator cannot resolve either) and `MaryOBlock`, which no entity
+manifest declares. ⛔⛔ **the errors do not block the write**, which is how they
+cost a correction: three `error:` lines filled a `| head -3` and hid the
+`wrote` line under them, so an edit that HAD landed was reported as refused.
+⇒ either the cross-world case needs a world-SET validator, or those targets need
+declaring; and `MaryOBlock` needs a manifest row. ⚠ neither is urgent, and both
+make every future LDtk edit noisier and less trustworthy than it should be.
+
+**2. ⛔ THE SMASH LANE'S VISUAL FIXES SHIP UNSEEN — Jon's eyes are the only
+instrument.** The camera-close ease, the 3-2-1-GO card and the winner card are
+all measured (`close 360.9 → 68.9`) and none has been LOOKED at. Specifically
+unverified: that a centred 34pt card actually renders at
+`SMASH_ANNOUNCE_HUD_SLOT` in the hosted app, and that 5 Hz is the right close
+rate — that number is a judgement, not a measurement. ⇒ **worth one CPU-vs-CPU
+match watched by a human**, and cheap to correct if wrong.
+
 ⭐⭐ **THE SPRITE/BOX CLUSTER HAS A MEASURED SHAPE — started 2026-08-15, NOT
 finished.** Three reports (snake too big · player hurtbox mismatched · Sanic too
 small) are one question: **there are TWO sizing roads and a body's size depends

@@ -566,10 +566,18 @@ pub(crate) fn perception_body_for(
     // more precisely than its opponents know it.
     self_peer: Option<&PerceptionPeer>,
     aggression: Option<&crate::features::components::ActorAggression>,
-    motion_model: Option<&ae::MotionModel>,
+    // ⛔ **NOT `Option`, per ADR 0024 §1** ("absence is never a policy and no outer
+    // query may interpret a missing component as axis-swept"). The `None` arm of
+    // the old signature did precisely that, and it was invisible to
+    // `engine.movement-model-is-never-optional` because that rule matches the
+    // spelling `Option<&MotionModel>`, not `Option<&ae::MotionModel>`.
+    motion_model: &ae::MotionModel,
 ) -> PerceptionBody {
+    // ⚠ the fallback below reads a PRESENT non-axis model (a crawler has no
+    // air-dodge window, so "no window open, no endlag" is the honest answer for
+    // one) — never a missing component, which the signature now forbids.
     let axis_motion = match motion_model {
-        Some(ae::MotionModel::AxisSwept(axis)) => *axis,
+        ae::MotionModel::AxisSwept(axis) => *axis,
         _ => ae::AxisSweptMotion::default(),
     };
     let burst_maneuver = ae::resolve_burst_maneuver(

@@ -862,6 +862,27 @@ impl BodyClusterScratch {
         }
     }
 
+    /// **Born moving.** [`Self::new_with_abilities`] constructs a body at rest;
+    /// a caller assembling a hypothetical — a recovery probe reconstructing "the
+    /// body as this line left it", a fixture starting mid-fall — states its
+    /// velocity here instead of reaching into `kinematics` afterwards.
+    ///
+    /// ⚠ **this is a CONSTRUCTION seam, not an authority.** ADR 0024's velocity
+    /// authority governs a simulated body being changed under a resolved frame;
+    /// a `BodyClusterScratch` is an owned bag with no entity, no frame and no
+    /// integrator, so there is no authority to route through — only the question
+    /// of whether the initial state is said at construction or patched on after.
+    /// ⛔ `engine.velocity-writes-are-authority-only` matches the receiver's NAME
+    /// and so cannot tell those apart; see that policy's rationale.
+    #[must_use]
+    pub fn with_velocity(mut self, vel: Vec2) -> Self {
+        self.kinematics = BodyKinematics {
+            vel,
+            ..self.kinematics
+        };
+        self
+    }
+
     /// Split-borrow the scratch body into its policy and its cluster view,
     /// mirroring the ECS shape (the model is a separate component from the
     /// clusters) so scratch callers can hand both to [`crate::step_motion`].

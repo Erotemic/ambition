@@ -277,13 +277,16 @@ impl RecoveryLens {
 
     /// The body this lens probes, as this line left it.
     fn scratch(&self, at: RecoveryQuery) -> ae::BodyClusterScratch {
+        // ⚠ the velocity is said at CONSTRUCTION, not patched on after: the whole
+        // point of this scratch is "the body as this line left it", and its speed
+        // is part of that state rather than a change to it.
         let mut body =
-            ae::BodyClusterScratch::new_with_abilities(at.pos - self.origin, self.kit.abilities);
+            ae::BodyClusterScratch::new_with_abilities(at.pos - self.origin, self.kit.abilities)
+                .with_velocity(at.vel);
         // The body's OWN movement law, not the engine default a scratch body is
         // born with. A character that authors its own gravity, air accel or jump
         // is probed as itself.
         body.model = ae::MotionModel::axis_swept(self.kit.movement.axis_swept_params());
-        body.kinematics.vel = at.vel;
         body.kinematics.size = self.body_size;
         body.base_size.base_size = self.body_size;
         body.ground.on_ground = false;

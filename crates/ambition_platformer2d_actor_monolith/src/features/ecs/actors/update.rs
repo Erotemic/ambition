@@ -234,7 +234,19 @@ pub fn tick_actor_brains(
                 // as well as in the dodge/dash clusters. A driver that decides
                 // its maneuver from CAPABILITIES instead names one thing and the
                 // kernel performs another — see `SelfView::burst`.
-                Option<&crate::features::MotionModel>,
+                //
+                // ⛔ **NOT `Option`, per ADR 0024 §1: absence is never a movement
+                // policy.** It was optional until 2026-08-16, and the `None` arm
+                // in `perception_body_for` read a missing component as
+                // `AxisSweptMotion::default()` — the ADR's exact prohibition
+                // ("no outer query may interpret a missing component as
+                // axis-swept"), reached with the DEFAULT air-dodge window rather
+                // than the body's. Requiring it costs nothing: the integration
+                // query below (`integrate_actor_bodies`) already takes
+                // `&mut MotionModel` non-optionally over the same archetype, so a
+                // body without one is not integrated at all and has no locomotion
+                // for a brain to reason about.
+                &crate::features::MotionModel,
             ),
             // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
             // which pacifies a hostile actor that holds no combat target, and
@@ -585,10 +597,12 @@ pub fn tick_actor_brains(
                     // phase early — so the brain names the maneuver the body will
                     // actually perform instead of re-deriving the precedence.
                     //
-                    // ⚠ a body on a NON-axis model (or none) has no
-                    // `AxisManeuverState` to read, and the default reads as "no
-                    // window open, no endlag" — the same reading `motion_facts`
-                    // takes for an absent component three lines below.
+                    // ⚠ a body on a NON-axis model has no `AxisManeuverState` to
+                    // read, and the default reads as "no window open, no endlag".
+                    // ⛔ that is a reading of a PRESENT model that is not
+                    // axis-swept — a crawler genuinely has no air-dodge window —
+                    // and NOT a reading of an absent component, which ADR 0024 §1
+                    // forbids and the query above now makes unrepresentable.
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::perception_body_for(
                             &em,
@@ -597,7 +611,7 @@ pub fn tick_actor_brains(
                             action_set,
                             self_peer,
                             aggression,
-                            motion_model.as_deref(),
+                            motion_model,
                         ),
                         &view_peers,
                         perceived.projectiles(),

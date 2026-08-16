@@ -469,6 +469,29 @@ fn actor_hurt_feedback(
 }
 
 impl ActorClusterSeed {
+    /// **Put this un-spawned body somewhere, once.**
+    ///
+    /// A seed's placement is TWO fields — where the body starts
+    /// (`kin.pos`) and where a respawn returns it (`config.spawn.pos`) — and they
+    /// are the same fact. They were written as two adjacent statements at the one
+    /// call site that moves a seed off its constructed position (the patrol-path
+    /// placement), which is a hand-kept agreement: a caller that set one and
+    /// forgot the other would spawn a body that teleports on its first death, and
+    /// nothing would say so.
+    ///
+    /// ⚠ **this is a SEED, not a body**, which is the whole reason a bare write
+    /// is not the answer even though ADR 0024's pose authority is about live
+    /// bodies. There is no entity yet, no `MotionModel` to reconcile and no frame
+    /// to transit through, so `transit_body` cannot be called here at all — the
+    /// thing worth having is not an authority call, it is ONE name for the fact.
+    /// ⛔ `engine.pose-writes-are-authority-only` cannot tell a pre-spawn seed
+    /// from a live body (it matches the receiver's NAME), so it read the old pair
+    /// as a bare relocation; see that policy's rationale.
+    pub(crate) fn place_at(&mut self, pos: ae::Vec2) {
+        self.kin = BodyKinematics { pos, ..self.kin };
+        self.config.spawn.pos = pos;
+    }
+
     // ⛔⛔ **`new_in` WAS HERE AND IS DELETED (AC6, 2026-08-13) — the ARCHETYPE
     // CONSTRUCTOR.** It took an `ArchetypeSpec` and read a body out of it: max
     // health, `default_size`, aerial-ness, tuning, brain profile, movement kit
@@ -683,8 +706,7 @@ impl ActorClusterSeed {
             // The patrol PATH is authored on the interactable, and a body that
             // starts on one starts at its first waypoint.
             if let Some(start) = motion.as_ref().and_then(PathMotion::start_pos) {
-                seed.kin.pos = start;
-                seed.config.spawn.pos = start;
+                seed.place_at(start);
             }
             seed.motion = ActorMotionPath(motion);
             // Presentation identity: an NPC resolves its sheet through the

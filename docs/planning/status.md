@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `0e6135f198` (2026-08-15 local project date).
+**Snapshot:** `57ce6d906b` (2026-08-16 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -87,11 +87,27 @@ substrate had overtaken the two fronts printed above it:
    through production roads, including the one no `KeyItem => survives` rule can
    produce: one death, two objects of the same kind, opposite answers.
 
+   ✔ **AND THE RESTORE CAN NOW REBUILD WHAT IT PUTS BACK** (2026-08-16,
+   `13dd4d31b`): bank a reward, carry it to another room, drop it there, leave so
+   that room UNLOADS, then die — it returns to the hand that banked it as the
+   same occurrence, pedestal still empty, no duplicate. The missing mechanism was
+   **materialization**: the restore was pure re-assignment, which cannot ask
+   anything about an object whose entity no longer exists, and no room build
+   could supply it either because an `InCustody` row makes `outlook_for` answer
+   `Suppressed` in every room — a thing in a hand is not a thing in a room. ⭐
+   **every other reconstruction road here starts from a ROOM and asks what it
+   owes; this one starts from an occurrence resident in no room**, so the authored
+   definition has to be reachable BY IDENTITY.
+
    ⭐ **the frontier is now DURABLE SAVE** — *"has no runtime cleanup scope"*
    still does not mean *"correctly saved and restored"*, and the reset horizon
-   deliberately did not answer it. ⚠ one named gap first: a baseline row whose
-   occurrence has no live entity cannot be put back, because nothing mints an
-   occurrence directly into a hand.
+   deliberately did not answer it. ⚠ **and the restore's own residual is the same
+   question in miniature:** materialization is bounded by *"some room authors a
+   record with this id"*, so a **runtime-minted** instance (`SimId::spawned` — a
+   thrown object, an enemy death drop) is carryable, can enter the custody
+   baseline, and **no record anywhere can rebuild it**. Closing that needs a
+   durable INSTANCE DESCRIPTION rather than a pointer at an authored record —
+   which is precisely what durable save needs too.
    ⛔ **do not promote easy actor-monolith leaf carving ahead of this.**
 2. **Simulation authority and determinism.** Decompose parameter-ceiling systems
    by phase/authority and invert rollback declaration ownership. See

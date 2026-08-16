@@ -216,11 +216,40 @@ substrate had overtaken the two fronts printed above it:
    idea to a named capability gap. **Rust extends the engine's vocabulary;
    authored content composes vocabulary that already exists.** See
    [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md).
-   ✔ **M0 is complete** (14 systems inspected); **M1 is parked behind D125 and
-   reachability**, both of which this consumes rather than competes with.
+   ✔ **M0 is complete** (14 systems inspected).
    ⛔ not scripting, not a rule VM, not a central effect enum. ⭐ M0's headline:
    **the substrate owns no universal sequencer** — the gap is on the *condition*
    side, and boss patterns are the **template**, not a customer.
+
+   ✔✔ **M1 IS MET FOR CONDITIONS, WITH TWO UNRELATED CONSUMERS (2026-08-15/16).**
+   ⛔ this page said "M1 is parked" for a day after its acceptance was satisfied.
+   `shared_tangle::authored_logic` owns the contract — `publish` is PRIVATE, the
+   only way in is `PublishCondition for App`. Three domains publish
+   (`custody.is_held`, `world.flag_set`, `inventory.holds`); two very different
+   consumers ask: a **gated lock wall** and **authored `.yarn` dialogue**, the
+   latter through one generic verb `condition("domain.question", <arg>)` that
+   names no question, no domain and no flag. ⇒ publishing a condition makes it
+   askable from dialogue **with no edit to any bridge**, which is the same
+   behavioural acceptance the second provider had.
+
+   ⛔⛔ **and it refuted a premise THREE module headers asserted**: that Yarn
+   library functions cannot be Bevy systems and so cannot reach `&World` — the
+   entire reason `YarnStateMirror` existed. False at HEAD: `bevy_yarnspinner`
+   advances the interpreter from an **exclusive** system and threads `&mut World`
+   to `YarnFn::call_with_world`, and `SystemId<In<P>, O>` implements `YarnFn`.
+   ⭐ **three files agreeing is one observation, not three, when the later two
+   were written by reading the first.** The mirror SHRANK to a projection rather
+   than gaining a feed; two hand-written functions, a per-frame refill, a
+   duplicated id rule and an alias table went with it.
+
+   ⇒ ⭐ **COMMANDS ARE A DIFFERENT SHAPE, and that is now established rather than
+   assumed.** A condition is safe to call from inside the interpreter *precisely
+   because it cannot change anything*. A command mutates, so calling it the same
+   way is a presentation-side write into rollback state on a frame the sim does
+   not replay — the exact defect `NarrativeInputLedger` was built to fix, and why
+   `<<give_item>>` records a REQUEST rather than granting. A `PublishCommand`
+   contract owes **authority, ordering and a ledger-shaped replay story**, and
+   generalises from `NarrativeInputPlugin<M>`, not from the condition catalog.
 4. ⏸ **Ambition authoring + kinematic world objects — RESTING (D115, K2–K6 all
    closed).** Treat authoring/tooling as
    an engine product, improve LDtk as a first-class spatial compiler surface,

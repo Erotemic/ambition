@@ -70,7 +70,18 @@ pub enum SpecificAction {
     /// Trigger the actor's special. Resolved by the actor's
     /// `SpecialActionSpec`.
     Special,
-    /// Shield (player-only today). Reserved.
+    /// **Raise a guard and stand ground.** The brain's OWN way of asking for the
+    /// same thing a person's shield button asks for — `emit_inputs` writes
+    /// `shield_held`, the body's `AbilitySet::shield` decides whether that means
+    /// anything, and no physical control name appears anywhere in the policy
+    /// (D146 slice 2, Jon: *"CPU logic should be able to request Shield
+    /// semantically without pretending to press a physical controller
+    /// trigger."*).
+    ///
+    /// ⚠ **not "player-only, reserved", which is what this said for months.** The
+    /// reactive block in `tick_smash` had been raising a guard by writing
+    /// `shield_held` directly beside this variant, so the guard had two producers
+    /// and the semantic action had none. It commits THIS now.
     Shield,
     /// Spot/air dodge in `dir`. Reserved.
     Dodge { dir: ae::Vec2 },

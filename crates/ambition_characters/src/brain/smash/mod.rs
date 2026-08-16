@@ -725,12 +725,29 @@ pub fn tick_smash(
             }
         }
         // Hold the block up across its window: shield + stand ground.
+        //
+        // ⛔ **this used to write `out.shield_held = true` by hand**, which was a
+        // FORK: `SpecificAction::Shield` already exists, already means exactly
+        // this, and already has an [`emit_inputs`] arm — so the guard had two
+        // producers and the semantic action had none. A CPU now requests the
+        // SAME semantic action a human's shield button resolves to (D146 slice
+        // 2, Jon: *"CPU logic should be able to request Shield semantically
+        // without pretending to press a physical controller trigger"*), and
+        // `emit_inputs` owns what that means on a frame.
         if state.shield_hold_timer > 0.0
             && (!cfg.shield_requires_ground || obs.self_on_ground)
             && !out.blink_pressed
         {
-            out.shield_held = true;
-            out.locomotion = ae::LocalAxes::ZERO;
+            // ⚠ the FACING is the tick's action's, not the block's, and that is
+            // measured rather than argued: `emit_inputs` faces the target
+            // unconditionally, and letting it do so here overrode the footsies
+            // weave's own facing and pinned both fighters in a corner
+            // (`flying_pca_vs_grounded_robot_is_non_degenerate`, red on the first
+            // attempt). Reactive defense LAYERS a commitment onto an already
+            // chosen action; it does not replace it.
+            let facing = out.facing;
+            emit_inputs(SpecificAction::Shield, &obs, out);
+            out.facing = facing;
         }
     }
     // Hybrid flight: decide whether to be airborne and emit the fly toggle when

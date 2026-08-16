@@ -145,6 +145,11 @@ pub fn emit_inputs(
             // ⚠ a body that cannot shield is not harmed by this: the ability mask
             // gates the verb (`AbilitySet::shield`), so holding the bit on a body
             // without a guard raises nothing.
+            //
+            // ⭐ **and it now has a caller.** `tick_smash`'s reactive block commits
+            // `SpecificAction::Shield` instead of setting the two fields itself
+            // (D146 slice 2), so what a requested guard MEANS on a frame is
+            // decided here and nowhere else.
             out.shield_held = true;
             out.locomotion = ae::LocalAxes::ZERO;
         }

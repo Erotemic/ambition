@@ -156,3 +156,33 @@ fn publishing_one_id_twice_panics_rather_than_letting_the_last_plugin_win() {
 fn a_dot_inside_a_segment_is_refused() {
     let _ = ConditionId::new("custody", "is.carried");
 }
+
+/// **AUTHORED CONTENT NAMES A CONDITION BY STRING, AND A TYPO IS A DIAGNOSTIC
+/// RATHER THAN A PANIC.**
+///
+/// ⭐ [`ConditionId::new`] asserts because a *provider* spelling its own id
+/// wrongly is a bug in the engine. [`ConditionId::parse`] refuses because a
+/// *`.yarn` line* spelling it wrongly is a bug in content, and content must not
+/// be able to take the process down.
+#[test]
+fn an_id_read_back_from_authored_text_refuses_instead_of_panicking() {
+    assert_eq!(
+        ConditionId::parse("world.flag_set"),
+        Some(ConditionId::new("world", "flag_set"))
+    );
+    // ⚠ every one of these would have PANICKED through `new`.
+    assert_eq!(ConditionId::parse("flag_set"), None, "no domain at all");
+    assert_eq!(ConditionId::parse(".flag_set"), None, "empty domain");
+    assert_eq!(ConditionId::parse("world."), None, "empty question");
+    assert_eq!(ConditionId::parse("a.b.c"), None, "ambiguous segments");
+    assert_eq!(ConditionId::parse(""), None);
+    // ⛔ and it never repairs. A leading space parses — the shape is legal — but
+    // it parses to a DIFFERENT id, which is what makes the lookup miss and the
+    // author see a diagnostic naming their own spelling.
+    assert_ne!(
+        ConditionId::parse(" world.flag_set"),
+        Some(ConditionId::new("world", "flag_set")),
+        "trimming would make the authored name and the published name two \
+         spellings of one id, which is the collision `new` asserts against"
+    );
+}

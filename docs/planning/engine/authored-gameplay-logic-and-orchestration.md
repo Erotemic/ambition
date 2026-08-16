@@ -274,8 +274,9 @@ semantic conditions/commands to preparation and discovery.
 enumerates both; ⭐ **no central engine enum is edited to add the second
 provider** — this is the behavioral test, not a review opinion.
 
-✔✔ **MET FOR CONDITIONS, 2026-08-15 — and this milestone said "not authorized to
-start" for a day after it had already been satisfied.** ⛔ that is the failure
+✔✔ **MET FOR CONDITIONS, 2026-08-15; consumer side closed 2026-08-16 — and this
+milestone said "not authorized to start" for a day after it had already been
+satisfied.** ⛔ that is the failure
 this program's own routing warns about; check HEAD before scheduling a milestone.
 
 Landed evidence, all at HEAD:
@@ -295,6 +296,54 @@ deletion   INTRO_FLAG_GATED_LOCK_WALLS + its 136-line const table, replaced by
 the second provider edited no central enum — each domain publishes from its own
 plugin — and `a_provider_that_names_no_other_domain_can_publish_and_be_asked`
 pins exactly that.
+
+#### ⭐⭐ M1b — authored DIALOGUE became a consumer, 2026-08-16
+
+The condition contract had one consumer (a lock wall) and a **rival**: authored
+`.yarn` asked the world questions through hand-written Yarn library functions
+over a per-frame `YarnStateMirror`. A wall asking `world.flag_set` and a
+dialogue asking `flag("...")` were the same question through two unrelated
+mechanisms — the second-authority shape this program refuses everywhere else.
+
+```text
+contract   one generic Yarn verb: condition("domain.question", <arg>)
+           ambition_platformer2d_actor_monolith::dialog::authored_conditions,
+           pushed through the existing YarnContentBindings installer seam.
+           It names no question, no domain and no flag.
+provider 3 items/conditions.rs -> inventory.holds   (one line of composition)
+deletion   the `flag(id)` Yarn function + YarnStateMirrorData::flags
+           the `inventory_has(item)` Yarn function + ::inventory_counts
+           + its per-frame refill, `normalize_item_id`, `mirror_inventory_has`,
+           `Item::legacy_dialog_alias` (zero production adopters after the
+           refill went), and three tests that pinned them.
+```
+
+⭐⭐ **the belief that made the mirror necessary was FALSE.** Three module
+headers said *"functions can't be Bevy systems — they're called synchronously
+from the runtime interpreter"*. Measured at HEAD: `bevy_yarnspinner` advances
+the interpreter from `continue_runtime`, an **exclusive** system, and threads
+its `&mut World` down through `Dialogue::continue_with_world` →
+`YarnFn::call_with_world` → `World::run_system_with`; `SystemId<In<P>, O>`
+implements `YarnFn`. So a Yarn function *is* a Bevy system and *does* get the
+live world. ⇒ **design answer (1), not the projection** — no staleness, no
+second copy, and the mirror shrank instead of gaining a feed.
+
+⚠ **the mirror survives and is now documented as downstream.** What is left in
+it (boss/quest state, visit counts, wallet, content `extras`) has no published
+condition, and two of its functions return `f32`, which a boolean condition verb
+cannot express. ⛔ a fact the catalog can answer must be asked, never mirrored.
+
+⚠ **two honest limits, both recorded rather than hidden.**
+
+- **Exactly one argument.** Yarn's VM *asserts* that a call's argument count
+  equals the registered function's parameter count, and `Option` parameters are
+  counted, so a variadic bridge is not expressible. `condition(id, arg)` asks any
+  one-parameter condition; a zero- or two-parameter one needs a sibling
+  registration, deliberately not written because no published condition wants it.
+- **`ParamKind::Reference` is REFUSED, not coerced.** A `.yarn` literal is a
+  string and a prepared reference is a `SimId`; turning one into the other is
+  exactly the un-renameable string reference the contract forbids. The refusal is
+  a thing M2 can replace — a wrong answer is a thing M2 would have to find first.
 
 ⚠ **HALF the milestone, and the half that is missing is the interesting one:
 COMMANDS have no provider contract at all.** Grep is conclusive — no

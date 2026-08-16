@@ -91,13 +91,13 @@ Merchant Prototype: Wares for sale. Coin talks — anything you can't afford sta
 -> Buy Mark/Recall — 45g <<if can_afford(45)>>
     <<buy_item "markrecall" 45>>
     <<jump merchant_seed>>
--> Sell Gun-Sword — 17g <<if inventory_has("gunsword")>>
+-> Sell Gun-Sword — 17g <<if condition("inventory.holds", "gunsword")>>
     <<sell_item "gunsword" 17>>
     <<jump merchant_seed>>
--> Sell Axe — 12g <<if inventory_has("axe")>>
+-> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>
     <<sell_item "axe" 12>>
     <<jump merchant_seed>>
--> Sell Health Cell — 4g <<if inventory_has("healthcell")>>
+-> Sell Health Cell — 4g <<if condition("inventory.holds", "healthcell")>>
     <<sell_item "healthcell" 4>>
     <<jump merchant_seed>>
 -> Ask about refunds.
@@ -170,7 +170,7 @@ title: hub_guide__test
     <<jump hub_guide__test_visit>>
 -> Function: quest_active
     <<jump hub_guide__test_quest>>
--> Function: inventory_has
+-> Condition: inventory.holds
     <<jump hub_guide__test_inv>>
 -> Back to the main hub guide.
     <<jump hub_guide>>
@@ -205,12 +205,12 @@ Kernel Guide: You should be reading all three lines as one page right now, then 
 
 title: hub_guide__test_flag
 ---
-<<if flag("kernel_guide_demo_flag")>>
-    Kernel Guide: The save mirror reads kernel_guide_demo_flag = TRUE.
+<<if condition("world.flag_set", "kernel_guide_demo_flag")>>
+    Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = TRUE.
 <<else>>
-    Kernel Guide: The save mirror reads kernel_guide_demo_flag = FALSE.
+    Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = FALSE.
 <<endif>>
-Kernel Guide: The mirror refreshes once per frame from AmbitionGameSave.flags. Toggle the flag here, return to the test menu, then come back to see the readback flip.
+Kernel Guide: There is no mirror any more — condition() asks the world-fact domain live, the same way a gated lock wall does. Toggle the flag here, return to the test menu, then come back to see the readback flip.
 -> Set the flag.
     <<set_flag "kernel_guide_demo_flag">>
     <<jump hub_guide__test>>
@@ -301,10 +301,10 @@ title: hub_guide__test_quest
 
 title: hub_guide__test_inv
 ---
-<<if inventory_has("HealthPotion")>>
-    Kernel Guide: inventory_has("HealthPotion") returned TRUE — you are carrying at least one Health Cell. This reads the live PlayerInventory now.
+<<if condition("inventory.holds", "HealthPotion")>>
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned TRUE — you are carrying at least one Health Cell. This asks the inventory domain through the condition catalog, so it reads the live bag with no mirror in between.
 <<else>>
-    Kernel Guide: inventory_has("HealthPotion") returned FALSE — no Health Cell in your bag right now. Pick one up and ask again.
+    Kernel Guide: condition("inventory.holds", "HealthPotion") returned FALSE — no Health Cell in your bag right now. Pick one up and ask again.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>

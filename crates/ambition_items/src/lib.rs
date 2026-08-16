@@ -10,8 +10,8 @@
 //!
 //! This module is the source of truth for that set. It is deliberately
 //! presentation-independent: the unified tabbed menu renders
-//! it, but pickups, dialogue (`<<give_item>>` /
-//! `inventory_has`), and the equip path all read/write [`OwnedItems`] here. The
+//! it, but pickups, dialogue (`<<give_item>>` / the `inventory.holds` authored
+//! condition), and the equip path all read/write [`OwnedItems`] here. The
 //! menu can be cut without touching this catalog.
 //!
 //! Some slots map to systems that already exist (portal gun, axe, javelin,
@@ -127,7 +127,7 @@ pub struct ItemMeta {
     pub category: ItemCategory,
     /// `HeldItem` id granted on equip (`None` for non-equippables / unwired weapons).
     pub held_item_id: Option<String>,
-    /// Stable lowercase authoring id (`inventory_has("portalgun")`).
+    /// Stable lowercase authoring id (`condition("inventory.holds", "portalgun")`).
     pub dialog_id: String,
 }
 
@@ -512,7 +512,8 @@ impl Item {
         Item::ALL.into_iter().find(|i| i.held_item_id() == Some(id))
     }
 
-    /// Stable lowercase id for dialogue/authoring, e.g. `inventory_has("portal_gun")`.
+    /// Stable lowercase id for dialogue/authoring, e.g.
+    /// `condition("inventory.holds", "portal_gun")`.
     /// Normalized the same way the Yarn bindings normalize (lowercase, drop
     /// non-alphanumerics), so `"PortalGun"`, `"portal_gun"`, `"portal gun"` all
     /// resolve here.
@@ -541,16 +542,13 @@ impl Item {
         None
     }
 
-    /// The legacy bag's dialogue alias for this item, if it differs from
-    /// [`Self::dialog_id`]. Only `HealthCell` (old "healthpotion") diverges;
-    /// the yarn snapshot mirrors counts under this alias too so older scripts
-    /// using `inventory_has("healthpotion")` keep resolving.
-    pub fn legacy_dialog_alias(self) -> Option<&'static str> {
-        match self {
-            Item::HealthCell => Some("healthpotion"),
-            _ => None,
-        }
-    }
+    // ⛔ **`legacy_dialog_alias` was here and had ZERO production adopters after
+    // the Yarn inventory mirror went away.** Its one caller rebuilt a snapshot of
+    // the bag keyed under both the catalog id and the alias so a synchronous
+    // `<<if>>` could look it up; authored dialogue now asks the item domain's
+    // `inventory.holds` condition, which resolves loose spelling through
+    // `from_dialog_id` — where the alias already lived. A public method whose
+    // only remaining caller is its own test is not a capability.
 }
 
 /// The player's 24 catalog rows: a QUANTITY per slot, plus which slot is in the

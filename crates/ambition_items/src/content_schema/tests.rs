@@ -133,7 +133,7 @@ fn an_unknown_authored_field_is_an_error_and_not_a_shrug() {
     );
 }
 
-/// Two rows answering one `inventory_has(...)` is an authority conflict: every
+/// Two rows answering one `inventory.holds(...)` is an authority conflict: every
 /// script asking the question gets whichever the lookup reaches first.
 #[test]
 fn two_rows_sharing_a_dialog_id_are_a_conflict() {

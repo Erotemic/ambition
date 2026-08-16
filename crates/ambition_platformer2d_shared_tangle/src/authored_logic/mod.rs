@@ -95,6 +95,29 @@ impl ConditionId {
         Self(format!("{domain}.{question}"))
     }
 
+    /// Read an id back out of one authored string (`"world.flag_set"`).
+    ///
+    /// ⭐⭐ **this exists because [`ConditionId::new`] PANICS, and authored
+    /// content is exactly the caller that must never be able to do that.** A
+    /// `.yarn` line asking `condition("worldflag_set", …)` is a typo in content,
+    /// not a broken invariant in the engine — the right answer is a diagnostic
+    /// and an unsatisfied gate, not a crashed game. So the fallible road in and
+    /// the asserting road in are two functions rather than one function with a
+    /// mode.
+    ///
+    /// ⚠ **it never repairs.** No trimming, no case folding, no "did you mean".
+    /// An id that is accepted in two spellings is an id that can be published
+    /// twice, which is the collision [`ConditionId::new`]'s assertions exist to
+    /// prevent — and a parser that quietly fixed content would make the
+    /// published name and the authored name different strings.
+    pub fn parse(raw: &str) -> Option<Self> {
+        let (domain, question) = raw.split_once('.')?;
+        if domain.is_empty() || question.is_empty() || question.contains('.') {
+            return None;
+        }
+        Some(Self(raw.to_string()))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

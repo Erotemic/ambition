@@ -6,10 +6,12 @@
 //! host-side. What lives here is only the content-free plumbing they need:
 //!
 //! - [`YarnStateMirror`] / [`YarnStateMirrorData`] — the shared snapshot that
-//!   synchronous Yarn `library` functions read from. The *shape* is generic
-//!   (flags / bosses / quests / visit counts / inventory / wallet / an
-//!   open-ended `extras` map); the per-frame *refresh* that fills it from a
-//!   particular game's save is host-side.
+//!   CLOSURE-shaped Yarn `library` functions read from. The *shape* is generic
+//!   (bosses / quests / visit counts / wallet / an open-ended
+//!   `extras` map); the per-frame *refresh* that fills it from a particular
+//!   game's save is host-side. ⚠ it is a PROJECTION — read its type doc before
+//!   adding a slice, because a fact the condition catalog can answer belongs in
+//!   the catalog and nowhere else.
 //! - [`YarnPresentationCue`] / [`clear_yarn_presentation_cue`] — the markup
 //!   cue surface the bridge writes for `[shout]` / `[whisper]` lines.
 //! - [`YarnBindingInstaller`] / [`YarnContentBindings`] — the extension seam:
@@ -27,21 +29,34 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 
 // ===== Shared state mirror =====================================
 
-/// Snapshot of game state the Yarn `library` functions read from,
-/// refreshed each frame by a host-side system. Wrapped in
-/// `Arc<RwLock<...>>` so the closures registered on the runner's
-/// `Library` (which capture by move) can read it without taking a
-/// Bevy resource.
+/// Snapshot of game state that CLOSURE-shaped Yarn `library` functions read
+/// from, refreshed each frame by a host-side system. Wrapped in
+/// `Arc<RwLock<...>>` so a closure registered on the runner's `Library` (which
+/// captures by move) can read it without taking a Bevy resource.
 ///
-/// Yarn `library` functions are synchronous pure functions — they
-/// can't take a `Res<...>` like a Bevy system can. The mirror shape
-/// solves that: a refresh system updates the snapshot inside the lock
-/// once per frame, and function closures lock-and-read on every Yarn
-/// `<<if>>` evaluation.
+/// # ⛔ This is a PROJECTION, not a place where a fact is decided
+///
+/// **This type's doc used to say Yarn functions *"can't take a `Res<...>` like a
+/// Bevy system can"*, and that is FALSE of the crate in the lockfile.** A
+/// `SystemId<In<P>, O>` implements `YarnFn`, and `bevy_yarnspinner` threads the
+/// interpreter's `&mut World` down to it — so a Yarn function CAN be a Bevy
+/// system and CAN read live state. The mirror was a workaround for a limit that
+/// is not there.
+///
+/// ⇒ **anything the engine's condition catalog can answer must be ASKED, never
+/// mirrored here.** A fact with a published condition and a mirror slice has two
+/// definition sites that can disagree, which is the second-authority shape this
+/// project refuses elsewhere; the `flags` slice was exactly that and is gone. See
+/// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` and
+/// `ambition_platformer2d_actor_monolith::dialog::authored_conditions`.
+///
+/// ⚠ **what is left is the remainder, and it is legitimate.** Encounter/quest
+/// state, per-node visit counts, wallet and content `extras` have no published
+/// condition, and a `f32`-returning function (`visit_count`, `wallet_balance`)
+/// could not use a boolean condition verb even if one existed. Closures over this
+/// snapshot stay the right shape for those until a domain publishes the question.
 #[derive(Default, Clone, Debug)]
 pub struct YarnStateMirrorData {
-    /// flag id → on/off.
-    pub flags: std::collections::HashMap<String, bool>,
     /// canonical boss encounter ids in `Cleared` state.
     pub bosses_cleared: std::collections::HashSet<String>,
     /// canonical quest ids whose state is `InProgress`.
@@ -54,9 +69,6 @@ pub struct YarnStateMirrorData {
     /// content-installed Yarn functions read them. Keeps named content
     /// out of this generic mirror.
     pub extras: std::collections::HashMap<String, String>,
-    /// Item `dialog_id()` → held count, mirrored from the host's live
-    /// inventory so `inventory_has(...)` can read it.
-    pub inventory_counts: std::collections::HashMap<String, u32>,
     /// Player money, mirrored from the primary player's wallet so a
     /// merchant dialogue can show the balance / gate purchases
     /// (`wallet_balance`, `can_afford`).

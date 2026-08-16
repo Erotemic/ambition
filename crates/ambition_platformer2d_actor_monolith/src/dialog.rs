@@ -25,9 +25,15 @@ use bevy::prelude::*;
 /// resources ([`ambition_dialog::YarnBindingsPlugin`]) and the dialogue
 /// input/reveal presentation pair.
 ///
-/// ⚠ it registers NO vocabulary. A game pushes its own commands and its own
-/// state-mirror refresh through `ambition_dialog::YarnContentBindings` and
+/// ⚠ it registers no GAME vocabulary. A game pushes its own commands and its
+/// own state-mirror refresh through `ambition_dialog::YarnContentBindings` and
 /// `YarnStateMirrorRefreshed`; this plugin only guarantees both seams exist.
+///
+/// ⭐ **it does register exactly one ENGINE verb**, [`authored_conditions`]'s
+/// `condition(…)`, which names no game content and no particular question — it
+/// forwards whatever authored dialogue asks to whichever domain published the
+/// answer. See that module for why one generic verb is not the same kind of
+/// thing as a vocabulary table.
 #[cfg(feature = "ui")]
 pub struct YarnBindingsPlugin;
 
@@ -70,11 +76,26 @@ impl Plugin for YarnBindingsPlugin {
                 )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        // ⭐ **no installer is pushed from here any more.** A game's vocabulary
-        // arrives through `YarnContentBindings` from the crate that owns the
-        // content — see `ambition_content::yarn_vocabulary`.
+        // ⭐ **no GAME installer is pushed from here any more.** A game's
+        // vocabulary arrives through `YarnContentBindings` from the crate that
+        // owns the content — see `ambition_content::yarn_vocabulary`.
+        //
+        // ⭐⭐ what IS pushed from here is the one engine verb that lets
+        // authored dialogue ask the condition catalog anything any installed
+        // domain published. It travels the same installer seam a game's
+        // vocabulary does, because the seam is how anything reaches the runner —
+        // but it names no question, so a domain publishing a new one never
+        // touches this line. See [`authored_conditions`].
+        app.init_resource::<ambition_dialog::YarnContentBindings>();
+        app.world_mut()
+            .resource_mut::<ambition_dialog::YarnContentBindings>()
+            .installers
+            .push(authored_conditions::install_condition_binding);
     }
 }
+
+#[cfg(feature = "ui")]
+pub mod authored_conditions;
 
 /// Host-side dialogue bridge plugin: the reusable
 /// [`ambition_dialog::YarnBridgePlugin`] plus the [`sync_dialogue_game_mode`]

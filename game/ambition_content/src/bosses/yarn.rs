@@ -1,7 +1,7 @@
 //! Cut-rope boss Yarn vocabulary + mirror feed.
 //!
 //! The generic dialog runtime owns the shared commands/functions
-//! (`set_flag`, `inventory_has`, …); this module supplies the
+//! (`set_flag`, `boss_cleared`, …); this module supplies the
 //! Smirking Behemoth's named vocabulary through the
 //! [`YarnContentBindings`] installer seam and mirrors the boss-room
 //! state into the [`YarnStateMirrorData::extras`] map so the authored

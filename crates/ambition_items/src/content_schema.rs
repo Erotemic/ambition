@@ -149,7 +149,7 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         }
 
         // The authoring id is the identity. An empty one cannot be referred to
-        // by `inventory_has(...)` at all, so the row is unreachable content.
+        // by `condition("inventory.holds", ...)` at all, so the row is unreachable content.
         if dialog_id.is_empty() {
             out.report(
                 facet
@@ -160,7 +160,7 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
                     .at_field("dialog_id")
                     .fix(
                         "give it the stable lowercase authoring id scripts use — \
-                         `inventory_has(\"portalgun\")` is a dialog_id, and an empty one is a row \
+                         `condition(\"inventory.holds\", \"portalgun\")` names a dialog_id, and an empty one is a row \
                          nothing can name",
                     ),
             );
@@ -178,7 +178,7 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         // (GPT 5.6 review, finding 1.)
         out.define(id.clone(), format!("slot={index}\n{}", canonical(row)));
 
-        // Two rows answering one `inventory_has` is an authority conflict, not a
+        // Two rows answering one `inventory.holds` is an authority conflict, not a
         // duplicate: every script asking the question gets whichever the lookup
         // reaches first.
         if let Some(first) = owners.insert(dialog_id, index) {

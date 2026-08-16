@@ -1632,7 +1632,7 @@ needed `.chain()`; the comment above it already claimed the order).
 reconstruction, sequenced after the instance lifetime/provenance model — see
 [`engine/same-room-replay-is-a-second-constructor.md`](engine/same-room-replay-is-a-second-constructor.md).
 
-- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR CONDITIONS and OPEN FOR COMMANDS.**
+- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR CONDITIONS — provider AND consumer sides — and OPEN FOR COMMANDS.**
 
 ⛔⛔ **THIS ROW SAID "M1 PARKED" FOR A DAY AFTER M1'S ACCEPTANCE WAS MET.**
 Corrected 2026-08-16 against HEAD, not against the plan's prose. M1 asks for two
@@ -1644,6 +1644,27 @@ PRIVATE `publish` reachable only through `PublishCondition for App`;
 `world.flag_set` from unrelated domains; `world/gated_lock_walls` consumes one
 and names no flag; and `INTRO_FLAG_GATED_LOCK_WALLS` plus its 136-line const
 table were deleted in the same slice.
+
+⭐⭐ **AND THE RIVAL MECHANISM IS GONE (2026-08-16).** Authored `.yarn` had its
+own way to ask the world things — hand-written Yarn library functions over a
+per-frame `YarnStateMirror` — so a lock wall asking `world.flag_set` and a
+dialogue asking `flag("...")` were one question through two unrelated
+mechanisms. One generic verb, `condition("domain.question", <arg>)`, now
+forwards authored dialogue to whichever domain published the answer, with **no
+edit to any bridge or vocabulary table** to add a question. `inventory.holds`
+was published as the third provider in one line of composition; `flag(id)` and
+`inventory_has(item)` were **deleted** along with both mirror slices, the
+per-frame inventory refill, a duplicate item-spelling normaliser and a
+zero-adopter `legacy_dialog_alias`.
+
+⛔ **the belief that forced the mirror was FALSE at HEAD.** Three module headers
+said Yarn functions cannot be Bevy systems; `bevy_yarnspinner` runs the
+interpreter from an exclusive system and threads its `&mut World` down to
+`YarnFn::call_with_world`, and `SystemId<In<P>, O>` implements `YarnFn`. The
+verb reads the live world. ⚠ two honest limits recorded in the plan: Yarn's VM
+asserts exact arity so the verb takes exactly one argument, and
+`ParamKind::Reference` is refused rather than coerced from a quoted string —
+that refusal is M2's to replace.
 
 ⚠ **HALF the milestone, and the missing half is the interesting one: COMMANDS
 HAVE NO PROVIDER CONTRACT.** Conclusive grep — no `PublishCommand`, no command
@@ -1679,9 +1700,10 @@ encounter/cutscene/boss/moveset representation. The several partial
 condition → effect systems already in tree are **evidence and candidate
 customers**, not defects.
 
-✔ **M0 is COMPLETE** (14 systems inspected at HEAD, 2026-08-15). ⛔ **it is no
-longer the executable step** — M1 is, and M1 is **parked behind D125 and the
-reachability customer**. Nothing here is authorized to start.
+✔ **M0 is COMPLETE** (14 systems inspected at HEAD, 2026-08-15). ⛔ **and M1's
+condition half is complete too**, provider contract and consumer alike — see
+above. The executable step is **M1-commands or M2**, and they are not
+independent.
 
 ⇒ **M0 RAN 2026-08-15 and narrowed the design. 14 systems inspected.** Findings,
 in order of consequence:

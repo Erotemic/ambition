@@ -22,13 +22,20 @@
 //! game-state channel (`GameplayEffect::SetFlag`, `SfxMessage::Play`,
 //! …). Authored dialogue uses them to *drive* gameplay.
 //!
-//! **Functions** (`<<if boss_cleared("X")>>` syntax). Pure functions
-//! registered on the runner's `library_mut()`. Functions can't be
-//! Bevy systems — they're called synchronously from the runtime
-//! interpreter — so they read save state through a shared
-//! [`YarnStateMirror`] refreshed each frame by
+//! **Functions** (`<<if boss_cleared("X")>>` syntax). Pure closures
+//! registered on the runner's `library_mut()`, reading save state
+//! through a shared [`YarnStateMirror`] refreshed each frame by
 //! [`refresh_yarn_state_mirror`]. Authored dialogue uses them to
 //! *read* gameplay.
+//!
+//! ⛔ **this module's header used to say functions "can't be Bevy systems", and
+//! that was FALSE of the crate in the lockfile.** `SystemId<In<P>, O>` implements
+//! `YarnFn` and `bevy_yarnspinner` hands it the interpreter's live `&mut World`.
+//! ⇒ the mirror is a convenience for what has no published condition, not a
+//! necessity — and `flag(id)` is gone because `world.flag_set` is published. A
+//! new read here should first ask whether its domain can publish a condition
+//! instead; see
+//! [`ambition_platformer2d_actor_monolith::dialog::authored_conditions`].
 //!
 //! **Markup cues** (`Speaker: [shout]LINE[/shout]` inline). The
 //! bridge's `on_present_line` observer scans `LocalizedLine.attributes`
@@ -96,7 +103,7 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_actor_monolith::features::SetFlagRequested;
 
-use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
+use ambition_dialog::YarnStateMirror;
 
 use ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -121,7 +128,6 @@ pub fn install_game_bindings(
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
-    owned: Option<Res<ambition_platformer2d_actor_monolith::items::OwnedItems>>,
     wallet: Query<
         &ambition_characters::actor::BodyWallet,
         With<ambition_platformer2d_actor_monolith::actor::PrimaryPlayer>,
@@ -130,33 +136,19 @@ pub fn refresh_yarn_state_mirror(
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
     snap.wallet_balance = wallet.iter().next().map(|w| w.balance).unwrap_or(0);
-    // Inventory is a live ECS resource, not part of `AmbitionGameSave`;
-    // refresh it independently (and before the save early-return) so
-    // `inventory_has(...)` reflects pickups even in a save-less sandbox.
-    snap.inventory_counts.clear();
-    // Primary source: the 24-item catalog (superset). Insert each item under its
-    // catalog dialog id, plus a legacy alias (e.g. "healthpotion" → HealthCell)
-    // so older scripts keep resolving.
-    if let Some(owned) = owned.as_deref() {
-        for item in ambition_platformer2d_actor_monolith::items::Item::ALL {
-            let count = owned.count(item);
-            snap.inventory_counts
-                .insert(item.dialog_id().to_string(), count);
-            // Mirror under the legacy alias too (only "healthpotion" diverges)
-            // so older scripts using the old id keep resolving.
-            if let Some(alias) = item.legacy_dialog_alias() {
-                snap.inventory_counts.insert(alias.to_string(), count);
-            }
-        }
-    }
+    // ⛔ **the inventory slice is GONE** — a whole second copy of `OwnedItems`,
+    // rebuilt every frame under both a catalog id and a legacy alias, so that a
+    // synchronous `<<if>>` could read it. `inventory.holds` is published, so the
+    // `<<if>>` asks the bag.
     let Some(save) = save else {
         return;
     };
     let data = save.data();
-    snap.flags.clear();
-    for flag in &data.flags {
-        snap.flags.insert(flag.id.clone(), flag.on);
-    }
+    // ⛔ **the flag slice is GONE.** It existed so `flag(id)` could read a save
+    // flag synchronously; that question is the condition catalog's
+    // `world.flag_set`, asked live. ⚠ what is left in this function is the
+    // remainder the catalog cannot answer yet — see this module's header on why
+    // the mirror is now a projection rather than a peer.
     snap.bosses_cleared.clear();
     for boss in &data.bosses {
         if matches!(
@@ -469,13 +461,14 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| snap.bosses_cleared.contains(&id))
             .unwrap_or(false)
     });
-    // flag(id) -> bool: read a save flag.
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("flag", move |id: String| -> bool {
-        m.read()
-            .map(|snap| snap.flags.get(&id).copied().unwrap_or(false))
-            .unwrap_or(false)
-    });
+    // ⛔ **`flag(id)` USED TO BE HERE, and its deletion is what this file's
+    // mirror-shaped design cost.** A save flag is a world fact, the world-fact
+    // domain publishes `world.flag_set` into the condition catalog, and authored
+    // dialogue now asks it through the engine's generic
+    // `condition("world.flag_set", "<id>")` verb — the same road a lock wall
+    // takes. Two mechanisms answering one question is exactly the second
+    // authority this project refuses elsewhere. See
+    // `ambition_platformer2d_actor_monolith::dialog::authored_conditions`.
     // visit_count(id) -> f32: how many times the named dialogue
     // node has been entered. Returns f32 because Yarn arithmetic
     // is f32-typed (`<<if visit_count("oiler") == 1>>` etc.).
@@ -492,18 +485,13 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
             .map(|snap| snap.quests_active.contains(&id))
             .unwrap_or(false)
     });
-    // inventory_has(item) -> bool: does the player currently hold at
-    // least one of the named item? Reads the inventory slice the
-    // refresh system mirrors from `OwnedItems`. The item argument
-    // is normalized (lowercased, non-alphanumerics dropped) so
-    // `"HealthPotion"`, `"health_potion"`, and `"health potion"` all
-    // match the item's `dialog_id()`.
-    let m = Arc::clone(&mirror.0);
-    lib.add_function("inventory_has", move |item: String| -> bool {
-        m.read()
-            .map(|snap| mirror_inventory_has(&snap, &item))
-            .unwrap_or(false)
-    });
+    // ⛔ **`inventory_has(item)` USED TO BE HERE**, over a mirrored copy of the
+    // bag with its own spelling-normalisation and its own legacy-alias table.
+    // The inventory domain publishes `inventory.holds` into the condition
+    // catalog, so authored dialogue asks
+    // `condition("inventory.holds", "<item>")` and reads the live `OwnedItems`
+    // — with `Item::from_dialog_id` as the single owner of loose spelling. See
+    // `ambition_platformer2d_actor_monolith::items::conditions`.
     // wallet_balance() -> number: the player's current money, so a merchant node
     // can show it ("You have {wallet_balance()}g").
     let m = Arc::clone(&mirror.0);
@@ -521,25 +509,10 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     });
 }
 
-/// Pure `inventory_has` lookup over a mirror snapshot: true iff the
-/// player holds at least one of the named item. Split out from the
-/// registered closure so it is unit-testable without a live
-/// `DialogueRunner`.
-fn mirror_inventory_has(data: &YarnStateMirrorData, item: &str) -> bool {
-    let key = normalize_item_id(item);
-    data.inventory_counts.get(&key).copied().unwrap_or(0) > 0
-}
-
-/// Normalize an authored item id for `inventory_has` lookups:
-/// lowercase and strip every non-alphanumeric character. Mirrors how
-/// [`ambition_platformer2d_actor_monolith::items::Item::dialog_id`] is keyed, so authored
-/// dialogue can spell the item loosely.
-fn normalize_item_id(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_alphanumeric())
-        .flat_map(|c| c.to_lowercase())
-        .collect()
-}
+// ⛔ **`mirror_inventory_has` and `normalize_item_id` lived here** and are gone
+// with the function they served. `normalize_item_id` was a second copy of the
+// normalisation inside `Item::from_dialog_id` — the two agreed, which is the
+// only reason nobody noticed there were two.
 
 /// Register the generic custom dialogue commands on the runner. Called
 /// from `spawn_dialogue_runner`; content commands are installed right
@@ -576,35 +549,13 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_actor_monolith::items::{Item, OwnedItems};
+    use ambition_platformer2d_actor_monolith::items::Item;
 
-    #[test]
-    fn normalize_item_id_collapses_spelling_variants() {
-        assert_eq!(normalize_item_id("HealthPotion"), "healthpotion");
-        assert_eq!(normalize_item_id("health_potion"), "healthpotion");
-        assert_eq!(normalize_item_id("Health Potion"), "healthpotion");
-        assert_eq!(normalize_item_id("SPARE-BATTERY"), "sparebattery");
-        // The mirror is keyed by `dialog_id()`, which is already in
-        // normal form, so normalization is idempotent on the keys.
-        for item in Item::ALL {
-            assert_eq!(normalize_item_id(item.dialog_id()), item.dialog_id());
-        }
-    }
-
-    #[test]
-    fn mirror_inventory_has_reads_counts_with_loose_spelling() {
-        let mut data = YarnStateMirrorData::default();
-        data.inventory_counts.insert("healthpotion".into(), 2);
-        data.inventory_counts.insert("datachip".into(), 0);
-
-        // Present item, however the author spells it.
-        assert!(mirror_inventory_has(&data, "HealthPotion"));
-        assert!(mirror_inventory_has(&data, "health_potion"));
-        // Zero count reads as not held.
-        assert!(!mirror_inventory_has(&data, "DataChip"));
-        // Unknown item is not held.
-        assert!(!mirror_inventory_has(&data, "Grapple"));
-    }
+    // ⛔ **two tests died with the functions they pinned**
+    // (`normalize_item_id_collapses_spelling_variants`,
+    // `mirror_inventory_has_reads_counts_with_loose_spelling`). Their subject —
+    // loose item spelling — is now pinned once, in the item domain's own
+    // condition, where the single implementation of it lives.
 
     #[test]
     fn item_grant_resolves_known_kinds_and_ignores_bad_input() {
@@ -637,29 +588,12 @@ mod tests {
         assert_eq!(item_grant("DataChip", -3.0), None);
     }
 
-    #[test]
-    fn refresh_mirrors_player_inventory_into_the_snapshot() {
-        // Minimal app: no save / cut-rope resources (both Option<Res>
-        // resolve to None), only a live OwnedItems catalog + the mirror.
-        let mut app = App::new();
-        app.init_resource::<YarnStateMirror>();
-        app.insert_resource(OwnedItems::starter());
-        app.add_systems(Update, refresh_yarn_state_mirror);
-        app.update();
-
-        let mirror = app.world().resource::<YarnStateMirror>();
-        let snap = mirror.0.read().expect("mirror readable");
-        assert_eq!(
-            snap.inventory_counts.get("healthpotion").copied(),
-            Some(3),
-            "starter inventory carries three health cells, mirrored under the legacy alias"
-        );
-        // The catalog dialog id resolves too.
-        assert_eq!(snap.inventory_counts.get("healthcell").copied(), Some(3));
-        assert!(mirror_inventory_has(&snap, "HealthPotion"));
-        assert!(mirror_inventory_has(&snap, "SpareBattery"));
-        // Inventory must populate even though there is no AmbitionGameSave
-        // (the save early-return runs only after the inventory slice).
-        assert!(snap.flags.is_empty());
-    }
+    // ⛔ **`refresh_mirrors_player_inventory_into_the_snapshot` died too**, and
+    // its most interesting assertion — that inventory survives a save-less
+    // sandbox, because the slice was filled before the save early-return — is
+    // now structural rather than tested: there is no slice, and
+    // `inventory.holds` reads `OwnedItems` directly whether a save exists or not.
+    // `a_composition_with_no_inventory_cannot_answer` in
+    // `ambition_platformer2d_actor_monolith::items::conditions` pins the other
+    // half.
 }

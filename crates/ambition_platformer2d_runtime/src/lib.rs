@@ -500,6 +500,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             // publishes its own from `ItemPickupSimulationPlugin`, and neither
             // names the other.
             .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
+            // The inventory domain's provider, added for the same reason and in
+            // the same way. ⭐ it is the THIRD provider and it cost one line of
+            // composition — which is the acceptance clause, restated as code.
+            .add(ambition_platformer2d_actor_monolith::items::conditions::InventoryConditionsPlugin)
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.

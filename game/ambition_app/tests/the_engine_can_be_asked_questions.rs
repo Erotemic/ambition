@@ -14,8 +14,8 @@
 //! ⚠ **and it is deliberately thin on assertions about WHICH conditions exist.**
 //! Pinning the full catalog would make every new provider a failing test, which
 //! is the opposite of the property being built — new questions are supposed to be
-//! cheap. What is pinned is that two independent domains are present and that
-//! asking them returns real answers about real state.
+//! cheap. What is pinned is that independent domains are present and that asking
+//! them returns real answers about real state.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::platformer::authored_logic::{
@@ -196,5 +196,46 @@ fn the_world_fact_domain_answers_from_the_save_layer() {
         ask(&sim, &flag_set, &[ConditionArg::Name(flag.to_string())]),
         ConditionOutcome::Satisfied,
         "the domain reads the live save rather than a copy taken at startup"
+    );
+}
+
+/// **ASKING THE INVENTORY DOMAIN READS THE REAL BAG.**
+///
+/// ⭐ **the third domain, and it cost one line of composition.** It is here
+/// because it is the provider that let an authored Yarn function be deleted:
+/// `inventory_has(...)` was a closure over a mirrored copy of `OwnedItems` that
+/// `ambition_content` refilled every frame. ⚠ what is pinned is that the
+/// composed engine answers about live inventory — not that this domain exists in
+/// some list.
+#[test]
+fn the_inventory_domain_answers_about_the_live_bag() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 4);
+
+    let holds = ConditionId::new("inventory", "holds");
+    let carried = |sim: &Platformer2dSimHarness, item: &str| {
+        ask(sim, &holds, &[ConditionArg::Name(item.to_string())])
+    };
+
+    assert_eq!(
+        carried(&sim, "HealthPotion"),
+        ConditionOutcome::Satisfied,
+        "the app's starter bag carries health cells, and loose authored spelling \
+         resolves through the item catalog's single normaliser"
+    );
+
+    // Empty the slot through the domain's own API; the answer follows, with
+    // nothing refreshed and no snapshot in between.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::items::OwnedItems>()
+        .take(ambition_platformer2d::items::Item::HealthCell, u32::MAX);
+    assert_eq!(carried(&sim, "healthcell"), ConditionOutcome::NotSatisfied);
+
+    // ⭐ and a kind no catalog row spells is UNANSWERABLE rather than "no",
+    // which is what turns an authored typo into a diagnostic.
+    let outcome = carried(&sim, "a_thing_this_game_has_no_row_for");
+    assert!(
+        matches!(outcome, ConditionOutcome::Unanswerable(_)),
+        "got {outcome:?}"
     );
 }

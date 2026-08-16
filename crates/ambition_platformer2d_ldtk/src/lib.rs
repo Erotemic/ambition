@@ -28,7 +28,12 @@
 //!   the two languages cannot drift.
 //! - `bevy_runtime` — bevy_ecs_ldtk plugin glue + runtime-spine
 //!   indexing.
-//! - `hot_reload` — file-watch + transactional reload state.
+//! - ⛔ **no `hot_reload`.** `LdtkHotReloadState`/`poll_ldtk_file_changes` —
+//!   an `Option<PathBuf>`, a poll timer, an mtime, and a status string — moved
+//!   to `ambition_dev_tools::hot_reload` on 2026-08-16 (D136) as
+//!   `WorldSourceHotReload`/`poll_world_source_changes`. Nothing in it knew
+//!   about LDtk except the text of its status strings; its consumers are the
+//!   developer controls, which is where it now lives.
 //! - `intgrid`, `fields`, `surfaces` — IntGrid emission, field
 //!   accessors, typed `Surface` parsing.
 //! - ⛔ **no `manifest`.** `WorldManifest`/`WorldSource` — a game's
@@ -49,7 +54,6 @@ pub mod bevy_runtime;
 pub mod contract;
 mod conversion;
 mod fields;
-mod hot_reload;
 mod intgrid;
 mod loading;
 mod project;
@@ -62,7 +66,6 @@ pub use bevy_runtime::*;
 pub use conversion::{
     kinematic_path_lookup_id, LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission,
 };
-pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // ⛔ **`WorldManifest`/`WorldSource` are NOT re-exported here, and the absence
 // is the point.** They moved DOWN to
 // `ambition_platformer2d_world::world_manifest` on 2026-08-16 (D136): a

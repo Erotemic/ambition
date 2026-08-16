@@ -8,7 +8,6 @@ description = "LDtk backend adapter for Ambition authored world IR."
 
 [features]
 default = ["ldtk_runtime", "portal_ldtk"]
-dev_hot_reload = []
 static_map = ["ambition_asset_manager/static_map"]
 ldtk_runtime = ["dep:bevy_asset_loader", "dep:bevy_ecs_ldtk"]
 portal = []

@@ -93,7 +93,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ldtk_world::LdtkRuntimeIndex,
     >,
-    mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
+    mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
         Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,

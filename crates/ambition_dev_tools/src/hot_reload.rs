@@ -1,0 +1,153 @@
+//! **A debounced mtime watch over the authored world file, and the
+//! transactional reload it offers the developer controls.**
+//!
+//! ⭐ **this is an engine concept that spent its life wearing an LDtk name.**
+//! Until 2026-08-16 it was `ambition_platformer2d_ldtk::LdtkHotReloadState` +
+//! `poll_ldtk_file_changes`, and the only thing in it that knew about LDtk was
+//! the text of its status strings. What it actually is: an `Option<PathBuf>`, a
+//! poll timer, a last-seen `SystemTime`, and a pending/applied/failed status —
+//! the same shape for any authoring format a game watches on disk. It lived in
+//! the format crate because that is where someone first needed it, which is the
+//! same finding as `WorldManifest` one slice earlier.
+//!
+//! It lives here because its consumers are the developer controls: the
+//! Developer settings page's auto-apply row sits directly beside rows sourced
+//! from [`DeveloperRuntimeState`](crate::dev_tools::DeveloperRuntimeState) and
+//! [`DeveloperTools`](crate::dev_tools::DeveloperTools), both of which are this
+//! crate's. The APPLY half — parse the file, validate the room graph, commit or
+//! reject — stays with the game that knows the format.
+//!
+//! ⚠ **the watcher does not resolve its own path.** Resolution needs the asset
+//! catalog and the world manifest, which are the composing game's; a
+//! constructor that took both is what put an asset-profile decision inside a
+//! format adapter. [`WorldSourceHotReload::watching`] takes the path the caller
+//! already resolved, and [`WorldSourceHotReload::unavailable`] takes the
+//! caller's reason for there not being one.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use bevy::prelude::{Res, ResMut, Resource, Time};
+
+/// Watch state for the authored world file the developer controls can reload.
+#[derive(Resource, Clone, Debug)]
+pub struct WorldSourceHotReload {
+    pub pending: bool,
+    pub auto_apply: bool,
+    pub poll_timer: f32,
+    pub last_modified: Option<SystemTime>,
+    pub last_status: String,
+    pub last_errors: Vec<String>,
+    pub applied_count: u32,
+    /// Local filesystem path the watcher polls, when both the active asset
+    /// profile and the resolved world location support filesystem hot reload.
+    /// `None` for bundled / web / embedded profiles — the watcher is
+    /// effectively disabled there.
+    pub watch_path: Option<PathBuf>,
+}
+
+impl Default for WorldSourceHotReload {
+    fn default() -> Self {
+        Self {
+            pending: false,
+            auto_apply: false,
+            poll_timer: 0.0,
+            last_modified: None,
+            last_status: "world hot reload idle".to_string(),
+            last_errors: Vec::new(),
+            applied_count: 0,
+            watch_path: None,
+        }
+    }
+}
+
+impl WorldSourceHotReload {
+    /// Arm the watcher on an already-resolved local path, taking its current
+    /// mtime as the baseline. A path that cannot be stat'd arms nothing and
+    /// reports why.
+    pub fn watching(path: PathBuf) -> Self {
+        let mut state = Self::default();
+        match modified_time_for(&path) {
+            Ok(modified) => {
+                state.last_modified = Some(modified);
+                state.last_status = format!("world hot reload watching {}", path.display());
+            }
+            Err(error) => {
+                state.last_status = error;
+            }
+        }
+        state.watch_path = Some(path);
+        state
+    }
+
+    /// No path to watch, and the caller's reason — an asset profile that does
+    /// not support filesystem watching, most often.
+    pub fn unavailable(reason: impl Into<String>) -> Self {
+        Self {
+            last_status: reason.into(),
+            ..Self::default()
+        }
+    }
+
+    pub fn mark_pending(&mut self, modified: SystemTime) {
+        self.last_modified = Some(modified);
+        self.pending = true;
+        self.last_errors.clear();
+        self.last_status =
+            "world file change detected; use Apply Reload from the developer controls".to_string();
+    }
+
+    pub fn mark_applied(&mut self, room: &str) {
+        self.pending = false;
+        self.applied_count = self.applied_count.saturating_add(1);
+        self.last_errors.clear();
+        self.last_status = format!("world reload applied to '{room}' (#{})", self.applied_count);
+    }
+
+    pub fn mark_failed(&mut self, errors: Vec<String>) {
+        self.pending = false;
+        self.last_errors = errors;
+        let first = self
+            .last_errors
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "unknown world reload failure".to_string());
+        self.last_status = format!("world reload rejected: {first}");
+    }
+}
+
+fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|error| {
+            format!(
+                "could not read modified time for {}: {error}",
+                path.display()
+            )
+        })
+}
+
+/// Debounced mtime poll. Short-circuits when no path is armed.
+pub fn poll_world_source_changes(time: Res<Time>, mut state: ResMut<WorldSourceHotReload>) {
+    state.poll_timer -= time.delta_secs();
+    if state.poll_timer > 0.0 {
+        return;
+    }
+    state.poll_timer = 0.35;
+    let Some(path) = state.watch_path.clone() else {
+        return; // Profile doesn't support watching — stay idle.
+    };
+    let Ok(modified) = modified_time_for(&path) else {
+        return;
+    };
+    let changed = state
+        .last_modified
+        .map(|last| modified > last)
+        .unwrap_or(false);
+    if changed {
+        state.mark_pending(modified);
+    } else if state.last_modified.is_none() {
+        state.last_modified = Some(modified);
+    }
+}

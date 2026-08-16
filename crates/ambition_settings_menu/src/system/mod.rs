@@ -67,7 +67,7 @@ pub enum DevToggleId {
     DebugArtMode,
     PlayerBodyProfile,
     MovementProfile,
-    // LDtk hot-reload (sourced from `LdtkHotReloadState`, not `DeveloperTools`).
+    // LDtk hot-reload (sourced from `WorldSourceHotReload`, not `DeveloperTools`).
     LdtkAutoApply,
     // Menu frontend (sourced from `InventoryUiBackend`, not `DeveloperTools`): the
     // in-menu equivalent of the `\` hotkey, cycling Grid ↔ Cube. A toggle (two
@@ -93,7 +93,7 @@ impl DevToggleId {
     /// Every developer toggle/cycle, grouped Global Flags → Inspectors → Debug
     /// Visuals → Camera → Profiles → LDtk, in display order. The first two
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
-    /// `DeveloperRuntimeState` / `LdtkHotReloadState` (not `DeveloperTools`). Physical
+    /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
     pub const ALL: [Self; 22] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into

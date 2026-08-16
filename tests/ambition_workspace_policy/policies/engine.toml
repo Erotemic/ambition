@@ -1820,9 +1820,15 @@ severity = "error"
 # runtime still declares `ambition_platformer2d_ldtk` — it installs the room-load
 # spine and owns the rollback domain — and `capability-footprint-may-not-grow`
 # still reads 42/15 with `ambition_platformer2d_ldtk` among the fifteen, because
-# what holds it in a movement-only game's closure is the MONOLITH: seven
-# production files there need `WorldManifest`, `LdtkProject`, `ActiveLdtkProject`,
-# `LdtkHotReloadState`, `poll_ldtk_file_changes` and the `field_*` readers. ⇒ a
+# what holds it in a movement-only game's closure is the MONOLITH. ⚠ that list
+# has SHRUNK twice since and the count is worth re-measuring, not quoting:
+# `WorldManifest` moved to `ambition_platformer2d_world` and
+# `LdtkHotReloadState`/`poll_ldtk_file_changes` moved to `ambition_dev_tools` as
+# `WorldSourceHotReload` (D136, 2026-08-16). What is left is five production
+# files (encounter loading/systems, the map menu, gated lock walls, `world/mod`)
+# naming `LdtkProject`, `LdtkLevel`, `ActiveLdtkProject`, `LdtkVocabulary` and
+# the `field_*` readers — all genuinely LDtk, and the encounter half is the
+# large remaining work. ⇒ a
 # dependency-denylist row could not have stated the wart, and removing the wart
 # does not move a dependency count. Two different instruments, two different
 # facts — which is exactly why leaving this row here to gesture at the wart

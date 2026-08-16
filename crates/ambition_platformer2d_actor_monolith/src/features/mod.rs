@@ -422,14 +422,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         );
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
-        // Hot-reload watcher state read by `poll_ldtk_file_changes` below.
-        // Default = watcher disabled; the visible app pre-inserts its
-        // `from_catalog` value before the engine group (init never clobbers).
-        app.init_resource::<ambition_platformer2d_ldtk::LdtkHotReloadState>();
+        // Hot-reload watcher state read by `poll_world_source_changes` below.
+        // Default = watcher disabled; the visible app pre-inserts its resolved
+        // value before the engine group (init never clobbers).
+        app.init_resource::<ambition_dev_tools::WorldSourceHotReload>();
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_ldtk::poll_ldtk_file_changes,
+                ambition_dev_tools::poll_world_source_changes,
                 // Sprite-driven boss metrics must be available before
                 // boss damageable/pogo volumes are derived, otherwise
                 // composite bosses such as GNU-ton would briefly fall

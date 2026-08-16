@@ -8,7 +8,6 @@ use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::KeyboardPreset;
-use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::HudText;
 
@@ -67,7 +66,7 @@ pub(super) fn update_hud(
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,
-    _ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
+    _ldtk_reload: Res<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the

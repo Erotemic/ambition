@@ -48,7 +48,7 @@ impl LdtkProject {
     /// - Filesystem-resident location: reads the file at the catalog's
     ///   `LocalPath` candidate, falling back to the row's embedded text if
     ///   disk IO fails. Hot reload remains armed via
-    ///   [`crate::LdtkHotReloadState`].
+    ///   `ambition_dev_tools::WorldSourceHotReload`.
     /// - Embedded / Bevy-path-only locations (Android, iOS, web, bundled):
     ///   parses the row's `embedded_text`.
     /// - `NoAssets` / `Headless`: returns the required-asset error

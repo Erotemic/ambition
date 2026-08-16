@@ -23,10 +23,14 @@
 //! `ambition_platformer2d_actor_monolith::dev::trace`.
 
 pub mod dev_tools;
+/// The authored world file's mtime watch + reload status — the state half of
+/// the Developer page's auto-apply row.
+pub mod hot_reload;
 pub mod persistence;
 pub mod profiling;
 pub mod sim_plugin;
 
+pub use hot_reload::{poll_world_source_changes, WorldSourceHotReload};
 pub use persistence::DeveloperPersistenceSchedulePlugin;
 pub use sim_plugin::{DevEditApplySet, DevInspectorMirrorSet, DevToolsSimPlugin};
 

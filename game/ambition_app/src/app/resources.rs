@@ -318,11 +318,40 @@ pub fn init_sandbox_resources(app: &mut App) {
         builds_a_home_body,
     });
 
+    // ⚠ **the watcher does not resolve its own path any more** (2026-08-16,
+    // D136). Its constructor used to take the asset catalog AND the world
+    // manifest, which put an asset-profile decision inside a format adapter's
+    // resource; the watcher is a debounced mtime poll over an `Option<PathBuf>`
+    // and nothing more. The catalog, the manifest and this binary's
+    // `dev_hot_reload` feature all live HERE, so the resolution does too.
+    //
+    // ⭐ and the feature check is only truthful here. It used to sit in
+    // `ambition_platformer2d_ldtk`, which declared a `dev_hot_reload` feature
+    // NOBODY forwarded — `ambition_platformer2d` routes it to the actor
+    // monolith's `bevy/file_watcher` — so the `cfg!` was permanently false and
+    // the status line advised turning on a flag you had already turned on.
+    let hot_reload = match sandbox_catalog.hot_reload_local_path(&world_manifest.primary().id) {
+        Some(path) => {
+            let mut state = ambition_platformer2d::dev_tools::WorldSourceHotReload::watching(path);
+            if state.last_modified.is_some() {
+                state.last_status = if cfg!(feature = "dev_hot_reload") {
+                    "LDtk hot reload watching; use Apply Reload or toggle Auto-Apply from the developer controls"
+                        .to_string()
+                } else {
+                    "LDtk hot reload polling; run with --features dev_hot_reload for Bevy file watching too"
+                        .to_string()
+                };
+            }
+            state
+        }
+        None => ambition_platformer2d::dev_tools::WorldSourceHotReload::unavailable(format!(
+            "LDtk hot reload inactive: profile {} does not support filesystem watching",
+            sandbox_catalog.profile().label(),
+        )),
+    };
+
     app.insert_resource(ldtk_world::ActiveLdtkProject(ldtk_project.clone()))
-        .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
-            &sandbox_catalog,
-            &world_manifest,
-        ))
+        .insert_resource(hot_reload)
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())

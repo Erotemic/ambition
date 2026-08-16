@@ -22,7 +22,7 @@ use ambition_dev_tools::dev_tools::{
     EditableMovementTuning,
 };
 use ambition_dev_tools::DeveloperRuntimeState;
-use ambition_platformer2d_ldtk::LdtkHotReloadState;
+use ambition_dev_tools::WorldSourceHotReload;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user
@@ -560,7 +560,7 @@ fn format_toggle(label: &str, value: bool) -> String {
 }
 
 /// Snapshot of the developer-page toggles, sampled from the live
-/// resources (`DeveloperTools`, `LdtkHotReloadState`)
+/// resources (`DeveloperTools`, `WorldSourceHotReload`)
 /// so the pause-menu renderer can label rows without holding `Res`
 /// handles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -587,7 +587,7 @@ impl DevToggleSnapshot {
     pub fn capture(
         dev_state: &DeveloperRuntimeState,
         developer: &DeveloperTools,
-        ldtk_reload: &LdtkHotReloadState,
+        world_reload: &WorldSourceHotReload,
     ) -> Self {
         Self {
             debug_overlay: dev_state.debug_enabled(),
@@ -605,7 +605,7 @@ impl DevToggleSnapshot {
             camera_frame: developer.show_camera_frame,
             player_body_profile: developer.player_body_profile,
             movement_profile: developer.movement_profile,
-            ldtk_auto_apply: ldtk_reload.auto_apply,
+            ldtk_auto_apply: world_reload.auto_apply,
         }
     }
 }
@@ -754,7 +754,7 @@ pub fn apply_action(
     dev_state: &mut DeveloperRuntimeState,
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
-    ldtk_reload: &mut LdtkHotReloadState,
+    world_reload: &mut WorldSourceHotReload,
     live_movement_refs: Option<(
         &mut crate::actor::BodyKinematics,
         &crate::actor::BodyAbilities,
@@ -908,10 +908,10 @@ pub fn apply_action(
             }
         },
         SettingsItem::LdtkAutoApply => apply_toggle(action, || {
-            ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
-            ldtk_reload.last_status = format!(
+            world_reload.auto_apply = !world_reload.auto_apply;
+            world_reload.last_status = format!(
                 "LDtk auto-apply {}",
-                if ldtk_reload.auto_apply {
+                if world_reload.auto_apply {
                     "enabled"
                 } else {
                     "disabled"

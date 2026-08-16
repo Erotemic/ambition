@@ -1212,7 +1212,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "LDtk parity diagnostics, not gameplay state",
     ),
     (
-        "::hot_reload::LdtkHotReloadState",
+        "::hot_reload::WorldSourceHotReload",
         "dev hot-reload machinery; a commit restarts the GGRS session",
     ),
     // Settings and tuning: forward-only knobs, not per-frame simulation state.

@@ -15,10 +15,13 @@
 //!
 //! ## The four features, and why each is a fact about the VIEW
 //!
-//! - **`reach_fit`** — does this attack's `reach` match the gap to the opponent?
-//!   A jab at three body-lengths scores nothing, and neither does a lunge in
-//!   someone's face. This is what makes the brain *understand a new character*:
-//!   the reach comes from CM7's frame data, not from a table someone typed.
+//! - **`reach_fit`** — can this attack's hittable REGION cover where the
+//!   opponent actually is? A jab at three body-lengths scores nothing, and
+//!   neither does an up-tilt against someone standing in front of you. This is
+//!   what makes the brain *understand a new character*: the region comes from
+//!   CM7's frame data (`MoveFrameData::coverage`), not from a table someone
+//!   typed. ⚠ the WEIGHT keeps the name `reach_fit` because ladders author it by
+//!   that name; what changed is that both terms are 2-D — see [`coverage_fit`].
 //! - **`frame_advantage`** — will this attack's `startup_s` beat what the opponent
 //!   is already committed to (`phase_remaining`)? Positive means it lands first.
 //!   A player who read the frame data knows this number; so does the brain.
@@ -119,7 +122,8 @@ pub struct AttackOption {
 /// comparable number rather than a unit conversion.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Features {
-    /// `0..=1`. 1 when the attack's reach exactly spans the gap.
+    /// `0..=1`. 1 when the attack's hittable region already covers the
+    /// opponent's hurtbox, falling off with the miss ([`coverage_fit`]).
     pub reach_fit: f32,
     /// `-1..=1`. Positive when `startup_s` beats the opponent's commitment.
     pub frame_advantage: f32,
@@ -367,6 +371,14 @@ pub fn generate_options(
         // this function cannot ask one. If a caller ever takes `.first()` here
         // as the recovery, the tiny-rising-aerial trap is back.
         //
+        // ⭐ **the caller that did exactly that is GONE (2026-08-15).** `decide`
+        // fell through to `options.attacks.first()` whenever the search endorsed
+        // nothing, which on the smash stage was 97 of 100 recovery decisions; it
+        // now presses NOTHING on that branch, so the kernel's answer stands in
+        // both directions and this list is a proposal in fact and not only in
+        // prose. ⚠ the warning above is kept because it is about the NEXT
+        // caller, not the last one.
+        //
         // ⚠ **and it is the ORDER the lens searches**, so the two layers agree
         // about which route index means which move.
         let mut attacks: Vec<AttackOption> = lifts
@@ -396,7 +408,22 @@ pub fn generate_options(
     }
     let foe = foe.expect("checked");
 
-    let gap = (foe.pos - me.pos).length();
+    // ⭐⭐ **WHERE THE OPPONENT IS, not merely how far away.** This was
+    // `let gap = (foe.pos - me.pos).length()`, and throwing the direction away is
+    // the whole of why no kit's vertical game was ever selected — see
+    // [`coverage_fit`].
+    //
+    // Body-local and facing-relative, the frame the authored volumes are in:
+    // `+x` toward this body's facing, `+y` toward its feet.
+    let to_foe = foe.pos - me.pos;
+    let basis = me.acceleration_frame();
+    let foe_local = (
+        to_foe.dot(basis.side) * if me.facing < 0.0 { -1.0 } else { 1.0 },
+        to_foe.dot(basis.down),
+    );
+    // A hitbox catches a HURTBOX. Asking whether the foe's CENTRE is inside a
+    // volume would refuse every move that clips a tall body's shoulder.
+    let foe_extent = (foe.half_extent.x, foe.half_extent.y);
     let stage_risk = {
         let half_stage = (view.stage.bounds.max - view.stage.bounds.min).length() * 0.5;
         if half_stage <= 0.0 {
@@ -426,7 +453,7 @@ pub fn generate_options(
                 0.0
             };
             let features = Features {
-                reach_fit: reach_fit(c.frames.reach, gap),
+                reach_fit: coverage_fit(c.frames.coverage.as_ref(), foe_local, foe_extent),
                 frame_advantage: fa,
                 kill_potential: foe.damage_frac(),
                 stage_risk,
@@ -457,11 +484,18 @@ pub fn generate_options(
     // feature's own doc already says, that a miss by a mile and a miss by two are
     // equally useless.
     //
-    // ⚠ **a zero-reach move is NOT filtered.** `reach_fit` returns 0 for a buff
-    // or a summon because reach is not its question; dropping those would delete
-    // a whole class of move from every kit that has one. Only a move that HAS a
-    // reach and cannot span the gap goes.
-    attacks.retain(|attack| attack.frames.reach <= 0.0 || attack.features.reach_fit > 0.0);
+    // ⚠ **a move that lands NO volume is NOT filtered.** `coverage_fit` returns 0
+    // for a buff or a summon because hitting is not its question; dropping those
+    // would delete a whole class of move from every kit that has one. Only a move
+    // that HAS a hittable region and cannot cover where the foe is goes.
+    //
+    // ⛔ this asked `frames.reach <= 0.0`, and `reach` is the `+x` face alone —
+    // so every move whose volume sits BEHIND the body (a back-air's does)
+    // reported reach `0.0`, took this exemption, and rode into every ranking at
+    // any distance with a fit of zero. Measured 2026-08-15: `air_back` was the
+    // most-selected move in one seat's whole `Disadvantage` column while being
+    // the one move the filter could not see.
+    attacks.retain(|attack| attack.frames.coverage.is_none() || attack.features.reach_fit > 0.0);
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).
@@ -475,9 +509,67 @@ pub fn generate_options(
     OptionSet { movement, attacks }
 }
 
+/// **`1` when this move's hittable region already covers the opponent**, falling
+/// to `0` as the miss grows past [`REACH_TOLERANCE`] × the region's own span. A
+/// move that lands no volume (a buff, a summon, a pure-motion recovery) has no
+/// fit anywhere and must be priced by its other features alone.
+///
+/// ⛔⛔ **this replaces a 1-D `reach_fit(reach, gap)` and the difference is the
+/// single largest thing measured wrong in the fighter brain** (2026-08-15,
+/// CPU-versus-CPU). `reach` is only the `+x` face of the authored volumes and
+/// `gap` was `(foe.pos - me.pos).length()` — a scalar against a scalar — so:
+///
+/// * an up-tilt whose volume sits above the shoulder projected onto `+x` as a
+///   ~30px poke, scored identically to the jab, and lost the tie on startup.
+///   **Every** anti-air, juggle and spike in **every** kit was therefore unpicked
+///   for the reason it was authored, and the CPU played one plane of a two-plane
+///   game;
+/// * a move BEHIND the body reported `reach = 0` (the fold clamps at zero) and
+///   was exempted from the "cannot reach" filter entirely;
+/// * and the old shape scored a miss the same whether the opponent was that far
+///   AWAY or that far ABOVE.
+///
+/// ⭐ `foe_local` is the opponent's centre in the body's own facing-relative
+/// frame and `foe_extent` its half-extent, so the question asked is the one the
+/// hitbox will actually answer: *would this volume overlap that hurtbox from
+/// here?* Nothing here reads a move id, a character or a role.
+///
+/// ⭐ **the CURVE is the old one, unchanged, and that is deliberate.** What
+/// changed is only which `reach` it is asked about: the move's extent along the
+/// line to the opponent rather than along `+x`. So the spacing behaviour a match
+/// already had — different moves winning at different distances, a lunge scoring
+/// badly from touching range — survives intact, and gains the other axis.
+///
+/// ⛔⛔ **a flat "inside the box scores 1" was tried first and is WRONG, measured
+/// the same afternoon.** With every covering move scoring 1.0, and
+/// `frame_advantage` pinned at `-1` for every move in neutral (nobody is
+/// committed, so nothing beats anything) and `expected_payoff` therefore zero,
+/// EVERY grounded option tied on total score — and the ADR-0023 tiebreak, which
+/// exists so a choice never depends on iteration luck, handed the match to
+/// whichever move id sorts first. George Booul threw `bivalence` 18 times out of
+/// 33 and never threw his recovery. A gate that does not discriminate does not
+/// stop being the discriminator; it just delegates to the alphabet.
+pub fn coverage_fit(
+    coverage: Option<&ambition_entity_catalog::MoveCoverage>,
+    foe_local: (f32, f32),
+    foe_extent: (f32, f32),
+) -> f32 {
+    let Some(coverage) = coverage else {
+        return 0.0;
+    };
+    // How far the move reaches THAT WAY, against how far away they are.
+    let reach = coverage.extent_toward(foe_local, foe_extent);
+    let gap = (foe_local.0 * foe_local.0 + foe_local.1 * foe_local.1).sqrt();
+    reach_fit(reach, gap)
+}
+
 /// `1` when the attack's reach exactly spans the gap, falling to `0` as the miss
-/// grows past [`REACH_TOLERANCE`] × reach. A zero-reach move (a buff, a summon)
-/// has no fit at any distance and must be priced by its other features alone.
+/// grows past [`REACH_TOLERANCE`] × reach. A move that reaches nowhere in the
+/// asked direction (a buff, a summon, an up-tilt against a foe on the floor
+/// beside you) has no fit and must be priced by its other features alone.
+///
+/// ⚠ **1-D on purpose** — it is the shape of the judgement, and
+/// [`coverage_fit`] owns which direction it is applied along.
 pub fn reach_fit(reach: f32, gap: f32) -> f32 {
     if reach <= 0.0 {
         return 0.0;

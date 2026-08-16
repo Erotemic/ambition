@@ -481,6 +481,278 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
     );
 }
 
+/// **THE 3-2-1-GO IS ON THE SCREEN.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"I think there is also a countdown
+/// to start the match, but there is no visual indication of that countdown, like
+/// a 3, 2, 1, go."* There WAS a countdown — the fighters are held and released
+/// by it — and it announced itself into a channel nothing draws. Every existing
+/// test proved the HOLD (the fighters do not move during the ceremony); none
+/// asked whether a player could see why.
+///
+/// ⭐ so this watches the slot the stage DECLARES, `smash_announce`: the centred
+/// card the HUD renders, beside the fighter percents that were always visible.
+/// Before the rewiring the slot was declared and never written once, so this
+/// finds an empty card for the whole ceremony.
+///
+/// ⚠ **it asserts the COUNT, not the tick.** Which frame carries "2" is a tuning
+/// fact about `opening_countdown_ticks`; that a player is counted in with three
+/// numbers and then told to go is the genre's shape and the thing that was
+/// missing.
+#[test]
+fn the_opening_countdown_is_something_a_player_can_see() {
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let slot = ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
+    let countdown = ambition_demo_smash::smash_roster([
+        ambition_demo_smash::SMASH_CHARACTER_ID,
+        ambition_demo_smash::SMASH_OPPONENT_ID,
+    ])
+    .opening_countdown_ticks as usize;
+
+    let mut said: Vec<String> = Vec::new();
+    let mut cleared_after = false;
+    // The ceremony, plus enough afterwards for the GO card to retire.
+    for _ in 0..(countdown * 3 + 240) {
+        app.update();
+        let shown = app
+            .world()
+            .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .and_then(|readouts| readouts.get(&slot))
+            .map(ambition_platformer2d::presentation::HudReadout::text);
+        match shown {
+            Some(text) => {
+                if said.last() != Some(&text) {
+                    said.push(text);
+                }
+                // A card coming back after the ceremony retired would mean the
+                // clear is fighting a writer.
+                cleared_after = false;
+            }
+            None => cleared_after = !said.is_empty(),
+        }
+    }
+
+    assert_eq!(
+        said,
+        vec![
+            "3".to_string(),
+            "2".to_string(),
+            "1".to_string(),
+            "GO!".to_string()
+        ],
+        "the opening card showed {said:?} — a player is counted in with three \
+         numbers and then told to go, or the ceremony is invisible"
+    );
+    assert!(
+        cleared_after,
+        "the GO card never came down, so it sits on top of the match it announced"
+    );
+}
+
+/// **THE CAMERA COMES BACK NO FASTER THAN IT LEFT.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"the camera zooms out when someone
+/// flys off the stage, and that is good, but when they die in the blast zone
+/// instead of having a smooth camera transition back, it just snaps back to the
+/// main stage."*
+///
+/// Both halves of that sentence are one number, which is why this measures the
+/// RATIO rather than either rate. Measured before the fix, over four knockouts
+/// in one CPU-versus-CPU match:
+///
+/// ```text
+///   widest single-frame OPEN    49.3      (a ramp over 7-8 frames, 800 -> 1115)
+///   widest single-frame CLOSE  360.9      (one frame, straight back to 800)
+/// ```
+///
+/// The open was never eased and never needed to be — its input is a body
+/// flying, already continuous. The close is a DISCONTINUITY: the body is taken
+/// out of play and the cast's bounding box collapses between two frames. After
+/// easing only the close, the same run reads `open 57.5 / close 68.9`.
+///
+/// ⚠ **the non-vacuity guard is the OPEN**, and it is doing real work: a match
+/// where nobody was ever launched far enough to widen the frame would satisfy
+/// any ratio at all, and this fixture is a live fight rather than a scripted
+/// one.
+#[test]
+fn the_camera_closes_no_faster_than_it_opened() {
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let mut previous: Option<ambition_platformer2d::engine_core::Vec2> = None;
+    let mut widest_open = 0.0f32;
+    let mut widest_close = 0.0f32;
+    for tick in 0..5_400 {
+        app.update();
+        let view = {
+            let world = app.world_mut();
+            let observer = ambition_platformer2d::sim_view::the_only_view(world);
+            world
+                .entity(observer)
+                .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+                .map(|resolved| resolved.snapshot.visible_view)
+        };
+        let Some(view) = view else { continue };
+        if let Some(previous) = previous {
+            let step = (view - previous).length();
+            if view.x > previous.x {
+                widest_open = widest_open.max(step);
+            } else if view.x < previous.x {
+                // ⚠ skip the opening frames: the first resolve ADOPTS the cast's
+                // framing rather than easing to it, which is correct (a match
+                // opens already framed) and is not a transition anybody sees.
+                if tick > 60 {
+                    widest_close = widest_close.max(step);
+                }
+            }
+        }
+        previous = Some(view);
+    }
+
+    assert!(
+        widest_open > 25.0,
+        "the frame never widened by more than {widest_open:.1} units in a frame, \
+         so nobody was launched far enough to move the camera and the ratio \
+         below is about a match that never happened"
+    );
+    assert!(
+        widest_close <= widest_open * 2.0,
+        "the camera closed by {widest_close:.1} units in one frame having opened \
+         by at most {widest_open:.1} — the return is a cut, not a transition"
+    );
+}
+
+/// **A MATCH SOMEBODY WINS ACTUALLY ENDS.**
+///
+/// ⛔⛔ reported from the couch, 2026-08-15: *"there seems like several cases
+/// where everyone but one player dying will not cause a match to end
+/// correctly."* Every other test in this file measures a KNOCKOUT — the launch,
+/// the blast boundary, the stock spend, the respawn, the body that stops
+/// falling. None of them asks the question a viewer asks, which is whether the
+/// match is over when only one fighter is left.
+///
+/// ⚠ **"several cases" is the shape of a SCHEDULING AMBIGUITY, and that is what
+/// it was.** `decide_stocks_match` reads the sides off the bodies that still
+/// exist; `take_eliminated_fighters_out_of_play` despawns an eliminated body.
+/// Both sat in `CombatSet::Settle` with nothing ordering them, and the ruleset's
+/// `.chain()` inserts an `ApplyDeferred` that makes the despawn visible part-way
+/// through the set. Lose the last loser's row and `last_side_standing` sees ONE
+/// side — and one side is not a match, so it answers `None` forever. Whether a
+/// match ended depended on how the scheduler broke a tie, which is why it
+/// happened in some compositions and not others.
+///
+/// ⭐ PROBED RED: with `take_eliminated_fighters_out_of_play` ordered
+/// `.before(MatchOutcomeDecided)` instead of after — the broken order, made
+/// explicit — this runs a full match, watches a fighter be eliminated, and never
+/// settles.
+///
+/// ⚠ **the elimination is asserted first**, because a match that simply never
+/// got anybody killed would settle nothing and the claim below would be about a
+/// fight that did not happen.
+#[test]
+fn a_match_whose_last_loser_is_removed_still_decides() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::combat::components::FighterStocks;
+    use ambition_platformer2d::combat::stocks::StocksMatchSettled;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    // BOTH seats CPU, so somebody actually loses. `smash_roster` makes seat 0 a
+    // human with no controller, which is a match one fighter cannot lose.
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[5, 5],
+        ));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    // ⚠ **seats, not stocks.** A fighter reduced to zero is ELIMINATED and
+    // removed in the same breath, so a poll of `FighterStocks` never sees the
+    // zero — which is the very removal this test is about. The cast SHRINKING is
+    // the observation that survives it.
+    let mut most_seats = 0usize;
+    let mut fewest_seats = usize::MAX;
+    let mut settled_on = None;
+    for tick in 0..5_400 {
+        app.update();
+        {
+            let world = app.world_mut();
+            let mut q = world.query::<(&MatchSeat, &FighterStocks)>();
+            let seats = q.iter(world).count();
+            if seats > 0 {
+                most_seats = most_seats.max(seats);
+                fewest_seats = fewest_seats.min(seats);
+            }
+        }
+        if app
+            .world()
+            .get_resource::<StocksMatchSettled>()
+            .is_some_and(|s| s.0)
+        {
+            settled_on = Some(tick);
+            break;
+        }
+    }
+    let settled = settled_on.is_some();
+
+    assert!(
+        most_seats >= 2 && fewest_seats < most_seats,
+        "the cast never shrank (peak {most_seats} seats, low {fewest_seats}), so \
+         nobody was eliminated in ninety seconds and this match never reached the \
+         question it exists to ask"
+    );
+    assert!(
+        settled,
+        "a fighter ran out of stocks and the match never decided — the state a \
+         player sees as a stage that keeps going with one fighter on it \
+         (peak {most_seats} seats, low {fewest_seats})"
+    );
+}
+
 /// ⛔⛔ **DELETED 2026-08-11 (ledger D90): `losing_a_stock_announces_a_body_
 /// restart`.** It teleported a fighter to `y = 100_000` and waited for
 /// `BodyLifetime::restart_pending` to appear.

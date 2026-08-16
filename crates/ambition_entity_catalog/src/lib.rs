@@ -995,6 +995,30 @@ impl MoveSpec {
                 VolumeShape::Circle { offset, radius } => offset.0 + radius,
             })
             .fold(0.0_f32, f32::max);
+        // **WHERE THIS MOVE CAN HIT** — the union of every Active volume, in the
+        // same body-local frame `reach` is measured in. See [`MoveCoverage`].
+        let coverage = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| match v.shape {
+                VolumeShape::Rect {
+                    offset,
+                    half_extents,
+                } => MoveCoverage {
+                    min: (offset.0 - half_extents.0, offset.1 - half_extents.1),
+                    max: (offset.0 + half_extents.0, offset.1 + half_extents.1),
+                },
+                VolumeShape::Circle { offset, radius } => MoveCoverage {
+                    min: (offset.0 - radius, offset.1 - radius),
+                    max: (offset.0 + radius, offset.1 + radius),
+                },
+            })
+            .reduce(|a, b| MoveCoverage {
+                min: (a.min.0.min(b.min.0), a.min.1.min(b.min.1)),
+                max: (a.max.0.max(b.max.0), a.max.1.max(b.max.1)),
+            });
         // Power = the strongest Active volume, derived exactly like `reach`.
         let max_damage = self
             .windows
@@ -1060,6 +1084,7 @@ impl MoveSpec {
             recovery_s,
             cancel_windows,
             reach,
+            coverage,
             max_damage,
             max_knockback,
             start_impulse: self.start_impulse.unwrap_or((0.0, 0.0)),
@@ -1081,6 +1106,68 @@ pub struct CancelWindow {
     pub condition: CancelCondition,
 }
 
+/// **The body-local box a move's Active volumes cover**, in the same frame the
+/// volumes author themselves in: `+x` toward the owner's facing, `+y` toward its
+/// feet (so an anti-air's box has a NEGATIVE `min.1`).
+///
+/// ⚠ a union, not a list. A move with three volumes is described by the region
+/// they span, which is what a *"can this reach where they are"* question needs;
+/// a consumer that wanted each volume separately would read the windows.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MoveCoverage {
+    pub min: (f32, f32),
+    pub max: (f32, f32),
+}
+
+impl MoveCoverage {
+    /// **HOW FAR THIS MOVE REACHES IN ONE DIRECTION** — the distance from the
+    /// owner's origin to the far side of the box along `toward`, or `0.0` when
+    /// the box does not lie that way at all.
+    ///
+    /// ⭐⭐ **this is [`MoveFrameData::reach`] generalised, and it collapses back
+    /// to it exactly.** For a foe straight ahead of a forward volume the answer
+    /// IS `reach`; for a foe overhead it is how far the move reaches UP, which is
+    /// the number an anti-air is authored for and the number no scalar could
+    /// carry. A move that covers nothing in the asked direction answers `0.0`,
+    /// which is the honest *"this cannot touch them from here"*.
+    ///
+    /// `inflate` grows the box on every side — a hitbox catches a HURTBOX, so a
+    /// caller passes the target's half-extent rather than pretending the target
+    /// is a point.
+    ///
+    /// ⚠ a slab intersection from the ORIGIN, so a box that does not span the
+    /// ray returns `0.0` rather than a nearest-approach consolation prize. Two
+    /// moves that both fail to point at the opponent are equally useless, which
+    /// is the same judgement `reach` made about a whiff.
+    pub fn extent_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> f32 {
+        let len = (toward.0 * toward.0 + toward.1 * toward.1).sqrt();
+        if !(len > 0.0) {
+            return 0.0;
+        }
+        let (dx, dy) = (toward.0 / len, toward.1 / len);
+        let (lo_x, hi_x) = (self.min.0 - inflate.0, self.max.0 + inflate.0);
+        let (lo_y, hi_y) = (self.min.1 - inflate.1, self.max.1 + inflate.1);
+        // Per-axis entry/exit of the ray `t · d` through each slab. A zero
+        // component means the ray never leaves that slab, so it either lies
+        // inside it for all `t` or misses outright.
+        let slab = |lo: f32, hi: f32, d: f32| -> Option<(f32, f32)> {
+            if d.abs() < f32::EPSILON {
+                return (lo <= 0.0 && 0.0 <= hi).then_some((f32::NEG_INFINITY, f32::INFINITY));
+            }
+            let (a, b) = (lo / d, hi / d);
+            Some((a.min(b), a.max(b)))
+        };
+        let (Some((nx, fx)), Some((ny, fy))) = (slab(lo_x, hi_x, dx), slab(lo_y, hi_y, dy)) else {
+            return 0.0;
+        };
+        let far = fx.min(fy);
+        if nx.max(ny) > far || far <= 0.0 {
+            return 0.0;
+        }
+        far
+    }
+}
+
 /// The queryable frame data of a move (CM7) — the introspection the fighter
 /// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
 /// (no storage). All times are the owner's proper-time seconds.
@@ -1098,7 +1185,31 @@ pub struct MoveFrameData {
     /// Cancel windows (`WindowTag::Cancelable`), for combo/chain reasoning.
     pub cancel_windows: Vec<CancelWindow>,
     /// Farthest body-local reach of any Active volume (`+x` toward facing).
+    ///
+    /// ⚠ **a PROJECTION of [`Self::coverage`], kept because it is what a lunge's
+    /// effective range is measured against** (`start_impulse` adds travel along
+    /// the same axis). ⛔ it is NOT the move's hittable region, and reading it as
+    /// one is what made every vertical move in every kit look like a short poke —
+    /// see [`MoveCoverage`].
     pub reach: f32,
+    /// **The region this move can hit**, body-local, `None` when it lands no
+    /// Active volume at all (a buff, a summon, a pure-motion recovery).
+    ///
+    /// ⭐⭐ **[`Self::reach`] is one face of this box, and a scorer that had only
+    /// that face could not see the stage in two dimensions.** Measured
+    /// 2026-08-15 in a CPU-versus-CPU match: an up-tilt whose volume sits ABOVE
+    /// the shoulder projects onto `+x` as a ~30px poke, indistinguishable from a
+    /// jab, so the option scorer priced the anti-air and the jab identically and
+    /// then broke the tie on speed — every time, in every kit. George Booul
+    /// authors sixteen moves and started five distinct ones per match; the whole
+    /// vertical game (anti-air, juggle, spike) was never selected for the reason
+    /// it exists, because nothing downstream knew the opponent was ABOVE.
+    ///
+    /// ⭐ the same lesson [`Self::lift_side`] records one field down: a 2-D
+    /// authored shape summarised by a 1-D scalar describes a move that does not
+    /// exist. This is the datum — the union of the authored volumes — not another
+    /// summary of it.
+    pub coverage: Option<MoveCoverage>,
     /// Highest `damage` any Active volume deals — the move's POWER, so an
     /// option scorer can price a smash above a jab (FB6a; §9 of
     /// fighter-brain.md recorded that nothing could). `0` for a move that

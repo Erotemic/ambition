@@ -17,6 +17,15 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         recovery_s,
         cancel_windows: Vec::new(),
         reach,
+        // ⚠ **the fixture's move is a FORWARD POKE, and now it says so.** `reach`
+        // is only the `+x` face of the authored volumes, so a fixture that set it
+        // alone described a move with no hittable region at all once the scorer
+        // started reading the region. This is the box a poke of that length
+        // actually covers, which is what production derives from the volumes.
+        coverage: (reach > 0.0).then(|| ambition_entity_catalog::MoveCoverage {
+            min: (0.0, -12.0),
+            max: (reach, 12.0),
+        }),
         max_damage: 1,
         max_knockback: 0.0,
         start_impulse: (0.0, 0.0),
@@ -77,22 +86,88 @@ fn view_with(me_x: f32, foe_x: f32) -> WorldView {
 
 // ── the features ─────────────────────────────────────────────────────────
 
-/// **The feature that makes the brain understand a new character.** Reach comes
-/// from CM7's frame data, so a brain handed an unfamiliar moveset prices its
-/// jab as a jab without anyone typing a table.
+/// **The feature that makes the brain understand a new character.** The hittable
+/// region comes from CM7's frame data, so a brain handed an unfamiliar moveset
+/// prices its jab as a jab without anyone typing a table.
+///
+/// ⛔⛔ **and it prices an ANTI-AIR as an anti-air, which is the whole reason this
+/// feature stopped being a scalar** (2026-08-15). Its predecessor compared
+/// `reach` — the `+x` face alone — against `(foe.pos - me.pos).length()`, so a
+/// move whose volume sits above the shoulder was indistinguishable from a poke
+/// of the same length and the vertical half of every authored kit was never
+/// selected for the reason it exists.
 #[test]
-fn reach_fit_peaks_when_the_attack_exactly_spans_the_gap() {
-    assert_eq!(reach_fit(100.0, 100.0), 1.0);
-    assert!(reach_fit(100.0, 120.0) < 1.0);
-    assert!(reach_fit(100.0, 120.0) > reach_fit(100.0, 180.0));
+fn coverage_fit_peaks_where_the_move_can_actually_hit() {
+    use ambition_entity_catalog::MoveCoverage;
+
+    // A forward poke: 0..100 ahead, a body's height tall.
+    let poke = MoveCoverage {
+        min: (0.0, -12.0),
+        max: (100.0, 12.0),
+    };
+    // The same swing aimed UP: the same 100px of extent, above the shoulder.
+    let anti_air = MoveCoverage {
+        min: (-12.0, -100.0),
+        max: (12.0, 0.0),
+    };
+    let point = (0.0, 0.0);
+
+    // ── the curve, unchanged from the scalar it generalises ──────────────
+    assert_eq!(coverage_fit(Some(&poke), (100.0, 0.0), point), 1.0);
+    assert!(coverage_fit(Some(&poke), (120.0, 0.0), point) < 1.0);
+    assert!(
+        coverage_fit(Some(&poke), (120.0, 0.0), point)
+            > coverage_fit(Some(&poke), (180.0, 0.0), point)
+    );
     // Whiffing by a mile and by two miles are equally useless.
-    assert_eq!(reach_fit(100.0, 400.0), 0.0);
-    assert_eq!(reach_fit(100.0, 900.0), 0.0);
+    assert_eq!(coverage_fit(Some(&poke), (400.0, 0.0), point), 0.0);
+    assert_eq!(coverage_fit(Some(&poke), (900.0, 0.0), point), 0.0);
     // A move that is TOO LONG for the gap is also a bad fit — you get hit out
     // of a lunge you started from touching distance.
-    assert!(reach_fit(200.0, 20.0) < reach_fit(200.0, 190.0));
-    // A reachless move (a buff, a summon) has no fit anywhere.
-    assert_eq!(reach_fit(0.0, 50.0), 0.0);
+    let long = MoveCoverage {
+        min: (0.0, -12.0),
+        max: (200.0, 12.0),
+    };
+    assert!(
+        coverage_fit(Some(&long), (20.0, 0.0), point)
+            < coverage_fit(Some(&long), (190.0, 0.0), point)
+    );
+    // A move that lands no volume (a buff, a summon) has no fit anywhere.
+    assert_eq!(coverage_fit(None, (50.0, 0.0), point), 0.0);
+
+    // ── ⭐⭐ THE CLAIM THE SCALAR COULD NOT MAKE ──────────────────────────
+    //
+    // One opponent 100px AHEAD and one 100px ABOVE are the SAME `gap`, and the
+    // old feature scored them identically for every move in every kit. The two
+    // moves must now disagree about them, and disagree in opposite directions.
+    let ahead = (100.0, 0.0);
+    let above = (0.0, -100.0);
+    assert!(
+        coverage_fit(Some(&poke), ahead, point) > coverage_fit(Some(&poke), above, point),
+        "a forward poke rates an opponent overhead as well as one in front of it"
+    );
+    assert!(
+        coverage_fit(Some(&anti_air), above, point) > coverage_fit(Some(&anti_air), ahead, point),
+        "an anti-air rates an opponent in front of it as well as one overhead — \
+         which is the measured defect, not a hypothetical one"
+    );
+    // ⛔ **and the poison for the pair: the two moves are the SAME SIZE.** If the
+    // anti-air simply had more extent it would win everywhere and the two
+    // assertions above would be measuring a bigger hitbox rather than a
+    // direction.
+    assert_eq!(
+        coverage_fit(Some(&poke), ahead, point),
+        coverage_fit(Some(&anti_air), above, point),
+        "the two fixtures are mirror images, so a move facing its own opponent \
+         must score identically — otherwise the comparison above is about size"
+    );
+
+    // A hitbox catches a HURTBOX: a body whose centre sits past the volume is
+    // still hit when its near edge is inside.
+    assert!(
+        coverage_fit(Some(&poke), (112.0, 0.0), (14.0, 14.0))
+            > coverage_fit(Some(&poke), (112.0, 0.0), point)
+    );
 }
 
 #[test]

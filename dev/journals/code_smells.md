@@ -1586,7 +1586,42 @@ never spawned, which is a different bug from the one this parked work assumed.
 
 ---
 
-## The recovery fallback still ranks the repertoire by one number (2026-08-15)
+## The recovery fallback ranked the repertoire by one number — FIXED (2026-08-15)
+
+**RESOLVED the same day it was recorded, by measuring the branch it warned about.**
+`decide`'s `_` arm no longer falls through to `options.attacks.first()` in
+`Situation::Recovery`: when the kernel search endorses no route the decision now
+presses **nothing**, so `RecoveryLens::best_route` is the authority in both
+directions rather than only on its positive branch.
+
+**The number the entry below asked for.** *"If that count is material, build the
+fixture and ship `least_bad_route`. If it is near zero because the search almost
+always regains, the smell is real and cheap and can stay recorded."* Measured on
+the smash stage, CPU-versus-CPU, `--features causal`: `Situation::Recovery` was a
+**third of every decision** George Booul made, and the search endorsed a route in
+**3 of 100** of them. The other 97 pressed his Up-B out of this fallback. Not
+material — dominant.
+
+**And `least_bad_route` was the wrong repair.** A grid over the real stage
+geometry (`excluded_middle` = `Set (0, -1020)`, so a burst that ERASES the drift
+that would have carried him across) says the move genuinely does not get him back
+from beside the lip — which is exactly what the search had just reported about
+that move from that state. There is nothing to rank: the alternative to a route
+the kernel rejected is KEEPING it, which is also the fighting-game answer (a
+recovery spent early is one you do not have when the edgeguard comes). The
+concern recorded below — that pressing nothing *"would regress George"* — was
+reasoned rather than measured, and the measurement contradicts it: George went
+from 3 distinct moves per match to 9, and from 13 Up-B presses to 3.
+
+⚠ **what is still open is the bound, not the fallback.**
+`RecoveryPolicy::DRIFT_AND_JUMP` presses side + jump + one burst and **does not
+model the ledge grab**, which these fighters author (`ledge_grab: true`) and the
+engine fully implements. So a body beside the lip is reported unrecoverable when
+a real player would catch the ledge. That is the next thing to measure here.
+
+---
+
+## (original entry, kept for the reasoning) The recovery fallback still ranks the repertoire by one number (2026-08-15)
 
 **Where:** `crates/ambition_characters/src/brain/fighter/decision.rs`, the `_`
 arm of `wants_attack`, right after the `endorsed_recovery` search.

@@ -350,7 +350,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // AFTER the spend, in the same phase: a match decided before this
                 // tick's elimination lands would announce the previous frame's
                 // answer on the frame the last fighter goes out.
-                crate::features::stocks_match::decide_stocks_match,
+                crate::features::stocks_match::decide_stocks_match
+                    .in_set(ambition_combat::stocks::MatchOutcomeDecided),
                 // The causal OBSERVER, last in the chain so it reads this tick's
                 // decision rather than the previous one. It holds no authority
                 // over any of the above — it reads their messages — which is why

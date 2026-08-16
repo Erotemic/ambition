@@ -567,6 +567,16 @@ fn the_held_frame_carries_sustains_and_never_re_emits_an_edge() {
 /// production `MovePlayback.spec.id`, and a test that observes `melee_pressed` is
 /// the disconnected seam itself — see the S26 row in the 72h queue for the
 /// end-to-end fixture this does not replace.
+///
+/// ⚠ **the fixture plants the STICK as well as the press (2026-08-15), because
+/// that is what an arming decision produces.** The direction stopped riding the
+/// `PendingAttack` struct and now rides the held frame, the way a hand holds a
+/// stick while the button is still on its way down — so a fixture that planted
+/// only the press was modelling a construction production no longer has. What is
+/// asserted below is unchanged and is the thing that matters: **the direction
+/// the brain chose is on the frame the body receives.** That it is the RIGHT
+/// direction at either facing is
+/// [`the_aimed_stick_round_trips_through_the_bodys_own_resolver`].
 #[test]
 fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
     let (cfg, mut state) = rig(immediate_profile());
@@ -574,14 +584,14 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
     let view = scene(300.0, 500.0);
     let mut out = ActorControlFrame::neutral();
 
-    // An up-smash, decided two ticks ago and maturing now.
-    state.pending_press = Some(PendingAttack {
-        ticks: 0,
-        binding: AttackBinding {
-            verb: AttackVerb::Smash,
-            direction: AttackDir::Up,
-        },
-    });
+    // An up-smash, decided two ticks ago and maturing now — press and stick
+    // together, exactly as `decide` emits them.
+    let binding = AttackBinding {
+        verb: AttackVerb::Smash,
+        direction: AttackDir::Up,
+    };
+    super::aim_the_stick(binding, view.self_view.facing, &mut state.held);
+    state.pending_press = Some(PendingAttack { ticks: 0, binding });
     state.ticks_until_decision = 30;
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
 
@@ -611,6 +621,163 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
     let mut out = ActorControlFrame::neutral();
     tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
     assert!(out.special_pressed && !out.melee_pressed);
+}
+
+/// **THE DIRECTION THE BRAIN CHOSE IS THE DIRECTION THE BODY RESOLVES — AT
+/// EITHER FACING, AND AT THE STRENGTH THAT WAS ASKED FOR.**
+///
+/// ⛔⛔ the two defects this closes were measured in a CPU-versus-CPU match on
+/// 2026-08-15, and neither was reachable by any assertion in the repo, because
+/// every one of them stopped at the emitted frame and this is a claim about what
+/// the CONSUMER makes of it.
+///
+/// * **the mirror.** `attack_axis` is documented *"in the controlled actor's
+///   local frame"* — the gravity-local frame `locomotion` is in — and
+///   [`attack_dir_from_axis`] recovers *forward* by multiplying `axis.x` by the
+///   body's `facing`. The brain wrote a FACING-relative `+x` for `Forward`, so
+///   facing was applied twice and every forward/back attack chosen while the
+///   body faced left came out reversed. Measured consequence: George Booul's
+///   `special_forward` was selected 19–24 times per match and performed **zero**
+///   times, while the body's ledger recorded `bivalence` presses the decision log
+///   never chose — `Forward` mirrored to `Back`, no `special_back` exists, and
+///   the chain fell back to the neutral special.
+/// * **the accidental smash.** A full deflection is a FLICK, and a press inside
+///   the flick window is a smash whatever the strength hint says. So a brain
+///   that shoved the stick to 1.0 could not ask for a tilt at all.
+///
+/// ⭐ **nothing here is a restatement of the brain's own arithmetic**: the axis
+/// goes through `resolve_attack_gesture` — the production function
+/// `resolve_attack_gestures` calls for every body, with the production tuning —
+/// and the assertion is on what came out the far side.
+#[test]
+fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
+    use crate::actor::attack_gesture::{
+        resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackStrength,
+    };
+
+    let tuning = AttackGestureTuning::default();
+    // What the body makes of a stick the brain aimed, pressed on the NEXT tick —
+    // the real ordering, since `aim_the_stick` runs in the decision and the
+    // press matures after it.
+    let resolved = |binding: AttackBinding, facing: f32| {
+        let mut frame = ActorControlFrame::neutral();
+        super::aim_the_stick(binding, facing, &mut frame);
+        let mut state = AttackGestureState::default();
+        // Tick one: the stick moves, no button.
+        resolve_attack_gesture(
+            &mut state,
+            tuning,
+            frame.attack_axis,
+            facing,
+            true,
+            false,
+            false,
+            false,
+            false,
+        );
+        // Tick two: the button closes.
+        let strong = matches!(binding.verb, AttackVerb::Smash);
+        resolve_attack_gesture(
+            &mut state,
+            tuning,
+            frame.attack_axis,
+            facing,
+            true,
+            true,
+            false,
+            false,
+            strong,
+        )
+        .pressed
+        .expect("a press was requested")
+    };
+
+    // ⭐ THE MIRROR, both ways. A body facing LEFT is the half of the match the
+    // old code got backwards; a body facing RIGHT is the half that hid it.
+    for facing in [1.0_f32, -1.0] {
+        for direction in [
+            AttackDir::Forward,
+            AttackDir::Back,
+            AttackDir::Up,
+            AttackDir::Down,
+        ] {
+            let out = resolved(
+                AttackBinding {
+                    verb: AttackVerb::Basic,
+                    direction,
+                },
+                facing,
+            );
+            assert_eq!(
+                out.direction, direction,
+                "facing {facing}: the brain chose {direction:?} and the body \
+                 resolved {:?} — a fighter whose forward attack points backwards \
+                 half the time",
+                out.direction
+            );
+            // ⭐ and the STRENGTH, in the same breath: a Basic binding is a tilt.
+            assert_eq!(
+                out.strength,
+                AttackStrength::Tilt,
+                "facing {facing}, {direction:?}: the brain asked for a plain \
+                 attack and the body resolved a SMASH, so the tilt half of every \
+                 authored kit is unreachable"
+            );
+        }
+    }
+
+    // ⛔ **THE POISON, and it is the same resolver.** A full deflection is still
+    // a flick and still a smash — so the assertion above is measuring the
+    // brain's chosen deflection rather than a resolver that answers `Tilt` to
+    // everything.
+    let mut frame = ActorControlFrame::neutral();
+    super::aim_the_stick(
+        AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Up,
+        },
+        1.0,
+        &mut frame,
+    );
+    assert!(
+        frame.attack_axis.length() >= tuning.flick_threshold,
+        "a SMASH binding must shove the stick past the flick threshold, or the \
+         brain has no way to ask for one"
+    );
+    let mut state = AttackGestureState::default();
+    resolve_attack_gesture(
+        &mut state,
+        tuning,
+        frame.attack_axis,
+        1.0,
+        true,
+        false,
+        false,
+        false,
+        false,
+    );
+    let smashed = resolve_attack_gesture(
+        &mut state,
+        tuning,
+        frame.attack_axis,
+        1.0,
+        true,
+        true,
+        false,
+        false,
+        // ⛔ the hint is FALSE on purpose: what is being shown is that the
+        // deflection ALONE decides, which is exactly why the tilt deflection
+        // above has to be below the threshold.
+        false,
+    )
+    .pressed
+    .expect("a press was requested");
+    assert_eq!(
+        smashed.strength,
+        AttackStrength::Smash,
+        "a full-deflection flick stopped meaning a smash, so the tilt assertion \
+         above proves nothing about the brain's deflection"
+    );
 }
 
 /// **Why did this fighter choose this action?** — asked headlessly, of the real

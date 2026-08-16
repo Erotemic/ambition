@@ -11,7 +11,7 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     let mut app = App::new();
     app.insert_resource(save);
     app.insert_resource(owned);
-    app.init_resource::<InventoryRestored>();
+    app.init_resource::<crate::session::durable_horizon::SaveRestored>();
     app.add_systems(
         Update,
         (restore_inventory_from_save, persist_inventory_to_save).chain(),

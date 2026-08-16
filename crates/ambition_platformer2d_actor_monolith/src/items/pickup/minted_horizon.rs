@@ -59,6 +59,19 @@
 //! map.** This answers *how* to rebuild an occurrence; the custody baseline
 //! decides *whether* one is owed and *into whose hand*. Two values, two
 //! questions, and a description with no custody row is simply never consulted.
+//!
+//! # ✔ IT REACHES DISK UNCHANGED (2026-08-16)
+//!
+//! `AmbitionGameSaveData::minted_items` is [`MintedItemDescription`] field for
+//! field — provenance and a spec-id reference — because the durable horizon asked
+//! the same question this one did (*how would you make this again?*) and got the
+//! same answer. ⭐ **that the on-disk form needed no fourth field is the
+//! measurement**, not a convenience: the description this file settled on was the
+//! minimal one, and a save is where "minimal" gets tested.
+//!
+//! ⚠ the boundary it named still stands. A minted instance that is NOT in a hand
+//! when the file is written — lying in a room, in flight — is undescribed here and
+//! therefore undescribed on disk, because nothing remembers a position for one.
 
 use std::collections::BTreeMap;
 
@@ -111,6 +124,29 @@ impl MintedItemBaseline {
 
     pub fn len(&self) -> usize {
         self.minted.len()
+    }
+
+    /// **Every description, in identity order** — for the writer that puts this
+    /// value on disk.
+    pub fn rows(&self) -> impl Iterator<Item = (&SimId, &MintedItemDescription)> {
+        self.minted.iter()
+    }
+
+    /// **Adopt a set of descriptions** — the one road that writes this outside a
+    /// [`CheckpointCommitted`].
+    ///
+    /// ⭐ **its single caller is a durable LOAD.** A fresh process has no
+    /// checkpoint history, so what the save file described IS what a first death
+    /// can rebuild; without this the shipped restore would find a custody row it
+    /// has no recipe for and warn instead of putting the object back.
+    ///
+    /// ⛔ **whole-value, and still not a registry.** Adopting a file's rows is
+    /// the same snapshot semantics the capture has — the map is replaced, never
+    /// accumulated.
+    pub fn adopt(&mut self, minted: BTreeMap<SimId, MintedItemDescription>) {
+        if self.minted != minted {
+            self.minted = minted;
+        }
     }
 
     /// **The desync checksum** — identities, a canonical provenance rendering,
@@ -167,7 +203,24 @@ pub fn capture_minted_item_baseline(
     if !committed {
         return;
     }
-    let minted: BTreeMap<SimId, MintedItemDescription> = carried
+    let minted = live_minted_descriptions(&carried);
+    if baseline.minted != minted {
+        baseline.minted = minted;
+    }
+}
+
+/// **How to remake every runtime mint that is in a hand RIGHT NOW.**
+///
+/// ⭐ **extracted so the checkpoint horizon and the durable one cannot fork.**
+/// The capture above reads it at a commit; the durable writer
+/// (`session::durable_horizon`) reads the same function every tick to decide what
+/// a save file should say. The population rule — `SpawnOrigin::Dynamic` AND not
+/// `InWorld` — is stated once, so a second describer cannot start describing
+/// authored occurrences by accident.
+pub fn live_minted_descriptions(
+    carried: &Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+) -> BTreeMap<SimId, MintedItemDescription> {
+    carried
         .iter()
         .filter(|(_, _, _, custody)| !custody.in_world())
         .filter_map(|(occurrence, origin, ground, _)| {
@@ -186,10 +239,7 @@ pub fn capture_minted_item_baseline(
                 )
             })
         })
-        .collect();
-    if baseline.minted != minted {
-        baseline.minted = minted;
-    }
+        .collect()
 }
 
 #[cfg(test)]

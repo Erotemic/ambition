@@ -39,10 +39,19 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "message.shop_transaction_requested",
     );
     // ⛔ **the LATCH rewinds with the state it guards, 2026-08-04.**
-    // `InventoryRestored` is an "already applied" flag, and all three things it
+    // `SaveRestored` is an "already applied" flag, and all three things it
     // coordinates were rollback-registered while it was not:
     // `OwnedItems` (above), `BodyWallet` (characters domain) and
     // `AmbitionGameSave` (the root schema).
+    //
+    // ⚠ **it was `InventoryRestored` until 2026-08-16, and it is registered from
+    // the ITEM domain for that historical reason rather than a structural one.**
+    // The flag now means "the loaded save has been applied to this world", and
+    // the durable occurrence horizon (`session::durable_horizon`) reads it too —
+    // deliberately ONE latch, because a second one would be a second answer to a
+    // single question and free to disagree the day one leg's precondition was met
+    // and the other's was not. `OwnedItems` is still the largest thing it gates,
+    // so the registration stays here rather than acquiring a new home.
     //
     // So a rewind past the restore undid its EFFECT and kept the record of
     // having applied it. On the next `Update`,
@@ -75,6 +84,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // presence-only list with that reason, which is the alternative that test's
     // own message offers.
     app.rollback_resource_clone::<
-        ambition_platformer2d_actor_monolith::items::persist::InventoryRestored,
-    >(OWNER, "resource.inventory_restored");
+        ambition_platformer2d_actor_monolith::session::durable_horizon::SaveRestored,
+    >(OWNER, "resource.save_restored");
 }

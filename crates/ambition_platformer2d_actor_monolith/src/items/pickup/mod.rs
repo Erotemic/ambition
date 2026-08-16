@@ -1099,7 +1099,48 @@ pub fn record_placed_ground_items(
         Vec2,
     > = std::collections::BTreeMap::new();
     for (sim_id, ground, custody) in &items {
-        if !custody.in_world() || !occurrences.remembers(sim_id) {
+        if !custody.in_world() {
+            continue;
+        }
+        // ⛔⛔ **AN OCCURRENCE COMES TO REST HERE ONLY IF IT WAS IN A HAND, OR
+        // WAS ALREADY RESTING HERE — and that is an invariant, not a filter.**
+        //
+        // ⭐ **an object cannot change rooms without being carried.** Every
+        // legitimate relocation passes through custody: picked up in A (the row
+        // becomes `InCustody`), carried, put down in B (this system writes
+        // `Placed { B }`). So a live object lying in the ACTIVE room whose row
+        // says it is `Placed` in ANOTHER room — or `Consumed` — is not an object
+        // that moved. It is a stale duplicate the world should not be holding,
+        // and believing it would be the ledger taking dictation from the very
+        // duplication it exists to prevent.
+        //
+        // ⚠ **the case that forced this is the DURABLE LOAD** (2026-08-16). A
+        // session builds its start room from authored records before anything has
+        // read a save file, so the moment the file's ledger is installed the world
+        // holds an occurrence the file says is somewhere else. Without this arm
+        // the very next tick republished the stale position over the loaded row,
+        // and the rebuild that was already on its way then put the object back in
+        // the room the player had carried it out of. The same tick order also
+        // resurrected an occurrence whose row was terminal.
+        //
+        // ⭐ **it refuses rather than repairs**, deliberately. Retracting the
+        // stale entity here would make this a second reconstruction authority
+        // beside `outlook_for`; the room rebuild that the load requests sweeps it
+        // with everything else this room minted, and until then the ledger simply
+        // keeps saying the true thing.
+        let comes_to_rest_here = match occurrences.whereabouts(sim_id) {
+            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody) => true,
+            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
+                room: recorded_room,
+                ..
+            }) => recorded_room == room,
+            // No row: not something anybody carried, so not this producer's
+            // population at all. Terminal: an ended occurrence does not come back
+            // by being observed lying somewhere.
+            None
+            | Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed) => false,
+        };
+        if !comes_to_rest_here {
             continue;
         }
         placed.insert(sim_id.clone(), ground.pos);

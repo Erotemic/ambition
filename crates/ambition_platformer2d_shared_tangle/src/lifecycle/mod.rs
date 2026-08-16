@@ -51,7 +51,7 @@ pub use continuity::{
     restore_occurrence_baseline, AuthoredOccurrences, OccurrenceBaseline, OccurrenceDisposition,
     OccurrenceWhereabouts, RoomOccurrenceOutlook,
 };
-pub use custody_horizon::{capture_custody_baseline, CustodyBaseline};
+pub use custody_horizon::{capture_custody_baseline, live_custody_rows, CustodyBaseline};
 pub use horizon::{
     CheckpointCapture, CheckpointCommitted, CheckpointRestore, ResetToCheckpoint,
 };

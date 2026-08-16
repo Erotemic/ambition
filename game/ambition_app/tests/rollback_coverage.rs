@@ -1715,7 +1715,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // difference between derived state and a memo.
     //
     // ⭐ **1 → 0 on 2026-08-04, and the last one was a real bug, not a
-    // reclassification.** `InventoryRestored` was the item the ceiling held. The
+    // reclassification.** `SaveRestored` (then `InventoryRestored`) was the item the ceiling held. The
     // queue row said it should be READ once more rather than swept, and reading
     // it found the asymmetry: `OwnedItems`, `BodyWallet` and `AmbitionGameSave`
     // are all in the rollback schema and the latch that says "the save has been

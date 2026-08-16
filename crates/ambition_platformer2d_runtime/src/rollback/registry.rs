@@ -278,7 +278,18 @@ use super::{
 /// `SpawnOrigin::Dynamic` that says which spawner it descends from. A held
 /// object needs no position — the hand supplies one, and nothing steps an item
 /// that is not `InWorld`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 33;
+///
+/// ⚠ **v34 (2026-08-16) is a RENAME, not a new value.**
+/// `resource.inventory_restored` became `resource.save_restored`: the latch stopped
+/// meaning "the catalog has been applied" and started meaning "the loaded save has
+/// been applied", because the durable occurrence horizon
+/// (`session::durable_horizon`) reads the same flag. Deliberately ONE latch — a
+/// second would be a second answer to one question, free to disagree the day one
+/// leg's precondition was met and the other's was not. The row's projection is
+/// unchanged (a bare clone, no checksum), but a row KEY is part of the wire
+/// identity, so two peers whose schemas differ here cannot agree about a snapshot
+/// and the version has to say so.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 34;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

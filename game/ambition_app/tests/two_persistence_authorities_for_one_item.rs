@@ -19,14 +19,20 @@
 //! take-custody operation the menu calls, a pressed throw, a pressed pickup, a
 //! real shrine rest, a real death report, and the two production persist systems.
 //!
-//! ⚠ **the only manufactured trigger is the LOAD.** `restore_inventory_from_save`
-//! is latched by `InventoryRestored`, which a fresh process starts `false`;
-//! clearing the latch in-process is what "the game booted and read the file"
-//! looks like from inside one App. The system that runs is the shipped one.
+//! ⚠ **the only manufactured trigger is the LOAD.** The restore is latched by
+//! `SaveRestored`, which a fresh process starts `false`; clearing the latch
+//! in-process is what "the game booted and read the file" looks like from inside
+//! one App.
+//!
+//! ⭐ **and since 2026-08-16 both persist systems are SCHEDULED here.** This file
+//! used to run them with `run_system_once` and say loudly that it had to, because
+//! the leg lived in `install_menu_setup_and_hotkeys` — visible binary only — and
+//! no headless composition installed it. `DurableSaveHorizonPlugin` owns it now,
+//! in the runtime plugin group, so stepping a frame is what saves.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use bevy::ecs::system::RunSystemOnce;
-use ambition_platformer2d::actors::items::persist::InventoryRestored;
+use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::actors::items::{Item, ItemGrantRequested, OwnedItems};
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::platformer::construction::SpawnOrigin;
@@ -210,38 +216,20 @@ fn die(sim: &mut Platformer2dSimHarness) {
     sim.step_n(base(), 240);
 }
 
-/// **THE SAVE.** Run the shipped `persist_inventory_to_save`, which mirrors the
-/// live catalog + wallet into `AmbitionGameSave` for the autosave to write out.
-///
-/// ⛔⛔ **it is run here rather than scheduled, because THIS COMPOSITION DOES NOT
-/// SCHEDULE IT — and that is a finding, not a fixture convenience.** The pair
-/// lives in `install_menu_setup_and_hotkeys`, which `add_presentation_plugins`
-/// installs and which is documented "visible binary only"; the sim harness
-/// composes `compose_ambition_gameplay_host` and never reaches it. So the durable
-/// authority does not run in any headless composition, which is a large part of
-/// why no test had ever put the two authorities in one sentence. The FUNCTION is
-/// the shipped one, verbatim; only the schedule slot is the fixture's.
+/// **THE SAVE.** Step a frame, which is all it takes now: the shipped
+/// `persist_inventory_to_save` runs every `Update` and mirrors the live catalog +
+/// wallet into `AmbitionGameSave` for the autosave to write out.
 fn save_the_inventory(sim: &mut Platformer2dSimHarness) {
-    sim.world_mut()
-        .run_system_once(ambition_platformer2d::actors::items::persist::persist_inventory_to_save)
-        .expect("the persist runs");
+    sim.step(base());
 }
 
-/// **THE LOAD.** Clear the "already applied" latch and run the shipped
-/// `restore_inventory_from_save`, which is precisely what a fresh boot does with
-/// the latch starting `false`. See [`save_the_inventory`] for why it is run
-/// rather than scheduled.
+/// **THE LOAD.** Clear the "already applied" latch and step, which is precisely
+/// what a fresh boot does with the latch starting `false`.
 fn load_the_save(sim: &mut Platformer2dSimHarness) {
-    // ⛔ the LATCH is not present either, for the same reason the systems are
-    // not: `install_menu_setup_and_hotkeys` owns it and this composition never
-    // installs it.
-    sim.world_mut().init_resource::<InventoryRestored>();
-    sim.world_mut().resource_mut::<InventoryRestored>().0 = false;
-    sim.world_mut()
-        .run_system_once(ambition_platformer2d::actors::items::persist::restore_inventory_from_save)
-        .expect("the restore runs");
+    sim.world_mut().resource_mut::<SaveRestored>().0 = false;
+    sim.step(base());
     assert!(
-        sim.world().resource::<InventoryRestored>().0,
+        sim.world().resource::<SaveRestored>().0,
         "the restore must have LANDED — it waits for a body with a `BodyWallet`, \
          and a latch still false means it returned early and this fixture is \
          measuring a load that never happened"

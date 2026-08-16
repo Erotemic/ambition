@@ -161,6 +161,123 @@ impl PersistedItem {
     }
 }
 
+/// **Where one runtime occurrence is**, as a save file can say it.
+///
+/// ⭐ **the same three answers the live ledger gives**, spelled for disk:
+/// `OccurrenceWhereabouts::{InCustody, Placed, Consumed}` in
+/// `ambition_platformer2d_shared_tangle::lifecycle`. It is deliberately the same
+/// vocabulary rather than a second one, because the durable horizon is a
+/// serialization of the value the checkpoint horizon already copies — not a
+/// third description of the same fact.
+///
+/// ⛔ **no components, no velocity, no archetype.** A row says WHERE an
+/// occurrence is and nothing about what it is made of; what it IS comes back
+/// from the authored record (or, for a runtime mint, from
+/// [`PersistedMintedItem`]). Snapshotting components here would weld the save
+/// format to ECS layout, which is rollback's job and not this one's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PersistedWhereabouts {
+    /// In somebody's hands. ⚠ **this does not say WHOSE** — that is
+    /// [`PersistedCustody`], for the same reason the live ledger keeps the
+    /// custodian in a separate domain projection: "somebody has it" is enough to
+    /// stop a room minting a second one and not enough to put it back.
+    InCustody,
+    /// Lying in `room`, at integer world pixels.
+    ///
+    /// ⭐ **INTEGER pixels, for [`PersistedCheckpoint`]'s reasons exactly.** A
+    /// float here would cost `AmbitionGameSaveData`'s `Eq` derive, and a NaN —
+    /// which compares unequal to itself — would make the value-comparing
+    /// autosave rewrite the file every frame forever. A resting object has no
+    /// use for sub-pixel precision, and the live ledger republishes the exact
+    /// position from the object itself the moment its room is loaded.
+    Placed { room: String, x: i32, y: i32 },
+    /// Gone for good, and the world is supposed to remember that.
+    ///
+    /// ⚠ **the live variant has no producer yet** and this one therefore has no
+    /// live writer either — but the format spells it, because a terminal
+    /// disposition that the file cannot express is a terminal disposition a save
+    /// silently undoes. `a_consumed_occurrence_is_not_resurrected_by_a_load`
+    /// drives this variant through a real load.
+    Consumed,
+}
+
+/// One occurrence's whereabouts, keyed by its `SimId` as a string.
+///
+/// ⚠ **absence is the common case and is the DEFAULT answer.** A save carries a
+/// row only for an occurrence some system had a reason to write one for; a record
+/// nobody has touched has no row, and no row means "author it from the record".
+/// A save that listed every occurrence in the world would be the universal
+/// instance registry the design explicitly refuses.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedOccurrence {
+    pub id: String,
+    pub whereabouts: PersistedWhereabouts,
+}
+
+impl PersistedOccurrence {
+    pub fn new(id: impl Into<String>, whereabouts: PersistedWhereabouts) -> Self {
+        Self {
+            id: id.into(),
+            whereabouts,
+        }
+    }
+}
+
+/// **Which body was carrying which occurrence**, both sides by `SimId` string.
+///
+/// The disk form of
+/// `ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline`. Kept
+/// separate from [`PersistedOccurrence`] because the two answer different
+/// questions with different owners — see that type's own header — and because a
+/// save that merged them would let every reader of "was this suppressed?" reach
+/// a body's inventory.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedCustody {
+    pub occurrence: String,
+    pub custodian: String,
+}
+
+impl PersistedCustody {
+    pub fn new(occurrence: impl Into<String>, custodian: impl Into<String>) -> Self {
+        Self {
+            occurrence: occurrence.into(),
+            custodian: custodian.into(),
+        }
+    }
+}
+
+/// **How to rebuild one instance the SIMULATION minted**, which no authored
+/// record anywhere can describe.
+///
+/// ⭐⭐ **this is the minimal durable description, and it is the same one the
+/// checkpoint measured** (`items::pickup::minted_horizon::MintedItemDescription`):
+///
+/// ```text
+/// identity     occurrence      the occurrence's own SimId
+/// provenance   parent+sequence SpawnOrigin::Dynamic — what makes it re-mintable AGAIN
+/// definition   held_item       the item spec's authored id — a REFERENCE, not a copy
+/// ```
+///
+/// ⛔ **the provenance is not decoration.** An instance rebuilt without it cannot
+/// say which spawner it descends from, so it would be invisible to the NEXT
+/// capture — it would survive exactly one load and then become unrecoverable.
+///
+/// ⛔ **and `held_item` is a REFERENCE.** Copying the resolved spec in would put a
+/// second authority for *what a javelin is* inside a save file, and a content edit
+/// would then be silently overridden by every save written before it.
+///
+/// ⚠ **no position**, because the rows that reach here are the ones a hand was
+/// holding: the hand supplies the place. A minted instance lying on a floor when
+/// the save is written is still undescribed — see the module note on
+/// `session::durable_horizon`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedMintedItem {
+    pub occurrence: String,
+    pub parent: String,
+    pub sequence: u64,
+    pub held_item: String,
+}
+
 /// Where the player resumes: the last checkpoint they touched.
 ///
 /// A shrine has always claimed to be a save point — it logged "healed to full +
@@ -233,12 +350,37 @@ pub struct AmbitionGameSaveData {
     /// The last checkpoint the player touched, if any. `None` is a fresh run.
     #[serde(default)]
     pub checkpoint: Option<PersistedCheckpoint>,
+    /// **What became of each runtime occurrence the world remembers anything
+    /// about** — the durable half of the whereabouts ledger.
+    ///
+    /// ⚠ **sparse by construction.** Only occurrences somebody moved, carried or
+    /// ended appear; everything else reconstructs from its authored record,
+    /// which is what keeps a load from resurrecting the world's entire history.
+    #[serde(default)]
+    pub occurrences: Vec<PersistedOccurrence>,
+    /// **Which body was holding which occurrence** when this save was written.
+    /// Empty hands is a real answer and writes an empty list.
+    #[serde(default)]
+    pub custody: Vec<PersistedCustody>,
+    /// **How to remake the runtime-minted instances that were in a hand.** Never
+    /// a registry of every mint the session ever made — see
+    /// [`PersistedMintedItem`].
+    #[serde(default)]
+    pub minted_items: Vec<PersistedMintedItem>,
 }
 
-/// v3 adds `checkpoint`. The bump is what exercises the migration chain on a real
-/// schema change rather than on a hypothetical one — every v2 file on disk now
-/// takes the v2 → v3 step on load and is written back tagged v3.
-pub const CURRENT_SAVE_VERSION: u32 = 3;
+/// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
+///
+/// ⚠ **the bump is deliberate on an ADDITIVE change, and the reason is not
+/// ceremony.** `#[serde(default)]` already makes a v3 file load with three empty
+/// lists, and empty is the correct reading: a build that did not remember
+/// occurrences had nothing to say about them, so every authored record
+/// reconstructs from itself, which is exactly the pre-v4 behaviour. What the tag
+/// buys is the other direction — a v4 file opened by a v3 build is
+/// `FromTheFuture`, so that build plays on a fresh sandbox and does NOT write
+/// its occurrence-blind understanding over a file that knows where the player
+/// left things.
+pub const CURRENT_SAVE_VERSION: u32 = 4;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -300,6 +442,9 @@ impl AmbitionGameSaveData {
             wallet: 0,
             inventory_saved: false,
             checkpoint: None,
+            occurrences: Vec::new(),
+            custody: Vec::new(),
+            minted_items: Vec::new(),
         }
     }
 
@@ -494,6 +639,13 @@ impl AmbitionGameSaveData {
                 // `None` — which is the correct answer: it was written by a build
                 // where touching a shrine saved nothing.
                 2 => {}
+                // v3 → v4: `occurrences`, `custody` and `minted_items` were
+                // added. Additive and `#[serde(default)]`, so a v3 file already
+                // deserialized to three empty lists — which is the correct
+                // answer, not a lossy one: a build that remembered nothing about
+                // occurrences leaves every authored record to reconstruct from
+                // itself, exactly as it always did.
+                3 => {}
                 // Unreachable while the loop bound is CURRENT_SAVE_VERSION, but a
                 // future version added without a step must not spin here.
                 other => {
@@ -535,6 +687,9 @@ impl AmbitionGameSaveData {
             wallet,
             inventory_saved,
             checkpoint,
+            occurrences,
+            custody,
+            minted_items,
         } = self;
         encounters.clear();
         switches.clear();
@@ -546,6 +701,14 @@ impl AmbitionGameSaveData {
         *wallet = 0;
         *inventory_saved = false;
         *checkpoint = None;
+        // ⭐ a reset remembers nothing about where anything was left, for the
+        // same reason `AuthoredOccurrences::forget_everything` clears the live
+        // ledger: a reset destroys the world those rows describe, and a
+        // surviving row would put a relocated object back at coordinates from a
+        // world that no longer exists.
+        occurrences.clear();
+        custody.clear();
+        minted_items.clear();
     }
 }
 
@@ -600,6 +763,63 @@ mod tests {
         let serialized = serde_json::to_string(&s).expect("serialize");
         let restored: AmbitionGameSaveData = serde_json::from_str(&serialized).expect("deserialize");
         assert_eq!(s, restored);
+    }
+
+    /// **EVERY whereabouts variant survives the wire, including the terminal
+    /// one.**
+    ///
+    /// ⛔ **the `Consumed` arm is the one worth writing down.** It has no live
+    /// producer yet, so no behavioural fixture drives it from the world side —
+    /// which is exactly the condition under which a variant quietly stops being
+    /// serialized correctly and nobody notices until the producer lands. A
+    /// terminal disposition the file cannot express is a terminal disposition a
+    /// save silently undoes.
+    #[test]
+    fn every_whereabouts_variant_round_trips_including_the_terminal_one() {
+        let mut s = AmbitionGameSaveData::new();
+        s.occurrences = vec![
+            PersistedOccurrence::new("placement:carried", PersistedWhereabouts::InCustody),
+            PersistedOccurrence::new(
+                "placement:dropped",
+                PersistedWhereabouts::Placed {
+                    room: "portal_bridge".into(),
+                    x: -48,
+                    y: 96,
+                },
+            ),
+            PersistedOccurrence::new("placement:eaten", PersistedWhereabouts::Consumed),
+        ];
+        s.custody = vec![PersistedCustody::new("placement:carried", "player:0")];
+        s.minted_items = vec![PersistedMintedItem {
+            occurrence: "player:0/3".into(),
+            parent: "player:0".into(),
+            sequence: 3,
+            held_item: "javelin".into(),
+        }];
+
+        let text = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default())
+            .expect("serialize as the writer does");
+        let restored: AmbitionGameSaveData = ron::from_str(&text).expect("deserialize");
+        assert_eq!(
+            restored, s,
+            "a whereabouts row that does not survive RON is an object the player \
+             left somewhere and will not find there"
+        );
+    }
+
+    /// A v3 file — the last shape before the durable horizon — loads with three
+    /// empty lists and migrates up, which is what "additive" has to mean in
+    /// practice rather than in the comment.
+    #[test]
+    fn a_v3_save_migrates_up_with_no_occurrence_rows() {
+        let json = r#"{"version":3,"wallet":42,"inventory_saved":true}"#;
+        let mut s: AmbitionGameSaveData = serde_json::from_str(json).expect("parse");
+        assert_eq!(s.migrate(), SaveCompatibility::Migrated { from: 3 });
+        assert_eq!(s.version, CURRENT_SAVE_VERSION);
+        assert_eq!(s.wallet, 42, "the migration costs the player nothing");
+        assert!(s.occurrences.is_empty());
+        assert!(s.custody.is_empty());
+        assert!(s.minted_items.is_empty());
     }
 
     /// A file with no `version` field was written before the field existed —
@@ -745,6 +965,22 @@ mod tests {
         });
         s.wallet = 400;
         s.inventory_saved = true;
+        s.occurrences.push(PersistedOccurrence::new(
+            "placement:h",
+            PersistedWhereabouts::Placed {
+                room: "portal_bridge".into(),
+                x: 4,
+                y: 5,
+            },
+        ));
+        s.custody
+            .push(PersistedCustody::new("placement:h", "player:0"));
+        s.minted_items.push(PersistedMintedItem {
+            occurrence: "player:0/0".into(),
+            parent: "player:0".into(),
+            sequence: 0,
+            held_item: "javelin".into(),
+        });
 
         s.reset_all();
 

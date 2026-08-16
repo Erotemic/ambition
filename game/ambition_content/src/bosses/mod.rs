@@ -321,7 +321,7 @@ impl Plugin for AmbitionBossContentPlugin {
             // the intention and a rewind across the reset lost it. Now that both
             // ends are simulation systems, it is ordinary sim state.
             //
-            // ⭐ **CHECKSUMMED, unlike the `InventoryRestored` latch it looks
+            // ⭐ **CHECKSUMMED, unlike the `SaveRestored` latch it looks
             // like.** That one is set in literal `Update`, outside resimulation,
             // so projecting it into the checksum made it disagree with the ticks
             // the checksum covers. Both ends of this one are simulation systems

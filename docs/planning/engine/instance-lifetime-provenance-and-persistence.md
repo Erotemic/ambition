@@ -143,9 +143,9 @@ authority that disagrees with the checkpoint the moment content changes.
 So the model needs **three** horizons, not two:
 
 ```text
-1  current occurrence state          what is true right now
-2  state at the reset/checkpoint     what a death restores to
-3  durable save state                separate, and still later
+1  current occurrence state          what is true right now              ✔ built
+2  state at the reset/checkpoint     what a death restores to            ✔ built 2026-08-15
+3  durable save state                what survives closing the program   ✔ built 2026-08-16
 ```
 
 ⚠ **that is the sharp version of the "do not mix derived and authoritative"
@@ -384,6 +384,77 @@ rooms have no on-disk representation; nothing here is serialized to a file, only
 to a rollback blob; and `OwnedItems` — the QUANTITY half of the same inventory —
 persists through a different mechanism that the horizon does not coordinate with.
 
+### ✔✔ FIFTH leg landed 2026-08-16 — HORIZON 3, and it needed no new description
+
+**`AmbitionGameSaveData` carries the occurrence horizon now**, in three
+`#[serde(default)]` lists, and `CURRENT_SAVE_VERSION` went 3 → 4.
+
+⭐⭐ **THE ARCHITECTURAL RESULT, and it is the one worth keeping: the on-disk
+form IS the checkpoint's own description, serialized — not a fourth
+description.**
+
+```text
+AuthoredOccurrences  → save.occurrences   SimId + InCustody | Placed{room,x,y} | Consumed
+CustodyBaseline      → save.custody       occurrence SimId → custodian SimId
+MintedItemBaseline   → save.minted_items  SimId + SpawnOrigin::Dynamic + spec id
+```
+
+⭐ **that the file needed no field the fourth leg had not already measured is the
+finding**, not a convenience. `identity + provenance + definition-REFERENCE` was
+derived from what a checkpoint owes a hand; a save asks the same question — *how
+would you make this again?* — and got the same three fields. The only thing the
+disk form added is the same lesson `PersistedCheckpoint` already carried:
+**INTEGER pixels**, because a float costs `AmbitionGameSaveData`'s `Eq` and a NaN
+makes the value-comparing autosave rewrite the file every frame forever.
+
+⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** `restore_durable_horizon` adopts the
+ledger, adopts the three baselines from the same file, and writes exactly one
+`ResetToCheckpoint`. Everything after that is the death road unchanged — restore
+the ledger, put the hands back (materializing what has no entity), rebuild the
+room from the restored ledger. ⇒ **the durable slice added ~two systems and no
+reconstruction logic at all**, and there is still exactly one authority on what a
+room owes the world.
+
+⚠ **the loaded state becomes this process's BASELINE**, stated rather than
+defended: a fresh process has no checkpoint history, so leaving the empty default
+would make the first death after a load take back everything the file remembered.
+The cost is that the BODY resumes at the shrine (`PersistedCheckpoint`) while the
+OBJECTS resume at the autosave's instant — the same seam `OwnedItems` has sat
+outside since D132.
+
+⛔⛔ **AND A DEFECT THE FIXTURE FOUND THAT NOTHING ELSE COULD HAVE.** A session
+builds its start room from authored records before any file has been read, so the
+instant the loaded ledger arrives the world holds an occurrence the file says is
+somewhere else — and `record_placed_ground_items` immediately republished the
+stale position over the loaded row, sending the object back to the room the player
+had carried it out of. The same tick order resurrected a terminal row.
+
+⭐ **the fix is an INVARIANT rather than a filter, and it generalises past the
+load**: an occurrence comes to rest in the active room only if its row says
+`InCustody`, or already says `Placed` *here*. **An object cannot change rooms
+without being carried** — every legitimate relocation passes through custody — so
+a live object lying somewhere its own row contradicts is a stale duplicate, and
+believing it would be the ledger taking dictation from the very duplication it
+exists to prevent. It refuses rather than repairs, so it does not become a second
+reconstruction authority; the requested rebuild sweeps the duplicate.
+
+⚠ **`GGRS_ROLLBACK_SCHEMA_VERSION` 33 → 34, and NOTHING WAS ADDED.** It is a
+rename: `resource.inventory_restored` → `resource.save_restored`, because the
+latch stopped meaning "the catalog has been applied" and started meaning "the
+loaded save has been applied". ⭐ deliberately ONE latch — two would be two
+answers to a single question. ⭐⭐ **the save file is not rollback state**: the
+three values it serializes were already registered at v32/v33, which is the same
+sentence as "the durable horizon is a serialization of the checkpoint one".
+
+⚠ **what horizon 3 still does NOT cover**: a runtime mint that is not in a hand
+when the file is written (lying in a room, in flight) is still undescribed and
+still lost — the description remembers no position; `OwnedItems` is still a
+QUANTITY table persisted by a leg that does not coordinate with this one;
+`Consumed` round-trips through the file and still has no live producer, so
+nothing yet WRITES a terminal row; and `load_save_at_startup` itself is still
+installed only by the presentation assembly, so a headless composition mirrors
+into `AmbitionGameSave` and never commits it to a file.
+
 ## D132 — the two authorities, measured (2026-08-16)
 
 `game/ambition_app/tests/two_persistence_authorities_for_one_item.rs` is the
@@ -426,11 +497,15 @@ spend the row in that same change and not before.
 is the poison that keeps the wrong shortcut (retracting the row at the reset)
 out.
 
-⚠ **and a composition finding**: the durable-save leg (`InventoryRestored` plus
-`restore_inventory_from_save`/`persist_inventory_to_save`) is installed by
+⚠ ~~**and a composition finding**: the durable-save leg is installed by
 `install_menu_setup_and_hotkeys`, inside `add_presentation_plugins` — "visible
-binary only". No headless composition schedules it, which is a large part of why
-the two authorities had never met in a test.
+binary only".~~ ✔ **FIXED 2026-08-16.** A save is not presentation; registering it
+beside a pause menu made *"does this build render?"* decide *"does this build
+remember?"*. `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin`
+owns the latch and all four systems now, in the runtime plugin group beside the
+checkpoint horizon it serializes, so every composition that simulates a world
+saves and loads. `two_persistence_authorities_for_one_item` no longer calls the
+shipped systems by hand — it steps a frame.
 
 ## Candidate crate / Bevy shape
 

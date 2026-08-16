@@ -389,7 +389,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     );
     // **An ARMED challenge, counting down to a fight.**
     //
-    // ⛔ **it was not rollback state, and it is the `InventoryRestored` failure
+    // ⛔ **it was not rollback state, and it is the `SaveRestored` failure
     // in another domain.** `tick_pending_challenges` REMOVES it in the sim
     // schedule; a rewind past that removal restored everything the removal
     // implied and left the removal itself standing, so the fight the narrative

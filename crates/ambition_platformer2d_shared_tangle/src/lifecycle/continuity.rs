@@ -34,15 +34,20 @@
 //!    it is a COPY of this ledger, not a second kind of row. See
 //!    [`AuthoredOccurrences::baseline_is_a_copy_of_this`] for what would have to
 //!    exist and why an item-KIND rule is the wrong shape.
-//! 3. ⚠ **DURABLE SAVE** — the same value across process lifetimes. Also does
-//!    not exist for occurrences; `AmbitionGameSave` records a
-//!    `PersistedCheckpoint` (a room id and a body position) and nothing about
-//!    what became of anything the world authored.
+//! 3. ✔ **DURABLE SAVE** — the same value across process lifetimes. **Built
+//!    2026-08-16**: `AmbitionGameSaveData::occurrences` is these rows, spelled
+//!    for disk with integer pixels, and
+//!    `session::durable_horizon` in the monolith is the pair of systems that
+//!    writes and reads them. A LOAD adopts this ledger, adopts the three
+//!    baselines from the same file, and asks for one `ResetToCheckpoint` — so
+//!    the reconstruction it performs is the road a death already takes, and
+//!    there is still exactly one authority on what a room owes the world.
 //!
 //! ⭐ **(2) and (3) are COPIES of (1) at later horizons.** That ordering is
 //! forced, not chosen: you cannot commit a baseline of a value you cannot
-//! represent, so the representation problem is solved once, here, and the other
-//! two horizons are a clone and a serialization of it.
+//! represent, so the representation problem was solved once, here, and the other
+//! two horizons turned out to be literally a clone and a serialization of it —
+//! measured rather than predicted, since (3) landed needing no new description.
 //!
 //! ⛔ **it is deliberately NOT a universal instance registry.** It records
 //! nothing about occurrences whose whereabouts are the default; an empty ledger
@@ -271,6 +276,35 @@ impl AuthoredOccurrences {
         self.rows.get(sim_id)
     }
 
+    /// **Every row, in identity order** — for the writer that puts this value on
+    /// disk.
+    ///
+    /// ⚠ **an ITERATOR over the sparse rows, deliberately not a "describe every
+    /// occurrence" call.** The rows are the exceptions; anything absent from this
+    /// walk reconstructs from its authored record, and a durable form that
+    /// enumerated the world instead would be the universal instance registry this
+    /// ledger exists not to be.
+    pub fn rows(&self) -> impl Iterator<Item = (&SimId, &OccurrenceWhereabouts)> {
+        self.rows.iter()
+    }
+
+    /// **Replace the whole ledger** with what a save file remembered.
+    ///
+    /// ⛔ **whole-value, never row by row, for
+    /// [`Self::republish_custody`]'s reason.** A load is a statement about the
+    /// entire ledger — including that everything absent from the file is as
+    /// authored — and a merge would leave rows from whatever this process was
+    /// doing before the file was read.
+    ///
+    /// ⚠ **it takes the rows and not a `Self`**, so the only way to build a
+    /// ledger from outside is to state every row: a `From<AuthoredOccurrences>`
+    /// would let a caller clone one authority into another and call it a load.
+    pub fn adopt_rows(&mut self, rows: BTreeMap<SimId, OccurrenceWhereabouts>) {
+        if self.rows != rows {
+            self.rows = rows;
+        }
+    }
+
     /// Whether anything is remembered about this occurrence at all — the
     /// question a placement producer asks before it starts tracking one.
     pub fn remembers(&self, sim_id: &SimId) -> bool {
@@ -357,6 +391,15 @@ impl AuthoredOccurrences {
     /// leg from `InCustodyOf`, and the placement producer rebuilds a `Placed`
     /// row from the occurrence's own position while its room is loaded. A rewind
     /// therefore restores the world and the next step restores the ledger.
+    ///
+    /// ⚠ **the republish is CONDITIONAL since the durable load landed
+    /// (2026-08-16), and the condition is an invariant rather than a filter**:
+    /// an occurrence comes to rest in the active room only if its row says it
+    /// was `InCustody` or was already `Placed` here. An object cannot change
+    /// rooms without being carried, so a live object contradicting its own row
+    /// is a stale duplicate, not a move — see `record_placed_ground_items`. That
+    /// narrows the population and does not weaken the re-derivation argument
+    /// below: every row this producer WOULD write is still rewritten each tick.
     ///
     /// ⭐ **the one value a rewind cannot recompute is a `Placed` row whose room
     /// is not loaded — and a room stops being loaded only at a room TRANSITION,
@@ -481,6 +524,26 @@ impl OccurrenceBaseline {
     /// `_mut`.
     pub fn remembered(&self) -> &AuthoredOccurrences {
         &self.0
+    }
+
+    /// **Adopt a ledger as the baseline** — the one road that writes this from
+    /// outside a [`CheckpointCommitted`](super::CheckpointCommitted).
+    ///
+    /// ⭐ **it exists for exactly one caller: a durable LOAD.** A fresh process
+    /// has no checkpoint history at all, so the state the file describes IS its
+    /// baseline; leaving the default empty one in place would make the first
+    /// death after a load take back everything the save remembered. That is the
+    /// same degenerate-case reasoning the sandbox reset uses from the other
+    /// side — a host that never commits restores the empty baseline.
+    ///
+    /// ⛔ **not a general setter.** A capture goes through
+    /// [`capture_occurrence_baseline`] and reads live state; a road that wrote
+    /// the baseline from anywhere else would be a second authority on what a
+    /// death restores to.
+    pub fn adopt(&mut self, ledger: AuthoredOccurrences) {
+        if self.0 != ledger {
+            self.0 = ledger;
+        }
     }
 
     /// **The desync checksum for this baseline** — entity-free, and covering

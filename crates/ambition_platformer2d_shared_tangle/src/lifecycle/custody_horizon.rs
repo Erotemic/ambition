@@ -86,6 +86,22 @@ impl CustodyBaseline {
         self.held.is_empty()
     }
 
+    /// **Adopt a set of remembered hands** — the one road that writes this
+    /// outside a [`CheckpointCommitted`].
+    ///
+    /// ⭐ **its single caller is a durable LOAD**, for the reason
+    /// `OccurrenceBaseline::adopt` states: a fresh process has no checkpoint
+    /// history, so what the file remembered IS the baseline, and the shipped
+    /// restore road then puts those hands back exactly as a death does.
+    ///
+    /// ⛔ **whole-value, never a row insert.** "Nobody was carrying anything"
+    /// has to be expressible, and a merge cannot say it.
+    pub fn adopt(&mut self, held: BTreeMap<SimId, SimId>) {
+        if self.held != held {
+            self.held = held;
+        }
+    }
+
     /// **The desync checksum for this baseline** — both sides are identities, so
     /// it is entity-free without having to be made so.
     ///
@@ -103,6 +119,31 @@ impl CustodyBaseline {
         }
         checksum_bytes(&bytes)
     }
+}
+
+/// **Who is carrying what RIGHT NOW**, in the shape a baseline row takes.
+///
+/// ⭐ **extracted so the two horizons cannot fork.** The checkpoint capture below
+/// reads this at a `CheckpointCommitted`; the durable writer
+/// (`session::durable_horizon`) reads the same function every tick to decide what
+/// a save file should say. A second hand-written copy of "which body holds which
+/// occurrence" would be a fork, and the two would disagree the first time either
+/// learned about a new case — a custodian without a `SimId`, say, which this
+/// function drops and a naive copy would not.
+///
+/// ⚠ **a `BTreeMap` and not the query's order.** This value reaches roads that
+/// despawn and spawn, and Bevy's iteration order is an archetype accident.
+pub fn live_custody_rows(
+    carried: &Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
+    custodians: &Query<&SimId>,
+) -> BTreeMap<SimId, SimId> {
+    carried
+        .iter()
+        .filter_map(|(occurrence, custody)| {
+            let custodian = custodians.get(custody.0).ok()?;
+            Some((occurrence.clone(), custodian.clone()))
+        })
+        .collect()
 }
 
 /// **Record who was carrying what, at the instant a checkpoint commits.**
@@ -126,15 +167,7 @@ pub fn capture_custody_baseline(
     if !committed {
         return;
     }
-    // A `BTreeMap` and not the query's order: this value reaches a restore that
-    // despawns entities, and Bevy's iteration order is an archetype accident.
-    let held: BTreeMap<SimId, SimId> = carried
-        .iter()
-        .filter_map(|(occurrence, custody)| {
-            let custodian = custodians.get(custody.0).ok()?;
-            Some((occurrence.clone(), custodian.clone()))
-        })
-        .collect();
+    let held = live_custody_rows(&carried, &custodians);
     if baseline.held != held {
         baseline.held = held;
     }

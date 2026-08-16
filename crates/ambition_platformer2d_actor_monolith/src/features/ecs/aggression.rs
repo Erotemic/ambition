@@ -135,7 +135,7 @@ pub const CHALLENGE_GRACE_S: f32 = 2.0;
 /// ⚠ **rollback state, and it was not** — `<<challenge>>` inserted it from
 /// `Update` while [`tick_pending_challenges`] removes it in the sim schedule. A
 /// rewind restored the simulation to before the removal and left the removal
-/// standing, which is the `InventoryRestored` latch failure in another domain:
+/// standing, which is the `SaveRestored` latch failure in another domain:
 /// the flag that says work is done outlives the work. It rewinds now, and the
 /// insert is a simulation decision like every other.
 #[derive(Component, Clone, Copy, Debug)]

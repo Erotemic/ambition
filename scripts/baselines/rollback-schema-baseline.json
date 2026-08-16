@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "⚠ 2026-08-16 RENAMES resource.inventory_restored to resource.save_restored and bumps GGRS_ROLLBACK_SCHEMA_VERSION 33 -> 34. No value and no projection moved — it is still a bare clone with no checksum, for the reason its own registration records (the systems run in literal Update, outside resimulation, so projecting the bool desynced the checksum). What changed is what the latch MEANS: it stopped answering 'has the catalog been applied?' and started answering 'has the loaded save been applied?', because the DURABLE occurrence horizon (ambition_platformer2d_actor_monolith::session::durable_horizon) reads it too. ⭐ deliberately ONE latch: two would be two answers to a single question, free to disagree the first time one leg's precondition was met and the other's was not. ⚠ the bump is for the row KEY, which is part of the wire identity — two peers whose schemas differ here cannot agree about a snapshot even though no byte of the value moved. ⛔ NOTHING was added for the durable save itself, and that is the finding worth keeping: the save file is not rollback state. The three values it serializes (resource.occurrence_baseline, resource.custody_baseline, resource.minted_item_baseline) were already registered as of v32/v33, and a durable LOAD writes them through the same adopt-and-resume road a death takes.",
     "⚠ 2026-08-15 ADDS derived.placement_continuity, the FIRST durable-room-state row and a DECLARED-DERIVED one. AuthoredOccurrences answers the question a rebuilt room cannot ask its own authored records: what became of the occurrence this record minted last time? Its only producing leg (persisting) is republished WHOLE every tick from the live InCustodyOf population, which is itself derived from the registered item.item_custody, so it carries no already-applied gate, converges on the step after a rewind, and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 - no encoding changed. It exists because custody let an authored object cross a room boundary alive, and re-entering the room then minted a SECOND occurrence claiming the same SimId::placement(..). ⛔⛔ the day OccurrenceDisposition::Consumed gains a producer this row becomes a lie: that leg ACCUMULATES a fact no live component still carries, nothing re-derives it, and it will owe a real registration with a value projection over the id set plus a durable-save representation, in the same change.",
     "⚠ 2026-08-15 ADDS derived.custody_residency, a DECLARED-DERIVED row rather than a registration: InCustodyOf is recomputed unconditionally every tick from the registered item.item_custody, with no 'already applied' gate, so it is not rollback state and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 — no encoding changed. It exists so a held item's RESIDENCY follows its holder: the roster a room change retires is now (With<RoomScopedEntity>, Without<InCustodyOf>), which is how a carried object crosses a room boundary without the transition knowing that items exist. ⛔ deliberately NOT _component_state: its only value is an entity handle, and hashing a raw handle is the hazard item.item_custody's entity-set probe already answers through the holder's SimId.",
     "⚠ v31 (2026-08-15) ADDS resource.gate_portal_phases, and the growth is deliberate: the portal phase was a mutable f32 timer that nothing rewound. The switch driving it lives in AmbitionGameSave and IS registered, so the INPUT rewound while its INTEGRAL did not, leaving the phase permanently ahead by the depth of every rollback taken during the ~38-tick opening window. Its consumer refuses a room crossing unless the phase is On, so peers disagreed about whether the crossing happened. It was previously waived as 'authored' — a true sentence about GatePortalConfig, which really is authored, and which no longer holds the phase at all. Registered with a VALUE projection, not a presence probe: a presence probe would have restored that phases exist, said nothing about elapsed, and passed while reproducing the defect.",
@@ -368,7 +369,6 @@
     "resource.gate_portal_phases",
     "resource.gravity_field",
     "resource.input_stream_recorder",
-    "resource.inventory_restored",
     "resource.minted_item_baseline",
     "resource.moving_platform_set",
     "resource.occurrence_baseline",
@@ -380,6 +380,7 @@
     "resource.projectile_seq_counter",
     "resource.quest_registry",
     "resource.requested_clock_scale",
+    "resource.save_restored",
     "resource.sandbox_reset_requested",
     "resource.sandbox_save",
     "resource.sandbox_sim_state",

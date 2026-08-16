@@ -486,19 +486,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // layer's own header forbids — and which said nothing at all in a
     // composition that never registers `GameMode`.
     app.add_plugins(inventory_ui::InventoryInputContextPlugin);
+    // ⛔ **the save/load leg LEFT this function on 2026-08-16, and the reason is
+    // worth keeping.** `SaveRestored` (then `InventoryRestored`) plus
+    // `restore_inventory_from_save` / `persist_inventory_to_save` were installed
+    // here, inside the visible-binary-only presentation assembly — so no headless
+    // composition ever saved or loaded anything, and the authority that decides
+    // what a player's file says had never run in a test. A save is not
+    // presentation; it belongs to every composition that simulates a world.
+    // `ambition_platformer2d_runtime::durable_save_horizon::DurableSaveHorizonPlugin`
+    // owns it now, beside the checkpoint horizon it serializes.
     app.insert_resource(inventory_ui::InventoryUiState::default())
-        .init_resource::<ambition_platformer2d::actors::items::persist::InventoryRestored>()
-        // Persist the inventory + wallet across save/load: restore the saved set
-        // once the player exists, then mirror live changes back into the save
-        // (the existing autosave writes the dirtied save to disk).
-        .add_systems(
-            Update,
-            (
-                ambition_platformer2d::actors::items::persist::restore_inventory_from_save,
-                ambition_platformer2d::actors::items::persist::persist_inventory_to_save,
-            )
-                .chain(),
-        )
         .add_systems(
             Update,
             (ambition_platformer2d::actors::menu::map::sync_map_menu,)

@@ -13,6 +13,9 @@ pub mod data;
 /// The death interlude and the roster question that decides a level reset
 /// (ADR 0033).
 pub mod death;
+/// The DURABLE save horizon: occurrence whereabouts, custody and runtime-minted
+/// descriptions on disk, and the load that resumes from them.
+pub mod durable_horizon;
 pub mod lifecycle_commit;
 pub mod reset;
 pub mod setup;

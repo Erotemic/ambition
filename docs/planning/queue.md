@@ -1735,16 +1735,67 @@ statement that gets cited as the objection) and in
 `inspection-diagnostics-and-workbench.md` (which owns discovery). ⛔⛔ do not
 sacrifice discoverability in the name of avoiding central authority.
 
+- ✔ **D133 — THE DURABLE SAVE HORIZON. What the world remembers about occurrences
+  now survives closing the program. (opened and LANDED 2026-08-16)**
+
+⭐⭐ **THE RESULT IN ONE SENTENCE: the on-disk form IS the checkpoint's own
+description, serialized — not a fourth description of the same facts.**
+`AmbitionGameSaveData` gained three `#[serde(default)]` lists that are
+`AuthoredOccurrences`, `CustodyBaseline` and `MintedItemBaseline` field for field
+(`CURRENT_SAVE_VERSION` 3 → 4). ⭐ **that the file needed no field the checkpoint
+slice had not already measured is the finding**: `identity + provenance +
+definition-REFERENCE` was derived from what a checkpoint owes a hand, and a save
+asks the same question and gets the same answer.
+
+⭐⭐ **AND A LOAD IS A CHECKPOINT RESUME.** The loader adopts the ledger, adopts
+the three baselines from the same file, and writes one `ResetToCheckpoint` —
+after which the road a death already takes rebuilds the world. ⇒ **two systems and
+no new reconstruction logic**, and there is still exactly one authority on what a
+room owes the world.
+
+| Falsifier | Verdict | Proof |
+|---|---|---|
+| A — an authored object carried to another room and dropped is lying there after a load, same `SimId`, home pedestal EMPTY | ✔ | `an_object_left_in_another_room_is_lying_there_after_a_load` — one file, loaded into BOTH rooms, plus a default-file control run |
+| B — a held weapon is still in the same hand after a load (D132's LOSS, closed) | ✔ | `a_weapon_in_your_hands_is_still_in_your_hands_after_a_load` — both halves of the forked relation, plus an empty-handed control |
+| C — a terminal row is not undone, and an untouched record is untouched | ✔ | `a_consumed_occurrence_is_not_resurrected_by_a_load_and_an_untouched_one_is_untouched` — the subject has NO live entity, so only the wrong implementation can act |
+
+⛔⛔ **A DEFECT THE FIXTURE FOUND THAT NOTHING ELSE COULD HAVE.** A session builds
+its start room before any file is read, so the instant the loaded ledger arrives
+the world holds an occurrence the file says is elsewhere — and
+`record_placed_ground_items` republished the stale position over the loaded row,
+sending the object home and resurrecting a terminal row. ⭐ **the fix is an
+INVARIANT**: an occurrence comes to rest here only if its row says `InCustody` or
+already says `Placed` here, because **an object cannot change rooms without being
+carried**. It refuses rather than repairs, so it is not a second reconstruction
+authority.
+
+⚠ **`GGRS_ROLLBACK_SCHEMA_VERSION` 33 → 34 for a RENAME and nothing else**:
+`resource.inventory_restored` → `resource.save_restored`, because the latch now
+means "the loaded save has been applied" and the occurrence leg reads it too.
+⭐⭐ **the save file is not rollback state** — the three values it serializes were
+already registered at v32/v33, which is the same sentence as "horizon 3 is a
+serialization of horizon 2". Also fixed: the durable leg was installed by the
+visible-binary-only presentation assembly, so **no headless composition saved or
+loaded anything**; `DurableSaveHorizonPlugin` owns it now.
+
+⚠ **STILL OPEN after this**: a runtime mint NOT in a hand at save time (lying in a
+room, in flight) is undescribed and lost — the description remembers no position;
+`Consumed` round-trips through the file and still has no live PRODUCER;
+`load_save_at_startup` is still presentation-only, so a headless composition
+mirrors into `AmbitionGameSave` and never writes a file; and the body resumes at
+the shrine while the objects resume at the autosave's instant.
+
 - ▣ **D132 — THE SAME ITEM HAS TWO PERSISTENCE AUTHORITIES AND THEY HAVE NEVER
   BEEN ASKED TO AGREE. (opened 2026-08-16; MEASURED and HALF CLOSED 2026-08-16)**
 
-⚠⚠ **A PLAYER-VISIBLE TRADE WENT WITH THIS SLICE, AND IT IS DELIBERATE: A HELD
-WEAPON CARRIED ACROSS A SAVE/LOAD IS NOW LOST RATHER THAN DUPLICATED.** The
-catalog no longer records a picked-up object, and the durable save describes no
-custody at all — so nothing on disk remembers the hand. ⇒ **the duplication glitch
-is gone and a loss took its place**, which is the better failure to have while the
-gap is open but is NOT a resting state. ⛔ **this makes durable custody the
-BLOCKING item, not a nice-to-have** — see the gate below.
+⚠⚠ ~~**A PLAYER-VISIBLE TRADE WENT WITH THIS SLICE: A HELD WEAPON CARRIED ACROSS
+A SAVE/LOAD IS NOW LOST RATHER THAN DUPLICATED.**~~ ✔✔ **THE LOSS IS CLOSED
+(D133, 2026-08-16).** The durable save describes custody now — as an OCCURRENCE
+(identity + whereabouts + the hand), never as a quantity — so the weapon comes
+back in the same hand, and the two populations stay disjoint so the duplication
+does not return by the new road.
+`a_weapon_in_your_hands_is_still_in_your_hands_after_a_load` is the proof, with a
+default-file control run so neither claim can pass by accident.
 
 ⭐⭐ **MEASURED FIRST, and the prediction below was wrong about which history
 breaks.** `two_persistence_authorities_for_one_item.rs` drives the exact scenario
@@ -1775,10 +1826,10 @@ baseline first, and the mint spends the row in that same change.
 `a_granted_quantity_survives_the_death_that_retracts_the_instance_minted_from_it`
 is the poison against retracting the row at the reset instead.
 
-⚠ **and the durable-save leg runs in NO headless composition** — the persist
-systems live in `install_menu_setup_and_hotkeys`, inside the visible-binary-only
-`add_presentation_plugins`. The fixture runs the shipped functions directly and
-says so.
+⚠ ~~**and the durable-save leg runs in NO headless composition**~~ ✔ **FIXED
+(D133, 2026-08-16).** `DurableSaveHorizonPlugin` in the runtime plugin group owns
+the latch and all four persist systems; the fixture steps a frame now instead of
+calling the shipped functions by hand.
 
 ⇣ the original statement of the row, kept because its second half is the gate:
 

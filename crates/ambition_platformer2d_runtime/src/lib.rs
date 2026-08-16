@@ -68,6 +68,7 @@ pub mod room_transition;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
 pub mod checkpoint_horizon;
+pub mod durable_save_horizon;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
 pub mod sandbox_reset;
@@ -487,6 +488,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // ordered against that consumer's set, and the two are one
             // transaction: put the world back, then rebuild the room from it.
             .add(checkpoint_horizon::CheckpointHorizonPlugin)
+            // The DURABLE horizon, immediately after the checkpoint one because
+            // it is a serialization of the same three values and its load is a
+            // checkpoint resume. ⛔ it used to be installed from the visible
+            // app's presentation assembly, so no headless composition saved or
+            // loaded anything at all — see the plugin's own header.
+            .add(durable_save_horizon::DurableSaveHorizonPlugin)
             // The world-fact domain's authored-condition provider. Added here
             // because composition is where plugins are chosen — ⛔ NOT because
             // anything central knows what conditions exist. The item domain

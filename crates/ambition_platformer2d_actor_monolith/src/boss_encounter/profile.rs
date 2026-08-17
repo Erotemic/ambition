@@ -27,14 +27,14 @@ pub struct BossProfile {
     pub id: String,
     pub display_name: String,
     pub encounter: crate::boss_encounter::BossEncounterSpec,
-    pub behavior: crate::features::BossBehaviorProfile,
+    pub behavior: crate::boss_encounter::behavior::BossBehaviorProfile,
     pub reward: BossRewardProfile,
 }
 
 use super::behavior;
 use super::BossCatalog;
-use crate::boss_encounter::BossSpecRoster;
 use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use crate::boss_encounter::BossSpecRoster;
 /// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
 /// into `BossBehaviorProfile::reward`. Re-exported from its definition
 /// site (`content::features::bosses`) so existing
@@ -50,7 +50,7 @@ impl BossProfile {
     /// Returns `None` if the id has no authored encounter spec.
     pub fn from_id(catalog: &BossCatalog, id: &str) -> Option<Self> {
         let encounter = default_boss_specs_by_id(catalog).get(id)?.clone();
-        let behavior = crate::features::BossBehaviorProfile::from_data(catalog, id);
+        let behavior = crate::boss_encounter::behavior::BossBehaviorProfile::from_data(catalog, id);
         Some(Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -76,7 +76,7 @@ impl BossProfile {
             id: id.clone(),
             display_name,
             encounter,
-            behavior: crate::features::BossBehaviorProfile::generic(catalog, id),
+            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::generic(catalog, id),
             reward: BossRewardProfile::None,
         }
     }

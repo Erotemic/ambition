@@ -741,7 +741,7 @@ fn construct_authored_boss(
         ctx.session,
         root.entity(),
         authored,
-        &crate::features::BossOverrides::default(),
+        &crate::boss_encounter::BossOverrides::default(),
     );
 }
 

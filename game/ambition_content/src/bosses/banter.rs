@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::banter::CombatBanterRegistry;
-use ambition_platformer2d_actor_monolith::features::BossClusterRef;
+use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
 use ambition_vfx::VfxMessage;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.

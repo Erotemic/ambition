@@ -23,18 +23,20 @@ fn ambition_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encount
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
     ];
-    let fragment = ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
-        "view-contract",
-        Some("clockwork_warden"),
-        None::<String>,
-        include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
-        ENCOUNTERS,
-        "{}",
-        std::collections::BTreeMap::new(),
-        std::collections::BTreeMap::new(),
-    )
-    .expect("view-contract boss fixture should parse");
-    let mut registry = ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
+    let fragment =
+        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
+            "view-contract",
+            Some("clockwork_warden"),
+            None::<String>,
+            include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
+            ENCOUNTERS,
+            "{}",
+            std::collections::BTreeMap::new(),
+            std::collections::BTreeMap::new(),
+        )
+        .expect("view-contract boss fixture should parse");
+    let mut registry =
+        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
     registry.register(fragment).unwrap();
     registry.assemble().unwrap()
 }
@@ -51,7 +53,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // boss sheet. This pins the exclusion that the deleted `ActorRuntime` tag
     // used to provide implicitly.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
-    let boss = ambition_platformer2d_actor_monolith::features::BossClusterScratch::new(
+    let boss = ambition_platformer2d_actor_monolith::boss_encounter::BossClusterScratch::new(
         &boss_catalog,
         "gnu_ton_rider",
         "GNU-ton",

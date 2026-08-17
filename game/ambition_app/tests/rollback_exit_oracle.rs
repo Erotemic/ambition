@@ -510,7 +510,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "republished every tick by the limb router",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::boss_clusters::BossConfig",
+            "ambition_platformer2d_actor_monolith::boss_encounter::clusters::BossConfig",
             "authored boss definition; nothing writes it after spawn",
         ),
         (
@@ -538,7 +538,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored art id; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::BossOverrides",
+            "ambition_platformer2d_actor_monolith::boss_encounter::clusters::BossOverrides",
             "authored spawn overrides; immutable at runtime",
         ),
         (

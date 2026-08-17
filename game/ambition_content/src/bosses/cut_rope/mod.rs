@@ -18,15 +18,17 @@ use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
 use ambition_encounter::EncounterParticipants;
+use ambition_platformer2d_actor_monolith::boss_encounter::BossConfig;
+use ambition_platformer2d_actor_monolith::boss_encounter::{
+    BossClusterQueryData, BossClusterRef, BossRef,
+};
 use ambition_platformer2d_actor_monolith::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
 };
-use ambition_platformer2d_actor_monolith::features::BossConfig;
 use ambition_platformer2d_actor_monolith::features::{
-    ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
-    EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, PogoPolicy,
-    PogoTargetVolumes, PostBossNpc,
+    ActorPose, CenteredAabb, DamageableVolumes, EnemyActorBundle, FeatureBaseBundle, FeatureId,
+    FeatureName, FeatureSimEntity, PogoPolicy, PogoTargetVolumes, PostBossNpc,
 };
 use ambition_platformer2d_actor_monolith::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_core::config::world_to_bevy;

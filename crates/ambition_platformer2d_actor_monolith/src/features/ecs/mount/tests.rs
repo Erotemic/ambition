@@ -281,7 +281,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
     // `Brain::StateMachine`, so a surviving `Player` proves the brain is
     // untouched — no new flag, the component IS the marker (Q19b).
     app.world_mut().entity_mut(rider).insert((
-        crate::features::BossConfig {
+        crate::boss_encounter::BossConfig {
             id: "boss_rider".into(),
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
@@ -791,13 +791,12 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let rider_size = ae::Vec2::new(54.0, 96.0);
     let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
     rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
-    let (boss_encounter, _hp) =
-        crate::features::ecs::boss_clusters::test_support::test_boss_status_with(
-            profile.encounter.max_hp,
-            BossEncounterPhase::Phase1,
-            triggers,
-        );
-    let boss_config = crate::features::BossConfig {
+    let (boss_encounter, _hp) = crate::boss_encounter::test_support::test_boss_status_with(
+        profile.encounter.max_hp,
+        BossEncounterPhase::Phase1,
+        triggers,
+    );
+    let boss_config = crate::boss_encounter::BossConfig {
         id: "gnu_ton_rider".into(),
         name: profile.display_name.clone(),
         spawn: rider_pos,
@@ -849,7 +848,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let phase = app
         .world()
         .entity(rider)
-        .get::<crate::features::BossEncounter>()
+        .get::<crate::boss_encounter::BossEncounter>()
         .unwrap()
         .encounter
         .as_ref()
@@ -875,10 +874,11 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
+    use crate::boss_encounter::BossConfig;
     use crate::boss_encounter::BossProfile;
     use crate::features::{
-        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics,
-        BossConfig, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
+        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
+        LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     };
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
@@ -1034,10 +1034,11 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
+    use crate::boss_encounter::BossConfig;
     use crate::boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use crate::features::{
-        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics,
-        BossConfig, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
+        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
+        LimbIntents, LimbRig, LimbRouteState, LimbSlot,
     };
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{
@@ -1166,12 +1167,11 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         &[],
     )
     .expect("the rider's authored strikes build a moveset");
-    let (boss_encounter, _hp) =
-        crate::features::ecs::boss_clusters::test_support::test_boss_status_with(
-            profile.encounter.max_hp,
-            BossEncounterPhase::Phase1,
-            PhaseTrigger::intrinsic_from_spec(&profile.encounter),
-        );
+    let (boss_encounter, _hp) = crate::boss_encounter::test_support::test_boss_status_with(
+        profile.encounter.max_hp,
+        BossEncounterPhase::Phase1,
+        PhaseTrigger::intrinsic_from_spec(&profile.encounter),
+    );
     let mut rider_actor = hostile(
         "gnu_ton_rider",
         "gnu_ton_rider",

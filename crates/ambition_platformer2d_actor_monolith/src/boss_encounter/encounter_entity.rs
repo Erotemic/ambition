@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 
 use crate::boss_encounter::BossEncounterPhase;
-use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use crate::boss_encounter::{BossConfig, BossEncounter};
 use crate::features::FeatureSimEntity;
 use ambition_encounter::{
     Encounter, EncounterCommand, EncounterCommandKind, EncounterLifecycle, EncounterObjective,
@@ -96,7 +96,7 @@ pub fn sync_boss_encounter_entities(
             Entity,
             &BossConfig,
             &BossEncounter,
-            Option<&crate::features::BossOverrides>,
+            Option<&crate::boss_encounter::BossOverrides>,
             Option<&SessionScopedEntity>,
             Option<&ambition_characters::actor::BodyHealth>,
         ),

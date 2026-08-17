@@ -2970,6 +2970,87 @@ monolith itself defines inside the `features` hub** — `features/ecs/boss_clust
 either that (relocate `boss_clusters` to `boss_encounter`, where it belongs) or a
 different candidate entirely — not a `boss_encounter` Cargo.toml.
 
+✔✔ **THE RELOCATION LANDED 2026-08-17 — THE BOSS DATA MODEL NOW LIVES IN
+`boss_encounter`, AND THE BIDIRECTIONAL EDGE IS ONE-WAY.** `boss_clusters.rs`
+(430 lines) moved to `boss_encounter/clusters.rs`; `BossOverrides` moved out of
+`features/ecs/spawn_actors.rs` to sit beside the components it tweaks; and
+`sync_boss_reward_chests_ecs` moved into `boss_encounter/rewards.rs` — a file
+that existed **only** as a code-free placeholder whose own doc said *"boss
+reward-chest sync now lives in `crate::features`"*. ⛔ **no re-export was left
+behind**: `features` no longer names any of the ten symbols, and all 55
+`features::<boss symbol>` call sites across seven crates were re-pointed.
+
+Measured with the honest instrument — **`crate::` on NON-COMMENT lines, counted
+in SITES, both directions**:
+
+```text
+                              before   after
+  boss_encounter → siblings     51       25   sites  ← ⭐ the result
+      of which crate::features   49       21
+      new (arrived with the moved code: platformer_runtime, combat)  —  2
+  siblings → boss_encounter    155      201   sites  ← ⚠ UP, and correct
+  features/mod.rs exported names  280     270          (−10, all boss)
+  features tree                43,017  42,339  lines   (−678)
+```
+
+⭐⭐ **THE INWARD NUMBER GOING UP IS THE HONEST OUTCOME, NOT A REGRESSION.** Those
+46 new `crate::boss_encounter::` sites are the same edges that were already there
+reading `crate::features::BossConfig` — the hub was laundering a boss dependency
+as a features dependency. Relocation does not delete an edge a caller genuinely
+has; **it makes it say whose it is.** The number that had to fall is the outward
+one, and it did: 49 → 21.
+
+⭐ **AND NONE OF THE 21 SURVIVORS IS BOSS VOCABULARY.** Twenty of them name types
+that live BELOW the monolith and are merely re-exported by the hub —
+`BodyKinematics` (`platformer2d_core`), `CenteredAabb` / `ChestFeature` /
+`FeatureId` / `Opened` / `FallingChest` / `BossRewardChest` / `GameplayBanner`
+(`ambition_combat`), `FeatureSimEntity` (`shared_tangle`). The twenty-first is
+`MountDied`, genuinely defined in `features::ecs::mount` — a real cross-domain
+message, not laundry. ⇒ **the fable-review 2026-07-15 blocker is cleared**: it
+named exactly this file (*"the single blocker is that boss cluster ECS components
+live in features/ecs while catalog/behavior/sprites live in boss_encounter"*).
+
+⚠ **NOTHING REFUSED — but two things were checked FOR a refusal and passed.**
+(1) `BossOverrides` looked construction-pinned, living in the spawn module; it is
+not — it is a plain `Component` of authored tweak DATA, written once at spawn and
+read only by `update_boss_encounters` / `sync_boss_encounter_entities`, both in
+`boss_encounter`. `spawn_actors.rs` now imports it like any other component it
+inserts. (2) `sync_boss_reward_chests_ecs` looked table-pinned, sharing a file
+with `sync_encounter_reward_chests_ecs` and `clear_encounter_reward_ecs`; it is
+not — those two share only the file's `use super::*`, not a table, and the boss
+one has exactly **one** production caller (`boss_encounter::systems`). Its mob
+siblings stayed put: their `EncounterMob` wave vocabulary is `encounter`'s, not
+the boss's.
+
+⭐ **ONE PRE-EXISTING VIOLATION SURFACED, which is the facade-deletion hazard
+AGENTS.md names.** Splitting a grouped import
+(`use …monolith::features::{BossClusterRef, FeatureEcsWorldOverlay}`) left
+`FeatureEcsWorldOverlay` on its own line and `engine.f2-consumers-use-canonical-crates`
+fired — the edge had been hiding inside a mixed brace. Fixed by naming its real
+home (`ambition_platformer2d_shared_tangle::feature_overlay`), not by waiving.
+
+⚠ **and two ROLLBACK ORACLE strings had to move with the type**, because they are
+`std::any::type_name` text, not paths a compiler checks:
+`…::features::ecs::boss_clusters::BossConfig` and
+`…::features::ecs::spawn_actors::BossOverrides` → `…::boss_encounter::clusters::*`.
+A relocation of a rollback-registered component always owes that edit.
+
+The absence was asserted structurally, not by eye: `boss_clusters` as a path went
+**62 sites → 1** (the survivor is a comment in `boss_encounter/mod.rs` recording
+where the module came from), and `features::<boss symbol>` went **55 → 0**.
+Green: `cargo check --workspace --all-targets`, monolith lib (1,245),
+`ambition_app --test app_it`, `ambition_workspace_policy` (34), and
+`check_absence_contracts.py --check` (29 of 29).
+
+⇒ ▢ **THIS STILL DID NOT MAKE `boss_encounter` A CARVE, AND THE 201 INWARD SITES
+ARE WHY.** The domain now owns its vocabulary, but `features` alone names it 155
+times — every boss query filter (`With`/`Without<BossConfig>`), the damage router,
+the anim helpers, the save sync, the reset. A carve would have to take
+`features/ecs/bosses/` (tick + sync, 1,791 lines) and `features/bosses.rs` with
+it, and `features/ecs/damage/boss_hit.rs` needs a `HitEvent` seam first. **That is
+the next slice if this candidate is pursued — a second relocation, still not a
+Cargo.toml.**
+
 ⛔ nothing was committed against the carve itself: no crate, no manifest, no
 lockfile moved, so `critical_path_crates` stays at 13 and no baseline was touched.
  Prefer boundaries that improve capability closure, compile isolation,

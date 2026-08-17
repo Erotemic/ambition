@@ -5,12 +5,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
-use ambition_platformer2d_actor_monolith::features::{ActorTarget, BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
+use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity};
+use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
+use ambition_platformer2d_actor_monolith::features::{ActorTarget, FeatureSimEntity};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};

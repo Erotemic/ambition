@@ -4,9 +4,9 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::boss_encounter::test_support::{test_boss_config, test_boss_status};
+use crate::boss_encounter::BossEncounter;
 use crate::boss_encounter::BossEncounterPhase;
-use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
-use crate::features::ecs::boss_clusters::BossEncounter;
 use crate::features::GameplayBanner;
 use ambition_encounter::{
     EncounterBeat, EncounterEffect, EncounterGate, EncounterMusicRequest, EncounterParticipant,
@@ -119,7 +119,7 @@ fn beats_advance_in_order_with_timer_and_banner() {
     assert!(q.single(app.world()).unwrap().done());
 }
 
-fn boss_config() -> crate::features::ecs::boss_clusters::BossConfig {
+fn boss_config() -> crate::boss_encounter::BossConfig {
     test_boss_config("b", "B", "mockingbird")
 }
 

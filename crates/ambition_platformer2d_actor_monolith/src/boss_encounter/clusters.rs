@@ -17,19 +17,23 @@
 //! [`BossConfig`] doubles as the *is-a-boss* marker component — every boss
 //! entity carries exactly one, no other actor does — so boss / non-boss systems
 //! filter on `With<BossConfig>` / `Without<BossConfig>`.
+//!
+//! Lives HERE, with the boss domain, since D33 (2026-08-17). It used to sit in
+//! `features::ecs::boss_clusters`, which made the hub re-export boss vocabulary
+//! back to this module's own children — `boss_encounter` and `features` each
+//! depended on the other for the same eight types. The dependency is one-way
+//! now: `features` names `crate::boss_encounter::`, never the reverse.
 
-use bevy::ecs::query::QueryData;
-use bevy::prelude::Component;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
-
-use crate::boss_encounter::behavior::{
-    canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile,
+use super::behavior::{
+    canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile, BossBehaviorProfileExt,
 };
-use crate::boss_encounter::BossEncounterPhase;
+use super::BossEncounterPhase;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
+use bevy::ecs::query::QueryData;
+use bevy::prelude::Component;
 
-pub use crate::platformer_runtime::body::BodyKinematics;
+use crate::platformer_runtime::body::BodyKinematics;
 
 /// Authored configuration + identity for a boss actor. Also serves as
 /// the boss marker component (see module docs).
@@ -82,7 +86,32 @@ pub struct BossEncounter {
     /// entity is what makes two of the same boss (a gauntlet) carry independent
     /// fights by construction rather than by a string-keyed side map. See
     /// `docs/systems/boss-encounter-architecture.md`. `None` until seeded.
-    pub encounter: Option<crate::boss_encounter::ActorPhaseState>,
+    pub encounter: Option<super::ActorPhaseState>,
+}
+
+/// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
+/// at position Y and it just works" true (the refactor's one-line goal, R6).
+///
+/// Carried on the spawned boss entity as a `Component` and read at SEED time by
+/// `update_boss_encounters` (hp / size / phase triggers) and by
+/// `sync_boss_encounter_entities` (the encounter opt-out). `Default` = no
+/// tweaks (use the archetype profile), so a room-authored boss is unaffected.
+#[derive(bevy::prelude::Component, Clone, Debug, Default)]
+pub struct BossOverrides {
+    /// Override max HP (also the starting HP). `None` ⇒ the profile's `max_hp`.
+    pub max_hp: Option<i32>,
+    /// Override the combat/contact box half-extent → full size. `None` ⇒ the
+    /// profile's `combat_size`.
+    pub combat_size: Option<ae::Vec2>,
+    /// Override the intrinsic phase triggers as DATA. `Some(vec![])` ⇒ the boss
+    /// never phases up (fights to death — a boss reused as a plain tough enemy);
+    /// `None` ⇒ the profile-derived triggers. Proves phases are trivially
+    /// flippable data, no code change.
+    pub phase_triggers: Option<Vec<super::PhaseTrigger>>,
+    /// Spawn the boss WITHOUT an encounter wrapper — a plain tough enemy: no
+    /// HUD, no lock-walls, no win/lose. (`sync_boss_encounter_entities` skips
+    /// it.) The creature still fights + dies normally.
+    pub no_encounter: bool,
 }
 
 /// Immutable borrow view over the boss clusters. Hosts the read-only
@@ -267,7 +296,7 @@ impl BossClusterScratch {
     /// Build the boss clusters directly from spawn inputs (tests / non-ECS
     /// callers; see the struct docs).
     pub fn new(
-        boss_catalog: &crate::boss_encounter::BossCatalog,
+        boss_catalog: &super::BossCatalog,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -370,8 +399,8 @@ pub(crate) mod test_support {
     //! Shared boss test fixtures. One definition of "a test `BossEncounter` /
     //! `BossConfig`" so the boss test modules build the same shape — adding a
     //! field updates them all at once instead of drifting per-module.
+    use super::super::{ActorPhaseState, PhaseTrigger};
     use super::*;
-    use crate::boss_encounter::{ActorPhaseState, PhaseTrigger};
 
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
     /// entity-local `ActorPhaseState` carrying `triggers` (empty ⇒ never phases
@@ -422,7 +451,7 @@ pub(crate) mod test_support {
                 script_id: script_id.to_string(),
             },
             behavior: BossBehaviorProfile::for_authored_boss(
-                crate::boss_encounter::test_boss_catalog(),
+                super::super::test_boss_catalog(),
                 script_id,
             ),
         }

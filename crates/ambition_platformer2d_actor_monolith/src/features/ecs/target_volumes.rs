@@ -61,7 +61,7 @@ pub fn refresh_body_damageable_volumes(
         // Everything else -- player, enemy, npc, sandbag, a possessed anything --
         // resolves here, through ONE rule.
         (
-            Without<super::boss_clusters::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
             Without<BreakableFeature>,
         ),
     >,
@@ -122,7 +122,7 @@ fn authored_world_volumes(
 pub fn refresh_boss_damageable_volumes(
     boss_catalog: Res<crate::boss_encounter::BossCatalog>,
     mut bosses: Query<(
-        super::boss_clusters::BossClusterRef,
+        crate::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
         Option<&crate::features::BossAnimationFrameSample>,

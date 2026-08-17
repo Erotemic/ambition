@@ -91,7 +91,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            ambition_platformer2d::actors::features::BossClusterRef,
+            ambition_platformer2d::actors::boss_encounter::BossClusterRef,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::brain::BossAttackState,
             Option<&'static ambition_platformer2d::actors::features::BossAnimationFrameSample>,

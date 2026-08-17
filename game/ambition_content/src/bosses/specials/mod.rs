@@ -41,7 +41,7 @@ pub use mode_collapse::{spawn_mode_collapse_converge_from_special_messages, Mode
 pub use overflow_flood::{spawn_overflow_flood_from_special_messages, OverflowState};
 pub use seismic_stomp::{spawn_seismic_stomp_from_special_messages, SeismicStompState};
 
-use ambition_platformer2d_actor_monolith::features::BossConfig;
+use ambition_platformer2d_actor_monolith::boss_encounter::BossConfig;
 use ambition_platformer2d_shared_tangle::schedule::gameplay_allowed;
 use ambition_platformer2d_shared_tangle::schedule::CombatSet;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;

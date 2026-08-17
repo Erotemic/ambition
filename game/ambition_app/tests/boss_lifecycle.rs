@@ -19,21 +19,22 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::boss_encounter::BossOverrides;
+use ambition_platformer2d::actors::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_platformer2d::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use ambition_platformer2d::actors::features::{
-    BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
+    BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
 use ambition_platformer2d::encounter::EncounterMusicRequest;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";
@@ -80,10 +81,12 @@ fn force_kill_boss(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
 }
 
 fn music_track(sim: &Platformer2dSimHarness) -> Option<String> {
-    ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
-        .expect("live encounter-music request")
-        .priority_track
-        .clone()
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(
+        sim.world(),
+    )
+    .expect("live encounter-music request")
+    .priority_track
+    .clone()
 }
 
 /// R4: "cleared" is keyed by the boss PLACEMENT id (its runtime/LDtk id), not
@@ -99,7 +102,10 @@ fn boss_cleared(sim: &Platformer2dSimHarness, placement_id: &str) -> bool {
 }
 
 fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
-    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(
+        &BossConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.alive())
@@ -113,14 +119,20 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
 }
 
 fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(
+        &BossConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.max())
 }
 
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::characters::actor::BodyHealth)>();
+    let mut q = world.query::<(
+        &BossConfig,
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
     for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {
             health.health.current = hp;
@@ -141,8 +153,8 @@ fn boss_reward_chest_count(world: &mut World) -> usize {
 /// track. (R3 must keep boss music playing through the fight.)
 #[test]
 fn boss_music_plays_during_the_fight() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "music_boss");
 
     // A few frames to wake the boss (Dormant → Intro) + publish its music.
@@ -163,8 +175,8 @@ fn boss_music_plays_during_the_fight() {
 /// through the same death path).
 #[test]
 fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "dying_boss");
 
     // Wake + register the boss, then confirm the fight music is up.
@@ -210,8 +222,8 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
 /// SAME boss archetype reused at a different placement is NOT pre-marked cleared.
 #[test]
 fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // Placement A: a mockingbird the player defeats.
     spawn_mockingbird(&mut sim, "placement_a");
@@ -251,8 +263,8 @@ fn reused_archetype_at_a_new_placement_is_not_pre_cleared() {
 /// it "respawns". Reproduces the cut-rope replay bug at the generic boss level.
 #[test]
 fn boss_revives_after_a_room_reset() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     spawn_mockingbird(&mut sim, "respawner");
     for _ in 0..15 {
         sim.step(AgentAction::default());
@@ -302,8 +314,8 @@ fn boss_revives_after_a_room_reset() {
 /// with its own profile-derived state (independent HP pools + encounters).
 #[test]
 fn two_different_bosses_are_both_fightable() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at(
@@ -345,8 +357,8 @@ fn two_different_bosses_are_both_fightable() {
 /// but NO encounter entity wraps it (so no HUD / lock-walls / win-lose).
 #[test]
 fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at_with(
@@ -381,8 +393,8 @@ fn boss_spawned_with_no_encounter_has_no_encounter_entity() {
 /// phase to death. Proves phases are trivially-flippable DATA (no code change).
 #[test]
 fn boss_with_empty_phase_triggers_never_phases_up() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
 
     sim.spawn_boss_at_with(
@@ -430,8 +442,8 @@ fn boss_with_empty_phase_triggers_never_phases_up() {
 /// gate, the script does the kill, the entity death pipeline records Cleared).
 #[test]
 fn encounter_script_gate_force_kills_through_the_real_schedule() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let (px, py) = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         "scripted",

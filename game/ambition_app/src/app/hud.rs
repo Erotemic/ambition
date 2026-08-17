@@ -49,7 +49,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::actor::BodyCombat,
         ),
-        bevy::prelude::Without<ambition_platformer2d::actors::features::BossConfig>,
+        bevy::prelude::Without<ambition_platformer2d::actors::boss_encounter::BossConfig>,
     >,
 }
 

@@ -1129,16 +1129,22 @@ pub fn record_placed_ground_items(
         // with everything else this room minted, and until then the ledger simply
         // keeps saying the true thing.
         let comes_to_rest_here = match occurrences.whereabouts(sim_id) {
-            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody) => true,
-            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
-                room: recorded_room,
-                ..
-            }) => recorded_room == room,
+            Some(
+                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody,
+            ) => true,
+            Some(
+                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
+                    room: recorded_room,
+                    ..
+                },
+            ) => recorded_room == room,
             // No row: not something anybody carried, so not this producer's
             // population at all. Terminal: an ended occurrence does not come back
             // by being observed lying somewhere.
             None
-            | Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed) => false,
+            | Some(
+                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed,
+            ) => false,
         };
         if !comes_to_rest_here {
             continue;
@@ -1998,14 +2004,14 @@ pub fn held_projectile_step(
         ),
         (
             With<crate::features::FeatureSimEntity>,
-            Without<crate::features::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
         ),
     >,
     ecs_bosses: Query<
         (
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
-            crate::features::BossClusterRef,
+            crate::boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

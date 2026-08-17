@@ -23,16 +23,18 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_platformer2d::actors::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
+use ambition_platformer2d::actors::boss_encounter::BossConfig;
+use ambition_platformer2d::actors::boss_encounter::{
+    BossEncounterPhase, EncounterDef, EncounterProgress,
+};
 use ambition_platformer2d::actors::combat::{HitEvent, HitSource};
-use ambition_platformer2d::actors::features::ecs::boss_clusters::BossConfig;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::encounter::EncounterParticipants;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -69,10 +71,12 @@ struct BossSnapshot {
 fn read_player(world: &mut World) -> PlayerSnapshot {
     // ⭐ AC3.1.B: `attacking` reads the melee AUTHORITY. It used to read a
     // `BodyCombat` mirror that only the player road maintained.
-    let mut q = world.query_filtered::<
-        (&BodyKinematics, &BodyCombat, &BodyHealth, &ambition_platformer2d::actors::actor::BodyMelee),
-        PrimaryPlayerOnly,
-    >();
+    let mut q = world.query_filtered::<(
+        &BodyKinematics,
+        &BodyCombat,
+        &BodyHealth,
+        &ambition_platformer2d::actors::actor::BodyMelee,
+    ), PrimaryPlayerOnly>();
     let (kin, combat, health, melee) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
         pos: kin.pos,
@@ -127,8 +131,8 @@ fn boss_contact_hits(world: &World) -> usize {
 
 #[test]
 fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // Survive the whole run so hp only ever moves downward (one delta per
     // landed hit) — no respawn to confuse the trace.
@@ -337,8 +341,8 @@ fn flying_into_mockingbird_traces_iframe_gated_contact_damage() {
 /// than boss HP, and break cleanly if the boss is reset away.
 #[test]
 fn face_tanking_player_swings_back_and_is_recoil_locked() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     boost_player_health(sim.world_mut(), 1000);
     sim.grant_flight();
@@ -555,10 +559,10 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// `docs/systems/boss-encounter-architecture.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
-    use ambition_platformer2d::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+    use ambition_platformer2d::actors::boss_encounter::{BossConfig, BossEncounter};
 
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     // Two mockingbirds, far enough apart that neither is on top of the other.
@@ -657,8 +661,8 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
 /// a view bound to this progress. See `docs/systems/boss-encounter-architecture.md`.
 #[test]
 fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     let start = read_player(sim.world_mut()).pos;
     sim.spawn_boss_at(

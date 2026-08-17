@@ -5,18 +5,18 @@
 //! unchanged).
 
 use super::*;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::FeatureCombatTuning;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
-fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
+fn gnu_ton_runtime() -> crate::boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let mut scratch = super::super::ecs::boss_clusters::BossClusterScratch::new(
+    let mut scratch = crate::boss_encounter::BossClusterScratch::new(
         crate::boss_encounter::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",

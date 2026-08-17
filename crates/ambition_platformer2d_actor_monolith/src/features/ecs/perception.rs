@@ -376,7 +376,7 @@ pub fn ensure_perception(
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::With<crate::features::FeatureSimEntity>,
             bevy::prelude::Without<crate::actor::PlayerEntity>,
-            bevy::prelude::Without<crate::features::ecs::boss_clusters::BossConfig>,
+            bevy::prelude::Without<crate::boss_encounter::BossConfig>,
             // Missing memory ⟺ missing perception (both attached together below), so
             // this one gate nets bodies that lack either.
             bevy::prelude::Without<PerceptionMemory>,
@@ -545,7 +545,6 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
 #[cfg(test)]
 mod tests;
 
-
 /// Project a live actor body into the perception input its own world view is
 /// built from.
 ///
@@ -635,9 +634,8 @@ pub(crate) fn perception_body_for(
         // derivation, so a body cannot disagree with the rest
         // of the world about which team it is on.
         team: self_peer.and_then(|p| p.team.clone()),
-                        }
+    }
 }
-
 
 /// **Where this body BELIEVES its target is, after seeing and remembering.**
 ///
@@ -663,16 +661,13 @@ pub(crate) fn believed_target(
         // The nearest foe IN VIEW, or when none is visible the most-confident foe
         // the body REMEMBERS — pursuit of one that left the viewport (invariant
         // I6).
-        Perception::Sighted { .. } => Some(
-            view.nearest_hostile().map(|a| a.pos).or_else(|| {
-                memory
-                    .as_deref()
-                    .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
-            }),
-        ),
+        Perception::Sighted { .. } => Some(view.nearest_hostile().map(|a| a.pos).or_else(|| {
+            memory
+                .as_deref()
+                .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
+        })),
     }
 }
-
 
 /// **What a body can perceive this tick, as one parameter.**
 ///

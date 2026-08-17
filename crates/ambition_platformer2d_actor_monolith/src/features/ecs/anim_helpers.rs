@@ -98,7 +98,7 @@ fn boss_animation_key_for_sample(
 }
 
 pub fn boss_anim_state_for(
-    boss: super::boss_clusters::BossRef<'_>,
+    boss: crate::boss_encounter::BossRef<'_>,
     // Liveness + damage-blink from the boss's shared body components (§A1).
     alive: bool,
     hit_flash: f32,
@@ -137,7 +137,7 @@ pub fn ecs_boss_anim_state_and_entity(
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        super::boss_clusters::BossClusterRef,
+        crate::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -179,7 +179,7 @@ pub fn ecs_boss_animation_frame_sample(
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        super::boss_clusters::BossClusterRef,
+        crate::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -257,7 +257,7 @@ pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(
         &FeatureId,
-        super::boss_clusters::BossClusterRef,
+        crate::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,

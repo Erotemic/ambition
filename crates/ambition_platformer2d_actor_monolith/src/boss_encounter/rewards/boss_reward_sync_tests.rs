@@ -2,16 +2,18 @@
 //! `#[cfg(test)] mod boss_reward_sync_tests` block (test-organization campaign, 2026-07-10).
 //! Pure move: same test names + logic, now an adjacent child module (a direct
 //! sibling, so `super` path depth is unchanged) with `use super::*;`.
+//! Followed its subject from `features::ecs::encounter_rewards` into
+//! `boss_encounter::rewards` (D33).
 
 //! sync_boss_reward_chests_ecs drops a boss's reward chest once the
 //! boss reads Cleared in the save and a spawn anchor is known. The
 //! non-ECS world/anchors params are carried in test-only resources so
 //! a normal wrapper system can drive the helper.
 use super::*;
-use crate::boss_encounter::{BossEncounterRegistry, BossProfile};
+use crate::boss_encounter::{test_boss_catalog, BossProfile};
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::PersistedEncounterState;
-use bevy::prelude::{App, Resource, Update};
+use bevy::prelude::{App, Res, Resource, Update};
 
 #[derive(Resource)]
 struct TestWorld(ae::World);
@@ -55,8 +57,7 @@ fn app() -> App {
     let mut reg = BossEncounterRegistry::default();
     reg.profiles.insert(
         "test_boss".into(),
-        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "mockingbird")
-            .expect("mockingbird is authored"),
+        BossProfile::from_id(test_boss_catalog(), "mockingbird").expect("mockingbird is authored"),
     );
     app.insert_resource(reg);
     app.insert_resource(TestWorld(ae::World::new(

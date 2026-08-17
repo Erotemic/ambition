@@ -295,7 +295,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.surface_state",
     );
-    app.rollback_component_cursor::<ambition_platformer2d_actor_monolith::features::BossEncounter>(
+    app.rollback_component_cursor::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounter>(
         OWNER,
         "boss.encounter",
     );
@@ -328,7 +328,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.anim_override",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossConfig>(
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::boss_encounter::BossConfig>(
         OWNER,
         "boss.config",
     );
@@ -415,7 +415,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "map.pending_challenge",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossOverrides>(
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::boss_encounter::BossOverrides>(
         OWNER,
         "boss.overrides",
     );

@@ -436,7 +436,7 @@ pub fn enforce_mount_rider_link(
             // A rider whose identity is AUTHORED, not derived from its kit (it
             // carries `BossConfig`), keeps its `Brain` untouched on dismount —
             // no new flag, the component IS the marker (ADR 0020; Q19b).
-            Option<&crate::features::BossConfig>,
+            Option<&crate::boss_encounter::BossConfig>,
             Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,

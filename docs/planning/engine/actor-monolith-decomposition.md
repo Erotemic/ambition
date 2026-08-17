@@ -329,7 +329,9 @@ while refusing the `encounter` carve:
   — the same 3.8× undercount every other row has. A module count says how many
   seams a carve must cut; a site count says how much editing it costs. ⭐ **and
   neither answers the question that actually kills a candidate: how many sites
-  point INWARD.** `boss_encounter` has 155.
+  point INWARD.** `boss_encounter` had 155 before the D33 relocation, and **201
+  after it** — see Wave E: relocating a domain's vocabulary into it RAISES the
+  inward count, because the laundered edges become declared ones.
 
 ⇒ **an edge count is a screening tool. The verdict is the definition sites**, and
 a module is carvable only when every name it reaches resolves at or below where
@@ -1173,6 +1175,38 @@ defines. The residue is 2,145 lines, essentially unchanged: this buys honesty,
 not size. ⇒ `boss_encounter`'s `encounter` edge is gone (3 sibling modules → 2),
 which was its stated precondition — but see the size warning below before
 treating it as unblocked.
+
+✔✔ **AND THE BOSS DATA MODEL CAME HOME 2026-08-17 (D33), WHICH ENDS THE
+`features` ↔ `boss_encounter` BIDIRECTIONAL EDGE the 2026-07-15 anatomy named as
+the boss carve's single blocker.** `features/ecs/boss_clusters.rs` (430 lines) is
+now `boss_encounter/clusters.rs`; `BossOverrides` left `features/ecs/spawn_actors.rs`
+and `sync_boss_reward_chests_ecs` left `features/ecs/encounter_rewards.rs` — the
+latter into a `boss_encounter/rewards.rs` that had been a code-free placeholder
+pointing back at `features`. No re-export was left behind. Honest instrument,
+in SITES:
+
+```text
+  boss_encounter → siblings   51 → 25   (crate::features 49 → 21)
+  siblings → boss_encounter  155 → 201  ← UP, and correct
+  features/mod.rs exports    280 → 270  ·  features tree 43,017 → 42,339 lines
+```
+
+⭐⭐ **THE INWARD RISE IS THE MEASUREMENT LESSON, NOT A REGRESSION.** Those 46 new
+sites are the SAME callers, previously reading `crate::features::BossConfig` — the
+hub was laundering a boss dependency as a features dependency. **A relocation does
+not delete an edge a caller genuinely has; it makes the edge say whose it is.**
+The number that had to fall is outward, and it did. ⭐ **and none of the 21
+survivors is boss vocabulary**: twenty name lower-crate types the hub merely
+re-exports (`BodyKinematics`, `CenteredAabb`/`ChestFeature`/`FeatureId`/`Opened`/
+`FallingChest`/`BossRewardChest`/`GameplayBanner`, `FeatureSimEntity`); the
+twenty-first is `MountDied`, a real cross-domain message.
+
+⚠ **it is still NOT a carve, and 201 inward sites is why** — `features` alone
+names `crate::boss_encounter::` 155 times (every `With`/`Without<BossConfig>`
+filter, the damage router, anim helpers, save sync, reset). A carve must also take
+`features/ecs/bosses/` (1,791) and `features/bosses.rs`, and
+`features/ecs/damage/boss_hit.rs` wants a `HitEvent` seam first. **The next slice
+is a second relocation, not a Cargo.toml.**
 
 ### Wave F — presentation effects and audio
 

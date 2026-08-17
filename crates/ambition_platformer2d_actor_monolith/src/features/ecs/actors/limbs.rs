@@ -36,8 +36,9 @@ use ambition_characters::brain::{ActorControl, BossAttackState};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, With};
 
+use crate::boss_encounter::BossConfig;
 use crate::boss_encounter::{LimbMotion, LimbRoute};
-use crate::features::{ActorSurfaceState, BodyKinematics, BossConfig, MountSlot};
+use crate::features::{ActorSurfaceState, BodyKinematics, MountSlot};
 
 /// Which limb of the rig a body is. Grows per content (a serpent boss adds
 /// variants); ordered so `LimbIntents`' BTreeMap iterates deterministically.

@@ -5,10 +5,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::features::{BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
 };
+use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
+use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
 use ambition_vfx::{Effect, EffectRequest};
 

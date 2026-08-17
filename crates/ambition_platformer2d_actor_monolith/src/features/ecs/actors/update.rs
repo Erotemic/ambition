@@ -16,7 +16,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &CenteredAabb,
             &mut super::super::super::components::ActorPose,
             Option<&super::super::actor_clusters::BodyKinematics>,
-            Option<super::super::boss_clusters::BossClusterRef>,
+            Option<crate::boss_encounter::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -288,7 +288,7 @@ pub fn tick_actor_brains(
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
-            Without<super::super::boss_clusters::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
             // **A DORMANT ACTOR DOES NOT DECIDE.** Only the brain sleeps: the
             // body still integrates, so a dormant actor mid-fall keeps falling
             // and simply stops choosing. Absent on every actor that declares no
@@ -370,13 +370,15 @@ pub fn tick_actor_brains(
         observation.note_actor(
             entity,
             clusters.as_ref().is_some_and(|c| c.health.alive()),
-            clusters.as_ref().map(|c| super::crowd_observation::ObservedBody {
-                id: c.config.id.as_str(),
-                pos: c.kin.pos,
-                kind: c.config.tuning.crowd_kind(),
-                faction: faction.copied(),
-                foe: target.entity,
-            }),
+            clusters
+                .as_ref()
+                .map(|c| super::crowd_observation::ObservedBody {
+                    id: c.config.id.as_str(),
+                    pos: c.kin.pos,
+                    kind: c.config.tuning.crowd_kind(),
+                    faction: faction.copied(),
+                    foe: target.entity,
+                }),
             fighting,
         );
     }
@@ -385,7 +387,6 @@ pub fn tick_actor_brains(
     // anti-clump steering) rather than consumed here — the one piece of the
     // observation that leaves this system.
     steering.neighbor_by_id = crowd.neighbor_index().clone();
-
 
     // Pass 2: tick each actor's brain into its `ActorControl`. The slot-board
     // holding fallback that steers unassigned actors is folded into the brain
@@ -1016,7 +1017,7 @@ pub fn integrate_sim_bodies(
             // one-frame pose lag, and the boss's chain-1 presentation systems remain
             // regardless — so the carve-out is a presentation-ordering choice, not an
             // un-unified integrator.
-            Without<super::super::boss_clusters::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
         ),
     >,
     // Home/player bodies (primary + any brain-driven clone). Disjoint from the
@@ -1211,7 +1212,7 @@ pub fn sync_actor_read_model(
             // fields — phase, timers), so it is excluded here to avoid a double sync.
             // Same non-swarm-orchestration policy as `tick_actor_brains` /
             // `integrate_boss_bodies`: the boss runs its own chain-1, deliberately.
-            Without<super::super::boss_clusters::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
         ),
     >,
 ) {

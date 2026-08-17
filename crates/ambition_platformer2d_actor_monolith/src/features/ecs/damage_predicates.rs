@@ -34,9 +34,11 @@
 
 use bevy::prelude::{Query, With, Without};
 
+use crate::boss_encounter::BossConfig;
+
 use super::{
-    ActorDisposition, BossConfig, BreakableFeature, CenteredAabb, DamageableVolumes,
-    FeatureId, FeatureSimEntity, HitEvent,
+    ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
+    FeatureSimEntity, HitEvent,
 };
 
 /// True if `ignored_targets` contains the `"{prefix}:{id}"` disposition key,
@@ -125,7 +127,7 @@ pub fn ecs_hit_event_hits_boss(
         (
             &FeatureId,
             &CenteredAabb,
-            super::boss_clusters::BossClusterRef,
+            crate::boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

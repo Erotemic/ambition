@@ -93,12 +93,12 @@ pub fn update_boss_encounters(
         (
             Entity,
             &crate::features::FeatureId,
-            crate::features::BossClusterQueryData,
+            crate::boss_encounter::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
             // hit-flash/reaction timers.
             &mut ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
-            Option<&crate::features::BossOverrides>,
+            Option<&crate::boss_encounter::BossOverrides>,
         ),
         With<crate::features::FeatureSimEntity>,
     >,
@@ -174,7 +174,7 @@ pub fn update_boss_encounters(
         // a cleared placement renders defeated and is otherwise inert. Shared
         // predicate (`boss_is_cleared`) with the room-load save-sync so they
         // can't drift.
-        if crate::features::boss_is_cleared(&save, &feature.config) {
+        if crate::boss_encounter::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
                 phase.phase = crate::boss_encounter::BossEncounterPhase::Death;
@@ -241,7 +241,7 @@ pub fn update_boss_encounters(
             if health.alive() {
                 health.health.current = 0;
             }
-            if !crate::features::boss_is_cleared(&save, &feature.config) {
+            if !crate::boss_encounter::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
                     ambition_persistence::save_data::PersistedEncounterState::Cleared,
@@ -287,7 +287,7 @@ pub fn update_boss_encounters(
         None => music_request.release_priority(BOSS_MUSIC_OWNER),
     }
 
-    crate::features::sync_boss_reward_chests_ecs(
+    crate::boss_encounter::sync_boss_reward_chests_ecs(
         &mut commands,
         session_scope,
         save.data(),
@@ -319,7 +319,10 @@ pub fn update_boss_encounters(
 /// `MountDied` written in the earlier `Combat` set — is visible the same frame.
 pub fn notify_bosses_on_mount_death(
     mut mount_deaths: MessageReader<crate::features::MountDied>,
-    mut riders: Query<&mut crate::features::BossEncounter, With<crate::features::BossConfig>>,
+    mut riders: Query<
+        &mut crate::boss_encounter::BossEncounter,
+        With<crate::boss_encounter::BossConfig>,
+    >,
 ) {
     for ev in mount_deaths.read() {
         let Ok(mut encounter) = riders.get_mut(ev.rider) else {
@@ -392,7 +395,7 @@ pub fn boss_phase_transition_feedback(
             &crate::features::BodyKinematics,
             &crate::features::CenteredAabb,
         ),
-        With<crate::features::BossConfig>,
+        With<crate::boss_encounter::BossConfig>,
     >,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -451,8 +454,8 @@ mod phase_feedback_tests {
     //! P0.2: the feedback fires from the ANNOUNCED edge, not from a memory of
     //! its own.
     use super::*;
+    use crate::boss_encounter::test_support::{test_boss_config, test_boss_status};
     use crate::boss_encounter::BossEncounterPhase;
-    use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
 
@@ -636,11 +639,9 @@ mod mount_death_bridge_tests {
     //! trigger. `notify_bosses_on_mount_death` is
     //! `PhaseTriggerCondition::External`'s first production caller.
     use super::*;
+    use crate::boss_encounter::test_support::{test_boss_config, test_boss_status_with};
+    use crate::boss_encounter::BossEncounter;
     use crate::boss_encounter::{BossEncounterPhase, PhaseTrigger};
-    use crate::features::ecs::boss_clusters::test_support::{
-        test_boss_config, test_boss_status_with,
-    };
-    use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::MountDied;
 
     fn bridge_app() -> App {

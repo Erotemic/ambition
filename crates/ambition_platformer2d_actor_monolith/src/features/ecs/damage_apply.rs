@@ -1198,13 +1198,7 @@ pub fn apply_player_hit_events(
     // tuple). It carries the player's hurt-debris puff into the ONE victim-side
     // reaction, so the player keeps the impact debris that used to fire
     // attacker-side.
-    (
-        mut class_b,
-        mut debris_writer,
-        mut wallet_shield_spent,
-        body_sources,
-        heavy_attackers,
-    ): (
+    (mut class_b, mut debris_writer, mut wallet_shield_spent, body_sources, heavy_attackers): (
         Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
         MessageWriter<DebrisBurstMessage>,
         MessageWriter<WalletShieldSpent>,
@@ -1213,7 +1207,7 @@ pub fn apply_player_hit_events(
         Query<&ambition_sfx::BodyPresentationSource>,
         // **Which bodies hit HEAVY.** Filter-only, so it reads no components and
         // conflicts with nothing; bundled for the same ceiling reason.
-        Query<(), bevy::prelude::With<super::boss_clusters::BossConfig>>,
+        Query<(), bevy::prelude::With<crate::boss_encounter::BossConfig>>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,

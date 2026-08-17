@@ -64,7 +64,7 @@ pub fn reset_ecs_room_features(
         // bosses here so Bevy can prove the two queries never alias.
         (
             With<FeatureSimEntity>,
-            Without<super::boss_clusters::BossConfig>,
+            Without<crate::boss_encounter::BossConfig>,
         ),
     >,
     // Content pose PINS. `ActorAnimOverride` is an engine-provided override slot
@@ -79,8 +79,8 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<
         (
             super::actor_clusters::ActorClusterQueryData,
-            &mut super::boss_clusters::BossConfig,
-            &mut super::boss_clusters::BossEncounter,
+            &mut crate::boss_encounter::BossConfig,
+            &mut crate::boss_encounter::BossEncounter,
             &mut crate::features::MotionModel,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,

@@ -39,7 +39,7 @@ pub struct BossSpriteMetricsApplied;
 /// The liveness the caller now writes in place is the last derived fact this
 /// produced, and AC3.1.A deletes even that.
 pub fn boss_component_snapshot(
-    boss: super::super::boss_clusters::BossRef<'_>,
+    boss: crate::boss_encounter::BossRef<'_>,
 ) -> (ActorIdentity, ActorDisposition) {
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
@@ -54,7 +54,7 @@ pub fn boss_component_snapshot(
 pub fn sync_boss_actor_components(
     mut bosses: Query<
         (
-            super::super::boss_clusters::BossClusterRef,
+            crate::boss_encounter::BossClusterRef,
             &BossAttackState,
             &ambition_characters::brain::ActionSet,
             &mut CombatKit,
@@ -138,7 +138,7 @@ pub fn derive_boss_sprite_metrics(
     mut bosses: Query<
         (
             Entity,
-            super::super::boss_clusters::BossClusterQueryData,
+            crate::boss_encounter::BossClusterQueryData,
             Option<&mut Brain>,
         ),
         (With<FeatureSimEntity>, Without<BossSpriteMetricsApplied>),
@@ -212,7 +212,7 @@ pub fn boss_spawn_hurtboxes(
 ) -> Vec<ae::CombatVolume> {
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let mut boss =
-        super::super::boss_clusters::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
+        crate::boss_encounter::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
     if let Some((metrics, _)) =
         boss_sprite_metrics_from_registry(boss_catalog, boss.as_ref(), &registry)
     {
@@ -228,7 +228,7 @@ pub fn boss_spawn_hurtboxes(
 
 pub(crate) fn boss_sprite_metrics_from_registry(
     boss_catalog: &crate::boss_encounter::BossCatalog,
-    boss: super::super::boss_clusters::BossRef<'_>,
+    boss: crate::boss_encounter::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
     let target = sprite_target_for_boss(&boss.config.behavior);

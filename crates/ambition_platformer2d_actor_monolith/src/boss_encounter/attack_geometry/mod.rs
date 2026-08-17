@@ -90,7 +90,7 @@ impl<'a> BossVolumeContext<'a> {
     /// data-driven via `sprite_metrics`.
     pub fn from_ref(
         boss_catalog: &'a super::BossCatalog,
-        boss: crate::features::BossRef<'a>,
+        boss: crate::boss_encounter::BossRef<'a>,
         attack_state: &'a BossAttackState,
     ) -> Self {
         Self {

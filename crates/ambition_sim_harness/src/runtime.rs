@@ -764,12 +764,12 @@ impl Platformer2dSimHarness {
             pos,
             half_size,
             brain,
-            ambition_platformer2d::actors::features::BossOverrides::default(),
+            ambition_platformer2d::actors::boss_encounter::BossOverrides::default(),
         );
     }
 
     /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
-    /// ([`BossOverrides`](ambition_platformer2d::actors::features::BossOverrides)): hp /
+    /// ([`BossOverrides`](ambition_platformer2d::actors::boss_encounter::BossOverrides)): hp /
     /// combat size / phase triggers / encounter opt-out. The refactor's headline
     /// "spawn boss X with tweaks Z at Y and it just works" seam.
     pub fn spawn_boss_at_with(
@@ -779,7 +779,7 @@ impl Platformer2dSimHarness {
         pos: (f32, f32),
         half_size: (f32, f32),
         brain: ambition_platformer2d::entity_catalog::placements::BossBrain,
-        overrides: ambition_platformer2d::actors::features::BossOverrides,
+        overrides: ambition_platformer2d::actors::boss_encounter::BossOverrides,
     ) {
         self.app.world_mut().write_message(
             ambition_platformer2d::actors::features::SpawnActorRequest {

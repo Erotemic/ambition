@@ -147,11 +147,11 @@ pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     apply_spawn_actor_requests, apply_summon_effects, arm_requested_challenges,
-    boss_anim_state_for, boss_is_cleared, boss_spawn_hurtboxes, can_damage,
-    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
-    derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators,
-    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
-    ecs_breakable_state, ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    boss_anim_state_for, boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs,
+    collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes,
+    dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
+    ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
     integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
@@ -160,23 +160,21 @@ pub use ecs::{
     route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
     steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
-    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
-    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut,
-    BossOverrides, BossRef, CanPilot, ChallengeRequested, ControlGrant, EncounterMobSeed,
-    FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureWorldOverlaySet,
-    FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass,
-    MountClass, MountDeathImpact, MountDied, MountRiderLinkEnforced, MountSlot, Mountable, Mounted,
-    MountedBrainCache, MountedSize, OccurrenceContinuity, PendingChallenge, PickupArt,
-    PickupCollect, PickupCollectLock, PickupMagnetize, RidingOn, RoomContentStagingError,
-    RoomContentStagingRegistrationError, RoomContentStagingRegistry,
-    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs,
+    sync_riders_to_mounts, tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system,
+    tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves,
+    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
+    ActorConstructionContext, ActorSteering, CanPilot, ChallengeRequested, ControlGrant,
+    EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
+    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
+    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
+    MountRiderLinkEnforced, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
+    PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -777,8 +775,8 @@ pub struct FeatureInteractionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use bevy::prelude::IntoScheduleConfigs;
         use crate::schedule::FeatureInteractionSet;
+        use bevy::prelude::IntoScheduleConfigs;
 
         // ⭐ **the conversation domain installs itself**: the authority, the
         // cut-bark port channel, its own narrative payload, its presentation

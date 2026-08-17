@@ -3,7 +3,7 @@
 //!
 //! Boss HP/phase state is ENTITY-LOCAL (`BossEncounter.health` +
 //! `BossEncounter.encounter: ActorPhaseState`); this module bridges it to the
-//! in-arena boss ECS clusters (`features::BossClusterQueryData` / `BossRef`),
+//! in-arena boss ECS clusters (`BossClusterQueryData` / `BossRef`, `clusters`),
 //! the optional first-class encounter entity (`EncounterDef` + `EncounterScript`),
 //! and the adaptive music + cutscene + save-state systems. The registry is a
 //! read-only `BossProfile` data catalog.
@@ -12,6 +12,7 @@
 //! update systems, rewards, and event publication live in child modules so
 //! future boss work doesn't pile into the entry point. Children:
 //! `behavior`/`profile`/`specs`/`roster` (data schemas + App-local catalog views),
+//! `clusters` (the authoritative boss components + borrow views),
 //! `registry` (`BossEncounterRegistry` resource), `systems` (per-frame tick +
 //! HP mirror), `encounter_entity`/`encounter_script` (the optional encounter
 //! entity + its scripted beats), `events` (event publication), `rewards`
@@ -29,6 +30,7 @@
 pub mod attack_geometry;
 pub mod behavior;
 mod catalog;
+mod clusters;
 mod encounter_entity;
 mod encounter_script;
 mod events;
@@ -52,11 +54,21 @@ pub use ambition_characters::boss_encounter::{
     PhaseTriggerCondition,
 };
 pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, LimbRoute};
+// The boss DATA MODEL — the authoritative components + the borrow views the
+// per-tick systems mutate/read. Relocated from `features::ecs::boss_clusters`
+// (D33): boss vocabulary belongs to the boss domain, and the hub it sat in was
+// re-exporting it back to this module's own children.
 #[cfg(test)]
 pub(crate) use catalog::test_boss_catalog;
 pub use catalog::{
     BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError, BossCatalogFragment,
     BossCatalogRegistry,
+};
+#[cfg(test)]
+pub(crate) use clusters::test_support;
+pub use clusters::{
+    boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
+    BossEncounter, BossMut, BossOverrides, BossRef,
 };
 pub use encounter_entity::{
     release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
@@ -74,6 +86,7 @@ pub use ambition_encounter::{
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
+pub use rewards::sync_boss_reward_chests_ecs;
 pub use roster::BossSpecRoster;
 pub use specs::default_boss_specs;
 pub use systems::{

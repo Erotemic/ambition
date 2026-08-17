@@ -166,7 +166,7 @@ snapshot_pod!(crate::features::ActorSurfaceState {
 /// `mockingbird_arena` telegraphed `wing_sweep` on the replay's tick 21 and stood still
 /// on the original's, with every clock, seed, and cooldown identical, because the
 /// replay's boss was already awake.
-impl SnapshotCursor for crate::features::BossEncounter {
+impl SnapshotCursor for crate::boss_encounter::BossEncounter {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         self.encounter_phase.encode(out);
         match &self.encounter {

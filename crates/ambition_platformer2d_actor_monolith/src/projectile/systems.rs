@@ -12,10 +12,10 @@ use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
+use crate::boss_encounter::{BossClusterRef, BossConfig};
 use crate::features::{
-    ActorAggression, ActorFaction, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb,
-    FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
-    HitTarget,
+    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
+    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;

@@ -83,7 +83,7 @@ fn possessed_attack_choice(
 ///
 /// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
-    mut bosses: Query<super::super::boss_clusters::BossClusterQueryData, With<FeatureSimEntity>>,
+    mut bosses: Query<crate::boss_encounter::BossClusterQueryData, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
         std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
     >,
@@ -322,7 +322,7 @@ pub fn drive_boss_animators(
     ecs_bosses: Query<(
         Entity,
         &crate::features::FeatureId,
-        super::super::boss_clusters::BossClusterRef,
+        crate::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &BossAttackState,
@@ -389,7 +389,7 @@ pub fn tick_boss_brains_system(
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
-            super::super::boss_clusters::BossClusterRef,
+            crate::boss_encounter::BossClusterRef,
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
@@ -610,7 +610,7 @@ pub fn tick_boss_brains_system(
 
 pub(crate) fn boss_front_wall_clearance(
     world: &ae::World,
-    boss: &super::super::boss_clusters::BossRef<'_>,
+    boss: &crate::boss_encounter::BossRef<'_>,
     target_pos: ae::Vec2,
     standoff: f32,
 ) -> Option<f32> {
@@ -727,7 +727,7 @@ pub fn integrate_boss_bodies(
         (
             Entity,
             super::super::actor_clusters::ActorClusterQueryData,
-            &super::super::boss_clusters::BossConfig,
+            &crate::boss_encounter::BossConfig,
             &crate::combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,

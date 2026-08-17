@@ -20,7 +20,7 @@
 //!
 //! Facade: many `ecs::<name>` paths re-export from the reusable
 //! `combat` kit (`banner`, `breakables`, `chests`, `hazards`,
-//! `hitbox`, `overlay`, `pickups`, `boss_clusters`, ...) so call sites stay
+//! `hitbox`, `overlay`, `pickups`, ...) so call sites stay
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
 use super::*;
@@ -45,7 +45,6 @@ mod actors;
 mod aggression;
 mod anim_helpers;
 pub mod attack;
-pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
@@ -78,7 +77,7 @@ mod spawn_actors;
 mod target_volumes;
 
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
-// (attack/boss_clusters/chests/damage_apply/effect_bus/pickups/spawn_static
+// (attack/chests/damage_apply/effect_bus/pickups/spawn_static
 // are LOCAL modules now — the E2 glue re-home.)
 pub use crate::combat::{
     banner, breakables, falling_chest, hazards, held_items, hitbox, targeting, variation,
@@ -103,10 +102,6 @@ pub use anim_helpers::{
     ecs_chest_opened,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
-pub use boss_clusters::{
-    boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
-    BossEncounter, BossMut, BossRef,
-};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub use crate::world::overlay::{
@@ -130,9 +125,7 @@ pub use damage::apply_feature_hit_events;
 pub use damage_predicates::{
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
 };
-pub use encounter_rewards::{
-    clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs,
-};
+pub use encounter_rewards::{clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs};
 pub use falling_chest::update_ecs_falling_chests;
 pub use hazards::{update_ecs_hazards, HazardTickSet};
 pub use held_items::HeldItem;
@@ -166,8 +159,8 @@ pub use spawn::{
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, BossOverrides, EncounterMobSeed,
-    GiantHandPlan, SpawnActorKind, SpawnActorRequest,
+    apply_spawn_actor_requests, apply_summon_effects, EncounterMobSeed, GiantHandPlan,
+    SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{
     giant_hand_plans, is_limbed_host, populate_giant_hand_into, populate_giant_host_into,

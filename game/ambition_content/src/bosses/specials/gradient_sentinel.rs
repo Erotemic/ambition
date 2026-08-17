@@ -5,11 +5,12 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::features::{BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
+use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
+use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_time::WorldTime;
@@ -129,7 +130,9 @@ fn apple_rain_spawn_x(spawn_index: u32, world_width: f32, boss_aabb: ae::Aabb) -
 /// leftover dt.
 pub fn spawn_apple_rain_from_special_messages(
     world_time: Res<WorldTime>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_core::RoomGeometry>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut bosses: Query<

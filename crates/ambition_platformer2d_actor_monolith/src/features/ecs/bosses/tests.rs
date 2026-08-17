@@ -2,8 +2,8 @@
 //! boss tick/sync systems.
 
 use super::*;
-use ambition_platformer2d_core as ae;
 use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_platformer2d_core as ae;
 
 /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
 /// reproduces GNU-ton's metrics without the ECS system, via
@@ -135,7 +135,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     // Aim the lookup at the mount's sheet: the giant is what carries the head.
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
-    let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+    let mut boss = crate::boss_encounter::BossClusterScratch::new(
         crate::boss_encounter::test_boss_catalog(),
         "boss_giant_gnu",
         "Giant GNU",
@@ -177,7 +177,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 
     // The rider, on its own tight sheet, has no body metrics to resolve — his
     // damageable volume falls back to his authored `combat_size`.
-    let mut rider = super::super::boss_clusters::BossClusterScratch::new(
+    let mut rider = crate::boss_encounter::BossClusterScratch::new(
         crate::boss_encounter::test_boss_catalog(),
         "boss_gnu_ton_rider",
         "GNU-ton",
@@ -221,7 +221,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     );
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
     let pos = ae::Vec2::new(500.0, 400.0);
-    let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+    let mut boss = crate::boss_encounter::BossClusterScratch::new(
         crate::boss_encounter::test_boss_catalog(),
         "boss_mockingbird",
         "Mockingbird",

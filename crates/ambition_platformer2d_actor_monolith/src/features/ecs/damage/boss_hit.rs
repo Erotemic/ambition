@@ -12,7 +12,7 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use crate::features::ecs::boss_clusters::BossEncounter;
+use crate::boss_encounter::BossEncounter;
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -120,7 +120,7 @@ pub(crate) fn apply_boss_hit(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     event: &HitEvent,
     boss_entity: bevy::prelude::Entity,
-    boss: super::super::boss_clusters::BossMut<'_>,
+    boss: crate::boss_encounter::BossMut<'_>,
     // The boss's shared body components (§A1): `BodyHealth` is the HP
     // authority, `BodyCombat.hit_flash` the one damage-blink.
     health: &mut ambition_characters::actor::BodyHealth,
@@ -140,10 +140,7 @@ pub(crate) fn apply_boss_hit(
         return false;
     }
     if boss.config.behavior.environmental_kill_only
-        && matches!(
-            event.source,
-            HitSource::Melee | HitSource::Projectile
-        )
+        && matches!(event.source, HitSource::Melee | HitSource::Projectile)
     {
         // Environmental puzzle bosses (e.g. the Smirking Behemoth) take
         // no HP from ordinary player hits; those should give honest local
@@ -347,8 +344,8 @@ mod entity_damage_tests {
     //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
     //! phases swallow the hit.
     use super::*;
+    use crate::boss_encounter::test_support::test_boss_status;
     use crate::boss_encounter::BossEncounterPhase;
-    use crate::features::ecs::boss_clusters::test_support::test_boss_status;
 
     fn boss(
         hp: i32,

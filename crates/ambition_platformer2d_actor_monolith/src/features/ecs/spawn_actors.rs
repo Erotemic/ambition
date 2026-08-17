@@ -6,7 +6,7 @@
 
 use super::brain_builders::enemy_default_brain;
 use super::*;
-use crate::boss_encounter::BossCatalog;
+use crate::boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -98,31 +98,6 @@ pub enum SpawnActorKind {
         /// construction `expect`s that named it.
         character: ambition_entity_catalog::CharacterId,
     },
-}
-
-/// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
-/// at position Y and it just works" true (the refactor's one-line goal, R6).
-///
-/// Carried on the spawned boss entity as a `Component` and read at SEED time by
-/// `update_boss_encounters` (hp / size / phase triggers) and by
-/// `sync_boss_encounter_entities` (the encounter opt-out). `Default` = no
-/// tweaks (use the archetype profile), so a room-authored boss is unaffected.
-#[derive(bevy::prelude::Component, Clone, Debug, Default)]
-pub struct BossOverrides {
-    /// Override max HP (also the starting HP). `None` ⇒ the profile's `max_hp`.
-    pub max_hp: Option<i32>,
-    /// Override the combat/contact box half-extent → full size. `None` ⇒ the
-    /// profile's `combat_size`.
-    pub combat_size: Option<ae::Vec2>,
-    /// Override the intrinsic phase triggers as DATA. `Some(vec![])` ⇒ the boss
-    /// never phases up (fights to death — a boss reused as a plain tough enemy);
-    /// `None` ⇒ the profile-derived triggers. Proves phases are trivially
-    /// flippable data, no code change.
-    pub phase_triggers: Option<Vec<crate::boss_encounter::PhaseTrigger>>,
-    /// Spawn the boss WITHOUT an encounter wrapper — a plain tough enemy: no
-    /// HUD, no lock-walls, no win/lose. (`sync_boss_encounter_entities` skips
-    /// it.) The creature still fights + dies normally.
-    pub no_encounter: bool,
 }
 
 /// Drain [`SpawnActorRequest`]s and materialize each actor.

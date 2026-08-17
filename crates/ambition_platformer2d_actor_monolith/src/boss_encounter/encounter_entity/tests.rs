@@ -4,9 +4,9 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::boss_encounter::test_support::{test_boss_config, test_boss_status_with};
 use crate::boss_encounter::PhaseTrigger;
-use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
-use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use crate::boss_encounter::{BossConfig, BossEncounter};
 use ambition_encounter::{EncounterParticipants, EncounterRole};
 
 fn awake_boss(
@@ -205,7 +205,10 @@ fn release_on_death_emits_payload_once_at_host_position() {
         .collect();
     assert_eq!(released.len(), 1, "exactly one release on death");
     assert_eq!(released[0].0, host);
-    assert_eq!(released[0].1, ambition_platformer2d_core::Vec2::new(120.0, 80.0));
+    assert_eq!(
+        released[0].1,
+        ambition_platformer2d_core::Vec2::new(120.0, 80.0)
+    );
     // Released once: the marker is gone, so a second tick emits nothing.
     assert!(app.world().entity(host).get::<ReleaseOnDeath>().is_none());
 }

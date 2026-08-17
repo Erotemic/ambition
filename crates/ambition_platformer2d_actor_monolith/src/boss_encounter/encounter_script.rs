@@ -19,7 +19,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::ecs::boss_clusters::{BossClusterRef, BossEncounter};
+use crate::boss_encounter::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_platformer2d_core as ae;

@@ -1,9 +1,9 @@
 //! Tests for the pixel-frame -> world-space AABB derivation used by boss attack volumes.
 
 use super::*;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// Centered pixel bbox at frame center → world AABB at world_center.
 /// The 128×128 frame with a 64×64 bbox at (32, 32) should map to
@@ -1031,7 +1031,8 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
 /// covers instead of claiming the fold is guarded.
 #[test]
 fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_match() {
-    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 
@@ -1135,7 +1136,8 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
 /// PROBED: swapping `frame.rs`'s check to a key comparison fails THIS one.
 #[test]
 fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
-    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 
@@ -1239,7 +1241,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 /// This pins the behaviour that would be lost.
 #[test]
 fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
-    use crate::features::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 
@@ -1365,7 +1367,8 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 /// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
 #[test]
 fn the_row_is_found_only_because_the_sample_names_it() {
-    use crate::features::{BossAttackProfile, BossBehaviorProfile};
+    use crate::boss_encounter::behavior::BossBehaviorProfile;
+    use ambition_characters::brain::boss_pattern::BossAttackProfile;
 
     let behavior = BossBehaviorProfile::gnu_ton_rider();
     let mut attack_state = BossAttackState::default();
@@ -1413,7 +1416,8 @@ fn the_row_is_found_only_because_the_sample_names_it() {
 
 #[test]
 fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
-    use crate::features::{ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile};
+    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 

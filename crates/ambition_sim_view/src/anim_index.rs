@@ -333,7 +333,7 @@ pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
     bosses: Query<(
         &FeatureId,
-        ambition_platformer2d_actor_monolith::features::BossClusterRef,
+        ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,

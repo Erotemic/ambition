@@ -291,7 +291,7 @@ fn boss_spawn_attaches_brain_components() {
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
             root,
             &authored,
-            &super::super::spawn_actors::BossOverrides::default(),
+            &crate::boss_encounter::BossOverrides::default(),
         );
     });
     app.update();

@@ -918,8 +918,21 @@ none: it taught me, in one sitting, to reach for `entity delete` on a feature.
 ▢ teach `spawn_overlap` about `mounted_on`, and either resolve `LoadingZone`
 targets across worlds or suppress them with a written reason.
 
-- ▢ **D162 — EVERY BOOT PRINTS FOUR WARNINGS AND NOBODY HAS TRIAGED THEM, which
-  is how a log stops being read. (opened 2026-08-17, from capture output)**
+- ✔ **D162 — CLOSED 2026-08-17, same day. Four boot warnings, all triaged; one
+  FIXED, one dismissed with evidence, one won't-fix with a reason, one moved to
+  D163 as content.**
+
+```text
+SheetRegistry "39 targets"     ✔ DISMISSED — 4 real collisions, all shared RIGS
+loading zone "did not fire"    ✔ FIXED (ad82531b7) — WARN only on a PRESSED door
+GgrsSchedule redundant edge    ✔ WON'T-FIX — both memberships are individually
+                                  correct and Bevy drops the shorter edge
+sanic_sandbox off-grid Y       → D163 (an LDtk content fix, one axis, half a tile)
+```
+
+⭐ **the row's thesis survived its own investigation**: the fix for the one that
+mattered was a level split, and the reason it was noise — a warning describing
+CORRECT behaviour — is exactly what the row was opened to name.
 
 ⭐ **one is now DISMISSED WITH EVIDENCE, so it never needs investigating again:**
 

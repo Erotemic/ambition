@@ -842,6 +842,37 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D164 — A LIVE PLAN WITH FOUR OPEN STEPS IS REACHABLE FROM NO LEDGER ROW,
+  and Jon's quality-swap report sits on its road. (opened 2026-08-17)**
+
+[`sprite-residency-and-live-quality.md`](sprite-residency-and-live-quality.md)
+— *"Status: step 1 LANDED 2026-08-08; steps 2–5 planned"*, untouched since, and
+**referenced by neither `queue.md` nor `roadmap.md` nor the README**.
+
+```text
+1 ✔ tier stamp + return edge + Apply transition          landed 3bf154974
+2 ▢ migrate consumers to ultrapack; delete per-sheet runtime roots
+3 ▢ residency cohorts in pack_plan.yaml (session / room / encounter)
+4 ▢ packaging — stop shipping duplicate representations
+5 ▢ ASTC, last  ⛔ compression must not mask duplicate tiers or mixed paths
+```
+
+⭐ **why it matters now rather than eventually**: step 1 is what made a quality
+change RETIRE and re-materialize the bodies already on screen instead of only the
+next room — and Jon's *"changing video quality swapped robot v3 for v2"* is a
+report about exactly that newly-live road. Whoever picks up that observation
+should read this plan first.
+
+⚠ **found only because the earlier stranded-plan audit was SCOPED WRONG** — it
+swept `docs/planning/engine/*.md` and never looked at the top level, so it
+reported one stranded plan and there were two. ⭐ the other three top-level docs
+unreferenced by any ledger (`frontend-audio-is-per-experience`,
+`engine_rename_campaign`, `authoring-loop-program-2026-07-31`) carry no open
+steps, so this is the only one.
+
+▢ **this row is a POINTER, not a re-plan** — the plan is good and does not need
+restating. It needed to be reachable.
+
 - ▢ **D163 — THE LDtk VALIDATOR IS ALMOST ALL NOISE, AND ONE OF ITS WARNINGS
   INVITES DESTROYING AUTHORED CONTENT. (opened 2026-08-17)**
 

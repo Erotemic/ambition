@@ -832,6 +832,18 @@ of those, NOT Door ⇒ printed always     38
 never gated, and the `→ corridor` label in the same room proves the
 authored-prose road already exists.
 
+⭐ **and a second room makes the point better than the first.**
+`goblin_cantina_lair`, captured the same afternoon, puts all three in one frame:
+
+```text
+Goblin Cantina — vault the tables to the chieftain.   ← room title, prose
+Fretjaw, Cantina Chieftain                            ← character, prose
+goblin_cantina_entry                                  ← the zone, a raw id
+```
+
+⇒ two authored strings written with care and one identifier, side by side, in a
+room a player reaches early. Whatever this is, it is not a decision anyone made.
+
 ▢ **the fix is a question about ownership, not a patch**: a zone wants a
 player-facing label DISTINCT from its id, and absent one it should draw nothing.
 ⛔ do not "prettify" the id by swapping underscores for spaces — that

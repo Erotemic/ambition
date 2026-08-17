@@ -2543,6 +2543,40 @@ Super Smash Siblings may eventually become a first-class game, but **Ambition
 remains the flagship**. Keep both on shared body/combat/participant/world
 semantics rather than adding Smash-only engine paths.
 
+⭐⭐ **RECONCILED 2026-08-17 — and the headline is that this row's OWN RULE was
+vindicated seven times in one campaign.** The rule is *"keep both on shared
+body/combat/participant/world semantics rather than adding Smash-only engine
+paths"*, and every defect the smash work surfaced turned out to live on the
+SHARED floor, not in smash:
+
+```text
+D155  every authored launch_dir in the GAME was vertically inverted, and a
+      tumbling launch resolved as a LANDING — hit_response + the movement
+      kernel, both Ambition's too
+D114  hitlag was read by the AVATAR road only, so any hit between two ACTORS
+      froze neither — Ambition's enemies had it as much as smash's CPUs
+D157  the ability gate that should stop a body attacking NEVER EXISTED:
+      `combat_actions` derived its slots from the moveset and the ActionSet,
+      which say what the attack IS, never whether the body may attack
+D150  a shot's allegiance was reconstructed from the firing ENTITY, so it
+      turned on its own team when the firer despawned
+D156  a sheet's drawn facing was authored three times and read zero times —
+      and the BOSS renderer had had the missing XOR since the mockingbird
+D154  an authored effect's position was body-local and its ARTWORK was not
+D152  empowerment expiry was every game's to remember, and five did
+```
+
+⇒ **not one of these was a smash-only path**, and not one was fixed by adding
+one. ⭐ what smash did was PRESSURE: it is the first customer that seats
+fourteen bodies, runs them CPU-vs-CPU, and launches them — so it reads floors
+that Ambition's own play had never leaned on. That is the argument for keeping
+the row's rule rather than the argument for a second engine.
+
+⚠ **the residuals this campaign leaves are named and small**: presentation
+hitstop is still `With<PrimaryPlayer>` (the simulation freeze is fixed for every
+body; the SCREEN hitch is slot-0 only), and D158's speech-bubble stacking. Both
+are presentation, both are in their own rows.
+
 ✔✔ **THE SELF-KO CAUSE IS FIXED (2026-08-15), and it was ARCHITECTURE, not
 tuning.** The measured defect — depth 12 survives 7.4s while depth 0 survives
 47.8s, a duelist losing three stocks to itself at 0% — is answered by giving

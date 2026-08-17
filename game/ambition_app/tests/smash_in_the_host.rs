@@ -4410,3 +4410,270 @@ fn quitting_a_smash_match_gives_the_pad_back() {
          layout may claim one, and only for as long as it is declared"
     );
 }
+
+/// **D155 — NOBODY GETS LAUNCHED.** Jon, playing: *"when a character is hit up,
+/// they actually get knocked up … right now up tilts just keep the character on
+/// the ground. … alice is at 1427% and Booul is hitting her, but she's not
+/// going anywhere."*
+///
+/// ⛔⛔ **the fault was ONE inverted sign, and it was in the shared floor.** An
+/// authored `launch_dir` is a vector in the victim's own acceleration frame,
+/// where `y` points TOWARD THE FEET — that is the authoring contract's own words
+/// (`HitVolume::launch_dir`: *"(+x = facing, +y = gravity-down)"*), it is what
+/// all ~100 authored literals in the tree wrote, and `player_robot_moveset`
+/// already had a running test asserting the d-air's `y > 0` means DOWN.
+/// `hit_response::knockback_velocity` negated `y` anyway, to satisfy a doc
+/// comment on its own struct that claimed the opposite. So every up-tilt,
+/// up-air and up-smash in the game spiked its victim into the floor, and every
+/// down-air lifted them.
+///
+/// ⭐ **measured, not read.** In this composition at 1427%, George's authored
+/// up-tilt resolves to `LaunchSpeed(3269.4)` — exactly `130 + 2.20 × 1427 / 1.0`
+/// — reaches the body as `pending_launch`, and the victim's own DI rotates it by
+/// the full `SMASH_DI_MAX_ANGLE` of 0.31 rad while preserving the speed. Every
+/// stage of the chain was healthy. The launch pointed down.
+mod launched {
+    use super::*;
+    use ambition_platformer2d::actors::actor::BodyGroundState;
+    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::engine_core::Vec2 as EVec2;
+    use ambition_platformer2d::platformer::body::BodyKinematics;
+
+    /// George's authored UP-TILT payload, verbatim from
+    /// `george_booul_moveset.rs`: a launcher, which is the move family Jon's
+    /// report is about.
+    const UP_TILT_DAMAGE: i32 = 11;
+    const UP_TILT_KNOCKBACK: f32 = 130.0;
+    const UP_TILT_GROWTH: f32 = 2.20;
+    const UP_TILT_LAUNCH_DIR: EVec2 = EVec2::new(0.1, -1.0);
+
+    /// Two spots on the smash stage's floor, far enough apart that the
+    /// attacker's own CPU cannot reach the victim inside the reading.
+    const ATTACKER_X: f32 = 200.0;
+    const VICTIM_X: f32 = 520.0;
+
+    /// What one strike did to the victim, in the terms the report is written in.
+    struct Launch {
+        left_the_ground: bool,
+        peak_rise: f32,
+    }
+
+    fn two_seated_fighters(app: &mut App) -> (Entity, Entity) {
+        let roster = app
+            .world()
+            .resource::<ambition_demo_smash::select::SmashRoster>()
+            .0
+            .clone();
+        let portrait_of = |id: &str| {
+            roster
+                .iter()
+                .position(|e| e == id)
+                .unwrap_or_else(|| panic!("{id} is not on the assembled grid: {roster:?}"))
+        };
+        let layout = screen(app);
+        // Twice each: the first press takes a source, the second cycles to CPU.
+        click(app, layout.role_button(0));
+        click(app, layout.role_button(0));
+        click(app, layout.role_button(1));
+        click(app, layout.role_button(1));
+        for (slot, character) in [(0usize, "smash_george_booul"), (1, "npc_alice")] {
+            click(app, layout.token_home(slot));
+            click(
+                app,
+                layout
+                    .portrait(portrait_of(character))
+                    .expect("an authored portrait"),
+            );
+        }
+        click(app, layout.start_button());
+        // Past the 3-2-1 opening hold.
+        for _ in 0..240 {
+            app.update();
+        }
+        let bodies: Vec<(String, Entity)> = {
+            let world = app.world_mut();
+            let mut q = world.query::<(Entity, &WornCharacter)>();
+            q.iter(world)
+                .map(|(e, w)| (w.id().to_string(), e))
+                .collect()
+        };
+        let find = |needle: &str| {
+            bodies
+                .iter()
+                .find(|(id, _)| id.contains(needle))
+                .unwrap_or_else(|| panic!("{needle} never took the stage: {bodies:?}"))
+                .1
+        };
+        (find("george"), find("alice"))
+    }
+
+    /// **Strike a PARKED, GROUNDED fighter with one authored volume and watch.**
+    ///
+    /// The two bodies are parked far apart first, so the only strike inside the
+    /// measurement window is this one — a live CPU match otherwise throws its own
+    /// hits into the middle of the reading. The volume is `World`-anchored for
+    /// the same reason: it is exactly one contact, at a place this test chose.
+    fn strike_a_grounded_fighter(
+        app: &mut App,
+        attacker: Entity,
+        victim: Entity,
+        percent: i32,
+        launch_dir: Option<EVec2>,
+    ) -> Launch {
+        let park = |app: &mut App, e: Entity, x: f32| {
+            let mut kin = app.world_mut().get_mut::<BodyKinematics>(e).unwrap();
+            kin.pos = EVec2::new(x, 200.0);
+            kin.vel = EVec2::ZERO;
+        };
+        // ⛔ `app.update()` is not one tick of sim time, so this LOOPS on the
+        // property (the victim is standing) rather than counting frames. The
+        // attacker is re-parked every pass so he cannot walk back into the
+        // reading while the victim is settling.
+        park(app, victim, VICTIM_X);
+        let mut grounded = false;
+        for _ in 0..200 {
+            park(app, attacker, ATTACKER_X);
+            app.update();
+            if app
+                .world()
+                .get::<BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground)
+            {
+                grounded = true;
+                break;
+            }
+        }
+        assert!(
+            grounded,
+            "the victim never came to rest on the stage, so 'it left the ground' \
+             cannot mean anything"
+        );
+        {
+            let mut health = app.world_mut().get_mut::<BodyHealth>(victim).unwrap();
+            let pool = health.health;
+            let policy = health.policy();
+            *health = BodyHealth::restored(pool, percent, policy);
+        }
+        let start = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+        let strike = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::combat::strike::Hitbox {
+                    owner: attacker,
+                    source: ambition_platformer2d::combat::strike::HitSide::Enemy,
+                    anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                        center: start,
+                    },
+                    half_extent: EVec2::new(48.0, 48.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: UP_TILT_DAMAGE,
+                    knockback:
+                        ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
+                            base: UP_TILT_KNOCKBACK,
+                            growth: UP_TILT_GROWTH,
+                        },
+                    launch_dir,
+                    frame_down: EVec2::new(0.0, 1.0),
+                    strike_sfx: None,
+                },
+                ambition_platformer2d::combat::strike::HitboxHits::default(),
+                ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
+            ))
+            .id();
+
+        let mut left_the_ground = false;
+        let mut peak_rise = 0.0f32;
+        let mut previous = start;
+        // Eight ticks of reaction: long enough for a launch to express itself
+        // and short enough that a hard one has not yet reached the blast zone.
+        // Both percents sit inside their own hitstun for the whole window, so
+        // the brain cannot steer the reading.
+        for _ in 0..8 {
+            park(app, attacker, ATTACKER_X);
+            app.update();
+            let pos = app.world().get::<BodyKinematics>(victim).unwrap().pos;
+            // A blast-zone respawn TELEPORTS; past that the displacement is
+            // about the respawn point, not about the launch.
+            if (pos - previous).length() > 200.0 {
+                break;
+            }
+            previous = pos;
+            peak_rise = peak_rise.max(start.y - pos.y);
+            if !app
+                .world()
+                .get::<BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground)
+            {
+                left_the_ground = true;
+            }
+        }
+        if app.world().get_entity(strike).is_ok() {
+            app.world_mut().entity_mut(strike).despawn();
+        }
+        Launch {
+            left_the_ground,
+            peak_rise,
+        }
+    }
+
+    /// ⛔⛔ **THE REPORTED BUG.** An up-launcher must take a standing fighter off
+    /// the floor. Before the fix the same authored volume drove them straight
+    /// INTO it — `on_ground` never went false at either percent — which is what
+    /// *"up tilts just keep the character on the ground"* was.
+    ///
+    /// ⭐ asserts the BODY LEFT THE GROUND and gained height, not that a field
+    /// was set: a launch that is written and then eaten sets every field.
+    #[test]
+    fn an_up_tilt_takes_a_grounded_fighter_off_the_floor() {
+        let mut app = open_the_lobby();
+        let (attacker, victim) = two_seated_fighters(&mut app);
+        let launched =
+            strike_a_grounded_fighter(&mut app, attacker, victim, 0, Some(UP_TILT_LAUNCH_DIR));
+        assert!(
+            launched.left_the_ground,
+            "an authored up-launcher left a standing fighter standing — the \
+             launch is pointing into the floor"
+        );
+        assert!(
+            launched.peak_rise > 0.0,
+            "the victim left the ground without gaining any height ({:.2}px), so \
+             nothing about this reads as being launched UP",
+            launched.peak_rise
+        );
+    }
+
+    /// ⛔⛔ **THE OTHER HALF OF THE REPORT, and the guard that would have caught
+    /// it.** *"alice is at 1427% and Booul is hitting her, but she's not going
+    /// anywhere."* The same move on the same fighter has to send them materially
+    /// further at 1427% than at 0% — that is the whole percent meter.
+    ///
+    /// ⭐ measured on the RISE rather than on raw displacement, and that is the
+    /// load-bearing choice: the pre-fix build launched DOWNWARD, where the growth
+    /// term still produced a big number and the floor absorbed all of it. A guard
+    /// on distance-travelled would have been satisfied by a victim being shoved
+    /// along the ground. A launcher owes HEIGHT.
+    #[test]
+    fn an_up_tilt_launches_much_further_at_a_high_percent() {
+        let mut app = open_the_lobby();
+        let (attacker, victim) = two_seated_fighters(&mut app);
+        let fresh =
+            strike_a_grounded_fighter(&mut app, attacker, victim, 0, Some(UP_TILT_LAUNCH_DIR));
+        let cooked =
+            strike_a_grounded_fighter(&mut app, attacker, victim, 1427, Some(UP_TILT_LAUNCH_DIR));
+        assert!(
+            fresh.left_the_ground && cooked.left_the_ground,
+            "both strikes have to launch at all before their sizes can be \
+             compared: {:.2}px at 0%, {:.2}px at 1427%",
+            fresh.peak_rise,
+            cooked.peak_rise
+        );
+        assert!(
+            cooked.peak_rise > fresh.peak_rise * 10.0,
+            "the SAME move on the SAME fighter lifted them {:.1}px at 0% and \
+             {:.1}px at 1427% — the percent meter is not reaching the launch",
+            fresh.peak_rise,
+            cooked.peak_rise
+        );
+    }
+}

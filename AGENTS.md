@@ -156,6 +156,18 @@ touch the stall fuse — that one is answered by committing something.
   the app compiled. App-level tests build into ONE `app_it` target, so
   `--test <file_name>` will not resolve: `cargo test -p ambition_app --test
   app_it -- <module>`.
+* ⛔⛔ **DO NOT SWEEP `cargo test --workspace --tests` — IT FILLS THE DISK.** It
+  links the integration targets of 14 crates and exhausted a **484G** disk
+  (2026-08-17). ⚠ **the symptom lies**: `linking with clang failed` plus
+  `could not compile` across eight unrelated crates at once, which reads as mass
+  compile errors. **Simultaneous LINK failures across independent crates are an
+  environment limit, not your code** — same family as EFD exhaustion; re-run ONE
+  crate before believing it. ⚠ once full, the harness cannot write a child's
+  stdout, so every command *including `df`* answers *"output was lost"* — dig out
+  with something that prints nothing (`find … -delete`). ⭐ the safe reclaim is a
+  STALE worktree's `target/` once `git status --porcelain` shows it clean —
+  **never the worktree itself**. Prefer `--workspace --lib` plus the named
+  integration targets your change actually touches.
 * ⛔⛔ **AND NOTHING IN THE GATE RUNS A `--lib` TEST — run
   `cargo test --workspace --lib` before you push.** `cargo check --all-targets`
   COMPILES the unit tier and never RUNS it, and `--test app_it` runs one

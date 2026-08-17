@@ -519,6 +519,54 @@ refactor moves one function instead of hunting call sites.
 implied and no decision is taken by doing so** — it is the shape that makes
 either answer a one-edit change later.
 
+⭐⭐ **THE SHARPENED VERSION — "DEFER THE UNIVERSAL CHOICE, BUT NOT THE
+BOUNDARY."** (GPT's framing, which Jon endorsed: *"I agree with them"*, 2026-08-16.)
+
+The instruction, verbatim: *"Keep the current D146 work moving. **Do not design
+the final universal character/game composition model from one weight customer.**
+But **eliminate the registration-time reach-in.** Put Smash's interpretation of
+character-authored data behind **one pure named preparation/projection seam.**
+Treat character authoring and ruleset specificity as **orthogonal**: a future
+`SmashFighterFacet` can be **authored with the character while being owned
+semantically by the Smash capability**. Shared properties should only migrate
+into the common character/body schema **after multiple real consumers prove they
+are actually shared.**"*
+
+⭐ **ORTHOGONALITY is the idea neither earlier framing had.** The argument had
+been running as one axis — *does this live on the character or on the game* —
+and the answer is that those are two independent questions. WHERE a fact is
+authored (with the character, in its own crate) and WHO OWNS ITS MEANING (the
+ruleset whose vocabulary it speaks) can differ, and normally should.
+
+⚠ **this is not speculative — D144 already built one.** Mary-O's smash table is
+in HER crate (`game/ambition_demo_mary_o/src/smash_moveset.rs`) and speaks
+SMASH's vocabulary, unreachable at home because her ability row omits `attack`.
+That is a facet: authored with the character, owned semantically by the smash
+capability. The pattern exists; what is missing is the NAME and the projection
+seam. `MatchAbilities` / `MatchBody` are the ruleset-owned half of the same idea.
+
+▢ **THE ARCHITECTURAL HYPOTHESIS, RECORDED FOR LATER — do NOT build it yet:**
+
+```text
+CharacterSpec is NOT "every mechanical truth about this person".
+
+CharacterSpec/package
+    = a FEDERATED COLLECTION OF AUTHORED FACETS.
+
+A game/ruleset CONSUMES the facets it understands
+    to prepare a body/role for that experience.
+```
+
+⭐ this is what dissolves the awkwardness of one character appearing in several
+games: a character does not carry a union of every game's needs, and no game
+overrides an author fact — each ruleset simply reads the facets it speaks and
+ignores the rest. An unauthored facet is a NAMED GAP (see the tumble ruling
+above), not a silent default.
+
+⛔ **the migration rule, and it is a brake**: a property moves into the COMMON
+character/body schema only after **MULTIPLE REAL CONSUMERS** prove it is shared.
+One customer is a facet. ⚠ so `knockback_weight` gets a seam, NOT a schema.
+
 **THREE ITEMS, in the order they should be done. Everything below is MEASURED,
 not assumed — the reading was done 2026-08-16 before any of it was written.**
 

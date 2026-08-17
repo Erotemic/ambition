@@ -203,7 +203,7 @@ fn the_same_seed_produces_the_same_fighter() {
 }
 
 /// ⛔⛔ **THE SAME SEED SHOWN A DIFFERENT WORLD IS ALLOWED TO DECIDE
-/// DIFFERENTLY**, and this is the half that keeps Emmy No-Ether's authored mirror
+/// DIFFERENTLY**, and this is the half that keeps Emmy Ethereal's authored mirror
 /// symmetry an emergent property rather than a puppet show.
 ///
 /// ⭐ [`the_same_seed_produces_the_same_fighter`] above is the other half:

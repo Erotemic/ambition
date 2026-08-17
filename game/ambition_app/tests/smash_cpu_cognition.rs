@@ -1,5 +1,5 @@
 //! **Two CPUs, one character, in the COMPLETE shipped composition** — and Emmy
-//! No-Ether's authored exception to the rule. (queue D128, 2026-08-17)
+//! Ethereal's authored exception to the rule. (queue D128, 2026-08-17)
 //!
 //! ⭐⭐ **why this file exists when four other suites already cover the policy.**
 //! The pieces were each pinned where they were cheapest to pin: Emmy's authoring

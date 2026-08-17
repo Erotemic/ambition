@@ -152,7 +152,7 @@ for n in range(4):
     ex, ey, ew, eh = rotn(CANON_EMMY, n)
     dialogue = "emmy_noether" if d == "down" else f"emmy_noether_{d}"
     A(entity("NpcSpawn", ex, ey, ew, eh, {
-        "prompt": f'"Talk to Emmy No-Ether ({d})"', "dialogue_id": f'"{dialogue}"',
+        "prompt": f'"Talk to Emmy Ethereal ({d})"', "dialogue_id": f'"{dialogue}"',
         "character_id": '"npc_noether"', "patrol_radius": "0"}))
 
 # The Perfect Cell-ular Automaton boss — a peaceful NPC guarding the kernel's

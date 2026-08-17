@@ -6307,7 +6307,7 @@ underneath it.
 ```
 
 ✔✔ **CPU SYMMETRY: TWO CPUs WEARING ONE CHARACTER WERE THE SAME MIND, AND THAT IS
-FIXED (2026-08-17). Emmy No-Ether now AUTHORS the old behaviour as her own
+FIXED (2026-08-17). Emmy Ethereal now AUTHORS the old behaviour as her own
 trait.**
 
 ⛔⛔ **the defect, and it was stated as a goal in its own comment.** The fighter

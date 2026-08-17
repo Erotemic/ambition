@@ -630,7 +630,7 @@
         // ===== Symmetry tutorial (Noether Chamber).
         "npc_noether": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
-            display_name: "Emmy No-Ether",
+            display_name: "Emmy Ethereal",
             spritesheet: "sprites/noether_spritesheet.png",
             manifest: "sprites/noether_spritesheet.ron",
             tier: MainHall,

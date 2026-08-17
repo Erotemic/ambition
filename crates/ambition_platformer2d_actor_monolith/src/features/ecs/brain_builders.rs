@@ -161,7 +161,7 @@ pub(super) fn action_set_from_combat_kit(
 ///
 /// A character may ask for the old behaviour BY NAME — see
 /// [`ActorConfig::preserves_mirror_symmetry`], authored on the character and
-/// carried here so every construction road agrees. Emmy No-Ether is the one
+/// carried here so every construction road agrees. Emmy Ethereal is the one
 /// customer: her whole subject is that a symmetry implies a conservation law, and
 /// two of her thinking identical thoughts about a symmetric stage is the joke
 /// made mechanical.

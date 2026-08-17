@@ -1,4 +1,4 @@
-//! **EMMY NO-ETHER'S BODY, now that she has answers.**
+//! **EMMY ETHEREAL'S BODY, now that she has answers.**
 //!
 //! ⭐ she leaves [`super::hall_humanoids`] under that file's own rule: *"one file
 //! for four... If one of them grows a moveset or a distinct build, it earns its
@@ -74,7 +74,7 @@ mod tests {
             .expect("Emmy is in AUTHORED_CAST, or nothing she authors is reachable");
         let definition = author(
             "npc_noether",
-            super::super::CharacterDefinition::new("npc_noether", "Emmy No-Ether", "ambition"),
+            super::super::CharacterDefinition::new("npc_noether", "Emmy Ethereal", "ambition"),
         );
         assert!(
             definition.preserves_mirror_symmetry,

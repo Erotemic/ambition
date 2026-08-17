@@ -1918,7 +1918,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
 /// ## What this test deliberately does NOT cover, and where that lives
 ///
 /// ⚠ **the authored EXCEPTION cannot be measured here**, for a composition reason
-/// rather than a gap: Emmy No-Ether is one of Ambition's catalog characters and
+/// rather than a gap: Emmy Ethereal is one of Ambition's catalog characters and
 /// this standalone demo app does not compose `ambition_content`, so
 /// `smash_roster_at_levels(["npc_noether", …])` seats nothing at all. ⛔ do not
 /// "fix" that by teaching this app Ambition's cast — the demo host's own roster is

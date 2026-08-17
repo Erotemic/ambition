@@ -9,7 +9,7 @@ the repo passes, because the id paired, the art resolved, and a line was found.
 ⚠ **shared WORD, not an exact match, and the measurement decided that.** An
 exact `display_name == speaker` rule reports 28 of the 124 pedestals, and every
 one is a legitimate shortening a writer would defend: *Fretjaw, Cantina
-Chieftain* speaks as `Fretjaw`, *Emmy No-Ether* as `Emmy`, *Pirate Admiral* as
+Chieftain* speaks as `Fretjaw`, *Emmy Ethereal* as `Emmy`, *Pirate Admiral* as
 `Admiral`, *Architect NPC* as `Architect`. A guard that cries wolf 28 times is
 one nobody reads. Sharing one word of three-plus letters passes all 28 and still
 catches a node that opens as an unrelated character, which is the actual mistake.

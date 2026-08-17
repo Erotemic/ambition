@@ -1,4 +1,4 @@
-//! **Emmy No-Ether's repertoire** — a theorem, as a fighter.
+//! **Emmy Ethereal's repertoire** — a theorem, as a fighter.
 //!
 //! Jon, 2026-08-16: *"We also want to give her a full smash kit like we did with
 //! Oiler. Again, we should have the vfx and sfx for this."*

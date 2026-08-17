@@ -41,8 +41,22 @@ use ambition_sim_view::camera_snapshot::{
     CameraSnapshotResolveMode,
 };
 use image::{Rgba, RgbaImage};
-use sb::persistence::settings::video::CameraFramingPreset;
-use sb::persistence::settings::CameraAspectPolicy;
+// ⚠ **`sb::persistence` is gone; these come from the crate directly.** The monolith
+// used to re-export `ambition_persistence` as a facade module, this example was the
+// last thing reaching through it, and the re-export went without it (the boss carve,
+// `725de8c26`). Fixed 2026-08-17 — the house convention everywhere else in this
+// crate is the full path, not a facade.
+//
+// ⛔⛔ **AND IT ROTTED FOR DAYS WITH A CHECK THAT COULD NOT FAIL — same shape as
+// D103 and D160.** The project gate is `cargo check -p ambition_app --all-targets`,
+// which never builds ANOTHER crate's examples, so it is blind to this by
+// construction. CI *does* compile every target in the workspace — but as
+// `cargo clippy --workspace --all-targets … || true`, deliberately non-blocking
+// while ~14 known warnings stand — so the one command that would have caught a hard
+// compile error here is the one that discards its own exit code.
+// ⇒ **an example is a target nothing gates**: whoever removes a re-export should
+// grep `examples/` by hand, because no suite will.
+use ambition_persistence::settings::video::{CameraAspectPolicy, CameraFramingPreset};
 
 fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
     const ENCOUNTERS: &[&str] = &[

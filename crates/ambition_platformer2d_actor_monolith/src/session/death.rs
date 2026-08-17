@@ -37,6 +37,7 @@ use bevy::prelude::*;
 use ambition_combat::death_rules::{
     DeathInterlude, DeathRules, DeclaredDeathRules, LevelReset, OutOfPlay,
 };
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
@@ -91,7 +92,12 @@ pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
     rules: GoverningDeathRules,
-    participants: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
+    participants: Query<
+        (Entity, Option<&SimId>),
+        (With<PlayerEntity>, Without<OutOfPlay>),
+    >,
+    confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
 ) {
     // Drained unconditionally so a death reported during a load cannot be
     // re-read later and charged to the next attempt — the same rule every other
@@ -99,9 +105,25 @@ pub fn open_death_interlude(
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
     let interlude = rules.get().interlude;
     for victim in victims {
-        if participants.get(victim).is_err() {
+        let Ok((_, sim_id)) = participants.get(victim) else {
             continue;
+        };
+
+        // A fixed-tick host has no speculative frames: once this body dies, a
+        // crossing it owned is terminal and can be retracted immediately. That
+        // prevents a load opened before the death from surviving into the replay.
+        //
+        // A rollback host is deliberately different. Absence from rollback state
+        // is not confirmed merely because the current prediction contains a death,
+        // so its confirmed lifecycle path remains the authority for retiring an
+        // already-open transaction. Bodies without a stable `SimId` cannot have
+        // recorded a transition in the first place.
+        if confirmed_boundary.is_none() {
+            if let Some(sim_id) = sim_id {
+                pending_lifecycle.retract_transition_for_subject(sim_id);
+            }
         }
+
         commands.entity(victim).try_insert((
             OutOfPlay,
             DeathInterlude {

@@ -519,6 +519,48 @@ pub fn begin_room_transition_load_system(
     let (prepared_characters, brain_profiles) = character_authorities;
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     let Some(intent) = pending.get() else {
+        // On a rollback host, absence in the current simulation can be
+        // speculative. Host-side derived state may only be retired by the
+        // confirmed lifecycle path, never inferred from that temporary absence.
+        if pending.is_rollback_host() {
+            return;
+        }
+
+        // A transaction is host-side DERIVED state for an eager simulation
+        // intent. If the simulation retracts that intent — most importantly when
+        // the crossing body dies — the transaction has lost its authority and
+        // must not outlive it.
+        //
+        // `Committed` is the one deliberate exception: at that point the intent
+        // has been spent successfully and the transaction has been handed to the
+        // presentation adapter for its post-commit settle/telemetry retirement.
+        // Cancelling it here would tear the cover down before the target room has
+        // actually rendered.
+        let orphan = state
+            .active
+            .as_ref()
+            .filter(|active| active.phase != RoomTransitionLoadPhase::Committed)
+            .map(|active| (active.sequence, active.barrier.load_id.clone()));
+        if let Some((sequence, load_id)) = orphan {
+            apply_load_command(
+                &mut loads,
+                &mut load_events,
+                ambition_load::LoadCommand::Cancel {
+                    load_id: load_id.clone(),
+                },
+            );
+            loads.retire(&load_id);
+            state.active = None;
+            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+                "room_transition_intent_retracted",
+            );
+            next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+            bevy::log::info!(
+                target: "ambition_platformer2d::room_transition",
+                "room transition {sequence} cancelled because its confirmed lifecycle intent was retracted"
+            );
+        }
         return;
     };
     {

@@ -525,7 +525,7 @@ impl TransitBodies<'_, '_> {
     /// behaviour and REFUSAL: an id that still resolves gives that body, and one
     /// that no longer resolves gives `None` — never a substitute. The crossing
     /// body being gone is a void crossing, not a licence to move somebody else
-    /// into the room the player walked to.
+    /// into the room the participant crossed toward.
     pub fn subject_entity(
         &self,
         subject: &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -535,6 +535,40 @@ impl TransitBodies<'_, '_> {
             .find(|(_, id)| *id == subject)
             .map(|(entity, _)| entity)
     }
+}
+
+/// Retire one eager-host transaction while leaving the still-authoritative
+/// source room intact.
+///
+/// The pending rollback-state intent is deliberately NOT touched here; callers
+/// decide whether this is a transient transaction replacement (keep the intent)
+/// or a terminal crossing cancellation (clear the exact intent first).
+fn cancel_eager_room_transition_transaction(
+    transition_state: &mut super::loading::RoomTransitionLoadState,
+    loads: &mut ambition_load::LoadCoordinator,
+    load_events: &mut MessageWriter<ambition_load::LoadEvent>,
+    next_mode: &mut bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>,
+    active: &super::loading::ActiveRoomTransitionLoad,
+    mode_cause: &'static str,
+) {
+    for event in loads.apply(ambition_load::LoadCommand::Cancel {
+        load_id: active.barrier.load_id.clone(),
+    }) {
+        load_events.write(event);
+    }
+    loads.retire(&active.barrier.load_id);
+    if transition_state
+        .active
+        .as_ref()
+        .is_some_and(|current| current.sequence == active.sequence)
+    {
+        transition_state.active = None;
+    }
+    ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+        ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+        mode_cause,
+    );
+    next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
 }
 
 pub fn commit_ready_room_transition_system(
@@ -593,6 +627,36 @@ pub fn commit_ready_room_transition_system(
         return;
     };
 
+    // The host-side transaction is DERIVED from this exact simulation intent.
+    // Death can retract the intent earlier in this same simulation tick, before
+    // `RoomTransition::Apply`; a stale transaction must not commit merely because
+    // it reached authorization on the previous frame. A different pending intent
+    // is equally not this transaction's authority — keep that new intent, retire
+    // only the stale transaction, and let readiness open the new one in `Update`.
+    let intent_still_pending = pending_lifecycle.pending.as_ref().is_some_and(|pending| {
+        matches!(
+            &pending.kind,
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(intent)
+                if intent == &active.intent
+        )
+    });
+    if !intent_still_pending {
+        cancel_eager_room_transition_transaction(
+            &mut transition_state,
+            &mut loads,
+            &mut load_events,
+            &mut next_mode,
+            &active,
+            "room_commit_intent_retracted",
+        );
+        bevy::log::info!(
+            target: "ambition_platformer2d::room_transition",
+            "room transition {} cancelled before commit because its lifecycle intent is no longer pending",
+            active.sequence,
+        );
+        return;
+    }
+
     // The room authority this transaction was opened against. Absent means the
     // session world is gone under it, which is exactly as stale as any other
     // mismatch below.
@@ -632,18 +696,14 @@ pub fn commit_ready_room_transition_system(
             current_session,
             room_set_active,
         );
-        for event in loads.apply(ambition_load::LoadCommand::Cancel {
-            load_id: active.barrier.load_id.clone(),
-        }) {
-            load_events.write(event);
-        }
-        loads.retire(&active.barrier.load_id);
-        transition_state.active = None;
-        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-            ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+        cancel_eager_room_transition_transaction(
+            &mut transition_state,
+            &mut loads,
+            &mut load_events,
+            &mut next_mode,
+            &active,
             "room_commit_failed",
         );
-        next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
         bevy::log::warn!(target: "ambition_platformer2d::room_transition", "{detail}");
         return;
     }
@@ -706,37 +766,27 @@ pub fn commit_ready_room_transition_system(
     // has carried its subject since Track B — and D71 makes the richer contract
     // the only one.
     //
-    // ⛔⛔ **AND THE EAGER HOST CANNOT SAY "NEVER", WHICH THE CONFIRMED HOST CAN.**
-    // Censused 2026-08-15 (D71's cancellation asymmetry). This exact condition —
-    // the recorded body no longer resolves — is TERMINAL on the rollback host:
-    // `commit_transition` returns `CommitOutcome::Cancelled`, and
-    // `commit_confirmed_lifecycle` DROPS the pending intent and retires the
-    // transaction, because a void crossing can never succeed. Here it becomes an
-    // ordinary retryable failure that deliberately leaves the intent pending, so
-    // a headless eager host retires the failed transaction
-    // (`finalize_unpresented_room_transition_failure_system`), `begin` reopens the
-    // identical crossing next frame, and it fails again — forever, with no
-    // backoff and no report. `fail_room_transition_commit_precondition` has ONE
-    // outcome where the confirmed side has three (`Committed` / `Retry` /
-    // `Cancelled`), and a transient failure and a void one are the two it merges.
-    //
-    // ⇒ the convergence is the outcome ENUM, not a second reset list: this system
-    // should distinguish "not yet" from "never" the way `CommitOutcome` already
-    // does, and a `never` should clear `pending_lifecycle` here — legal on this
-    // side, because the eager host has no speculative frames. ⛔ NOT attempted in
-    // the same pass as the retirement fix beside it; it changes what every
-    // fixed-tick demo host does with a dead crossing and wants its own probe.
+    // A missing subject is terminal. The confirmed host already calls this a
+    // `CommitOutcome::Cancelled`; the eager host has no speculative frames, so it
+    // can make the same decision here by consuming the exact pending intent and
+    // retiring its transaction. Treating this as retryable reopens the same
+    // impossible crossing forever. Death-owned crossings are retracted earlier by
+    // the eager death lifecycle, before an out-of-play body can reach this point.
     let Some(subject) = application.subject_entity(&intent.subject) else {
-        super::loading::fail_room_transition_commit_precondition(
+        pending_lifecycle.take();
+        cancel_eager_room_transition_transaction(
             &mut transition_state,
             &mut loads,
             &mut load_events,
+            &mut next_mode,
+            &active,
+            "room_commit_subject_unavailable",
+        );
+        bevy::log::warn!(
+            target: "ambition_platformer2d::room_transition",
+            "the body that triggered room transition {} ({:?}) is gone; cancelling the crossing",
             active.sequence,
-            format!(
-                "the body that triggered this room transition ({:?}) no longer exists; \
-                 cancelling the crossing rather than transiting a substitute",
-                intent.subject
-            ),
+            intent.subject,
         );
         return;
     };
@@ -762,13 +812,37 @@ pub fn commit_ready_room_transition_system(
         intent.edge_exit,
         intent.zone_sfx.as_deref(),
     ) {
-        super::loading::fail_room_transition_commit_precondition(
-            &mut transition_state,
-            &mut loads,
-            &mut load_events,
-            active.sequence,
-            error.to_string(),
-        );
+        match error {
+            terminal @ RoomTransitionApplyError::SubjectGone
+            | terminal @ RoomTransitionApplyError::SubjectCannotTransit { .. } => {
+                // The body cannot become eligible later without some other
+                // lifecycle operation replacing this crossing. This exact intent
+                // is therefore spent as a cancellation, not retained as a retry.
+                pending_lifecycle.take();
+                cancel_eager_room_transition_transaction(
+                    &mut transition_state,
+                    &mut loads,
+                    &mut load_events,
+                    &mut next_mode,
+                    &active,
+                    "room_commit_subject_unavailable",
+                );
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::room_transition",
+                    "room transition {} cancelled: {terminal}",
+                    active.sequence,
+                );
+            }
+            transient @ RoomTransitionApplyError::NoSessionWorld => {
+                super::loading::fail_room_transition_commit_precondition(
+                    &mut transition_state,
+                    &mut loads,
+                    &mut load_events,
+                    active.sequence,
+                    transient.to_string(),
+                );
+            }
+        }
         return;
     }
     #[cfg(not(target_arch = "wasm32"))]

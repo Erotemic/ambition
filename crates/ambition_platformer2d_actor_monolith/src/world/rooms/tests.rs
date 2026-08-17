@@ -130,6 +130,27 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         "the possessed (controlled) actor in the walk zone triggers the transition to room b, \
          even though the home avatar is far away",
     );
+
+    // Death resolves before room-transition detection in the production schedule.
+    // Once the controlled body is out of play, the SAME geometry must therefore
+    // produce no fresh crossing later in that tick. This is the Mary-O loading
+    // hang race: before the filter, a corpse could immediately refill the sticky
+    // lifecycle slot that death had just cleared.
+    app.world_mut()
+        .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
+        .take();
+    app.world_mut().resource_mut::<Captured>().0 = None;
+    app.world_mut()
+        .entity_mut(actor)
+        .insert(ambition_combat::death_rules::OutOfPlay);
+
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<Captured>().0.as_deref(),
+        None,
+        "an out-of-play controlled body cannot start a new room transition",
+    );
 }
 
 /// CC2 (§3.3, the sweep law): a fast body must not tunnel an overlap-fire

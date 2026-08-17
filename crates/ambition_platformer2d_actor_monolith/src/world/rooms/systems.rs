@@ -7,7 +7,7 @@
 //! gate_portal_visuals`, E4 slices 10+20) and consume the phase registry;
 //! pure-data types/phase logic live in `gate_portal`/`metadata`/`room_graph`.
 
-use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
+use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
 
 use super::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhases, GatePortalRegistry,
@@ -155,7 +155,15 @@ pub fn detect_room_transition_system(
     // contract says bodies without the component (legacy spawns, scratch fixtures)
     // keep the historical approximation at the read site. Deleting the fallback is
     // for the day every mover writes a sample, not for this fix.
-    bodies: Query<(&crate::actor::BodyKinematics, Option<&ae::SweepSample>)>,
+    // A body whose attempt has ended cannot start a room crossing. Death is
+    // resolved in `PlayerSimulation`, before this `RoomTransition::Detect`
+    // phase, so this filter also closes the same-tick race where a pit death
+    // marked the body `OutOfPlay` and the old detector then recorded an edge
+    // crossing for the corpse later in the frame.
+    bodies: Query<
+        (&crate::actor::BodyKinematics, Option<&ae::SweepSample>),
+        Without<ambition_combat::death_rules::OutOfPlay>,
+    >,
     // The triggering body's rollback-stable identity, recorded into the deferred
     // transition so the confirmed commit transports the body that CROSSED the
     // exit — not whatever is controlled later, after a possession change (GPT

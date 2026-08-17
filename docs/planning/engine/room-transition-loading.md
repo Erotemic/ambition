@@ -305,6 +305,18 @@
     checksum). ⚠ what is NOT pinned is the one-line call site; a void-crossing
     harness test would need a body that dies inside the confirmation delay.
 
+    ▣ **The eager void-crossing fork is fixed 2026-08-16.** A missing recorded
+    subject is now terminal on the eager host too: it consumes the pending intent
+    and retires the transaction instead of feeding the headless reopen/fail loop.
+    The Mary-O death race is closed at its earlier causal seams as well. Fixed-tick
+    death retracts a crossing owned by the body that just left play; transition
+    detection excludes `OutOfPlay` bodies, so the same corpse cannot refill the
+    sticky slot later in that tick; and an eager load transaction whose intent was
+    retracted is retired in `Update`. The rollback host intentionally does NONE of
+    that host-side inference from current intent absence — the absence can be
+    speculative there, so confirmed lifecycle authority remains the cancellation
+    seam.
+
     ▢ **Half B is not the bug this row described.** The "presentation
     `Cancel`/`Quit`" path is `finalize_unpresented_room_transition_failure_system`,
     and it retires a **Failed** transaction in hosts that install no presentation

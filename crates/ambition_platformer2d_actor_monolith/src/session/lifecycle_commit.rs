@@ -151,6 +151,30 @@ impl PendingLifecycleCommit {
             .filter(|intent| intent.frame <= confirmed_frame)
     }
 
+    /// Retract the pending room crossing owned by `subject`, if that exact body
+    /// is the one waiting to transit.
+    ///
+    /// The lifecycle owner is the only place allowed to spend this rollback-state
+    /// slot. Fixed-tick death handling uses this when the crossing body's attempt
+    /// ends; rollback hosts leave retirement to their confirmed lifecycle path so
+    /// speculative absence cannot tear down host-side derived state.
+    ///
+    /// Returns `true` only when a transition for this subject was removed. A
+    /// different body's transition, or any non-transition lifecycle intent, is
+    /// untouched.
+    pub fn retract_transition_for_subject(&mut self, subject: &SimId) -> bool {
+        let owned_by_subject = self.pending.as_ref().is_some_and(|pending| {
+            matches!(
+                &pending.kind,
+                LifecycleIntent::Transition(transition) if &transition.subject == subject
+            )
+        });
+        if owned_by_subject {
+            self.pending = None;
+        }
+        owned_by_subject
+    }
+
     /// Clear the slot after the host commits the op.
     pub fn take(&mut self) -> Option<PendingIntent> {
         self.pending.take()
@@ -204,5 +228,33 @@ mod tests {
         slot.record(3, LifecycleIntent::FullReset);
         assert!(slot.take().is_some());
         assert_eq!(slot.pending, None);
+    }
+
+    #[test]
+    fn retraction_removes_only_the_crossing_owned_by_that_body() {
+        let hero = SimId::placement("hero");
+        let other = SimId::placement("other");
+        let transition = LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: hero.clone(),
+            target_room: "east".into(),
+            arrival: Vec2::new(1.0, 2.0),
+            edge_exit: false,
+            zone_sfx: None,
+        });
+
+        let mut slot = PendingLifecycleCommit::default();
+        slot.record(8, transition.clone());
+        assert!(!slot.retract_transition_for_subject(&other));
+        assert_eq!(slot.pending.as_ref().map(|p| &p.kind), Some(&transition));
+
+        assert!(slot.retract_transition_for_subject(&hero));
+        assert!(slot.pending.is_none());
+
+        slot.record(9, LifecycleIntent::Replay);
+        assert!(!slot.retract_transition_for_subject(&hero));
+        assert!(matches!(
+            slot.pending.as_ref().map(|p| &p.kind),
+            Some(LifecycleIntent::Replay)
+        ));
     }
 }

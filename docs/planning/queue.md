@@ -2404,11 +2404,14 @@ the opposite.
   the intent from `Update` (rollback state); the deterministic channel for a player
   intent is the input stream the sim reads. ⚠ that carries a product decision, so
   it is written at the decision site rather than improvised.
-- ⛔ *void crossing (recorded body gone)* — **MISSING, and it is a FORK.** Terminal
-  on the rollback host (`CommitOutcome::Cancelled` drops the intent AND retires the
-  transaction); an ordinary retryable failure on the eager host, which leaves the
-  intent pending — so a headless eager host reopens and re-fails **forever, with no
-  backoff and no report**. One outcome where the confirmed side has three.
+- ▣ *void crossing (recorded body gone)* — **FIXED 2026-08-16.** The eager host
+  now gives this the same terminal meaning as `CommitOutcome::Cancelled`: consume
+  the exact pending intent and retire its transaction instead of reopening an
+  impossible crossing forever. Death closes the adjacent fixed-tick race too:
+  `open_death_interlude` retracts the dead body's crossing, the detector excludes
+  `OutOfPlay` bodies so it cannot refill the slot later in the same tick, and the
+  eager loader retires the now-orphaned transaction. Rollback hosts deliberately
+  do not infer cancellation from speculative intent absence.
 
 ⚠ **one more finding, unactioned:** `RoomTransitionLoadState` and
 `PendingLifecycleCommit` are plain `init_resource`, **not experience-scoped**. The

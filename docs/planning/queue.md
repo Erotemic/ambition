@@ -3181,6 +3181,18 @@ kept because the lesson stands: this row cannot be judged by "did a crate leave
 this session", and broad feature growth can outrun one carve per session. What
 changed is that two slices in one day beat it.
 
+⚠⚠ **AND THE GAIN IS NOT PROTECTED YET, which is a consequence worth stating.**
+A ratchet locks a win by being RE-FROZEN, and `compile_ratchet.py --update`
+writes the WHOLE snapshot — so banking the 497 lines would also bank
+`ambition_geometry`'s and `ambition_platformer2d_core`'s edit-cost regressions,
+which are eight days of unrelated growth nobody has accounted for.
+
+⇒ **so it stays unfrozen on purpose, and the monolith may drift back up to
+111,429 for free until the other findings are dealt with.** ⛔ do not re-freeze
+to make the tool quiet — that is the laundering this row already paid for once.
+⭐ the honest sequence is: account for the edit-cost regressions FIRST, then
+re-freeze everything together and the size gain locks in with them.
+
 ⛔⛔ **THE ROW'S SCOREBOARD SAID DECOMPOSITION WAS LOSING GROUND — and it was,
 for eight days. ⭐ RESOLVED THE SAME DAY; the arc is below.** The
 compile ratchet's baseline was frozen 2026-08-09. Since then:

@@ -300,6 +300,33 @@ The largest root modules at the 2026-08-07 baseline are:
 | `items` | 2,388 | item/body integration; vertical carve |
 | `schedule` | 2,375 | global ordering vocabulary; requires deliberate ownership |
 
+⛔⛔ **HOW TO MEASURE A MODULE'S OUTWARD EDGES — the two obvious greps are each
+wrong in one direction, and both have now cost a slice.** Measured 2026-08-17
+while refusing the `encounter` carve:
+
+- `grep "crate::"` **counts PROSE.** This repo's `//!` and `///` blocks cite
+  module paths constantly. That reading nearly filed `conversation` as coupled
+  when its five apparent edges were all doc comments.
+- `grep "use crate::"` **counts a WRITING STYLE, not a dependency.** A module
+  whose edges are inline fully-qualified paths in system signatures and plugin
+  bodies reports near-zero. `encounter` reported **1** and has **9**;
+  `items` reports 5 and has 14; `character_runtime` reports 3 and has 13.
+  The undercount is **not uniform** — `boss_encounter` reports 3 and has 3 — so
+  the column cannot even rank candidates relatively.
+- ⭐ **the honest instrument is `crate::` paths on NON-COMMENT lines**, then
+  **each surviving name chased to its `pub struct` / `pub fn`.** That second step
+  is not optional: most of `encounter`'s nine sibling modules turned out to be
+  pure re-exports of crates already BELOW the monolith (`ambition_combat`,
+  `shared_tangle`, `platformer2d_core`, `ambition_characters`,
+  `platformer2d_world`, `ambition_gameplay_trace`). ⚠ note `crate::combat` is a
+  crate-level alias for `ambition_combat` (`lib.rs:99`), so a path that reads
+  local is already cross-crate; and several re-exports are GLOBS, which name
+  nothing textually at the re-export site.
+
+⇒ **an edge count is a screening tool. The verdict is the definition sites**, and
+a module is carvable only when every name it reaches resolves at or below where
+it is going.
+
 Do **not** begin by slicing `features` into arbitrary crates. The code-smell log
 already found genuinely tight private coupling in the actor-update machinery.
 Peel independent capabilities and misplaced outer-layer work first; the central
@@ -1105,6 +1132,26 @@ boundary; preserve the rule that simulation-affecting narrative transitions are
 replayable at the same simulation point. Encounter owns orchestration, not actor
 identity. Boss-specific policy remains content/game policy while reusable
 encounter state stays in `ambition_encounter`.
+
+✔⛔ **ENCOUNTER'S HALF OF THIS WAVE IS ALREADY DONE, AND THE RESIDUE IS NOT A
+SECOND CARVE (measured 2026-08-17, carve refused).** `crates/ambition_encounter`
+holds the lifecycle, commands, objectives, participants, timeline, waves,
+registry, music, rewards, spec and staging. The 2,168 lines left in the monolith
+are what the module header already calls them — the adapters that still touch
+LDtk, ECS spawning, player/body queries, feature overlays, banners and save/quest
+plumbing — and six of its twelve files are three-line
+`pub use ambition_encounter::…;` compat shims. ⛔ **the load-bearing blocker is
+`drive_wave_encounters` calling `features::spawn_encounter_mob`: a wave arena
+spawns actors through the monolith's actor construction path, which is Wave G and
+leaves LAST.** ⛔ it is also schedule-pinned by `FeatureWorldOverlaySet` (a set
+defined in `world/overlay.rs`, so a carved crate could not name it — step 1.5's
+lesson failing exactly as written) and by its plugin registering
+`world::gated_lock_walls::sync_authored_gated_lock_walls`, a foreign module's
+system. ⇒ **the useful slice here is de-laundering, not moving**: the facade
+re-export `crate::encounter::EncounterMusicRequest` has ~12 consumers across four
+crates while the runtime and `ambition_content` already name `ambition_encounter`
+directly, and `encounter/switches.rs` reaches its own `SwitchFeature`/`SwitchOn`
+back through `features`, a re-export LOOP.
 
 ### Wave F — presentation effects and audio
 

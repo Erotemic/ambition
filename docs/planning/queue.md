@@ -2753,40 +2753,155 @@ Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decompositi
 Choose carves from current dependency and authority measurements, not an old LOC
 target.
 
-⭐⭐ **THE NEXT CARVE IS MEASURED, 2026-08-17 — `encounter`, and its one edge is
-NOT REAL.** Doing what this row asks (choose from current measurements) over the
-monolith's fourteen top modules:
+⛔⛔ **STEP 3 WAS ATTEMPTED AS THE `encounter` CARVE ON 2026-08-17 AND IS
+REFUSED — BOTH PRECONDITIONS BELOW ARE FALSE, AND THE MEASUREMENT THAT PRODUCED
+THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original
+proposal; it is kept because the correction only makes sense against it.
+
+> ⭐⭐ **THE NEXT CARVE IS MEASURED, 2026-08-17 — `encounter`, and its one edge is
+> NOT REAL.** Doing what this row asks (choose from current measurements) over the
+> monolith's fourteen top modules:
+>
+> ```text
+>                      lines   outward `use crate::` edges
+>   features           43018   17     ← the hub; not a carve, it IS the monolith
+>   character_runtime  13788    3
+>   avatar              7717    7
+>   boss_encounter      6940    3     (cutscene_trigger, encounter, features)
+>   encounter           2168    1     ← ⭐ and the one is a RE-EXPORT
+>   schedule            2384    1     (character_runtime)
+>   character_sprites   1808    2     (assets, character_roster)
+> ```
+>
+> ⭐ `encounter`'s single edge is `use crate::features::FeatureEcsWorldOverlay`,
+> in ONE file — and that type is DEFINED in
+> `ambition_platformer2d_shared_tangle::feature_overlay`, BELOW the monolith.
+> ⭐ AND IT IS NOT SCHEDULE-PINNED, which is the trap that cost `conversation` a
+> whole slice: `EncounterSimulationSchedulePlugin` already owns its registrations
+> and already uses a NAMED set (`WaveEncounterDriven`). Nothing to un-chain first.
+> ⚠ inward edges are `audio/plugin.rs` and `boss_encounter` — ordinary, and they
+> become a dependency on the new crate.
+
+⛔⛔ **THE INSTRUMENT WAS WRONG, AND IT IS THE OPPOSITE OF THE TRAP THE
+`conversation` SLICE RECORDED.** That slice learned *"measure `use` statements,
+never `crate::` occurrences"* because this repo's doc comments cite paths so
+densely that a path-grep measures PROSE. **True there, and it does not generalise:
+`conversation` happened to write every edge it had as a `use`.** `encounter`
+writes almost none of them that way — its dependencies are **inline
+fully-qualified paths in system signatures and plugin bodies**, which a
+`use`-grep cannot see at all. Both greps are wrong in one direction each. ⭐ **the
+honest instrument is `crate::` paths on NON-COMMENT lines**, which costs one more
+`grep -v` and is the only reading that saw this:
 
 ```text
-                     lines   outward `use crate::` edges
-  features           43018   17     ← the hub; not a carve, it IS the monolith
-  character_runtime  13788    3
-  avatar              7717    7
-  boss_encounter      6940    3     (cutscene_trigger, encounter, features)
-  encounter           2168    1     ← ⭐ and the one is a RE-EXPORT
-  schedule            2384    1     (character_runtime)
-  character_sprites   1808    2     (assets, character_roster)
+module              lines   `use crate::`   crate:: in CODE   ← the honest one
+  features          43018       18                25    the hub; it IS the monolith
+  character_runtime 13788        3                13
+  avatar             7717        7                 9
+  boss_encounter     6940        3                 3    ← agrees, genuinely
+  construction       5906        3                 8
+  items              4985        5                14
+  abilities          4881        8                11
+  world              4452        6                12
+  session            2940       11                18
+  schedule           2384        1                 5
+  encounter          2168        1                 9    ← ⛔ NINE, not one
+  projectile         2127        3                 9
+  character_sprites  1808        2                 3
 ```
 
-⭐ **`encounter`'s single edge is `use crate::features::FeatureEcsWorldOverlay`,
-in ONE file — and that type is DEFINED in
-`ambition_platformer2d_shared_tangle::feature_overlay`, BELOW the monolith.**
-`world/overlay.rs` merely `pub use`s it and `features` re-exports that. So the
-edge is a re-export chain, not a dependency: addressing the type where it
-actually lives takes `encounter` to **zero** outward edges.
-⇒ this is step 1.5's lesson arriving already-satisfied — *"the NAME has to live
-somewhere the module can still reach after it has left"*, and here it always did.
+⛔ **the `use`-grep undercounts EVERY module in the table and does not undercount
+them uniformly** — `boss_encounter` reports honestly (3 = 3) while `items` hides
+nine edges and `encounter` hides eight. So the old column could not rank
+candidates even relatively. **No carve should be chosen off it again.**
 
-⭐ **AND IT IS NOT SCHEDULE-PINNED**, which is the trap that cost `conversation`
-a whole slice. `EncounterSimulationSchedulePlugin` already owns its
-registrations, already uses a NAMED set (`WaveEncounterDriven`) and already
-carries a run condition with its reasoning written out. Nothing to un-chain
-first.
+⭐⭐ **BUT THE CORRECTED NUMBER IS ALSO NOT THE VERDICT — MOST OF THOSE NINE
+RESOLVE BELOW THE MONOLITH TOO, AND THE FIVE THAT DO NOT ARE THE FINDING.** Every
+name `encounter` reaches through a sibling module, chased to its `pub struct` /
+`pub fn`:
 
-⚠ inward edges are `audio/plugin.rs` and `boss_encounter` (which imports
-`crate::encounter` directly) — ordinary, and they become a dependency on the new
-crate. ⚠ `boss_encounter` is 6,940 lines with three outward edges and is a
-plausible slice AFTER this one, not before: it imports `encounter`.
+```text
+NOT real (sibling module is a pure re-export of a LOWER crate):
+  features::{ChestFeature, EncounterMob, EncounterRewardChest, FeatureId,
+             GameplayBannerRequested, Opened}         → ambition_combat
+  features::{apply_gameplay_banner_requests, tick_gameplay_banner,
+             update_ecs_hazards}                      → ambition_combat
+  features::FeatureEcsWorldOverlay                    → shared_tangle
+  actor::BodyKinematics                               → platformer2d_core
+  actor::PlayerEntity · physics::BaseGravity          → shared_tangle
+  schedule::Platformer2dSimulationPhaseMonolith       → shared_tangle
+  character_runtime::PreparedCharacterRegistry        → ambition_characters
+  rooms::RoomSet                                      → platformer2d_world
+  trace::{GameplayTraceBuffer, GameplayTraceEvent}    → ambition_gameplay_trace
+
+REAL — defined in the monolith, and each one blocks the move:
+  features::spawn_encounter_mob        features/ecs/spawn/mod.rs:816
+  features::EncounterMobSeed           features/ecs/spawn_actors.rs:2086
+  features::{clear_encounter_reward_ecs, sync_encounter_reward_chests_ecs}
+                                       features/ecs/encounter_rewards.rs:16,41
+  features::FeatureWorldOverlaySet     world/overlay.rs:35
+  world::gated_lock_walls::sync_authored_gated_lock_walls
+                                       world/gated_lock_walls.rs:152
+  crate::ActorDiedMessage              lib.rs:156
+```
+
+⛔⛔ **THE LOAD-BEARING BLOCKER IS `spawn_encounter_mob` — `drive_wave_encounters`
+SPAWNS ACTORS THROUGH THE MONOLITH'S ACTOR CONSTRUCTION PATH** (`systems.rs:335`,
+handing it an `EncounterMobSeed`). That is not an ordering nuisance a step-1.5
+can name away; it is **actor construction**, which this plan's own Wave G says
+leaves LAST, after the outer domains. A wave arena's whole job is *spawn these
+characters, watch them die* — so `encounter` cannot precede the spawner it calls.
+
+⛔ **AND IT IS SCHEDULE-PINNED AFTER ALL, IN THREE PLACES**, all in
+`EncounterSimulationSchedulePlugin` (`encounter/mod.rs`): (1) an **anonymous
+`.chain()`** interleaving `drive_wave_encounters` with two banner systems — the
+exact shape step 1.5 deleted, though the mildest instance since both banner
+systems are `ambition_combat` and a carved crate could still name them; (2)
+`contribute_encounter_lock_walls` ordered `.after(crate::features::FeatureWorldOverlaySet)`,
+**a set defined in the monolith** — step 1.5's lesson failing in the exact way it
+warned about, *the ordering NAME must live where the module can still reach it*;
+(3) the plugin registers `crate::world::gated_lock_walls::sync_authored_gated_lock_walls`,
+**a foreign module's system**, deliberately, so the two roads into `gate_solids`
+are visible in one place. (2) and (3) are real work; (1) is cosmetic here.
+
+⭐ **AND `encounter` ALREADY HAD ITS CARVE — `crates/ambition_encounter` EXISTS.**
+Lifecycle, commands, objectives, participants, timeline, waves, registry, music,
+rewards, spec and staging all live there. The 2,168 lines still in the monolith
+are what the module's own header calls the residue: *"Facade module … Gameplay-core
+keeps the adapters that still touch LDtk, ECS spawning, player/body queries,
+feature overlays, banners, save/quest plumbing, and schedule sets."* ⇒ **the
+header was accurate and the row proposed re-carving what had already been carved.**
+Six of the twelve files are three-line `pub use ambition_encounter::…;` compat
+shims. ⚠ the name `ambition_encounter` is therefore TAKEN, which is by itself a
+signal a candidate deserves a second look.
+
+⚠⚠ **AND THE INWARD EDGES ARE BACKWARDS FROM WHAT THE ROW SAID** — they are the
+laundered ones. `audio/plugin.rs:200` and `boss_encounter` (3 sites) name
+`crate::encounter::EncounterMusicRequest`, which is a bare re-export of
+`ambition_encounter::music`. So do `music/intent.rs` and `session/reset/mod.rs`
+inside the monolith, and `ambition_app`'s + `ambition_demo_mary_o`'s tests through
+`ambition_platformer2d::actors::encounter::` — while `ambition_platformer2d_runtime`
+and `ambition_content` already name `ambition_encounter` directly. **Two roads to
+one type, and the shorter one is the facade.** ⚠ symmetrically,
+`encounter/switches.rs:57–59` reaches its OWN `SwitchFeature`/`SwitchOn` back
+through `crate::features`, which re-exports them from `crate::encounter`
+(`features/mod.rs:130`) — a re-export LOOP.
+
+⇒ ▢ **THE NEXT SLICE HERE IS THE DE-LAUNDERING, NOT A CARVE.** Repoint every
+`crate::encounter::EncounterMusicRequest` / `actors::encounter::` consumer at
+`ambition_encounter`, close the `switches` self-loop, and delete the six compat
+shim files — ~12 sites across four crates, no new crate, no lockfile, no
+`critical_path_crates` movement. It removes both inward edges and shrinks the
+residue to the adapters that genuinely cannot leave. ⭐ same shape as the LDtk
+compat-facade deletion this row already banked: **what it buys is honesty and one
+fewer historical path.**
+
+⇒ ▢ **AND THE CANDIDATE LIST NEEDS RE-RANKING OFF THE CORRECTED COLUMN.**
+`boss_encounter` (6,940 lines, 3 = 3) is now the only large module whose two
+measurements AGREE, which makes it the best-understood candidate on the board —
+but it imports `encounter`, so the de-laundering above is its precondition.
+⛔ nothing was committed against the carve itself: no crate, no manifest, no
+lockfile moved, so `critical_path_crates` stays at 13 and no baseline was touched.
  Prefer boundaries that improve capability closure, compile isolation,
 public API shape or change amplification.
 

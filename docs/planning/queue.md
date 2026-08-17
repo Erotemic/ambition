@@ -791,6 +791,59 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ✔ **D156 — CLOSED 2026-08-16. THE PATENT CLERK FACED BACKWARDS, AND SO DID
+  CARL. The facing was authored THREE TIMES and read ZERO. (Jon, PLAYING)**
+
+Jon: *"Patent clerk faces backwards. Something is interpreting his authored
+direction incorrectly. I thought we authored his facing in his metadata? Is that
+not being read correctly? Or is it not there?"* Then, after measurement:
+*"Patent clerk is facing west, add in that XML, fix his generator and regenerate
+him."* Confirmed in game afterwards: *"They both are currently facing the right
+way."*
+
+⭐⭐ **THE ANSWER: it WAS there, three layers deep, and nothing in Rust read any
+of it.** `CharacterSpec.facing` → the rig's `features.facing` → (Emmy only) the
+SVG's `data-rig-facing`. All three said `west` for the clerk and were ACCURATE.
+`gravity_aware_flip_x` was exactly `facing < 0.0` with no per-character term, so
+the engine assumed all ~800 baked sheets were drawn facing +x.
+⛔⛔ **and it was a FORK, not a missing feature.** `animate_bosses` has XORed
+precisely this term since the mockingbird; the CHARACTER path is the half that
+never got it. See [[reference_unifying_a_fork_exposes_what_it_hid]].
+
+Landed: `SheetRecord::authored_faces_left` (`#[serde(default)]`, emitted only
+when true), `flip_x = gravity_aware_flip_x(..) ^ spec.authored_faces_left()`,
+and `data-rig-facing` lifted out of `_validate_noether_view_contract` (which was
+Noether-specific BY NAME with a hardcoded `"east"`) onto `CharacterSpec` so every
+character declares its own. Commits `8c30de613`/`37ac258b6` (clerk),
+`fd4320071` (Carl); renderer submodule `fac948b` → `9b445c5`.
+
+⚠ **A GAP NEARLY SHIPPED: `SpritePackCatalog::to_sheet_record` synthesizes a
+record from ATLAS RECTS and cannot know which way pixels point.** Both characters
+are in the ultrapack at all four tiers, so each would have been correct from his
+own sheet and backwards again from the pack. `try_load_pack_spec_for_target` now
+inherits the base manifest's facing, for the same reason it already inherits
+`tuning`.
+
+⛔ **THE LATENT HAZARD THIS LEAVES — worth knowing before touching any rig.**
+`facing: str = "west"` is the DEFAULT on `CharacterSpec` and predates all of
+this; Emmy is the one who explicitly sets `"east"`. So a rig that declares
+nothing INHERITS west, and "the rig says west" can mean *nobody set it* rather
+than *the artist drew it that way*. It happened to be true for Carl (verified in
+game). ⭐ what actually protects the population is
+`every_baked_sheet_is_drawn_pointing_where_its_body_faces`, which asserts drawn
+direction against facing for the WHOLE baked population and pins the declaring
+set to exactly these eight manifests — a ninth cannot appear silently.
+
+▢ **still open, small**: the portrait tier declares no facing and was never
+checked (the agent was stopped mid-look). Portraits are separate art on a
+separate path and both characters read correctly in game, so this is a question,
+not a known defect.
+▢ **two PRE-EXISTING rig-validator failures**, confirmed at HEAD with
+byte-identical parts and unrelated to this: Carl's canonical paint-slice order is
+out of order, and Noether's rig names `head_base`/`head_features` where
+`validate_one` requires `head`/`torso`. The `build` path both regens use is fine;
+only `validate` is red.
+
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
 

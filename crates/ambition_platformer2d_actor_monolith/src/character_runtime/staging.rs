@@ -512,7 +512,7 @@ impl MatchParticipantRoster {
     /// stage sits on a roster that will never seat.
     ///
     /// ⭐ **the validation is INSIDE the activation, not a call before it.**
-    /// [[an authority that needs a follow-up call]]: a separate
+    /// An authority that needs a FOLLOW-UP CALL has the wrong shape: a separate
     /// `check_then_activate` leaves a window where a caller did the second half
     /// and not the first, and this repo has paid for that shape more than once.
     /// A caller cannot activate without validating because there is no argument

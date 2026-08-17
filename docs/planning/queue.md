@@ -817,7 +817,7 @@ the 17 — reasoning that *"what keeps that off his own speedway is the ABILITY,
 not the table"*. That sentence was an INTENT; nothing implemented it. Three
 source comments carried the same false claim (both demos' registration loops,
 both `smash_moveset` module docs) and are corrected in place.
-⇒ [[reference_a_hand_listed_chain_pins_the_function_not_the_wiring]]: the split
+⇒ a hand-listed chain pins the FUNCTION, not the WIRING: the split
 was written down in four places and executed in none.
 
 Landed: `combat_actions` takes the `AbilitySet` and ceilings the melee family
@@ -863,7 +863,7 @@ SVG's `data-rig-facing`. All three said `west` for the clerk and were ACCURATE.
 the engine assumed all ~800 baked sheets were drawn facing +x.
 ⛔⛔ **and it was a FORK, not a missing feature.** `animate_bosses` has XORed
 precisely this term since the mockingbird; the CHARACTER path is the half that
-never got it. See [[reference_unifying_a_fork_exposes_what_it_hid]].
+never got it — unifying a fork EXPOSES what it hid.
 
 Landed: `SheetRecord::authored_faces_left` (`#[serde(default)]`, emitted only
 when true), `flip_x = gravity_aware_flip_x(..) ^ spec.authored_faces_left()`,
@@ -1615,7 +1615,8 @@ body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
 
 ⇒ **orientation must come from those same two, never a third.** A pose derived
 anywhere else can disagree with the position it decorates, which is the bug
-class this repo keeps paying for (`[[reference_a_hand_kept_reconstruction_ledger]]`).
+class this repo keeps paying for (a hand-kept reconstruction ledger: one more
+row is not a fix).
 
 **The route, end to end — no authored content changes at all:**
 1. `MoveEventMessage` (combat, `~line 180`) gains a POSE beside `world_offset`,
@@ -1632,7 +1633,8 @@ class this repo keeps paying for (`[[reference_a_hand_kept_reconstruction_ledger
 projectiles, fireworks) is byte-identical and this cannot double or move
 anything — ⛔ unlike D149's swap, which added a side effect and needed the
 callers migrated in the same breath
-(`[[reference_routing_a_producer_onto_a_pairing_channel_double_fires]]`).
+(routing a producer onto a pairing channel DOUBLE-FIRES — guard a COUNT, not a
+presence).
 ⚠ **it IS a deliberate behaviour change for move effects**: a left-facing
 fighter's `air_slice` starts pointing left. Radial art is unaffected; nothing
 authored today can have compensated, because no mirror existed to compensate
@@ -3240,7 +3242,8 @@ that reading. ⇒ **measure `use` statements, never `crate::` occurrences.**
 
 ⚠ the remaining cost is the one the repo already knows: a new crate is a new dep
 edge, which is FIVE lockfiles and the contracts job — see
-[[reference_a_new_dep_edge_fails_the_contracts_job]].
+a new dep edge fails the contracts job, and one of the five lockfiles is
+invisible to `git status`.
 
 ⭐ **`ConversationPlugin` owns** `ActiveConversation`, the `ConversationCutBark`
 port channel, the `ConversationEnded` ledger install, the `Update` presentation

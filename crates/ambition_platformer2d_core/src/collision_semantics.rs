@@ -179,7 +179,7 @@ pub fn snap_feet_to_surface(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> Vec
 ///
 /// Deep overlap is depenetration's bounded job: leave the body and let its own
 /// velocity carry it out the near face over subsequent frames. This is the
-/// engine's no-artificial-pushout invariant ([[feedback_avoid_pushout]]),
+/// engine's no-artificial-pushout invariant,
 /// shared by the controlled-body sweep and the generic kinematic primitive so
 /// neither path can single-tick teleport an embedded actor out of the world.
 /// Caught twice by the actor OOB trace: the mockingbird arena (2026-06-21) and

@@ -277,7 +277,8 @@ fn a_field_the_schema_does_not_know_is_refused_at_every_level() {
 /// now" is true forever once the RON is right and defends nothing; a character
 /// the pack does not define looks exactly like a character it does, right up
 /// until a magenta box appears in a room nobody re-tested.
-/// [[feedback_a_guard_that_pins_the_fix_defends_the_gap]]
+/// A guard that pins the fix defends the gap: it asserts the INVARIANT, and a
+/// poison would fail it.
 #[test]
 fn a_mob_naming_a_character_the_pack_does_not_define_is_refused() {
     let book = |character: &str| {

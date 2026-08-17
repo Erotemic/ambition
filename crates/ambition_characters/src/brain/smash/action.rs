@@ -48,7 +48,7 @@ pub enum SpecificAction {
     /// it was trying to run. Closing distance is locomotion; it is not a
     /// discrete authored verb and it consults no ability bit (D146). A body
     /// genuinely wanting the burst asks
-    /// [`ambition_platformer2d_core::movement::abilities::resolve_burst_maneuver`]
+    /// [`ambition_platformer2d_core::movement::resolve_burst_maneuver`]
     /// what a press would MEAN first — reading `abilities.dash` is what that
     /// resolver exists to replace.
     Sprint { dir: f32 },

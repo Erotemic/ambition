@@ -43,7 +43,7 @@ pub use emit::emit_inputs;
 pub use mode::{choose_mode, BroadMode};
 pub use observation::{observe, CrowdingSignal, ObservationFrame, TerrainAwareness};
 
-/// Tuning knobs for a [`StateMachineCfg::Smash`] brain. Per-actor
+/// Tuning knobs for a [`crate::brain::StateMachineCfg::Smash`] brain. Per-actor
 /// state lives in [`SmashState`]. Designer-facing today — eventually
 /// migrates to data so per-archetype variants live in
 /// `character_archetypes.ron`.

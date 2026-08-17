@@ -64,6 +64,14 @@ pub fn ambition_sim_composition(
     // builds (its `init_sandbox_resources` consumes the override).
     if let Some(room_id) = options.start_room.clone() {
         app.insert_resource(StartRoomOverride(room_id));
+        // ⭐ the CALLER said whether that room has to exist (D125). Tolerance
+        // stays the default because it is a promise a test is named after; a
+        // caller that means "this room must be there" says so with
+        // `with_required_start_room` and gets the loud failure, which lists
+        // every valid id.
+        if options.start_room_must_resolve {
+            app.insert_resource(crate::app::StartRoomMustResolve);
+        }
     }
     // Same kind of composition input, and it has to arrive here for the same
     // reason: `init_sandbox_resources` consumes it while building the prepared

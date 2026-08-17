@@ -210,6 +210,50 @@ fn unknown_start_room_does_not_panic_or_error() {
     assert!(!sim.observation().active_room.is_empty());
 }
 
+/// **A CALLER THAT SAYS THE ROOM MUST BE THERE GETS TOLD WHEN IT IS NOT.** (D125)
+///
+/// ⛔ the sibling above (`unknown_start_room_does_not_panic_or_error`) pins the
+/// TOLERANT promise, and it stays — a library caller may legitimately name a
+/// room outside the composition it is building. This pins the other half, which
+/// is what almost every test actually means: of the `with_start_room` literals
+/// in the tree, every one names a real room id except that deliberate negative.
+///
+/// ⭐ **the failure this buys is the one that already cost a room sweep**: it
+/// asked for `central_hub_basement` and `hall_of_bosses_arena`, got the hub
+/// twice, and wrote a valid PNG for a wholly invented id while exiting 0. The
+/// likeliest mistake is naming an LDtk LEVEL (`central_hub_main`) where a
+/// runtime room id (`central_hub_complex`) belongs — which a silent fallback
+/// hides and this does not.
+///
+/// ⚠ **it PANICS rather than returning `Err`, and that is the existing strict
+/// path's choice, not a new one** — `capture_scene` has relied on it since the
+/// row that asked for *"FAIL LOUDLY on an unknown room"*. Asserting the panic is
+/// honest about what happens; turning it into an `Err` would be a separate
+/// decision about what a library constructor owes, and this slice does not take
+/// it.
+#[test]
+#[should_panic(expected = "did not match any room id/name")]
+fn a_required_start_room_that_does_not_exist_refuses_to_boot() {
+    let _ = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("definitely_not_a_real_room"),
+    );
+}
+
+/// ⛔ **the non-vacuity half of the guard above**: without this, that test could
+/// pass because the REQUIRED form never boots anything at all.
+#[test]
+fn a_required_start_room_that_exists_still_boots() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("central_hub_complex"),
+    )
+    .expect("a required start room that EXISTS must still build");
+    assert!(!sim.observation().active_room.is_empty());
+}
+
 #[test]
 fn observation_reports_no_water_no_climbable_in_default_spawn() {
     let mut sim = Platformer2dSimHarness::new().expect("sim builds");

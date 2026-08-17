@@ -11,6 +11,21 @@ pub struct Platformer2dSimHarnessOptions {
     /// `RoomSet::room_index_by_id`; if not found, a warning is printed
     /// and the LDtk-authored start room stays active.
     pub start_room: Option<String>,
+    /// **Does [`Self::start_room`] have to EXIST?**
+    ///
+    /// ⛔⛔ **`false` is not an oversight — it is a PROMISE, and there is a test
+    /// named after it** (`unknown_start_room_does_not_panic_or_error`). A library
+    /// caller may legitimately name a room outside the composition it is
+    /// building, and falling back to the authored start is the tolerant, correct
+    /// answer for that caller. The CLI flag is already strict for the opposite
+    /// reason: somebody typed it, just now, meaning that room.
+    ///
+    /// ⭐ **so this is the CALLER stating which of the two it is**, rather than
+    /// the verb changing meaning underneath both (D125). A test that names a
+    /// room means the room must be there; a silent fallback turns it into a test
+    /// of somewhere else — the failure that once had a sweep photograph the hub
+    /// twice and write a valid PNG for an invented id.
+    pub start_room_must_resolve: bool,
     /// Run the SIM in `FixedUpdate` on `Time<Fixed>` (netcode N0.1) instead of
     /// frame-stepped in `Update`.
     ///
@@ -48,9 +63,23 @@ impl Platformer2dSimHarnessOptions {
         self
     }
 
-    /// Builder: set the starting room id.
+    /// Builder: set the starting room id, TOLERANTLY — an id this composition
+    /// does not have falls back to the authored start room with a warning.
+    /// See [`Self::with_required_start_room`] when you mean it must be there.
     pub fn with_start_room(mut self, room_id: impl Into<String>) -> Self {
         self.start_room = Some(room_id.into());
+        self
+    }
+
+    /// Builder: set the starting room id and REFUSE to boot without it.
+    ///
+    /// ⭐ what almost every test means. Of the `with_start_room` literals in the
+    /// tree, every one names a real room id except a single deliberate negative
+    /// — so the tolerance protects a caller that does not exist yet, while the
+    /// tests it silently covers for are the ones that would rather fail.
+    pub fn with_required_start_room(mut self, room_id: impl Into<String>) -> Self {
+        self.start_room = Some(room_id.into());
+        self.start_room_must_resolve = true;
         self
     }
 

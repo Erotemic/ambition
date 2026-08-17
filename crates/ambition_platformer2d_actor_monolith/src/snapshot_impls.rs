@@ -103,6 +103,54 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
     }
 }
 
+/// **The stocks ruleset's verdict, and WHICH MATCH it is about** (D147).
+///
+/// ⚠ the stamp travels, and leaving it out would put the D140 defect back: a
+/// rewind that restored "decided" without restoring which match it was decided
+/// for would be restoring a process-global bool again.
+impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match self.decided_match() {
+            None => put_bool(out, false),
+            Some(instance) => {
+                put_bool(out, true);
+                let (session, activated_on) = instance.parts();
+                match session {
+                    None => put_bool(out, false),
+                    Some(session) => {
+                        put_bool(out, true);
+                        put_u64(out, session.0);
+                    }
+                }
+                match activated_on {
+                    None => put_bool(out, false),
+                    Some(tick) => {
+                        put_bool(out, true);
+                        put_u64(out, tick);
+                    }
+                }
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let decided = if r.bool()? {
+            let session = if r.bool()? {
+                Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+            } else {
+                None
+            };
+            let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            Some(crate::character_runtime::MatchInstance::from_snapshot(
+                session,
+                activated_on,
+            ))
+        } else {
+            None
+        };
+        Some(crate::features::stocks_match::StocksMatchSettled::from_snapshot(decided))
+    }
+}
+
 snapshot_pod!(crate::features::ActorSurfaceState {
     surface_normal: vec2,
     gravity_scale: f32,

@@ -112,6 +112,70 @@ pub struct ActiveMatch {
     activated_on: Option<u64>,
 }
 
+/// **WHICH ACTIVATION OF WHICH MATCH** — the identity a ruleset keys its own
+/// per-match state on. (D147)
+///
+/// ⛔⛔ **the alternative is a process-global latch somebody has to remember to
+/// clear, and forgetting is what D140 was.** `StocksMatchSettled` was a bare
+/// `bool` about the process rather than about a match: it went true when a match
+/// ended and stayed true, so the next match on the same stage opened wearing the
+/// previous one's verdict and could never be decided. The repair at the time was
+/// to retract it from `activate_the_prepared_match` — which works, and which
+/// made the GENERIC activation road know that one particular ruleset keeps a
+/// private boolean.
+///
+/// ⭐ **keyed to this, a ruleset's per-match state goes stale BY
+/// CONSTRUCTION.** *"Has this match been decided"* is `settled == Some(live
+/// instance)`, and a different match is not this one — so there is no retraction
+/// to schedule, no ordering to get right, and nothing for activation to know
+/// about a ruleset it may not even be composed with.
+///
+/// ⚠ **it rewinds because both halves do.** This is derived from
+/// [`ActiveMatch`], which is rollback state, and the ruleset's latch stores a
+/// copy — so a rewind across the deciding frame restores a latch stamped with a
+/// match and a receipt that agree again, or restores the receipt's ABSENCE and
+/// the question stops being asked. No change detection is involved, which is the
+/// property that makes it safe inside the rollback window.
+///
+/// ⚠ **a composition with neither a session nor a clock cannot tell two
+/// activations apart**, and that is the honest answer rather than a hole: those
+/// are the two facts that distinguish one activation from the next, and a
+/// composition with no clock has no tick on which to run a second match.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MatchInstance {
+    /// The gameplay session the cast was built in.
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    /// The sim tick it was built on.
+    activated_on: Option<u64>,
+}
+
+impl MatchInstance {
+    /// The two facts, for the wire format. See `snapshot_impls`.
+    #[doc(hidden)]
+    pub fn parts(
+        &self,
+    ) -> (
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        Option<u64>,
+    ) {
+        (self.session, self.activated_on)
+    }
+
+    /// Rebuild from a rollback snapshot. The fields stay private so
+    /// [`ActiveMatch::instance`] is the only place one is MINTED; this is the
+    /// hatch, and it is named for what it is.
+    #[doc(hidden)]
+    pub fn from_snapshot(
+        session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        activated_on: Option<u64>,
+    ) -> Self {
+        Self {
+            session,
+            activated_on,
+        }
+    }
+}
+
 impl ActiveMatch {
     /// **Publish an activation.** The one production constructor.
     ///
@@ -156,6 +220,16 @@ impl ActiveMatch {
     /// two is exactly the signal a rules layer wants.
     pub fn seats(&self) -> usize {
         self.seats
+    }
+
+    /// **WHICH MATCH THIS IS**, as something a ruleset can key its own state on.
+    ///
+    /// See [`MatchInstance`] for why a ruleset wants one.
+    pub fn instance(&self) -> MatchInstance {
+        MatchInstance {
+            session: self.session,
+            activated_on: self.activated_on,
+        }
     }
 
     /// Which frozen topology decided this match's seating, if a session had

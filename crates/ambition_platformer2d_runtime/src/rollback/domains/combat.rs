@@ -86,10 +86,10 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "entity:fighter_eliminated",
     );
-    app.rollback_resource_canonical::<ambition_combat::stocks::StocksMatchSettled>(
-        OWNER,
-        "resource.stocks_match_settled",
-    );
+    // ⛔ `resource.stocks_match_settled` used to be registered here, beside the
+    // stock count. It is the RULESET's verdict rather than the engine's count,
+    // it is keyed to a `MatchInstance`, and it lives beside `ActiveMatch` now —
+    // in [`super::actors`], where the receipt it names is registered (D147).
     app.rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",

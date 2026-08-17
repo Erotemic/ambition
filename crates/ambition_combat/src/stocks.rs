@@ -211,14 +211,14 @@ pub struct StocksMatchDecided {
     pub winner: Option<String>,
 }
 
-/// Set once a [`StocksMatchDecided`] has been written, so the outcome is
-/// announced once rather than every tick after it becomes true.
-///
-/// A resource rather than a `Local`, because a `Local` is not rollback state and
-/// this gates a message the ruleset acts on: a rewind across the deciding frame
-/// must be able to un-decide the match.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct StocksMatchSettled(pub bool);
+// ⛔ **`StocksMatchSettled` used to live here, and it was in the wrong crate for
+// the same reason it was the wrong SHAPE** (D147). It is the latch that stops
+// `decide_stocks_match` announcing twice — and `decide_stocks_match` is not in
+// this crate, deliberately: this module owns the COUNT, and the QUESTION needs a
+// seat and a live match, which are the ruleset's. The latch is that question's
+// private state and now lives beside it, keyed to the match it is about rather
+// than to the process. See
+// `ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled`.
 
 /// **WHICH SIDE A SEATED FIGHTER FIGHTS FOR** — its declared team, or its own
 /// seat when the match declared none and every fighter is a side of one.

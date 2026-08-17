@@ -113,6 +113,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "resource.active_match",
     );
+    // ⭐ **BESIDE THE RECEIPT IT NAMES** (D147). The stocks ruleset's verdict is
+    // *the outcome for match X*, stamped with the `MatchInstance` the receipt
+    // above publishes — so a rewind that restores one and not the other would
+    // restore a verdict about a match that is not running. Registered together,
+    // they rewind together.
+    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled>(
+        OWNER,
+        "resource.stocks_match_settled",
+    );
     app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::features::GameplayElapsed>(
         OWNER,
         "resource.gameplay_elapsed",

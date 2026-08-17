@@ -684,8 +684,8 @@ fn the_camera_closes_no_faster_than_it_opened() {
 #[test]
 fn a_match_whose_last_loser_is_removed_still_decides() {
     use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::actors::features::stocks_match::the_live_match_is_settled;
     use ambition_platformer2d::combat::components::FighterStocks;
-    use ambition_platformer2d::combat::stocks::StocksMatchSettled;
 
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -726,11 +726,10 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
                 fewest_seats = fewest_seats.min(seats);
             }
         }
-        if app
-            .world()
-            .get_resource::<StocksMatchSettled>()
-            .is_some_and(|s| s.0)
-        {
+        // ⚠ **the LIVE match's verdict** (D147). A stocks verdict names the
+        // match it belongs to, so "has anything been decided" is not the
+        // question — "has THIS one" is.
+        if the_live_match_is_settled(app.world()) {
             settled_on = Some(tick);
             break;
         }
@@ -1799,47 +1798,51 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seats.sort_unstable();
         seats
     };
-    let launch = |app: &mut App, seat_wanted: usize| {
+    let launch = |app: &mut App, seat_wanted: usize, speed: f32| {
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
         for (seat, mut kin) in query.iter_mut(world) {
             if seat.0 == seat_wanted {
-                kin.vel = ambition_platformer2d::engine_core::Vec2::new(
-                    2_400.0 * if seat_wanted % 2 == 0 { 1.0 } else { -1.0 },
-                    -200.0,
-                );
+                kin.vel = ambition_platformer2d::engine_core::Vec2::new(speed, -200.0);
             }
         }
     };
 
+    // ⚠ **NOTHING HERE WAITS ON THE FIGHT, and that is deliberate.** Every
+    // elimination is one this test causes, on a fixed schedule: Red's teammate
+    // leaves at twice the speed and twenty ticks ahead of Blue, so the census
+    // has exactly one Red body when the match ends. A version that let four CPUs
+    // decide who dies would make a claim about the WORDING of a card depend on
+    // combat tuning — measured: a hitlag change landing in another crate flipped
+    // the winner.
     let mut seated = 0usize;
-    // Red's teammate goes FIRST and is fully out of the world before Blue is
-    // touched, so the census has one Red body to find when the match ends.
-    let mut teammate_launched = false;
-    let mut blue_launched = false;
-    let mut teammate_gone_before_the_end = false;
-    for tick in 0..(countdown + 900) {
+    let mut teammate_gone_on = None;
+    let mut decided_on = None;
+    for tick in 0..(countdown + 600) {
         app.update();
-        if app.world().resource::<Decisions>().0.len() == 1 {
+        if tick == countdown {
+            seated = seats_now(&mut app).len();
+        }
+        // ⚠ after the ceremony RELEASES the cast — a body held by
+        // `ScriptedControl` is placed by the respawn rule every tick, so a
+        // velocity written during the count is simply overwritten.
+        if tick == countdown + 40 {
+            launch(&mut app, 1, -4_800.0);
+        }
+        if tick == countdown + 60 {
+            launch(&mut app, 2, 2_400.0);
+            launch(&mut app, 3, -2_400.0);
+        }
+        if teammate_gone_on.is_none() && tick > countdown + 40 && !seats_now(&mut app).contains(&1)
+        {
+            teammate_gone_on = Some(tick);
+        }
+        if decided_on.is_none() && !app.world().resource::<Decisions>().0.is_empty() {
+            decided_on = Some(tick);
             for _ in 0..10 {
                 app.update();
             }
             break;
-        }
-        if tick == countdown {
-            seated = seats_now(&mut app).len();
-        }
-        if !teammate_launched && tick > countdown + 30 {
-            launch(&mut app, 1);
-            teammate_launched = true;
-        }
-        if teammate_launched && !blue_launched && !seats_now(&mut app).contains(&1) {
-            // Seat 1's body is despawned: Red is now one body and two
-            // participants, which is the state the card got wrong.
-            teammate_gone_before_the_end = true;
-            launch(&mut app, 2);
-            launch(&mut app, 3);
-            blue_launched = true;
         }
     }
 
@@ -1847,10 +1850,20 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seated, 4,
         "the stage seated {seated} fighters, so this was not a two-versus-two"
     );
+    // ⭐ **THE NON-VACUITY GUARD, and it is the whole fixture.** If seat 1 were
+    // still standing when the match ended, the census would have found two Red
+    // bodies and printed the team for the wrong reason — the assertion below
+    // would pass on the broken code. Red must be ONE body and TWO participants
+    // at the moment the card is written.
+    let (gone, ended) = (
+        teammate_gone_on.expect("seat 1 was launched off a one-stock stage and never left play"),
+        decided_on.expect("both of Blue were launched off a one-stock stage and nothing decided"),
+    );
     assert!(
-        teammate_gone_before_the_end,
-        "seat 1 was never taken out of play, so Red still had two bodies standing \
-         when the match ended and this measured the case that always worked"
+        gone < ended,
+        "seat 1 was taken out of play on tick {gone} and the match was decided on \
+         {ended} — Red still had two bodies standing, which is the case that \
+         always worked"
     );
     let decided = app.world().resource::<Decisions>().0.clone();
     assert_eq!(

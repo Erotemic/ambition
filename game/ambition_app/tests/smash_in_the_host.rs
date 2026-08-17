@@ -2849,11 +2849,13 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
             "a simultaneous final-stock ring-out was awarded to a side"
         );
     }
-    assert_eq!(
-        app.world()
-            .get_resource::<ambition_platformer2d::combat::stocks::StocksMatchSettled>()
-            .map(|settled| settled.0),
-        Some(true),
+    // ⚠ **the LIVE match**, not "some verdict exists" (D147). A stocks verdict
+    // names the match it is about, so the honest question is whether the one
+    // that is running has been decided.
+    assert!(
+        ambition_platformer2d::actors::features::stocks_match::the_live_match_is_settled(
+            app.world()
+        ),
         "the ruleset does not consider this match settled"
     );
 

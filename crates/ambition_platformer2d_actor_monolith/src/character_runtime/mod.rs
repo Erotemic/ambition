@@ -85,7 +85,7 @@ pub use presentation::{
     inherit_projectile_presentation_sources, project_prepared_character_definitions,
     provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
-pub use seating::{match_participants, ActiveMatch, MatchSeat};
+pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
 /// **A body-complete fixture CAST**, for engine tests that need actors and do
 /// not care which creatures they are.

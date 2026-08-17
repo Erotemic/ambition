@@ -1732,29 +1732,24 @@ pub fn activate_the_prepared_match(
         }
     }
 
-    // ⛔⛔ **A MATCH THAT IS STARTING HAS NOT BEEN DECIDED** (D140, Jon
-    // 2026-08-16: *"the GO stays on the screen for the entire match, and the
-    // match does not end"*).
+    // ⛔⛔ **THE STOCKS RULESET'S LATCH USED TO BE RETRACTED HERE, AND IT IS
+    // NOT ANY MORE** (D140, then D147).
     //
-    // `StocksMatchSettled` is a match-scoped latch on a process-global
-    // resource, and the only thing that used to clear it was
-    // `decide_stocks_match` observing NO active match — *"a match that went
-    // away un-decides itself"*. That reads as a complete answer and is not one:
-    // clearing on ABSENCE needs a sim tick on which the receipt is absent, and
-    // between two matches on the same stage there is none. This demo never
-    // removes the receipt (the versus stage does); activation REPLACES it, so
-    // the second match opened already carrying the first one's verdict and
-    // `decide_stocks_match` returned on its first line forever.
+    // D140's defect was real — Jon, 2026-08-16: *"the GO stays on the screen for
+    // the entire match, and the match does not end"* — and its cause was that
+    // `StocksMatchSettled` was a process-global `bool` with no owner willing to
+    // clear it between two matches on one stage. This road inserted a fresh
+    // `false` beside the receipt, in the same flush, and that WORKED. What it
+    // cost was the dependency direction: generic match activation knew that one
+    // particular ruleset keeps a private boolean, and installed the resource
+    // even in a composition that never had the ruleset — the comment written at
+    // the time conceded exactly that and did it anyway.
     //
-    // ⭐ **so it is retracted by the thing that starts a match rather than by a
-    // gap between two** — step two belongs inside step one. Written through
-    // `Commands` beside the receipt so it lands in the SAME flush: there is no
-    // tick on which a live match is wearing a stale decision.
+    // ⭐ **the receipt below IS the retraction now.** A stocks verdict is
+    // stamped with the `MatchInstance` it is about, so a new activation is a new
+    // identity and the previous match's verdict simply stops applying — no
+    // clearing, no ordering, and nothing here that names a ruleset.
     //
-    // ⚠ `insert_resource`, not a `ResMut`, deliberately — a composition that
-    // never installed the stocks ruleset still activates matches, and taking
-    // the resource as a parameter would make this system unschedulable there.
-    commands.insert_resource(crate::combat::stocks::StocksMatchSettled(false));
     // ATOMIC: the receipt goes in with the bodies, in the same flush. There is
     // no partial state to land a rewind in — either the tick that activated
     // happened or it did not.

@@ -314,7 +314,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // "everything that reads this tick's damage outcome rather than
         // producing it", which is exactly what this is — the KO was decided in
         // Resolve, and spending is bookkeeping over it.
-        app.init_resource::<ambition_combat::stocks::StocksMatchSettled>();
+        // ⭐ **THE RULESET INSTALLS ITS OWN STATE** (D147). Activation used to
+        // insert this too, so that a second match would not open wearing the
+        // first's verdict; the verdict names its match now, so the only owner
+        // this resource has is the plugin that schedules the systems reading it.
+        app.init_resource::<crate::features::stocks_match::StocksMatchSettled>();
         // ⚠ **the same rule as `BodyHitResolved` below, applied to the clock.**
         // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
         // is what schedules it, so this plugin registers it — a fixture that

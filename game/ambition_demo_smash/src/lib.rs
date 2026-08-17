@@ -854,7 +854,11 @@ fn announce_the_opening_countdown(
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
     >,
     tick: Option<bevy::prelude::Res<ambition_platformer2d::time::SimTick>>,
-    settled: Option<bevy::prelude::Res<ambition_platformer2d::combat::stocks::StocksMatchSettled>>,
+    settled: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
+        >,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     use ambition_platformer2d::actors::character_runtime::OpeningPhase;
@@ -883,7 +887,7 @@ fn announce_the_opening_countdown(
     // match's verdict could not be retracted (the defect above this one), the
     // clear was gated off forever and the card sat on a live match announcing
     // its start. Both halves of D140 met on this one `if`.
-    if settled.is_some_and(|settled| settled.0) {
+    if settled.is_some_and(|settled| settled.settled(&active)) {
         return;
     }
     let total = u64::from(rules.opening_countdown_ticks);

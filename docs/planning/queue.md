@@ -4393,6 +4393,40 @@ surface lets an author choose an effect at all**, so building the catalog first
 would be vocabulary with zero speakers — the precise thing
 `authored_logic`'s header forbids, and the standard it holds ITSELF to.
 
+⭐⭐ **THE CUSTOMER IS FOUND, 2026-08-17 — and it is the same SHAPE the condition
+half deleted to earn its place.** `game/ambition_content/src/encounters.rs`:
+
+```rust
+const KERNEL_FACES: [(&str, &str); 4] = [
+    ("kernel_switch_down",  "gravity_down"),
+    ("kernel_switch_left",  "gravity_left"),
+    ("kernel_switch_up",    "gravity_up"),
+    ("kernel_switch_right", "gravity_right"),
+];
+```
+
+⇒ **a hand-kept const table pairing AUTHORED ids to hardcoded behaviour, read by
+a bespoke system** — which is the condition half's deletion gate
+(`INTRO_FLAG_GATED_LOCK_WALLS`) word for word. This row's headline example is
+*"when two switches are active, power a lift"*; the symmetry room is *"when
+these four switches are visited, complete an attunement"*.
+
+⭐⭐ **and the asymmetry is EXACT, which is what makes it the first command
+rather than a candidate** — the engine publishes the QUESTION and cannot express
+the ANSWER:
+
+```text
+world.flag_set(<flag>)   ✔ published (world_facts.rs) and ADOPTED
+world.set_flag(<flag>)   ⛔ absent — SYMMETRY_ATTUNEMENT_FLAG is set by bespoke Rust
+```
+
+⇒ **`world.set_flag` is the first command.** Its condition twin already ships and
+has consumers, and the deletion it buys is a const table plus the reducer reading
+it. ⚠ it also answers the rollback question cheaply: a save flag is already
+snapshot state, so this command mutates something the sweep covers rather than
+introducing a new kind of write.
+
+
 ▢ **so M1-for-commands is BLOCKED ON A CUSTOMER, not on design.** The first
 question is not *what shape is a command* but *which authored thing gets to name
 its own effect first* — pick that, and the three below stop being hypothetical.

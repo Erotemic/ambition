@@ -115,7 +115,7 @@ pub const SMASH_ROSTER: &[&str] = &[
     "npc_oiler",
     "perfect_cellular_automaton",
     "goblin",
-    "npc_noether",
+    "npc_emmy_noether",
     // ⭐ **JON, 2026-08-11: add Stargan, the Patent Clerk and the PCA.** The PCA
     // was already here; these two are the addition. Both carry the standardized
     // full-fighter sprite vocabulary (123 and 133 rows), which is what made them

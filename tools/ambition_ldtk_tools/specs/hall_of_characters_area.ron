@@ -699,9 +699,9 @@
                 48,
             ],
             fields: (
-                character_id: "npc_noether",
+                character_id: "npc_emmy_noether",
                 prompt: "Inspect",
-                dialogue_id: "hall_npc_noether",
+                dialogue_id: "hall_npc_emmy_noether",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

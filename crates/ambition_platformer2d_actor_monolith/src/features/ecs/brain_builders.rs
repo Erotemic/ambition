@@ -890,8 +890,8 @@ mod cognition_stream_tests {
         // If the seed were keyed on the character alone, these two would be equal
         // — which is the state this whole change exists to leave.
         assert_ne!(
-            stream_for(&seat("emmy_stand_in", 0, 5, false)),
-            stream_for(&seat("emmy_stand_in", 1, 5, false)),
+            stream_for(&seat("ordinary_fighter", 0, 5, false)),
+            stream_for(&seat("ordinary_fighter", 1, 5, false)),
             "an ordinary character's two seats share a stream, so the participant \
              term is missing and only the character is keying the seed"
         );
@@ -905,8 +905,8 @@ mod cognition_stream_tests {
     #[test]
     fn a_mirror_preserving_characters_twins_share_one_stream() {
         assert_eq!(
-            stream_for(&seat("npc_noether", 0, 6, true)),
-            stream_for(&seat("npc_noether", 1, 6, true)),
+            stream_for(&seat("npc_emmy_noether", 0, 6, true)),
+            stream_for(&seat("npc_emmy_noether", 1, 6, true)),
             "two Emmys at one difficulty got different cognitive streams, so her \
              authored mirror symmetry reached nothing"
         );
@@ -920,7 +920,7 @@ mod cognition_stream_tests {
     #[test]
     fn two_mirror_preserving_characters_keep_their_own_streams() {
         assert_ne!(
-            stream_for(&seat("npc_noether", 0, 6, true)),
+            stream_for(&seat("npc_emmy_noether", 0, 6, true)),
             stream_for(&seat("some_other_mirror", 0, 6, true)),
             "the exception collapsed two different characters onto one stream, so \
              it is a global rather than an authored per-character trait"
@@ -933,8 +933,8 @@ mod cognition_stream_tests {
     #[test]
     fn mirror_symmetry_does_not_flatten_difficulty() {
         assert_ne!(
-            stream_for(&seat("npc_noether", 0, 2, true)),
-            stream_for(&seat("npc_noether", 1, 8, true)),
+            stream_for(&seat("npc_emmy_noether", 0, 2, true)),
+            stream_for(&seat("npc_emmy_noether", 1, 8, true)),
             "a level-2 Emmy and a level-8 Emmy were put on one stream"
         );
     }
@@ -945,10 +945,10 @@ mod cognition_stream_tests {
     /// body of that character to one stream.
     #[test]
     fn an_unsuffixed_body_is_not_special_cased_into_sharing() {
-        let mut room_body = seat("npc_noether", 0, 6, true);
-        room_body.id = "npc_noether_lab_copy".to_string();
+        let mut room_body = seat("npc_emmy_noether", 0, 6, true);
+        room_body.id = "npc_emmy_noether_lab_copy".to_string();
         let mut other_room_body = room_body.clone();
-        other_room_body.id = "npc_noether_hall_copy".to_string();
+        other_room_body.id = "npc_emmy_noether_hall_copy".to_string();
         assert_ne!(
             stream_for(&room_body),
             stream_for(&other_room_body),
@@ -963,8 +963,8 @@ mod cognition_stream_tests {
     /// stopped being emergent and become a policy.
     #[test]
     fn the_trait_changes_only_the_stream() {
-        let ordinary = seat("npc_noether", 0, 6, false);
-        let mirroring = seat("npc_noether", 0, 6, true);
+        let ordinary = seat("npc_emmy_noether", 0, 6, false);
+        let mirroring = seat("npc_emmy_noether", 0, 6, true);
         let (
             Brain::StateMachine(StateMachineCfg::Fighter { cfg: plain_cfg, .. }),
             Brain::StateMachine(StateMachineCfg::Fighter {

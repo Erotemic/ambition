@@ -1494,7 +1494,7 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
 ///   smash_george_booul          sanic
 ///   npc_pirate_admiral          npc_alice
 ///   npc_ninja_shadow_oni_leader npc_bob
-///   perfect_cellular_automaton  npc_noether
+///   perfect_cellular_automaton  npc_emmy_noether
 ///   goblin                      npc_carl_stargan
 ///   special_patent_clerk
 ///   npc_oiler                   ⭐ crossed over 2026-08-16
@@ -2351,7 +2351,7 @@ fn two_cpus_can_fight_each_other() {
 /// names an id no composition will ever register.
 ///
 /// ⛔ **its host-level twin is DELETED, and the deletion is the point.** That
-/// test picked `npc_noether` — a portrait the grid drew and seating could not
+/// test picked `npc_emmy_noether` — a portrait the grid drew and seating could not
 /// build — and its own doc said it would go vacuous the day the Hall cast was
 /// registered. That day came: Noether is in `PLAYABLE_ROSTER`, the grid filters
 /// on the prepared registry, and the test had become a check that a working

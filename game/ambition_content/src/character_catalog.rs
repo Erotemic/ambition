@@ -147,7 +147,7 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "npc_alice",
     "npc_bob",
     "npc_oiler",
-    "npc_noether",
+    "npc_emmy_noether",
 ];
 
 /// **Characters this game can BUILD but does not OFFER as a selection.**

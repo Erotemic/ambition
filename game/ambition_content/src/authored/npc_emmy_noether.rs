@@ -10,7 +10,7 @@
 //! migration's commit is exactly what that rule exists to prevent.
 //!
 //! ⚠ **the MOVESET is what is new**, and it reaches the fighter through
-//! `with_moveset` — see [`crate::noether_moveset`] for the table and why it is
+//! `with_moveset` — see [`crate::emmy_noether_moveset`] for the table and why it is
 //! shaped the way it is. Her `default_action_set` also stops being `peaceful` in
 //! the same change; the two halves answer different questions (*may this body
 //! attack* versus *what the attack is*) and a fighter needs both.
@@ -28,7 +28,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: MoveStyleSpec::Walk,
             ..Default::default()
         })
-        .with_moveset(crate::noether_moveset::noether_moveset())
+        .with_moveset(crate::emmy_noether_moveset::emmy_noether_moveset())
         // ⭐⭐ **EMMY'S ONE MECHANICAL JOKE, AND IT IS HER WHOLE SUBJECT.**
         //
         // Two Emmys driven by CPUs think on the SAME deterministic cognitive
@@ -70,11 +70,11 @@ mod tests {
     /// be indistinguishable from authoring nothing.
     #[test]
     fn emmy_authors_her_cpu_mirror_symmetry() {
-        let author = super::super::author_for("npc_noether")
+        let author = super::super::author_for("npc_emmy_noether")
             .expect("Emmy is in AUTHORED_CAST, or nothing she authors is reachable");
         let definition = author(
-            "npc_noether",
-            super::super::CharacterDefinition::new("npc_noether", "Emmy Ethereal", "ambition"),
+            "npc_emmy_noether",
+            super::super::CharacterDefinition::new("npc_emmy_noether", "Emmy Ethereal", "ambition"),
         );
         assert!(
             definition.preserves_mirror_symmetry,

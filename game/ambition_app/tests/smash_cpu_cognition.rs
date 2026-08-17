@@ -6,7 +6,7 @@
 //! in `ambition_content`, the fold in `ambition_characters`, the seed policy and
 //! seating in the actor monolith, the stage-level divergence in the demo app's own
 //! suite. ⛔ **none of them could seat the REAL Emmy.** `ambition_demo_smash_app`
-//! does not compose `ambition_content`, so a roster naming `npc_noether` seats
+//! does not compose `ambition_content`, so a roster naming `npc_emmy_noether` seats
 //! nobody there, and the monolith's tests register a synthetic stand-in that
 //! authors the trait. So the claim *"the character a player can actually pick off
 //! the smash grid gets the shared stream"* was the one link asserted nowhere.
@@ -29,7 +29,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use bevy::prelude::*;
 
 /// Emmy, by the id the catalog and the select grid both use.
-const EMMY: &str = "npc_noether";
+const EMMY: &str = "npc_emmy_noether";
 
 /// An ordinary selectable fighter, as the CONTROL. ⚠ it must be a real grid
 /// member in this composition or the contrast proves nothing — asserted below.
@@ -244,7 +244,7 @@ fn mirrored_frames(
 ///
 /// ```text
 ///                      streams   mirrored for      match ran
-/// npc_noether          IDENTICAL 2576 of 2576 fr   2576 fr  (a stalemate: they
+/// npc_emmy_noether          IDENTICAL 2576 of 2576 fr   2576 fr  (a stalemate: they
 ///                                                           answer every move
 ///                                                           with its reflection)
 /// npc_pirate_admiral   DIFFERENT  488 of 1548 fr   1548 fr  (they fight, and it

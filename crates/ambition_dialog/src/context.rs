@@ -134,8 +134,8 @@ mod tests {
 
     #[test]
     fn self_is_an_id_comparison_not_a_name_one() {
-        assert!(DialogueContext::between("npc_emmy", "npc_emmy").speaker_is_self);
-        assert!(!DialogueContext::between("npc_emmy", "npc_admiral").speaker_is_self);
+        assert!(DialogueContext::between("npc_emmy_noether", "npc_emmy_noether").speaker_is_self);
+        assert!(!DialogueContext::between("npc_emmy_noether", "npc_admiral").speaker_is_self);
     }
 
     /// Scripted dialogue has no speaker. Two absent ids are not the same body.

@@ -186,7 +186,7 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
 
 /// See the module doc. Sixteen moves: the genre's standard verb map, every clip
 /// a row her rig actually publishes.
-pub fn noether_moveset() -> MovesetContract {
+pub fn emmy_noether_moveset() -> MovesetContract {
     // ── the ground game ──────────────────────────────────────────────────────
     //
     // ⚠ **every clip below is one of her 123 authored rows.** Where the sheet has
@@ -811,7 +811,7 @@ mod tests {
     /// would still be saying something true only of her.
     #[test]
     fn her_forward_and_back_aerials_are_the_same_move() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let f = find(&set, "air_forward");
         let b = find(&set, "air_back");
         assert_eq!(damage(&f), damage(&b), "same damage");
@@ -844,7 +844,7 @@ mod tests {
     /// from the opposite idea — has to miss it, or this asserts nothing.
     #[test]
     fn every_strike_she_throws_conserves_the_same_quantity() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let mut striking = 0;
         for m in &set.moves {
             let impulse = conserved_impulse(m);
@@ -879,7 +879,7 @@ mod tests {
     /// the blueprint's *"the moment the invariant stops holding"*.
     #[test]
     fn exactly_one_move_grows_like_a_kill_move() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let loud: Vec<&str> = set
             .moves
             .iter()
@@ -897,7 +897,7 @@ mod tests {
     /// and not about recoveries generally.
     #[test]
     fn her_recovery_carries_no_hitbox_and_that_is_unusual() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let lift = find(&set, "ethereal_lift");
         assert!(
             lift.windows.iter().all(|w| w.volumes.is_empty()),
@@ -927,7 +927,7 @@ mod tests {
              the same down, so repeated presses would gain height",
             climb_s
         );
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let lift = find(&set, "ethereal_lift");
         assert!(
             lift.windows
@@ -940,7 +940,7 @@ mod tests {
     /// **The side special buys distance BACKWARD without turning her round.**
     #[test]
     fn the_symmetry_shift_retreats_without_conceding_the_facing() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let shift = find(&set, "symmetry_shift");
         let displacement = shift
             .events
@@ -977,7 +977,7 @@ mod tests {
     /// baked manifests — so this asks exactly what the renderer will ask.
     #[test]
     fn the_kit_looks_like_emmy_and_the_art_all_ships() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let mut effects = std::collections::BTreeSet::new();
         for m in &set.moves {
             for problem in
@@ -1015,7 +1015,7 @@ mod tests {
     /// wrong authoring outcome, so the table is checked against the sheet here.
     #[test]
     fn every_clip_names_a_row_her_sheet_carries() {
-        let set = noether_moveset();
+        let set = emmy_noether_moveset();
         let record =
             ambition_platformer2d::sprite_sheet::character::sheets::record_for_target("noether")
                 .expect("Emmy's sheet is baked into the registry");

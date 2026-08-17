@@ -283,7 +283,7 @@ fn seating_runs_once_however_many_ticks_pass() {
 /// why (Jon, 2026-08-06).
 ///
 /// ⭐ **and this is the DURABLE guard, which is why it names a character nothing
-/// will ever register.** The host-level reproduction uses `npc_noether`, a real
+/// will ever register.** The host-level reproduction uses `npc_emmy_noether`, a real
 /// grid fighter that is unbuildable *today* — and registering the Hall cast is a
 /// planned step that will quietly turn that test into a check that a working
 /// thing works. A guard that content can repair is not defending the gap. This

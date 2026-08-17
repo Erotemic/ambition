@@ -30,13 +30,13 @@ mod npc_bob;
 mod npc_burning_flying_shark;
 mod npc_carl_stargan;
 mod npc_dividing_mite;
+mod npc_emmy_noether;
 mod npc_exploding_mite;
 mod npc_giant_gnu;
 mod npc_giant_gnu_hands;
 mod npc_goblin_brute;
 mod npc_lab_raider;
 mod npc_ninja_shadow_oni_leader;
-mod npc_noether;
 mod npc_oiler;
 mod npc_pirate_admiral;
 mod npc_pirate_crew;
@@ -116,7 +116,7 @@ pub(crate) const AUTHORED_CAST: &[(
     // ⭐ Emmy left that file the day she grew a repertoire (2026-08-16) — the
     // second time this week the rule fired. 123 authored rows, and nothing had
     // ever asked one of them for a hitbox.
-    (&["npc_noether"], npc_noether::author),
+    (&["npc_emmy_noether"], npc_emmy_noether::author),
     // ⭐ Oiler left that file the day he grew a repertoire (2026-08-16), which is
     // the rule its own doc states. Same walk, same health, sixteen new answers.
     (&["npc_oiler"], npc_oiler::author),

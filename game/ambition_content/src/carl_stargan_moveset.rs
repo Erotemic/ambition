@@ -53,7 +53,7 @@ use ambition_characters::moveset_authoring::{
 };
 
 /// Burst sizes, as multiples of the presentation default. See
-/// [`crate::noether_moveset`] for why these are not all the same number.
+/// [`crate::emmy_noether_moveset`] for why these are not all the same number.
 const POKE_FX: f32 = 0.55;
 const SWING_FX: f32 = 0.80;
 const COSMIC_FX: f32 = 1.45;
@@ -625,7 +625,7 @@ mod tests {
 
         for (who, other) in [
             ("oiler", crate::oiler_moveset::oiler_moveset()),
-            ("noether", crate::noether_moveset::noether_moveset()),
+            ("emmy_noether", crate::emmy_noether_moveset::emmy_noether_moveset()),
         ] {
             let theirs: Vec<f32> = other
                 .moves

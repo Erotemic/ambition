@@ -628,7 +628,7 @@
         ),
 
         // ===== Symmetry tutorial (Noether Chamber).
-        "npc_noether": (
+        "npc_emmy_noether": (
             sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
             display_name: "Emmy Ethereal",
             spritesheet: "sprites/noether_spritesheet.png",
@@ -638,7 +638,7 @@
             composition: None,
             default_brain: "stand_still",
             // ⭐ 2026-08-16: she authors a sixteen-move smash repertoire
-            // (`noether_moveset`) across the 123 rows her rig already published,
+            // (`emmy_noether_moveset`) across the 123 rows her rig already published,
             // and an ability and a repertoire are different questions — *may this
             // body attack* versus *what the attack is*. A `peaceful` row answered
             // the first one NO, so the table could never reach a fighter. Her
@@ -647,14 +647,14 @@
             // who can be hit back.
             default_action_set: "striker_swipe",
             tags: ["hub", "guide", "tutorial"],
-            gameplay_description: "Emmy intentionally preserves deterministic CPU symmetry in mirror matches: two Emmys receiving symmetric observations use the same cognitive/noise stream and therefore tend to behave as reflections of one another. This is an AUTHORED CHARACTER TRAIT, not the default Smash CPU policy -- every other character's CPUs get participant-distinct streams and diverge within a few decisions. Do not re-file it as a bug: it is authored as `preserving_mirror_symmetry()` in `authored/npc_noether.rs`, and the reasoning is that her subject is Noether's theorem, where a symmetry implies a conservation law. It is NOT a synchronised animation and must never be implemented as one -- nothing compares the two bodies or copies one's action to the other. The reflection is an emergent consequence of identical cognition reading a symmetric stage, so it BREAKS as soon as their observations diverge (one takes a hit, one is launched further, one is nearer a ledge). That break is correct behaviour, not a regression.",
+            gameplay_description: "Emmy intentionally preserves deterministic CPU symmetry in mirror matches: two Emmys receiving symmetric observations use the same cognitive/noise stream and therefore tend to behave as reflections of one another. This is an AUTHORED CHARACTER TRAIT, not the default Smash CPU policy -- every other character's CPUs get participant-distinct streams and diverge within a few decisions. Do not re-file it as a bug: it is authored as `preserving_mirror_symmetry()` in `authored/npc_emmy_noether.rs`, and the reasoning is that her subject is Noether's theorem, where a symmetry implies a conservation law. It is NOT a synchronised animation and must never be implemented as one -- nothing compares the two bodies or copies one's action to the other. The reflection is an emergent consequence of identical cognition reading a symmetric stage, so it BREAKS as soon as their observations diverge (one takes a hit, one is launched further, one is nearer a ledge). That break is correct behaviour, not a regression.",
         barks: (
             on_hit: ["That violated several conservation laws.", "Every action has an equal and opposite consequence.", "The symmetry is broken now. Happy?"],
             provoked: ["By Noether's theorem — you're done!"],
             idle: ["Every symmetry hides a conservation law.", "The world is more beautiful when you find the invariant.", "Mathematics does not care what you believe."],
             hall: ["Spin the rules and the laws don't change. That's not luck.", "Energy is conserved because today is like yesterday."],
         ),
-        hall_dialogue_id: Some("hall_npc_noether"),
+        hall_dialogue_id: Some("hall_npc_emmy_noether"),
         ),
 
         // ===== Pirate cove (Pirate Cove faction).

@@ -153,7 +153,7 @@ for n in range(4):
     dialogue = "emmy_noether" if d == "down" else f"emmy_noether_{d}"
     A(entity("NpcSpawn", ex, ey, ew, eh, {
         "prompt": f'"Talk to Emmy Ethereal ({d})"', "dialogue_id": f'"{dialogue}"',
-        "character_id": '"npc_noether"', "patrol_radius": "0"}))
+        "character_id": '"npc_emmy_noether"', "patrol_radius": "0"}))
 
 # The Perfect Cell-ular Automaton boss — a peaceful NPC guarding the kernel's
 # down face, reachable on foot from the entrance under default down-gravity.

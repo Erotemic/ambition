@@ -6340,7 +6340,7 @@ re-derive.
 
 ⭐⭐ **EMMY'S EXCEPTION IS AUTHORED, NOT INHERITED FROM THE BUG.**
 `CharacterDefinition::preserves_mirror_symmetry` (authored in
-`authored/npc_noether.rs` as `.preserving_mirror_symmetry()`) drops the
+`authored/npc_emmy_noether.rs` as `.preserving_mirror_symmetry()`) drops the
 PARTICIPANT term and keys on the character instead, so her twins share a stream
 and nobody else's do. ⛔ it does **not** zero the seed — that would hand every
 mirror-preserving character one global stream — and it touches nothing but the
@@ -6373,11 +6373,11 @@ projection's carry, each independently turn tests red when reverted.
 ✔✔ **AND EMMY IS NOW PINNED IN THE FULL HOST TOO** —
 `game/ambition_app/tests/smash_cpu_cognition.rs` (ungated, so the project gate runs
 it). ⛔ **the standalone smash app cannot seat her**: it does not compose
-`ambition_content`, so a roster naming `npc_noether` seats nobody, and every other
+`ambition_content`, so a roster naming `npc_emmy_noether` seats nobody, and every other
 suite either registers a synthetic stand-in or tests a different link. ⇒ the claim
 *"the character a player can actually pick off the grid gets the shared stream"* was
 asserted nowhere until this file. It drives `build_visible_app`, asserts
-`npc_noether` is on the assembled grid (`SmashRoster::assemble`), seats two CPU
+`npc_emmy_noether` is on the assembled grid (`SmashRoster::assemble`), seats two CPU
 Emmys through the stage's own roster builder, and reads the streams off the seated
 brains. ⛔ do not teach the demo host Ambition's cast to close the older gap.
 
@@ -6385,7 +6385,7 @@ brains. ⛔ do not teach the demo host Ambition's cast to close the older gap.
 
 ```text
                      streams     mirrored for       match ran
-npc_noether          IDENTICAL   2576 of 2576 fr    2576 fr   a stalemate — they
+npc_emmy_noether     IDENTICAL   2576 of 2576 fr    2576 fr   a stalemate — they
                                                              answer every move
                                                              with its reflection
 npc_pirate_admiral   DIFFERENT    488 of 1548 fr    1548 fr   they fight, and it

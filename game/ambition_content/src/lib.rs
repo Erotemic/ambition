@@ -65,6 +65,7 @@ pub mod alice_moveset;
 pub mod bob_moveset;
 pub mod carl_stargan_moveset;
 pub mod cellular_automaton_moveset;
+pub mod emmy_noether_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
 pub mod goblin_moveset;
@@ -79,7 +80,6 @@ pub mod music;
 #[cfg(test)]
 mod moveset_sound;
 pub mod ninja_shadow_oni_leader_moveset;
-pub mod noether_moveset;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;
 pub mod pirate_admiral_moveset;

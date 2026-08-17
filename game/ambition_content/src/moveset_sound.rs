@@ -42,7 +42,7 @@ fn tables() -> Vec<(&'static str, MovesetContract)> {
             "ninja_shadow_oni_leader",
             crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset(),
         ),
-        ("noether", crate::noether_moveset::noether_moveset()),
+        ("emmy_noether", crate::emmy_noether_moveset::emmy_noether_moveset()),
         ("oiler", crate::oiler_moveset::oiler_moveset()),
         (
             "patent_clerk",

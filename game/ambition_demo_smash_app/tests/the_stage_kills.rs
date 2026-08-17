@@ -1920,7 +1920,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
 /// ⚠ **the authored EXCEPTION cannot be measured here**, for a composition reason
 /// rather than a gap: Emmy Ethereal is one of Ambition's catalog characters and
 /// this standalone demo app does not compose `ambition_content`, so
-/// `smash_roster_at_levels(["npc_noether", …])` seats nothing at all. ⛔ do not
+/// `smash_roster_at_levels(["npc_emmy_noether", …])` seats nothing at all. ⛔ do not
 /// "fix" that by teaching this app Ambition's cast — the demo host's own roster is
 /// the point of the demo host.
 ///
@@ -1928,7 +1928,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
 ///
 /// ```text
 /// Emmy AUTHORS the trait, through the one cast table
-///     ambition_content   authored::npc_noether::tests
+///     ambition_content   authored::npc_emmy_noether::tests
 /// the trait survives preparation to the seat blueprint
 ///     ambition_characters  prepared_tests::mirror_symmetry_survives_preparation_…
 /// two seated CPU twins of a mirror-preserving character share one stream, and

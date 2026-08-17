@@ -16,11 +16,11 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::audio::RadioStationState;
-use crate::encounter::{
-    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
-};
 use crate::rooms::RoomMusicRequest;
 use ambition_audio::selection::ActiveAudioSelection;
+use ambition_encounter::{
+    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
+};
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,

@@ -68,10 +68,10 @@ pub struct RoomReplayRequested;
 pub struct NewGameResetCommitted;
 
 use crate::boss_encounter::BossEncounterRegistry;
-use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::rooms::RoomSet;
 use crate::world::physics;
+use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;

@@ -28,7 +28,7 @@ pub fn clear_encounter_reward_ecs(
         }
     }
     save.set_flag(
-        crate::encounter::encounter_reward_looted_flag(encounter_id),
+        ambition_encounter::encounter_reward_looted_flag(encounter_id),
         false,
     );
 }
@@ -42,7 +42,7 @@ pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
-    cleared: &[(String, crate::encounter::EncounterSpec)],
+    cleared: &[(String, ambition_encounter::EncounterSpec)],
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -51,7 +51,7 @@ pub fn sync_encounter_reward_chests_ecs(
     let chest_size = ae::Vec2::new(28.0, 28.0);
     for (encounter_id, spec) in cleared.iter() {
         let chest_id = format!("encounter_chest_{encounter_id}");
-        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
+        let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             encounter_id,
         ));
         let existing = chests
@@ -69,7 +69,7 @@ pub fn sync_encounter_reward_chests_ecs(
             }
             continue;
         }
-        let chest_pos = crate::encounter::encounter_reward_chest_pos(spec, chest_size);
+        let chest_pos = ambition_encounter::encounter_reward_chest_pos(spec, chest_size);
         let mut entity = commands.spawn_session_scoped(
             session_scope,
             (
@@ -135,7 +135,7 @@ pub fn sync_boss_reward_chests_ecs(
             continue;
         }
         let chest_id = format!("encounter_chest_{placement_id}");
-        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
+        let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             placement_id,
         ));
         let existing = chests

@@ -81,7 +81,7 @@ fn the_death_music_claims_the_priority_tier_and_releases_it() {
         .world_mut()
         .spawn((
             ambition_platformer2d::platformer::lifecycle::SessionRoot(session_scope_for_test()),
-            ambition_platformer2d::actors::encounter::EncounterMusicRequest::default(),
+            ambition_platformer2d::encounter::EncounterMusicRequest::default(),
         ))
         .id();
     let body = app.world_mut().spawn(()).id();
@@ -93,9 +93,10 @@ fn the_death_music_claims_the_priority_tier_and_releases_it() {
         "a level nobody has died on plays its own theme"
     );
 
-    app.world_mut()
-        .entity_mut(body)
-        .insert(DeathInterlude { remaining: 1.0, consequence_pending: true });
+    app.world_mut().entity_mut(body).insert(DeathInterlude {
+        remaining: 1.0,
+        consequence_pending: true,
+    });
     app.update();
     assert_eq!(
         requested(&app, root).as_deref(),
@@ -105,9 +106,10 @@ fn the_death_music_claims_the_priority_tier_and_releases_it() {
 
     // The window closing is the engine removing the component; a closed-but-
     // present window must read the same way, so check the value too.
-    app.world_mut()
-        .entity_mut(body)
-        .insert(DeathInterlude { remaining: 0.0, consequence_pending: false });
+    app.world_mut().entity_mut(body).insert(DeathInterlude {
+        remaining: 0.0,
+        consequence_pending: false,
+    });
     app.update();
     assert_eq!(
         requested(&app, root),
@@ -124,6 +126,6 @@ fn session_scope_for_test() -> ambition_platformer2d::platformer::lifecycle::Ses
 
 fn requested(app: &App, root: bevy::prelude::Entity) -> Option<String> {
     app.world()
-        .get::<ambition_platformer2d::actors::encounter::EncounterMusicRequest>(root)
+        .get::<ambition_platformer2d::encounter::EncounterMusicRequest>(root)
         .and_then(|music| music.priority_track.clone())
 }

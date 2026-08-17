@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use ambition_platformer2d_ldtk::LdtkProject;
 
-use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
+use ambition_encounter::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 
 /// Test fixture: the lib's own loader tests read content's authoritative
 /// `encounters/goblin_encounter.ron` at compile time (cfg(test) only —
@@ -77,7 +77,8 @@ pub fn load_encounter_specs_from_ldtk(
         let trigger_id = ambition_platformer2d_ldtk::field_string(trigger, "id")
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| area_id.clone());
-        let camera_zoom = ambition_platformer2d_ldtk::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
+        let camera_zoom =
+            ambition_platformer2d_ldtk::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
         let trigger_min = [trigger.px[0] as f32, trigger.px[1] as f32];
         let trigger_size = [trigger.width as f32, trigger.height as f32];
 
@@ -115,7 +116,7 @@ pub fn load_encounter_specs_from_ldtk(
             } else {
                 "pulse_drift_voyage".into()
             },
-            reward: crate::encounter::spec::default_encounter_reward(),
+            reward: ambition_encounter::spec::default_encounter_reward(),
         };
         let persisted = save.encounter(&trigger_id);
         out.push((trigger_id, spec, persisted));

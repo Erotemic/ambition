@@ -48,7 +48,7 @@ pub fn tick_encounter_scripts(
     session_owners: Query<&SessionScopedEntity>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        crate::encounter::EncounterMusicRequest,
+        ambition_encounter::EncounterMusicRequest,
     >,
 ) {
     let dt = world_time.sim_dt();

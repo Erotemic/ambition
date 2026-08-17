@@ -22,12 +22,13 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionCommands;
 
-use super::{
-    load_encounter_specs_from_ldtk, Encounter, EncounterCommand, EncounterCommandKind,
-    EncounterEvent, EncounterEventMsg, EncounterLifecycle, EncounterMusicRequest,
-    EncounterParticipants, EncounterRegistry, EncounterSwitchIndex, EncounterView, EncounterWaves,
-    SwitchActivationQueue, WAVES_EXHAUSTED_SIGNAL,
+use ambition_encounter::{
+    Encounter, EncounterCommand, EncounterCommandKind, EncounterEvent, EncounterEventMsg,
+    EncounterLifecycle, EncounterMusicRequest, EncounterParticipants, EncounterRegistry,
+    EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
+
+use super::{load_encounter_specs_from_ldtk, EncounterSwitchIndex, SwitchActivationQueue};
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
 /// project, spawn one encounter entity per spec carrying the generic
@@ -534,7 +535,7 @@ pub fn apply_wave_encounter_effects(
 
     // Reward chest sync: gather the completed encounters' (id, spec) so the
     // reward sync stays decoupled from the encounter state representation.
-    let cleared_specs: Vec<(String, super::EncounterSpec)> = encounters
+    let cleared_specs: Vec<(String, ambition_encounter::EncounterSpec)> = encounters
         .iter()
         .filter(|(_, lifecycle, waves, _)| {
             matches!(

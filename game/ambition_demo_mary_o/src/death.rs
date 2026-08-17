@@ -78,7 +78,7 @@ pub fn play_death_music(
     dying: Query<&ambition_platformer2d::combat::death_rules::DeathInterlude>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-            ambition_platformer2d::actors::encounter::EncounterMusicRequest,
+            ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
 ) {

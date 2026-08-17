@@ -15,9 +15,10 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use super::{Encounter, EncounterLifecycle, EncounterPhase};
 use crate::features::FeatureEcsWorldOverlay;
-use ambition_encounter::{EncounterLockWall, LockWallSpec};
+use ambition_encounter::{
+    Encounter, EncounterLifecycle, EncounterLockWall, EncounterPhase, LockWallSpec,
+};
 
 /// The lock-wall solid blocks wanted THIS frame: one per in-flight encounter
 /// that authors an [`EncounterLockWall`]. Block name format is

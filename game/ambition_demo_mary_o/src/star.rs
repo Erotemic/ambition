@@ -115,7 +115,7 @@ pub fn play_star_music(
     stars: Query<&Empowered>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-            ambition_platformer2d::actors::encounter::EncounterMusicRequest,
+            ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
 ) {

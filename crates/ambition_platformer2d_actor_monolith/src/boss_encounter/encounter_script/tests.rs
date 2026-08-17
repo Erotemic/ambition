@@ -5,13 +5,12 @@
 
 use super::*;
 use crate::boss_encounter::BossEncounterPhase;
-use crate::encounter::EncounterMusicRequest;
 use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
 use crate::features::ecs::boss_clusters::BossEncounter;
 use crate::features::GameplayBanner;
 use ambition_encounter::{
-    EncounterBeat, EncounterEffect, EncounterGate, EncounterParticipant, EncounterParticipants,
-    EncounterRole, EncounterScript, EncounterTrigger,
+    EncounterBeat, EncounterEffect, EncounterGate, EncounterMusicRequest, EncounterParticipant,
+    EncounterParticipants, EncounterRole, EncounterScript, EncounterTrigger,
 };
 use ambition_time::WorldTime;
 

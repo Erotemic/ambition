@@ -2037,7 +2037,7 @@ pub(crate) fn spawn_interactable_into(
         )
         .spawn_into(commands, session_scope, root);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
-        if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
+        if let Some(activation) = ambition_encounter::SwitchActivation::parse_custom(payload) {
             commands.insert_session_scoped(
                 session_scope,
                 root,
@@ -2431,10 +2431,9 @@ pub fn apply_summon_effects(
     // only outcome, because there is no generic body left to settle for. It
     // belongs here rather than inside the recipe: a rejected batch has spent
     // nothing, where a recipe-time refusal is a panic with rows already built.
-    if let Err(error) = crate::construction::preflight_planned_bodies(
-        &planned,
-        prepared_characters.as_deref(),
-    ) {
+    if let Err(error) =
+        crate::construction::preflight_planned_bodies(&planned, prepared_characters.as_deref())
+    {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
             "summon batch rejected before mutation: {error}"

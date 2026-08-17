@@ -2097,7 +2097,7 @@ pub fn placement_requests(
             let spawns = match &spec.kind {
                 InteractionKindSpec::Npc { .. } => true,
                 InteractionKindSpec::Custom(payload) => {
-                    crate::encounter::SwitchActivation::parse_custom(payload).is_some()
+                    ambition_encounter::SwitchActivation::parse_custom(payload).is_some()
                 }
                 InteractionKindSpec::Door { .. }
                 | InteractionKindSpec::Chest

@@ -8,7 +8,7 @@
 //! thin system so the minimal App can drive the &Commands/&save/&registry
 //! /&Query helper.
 use super::*;
-use crate::encounter::EncounterSpec;
+use ambition_encounter::EncounterSpec;
 use ambition_interaction::PickupKind;
 use ambition_persistence::save::AmbitionGameSave;
 use bevy::prelude::{App, Resource, Update};

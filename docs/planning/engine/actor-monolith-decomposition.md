@@ -322,6 +322,14 @@ while refusing the `encounter` carve:
   crate-level alias for `ambition_combat` (`lib.rs:99`), so a path that reads
   local is already cross-crate; and several re-exports are GLOBS, which name
   nothing textually at the re-export site.
+- ⛔⛔ **AND SAY WHICH GRANULARITY YOU MEAN — the table's numbers are DISTINCT
+  SIBLING MODULES, not sites, and the two ranks differently** (found 2026-08-17
+  when the de-laundering landed). `boss_encounter`'s celebrated "3 = 3" is three
+  modules; by SITES the same module reads `9` by `use`-grep and `34` non-comment
+  — the same 3.8× undercount every other row has. A module count says how many
+  seams a carve must cut; a site count says how much editing it costs. ⭐ **and
+  neither answers the question that actually kills a candidate: how many sites
+  point INWARD.** `boss_encounter` has 155.
 
 ⇒ **an edge count is a screening tool. The verdict is the definition sites**, and
 a module is carvable only when every name it reaches resolves at or below where
@@ -1152,6 +1160,19 @@ re-export `crate::encounter::EncounterMusicRequest` has ~12 consumers across fou
 crates while the runtime and `ambition_content` already name `ambition_encounter`
 directly, and `encounter/switches.rs` reaches its own `SwitchFeature`/`SwitchOn`
 back through `features`, a re-export LOOP.
+
+✔✔ **THAT DE-LAUNDERING LANDED 2026-08-17.** All six shim files are deleted and
+`encounter/mod.rs` re-exports **nothing it does not define** — 39 exported names
+(26 of them `ambition_encounter`'s) down to 13. Honest instrument, before → after:
+outward `40 → 38` sites (9 distinct modules, unchanged), **inward `29 → 6`**, and
+`ambition_platformer2d::actors::encounter::` consumers `11 → 5`. ⭐ **the outward
+number barely moving is the point** — de-laundering removes edges that were never
+real, and the two it dropped were the switch loop itself. Every surviving
+`crate::encounter::` in the tree now names something `encounter/switches.rs`
+defines. The residue is 2,145 lines, essentially unchanged: this buys honesty,
+not size. ⇒ `boss_encounter`'s `encounter` edge is gone (3 sibling modules → 2),
+which was its stated precondition — but see the size warning below before
+treating it as unblocked.
 
 ### Wave F — presentation effects and audio
 

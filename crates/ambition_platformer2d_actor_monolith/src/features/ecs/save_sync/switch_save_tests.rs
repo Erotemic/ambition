@@ -7,7 +7,7 @@
 //! on/off from the save flag keyed by its FeatureId — so a save load
 //! (or a reset that rewrote flags) re-derives switch visuals/state.
 use super::*;
-use crate::encounter::SwitchActivation;
+use ambition_encounter::SwitchActivation;
 use ambition_persistence::save::AmbitionGameSave;
 use bevy::prelude::{App, Update};
 

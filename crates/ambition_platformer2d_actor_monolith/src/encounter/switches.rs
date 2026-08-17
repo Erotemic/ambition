@@ -7,7 +7,7 @@
 
 use bevy::prelude::{Query, ResMut, Resource};
 
-use super::SwitchActivation;
+use ambition_encounter::SwitchActivation;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncounterSwitchLink {
@@ -53,11 +53,12 @@ impl EncounterSwitchIndex {
 
 pub fn rebuild_encounter_switch_index(
     mut index: ResMut<EncounterSwitchIndex>,
-    switches: Query<(
-        &crate::features::FeatureId,
-        &crate::features::SwitchFeature,
-        &crate::features::SwitchOn,
-    )>,
+    // ⭐ `SwitchFeature` / `SwitchOn` are defined a few lines below, in THIS
+    // file. They used to be named through `crate::features`, which re-exports
+    // them straight back from here — a module importing itself the long way
+    // round. `FeatureId` is a genuine outward edge (it resolves to
+    // `ambition_combat` under the `features` hub) and stays as it is.
+    switches: Query<(&crate::features::FeatureId, &SwitchFeature, &SwitchOn)>,
 ) {
     index.links.clear();
     for (feature_id, switch, switch_on) in &switches {

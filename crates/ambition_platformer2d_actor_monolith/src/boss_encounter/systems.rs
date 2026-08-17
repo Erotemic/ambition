@@ -69,7 +69,7 @@ pub fn update_boss_encounters(
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        crate::encounter::EncounterMusicRequest,
+        ambition_encounter::EncounterMusicRequest,
     >,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,

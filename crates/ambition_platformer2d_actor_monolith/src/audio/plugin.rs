@@ -197,7 +197,7 @@ struct AudioRequestState<'w, 's> {
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
             'w,
             's,
-            crate::encounter::EncounterMusicRequest,
+            ambition_encounter::EncounterMusicRequest,
         >,
     >,
     room: Option<

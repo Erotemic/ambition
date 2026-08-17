@@ -7,41 +7,23 @@
 //! are defeated, player death resets/unlocks, all-defeated → cleared + exits
 //! unlock. Any number of encounters coexist via `EncounterRegistry`.
 //!
-//! Facade module. Authored data, registry resources, event vocabulary, music
-//! request resources, reward math, and the headless state machine live in
-//! `ambition_encounter`. Gameplay-core keeps the adapters that still touch LDtk,
-//! ECS spawning, player/body queries, feature overlays, banners, save/quest
-//! plumbing, and schedule sets.
+//! ADAPTER module — it re-exports nothing it does not define. Authored data,
+//! registry resources, event vocabulary, music request resources, reward math,
+//! and the headless state machine live in `ambition_encounter`, and every
+//! consumer names that crate directly (`ambition_platformer2d::encounter` is
+//! the same crate under the facade's short name). Gameplay-core keeps only the
+//! adapters that still touch LDtk, ECS spawning, player/body queries, feature
+//! overlays, banners, save/quest plumbing, switch state, and schedule sets.
 
+use ambition_encounter::{Encounter, EncounterLifecycleSet};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-mod events;
-mod lifecycle_reexports;
 mod loading;
 mod lock_walls;
-mod music;
-mod registry;
-mod rewards;
-mod spec;
 mod switches;
 mod systems;
 
-pub use ambition_encounter::{
-    active_encounter_camera_zoom, install_encounter_waves, Encounter, EncounterParticipant,
-    EncounterParticipants, EncounterRole, EncounterView,
-};
-pub use events::{EncounterEvent, EncounterEventMsg};
-#[cfg(test)]
-pub(super) use lifecycle_reexports::ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
-pub use lifecycle_reexports::{
-    EncounterCommand, EncounterCommandKind, EncounterLifecycle, EncounterLifecycleSet,
-    EncounterPhase, EncounterRun, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
-};
 pub use loading::load_encounter_specs_from_ldtk;
 pub use lock_walls::contribute_encounter_lock_walls;
-pub use music::EncounterMusicRequest;
-pub use registry::{EncounterRegistry, SwitchActivation};
-pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
-pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 pub use switches::{
     rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivated, SwitchActivationQueue,
     SwitchFeature, SwitchOn,

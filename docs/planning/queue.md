@@ -2896,10 +2896,54 @@ residue to the adapters that genuinely cannot leave. ⭐ same shape as the LDtk
 compat-facade deletion this row already banked: **what it buys is honesty and one
 fewer historical path.**
 
-⇒ ▢ **AND THE CANDIDATE LIST NEEDS RE-RANKING OFF THE CORRECTED COLUMN.**
-`boss_encounter` (6,940 lines, 3 = 3) is now the only large module whose two
-measurements AGREE, which makes it the best-understood candidate on the board —
-but it imports `encounter`, so the de-laundering above is its precondition.
+✔✔ **THE DE-LAUNDERING LANDED 2026-08-17 — ALL SIX SHIMS ARE DEAD AND
+`encounter/mod.rs` NOW RE-EXPORTS NOTHING IT DOES NOT DEFINE.** The facade went
+from **39 exported names (26 of them `ambition_encounter`'s) to 13, all
+monolith-owned** — the four adapters (`load_encounter_specs_from_ldtk`,
+`contribute_encounter_lock_walls`, the switch table, the wave systems).
+Measured with the honest instrument (`crate::` on NON-COMMENT lines):
+
+```text
+                         before   after
+  encounter → siblings     40       38   sites   (9 distinct modules → 9)
+  siblings  → encounter    29        6   sites   ← ⭐ THE RESULT
+  ambition_platformer2d::actors::encounter:: consumers
+                           11        5   sites   (all 5 monolith-owned)
+```
+
+⭐ **THE OUTWARD NUMBER BARELY MOVING IS THE POINT, AND IT IS THE MEASUREMENT
+LESSON REPEATING.** De-laundering removes edges that were never real; the two it
+dropped (`crate::features::SwitchFeature/SwitchOn`, a module reaching its OWN
+types back through the hub) are the whole switch loop, and the distinct-module
+count cannot move because `features` still carries 24 other names. **The
+direction that changed is INWARD: 29 → 6, and all six of those now resolve to
+`encounter/switches.rs`** — types the monolith genuinely defines. Every remaining
+`crate::encounter::` in the tree names something encounter OWNS. ⛔ the residue is
+2,145 lines, essentially unchanged — this bought honesty, not size, exactly as
+the row predicted.
+
+⚠ **the shim deletion was asserted structurally, not by eye:** the same grep for
+`mod {events,lifecycle_reexports,music,registry,rewards,spec};` and their `::`
+paths returns **21 hits on `HEAD`** and **3 after** — and all three are
+`ambition_encounter::spec::default_encounter_reward()`, the owning crate's real
+module. A grep that returns nothing only means something if you showed it
+returning something first.
+
+⇒ ✔ **AND THE CANDIDATE LIST WAS RE-RANKED — `boss_encounter`'s PRECONDITION IS
+CLEARED AND IT IS STILL NOT THE NEXT CARVE.** It reached three sibling modules
+(`features`, `cutscene_trigger`, `encounter`); the `encounter` edge was those
+three `EncounterMusicRequest` sites and is now **gone — two modules, not three**.
+⛔ **but "3 = 3" was never a size, it was a count of MODULES, and chasing them
+kills the candidate:** `boss_encounter` carries **155 inward `crate::boss_encounter::`
+sites** from its siblings, and its outward edges land on **boss vocabulary the
+monolith itself defines inside the `features` hub** — `features/ecs/boss_clusters.rs`
+(`BossConfig`, `BossEncounter`, `BossRef`, `boss_is_cleared`), `BossOverrides`
+(`features/ecs/spawn_actors.rs:111`) and `sync_boss_reward_chests_ecs`
+(`features/ecs/encounter_rewards.rs:98`). ⇒ **the boss's own data model lives in
+`features`, so a carve moves the boundary, not the code.** The next slice here is
+either that (relocate `boss_clusters` to `boss_encounter`, where it belongs) or a
+different candidate entirely — not a `boss_encounter` Cargo.toml.
+
 ⛔ nothing was committed against the carve itself: no crate, no manifest, no
 lockfile moved, so `critical_path_crates` stays at 13 and no baseline was touched.
  Prefer boundaries that improve capability closure, compile isolation,

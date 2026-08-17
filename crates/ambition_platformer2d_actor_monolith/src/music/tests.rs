@@ -4,14 +4,14 @@
 //! multi-binding iteration, and notes on the outro/restart race fix.
 
 use super::*;
-use crate::encounter::{EncounterPhase, EncounterRun, EncounterWaves};
+use ambition_encounter::{EncounterPhase, EncounterRun, EncounterWaves};
 use std::collections::HashMap;
 
 /// A wave-policy fixture: the resolver keys adaptive states off the wave
 /// index/clock (`EncounterWaves.run`); the generic lifecycle supplies the
 /// phase separately.
 fn waves_fixture(run: EncounterRun) -> EncounterWaves {
-    let spec: crate::encounter::EncounterSpec = ron::from_str(
+    let spec: ambition_encounter::EncounterSpec = ron::from_str(
         r#"(id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
             camera_zoom: 1.0, lock_wall: None, intro_seconds: 0.0, music_track: "")"#,
     )

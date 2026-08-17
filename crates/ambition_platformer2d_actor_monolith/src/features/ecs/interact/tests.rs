@@ -71,7 +71,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
             FeatureId::new("gate_switch"),
             FeatureName::new("Gate Switch"),
             CenteredAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
-            SwitchFeature::new(crate::encounter::SwitchActivation {
+            SwitchFeature::new(ambition_encounter::SwitchActivation {
                 id: "gate_switch".into(),
                 action: "open".into(),
                 target_encounter: String::new(),
@@ -156,7 +156,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
             FeatureId::new("subject_switch"),
             FeatureName::new("Subject Switch"),
             CenteredAabb::from_center_size(subject_pos, ae::Vec2::new(24.0, 24.0)),
-            SwitchFeature::new(crate::encounter::SwitchActivation {
+            SwitchFeature::new(ambition_encounter::SwitchActivation {
                 id: "subject_switch".into(),
                 action: "open".into(),
                 target_encounter: String::new(),
@@ -173,7 +173,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
             FeatureId::new("home_switch"),
             FeatureName::new("Home Switch"),
             CenteredAabb::from_center_size(home_pos, ae::Vec2::new(24.0, 24.0)),
-            SwitchFeature::new(crate::encounter::SwitchActivation {
+            SwitchFeature::new(ambition_encounter::SwitchActivation {
                 id: "home_switch".into(),
                 action: "open".into(),
                 target_encounter: String::new(),

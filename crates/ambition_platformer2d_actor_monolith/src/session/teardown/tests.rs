@@ -8,8 +8,9 @@ use super::*;
 use crate::abilities::traversal::possession::PossessionState;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
-use crate::encounter::{EncounterRegistry, SwitchActivation, SwitchActivationQueue};
+use crate::encounter::SwitchActivationQueue;
 use crate::RoomTransitionCooldown;
+use ambition_encounter::{EncounterRegistry, SwitchActivation};
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 fn app_with_populated_mirrors() -> App {
@@ -19,7 +20,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.init_resource::<EncounterRegistry>();
-    app.init_resource::<crate::encounter::EncounterView>();
+    app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.init_resource::<RoomTransitionCooldown>();
@@ -99,9 +100,7 @@ fn retirement_clears_every_session_scoped_mirror() {
         "encounter index still maps ids to dead session-A entities after teardown"
     );
     assert_eq!(
-        app.world()
-            .resource::<RoomTransitionCooldown>()
-            .remaining,
+        app.world().resource::<RoomTransitionCooldown>().remaining,
         RoomTransitionCooldown::default().remaining,
         "transient room state carried across teardown"
     );

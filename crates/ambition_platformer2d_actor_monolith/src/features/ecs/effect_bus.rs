@@ -90,7 +90,7 @@ mod tests {
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked("guide".into()),
         );
         let switch = SwitchActivated {
-            activation: crate::encounter::SwitchActivation {
+            activation: ambition_encounter::SwitchActivation {
                 id: "goblin_encounter".into(),
                 action: "ResetEncounter".into(),
                 target_encounter: "goblin_encounter".into(),

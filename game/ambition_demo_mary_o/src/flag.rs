@@ -537,7 +537,7 @@ pub fn play_victory_music(
     sequences: Query<&FlagSequence>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
-            ambition_platformer2d::actors::encounter::EncounterMusicRequest,
+            ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
 ) {

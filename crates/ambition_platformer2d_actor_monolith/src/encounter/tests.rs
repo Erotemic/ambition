@@ -3,21 +3,28 @@
 //! sub-spawn timing, switch arming, LDtk loading of the `goblin_encounter`
 //! fixture, reward-chest placement, and lock-wall sync.
 
+use super::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use super::*;
-use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
-use ambition_platformer2d_ldtk::LdtkProject;
-use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::AabbExt;
+use ambition_encounter::{
+    active_encounter_camera_zoom, encounter_reward_chest_pos, Encounter, EncounterCommandKind,
+    EncounterEvent, EncounterLifecycle, EncounterMobSpec, EncounterParticipant,
+    EncounterParticipants, EncounterPhase, EncounterRegistry, EncounterRole, EncounterSpec,
+    EncounterWaveSpec, EncounterWaves, LockWallSpec, SwitchActivation,
+    ENCOUNTER_INTER_WAVE_DELAY_SECONDS, WAVES_EXHAUSTED_SIGNAL,
+};
 use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_persistence::save_data::PersistedEncounterState;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_ldtk::LdtkProject;
 use ambition_platformer2d_world::rooms::InteractionKindSpec;
 use bevy::math::bounding::IntersectsVolume;
 
 /// The sandbox world these tests read, as a plain value. No install, no
 /// process global: each test names the manifest it loads through.
 fn test_world_manifest() -> ambition_platformer2d_world::world_manifest::WorldManifest {
-    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     use ambition_asset_manager::AssetId;
+    use ambition_platformer2d_world::world_manifest::{WorldManifest, WorldSource};
     let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../game/ambition_content/assets/worlds");
     WorldManifest {
@@ -119,7 +126,7 @@ fn lab_spec() -> EncounterSpec {
         // first tick after Start can check the Active state.
         intro_seconds: 0.0,
         music_track: String::new(),
-        reward: super::spec::default_encounter_reward(),
+        reward: ambition_encounter::spec::default_encounter_reward(),
     }
 }
 
@@ -138,7 +145,7 @@ fn encounter_reward_defaults_to_small_heal_and_is_authorable() {
     // Back-compat: the default reward stays the legacy small heal, so
     // specs that don't set `reward` behave exactly as before.
     assert_eq!(
-        super::spec::default_encounter_reward(),
+        ambition_encounter::spec::default_encounter_reward(),
         PickupKind::Health { amount: 2 }
     );
     // Per-encounter authoring: a fight can now grant something else, and
@@ -374,7 +381,10 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     let manifest = test_world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&manifest, &ambition_platformer2d_ldtk::LdtkVocabulary::engine())
+        .to_room_set(
+            &manifest,
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
         .expect("goblin_encounter world composes");
     let goblin_encounter = room_set
         .rooms
@@ -711,8 +721,8 @@ fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
 // ── Ownership-driven cleanup (E10) ─────────────────────────────
 
 mod cleanup {
+    use super::super::apply_encounter_cleanup;
     use super::*;
-    use crate::encounter::apply_encounter_cleanup;
     use ambition_encounter::{
         reduce_encounter_lifecycles, EncounterCleanupPolicy, EncounterCommand,
         EncounterCommandKind, EncounterEventMsg, EncounterLifecycle, Ownership, SpawnedCleanup,
@@ -855,9 +865,9 @@ mod cleanup {
         let (spawned, adopted) = spawn_mixed_encounter(&mut app, None);
         // The body carries its canonical identity; the relation's cache is
         // nulled, as a restored world's would be.
-        app.world_mut().entity_mut(spawned).insert(
-            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("mob_1"),
-        );
+        app.world_mut()
+            .entity_mut(spawned)
+            .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("mob_1"));
         {
             let mut q = app.world_mut().query::<&mut EncounterParticipants>();
             let mut parts = q.iter_mut(app.world_mut()).next().expect("encounter");

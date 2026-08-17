@@ -56,6 +56,7 @@
 
 * In mary-o when you restart the level all item blocks and enemies and anything else that is part of the stage should reset. Currently some blocks from the last run remain spent
   * ⊙ Broken bricks, spent `?`-blocks and discovered hidden blocks all clear on a replay and the art re-derives from that state, so I cannot reproduce it — tell me the block and the room if you see it again.
+  * ⊙ Same ask as decision 4 in `awaiting-maintainer-decision.md` (*which game, and roughly when*) — answering it in either place unblocks both.
 
 * In mary-o we need an SFX for when you collect coins
   * ✔ Fixed for both paths — loose coins were emitting the cue and your audio fragment never authorized it, and coin blocks were playing the brick-smash thunk instead.

@@ -586,11 +586,14 @@ pub fn commit_ready_room_transition_system(
         MessageWriter<ambition_load::LoadEvent>,
         ResMut<bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
         Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
-        // **Whose commit this is.** Present ⇒ a rollback host, whose room change
-        // must go through `commit_confirmed_lifecycle`'s rebase; this system
-        // would mutate the world inside the rewound schedule and the next
-        // snapshot restore would put the old room back.
-        Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+        // **Whose commit this is.** The STABLE simulation host, not the
+        // optional boundary of its current session. A GGRS session teardown
+        // removes `ConfirmedFrameBoundary` but does not turn the app into an
+        // eager host. GGRS room changes must always go through
+        // `commit_confirmed_lifecycle`'s rebase; this system would mutate the
+        // world inside the rewound schedule and the next restore would put the
+        // old room back.
+        Res<crate::SimulationHost>,
         // The crossing's own record, cleared when it lands. Sticky until then, so
         // leaving it set would wedge every later crossing.
         ResMut<
@@ -606,7 +609,7 @@ pub fn commit_ready_room_transition_system(
         mut load_events,
         mut next_mode,
         real_time,
-        boundary,
+        simulation_host,
         mut pending_lifecycle,
     ) = load_resources;
     // ⛔ **the EAGER commit, and only the eager one.** A rollback host reaches an
@@ -614,7 +617,13 @@ pub fn commit_ready_room_transition_system(
     // outside the rewound schedule and rebases the session afterwards. Both read
     // the same authorized transaction; they differ in what they must do to be
     // allowed to mutate the world at all.
-    if boundary.is_some() {
+    //
+    // Host identity is deliberately NOT inferred from `ConfirmedFrameBoundary`.
+    // `stop_session` removes that boundary while `SimulationHost::Ggrs` remains
+    // installed. Reclassifying that state as eager is exactly how an invalidated
+    // rollback session acquired a loading transaction that no schedule could
+    // ever commit.
+    if simulation_host.is_ggrs() {
         return;
     }
 

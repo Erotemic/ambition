@@ -138,6 +138,16 @@ pub struct RollbackSessionStatus {
 }
 
 impl RollbackSessionStatus {
+    /// Whether this timeline may still authorize confirmed host-side effects.
+    ///
+    /// Both failure forms are terminal until somebody explicitly acknowledges
+    /// them: an exact session-contract invalidation, or a sync-test mismatch.
+    /// Keeping the predicate on the status itself gives every host-side gate the
+    /// same answer instead of re-deriving a subtly different idea of "healthy".
+    pub fn is_healthy(&self) -> bool {
+        self.invalidation.is_none() && self.mismatch_frames.is_empty()
+    }
+
     /// **The status a NEW session starts from, given the outgoing one.** (AC23)
     ///
     /// Installing a session used to write `default()` unconditionally, which
@@ -556,16 +566,16 @@ pub fn session_health(world: &World) -> Result<(), String> {
     let Some(status) = world.get_resource::<RollbackSessionStatus>() else {
         return Ok(());
     };
+    if status.is_healthy() {
+        return Ok(());
+    }
     if let Some(reason) = &status.invalidation {
         return Err(reason.clone());
     }
-    if !status.mismatch_frames.is_empty() {
-        return Err(format!(
-            "GGRS sync-test checksum mismatch at frames {:?}",
-            status.mismatch_frames
-        ));
-    }
-    Ok(())
+    Err(format!(
+        "GGRS sync-test checksum mismatch at frames {:?}",
+        status.mismatch_frames
+    ))
 }
 
 pub fn session_is_active(world: &World) -> bool {
@@ -1608,6 +1618,7 @@ mod ac23_tests {
             invalidation: Some("room reconstructed under a live timeline".to_string()),
         };
         let carried = RollbackSessionStatus::carried_from(Some(&previous));
+        assert!(!carried.is_healthy(), "an inherited invalidation was reported healthy");
         assert_eq!(
             carried.invalidation.as_deref(),
             Some("room reconstructed under a live timeline"),
@@ -1650,6 +1661,7 @@ mod ac23_tests {
     #[test]
     fn a_healthy_session_installs_clean() {
         let previous = RollbackSessionStatus::default();
+        assert!(previous.is_healthy(), "the default session status is not healthy");
         assert_eq!(
             RollbackSessionStatus::carried_from(Some(&previous)),
             RollbackSessionStatus::default()

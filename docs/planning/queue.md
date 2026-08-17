@@ -128,6 +128,34 @@ place**: couch play is NOT switched off, and a clipped label is not a defect.
 ### ▢ Two things found in passing 2026-08-15, logged rather than fixed
 
 **1. ⚠ TWO WORLDS FAIL LDtk VALIDATION TODAY, and the tool writes them anyway.**
+
+⭐⭐ **MEASURED 2026-08-17: 30 `error:` lines, and NOT ONE is a content defect.**
+Run it as `PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools
+validate <world>` (⚠ the package is not installed in this env, so a bare
+`python3 -m …` prints *"No module named"* and exits 1 — which reads exactly like
+a clean run if you only count matching lines).
+
+```text
+sandbox.ldtk    4 errors   ALL cross-world LoadingZone targets
+                           (`intro_wake_room`, `gate_stack_lower`,
+                            `hall_of_characters`, `you_have_to_cut_the_rope`)
+mary_o.ldtk    26 errors   ALL `MaryOBlock` "the engine does not know it"
+```
+
+⭐ **both are validator gaps, not authoring mistakes.** The four sandbox targets
+EXIST — `intro_wake_room` is a live room id and this session drove a real
+transition through one of these doors — the validator is simply single-file and
+cannot see a sibling world. And `MaryOBlock` is implemented
+(`platformer2d_ldtk/src/fields.rs`, `demo_mary_o/src/bricks.rs`, with tests); the
+error's own wording is the fix: *"no game entity manifest declares it."*
+
+▢ **so 26 of the 30 have a cheap, real fix** — declare `MaryOBlock` in a game
+entity manifest. The remaining 4 need cross-world resolution or a documented
+suppression, and are the reason the tool writes anyway.
+
+⛔ **this is D162's disease in the authoring tools**: 30 red lines that are all
+noise teach an author that `error:` means nothing, and the next real one lands in
+a stream nobody reads.
 `sandbox.ldtk` and `mary_o.ldtk` emit `error:` diagnostics on every edit —
 cross-world `LoadingZone` targets (intro names sandbox's rooms and vice versa, so
 a SINGLE-FILE validator cannot resolve either) and `MaryOBlock`, which no entity
@@ -4478,7 +4506,7 @@ needed `.chain()`; the comment above it already claimed the order).
 reconstruction, sequenced after the instance lifetime/provenance model — see
 [`engine/same-room-replay-is-a-second-constructor.md`](engine/same-room-replay-is-a-second-constructor.md).
 
-- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR CONDITIONS — provider AND consumer sides — and OPEN FOR COMMANDS.**
+- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR BOTH HALVES — conditions and commands, provider AND consumer sides. M2 next.**
 
 ⛔⛔ **THIS ROW SAID "M1 PARKED" FOR A DAY AFTER M1'S ACCEPTANCE WAS MET.**
 Corrected 2026-08-16 against HEAD, not against the plan's prose. M1 asks for two
@@ -4573,82 +4601,84 @@ ordering — it is being unmutable at runtime by construction**, exactly this wa
 A command registry a system could write to is rollback state, and then every
 authored verb is in the snapshot.
 
-⛔⛔ **BUT M1-FOR-COMMANDS HAS NO CUSTOMER YET, AND THAT IS THE ACTUAL BLOCKER —
-counted 2026-08-17.** The condition half's full ecosystem, publishers separated
-from consumers:
+✔✔ **AND THE COMMAND HALF LANDED, 2026-08-17.**
+`shared_tangle::authored_logic::commands` mirrors the condition contract with the
+same privacy and one command published: `world.set_flag(flag, on)`, from
+`world_facts.rs`, beside its condition twin.
 
 ```text
-PUBLISH (a domain answering a question)   world_facts · items/conditions ·
-                                          items/pickup    →  3 questions
-CONSUME (something asking one)            dialog/authored_conditions.rs
-                                          world/gated_lock_walls.rs   →  2
+CommandCatalog     PRIVATE `publish` — the rollback waiver, reproduced first
+                   PRIVATE `run`     — the AUTHORITY answer
+RunAuthoredCommand a Message: the only public road to `run`
+AuthoredCommandSet inside GameplaySimulationRoot, after CoreSimulation,
+                   before GameplayEffects — both sets in the SAME schedule,
+                   so neither pin is the vacuous cross-schedule kind
+AuthoredArg        ⭐ the RENAMED `ConditionArg`, shared by both halves rather
+                   than forked into a `CommandArg` with the same four variants
+CommandOutcome     Done | Refused(reason) — one FEWER answer than a condition's,
+                   because "I cannot tell" is a question's answer, not a verb's
 ```
 
-⭐ **two independent consumers is a real ecosystem, not a demo** — so the
-contract earned its place twice: once by the deletion above, once by adoption.
+⭐⭐ **AUTHORITY, the one thing with no precedent to copy: it is the RUNNER, not
+the requester.** `run` is private, so holding the catalog lets a caller DISCOVER
+the vocabulary and speak none of it; the only reader of `RunAuthoredCommand` is
+`run_requested_authored_commands`, in the same file. ⇒ anything that can write a
+message can ASK; nothing at all can perform a verb out of phase. A per-command
+list of permitted callers was rejected — this engine has no vocabulary for *who*
+a caller is that is not already a seat, a session or a body.
 
-⭐⭐ **and yet neither consumer wants a command, which is why `PublishCommand`
-does not exist.** Both ask a question and then perform an effect **they own
-intrinsically** — a wall opens; a dialogue line is offered. The effect is not a
-choice an author made, so there is nothing for a command vocabulary to carry.
+⭐ **ROLLBACK, answered by construction rather than by argument.** The runner
+writes `SetFlagRequested` — a channel that already existed, is already cleared on
+rollback, and is already applied by `apply_flag_effects` in the phase the set is
+ordered before. **The command introduces no new kind of write**, and it keeps the
+quest mirror the effect bus does on every flag write. ⚠ the dispatcher DRAINS
+rather than reading with a cursor, so it holds no `Local` — the trap a
+message-clear usually closes is structurally absent, and the one registration
+covers only the residual window (a request released onto a frame the host rewinds
+past before the set ran). Wire format 358 → 359 stable names, encoded types
+unchanged at 85, schema v35 → v36. ⚠ the JSON baseline's count field read 357
+against a 358-entry list beforehand — stale, corrected in passing.
 
-⇒ **a command catalog is needed exactly when the AUTHOR picks the effect** —
-which is what this row's own examples are: *"when two switches are active, power
-a lift"*, *"when an item is placed here, open a gate"*. Today **no authored
-surface lets an author choose an effect at all**, so building the catalog first
-would be vocabulary with zero speakers — the precise thing
-`authored_logic`'s header forbids, and the standard it holds ITSELF to.
+⛔⛔ **THE NAMED DELETION GATE WAS REFUSED, WITH CAUSE — `KERNEL_FACES` STAYS.**
+It pairs an authored switch id with a *signal key*, which is the ENCOUNTER
+domain's vocabulary. Deleting it needs (1) a second command,
+`encounter.signal(<encounter>, <signal>)`, and — decisively — (2) **an authored
+LDtk surface that carries a command WITH ITS ARGUMENTS**, which is *prepared
+arguments from authored source* and is **M2's job by this plan's own
+assignment**. ⚠ the condition half hit the same wall and NARROWED rather than
+invented: `LockWall.gated_by` names a flag, not a whole condition, because *"an
+authored surface is much harder to take back than to widen."* ⚠ and only half of
+`KERNEL_FACES` is even the offending shape — its use in the spawn builds
+`Objective::All([ReceiveSignal(…)])`, an encounter stating its own win condition,
+which survives any version of this.
 
-⭐⭐ **THE CUSTOMER IS FOUND, 2026-08-17 — and it is the same SHAPE the condition
-half deleted to earn its place.** `game/ambition_content/src/encounters.rs`:
+⭐ **A REAL DELETION WAS PAID INSTEAD, in the same file the condition half paid
+its second one in.** `ambition_content::yarn_vocabulary` lost `cmd_set_flag` and
+`cmd_clear_flag` — two hand-written Bevy systems differing by one bool, each
+registered by name in a second list, each with its own conversion from Yarn's
+untyped text — plus both `add_command` lines, the header's classification row,
+and `NarrativeInputPlugin::<SetFlagRequested>` (whose only narrative writer they
+were). `intro.yarn` and `kernel.yarn` now spell it
+`<<command "world.set_flag" "<id>" true>>`.
 
-```rust
-const KERNEL_FACES: [(&str, &str); 4] = [
-    ("kernel_switch_down",  "gravity_down"),
-    ("kernel_switch_left",  "gravity_left"),
-    ("kernel_switch_up",    "gravity_up"),
-    ("kernel_switch_right", "gravity_right"),
-];
-```
+⇒ **THE RIVAL MECHANISM IS NOW GONE IN BOTH DIRECTIONS.** Authored content asks
+with `condition("world.flag_set", …)` and tells with
+`command("world.set_flag", …)`, and a domain publishing either adds nothing to
+any bridge, vocabulary table or game crate.
 
-⇒ **a hand-kept const table pairing AUTHORED ids to hardcoded behaviour, read by
-a bespoke system** — which is the condition half's deletion gate
-(`INTRO_FLAG_GATED_LOCK_WALLS`) word for word. This row's headline example is
-*"when two switches are active, power a lift"*; the symmetry room is *"when
-these four switches are visited, complete an attunement"*.
+⭐ **and the command verb is NOT limited to one argument, which turned out to be
+a FUNCTION-only constraint.** Yarn's VM asserts a function call's argument count;
+a command is dispatched by name with its parameters as a list, no assertion, and
+`Option` params retrieve `None` when the list runs out. So `world.set_flag` takes
+two arguments and `set_flag`/`clear_flag` collapsed into ONE verb. ⚠ but every
+authored argument arrives as TEXT (Yarn types a function's args, not a command's),
+so the bridge parses against the published descriptor's kind — and `Truth` accepts
+exactly `true`/`false`, because a lenient parse maps an unrecognised spelling to
+`false`, and `false` on `set_flag` CLEARS.
 
-⭐⭐ **and the asymmetry is EXACT, which is what makes it the first command
-rather than a candidate** — the engine publishes the QUESTION and cannot express
-the ANSWER:
-
-```text
-world.flag_set(<flag>)   ✔ published (world_facts.rs) and ADOPTED
-world.set_flag(<flag>)   ⛔ absent — SYMMETRY_ATTUNEMENT_FLAG is set by bespoke Rust
-```
-
-⇒ **`world.set_flag` is the first command.** Its condition twin already ships and
-has consumers, and the deletion it buys is a const table plus the reducer reading
-it. ⚠ it also answers the rollback question cheaply: a save flag is already
-snapshot state, so this command mutates something the sweep covers rather than
-introducing a new kind of write.
-
-
-▢ **so M1-for-commands is BLOCKED ON A CUSTOMER, not on design.** The first
-question is not *what shape is a command* but *which authored thing gets to name
-its own effect first* — pick that, and the three below stop being hypothetical.
-⭐ the rule that caught this is *count the ADOPTERS, not the capability* — a
-shipped capability can have zero.
-
-▢ **and then the three the row already names, in the order they bite:**
-1. **rollback semantics** — M4's *"rollback is a design input, not a cleanup
-   afterwards"* lands here. A command that mutates during a predicted frame must
-   either be rewound or be provably idempotent; decide which BEFORE the
-   vocabulary, because it decides the vocabulary.
-2. **ordering** — a condition is safe at any point in the frame because it reads;
-   a command has a phase. Name it as a SET, below the monolith, or the first
-   carve that moves an authored domain re-pins it (D33 step 1.5's lesson).
-3. **authority** — who may run it. ⚠ note the condition side got this free by
-   being read-only, so there is no precedent to copy here; it is genuinely new.
+▢ **M2 is next, and the refusal above names its first customer**: prepared
+arguments from an authored source, so an LDtk entity can carry a command call the
+way a `LockWall` carries a flag.
 
 ⚠ **duplicate-id panics at startup, by design** — *"the alternative is that the
 winner is whichever plugin happened to build last, which is a bug that only

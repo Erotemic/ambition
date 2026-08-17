@@ -115,6 +115,41 @@ Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 ### 6. What should fighter-vs-fighter hit emphasis do without the primary local seat? (former D114)
 
+⛔⛔ **THIS DECISION WAS ANSWERED BY IMPLEMENTATION ON 2026-08-17, AND THE OPTION
+TAKEN IS THE ONE THIS ROW TOLD US NOT TO TAKE. Please confirm or revert.**
+
+`818218949` (*"Both roads spend hitlag, so a CPU-versus-CPU hit freezes
+somebody"*) added to the actor road:
+
+```rust
+let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };
+```
+
+⇒ that is **a direct per-body zero-dt**, which the paragraph below calls an
+experiment that *"made AI-vs-AI bouts degenerate"* and says explicitly: **do not
+reintroduce that fix.** The commit does not mention this row, so the prohibition
+was not weighed — it was not overruled, it was unseen. ⚠ and this row had already
+named that risk exactly: *"guessing it decides feel by refactor."*
+
+⭐ **what is genuinely different this time, and why it may nonetheless be right:**
+
+```text
++153 lines  features/enemies/integration/hitlag_tests.rs   (new, with the fix)
+green       a_second_match_on_the_same_stage_counts_in_and_ends  — CPU vs CPU,
+            a CPU-produced launch still spends a stock and the match still ENDS
+```
+
+⇒ so the bout does not degenerate in the sense a test can see: it still
+terminates. ⚠ **but "degenerate" in the original report was a FEEL word**, and no
+test in this repository can tell a good AI-vs-AI bout from a bad one — which is
+precisely why this was your decision and not an agent's.
+
+▢ **the ask is small: play one CPU-versus-CPU match and say whether it feels like
+the bad experiment.** If yes, the revert is one line at
+`features/enemies/integration.rs`. If no, this row closes and the third option it
+proposes (extending the global 0.125 beat) never needs trying.
+
+
 `BodyCombat::hitstop_timer` is armed for every body, but the actor road does not
 freeze its integration from that timer. A direct per-body zero-dt experiment was
 already tried and made AI-vs-AI bouts degenerate, so **do not reintroduce that

@@ -266,6 +266,26 @@ that nobody has reported it, and picking silently would be choosing a feel.
 
 ### 11. Two views need per-view world-space entities, or a policy that picks one
 
+⭐⭐ **TWO THIRDS OF THIS WAS TAKEN AND EXECUTED ON 2026-08-15 — the row reads as
+fully open and is not (reconciled 2026-08-17).** The stated engineering default
+below, *duplicate per view*, was implemented for two of the three systems:
+
+```text
+label_layout.rs   per-view projections   d09229ceb (2026-08-15)
+nameplates.rs     per-view projections   d09229ceb
+view_isolation.rs isolate by RELATIONSHIP, not identity   b732e5d6a
+parallax.rs       ⛔ NOT DONE
+```
+
+⚠ **`parallax.rs` still has no view concept at all** — zero mentions of a view
+id, `.single()` on the main camera, and a viewport built from the constants
+`WINDOW_W`/`WINDOW_H` rather than from the camera it is drawing for. So it is not
+merely un-duplicated; it could not serve a second view of a different size.
+
+⇒ **what is left of this decision is parallax alone**, and the default already
+applied twice says what to do with it. ⭐ the genuinely open question is the one
+the row itself flags at the end — the LAYOUT POLICY above the fork — not this.
+
 ⚠ **noted rather than asked, and D116 M2 proceeds without the answer** — the
 first two items of M2 landed 2026-08-14 and do not depend on this.
 

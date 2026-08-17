@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 13
+## Open decisions — 12
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -316,7 +316,20 @@ focus (`Vec2::ZERO`) rather than declining to draw — silent-wrong where the re
 of this seam is loud-wrong — and `MainCameraEntity` is a **seventh** process-global
 "the main camera" resource that split-screen will have to answer for.
 
-### 12. The `ambition_map_assets` submodule cannot be pushed from this machine
+### 12. ✔ CLOSED 2026-08-17 — the `ambition_map_assets` submodule pushes fine
+
+⭐ **verified from inside the VM rather than assumed**: the submodule's local
+HEAD is `4fb0c03`, `git ls-remote origin HEAD` answers with the same sha, and
+`origin/HEAD..HEAD` is empty. Nothing is stranded and a fresh clone resolves.
+
+⇒ this row duplicates the credential outage closed on 2026-08-15 further down
+this file (*"five of five submodules answer `git ls-remote`, none is ahead of its
+`origin/main`"*) — Jon provisioned the aliases and this one was covered. It is
+kept, struck through, because the CONSEQUENCE it describes is the one worth
+remembering: a superproject gitlink can point at a commit that exists only in one
+working tree, and nothing in the superproject's own green push says otherwise.
+
+⚠ **the original text follows, for the failure mode.**
 
 ⚠ **environment, not design — it needs your credentials, not a decision.**
 

@@ -872,8 +872,18 @@ there and Bevy names only one of them — the message is a sample, not a census.
 members from a blanket set, which risks reordering a load-bearing simulation
 phase to silence a line that ends *"built successfully, however"*. Not worth it.
 
-⚠ (3) is one authored level off-grid, and `tools/ambition_ldtk_tools` is the only
-road that may edit a `.ldtk`.
+⚠ **(3) is ONE AXIS off by HALF A TILE, which is worth knowing before someone
+"fixes" both numbers:**
+
+```text
+x = 9600   / 16 = 600.0     aligned
+y = 3000   / 16 = 187.5     OFF BY 8 — exactly half a tile
+```
+
+⇒ only `sanic_sandbox`'s Y origin is wrong, and a half-tile world offset is the
+shape that puts collision and art out of register for a whole level rather than
+looking obviously broken. ⚠ `tools/ambition_ldtk_tools` is the only road that may
+edit a `.ldtk` — never re-serialise the JSON.
 
 ⛔ **the row is about the LOG, not the four items.** Four standing warnings mean
 a new warning arrives into noise, which is the failure mode that matters.

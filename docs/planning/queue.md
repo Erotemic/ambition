@@ -954,6 +954,34 @@ gate is a point radius and the thing that collides is a wide box. (2) a
 fighter's world NAME LABEL prints through the lowest bubble; the label and the
 bubble do not know about each other at all.
 
+- ▢ **D160 — THE PROJECT GATE RUNS NO `--lib` TESTS, NOT EVEN `ambition_app`'S.
+  (measured 2026-08-17, after it hid two regressions from the same session)**
+
+```text
+cargo check -p ambition_app --all-targets   COMPILES lib tests, never RUNS them
+cargo test  -p ambition_app --test app_it   runs ONE integration target
+⇒ every crate's `--lib` suite is outside the gate, `ambition_app`'s included
+```
+
+**What it hid, both landed on `main` and both mine:**
+* `ambition_sim_view::control_prompt` — 3 tests, red since `b33525f58` (D157's
+  ability gate, three crates away). The fixture handed its body an attack MOVE
+  and never said it may attack, so every label it asserted came back `None`.
+  ⚠ found only because the D33 relocation agent happened to run that crate.
+* `ambition_app::app::versus_fighters` — **D151 step 2 retired the bridge that
+  D151 step 1 had just asserted**, one hour apart, and nothing re-ran the guard.
+
+⭐ **`cargo test --workspace --lib` is the unit tier and is FAST** — it found the
+second one in a single sweep. ▢ **add it beside `app_it` in the stated gate**
+(`AGENTS.md`), which is a one-line change to what a turn owes.
+⚠ this is the same shape as D134 (the workspace-policy suite nobody ran) and
+D137 (the doc ratchet in no gate): **a suite that exists and is not in the gate
+is a suite that goes red and stays red.** ⇒ when adding a check, say which
+command runs it per-turn, or it is decoration.
+⚠ **and BOTH failures were guards that were CORRECT when written** and became
+wrong when a rule moved under them — so this is not "someone wrote a bad test",
+it is the cost of not re-running the cheap tier.
+
 - ▢ **D159 — TEXT STILL PRINTS THROUGH TEXT, TWICE, FOR TWO REASONS NEITHER OF
   WHICH WAS D158. (found by the same capture, 2026-08-17)**
 

@@ -134,9 +134,24 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// for the content default) it kept the code-side `sandbox_all` kit — Swipe, Bolt,
 /// bubble_shield — a peaceful speedster that secretly shot fireballs. With the
 /// `default_character_id`↔code-kit coupling removed, `sanic` is an `Authored` row,
-/// so its `"peaceful"` ActionSet (no melee / ranged / special) IS the worn kit, and
-/// the derived directional moveset is empty. This is the assembled proof of the
-/// architecture fix — asserted on `ActionSet` + `ActorMoveset`, not just movement.
+/// so its `"peaceful"` ActionSet (no melee / ranged / special) IS the worn kit. This
+/// is the assembled proof of the architecture fix — asserted on `ActionSet` +
+/// `ActorMoveset`, not just movement.
+///
+/// ⭐⭐ **THE MOVESET HALF WAS CORRECTED ON 2026-08-16 (D146 slice 4), and it was
+/// a STALE ASSERTION rather than a regression.** It read `moveset_len == 0`,
+/// "an empty melee derives an empty directional moveset", which was the whole
+/// truth while Sanic authored no moves. He now authors a smash table — the
+/// crossover grid was pressing silence at him — and an AUTHORED moveset OVERLAYS
+/// the derived one instead of being derived from the action set, so the body
+/// carries seventeen moves and not one of them came from a protagonist kit.
+///
+/// ⛔ **what keeps that off his own speedway is the ABILITY, not the table.** His
+/// catalog rows author `abilities: Some([RunJump])`, which has no `attack`, so
+/// the table says what a swing IS and his own game still says there is none —
+/// the same split Mary-O rides. So the check below is EXACT EQUALITY with the
+/// table he authored, which is strictly stronger than the count it replaces at
+/// the thing this test is for: nothing of Ambition's protagonist leaked in.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
     use ambition_platformer2d::actors::combat::moveset::ActorMoveset;
@@ -148,7 +163,7 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
         app.update();
     }
 
-    let (player, action_set, moveset_len) = {
+    let (player, action_set, worn_move_ids) = {
         let mut q = app.world_mut().query_filtered::<
             (Entity, &ActionSet, &ActorMoveset),
             With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
@@ -157,7 +172,16 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
             .iter(app.world())
             .next()
             .expect("primary player has a kit");
-        (entity, set.clone(), moveset.0.moves.len())
+        (
+            entity,
+            set.clone(),
+            moveset
+                .0
+                .moves
+                .iter()
+                .map(|m| m.id.clone())
+                .collect::<Vec<_>>(),
+        )
     };
 
     assert!(
@@ -172,9 +196,15 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
         action_set.special.is_none(),
         "Sanic's peaceful kit has no special — the bubble_shield is gone"
     );
+    let authored: Vec<String> = ambition_demo_sanic::smash_moveset::sanic_moveset()
+        .moves
+        .iter()
+        .map(|m| m.id.clone())
+        .collect();
     assert_eq!(
-        moveset_len, 0,
-        "an empty melee derives an empty directional moveset"
+        worn_move_ids, authored,
+        "the body wears moves that are not the ones Sanic authored, so something \
+         else supplied a swing"
     );
     assert!(
         app.world()

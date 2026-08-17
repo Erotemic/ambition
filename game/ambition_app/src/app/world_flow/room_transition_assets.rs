@@ -55,16 +55,46 @@ pub(crate) struct RoomAssetDependency {
 pub(crate) struct RoomAssetManifest {
     pub(crate) room_id: String,
     pub(crate) dependencies: Vec<RoomAssetDependency>,
+    /// Labels of presentation the room semantically REQUIRES and that has no
+    /// handle to wait on — a spec naming a page its realization does not hold.
+    ///
+    /// ⭐ **why this lives in the manifest instead of a `Result` out of the
+    /// builder.** The manifest is already the artifact that travels to both
+    /// parties who can refuse a reveal (the transition's contribute/poll pair
+    /// and startup loading), it is already the prefetch cache's equality key —
+    /// so a truncated realization can never be promoted as equal to a healthy
+    /// one — and the only decision site that can act on a failure is the one
+    /// that already turns a `readiness.failed` row into
+    /// `LoadWorkState::Failed`. A `Result` would have to be caught at build
+    /// time, stashed beside the manifest, and re-joined with it at exactly that
+    /// site; carrying the unresolved requirement AS a dependency-shaped row
+    /// keeps one artifact, one equality contract, and one refusal.
+    ///
+    /// ⛔ **not the inverse of the sparse-pack fix.** A pack page no frame
+    /// samples is not a dependency and never enters here — `used_pages()` is
+    /// the semantic authority for which pages a character can actually draw
+    /// from, and only a page it names can become unresolved.
+    pub(crate) unresolved: Vec<String>,
 }
 
 impl RoomAssetManifest {
     pub(crate) fn is_empty(&self) -> bool {
-        self.dependencies.is_empty()
+        self.dependencies.is_empty() && self.unresolved.is_empty()
     }
 
     pub(crate) fn len(&self) -> usize {
-        self.dependencies.len()
+        self.dependencies.len() + self.unresolved.len()
     }
+}
+
+/// Accumulator for one manifest under construction: the handles a room will
+/// wait on, plus the required presentation that has no handle at all.
+#[derive(Debug, Default)]
+struct RoomManifestDraft {
+    by_label: BTreeMap<String, AssetId<Image>>,
+    /// Sorted and deduplicated so a manifest stays deterministic — the prefetch
+    /// cache compares whole manifests for equality.
+    unresolved: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -163,7 +193,7 @@ impl RoomAssetReadiness {
 }
 
 fn add_image_handle(
-    by_label: &mut BTreeMap<String, AssetId<Image>>,
+    draft: &mut RoomManifestDraft,
     label: impl Into<String>,
     handle: &Handle<Image>,
 ) {
@@ -176,16 +206,12 @@ fn add_image_handle(
     if handle == &Handle::default() {
         return;
     }
-    by_label.insert(label.into(), handle.id());
+    draft.by_label.insert(label.into(), handle.id());
 }
 
-fn add_character_asset(
-    by_label: &mut BTreeMap<String, AssetId<Image>>,
-    label: &str,
-    asset: &CharacterSpriteAsset,
-) {
+fn add_character_asset(draft: &mut RoomManifestDraft, label: &str, asset: &CharacterSpriteAsset) {
     if asset.pages.is_empty() {
-        add_image_handle(by_label, format!("{label}:page:0"), &asset.texture);
+        add_image_handle(draft, format!("{label}:page:0"), &asset.texture);
         return;
     }
 
@@ -195,35 +221,46 @@ fn add_character_asset(
     // Manifest only those pages; an unused pack page is not a presentation
     // dependency of this character.
     for index in asset.spec.used_pages() {
-        let Some(page) = asset.pages.get(index as usize) else {
-            bevy::log::error!(
-                target: "ambition_platformer2d::room_transition",
-                "character asset '{label}' references page {index}, but its realization has only {} page slot(s)",
-                asset.pages.len(),
-            );
-            continue;
-        };
-        add_image_handle(by_label, format!("{label}:page:{index}"), &page.texture);
+        // ⭐ **a page the SPEC names is REQUIRED, so its absence is a failed
+        // dependency and not a skip.** Both arms below are the same defect
+        // seen from two sides: the realization does not hold drawable art for
+        // a page some frame rect samples. Logging and continuing omitted the
+        // character from the barrier entirely, so the barrier could report
+        // Ready and reveal the room with missing presentation (queue D153).
+        let page = asset.pages.get(index as usize);
+        let texture = page.map(|page| &page.texture);
+        match texture {
+            Some(texture) if texture != &Handle::default() => {
+                add_image_handle(draft, format!("{label}:page:{index}"), texture);
+            }
+            _ => {
+                let reason = if page.is_some() {
+                    "its realization holds no image for that page"
+                } else {
+                    "its realization has fewer page slots than that"
+                };
+                bevy::log::error!(
+                    target: "ambition_platformer2d::room_transition",
+                    "character asset '{label}' draws from page {index}, but {reason} ({} slot(s))",
+                    asset.pages.len(),
+                );
+                draft
+                    .unresolved
+                    .insert(format!("{label}:page:{index} (required, unrealized)"));
+            }
+        }
     }
 }
 
-fn add_boss_asset(
-    by_label: &mut BTreeMap<String, AssetId<Image>>,
-    label: &str,
-    asset: &BossSpriteAsset,
-) {
+fn add_boss_asset(draft: &mut RoomManifestDraft, label: &str, asset: &BossSpriteAsset) {
     for (index, page) in asset.pages.iter().enumerate() {
-        add_image_handle(by_label, format!("{label}:page:{index}"), &page.texture);
+        add_image_handle(draft, format!("{label}:page:{index}"), &page.texture);
     }
 }
 
-fn add_named_character(
-    by_label: &mut BTreeMap<String, AssetId<Image>>,
-    assets: &GameAssets,
-    character_id: &str,
-) {
+fn add_named_character(draft: &mut RoomManifestDraft, assets: &GameAssets, character_id: &str) {
     if let Some(asset) = assets.characters.sheet(character_id) {
-        add_character_asset(by_label, &format!("character:{character_id}"), asset);
+        add_character_asset(draft, &format!("character:{character_id}"), asset);
     }
 }
 
@@ -297,7 +334,7 @@ fn add_room_specific_sprites(
     room: &RoomSpec,
     staged_actor_names: &[String],
     assets: &GameAssets,
-    by_label: &mut BTreeMap<String, AssetId<Image>>,
+    draft: &mut RoomManifestDraft,
 ) {
     // The static entity sheet set is small, shared by most rooms, and loaded as
     // the sandbox core. Including every present handle makes room reveal wait
@@ -305,13 +342,13 @@ fn add_room_specific_sprites(
     // renderer's state-aware sprite-selection policy here.
     for &sprite in EntitySprite::ALL {
         if let Some(handle) = assets.entities.get(sprite) {
-            add_image_handle(by_label, format!("entity:{sprite:?}"), handle);
+            add_image_handle(draft, format!("entity:{sprite:?}"), handle);
         }
     }
 
     for prop in &room.props {
         if let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) {
-            add_character_asset(by_label, &format!("prop:{}", prop.kind), asset);
+            add_character_asset(draft, &format!("prop:{}", prop.kind), asset);
         }
     }
 
@@ -323,13 +360,13 @@ fn add_room_specific_sprites(
                     ..
                 } = &spec.kind
                 {
-                    add_named_character(by_label, assets, &character_id);
+                    add_named_character(draft, assets, &character_id);
                 }
             }
             PlacementSchema::Pickup(spec) => {
                 if let Some(kind) = spec.sprite.as_deref() {
                     if let Some(asset) = assets.characters.prop_asset_for_kind(kind) {
-                        add_character_asset(by_label, &format!("pickup-prop:{kind}"), asset);
+                        add_character_asset(draft, &format!("pickup-prop:{kind}"), asset);
                     }
                 }
             }
@@ -346,13 +383,13 @@ fn add_room_specific_sprites(
     // exact when the content supplied a dedicated sheet and safely falls back
     // otherwise.
     for enemy in &room.enemy_spawns {
-        add_named_character(by_label, assets, &enemy.name);
+        add_named_character(draft, assets, &enemy.name);
     }
     // Staged actors' own sheets join the barrier: with startup deferral these
     // are materialized just before this walk, so the reveal now waits on them
     // the same way it waits on placement NPCs and parallax themes.
     for name in staged_actor_names {
-        add_named_character(by_label, assets, name);
+        add_named_character(draft, assets, name);
     }
 
     // No fallback-sheet row: §4.10 deleted the borrowed goblin sheet, so there is
@@ -361,13 +398,13 @@ fn add_room_specific_sprites(
 
     if !room.boss_spawns.is_empty() {
         if let Some(asset) = assets.boss.as_ref() {
-            add_boss_asset(by_label, "boss:fallback", asset);
+            add_boss_asset(draft, "boss:fallback", asset);
         }
         let mut boss_keys = assets.boss_sprites.keys().collect::<Vec<_>>();
         boss_keys.sort();
         for key in boss_keys {
             if let Some(asset) = assets.boss_sprites.get(key) {
-                add_boss_asset(by_label, &format!("boss:{key}"), asset);
+                add_boss_asset(draft, &format!("boss:{key}"), asset);
             }
         }
     }
@@ -428,14 +465,14 @@ pub(crate) fn build_loaded_room_asset_manifest(
     staged_actor_names: &[String],
     assets: &GameAssets,
 ) -> RoomAssetManifest {
-    let mut by_label = BTreeMap::new();
-    add_room_specific_sprites(room, staged_actor_names, assets, &mut by_label);
+    let mut draft = RoomManifestDraft::default();
+    add_room_specific_sprites(room, staged_actor_names, assets, &mut draft);
 
     let theme = ParallaxTheme::from_room_metadata(&room.metadata);
     for &layer in ParallaxLayerAsset::ALL {
         if let Some(handle) = assets.parallax_layers.get(theme, layer) {
             add_image_handle(
-                &mut by_label,
+                &mut draft,
                 format!("parallax:{}:{}", theme.key(), layer.key()),
                 handle,
             );
@@ -446,7 +483,8 @@ pub(crate) fn build_loaded_room_asset_manifest(
     // Keep one deterministic label per runtime asset id so progress totals are
     // about actual loads rather than aliases.
     let mut seen = Vec::<AssetId<Image>>::new();
-    let dependencies = by_label
+    let dependencies = draft
+        .by_label
         .into_iter()
         .filter_map(|(label, asset_id)| {
             if seen.iter().any(|seen_id| seen_id == &asset_id) {
@@ -460,6 +498,7 @@ pub(crate) fn build_loaded_room_asset_manifest(
     RoomAssetManifest {
         room_id: room.id.clone(),
         dependencies,
+        unresolved: draft.unresolved.into_iter().collect(),
     }
 }
 
@@ -472,6 +511,14 @@ pub(crate) fn inspect_room_asset_manifest(
         total: manifest.len(),
         ..Default::default()
     };
+    // A required page with no realization can never settle, so it is terminal
+    // the moment the manifest is built: counted as settled (nothing will ever
+    // arrive for it) AND failed (the reveal must be refused). Waiting on it
+    // instead would resurrect the permanent spinner this file was repaired for.
+    for label in &manifest.unresolved {
+        readiness.settled += 1;
+        readiness.failed.push(label.clone());
+    }
     for dependency in &manifest.dependencies {
         // `AssetServer` is authoritative only for handles it owns. A directly
         // inserted/procedural image has no server load state; for that case the
@@ -1167,20 +1214,221 @@ mod tests {
         let mut images = Assets::<Image>::default();
         let real = images.add(Image::default());
 
-        let mut dependencies = BTreeMap::new();
+        let mut draft = RoomManifestDraft::default();
         add_image_handle(
-            &mut dependencies,
+            &mut draft,
             "character:packed:unused-page",
             &Handle::<Image>::default(),
         );
-        add_image_handle(&mut dependencies, "character:packed:used-page", &real);
+        add_image_handle(&mut draft, "character:packed:used-page", &real);
 
-        assert_eq!(dependencies.len(), 1);
+        assert_eq!(draft.by_label.len(), 1);
         assert_eq!(
-            dependencies.get("character:packed:used-page"),
+            draft.by_label.get("character:packed:used-page"),
             Some(&real.id()),
             "a sparse packed sheet's placeholder page is not a load dependency",
         );
+    }
+
+    /// One synthetic authored sheet, built through the public authoring seam so
+    /// the fixture is a real `CharacterSheetSpec` rather than a hand-poked one.
+    ///
+    /// `pages_named` is how many page images the sheet declares; `frame_pages`
+    /// is which pages its frame rects actually sample. The two differ for a
+    /// sparse pack — the whole reason `used_pages()` exists.
+    fn a_synthetic_spec(
+        pages_named: usize,
+        frame_pages: &[u32],
+    ) -> ambition_platformer2d::sprite_sheet::character::sheets::CharacterSheetSpec {
+        use ambition_platformer2d::sprite_sheet::character::sheets::{
+            try_load_spec_for_target_authored, AuthoredSheets, SheetTuning,
+        };
+
+        // A target the baked index cannot hold, because the authored lookup
+        // FALLS BACK to it — a name collision would silently test a real sheet.
+        let target = "d153_synthetic_sheet";
+        let images = (0..pages_named)
+            .map(|page| format!("\"page_{page}.png\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let rows = frame_pages
+            .iter()
+            .enumerate()
+            .map(|(index, page)| {
+                // Every sheet needs an Idle row or the loader refuses it.
+                let animation = if index == 0 { "idle" } else { "run" };
+                format!(
+                    "(animation: \"{animation}\", row_index: {index}, frame_count: 1, \
+                     duration_ms: 100, duration_secs: 0.1, \
+                     rects: [(x: 0, y: 0, w: 64, h: 64, page: {page})])"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let ron = format!(
+            "[(target: \"{target}\", image: \"page_0.png\", images: [{images}], \
+              label_width: 0, frame_width: 64, frame_height: 64, rows: [{rows}])]"
+        );
+
+        let mut authored = AuthoredSheets::default();
+        authored
+            .insert_ron(target, &ron)
+            .expect("the synthetic sheet parses");
+        try_load_spec_for_target_authored(&authored, target, &SheetTuning::new(1.0, 1))
+            .expect("the synthetic sheet resolves to a spec")
+    }
+
+    /// A room staging one character whose realization is `pages`, built through
+    /// the real manifest builder.
+    fn a_room_manifest_staging(
+        pages: Vec<ambition_platformer2d::sprite_sheet::character::CharacterSpritePage>,
+        spec: ambition_platformer2d::sprite_sheet::character::sheets::CharacterSheetSpec,
+    ) -> RoomAssetManifest {
+        use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
+
+        let representative = pages
+            .first()
+            .map(|page| page.texture.clone())
+            .unwrap_or_default();
+        let asset = ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset {
+            texture: representative,
+            layout: Handle::default(),
+            spec,
+            pages,
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+        };
+        let mut assets = GameAssets::default();
+        assets.characters.declare("d153_fighter", "D153 Fighter");
+        assets.characters.publish("d153_fighter", asset);
+
+        let world = AuthoredWorld::new(
+            "D153 Room",
+            Vec2::new(640.0, 360.0),
+            Vec2::new(64.0, 256.0),
+            Vec::new(),
+        );
+        let room = RoomSpec::new("d153_room", world);
+        build_loaded_room_asset_manifest(&room, &["d153_fighter".to_owned()], &assets)
+    }
+
+    /// **A page the SPEC requires and the REALIZATION does not have must refuse
+    /// the reveal** (queue D153). Before this, `add_character_asset` logged the
+    /// mismatch and `continue`d, so the character simply left the manifest — the
+    /// barrier could report Ready and reveal a room with missing presentation.
+    #[test]
+    fn a_required_page_the_realization_lacks_refuses_the_room() {
+        let mut app = App::new();
+        app.add_plugins(bevy::app::TaskPoolPlugin::default());
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let realized = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+
+        // The spec draws from pages 0 and 1; the realization holds one slot.
+        let spec = a_synthetic_spec(2, &[0, 1]);
+        assert_eq!(
+            spec.used_pages().into_iter().collect::<Vec<_>>(),
+            vec![0, 1],
+            "the fixture is useless unless the spec actually names two pages",
+        );
+        let manifest = a_room_manifest_staging(
+            vec![
+                ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
+                    texture: realized,
+                    layout: Handle::default(),
+                },
+            ],
+            spec,
+        );
+
+        assert_eq!(
+            manifest.unresolved,
+            vec!["character:d153_fighter:page:1 (required, unrealized)".to_owned()],
+            "the page the realization lacks must be recorded, not skipped",
+        );
+        let readiness = inspect_room_asset_manifest(
+            &asset_server,
+            Some(app.world().resource::<Assets<Image>>()),
+            &manifest,
+        );
+        assert!(
+            !readiness.is_ready(),
+            "a room missing required art must never report Ready",
+        );
+        assert!(
+            readiness.is_terminal(),
+            "an unrealizable page can never settle, so the barrier must not WAIT \
+             on it — that is the permanent spinner this file was repaired for",
+        );
+        assert_eq!(readiness.failed.len(), 1, "{:?}", readiness.failed);
+    }
+
+    /// **The regression this could have caused.** An ordinary sparse pack names
+    /// more pages than its frames sample; those slots are legitimately
+    /// placeholders and must stay out of the manifest entirely — neither waited
+    /// on (the permanent spinner) nor failed (this change's own hazard).
+    #[test]
+    fn an_unsampled_pack_page_is_neither_waited_on_nor_failed() {
+        let mut app = App::new();
+        app.add_plugins(bevy::app::TaskPoolPlugin::default());
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let realized = app
+            .world_mut()
+            .resource_mut::<Assets<Image>>()
+            .add(Image::default());
+
+        // Three pack pages declared, every frame on page 0.
+        let spec = a_synthetic_spec(3, &[0, 0]);
+        assert_eq!(
+            spec.page_count(),
+            3,
+            "the fixture must actually be a sparse pack",
+        );
+        assert_eq!(
+            spec.used_pages().into_iter().collect::<Vec<_>>(),
+            vec![0],
+            "the fixture must actually leave pages unsampled",
+        );
+        let placeholder = || ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
+            texture: Handle::default(),
+            layout: Handle::default(),
+        };
+        let manifest = a_room_manifest_staging(
+            vec![
+                ambition_platformer2d::sprite_sheet::character::CharacterSpritePage {
+                    texture: realized,
+                    layout: Handle::default(),
+                },
+                placeholder(),
+                placeholder(),
+            ],
+            spec,
+        );
+
+        assert!(
+            manifest.unresolved.is_empty(),
+            "an unsampled pack page is not a requirement: {:?}",
+            manifest.unresolved,
+        );
+        assert_eq!(
+            manifest.dependencies.len(),
+            1,
+            "only the sampled page is a load dependency: {:?}",
+            manifest.dependencies,
+        );
+        let readiness = inspect_room_asset_manifest(
+            &asset_server,
+            Some(app.world().resource::<Assets<Image>>()),
+            &manifest,
+        );
+        assert!(readiness.failed.is_empty(), "{:?}", readiness.failed);
+        assert!(readiness.is_ready(), "{:?}", readiness.pending);
     }
 
     #[test]
@@ -1212,6 +1460,7 @@ mod tests {
                     asset_id: present.id(),
                 },
             ],
+            ..Default::default()
         };
         let readiness = inspect_room_asset_manifest(
             &asset_server,
@@ -1228,7 +1477,7 @@ mod tests {
     fn manifest_equality_is_the_prefetch_promotion_contract() {
         let empty = RoomAssetManifest {
             room_id: "hall".to_string(),
-            dependencies: Vec::new(),
+            ..Default::default()
         };
         let mut cache = RoomPreparationPrefetchState::default();
         cache.reset_for(1, None, "hub");
@@ -1249,7 +1498,7 @@ mod tests {
 
         let different_room = RoomAssetManifest {
             room_id: "basement".to_string(),
-            dependencies: Vec::new(),
+            ..Default::default()
         };
         assert!(!cache.classify_promotion(1, None, "hub", &different_room, Some(Duration::ZERO)));
     }

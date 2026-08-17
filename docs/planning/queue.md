@@ -1364,7 +1364,7 @@ does not answer it.**
   tests), mary_o (×2 incl. `star.rs`). A sixth game that forgets gets permanent
   invulnerability — which is exactly how smash's respawn protection surfaced it.
 
-- ▢ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)**
+- ✔ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)** — CLOSED 2026-08-17.
 
 In the hall-loading repair: `for index in asset.spec.used_pages()` now skips a
 page the realization does not have (`error!(…); continue;`), which correctly
@@ -1390,6 +1390,30 @@ count — a truncated or mismatched realization, not an ordinary sparse pack.
 ⚠ `add_character_asset` returns `()`; making this a real failure means threading
 a `Result` (or a collected-errors sink) out through the manifest builder. That
 signature choice is the work — the `continue` is one line.
+
+⭐ **CLOSED 2026-08-17 — the failure travels IN the manifest, not out of the
+builder in a `Result`.** `RoomAssetManifest` gained `unresolved: Vec<String>`,
+filled by a `RoomManifestDraft` accumulator that replaces the bare
+`BTreeMap` every `add_*` helper threaded; `inspect_room_asset_manifest` counts
+each unresolved label as SETTLED-and-FAILED, so the existing
+`readiness.failed` → `LoadWorkState::Failed(retryable)` arm refuses the reveal
+and the source room stays authoritative. The shape argument, written at the
+field: the manifest is already the artifact that reaches both refusers (the
+transition contribute/poll pair and startup loading) AND the prefetch cache's
+equality key, so a truncated realization can no longer be promoted as equal to
+a healthy one; a `Result` would have to be caught at build time, stashed
+beside the manifest, and re-joined with it at exactly that decision site.
+⭐ **the arm widened by one honest case**: a `used_pages()` index whose slot
+EXISTS but holds a default handle is the same defect (required art, nothing to
+load), and it is the reachable one — every production realization builds
+`pages` as `0..page_count`.
+Guards (`ambition_app` lib, `room_transition_assets::tests`):
+`a_required_page_the_realization_lacks_refuses_the_room` (seen RED against a
+restored log-and-continue: `unresolved` was `[]`) and
+`an_unsampled_pack_page_is_neither_waited_on_nor_failed` — the regression guard
+for the permanent-spinner fix this sits inside, green under both behaviours by
+construction. Fixtures build real specs through `AuthoredSheets::insert_ron` →
+`try_load_spec_for_target_authored`, so neither passes vacuously.
 
 - ▢ **D154 — AUTHORED VFX IS ONLY HALF BODY-LOCAL: POSITION IS TRANSFORMED,
   ORIENTATION IS NOT. (review finding 8, take with the next directional pass)**

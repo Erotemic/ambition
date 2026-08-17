@@ -177,6 +177,46 @@ pub(super) fn action_set_from_combat_kit(
 /// cognition + symmetric information*, and it breaks by itself the moment the two
 /// Emmys observe different worlds — which is correct, and is the difference
 /// between a character trait and a puppet show.
+///
+/// ## How long two ordinary CPUs take to LOOK different, and two rejected fixes
+///
+/// ⚠ **the seed is per-participant and correct, and two same-character CPUs still
+/// mirror each other for about eight seconds.** Measured through the composed host
+/// at rung 5 (`ambition_app`'s `smash_cpu_cognition`): the reflection breaks at
+/// **488 frames**. Jon saw the same thing in play — *"it took a while for Booule to
+/// desync, but they eventually did… the desync for non-Emmy CPUs probably should
+/// happen sooner"*.
+///
+/// ⭐⭐ **THE CAUSE IS NOT THE SEED, IT IS THAT A DIFFERENT RNG CANNOT SEPARATE TWO
+/// BODIES DOING THE SAME THING.** The stream has exactly ONE consumer in the whole
+/// fighter brain — the press-timing jitter, and only when a decision commits to an
+/// attack (`decision.rs`: *"spending samples on press TIMING only"*). Both fighters
+/// open the match walking toward each other, and two bodies walking at one speed
+/// stay mirrored whatever their streams say. So they DO diverge from the first
+/// frame — measured at 0.0002px against Emmy's 0.00003px of float noise over the
+/// same window — it is simply sub-pixel until it compounds.
+///
+/// ⛔⛔ **TWO FIXES WERE BUILT, MEASURED AND REVERTED (2026-08-17). Read this before
+/// building a third.**
+///
+/// ```text
+/// per-participant DECISION PHASE   488 → 220 frames, and it BROKE FIVE
+///   (stagger which tick of the      behavioural guards in `the_stage_kills`:
+///    cycle each fighter thinks on)  a 0-4 tick offset changed whether attacks
+///                                   connect at all — "the brain travels but never
+///                                   commits". Too high a price for 8.1s → 3.7s.
+/// cadence DRAWS from the stream    220 → 219 frames. Nothing. A staggered
+///   (consume a sample every         decision is not a DIFFERENT decision: it
+///    decision, not only on attack)  changed when they thought, not what they did,
+///                                   while retuning every CPU's cadence.
+/// ```
+///
+/// ⇒ **what would actually move it is asymmetric CIRCUMSTANCES, not more
+/// randomness** — and the one already on the books is a per-seat spawn offset
+/// (queue D128 defect 3, open). Two fighters who start somewhere different take a
+/// genuinely different first decision, and everything follows from that.
+/// ⚠ it will also shorten Emmy's mirror, for a good reason; `smash_cpu_cognition`
+/// says so at the assertion that would notice.
 fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
     // A participant id is `"<character>#seat<n>"`; the character alone is what is
     // left when the seat is dropped. Falling back to the whole id keeps a body

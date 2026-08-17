@@ -6370,14 +6370,58 @@ and grows for two fighters. ⇒ *when the report says "symmetric", measure symme
 not difference.* Both halves are poison-checked: the fix, and the ladder
 projection's carry, each independently turn tests red when reverted.
 
-⚠ **Emmy's own mirror is NOT observable in the standalone smash app**, and that is
-a composition boundary rather than a gap: `game/ambition_demo_smash_app` does not
-compose `ambition_content`, so a roster naming `npc_noether` seats nobody. ⛔ do
-not teach the demo host Ambition's cast to close it. Each half of the exception is
-pinned where it is observable instead — her authoring in `ambition_content`, the
-fold in `ambition_characters`, the shared stream through real seating + activation
-in the monolith, and the emergent-not-enforced invariant in the fighter's own
-decision tests. The test's own doc block carries that table.
+✔✔ **AND EMMY IS NOW PINNED IN THE FULL HOST TOO** —
+`game/ambition_app/tests/smash_cpu_cognition.rs` (ungated, so the project gate runs
+it). ⛔ **the standalone smash app cannot seat her**: it does not compose
+`ambition_content`, so a roster naming `npc_noether` seats nobody, and every other
+suite either registers a synthetic stand-in or tests a different link. ⇒ the claim
+*"the character a player can actually pick off the grid gets the shared stream"* was
+asserted nowhere until this file. It drives `build_visible_app`, asserts
+`npc_noether` is on the assembled grid (`SmashRoster::assemble`), seats two CPU
+Emmys through the stage's own roster builder, and reads the streams off the seated
+brains. ⛔ do not teach the demo host Ambition's cast to close the older gap.
+
+⭐⭐ **MEASURED IN THE FULL HOST, rung 5, two CPUs on one character:**
+
+```text
+                     streams     mirrored for       match ran
+npc_noether          IDENTICAL   2576 of 2576 fr    2576 fr   a stalemate — they
+                                                             answer every move
+                                                             with its reflection
+npc_pirate_admiral   DIFFERENT    488 of 1548 fr    1548 fr   they fight, and it
+                                                             ends
+```
+
+⭐ **the shorter ordinary match is itself the finding**: fighters that think
+differently resolve their match, while two Emmys mirror each other into a much
+longer one.
+
+⚠⚠ **488 frames is ~8.1s, and Jon reported it from play**: *"it took a while for
+Booule to desync, but they eventually did. And Emmy never desynced. Still the
+desync for non-Emmy CPUs probably should happen sooner."*
+
+⛔⛔ **THE CAUSE IS NOT THE SEED, AND TWO FIXES WERE BUILT, MEASURED AND REVERTED.**
+The stream has exactly ONE consumer in the fighter brain — press-timing jitter, only
+on a decision that commits to an attack — so **a different RNG cannot separate two
+bodies doing the same thing**, and both fighters open the match walking toward each
+other. They do diverge from frame one (0.0002px against Emmy's 0.00003px of float
+noise) but sub-pixel until it compounds.
+
+```text
+per-participant DECISION PHASE   488 → 220 fr, and BROKE FIVE behavioural guards
+                                 in `the_stage_kills`: a 0-4 tick offset changed
+                                 whether attacks connect — "the brain travels but
+                                 never commits". Reverted: too high a price.
+cadence DRAWS from the stream    220 → 219 fr. Nothing. A staggered decision is
+                                 not a DIFFERENT decision. Reverted.
+```
+
+⇒ ▢ **what would actually move it is asymmetric CIRCUMSTANCES, and it is already on
+this row's list: per-seat spawn placement (defect 3 above).** Two fighters who start
+somewhere different take a genuinely different first decision. ⚠ it will also
+shorten Emmy's mirror, for a good reason — the assertion that would notice says so.
+⛔ do not build a third randomness fix before reading the note at
+`brain_builders::fighter_cognition_seed`.
 
 ⚠ **the catalog PREVIEW brain still seeds level-only, correctly** — a preview has
 no match and therefore no participant; the note at

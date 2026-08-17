@@ -1211,6 +1211,19 @@ Wanted invariant, the inverse of the spinner fix: **a semantically required page
 that is absent fails PREPARATION explicitly** — a manifest construction failure or
 an explicit failed dependency, not log-and-continue.
 
+⭐ **PROBED 2026-08-17 — accurate, and the exact site is
+`add_character_asset` in `game/ambition_app/src/app/world_flow/room_transition_assets.rs:197`.**
+It builds the barrier's image manifest, and a `used_pages()` index with no slot
+in `asset.pages` logs and `continue`s, so the character is simply not waited on.
+⚠ **narrower than it reads, which is why it is still open and still small.**
+`pages` is built as `(0..page_count)` in
+`character_sprites/assets.rs:643`, so `pages.len() == page_count` always. The arm
+is reachable only when the SPEC's frame rects name a page beyond the realized
+count — a truncated or mismatched realization, not an ordinary sparse pack.
+⚠ `add_character_asset` returns `()`; making this a real failure means threading
+a `Result` (or a collected-errors sink) out through the manifest builder. That
+signature choice is the work — the `continue` is one line.
+
 - ▢ **D154 — AUTHORED VFX IS ONLY HALF BODY-LOCAL: POSITION IS TRANSFORMED,
   ORIENTATION IS NOT. (review finding 8, take with the next directional pass)**
 
@@ -1231,6 +1244,18 @@ body-frame orientation, facing/mirror, scale — instead of accreting one isolat
 presentation field at a time. ⚠ not urgent, but **fix it before agents author
 hundreds more directional effects against the incomplete contract**, because the
 cost is in the content written against it, not in the field.
+
+⭐ **PROBED 2026-08-17 — accurate and unchanged.** `VfxMessage::Effect` in
+`crates/ambition_vfx/src/vfx.rs:237` is exactly `{ pos, fx, scale }`. No
+rotation, no mirror, no body frame. So the authored `at` is transformed into
+world space and the ARTWORK is not, and a left-facing fighter's `air_slice`
+lands in the right place pointing the wrong way.
+⚠ **the D156 facing work is the precedent to copy, not a duplicate of it.** That
+one taught the SHEET renderer which way its artwork was drawn
+(`authored_faces_left`, XORed into `flip_x`); this is the same question one
+layer over, for effect art that has no body to inherit a facing from. Whatever
+carries it should be a small semantic POSE on the event — position, body-frame
+orientation, mirror, scale — rather than a fourth isolated field.
 
 - ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
   "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**

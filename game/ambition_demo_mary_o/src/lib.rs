@@ -486,7 +486,9 @@ pub fn pipe_mouth() -> ae::Aabb {
 /// Where 1-1's descent tube drops you: out of its VAULT half's mouth, so you
 /// fall out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK).exit.arrival()
+    authored_tube(LEVEL_1_1_ROOM_ID, DESCENT_LINK)
+        .exit
+        .arrival()
 }
 
 /// Where 1-1's ascent tube puts you: on top of its SURFACE half, directly above
@@ -1502,10 +1504,23 @@ pub fn install_mary_o_content(app: &mut App) {
         ] {
             // ⭐ **AND THE SMASH TABLE, on every form** (2026-08-16). A census
             // of the crossover grid found her at 0/16 with every press silent.
-            // ⛔ it is unreachable in HER game: her catalog row authors
-            // `abilities: Some([RunJump])`, which has no `attack`, so the table
-            // says what the swing IS and the ability still says there is none.
             // See `smash_moveset` for the whole argument.
+            //
+            // ⛔⛔ **AND IT WAS REACHABLE IN HER OWN GAME FOR A DAY.** This spot
+            // used to claim the ability already stopped it — her rows author
+            // `abilities: Some([RunJump])`, which has no `attack` — and nothing
+            // consulted that: the Attack / Special slots were derived from the
+            // MOVESET alone, so all twenty-three of her swings answered a press
+            // in a platformer. Jon, playing: *"maryo seems to have gotten a
+            // bunch of moves from smash in her game, and its messing things up
+            // there. She should only have the run and jump in her game."*
+            //
+            // ⭐ the ability is a real ceiling now
+            // (`ambition_characters::action_scheme::combat_actions`), so the
+            // table stays attached — the crossover grid wants exactly these
+            // moves — and her own game still says there is no attack. What
+            // proves it is behavioural, not this comment:
+            // `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump`.
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
@@ -2499,11 +2514,9 @@ fn warp_through_secret_pipe(
     // empty slice enters nothing and clears the latch, which is the same
     // answer a pipeless room gives.
     const NO_ROOM_NO_TUBES: &[PipeTube] = &[];
-    let tubes = room_set
-        .as_deref()
-        .map_or(NO_ROOM_NO_TUBES, |set| {
-            tubes_for_room(&set.active_spec().id)
-        });
+    let tubes = room_set.as_deref().map_or(NO_ROOM_NO_TUBES, |set| {
+        tubes_for_room(&set.active_spec().id)
+    });
 
     for (entity, kin, control, mut latch) in &mut bodies {
         let down = control.0.locomotion.y > DIR_DEADZONE;

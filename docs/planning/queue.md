@@ -791,6 +791,61 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ✔ **D157 — CLOSED 2026-08-16. MARY-O HAD HER WHOLE SMASH MOVESET IN HER
+  PLATFORMER. The ability gate did not exist, and a test that reported it was
+  overruled. (Jon, PLAYING)**
+
+Jon: *"So maryo seems to have gotten a bunch of moves from smash in her game, and
+its messing things up there. **She should only have the run and jump in her
+game.** And **the run should double as the fireball button when she has the
+lantern.**"*
+
+⭐⭐ **THE CAUSE: `combat_actions` never read the `AbilitySet`.** It derived the
+Attack / Special / Projectile slots from the MOVESET and the `ActionSet` alone —
+both of which answer *what the attack is*, never *may this body attack*. D144
+attached `mary_o_moveset()` to her three character definitions (correctly: the
+crossover grid wants those moves, and D146 ruled a character authors its fighter
+self), and from that hour her `abilities: Some([RunJump])` row bought nothing.
+Measured on the assembled demo: **twenty-three distinct swings** reachable across
+attack / smash / special / pogo. Sanic was the identical construction and the
+identical break (`spin_charge` and friends live on his own speedway).
+
+⛔⛔ **AND A TEST CAUGHT IT AND WAS ARGUED AWAY.** `persona_architecture::…peaceful_kit…`
+asserted `moveset_len == 0`, went red at 17, and `3d3540546` (D146 slice 4)
+rewrote it to assert exact equality with `sanic_moveset()` — i.e. to AGREE with
+the 17 — reasoning that *"what keeps that off his own speedway is the ABILITY,
+not the table"*. That sentence was an INTENT; nothing implemented it. Three
+source comments carried the same false claim (both demos' registration loops,
+both `smash_moveset` module docs) and are corrected in place.
+⇒ [[reference_a_hand_listed_chain_pins_the_function_not_the_wiring]]: the split
+was written down in four places and executed in none.
+
+Landed: `combat_actions` takes the `AbilitySet` and ceilings the melee family
+(Attack + Special) with `abilities.attack`. The table stays attached; the gate is
+what changed. ⚠ **Projectile is deliberately NOT under it** — `AbilitySet` has no
+ranged capability, a ranged verb is always an explicit authored grant
+(`ActionSet.ranged`, or an equipment row's), and folding it under `attack` would
+mean the only way to arm Mary-O's fireball was to arm her fists.
+`SMASH_FIGHTER_KIT` already grants `attack`, so the crossover grid is untouched
+(`smash_roster_movesets` + `smash_in_the_host`, 47/47).
+
+⭐ **Part 2 was already built and is now guarded.** `fire_spark_on_run_press` +
+`sync_run_action_scheme` have implemented the classic one-button grammar since
+the beacon landed; what was missing was any proof it survives in the ASSEMBLED
+app (`power_loop` builds its body by hand and never sees the smash table). It
+does: the beacon grants the `ranged` verb, the worn identity becomes
+`mary_o_fire`, and the run press throws while the run hold still runs.
+
+Guards, both **seen red on the pre-fix tree** (verified by poisoning the ceiling
+and re-running): `ambition_demo_mary_o_app`'s
+`mary_o_at_home_can_only_run_and_jump` (sweeps every combat button × every aim
+and asserts nothing starts, then asserts the run and the jump still work) and
+`the_run_button_throws_a_spark_only_while_she_wears_the_lantern`; and
+`ambition_demo_sanic_app`'s
+`the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table` (which also
+proves the spin-dash TECHNIQUE keeps its Attack button while the repertoire
+behind it stays unreachable).
+
 - ✔ **D156 — CLOSED 2026-08-16. THE PATENT CLERK FACED BACKWARDS, AND SO DID
   CARL. The facing was authored THREE TIMES and read ZERO. (Jon, PLAYING)**
 

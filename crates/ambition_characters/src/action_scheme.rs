@@ -377,7 +377,45 @@ fn upsert(actions: &mut Vec<ActionSpec>, spec: ActionSpec) {
 /// (The genuine one-authority unification — folding ranged/special into the
 /// moveset and deleting the legacy paths — lands with the shared resolver; this
 /// union is the honest, non-lying interim that matches real behavior.)
+///
+/// ⛔⛔ **AND THE UNION HAD NO CEILING, WHICH IS HOW A SMASH TABLE GOT LOOSE IN A
+/// PLATFORMER** (Jon, playing, 2026-08-16: *"maryo seems to have gotten a bunch
+/// of moves from smash in her game, and its messing things up there. She should
+/// only have the run and jump in her game."*).
+///
+/// `smash_roster_movesets` states the split this function has to honour and did
+/// not: *"an ABILITY is **may this body attack** and a MOVESET is **what the
+/// attack is**"*. Both authorities read here answer the SECOND question. Mary-O
+/// and Sanic each author `abilities: Some([RunJump])` — no `attack` — and each
+/// authors a seventeen-move smash repertoire so a crossover ruleset has
+/// something to consume. Attaching the table made the Attack, Smash and Special
+/// slots appear in their OWN games, `resolve_control_slots` kept the verbs
+/// because the slot was present, and every press answered. Measured on the
+/// assembled Mary-O demo: twenty-three distinct swings reachable from her four
+/// combat buttons.
+///
+/// ⚠ **a comment claimed the ability already stopped this, and a test that said
+/// otherwise was rewritten to agree with the comment** (D146 slice 4 changed
+/// `the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit`
+/// from `moveset_len == 0` to exact equality with the authored table, reasoning
+/// that the ability kept the table unreachable). The ability was never consulted
+/// here at all.
+///
+/// ⭐ so the melee family is gated by `AbilitySet::attack`, the one flag whose
+/// documented meaning is *generic slash/attack verb*. The table stays attached —
+/// a character authors its fighter self and a ruleset consumes the facets it
+/// speaks — and a body that has not been granted the verb simply has no slot to
+/// fire it from. `SMASH_FIGHTER_KIT` grants `attack`, so the crossover grid is
+/// untouched.
+///
+/// ⚠ **Projectile is deliberately NOT gated on it.** `AbilitySet` carries no
+/// ranged capability at all, and a ranged verb is not a latent table on the
+/// body: it is an explicit authored grant (an `ActionSet.ranged`, or an
+/// equipment row's — Mary-O's cinder beacon). Folding it under `attack` would
+/// mean the only way to arm her fireball was to arm her fists, which is the
+/// defect above with the sign flipped.
 fn combat_actions(
+    abilities: &AbilitySet,
     moveset: Option<&MovesetContract>,
     action_set: Option<&ActionSet>,
 ) -> Vec<ActionSpec> {
@@ -409,7 +447,8 @@ fn combat_actions(
         }
     };
     push(
-        has_directional_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some()),
+        abilities.attack
+            && (has_directional_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some())),
         ControlSlot::Attack,
         ids::ATTACK,
     );
@@ -419,7 +458,9 @@ fn combat_actions(
         ids::RANGED,
     );
     push(
-        has_directional_verb(ids::SPECIAL) || action_set.is_some_and(|a| a.special.is_some()),
+        abilities.attack
+            && (has_directional_verb(ids::SPECIAL)
+                || action_set.is_some_and(|a| a.special.is_some())),
         ControlSlot::Special,
         ids::SPECIAL,
     );
@@ -431,8 +472,9 @@ fn combat_actions(
 /// - **Movement** actions from the `AbilitySet` (jump/dash/blink/fly/shield).
 /// - **Interact** when the body's `AbilitySet` grants it. Not universal: a
 ///   restricted kit (`RunJump`) has no talk verb, so no button is drawn for one.
-/// - **Combat** actions unioned from the moveset AND the `ActionSet`
-///   (see [`combat_actions`]).
+/// - **Combat** actions unioned from the moveset AND the `ActionSet`, with the
+///   melee family (Attack / Special) CEILINGED by `AbilitySet::attack` — see
+///   [`combat_actions`] for why a table is not a permission.
 /// - **Techniques** (content-declared, already `Technique`-gated `ActionSpec`s)
 ///   are layered last and OVERRIDE any base action on the same slot.
 ///
@@ -463,7 +505,7 @@ pub fn derive_action_scheme(
         );
     }
 
-    for spec in combat_actions(moveset, action_set) {
+    for spec in combat_actions(abilities, moveset, action_set) {
         upsert(&mut actions, spec);
     }
 
@@ -533,6 +575,9 @@ mod tests {
             a.jump = true;
             a.dash = true;
             a.blink = true;
+            // A FULL kit has been granted the melee verb; the moveset only says
+            // what the swing is (see `combat_actions`).
+            a.attack = true;
         });
         let ms = moveset(&["attack", "special", "ranged"]);
         let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
@@ -552,7 +597,7 @@ mod tests {
 
     #[test]
     fn directional_only_moves_still_claim_their_control_slots() {
-        let ab = AbilitySet::default();
+        let ab = abilities(|a| a.attack = true);
         let ms = moveset(&["attack_forward", "special_air_up"]);
         let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
         assert!(scheme.has_slot(ControlSlot::Attack));
@@ -618,15 +663,30 @@ mod tests {
         // The parity guard for the P0→P3 window: a slot is in the scheme IFF the
         // authority that gates its behavior says the body has it. If these ever
         // diverge, the prompt would advertise an action the body can't perform.
-        for (jump, dash, blink, verbs) in [
-            (true, false, false, vec![]),
-            (true, true, true, vec!["attack"]),
-            (false, true, false, vec!["special", "ranged"]),
+        //
+        // ⭐ **the melee columns take TWO authorities**, which is the fix Jon's
+        // 2026-08-16 report forced: a moveset says what the swing is, and
+        // `AbilitySet::attack` says whether this body may swing at all. The last
+        // row is Mary-O at home — a full smash table on a `RunJump` body — and it
+        // must show no Attack and no Special. Projectile takes only the verb: no
+        // ability flag describes ranged (see [`combat_actions`]).
+        for (jump, dash, blink, may_attack, verbs) in [
+            (true, false, false, false, vec![]),
+            (true, true, true, true, vec!["attack"]),
+            (false, true, false, true, vec!["special", "ranged"]),
+            (
+                true,
+                false,
+                false,
+                false,
+                vec!["attack", "special", "ranged"],
+            ),
         ] {
             let ab = abilities(|a| {
                 a.jump = jump;
                 a.dash = dash;
                 a.blink = blink;
+                a.attack = may_attack;
             });
             let ms = moveset(&verbs);
             let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
@@ -636,11 +696,11 @@ mod tests {
             assert_eq!(scheme.has_slot(ControlSlot::Blink), blink);
             assert_eq!(
                 scheme.has_slot(ControlSlot::Attack),
-                verbs.contains(&"attack")
+                may_attack && verbs.contains(&"attack")
             );
             assert_eq!(
                 scheme.has_slot(ControlSlot::Special),
-                verbs.contains(&"special")
+                may_attack && verbs.contains(&"special")
             );
             assert_eq!(
                 scheme.has_slot(ControlSlot::Projectile),

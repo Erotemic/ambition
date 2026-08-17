@@ -27,7 +27,9 @@ use ambition_characters::action_scheme::{
     derive_action_scheme, ActorActionScheme, ActorTechniques,
 };
 use ambition_characters::brain::action_set::ActionSet;
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{
+    Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+};
 use bevy::prelude::*;
 
 use crate::actor::BodyAbilities;
@@ -120,9 +122,9 @@ impl Plugin for ActionSchemePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_core::AbilitySet;
     use ambition_entity_catalog::action_scheme::ControlSlot;
     use ambition_entity_catalog::MovesetContract;
+    use ambition_platformer2d_core::AbilitySet;
     use std::collections::BTreeMap;
 
     fn ability_set(jump: bool, dash: bool) -> AbilitySet {
@@ -133,6 +135,10 @@ mod tests {
         a.blink = false;
         a.fly = false;
         a.shield = false;
+        // A moveset says what a swing IS; `attack` says the body may swing at
+        // all, and the Attack slot needs both (`combat_actions`). These fixtures
+        // are about the RECONCILE, so they hand out the verb.
+        a.attack = true;
         a
     }
 

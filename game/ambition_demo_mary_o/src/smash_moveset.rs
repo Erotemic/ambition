@@ -18,6 +18,16 @@
 //! grid" expressible instead of a contradiction. Her jump physics, her one-hit
 //! death and her two on-screen buttons are untouched.
 //!
+//! ⛔⛔ **THE PARAGRAPH ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST
+//! DAY.** Nothing read the ability: `combat_actions` derived the Attack and
+//! Special slots from the MOVESET alone, so attaching this table put all
+//! twenty-three of her swings on a press in her own platformer. Jon found it by
+//! playing (*"She should only have the run and jump in her game"*), a Sanic test
+//! that had gone red at the same cause was argued away rather than believed, and
+//! the ceiling now really is `AbilitySet::attack`. The guard is behavioural —
+//! `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump` presses
+//! every combat button in every aim and asserts nothing starts.
+//!
 //! ## The character
 //!
 //! She is a platformer, so her kit is FEET. Every heavy press in it is a stomp,

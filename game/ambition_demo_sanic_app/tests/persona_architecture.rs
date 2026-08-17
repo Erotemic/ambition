@@ -146,12 +146,22 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// the derived one instead of being derived from the action set, so the body
 /// carries seventeen moves and not one of them came from a protagonist kit.
 ///
-/// ⛔ **what keeps that off his own speedway is the ABILITY, not the table.** His
-/// catalog rows author `abilities: Some([RunJump])`, which has no `attack`, so
-/// the table says what a swing IS and his own game still says there is none —
-/// the same split Mary-O rides. So the check below is EXACT EQUALITY with the
-/// table he authored, which is strictly stronger than the count it replaces at
-/// the thing this test is for: nothing of Ambition's protagonist leaked in.
+/// ⛔⛔ **AND THE REASONING THAT REWROTE IT WAS FALSE WHEN IT WAS WRITTEN.** It
+/// said *"what keeps that off his own speedway is the ABILITY, not the table"* —
+/// his rows author `abilities: Some([RunJump])`, which has no `attack`. Nothing
+/// consulted that: `combat_actions` derived the Attack / Special slots from the
+/// MOVESET and the `ActionSet` alone, so the slots appeared, the persona gate
+/// kept the verbs, and every press answered. Jon found it by playing Mary-O
+/// (2026-08-16, *"maryo seems to have gotten a bunch of moves from smash in her
+/// game"*) — this test's red at `moveset_len == 17` had been reporting it for a
+/// day and was argued away.
+///
+/// ⭐ the ability is a real gate now (`ambition_characters::action_scheme`), and
+/// what it gates is proved BEHAVIOURALLY next door in
+/// [`the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`] —
+/// a count and an equality can only ever say what the body CARRIES. This one
+/// keeps its own job: nothing of Ambition's protagonist leaked in, asserted as
+/// exact equality with the table he authored.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
     use ambition_platformer2d::actors::combat::moveset::ActorMoveset;
@@ -217,6 +227,114 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
             .get::<ambition_platformer2d::projectiles::PlayerProjectileState>(player)
             .is_none(),
         "the protagonist-only charge state is removed with its capability"
+    );
+}
+
+/// **Sanic at home cannot trigger a single move from his own smash table.**
+///
+/// The behavioural half of the test above, and the one that would have caught
+/// the regression it was rewritten around. Sanic carries seventeen authored
+/// moves so a crossover ruleset has something to consume; his own game grants
+/// him `RunJump`, which has no `attack`, so no press may start one.
+///
+/// ⚠ **asserted on what a press STARTS, never on a field.** The spin-dash is a
+/// TECHNIQUE on his Attack slot, so the melee edge is still routed and consumed
+/// here — this passing means the technique kept its button while the repertoire
+/// behind it stayed unreachable.
+///
+/// ⛔ `app.update()` is a frame, not a tick: every press is held across a window
+/// and then released, and the whole sweep runs under a ceiling.
+#[test]
+fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    use ambition_platformer2d::engine_core::ControlFrame;
+
+    #[derive(Resource, Clone, Copy, Default)]
+    struct ScriptedStick(ControlFrame);
+
+    fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
+        *frame = stick.0;
+    }
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.init_resource::<ScriptedStick>();
+    app.add_systems(PreUpdate, apply_scripted_stick);
+    settle_until_primary_player(&mut app);
+    for _ in 0..30 {
+        app.update();
+    }
+    let body = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+        q.iter(app.world()).next().expect("Sanic is seated")
+    };
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d::actors::combat::moveset::ActorMoveset>(body)
+            .is_some_and(|m| !m.0.moves.is_empty()),
+        "the gate must be the ABILITY — detaching his repertoire would break the \
+         crossover grid that wants it (D146)"
+    );
+
+    #[allow(clippy::type_complexity)]
+    let buttons: [(&str, fn(&mut ControlFrame)); 5] = [
+        ("attack", |f| {
+            f.attack_pressed = true;
+            f.attack_held = true;
+        }),
+        ("smash", |f| {
+            f.attack_pressed = true;
+            f.attack_held = true;
+            f.attack_strong_hint = true;
+        }),
+        ("special", |f| f.special_pressed = true),
+        ("pogo", |f| f.pogo_pressed = true),
+        ("projectile", |f| {
+            f.projectile_pressed = true;
+            f.projectile_held = true;
+        }),
+    ];
+    let aims: [(&str, f32, f32); 5] = [
+        ("neutral", 0.0, 0.0),
+        ("forward", 1.0, 0.0),
+        ("back", -1.0, 0.0),
+        ("up", 0.0, 1.0),
+        ("down", 0.0, -1.0),
+    ];
+
+    let mut triggered: Vec<String> = Vec::new();
+    for (button, arm) in buttons {
+        for (direction, ax, ay) in aims {
+            for tick in 0..30 {
+                let mut frame = ControlFrame {
+                    axis_x: ax,
+                    axis_y: ay,
+                    aim_x: ax,
+                    aim_y: ay,
+                    left_pressed: ax < 0.0,
+                    right_pressed: ax > 0.0,
+                    up_pressed: ay > 0.0,
+                    down_pressed: ay < 0.0,
+                    ..ControlFrame::default()
+                };
+                if tick < 4 {
+                    arm(&mut frame);
+                }
+                app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+                app.update();
+                if let Some(playback) = app.world().get::<MovePlayback>(body) {
+                    let entry = format!("{button}/{direction} -> {}", playback.spec.id);
+                    if !triggered.contains(&entry) {
+                        triggered.push(entry);
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        triggered.is_empty(),
+        "Sanic's own speedway answered a combat press with a smash move: {triggered:#?}"
     );
 }
 

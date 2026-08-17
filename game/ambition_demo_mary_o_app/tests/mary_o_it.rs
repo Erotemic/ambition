@@ -14,6 +14,7 @@ mod enemy_quad_matches_its_box;
 mod mary_o_it_sync;
 
 mod course_playthrough;
+mod only_run_and_jump;
 mod death_reset_timing;
 mod level_circuit;
 mod one_placement_one_actor;

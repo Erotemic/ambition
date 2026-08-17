@@ -21,6 +21,15 @@
 //! is the honest way to give a crossover stage a signature move without two
 //! authorities owning it.
 //!
+//! ⛔⛔ **THE CLAIM ABOVE WAS AN INTENT, NOT AN IMPLEMENTATION, FOR ITS FIRST
+//! DAY.** Nothing read the ability: `combat_actions` derived the Attack and
+//! Special slots from the MOVESET alone, so this table answered presses on the
+//! speedway. `persona_architecture`'s kit test went red at seventeen moves and
+//! was rewritten to agree with the seventeen, reasoning from exactly the
+//! paragraph above; Jon then hit the identical break playing Mary-O. The ceiling
+//! is now really `AbilitySet::attack`, and what proves it is
+//! `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
+//!
 //! ## The character
 //!
 //! Speed, and the cost of it. The fastest startups on the grid after the Shadow

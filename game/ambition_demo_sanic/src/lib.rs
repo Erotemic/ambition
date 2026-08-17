@@ -764,11 +764,19 @@ pub fn install_sanic_content(app: &mut App) {
         ] {
             // ⭐ **AND THE SMASH TABLE, on both iterations** (2026-08-16). A
             // census of the crossover grid found him at 0/16 with every press
-            // silent. ⛔ it is unreachable on the speedway: his rows author
-            // `abilities: Some([RunJump])`, which has no `attack`, so the table
-            // says what the swing IS and the ability still says there is none.
-            // ⚠ his spin dash and transform stay TECHNIQUES — see
+            // silent. ⚠ his spin dash and transform stay TECHNIQUES — see
             // `declare_sanic_techniques` — and this table does not touch them.
+            //
+            // ⛔⛔ **AND IT WAS REACHABLE ON THE SPEEDWAY FOR A DAY.** This spot
+            // used to claim the ability already stopped it — his rows author
+            // `abilities: Some([RunJump])`, which has no `attack` — and nothing
+            // consulted that: the Attack / Special slots were derived from the
+            // MOVESET alone. Found in Mary-O's demo by Jon playing it; his was
+            // the identical construction and the identical break. The ability is
+            // a real ceiling now
+            // (`ambition_characters::action_scheme::combat_actions`), proved
+            // behaviourally by `persona_architecture`'s
+            // `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
             app.register_character(
                 CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
                     .with_sheet(sheet)

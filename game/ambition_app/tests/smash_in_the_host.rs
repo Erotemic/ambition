@@ -4263,7 +4263,6 @@ fn on_the_smash_pad_b_jumps_and_a_attacks() {
 
     let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
     let specials = authored_specials_of(&mut app, body);
-    let y = |app: &App| app.world().get::<BodyKinematics>(body).unwrap().pos.y;
 
     // How far off its resting height this body gets while `button` is held.
     //

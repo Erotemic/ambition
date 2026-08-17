@@ -271,6 +271,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
                 scale: 1.0,
                 sfx: None,
             },
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.update();
     let asked = app
@@ -308,6 +309,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
                 scale: 1.0,
                 sfx: Some("vfx.explosion.starburst.loop".to_string()),
             },
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.update();
     assert_eq!(
@@ -1764,6 +1766,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
             kind: MoveEventKind::Sfx {
                 cue: "pca.signature".into(),
             },
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
@@ -1779,6 +1782,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
                 params: ambition_entity_catalog::ParamValue::parse("(rise: 320.0)")
                     .expect("param RON parses"),
             }),
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.update();
 
@@ -1880,6 +1884,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
             move_id: "fire".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Ranged,
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.update();
 
@@ -1958,6 +1963,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
             move_id: "fire".into(),
             presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
             kind: MoveEventKind::Ranged,
+            world_pose: ambition_vfx::FxPose::UPRIGHT,
         });
     app.update();
 
@@ -2038,6 +2044,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
                 move_id: "fire".into(),
                 presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
                 kind: MoveEventKind::Ranged,
+                world_pose: ambition_vfx::FxPose::UPRIGHT,
             });
         app.update();
 
@@ -2843,5 +2850,51 @@ fn a_gap_between_active_windows_is_a_fresh_strike() {
     assert!(
         hits >= 2,
         "⛔ a gap means the strike ENDED; the next window is a new one, got {hits} hits"
+    );
+}
+
+/// **AN AUTHORED EFFECT FACES THE WAY THE FIGHTER DOES.** (D154)
+///
+/// ⛔⛔ **the offset was body-local and the ARTWORK was not.** `build_move_events`
+/// mirrors an authored `at` by the move's committed facing and rotates it into
+/// the owner's gravity frame — so a left-facing fighter's `air_slice` landed at
+/// exactly the right left-hand spot, drawn pointing right. Invisible on a radial
+/// burst; visibly wrong on a slice, a streak, or an arrow.
+///
+/// ⭐ **this asserts the pose travels WITH the offset, from one derivation.** A
+/// pose computed anywhere else could disagree with the position it decorates,
+/// which is why both come out of the same expression.
+#[test]
+fn an_authored_effect_is_mirrored_by_the_facing_its_offset_already_used() {
+    let facing_right = ambition_vfx::FxPose::of(1.0, 0.0);
+    let facing_left = ambition_vfx::FxPose::of(-1.0, 0.0);
+
+    assert!(
+        !facing_right.mirror,
+        "a right-facing move mirrored its art, so every effect in the game is \
+         now backwards"
+    );
+    assert!(
+        facing_left.mirror,
+        "a LEFT-facing move drew its art unmirrored — this is the defect: the \
+         offset is mirrored and the picture is not"
+    );
+
+    // ⛔ non-vacuity: the identity must really be identity, or the assertions
+    // above are comparing a pose against a pose that means nothing.
+    assert!(
+        !ambition_vfx::FxPose::UPRIGHT.mirror
+            && ambition_vfx::FxPose::UPRIGHT.angle == 0.0,
+        "UPRIGHT is not the identity, so every emitter that never had an \
+         opinion just acquired one"
+    );
+
+    // ⭐ and the angle is carried, not dropped — a body under sideways gravity
+    // stands its effects up the same way it stands itself up.
+    let rolled = ambition_vfx::FxPose::of(1.0, std::f32::consts::FRAC_PI_2);
+    assert!(
+        (rolled.angle - std::f32::consts::FRAC_PI_2).abs() < 1e-6,
+        "the frame's rotation did not survive into the pose, so an effect stays \
+         world-upright under a gravity flip while its owner does not"
     );
 }

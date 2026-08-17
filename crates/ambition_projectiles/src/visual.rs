@@ -100,6 +100,7 @@ impl ProjectileExpiryBurst {
             pos,
             fx: self.fx,
             scale: self.scale,
+            pose: ambition_vfx::FxPose::UPRIGHT,
         }
     }
 }

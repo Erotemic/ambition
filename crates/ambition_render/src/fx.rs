@@ -197,6 +197,9 @@ pub fn process_fx_requests(
             pos: request.pos,
             fx: request.fx,
             scale: request.scale,
+            // ⭐ the REQUESTER's pose, not identity — this is the whole route a
+            // move's committed facing takes to the artwork (D154).
+            pose: request.pose,
         });
         // The override if there is one, otherwise the cue the effect's own name
         // already addresses. A caller has nothing to remember.
@@ -356,7 +359,12 @@ pub fn vfx_spawn_messages(
             }
             VfxMessage::Impact { pos } => spawn_impact(&mut commands, spawn_scope, world, pos),
             VfxMessage::CoinPop { pos } => spawn_coin_pop(&mut commands, spawn_scope, world, pos),
-            VfxMessage::Effect { pos, fx, scale } => {
+            VfxMessage::Effect {
+                pos,
+                fx,
+                scale,
+                pose,
+            } => {
                 spawn_effect(
                     &mut commands,
                     spawn_scope,
@@ -365,6 +373,7 @@ pub fn vfx_spawn_messages(
                     pos,
                     fx,
                     scale,
+                    pose,
                 );
             }
             VfxMessage::BlinkEffects {
@@ -472,6 +481,7 @@ fn spawn_effect(
     pos: ae::Vec2,
     fx: FxId,
     scale: f32,
+    pose: ambition_vfx::FxPose,
 ) {
     let Some(session_scope) = session_scope else {
         return;
@@ -507,6 +517,13 @@ fn spawn_effect(
         },
     );
     sprite.custom_size = Some(render_size);
+    // ⛔⛔ **the artwork was drawn world-upright no matter who threw it** (D154).
+    // The authored offset was already mirrored by the move's committed facing
+    // and rotated into the owner's frame, so an effect landed in the right PLACE
+    // pointing the wrong way — invisible on a radial burst, visibly wrong on a
+    // slice, a streak or an arrow. `FxPose::UPRIGHT` is the identity, so every
+    // emitter that never had an opinion draws exactly as before.
+    sprite.flip_x = pose.mirror;
     let mut animator = CharacterAnimator::new(asset);
     animator.request_clip(
         [effect.name],
@@ -517,7 +534,8 @@ fn spawn_effect(
         (
             Name::new(format!("VFX effect: {}", effect.name)),
             sprite,
-            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0)),
+            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0))
+                .with_rotation(Quat::from_rotation_z(pose.angle)),
             animator,
             EffectVisual {
                 pos,

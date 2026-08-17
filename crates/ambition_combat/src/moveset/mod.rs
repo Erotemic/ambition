@@ -194,6 +194,16 @@ pub struct MoveEventMessage {
     /// hand — the consumer has neither. Zero for every event kind that has no
     /// place of its own, which is all of them but `Vfx`.
     pub world_offset: ae::Vec2,
+    /// **HOW this event is oriented** — the sibling of [`Self::world_offset`],
+    /// resolved from the SAME two authorities in the same expression.
+    ///
+    /// ⛔ separating them is the defect D154 fixed: the offset was mirrored by
+    /// the committed facing and rotated into the owner's frame, and the artwork
+    /// was then drawn world-upright, so a left-facing fighter's slice appeared
+    /// in exactly the right place pointing right. A pose derived anywhere else
+    /// could disagree with the position it decorates.
+    /// [`ambition_vfx::FxPose::UPRIGHT`] for every kind that has no art.
+    pub world_pose: ambition_vfx::FxPose,
 }
 
 /// This actor is playing a move. Insert to start; the system removes it when
@@ -600,15 +610,38 @@ pub fn advance_move_playback(
                 // rotate into the owner's frame — the two steps `Impulse` takes
                 // directly above, so a burst authored at the end of a swing
                 // stays there under any gravity and either facing.
-                let world_offset = match &ev.kind {
-                    MoveEventKind::Vfx { at, .. } if *at != (0.0, 0.0) => {
+                //
+                // ⭐⭐ **AND THE POSE COMES FROM THE SAME TWO AUTHORITIES**
+                // (D154). The offset was mirrored and rotated all along while
+                // the ARTWORK was drawn world-upright, so an authored burst
+                // landed in the right place pointing the wrong way. Deriving the
+                // pose anywhere else would let it disagree with the offset it
+                // decorates, which is the whole reason it is computed here.
+                let (world_offset, world_pose) = match &ev.kind {
+                    MoveEventKind::Vfx { at, .. } => {
                         let body_frame = owner_frames
                             .get(owner)
                             .map(|frame| frame.basis())
                             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
-                        body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
+                        let offset = if *at != (0.0, 0.0) {
+                            body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
+                        } else {
+                            ae::Vec2::ZERO
+                        };
+                        // ⚠ an effect at the body's CENTRE still has a facing —
+                        // the old `at != (0,0)` guard was about not paying for a
+                        // transform that yields zero, never about orientation.
+                        (
+                            offset,
+                            ambition_vfx::FxPose::of(
+                                pb.facing,
+                                ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle(
+                                    body_frame.down,
+                                ),
+                            ),
+                        )
                     }
-                    _ => ae::Vec2::ZERO,
+                    _ => (ae::Vec2::ZERO, ambition_vfx::FxPose::UPRIGHT),
                 };
                 events.write(MoveEventMessage {
                     owner,
@@ -616,6 +649,7 @@ pub fn advance_move_playback(
                     presentation_source: presentation_source.clone(),
                     kind: ev.kind.clone(),
                     world_offset,
+                    world_pose,
                 });
             }
         }
@@ -631,6 +665,9 @@ pub fn advance_move_playback(
                 if window.start_s <= t && t < window.end_s {
                     events.write(MoveEventMessage {
                         world_offset: ae::Vec2::ZERO,
+                        // A sustained `Effect` is routed to a keyed TECHNIQUE,
+                        // not drawn as art, so it has no pose of its own.
+                        world_pose: ambition_vfx::FxPose::UPRIGHT,
                         owner,
                         move_id: pb.spec.id.clone(),
                         presentation_source: presentation_source.clone(),
@@ -1483,7 +1520,10 @@ pub fn dispatch_move_events(
                 // 74 of those 145 calls were laboriously spelling out.
                 let mut request = ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
                     .with_scale(*scale)
-                    .from_source(ev.presentation_source.clone());
+                    .from_source(ev.presentation_source.clone())
+                    // ⭐ the pose derived beside the OFFSET, so the artwork and
+                    // the place it lands cannot disagree about facing (D154).
+                    .with_pose(ev.world_pose);
                 if let Some(cue) = sfx {
                     request = request.with_sfx(SfxId::new(cue));
                 }

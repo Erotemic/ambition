@@ -544,6 +544,7 @@ pub(crate) fn apply_actor_hit(
                         pos: em.kin.pos,
                         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                         scale: 0.85,
+                        pose: ambition_vfx::FxPose::UPRIGHT,
                     });
                 }
                 // Replicating blobs divide on death into two offspring — and the

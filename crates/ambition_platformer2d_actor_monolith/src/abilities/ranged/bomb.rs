@@ -92,6 +92,7 @@ pub fn tick_bomb_fuses(
             pos: ground.pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 1.0,
+            pose: ambition_vfx::FxPose::UPRIGHT,
         });
         commands.entity(entity).despawn();
     }

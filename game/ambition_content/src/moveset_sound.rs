@@ -109,6 +109,7 @@ fn cues_at_one_instant(
                 move_id: spec.id.clone(),
                 presentation_source: PresentationSourceId::unscoped(),
                 kind: ev.kind.clone(),
+                world_pose: ambition_vfx::FxPose::UPRIGHT,
             });
     }
     app.update();

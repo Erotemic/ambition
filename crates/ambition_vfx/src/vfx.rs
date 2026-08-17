@@ -238,6 +238,11 @@ pub enum VfxMessage {
         pos: ae::Vec2,
         fx: FxId,
         scale: f32,
+        /// ⭐ **added by D154, and every construction site had to answer it** —
+        /// which is the point. An emitter that draws unrotated says
+        /// [`FxPose::UPRIGHT`] out loud instead of inheriting the world's
+        /// orientation by omission.
+        pose: FxPose,
     },
     BlinkEffects {
         from: ae::Vec2,
@@ -295,6 +300,48 @@ pub enum VfxMessage {
 /// effect's own sound is a property of the NAME and presentation resolves it —
 /// there is nothing for a caller to remember. Set `sfx` only to say something
 /// other than what the art already says.
+/// **HOW an effect is oriented, in the frame of whatever asked for it.**
+///
+/// ⛔⛔ **authored move effects were HALF body-local, and that is why this
+/// exists** (D154). `build_move_events` mirrors an authored `at` by the move's
+/// committed facing and rotates it into the owner's gravity frame — so the
+/// effect appeared in exactly the right PLACE — and then the artwork was drawn
+/// with the world's own orientation regardless. A left-facing fighter's
+/// `air_slice` landed at the correct left-hand spot pointing right.
+///
+/// ⭐ **the two fields are the two authorities the POSITION already used**, and
+/// deliberately not a third: a pose derived from anywhere else can disagree with
+/// the offset it decorates.
+///
+/// [`Self::UPRIGHT`] is the identity and the default, so an emitter that has no
+/// opinion — a hazard, a pickup, a bomb — draws exactly as it always did.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FxPose {
+    /// Mirror horizontally: the move's committed facing pointed left.
+    pub mirror: bool,
+    /// Rotation in radians, from the owner's gravity frame — the same angle the
+    /// SPRITE renderer stands a body up with, so a body and the effect hanging
+    /// off it cannot disagree about which way is up.
+    pub angle: f32,
+}
+
+impl FxPose {
+    /// Unmirrored and unrotated — what every emitter that never had an opinion
+    /// was already getting.
+    pub const UPRIGHT: Self = Self {
+        mirror: false,
+        angle: 0.0,
+    };
+
+    /// A pose from the two authorities a move's authored offset already uses.
+    pub fn of(facing: f32, angle: f32) -> Self {
+        Self {
+            mirror: facing < 0.0,
+            angle,
+        }
+    }
+}
+
 #[derive(Message, Clone, Debug)]
 pub struct FxRequest {
     pub pos: ae::Vec2,
@@ -315,6 +362,8 @@ pub struct FxRequest {
     /// [`PresentationSourceId::unscoped`] is the default and means what it
     /// always did: the active context's primary source decides.
     pub source: ambition_sfx::PresentationSourceId,
+    /// How the art is oriented — see [`FxPose`]. [`FxPose::UPRIGHT`] by default.
+    pub pose: FxPose,
 }
 
 impl FxRequest {
@@ -325,7 +374,14 @@ impl FxRequest {
             scale: 1.0,
             sfx: None,
             source: ambition_sfx::PresentationSourceId::unscoped(),
+            pose: FxPose::UPRIGHT,
         }
+    }
+
+    /// The same request, drawn in `pose`.
+    pub fn with_pose(mut self, pose: FxPose) -> Self {
+        self.pose = pose;
+        self
     }
 
     /// The same request, attributed to a specific presentation source.

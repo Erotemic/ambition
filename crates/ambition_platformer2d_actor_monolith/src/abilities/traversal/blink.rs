@@ -212,11 +212,13 @@ pub fn blink_system(
         pos: from,
         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
         scale: 0.35,
+        pose: ambition_vfx::FxPose::UPRIGHT,
     });
     vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
         pos: target,
         fx: ambition_vfx::fx::ids::CLASSIC_BURST,
         scale: 0.5,
+        pose: ambition_vfx::FxPose::UPRIGHT,
     });
 }
 

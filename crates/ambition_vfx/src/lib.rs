@@ -27,7 +27,7 @@ pub mod fx;
 pub mod vfx;
 pub use fx::FxId;
 pub use vfx::{
-    FireworksRequest, FxRequest, HitBurst, HurtFeedback, ImpactMaterial, ParticleKind, VfxMessage,
+    FireworksRequest, FxPose, FxRequest, HitBurst, HurtFeedback, ImpactMaterial, ParticleKind, VfxMessage,
 };
 
 // ===================================================================

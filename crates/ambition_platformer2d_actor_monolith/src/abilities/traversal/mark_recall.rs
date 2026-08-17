@@ -108,6 +108,7 @@ pub fn mark_recall_system(
             pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.4,
+            pose: ambition_vfx::FxPose::UPRIGHT,
         });
         return;
     }
@@ -152,6 +153,7 @@ pub fn mark_recall_system(
                 pos: target,
                 fx: ambition_vfx::fx::ids::CLASSIC_BURST,
                 scale: 0.6,
+                pose: ambition_vfx::FxPose::UPRIGHT,
             });
         }
     }

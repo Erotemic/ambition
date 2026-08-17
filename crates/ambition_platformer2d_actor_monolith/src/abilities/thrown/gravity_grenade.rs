@@ -99,6 +99,7 @@ pub fn tick_gravity_grenade_fuses(
             pos: ground.pos,
             fx: ambition_vfx::fx::ids::CLASSIC_BURST,
             scale: 0.7,
+            pose: ambition_vfx::FxPose::UPRIGHT,
         });
         commands.entity(entity).despawn();
     }

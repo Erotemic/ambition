@@ -842,72 +842,61 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
-- ▢ **D163 — THE LDtk VALIDATOR'S WARNINGS HOLD THREE REAL CONTENT DEFECTS, AND
-  ITS ERRORS ARE ALL NOISE, WHICH IS WHY NOBODY READS EITHER. (opened
-  2026-08-17)**
+- ▢ **D163 — THE LDtk VALIDATOR IS ALMOST ALL NOISE, AND ONE OF ITS WARNINGS
+  INVITES DESTROYING AUTHORED CONTENT. (opened 2026-08-17)**
 
-⭐ found by actually running it — `PYTHONPATH=tools/ambition_ldtk_tools python3 -m
-ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk`.
-Its 4 `error:` lines are false positives (see the note above); its **warnings are
-not**.
-
-⛔⛔ **1. `pirate_sky_lookout` SPAWNS FOUR ENEMIES TWICE — verified in the file,
-not inferred from the warning.** Ten `EnemySpawn` entities, four of them at
-pixel-identical positions:
+⛔⛔ **I FILED THIS ROW WITH A HEADLINE THAT WAS WRONG, AND THE WRONG VERSION WAS
+ACTIONABLE — that is the finding worth keeping.** I reported *"two pirate-sky
+rooms ship seven DUPLICATED enemy spawns"* and was about to delete them through
+`ambition-ldtk entity delete`. They are not duplicates:
 
 ```text
-[192, 240]  ×2      [560, 160]  ×2
-[960, 240]  ×2      [720, 320]  ×2      ⇒ 10 spawns, 6 distinct
+pirate_sky_lookout  [192,240]  Pirate Raider   mounted_on → the shark below it
+                    [192,240]  Burning Flying Shark
+                    …4 such pairs (3 Raiders + Iron Mary)
+pirate_sky_arena    …3 such pairs, which is why "every spawn" looked doubled
 ```
 
-⇒ that room fields **four extra enemies stacked exactly on top of four
-existing ones**, so its difficulty is not what anyone authored. ⚠ the two ids run
-in separate ranges (`44xx` and `68xx`), which is the signature of an editor
-session duplicating a selection — the same family as the EntityRef nulling this
-project already tracks. **Count entities after an editor session, not just refs.**
+⇒ **a rider and its mount are AUTHORED at the same pixel**, and the raider's
+`mounted_on` field names the shark's entity iid. Deleting either half would have
+destroyed the shark-riding pirates — **the exact content Jon reported missing
+once already** (*"The pirates in the pirate sky no longer ride their sharks"*),
+restored from git and guarded after a 2026-07-06 editor session dropped the
+mount refs.
 
-⛔⛔ **AND IT IS TWO ROOMS, BOTH PIRATE-SKY — `pirate_sky_arena` in
-`intro.ldtk` is duplicated ENTIRELY:**
+⭐ **only the field comparison stopped it.** Position-identical was the whole of
+my evidence, and two entities at one point is what a mount IS. ⇒ **compare
+FIELDS before calling two entities duplicates**, and treat any "clean up this
+redundancy" impulse in authored content as needing a reason the AUTHOR would
+recognise.
+
+## What the validator actually reports
 
 ```text
-pirate_sky_lookout   10 spawns · 6 distinct  ⇒ 4 duplicated
-pirate_sky_arena      6 spawns · 3 distinct  ⇒ 3 duplicated — EVERY ONE
+30 error:  lines   ALL false positives — 4 cross-world LoadingZone targets that
+                   a single-file validator cannot resolve, and 26 that exist
+                   only if you validate the raw map_assets copy instead of the
+                   canonical symlinked path (the entity manifest sits beside
+                   the symlink)
+spawn_overlap      FALSE POSITIVE for mounts — it does not know a rider sits on
+                   its mount, and it fires on every one
+missing_level_wall GENRE-DEPENDENT — fires on mary_o_1_1 and sanic_speedway
+                   where a bottomless pit is the design
 ```
 
-⇒ **seven duplicated enemy spawns across the two sky rooms**, and the arena has
-no un-duplicated spawn at all. ⭐ two rooms in the same area failing the same way
-makes an editor-session accident near-certain rather than suspected, and it is a
-DIFFERENT world file from the lookout — so whatever ran, ran across worlds.
-⚠ this project already records a 2026-07-06 editor session that dropped four
-mount refs in `sandbox.ldtk`; the same class.
+▢ **the two that survive scrutiny:**
+1. **`portal_lab` has no floor and no `EdgeExit`** — *"the controlled body can
+   leave the world."* Real for an AMBITION exploration room, where falling out
+   is not a mechanic.
+2. **`SurfaceRamp` has no editor definition** (`defs.entities` is missing it), so
+   a supported engine entity cannot be PLACED by an author. Fix is the tool's own
+   `ambition-ldtk def register-entity`.
 
-⛔ **NOT DATABLE FROM THE SUBMODULE, and that is the finding's honest bound**:
-`pirate_sky_arena` reads 6 spawns / 3 distinct at **every** commit of
-`intro.ldtk` in `ambition_map_assets`, including its OLDEST (`f74264c`,
-2026-08-08) — the migration that created the submodule. ⇒ the duplication came
-in WITH the migration and has been shipping since at least then; dating it
-further means digging the superproject's pre-migration history. ⭐ so this is
-not a fresh accident to catch, it is standing content nobody has looked at.
-
-⚠ **2. `portal_lab` has no floor.** *"no `Solid` blocking the bottom edge and no
-`EdgeExit` on that side; the controlled body can leave the world."* A room the
-player falls out of. ⛔ **but this check is GENRE-DEPENDENT and mostly noise**:
-it also fires on `mary_o_1_1`, `mary_o_1_3` and `sanic_speedway`, where a
-bottomless pit is the design and an open top edge is just headroom. It is a real
-finding for an AMBITION exploration room and a false one for the platformer
-demos — which is another reason its warnings go unread.
-
-⚠ **3. `SurfaceRamp` has no editor definition** — `defs.entities` is missing it,
-so a supported engine entity cannot be PLACED by an author. Fix is the tool's own
-`ambition-ldtk def register-entity`.
-
-⚠ plus two known: `gnu_ton_arena`'s EnemySpawn/BossSpawn overlap, and
-`sanic_sandbox`'s half-tile Y origin (D162 item 3).
-
-⇒ **the row is the pattern, not the three items**: 30 error lines that are all
-noise sit above 8 warnings of which three are real, so the signal-to-noise runs
-the wrong way and the tool is not in any gate. ⛔ fix the `.ldtk` files only
-through `tools/ambition_ldtk_tools` — never re-serialise the JSON.
+⇒ **the row is the instrument, not the content.** A validator whose errors are
+100% noise and whose loudest warning flags a designed relationship is worse than
+none: it taught me, in one sitting, to reach for `entity delete` on a feature.
+▢ teach `spawn_overlap` about `mounted_on`, and either resolve `LoadingZone`
+targets across worlds or suppress them with a written reason.
 
 - ▢ **D162 — EVERY BOOT PRINTS FOUR WARNINGS AND NOBODY HAS TRIAGED THEM, which
   is how a log stops being read. (opened 2026-08-17, from capture output)**

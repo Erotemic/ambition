@@ -399,6 +399,23 @@ one.
 is the highest-value single addition, because it is where the ART assertions
 live and art is what Jon reports.
 
+⛔⛔ **AND A THIRD INSTANCE LANDED THE SAME DAY, which is the sharpest argument
+this row will get.** `ambition_conversation` declares `default = []` and gates
+`pub mod dialog` behind `#[cfg(feature = "ui")]`. That module holds **both**
+authored-logic Yarn falsifiers — the condition half's, and the command half's
+written on 2026-08-17 to prove the no-central-registry claim:
+
+```text
+cargo test --workspace --lib                          ⇒ does NOT compile them
+cargo test -p ambition_conversation --features ui --lib  ⇒ 10 passed
+```
+
+⇒ **a falsifier written today, for the express purpose of making an
+architectural claim testable, is not run by the project gate.** ⭐ that is the
+whole of this row in one sentence, and it argues for the same shape as the
+Mary-O case: the feature that carries a crate's REAL suite (`ui` here, `visible`
+there) is what the second pass needs to name.
+
 `scripts/feature_gated_tests.py` says 24 crates hide 629 tests. Eight were run
 explicitly at HEAD:
 

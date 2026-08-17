@@ -302,6 +302,19 @@ pub struct FxRequest {
     pub scale: f32,
     /// Play THIS cue instead of the effect's own paired one.
     pub sfx: Option<ambition_sfx::SfxId>,
+    /// **WHOSE effect this is**, for the same reason every other sound carries
+    /// it: a seat's cues belong to that seat.
+    ///
+    /// ⭐ **added so authored MOVE effects can come through here at all** (D149).
+    /// `dispatch_move_events` already scopes its `Sfx` arm by the event's
+    /// `presentation_source` and writes `VfxMessage::Effect` directly for its
+    /// `Vfx` arm — going around the pairing this type exists to provide. It
+    /// could not route through here while this dropped the scoping on the floor,
+    /// so the fix to the pairing had to start by teaching this the question.
+    ///
+    /// [`PresentationSourceId::unscoped`] is the default and means what it
+    /// always did: the active context's primary source decides.
+    pub source: ambition_sfx::PresentationSourceId,
 }
 
 impl FxRequest {
@@ -311,7 +324,14 @@ impl FxRequest {
             fx,
             scale: 1.0,
             sfx: None,
+            source: ambition_sfx::PresentationSourceId::unscoped(),
         }
+    }
+
+    /// The same request, attributed to a specific presentation source.
+    pub fn from_source(mut self, source: ambition_sfx::PresentationSourceId) -> Self {
+        self.source = source;
+        self
     }
 
     pub fn classic(pos: ae::Vec2) -> Self {

@@ -200,11 +200,22 @@ pub fn process_fx_requests(
         });
         // The override if there is one, otherwise the cue the effect's own name
         // already addresses. A caller has nothing to remember.
+        //
+        // ⭐ **and it goes out AS the requester**, which is what lets an authored
+        // move effect come through here instead of writing its own pair (D149).
+        // `unscoped` is the default and means what it always did — the active
+        // context's primary source decides — so every existing caller is
+        // byte-identical.
         if let Some(id) = request.sfx.or_else(|| effect_cue(request.fx)) {
-            sfx.write(SfxMessage::Play {
+            let play = SfxMessage::Play {
                 id,
                 pos: request.pos,
-            });
+            };
+            if request.source.is_unscoped() {
+                sfx.write(play);
+            } else {
+                sfx.write_from(request.source.clone(), play);
+            }
         }
     }
 }
@@ -1247,5 +1258,54 @@ mod tests {
     fn an_unknown_effect_resolves_to_nothing_not_to_row_zero() {
         assert!(authored_effect_for(FxId::new("kaboom")).is_none());
         assert!(effect_cue(FxId::new("kaboom")).is_none());
+    }
+    /// **A request's SOURCE survives the fan-out.** (D149)
+    ///
+    /// ⛔ this is the half that had to exist before authored MOVE effects could
+    /// come through `FxRequest` at all. `dispatch_move_events` scopes its `Sfx`
+    /// arm by the event's presentation source, and its `Vfx` arm writes a bare
+    /// `VfxMessage::Effect` — going around the pairing. Routing it here while
+    /// this dropped the scoping would have traded remembered-sound ceremony for
+    /// a silently misattributed cue, which is a worse bug than the one being
+    /// fixed.
+    ///
+    /// ⚠ both arms asserted: the unscoped default must stay on the plain write,
+    /// or every existing caller changes behaviour to buy this.
+    #[test]
+    fn a_requests_presentation_source_reaches_the_cue_it_pairs() {
+        use ambition_sfx::{OwnedSfxMessage, PresentationSourceId};
+        use bevy::prelude::*;
+
+        fn run(source: PresentationSourceId) -> Vec<OwnedSfxMessage> {
+            let mut app = App::new();
+            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_message::<OwnedSfxMessage>();
+            app.add_message::<FxRequest>();
+            app.add_systems(Update, process_fx_requests);
+            app.world_mut().write_message(
+                FxRequest::new(ae::Vec2::ZERO, ambition_vfx::fx::ids::CLASSIC_BURST)
+                    .from_source(source),
+            );
+            app.update();
+            let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
+            let mut cursor = messages.get_cursor();
+            cursor.read(messages).cloned().collect()
+        }
+
+        let seat = run(PresentationSourceId::from("seat_two"));
+        assert_eq!(seat.len(), 1, "the paired cue did not reach the channel");
+        assert_eq!(
+            seat[0].source.as_str(),
+            "seat_two",
+            "a request attributed to a seat played as somebody else"
+        );
+
+        let anyone = run(PresentationSourceId::unscoped());
+        assert_eq!(anyone.len(), 1, "the paired cue did not reach the channel");
+        assert!(
+            anyone[0].source.is_unscoped(),
+            "the unscoped default acquired a source, so every existing caller \
+             changed behaviour to buy the scoping"
+        );
     }
 }

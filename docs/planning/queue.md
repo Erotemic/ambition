@@ -5011,6 +5011,30 @@ measure the cost and let him decide.
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
   2026-08-16, with five instances measured in one night as its evidence)**
 
+⭐⭐ **AND THE FIRST POSITIVE INSTANCE — 2026-08-17, boundaries that were STATED
+did the work, which is this row's thesis run forwards instead of backwards.**
+
+Relocating four modules out of the monolith (`355874fe1`), three "obvious"
+destinations REFUSED the work in their own words, before any code moved:
+
+```text
+ambition_dialog          declares itself CONTENT-FREE
+ambition_settings_menu   renderer-agnostic, carries no bevy
+ambition_menu            its manifest says the trimmed bevy features are
+                         "load-bearing for the WHOLE workspace"
+```
+
+⇒ **every one of those is a composition boundary written down where the next
+person looks**, and each turned a plausible move into an obviously wrong one at
+zero cost. ⭐ the rule this yields is small and practical: **read the
+DESTINATION's stated contract before moving anything into it** — the failure
+this row catalogues is discovery-by-collision, and a stated contract is how a
+boundary gets discovered by READING instead.
+
+⚠ the counter-case is in the same commit: `items` and `world` could not move
+because `construction` imports `world::placements` BACK — a bidirectional edge
+nobody declared, found only by chasing it.
+
 ⭐⭐ **THREE MORE INSTANCES 2026-08-17, and one of them is the row's thesis
 RESOLVED for a single capability — which is what a worked example looks like.**
 

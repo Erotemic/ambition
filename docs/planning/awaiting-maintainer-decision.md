@@ -299,6 +299,28 @@ watched at under a tenth of its coverage.
 ⇒ so the decision is now the smaller one: **is the feature-gated delta worth a
 second gate pass, and if so which features?** — not "should anything run at all".
 
+⭐⭐ **AND HERE IS WHAT THE DELTA ACTUALLY HOLDS — a named consequence rather
+than a count (2026-08-17).** `game/ambition_demo_mary_o_app/tests/painted_blocks_still_change_their_art.rs`
+opens with `#![cfg(feature = "visible")]`, so **the whole file** is in the
+unwatched half. What it guards is a bug Jon reported and we fixed:
+
+```text
+a_question_block_in_the_painted_cavern_wears_its_own_art
+a_painted_block_nobody_dresses_keeps_its_flat_quad
+the_invisible_brick_triggers_from_below
+a_discovered_hidden_block_reveals_itself
+```
+
+⇒ the file exists because *"one line in `level_1_2()` opted every block in the
+cavern out of art updates, permanently"* — and **a regression of exactly that
+would not be caught by the gate today.** ⚠ Jon's observations file still carries
+open block-art items in the same area, so this is a live surface, not a settled
+one.
+
+⭐ that makes the decision concrete: the `visible` feature on the two demo apps
+is the highest-value single addition, because it is where the ART assertions
+live and art is what Jon reports.
+
 `scripts/feature_gated_tests.py` says 24 crates hide 629 tests. Eight were run
 explicitly at HEAD:
 

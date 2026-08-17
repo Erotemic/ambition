@@ -138,6 +138,19 @@ impl CharacterSheetSpec {
         SheetTuning::new(self.collision_scale, self.frame_sample_inset)
             .with_feet_anchor_y(self.feet_anchor_y)
     }
+
+    /// **Which way this sheet's art was DRAWN** — see
+    /// [`SheetRecord::authored_faces_left`]. Read straight off the published
+    /// record rather than copied into a field, so the spec cannot disagree with
+    /// the manifest it was built from.
+    ///
+    /// The renderer XORs this into the gravity-aware facing flip, exactly as
+    /// the boss path has done with [`crate::boss::BossSheetSpec::flip_x`] since
+    /// the mockingbird: the mirror asks *"does the requested facing differ from
+    /// the drawn facing"*, not *"is facing negative"*.
+    pub fn authored_faces_left(&self) -> bool {
+        self.record.authored_faces_left
+    }
 }
 
 impl SheetTuning {
@@ -476,7 +489,19 @@ pub fn try_load_pack_spec_for_target(
     scale: super::TextureResolutionScale,
 ) -> Option<(CharacterSheetSpec, &'static str)> {
     let (tier, catalog) = crate::sprite_packs::catalog_for_scale(scale)?;
-    let record = catalog.to_sheet_record(target)?;
+    let mut record = catalog.to_sheet_record(target)?;
+    // **A pack is STORAGE for the same drawing, so the drawing's own facing
+    // rides along.** The synthesized record describes where the pixels sit in
+    // the atlas; it cannot know which way the body in them points, and
+    // repacking a sheet does not redraw it. Inherited from the base manifest
+    // for exactly the reason the caller inherits `tuning` from the base spec.
+    //
+    // ⚠ without this the Patent Clerk faced the right way from his own sheet
+    // and backwards again from the ultrapack — and he is packed at all four
+    // tiers, so that is the path most devices actually take.
+    record.authored_faces_left = record_for_target(target)
+        .map(|base| base.authored_faces_left)
+        .unwrap_or(false);
     let spec = spec_from_record(&record, tuning);
     spec.maps(CharacterAnim::Idle).then_some((spec, tier))
 }

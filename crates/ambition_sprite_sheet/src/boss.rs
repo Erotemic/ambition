@@ -413,6 +413,11 @@ impl BossSheetSpec {
             y_offset: 0,
             body_metrics: None,
             tuning: None,
+            // The boss spec has carried this same art fact since the
+            // mockingbird; the synthesized record republishes it so a boss
+            // that falls back to the const grid keeps the drawn facing it
+            // would have read from a published sheet RON.
+            authored_faces_left: self.authored_faces_left,
             rows,
         }
     }

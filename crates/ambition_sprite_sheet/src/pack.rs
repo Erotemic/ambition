@@ -311,6 +311,7 @@ impl SpritePackCatalog {
             y_offset: 0,
             body_metrics: None,
             tuning: None,
+            authored_faces_left: false,
             rows,
         })
     }

@@ -73,8 +73,19 @@ pub(crate) fn apply_character_frame(
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
     // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    let flip =
-        ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir);
+    //
+    // XORed with the SHEET's own drawn facing, so the mirror asks "does the
+    // requested facing differ from the facing this art was drawn in" rather
+    // than "is facing negative". `authored_faces_left` is false for all but a
+    // handful of sheets, so every +x-drawn character is byte-identical. This
+    // is the same term `animate_bosses` has applied since the mockingbird —
+    // the character path was simply the half that never got it, which is why
+    // the Patent Clerk (an SVG rig whose paperdoll view is `Side Left`) faced
+    // away from wherever he was going.
+    let flip = ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(
+        facing,
+        gravity_dir,
+    ) ^ animator.spec.authored_faces_left();
     sprite.flip_x = flip;
     sprite.color = color;
     // Self-capture the trim basis from the spawn-built sprite the first time we
@@ -358,11 +369,124 @@ pub fn animate_props(
 #[cfg(test)]
 mod tests {
     use super::{generic_feature_anim_owns, FeatureVisualKind};
+    use ambition_platformer2d_core::Vec2;
+    use ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x;
+    use ambition_sprite_sheet::character::sheets::{available_targets, record_for_target};
 
     #[test]
     fn actor_animators_are_not_owned_by_the_generic_feature_idle_loop() {
         assert!(!generic_feature_anim_owns(FeatureVisualKind::Actor));
         assert!(generic_feature_anim_owns(FeatureVisualKind::Pickup));
         assert!(generic_feature_anim_owns(FeatureVisualKind::Hazard));
+    }
+
+    /// Which way a sheet's body POINTS ON SCREEN, as the renderer draws it.
+    ///
+    /// This is `apply_character_frame`'s flip decision composed with the fact
+    /// it is deciding about: the art itself points `-x` when it was drawn
+    /// facing left, and mirroring negates whichever way it points. A test that
+    /// only checked `flip_x` would be checking a mechanism against itself —
+    /// the answerable question is which way the character ends up looking.
+    fn drawn_direction(authored_faces_left: bool, facing: f32) -> f32 {
+        let art_points = if authored_faces_left { -1.0 } else { 1.0 };
+        let flip = gravity_aware_flip_x(facing, Vec2::NEG_Y) ^ authored_faces_left;
+        if flip {
+            -art_points
+        } else {
+            art_points
+        }
+    }
+
+    /// **The Patent Clerk faces the way he is going, exactly like a character
+    /// whose art was drawn the other way round.**
+    ///
+    /// Jon, 2026-08-16: *"Patent clerk faces backwards."* His sheet is drawn
+    /// facing WEST (the SVG paperdoll view is `Patent Clerk - Side Left`, and
+    /// his rig declares `features.facing: "west"`), while the renderer assumed
+    /// every sheet is drawn facing +x — so the one mirror it applied pointed
+    /// him away from his own movement.
+    ///
+    /// The comparison is the point: the goblin is drawn facing right, and Emmy
+    /// (`noether`) is a rigged character from the same pipeline drawn facing
+    /// east. Given the same facing all three must LOOK the same way, and
+    /// neither of the other two may move.
+    #[test]
+    fn the_patent_clerk_faces_the_way_he_is_going_like_every_other_character() {
+        let clerk = record_for_target("patent_clerk")
+            .expect("the Patent Clerk's sheet is baked into the sheet table");
+        // The premise, pinned: this is a LEFT-drawn sheet. Without it the
+        // comparison below passes for a sheet that never exercised the term.
+        assert!(
+            clerk.authored_faces_left,
+            "patent_clerk's manifest must publish the drawn facing its rig declares \
+             (`features.facing: \"west\"`); regenerate the sheet if this is missing"
+        );
+        for right_drawn in ["goblin_cave_dagger", "noether"] {
+            let other = record_for_target(right_drawn)
+                .unwrap_or_else(|| panic!("{right_drawn} is baked into the sheet table"));
+            assert!(
+                !other.authored_faces_left,
+                "{right_drawn} is drawn facing +x and must not have acquired a mirror"
+            );
+            for facing in [-1.0_f32, 1.0] {
+                assert_eq!(
+                    drawn_direction(clerk.authored_faces_left, facing),
+                    drawn_direction(other.authored_faces_left, facing),
+                    "at facing {facing} the clerk and {right_drawn} must look the same way"
+                );
+            }
+        }
+    }
+
+    /// **Every baked sheet points where its body is facing — however it was
+    /// drawn.** The whole-population form of the rule above, so the term can
+    /// never be right for the one character it was added for and wrong for the
+    /// rest.
+    #[test]
+    fn every_baked_sheet_is_drawn_pointing_where_its_body_faces() {
+        let mut left_drawn: Vec<&str> = Vec::new();
+        let mut checked = 0usize;
+        for target in available_targets() {
+            let Some(record) = record_for_target(target) else {
+                continue;
+            };
+            checked += 1;
+            if record.authored_faces_left {
+                left_drawn.push(target);
+            }
+            for facing in [-1.0_f32, 1.0] {
+                assert_eq!(
+                    drawn_direction(record.authored_faces_left, facing),
+                    facing,
+                    "{target} draws its body pointing away from facing {facing}"
+                );
+            }
+        }
+        assert!(
+            checked > 100,
+            "expected the baked sheet table to hold the whole cast, saw {checked}"
+        );
+        // ⭐ **THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
+        // hope.** `authored_faces_left` is `#[serde(default)]` and the
+        // generator emits it only when true, so a sheet absent from this list
+        // resolves `flip_x` to exactly `facing < 0` — byte-identical to what it
+        // did before the field existed. This list is the complete set of sheets
+        // whose drawing changed.
+        //
+        // ⚠ Carl Stargan is drawn facing west too and his rig says so, but his
+        // sheet has not been regenerated — he is reported, not fixed, and
+        // belongs on this list only when Jon queues him.
+        left_drawn.sort_unstable();
+        let expected: Vec<&str> = vec![
+            "patent_clerk",
+            "patent_clerk.0_25x",
+            "patent_clerk.0_5x",
+            "patent_clerk.potato",
+        ];
+        assert_eq!(
+            left_drawn, expected,
+            "exactly the Patent Clerk's sheet (and its quality tiers) declares a left-drawn \
+             art facing; every other sheet must keep the +x default"
+        );
     }
 }

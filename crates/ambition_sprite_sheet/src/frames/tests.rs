@@ -40,6 +40,7 @@ fn record(frame_w: u32, frame_h: u32, rows: Vec<SheetRow>) -> SheetRecord {
         y_offset: 0,
         body_metrics: None,
         tuning: None,
+        authored_faces_left: false,
         rows,
     }
 }

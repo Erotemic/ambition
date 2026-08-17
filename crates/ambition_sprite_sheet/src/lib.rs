@@ -102,6 +102,28 @@ pub struct SheetRecord {
     /// callers use their Rust fallback tuning.
     #[serde(default)]
     pub tuning: Option<SheetTuningSpec>,
+    /// **Which way this sheet's ART WAS DRAWN** — `true` when the generator
+    /// rendered the neutral pose facing **left** (−x), the opposite of the
+    /// renderer's standing assumption that art faces +x (right).
+    ///
+    /// It is a fact about the ARTWORK, not about the character, which is why it
+    /// lives on the sheet: redraw the same character facing the other way and
+    /// only this flips. The renderer's mirror decision is therefore *"does the
+    /// requested facing differ from the facing this art was drawn in"* —
+    /// `flip_x = (facing < 0) XOR authored_faces_left` — rather than
+    /// `facing < 0`.
+    ///
+    /// ⭐ **`false` is the whole population minus a handful**, so the default
+    /// keeps every sheet that never mentions the field byte-identical. The
+    /// generator only emits it when it is `true`, which today means an
+    /// SVG-rigged sheet whose rig declares `features.facing: "west"` (the
+    /// Patent Clerk, whose `Side Left` paperdoll view is the drawn source).
+    ///
+    /// ⚠ this does NOT touch the body's `facing` value, its hitboxes, or its
+    /// authored `launch_dir` — those were always right. Only the drawing was
+    /// mirrored the wrong way.
+    #[serde(default)]
+    pub authored_faces_left: bool,
     pub rows: Vec<SheetRow>,
 }
 

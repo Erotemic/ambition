@@ -804,13 +804,13 @@ pub struct StanceReturn {
 /// independently; the macro state decides where the boss *wants*
 /// to be in the arena so the fight has a chase/disengage rhythm:
 ///
-/// - [`Engage`] — default. Movement uses the per-phase
+/// - [`BossMacroState::Engage`] — default. Movement uses the per-phase
 ///   [`BossMovementProfile`].
-/// - [`Approach`] — boss closes distance to the player; movement
+/// - [`BossMacroState::Approach`] — boss closes distance to the player; movement
 ///   target = player position, speed scaled up. Triggered when the
 ///   player has run too far away or the boss has been in Engage
 ///   too long.
-/// - [`Retreat`] — boss pulls back from the player; movement
+/// - [`BossMacroState::Retreat`] — boss pulls back from the player; movement
 ///   target = a retreat anchor on the opposite side of the arena.
 ///   Triggered when the player is too close (anti-cornering) or
 ///   periodically so the player sees the boss "prepare something"

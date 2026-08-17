@@ -83,7 +83,7 @@ pub struct Vitals {
     /// carried exactly this `Option` meaning since it was added; finalization
     /// folds the two, definition first.
     pub max_health: Option<i32>,
-    /// Reaches a body as [`Mass`](crate::features::Mass), which drives the mount
+    /// Reaches a body as `Mass` (the monolith's `features::ecs::mount`), which drives the mount
     /// pair's mass-weighted centre of gravity (ADR 0020): a heavy mount keeps the
     /// COG near itself, so the lighter rider orbits it on a gravity flip.
     ///
@@ -100,7 +100,7 @@ pub struct Vitals {
     /// "delete it" was very nearly the recommendation (2026-07-29).
     pub mass: Option<f32>,
     /// **How hard this body is to LAUNCH** — the knockback weight, reaching a
-    /// body as [`CombatTuning::weight`](crate::combat::CombatTuning). `1.0` is
+    /// body as `CombatTuning::weight` (`ambition_combat`). `1.0` is
     /// the reference body; a heavy fighter authors more and takes less of the
     /// growth term (`scaled_knockback` divides by it).
     ///
@@ -204,7 +204,7 @@ pub struct CharacterDefinition {
     /// divide, crash, or refuse to die at all.
     ///
     /// D73 phase 1. These are properties of the creature, and until now the ONLY
-    /// producer of [`crate::combat::CombatCapabilities`] in the workspace was
+    /// producer of `CombatCapabilities` (`ambition_combat`) in the workspace was
     /// `ArchetypeSpecExt::combat_capabilities` — so a mite that splits when
     /// killed could say so as an archetype and a registered character could not
     /// say it at all. A seated fighter and a worn player simply had no death

@@ -8,11 +8,11 @@
 //!
 //! - **FB1** — the view audit and [`crate::perception::DelayedPerception`], the
 //!   reaction-latency buffer that makes the no-cheat contract structural.
-//! - **FB3's L1** — [`situation`], the tactical-state classifier. A pure function
-//!   of the view; and [`scenarios`], the fixture suite it is asserted against and
+//! - **FB3's L1** — [`situation`](self::situation), the tactical-state classifier. A pure function
+//!   of the view; and [`scenarios`](self::scenarios), the fixture suite it is asserted against and
 //!   that FB4's ladder rig will score survival % and damage ratio over.
 //!
-//! - **FB2's L2** — [`options`], the option generator + utility scorer. Movement
+//! - **FB2's L2** — [`options`](self::options), the option generator + utility scorer. Movement
 //!   verbs from the body's capability mask; attacks from CM7's frame-data table,
 //!   which is what lets the brain understand a character nobody wrote a table for.
 //!
@@ -21,18 +21,18 @@
 //!   private field, so a brain layer cannot name a live view. The delay buffer is
 //!   the only read path because it is the only mint.
 //!
-//! - **FB5** — [`habit`], the opponent model. Bounded (`Situation × Choice`),
+//! - **FB5** — [`habit`](self::habit), the opponent model. Bounded (`Situation × Choice`),
 //!   inspectable, decayed, and deterministic. `read_weight = 0` on levels 1–3
 //!   means the model, however confident, contributes nothing.
 //!
-//! - **FB6's L3** — [`rollout`], forward rollouts on a SHADOW MODEL
+//! - **FB6's L3** — [`rollout`](self::rollout), forward rollouts on a SHADOW MODEL
 //!   (fighter-brain.md §12): a pure imagination built only from a `Perceived`,
 //!   stepped under an exact `rollout_k × (1 + rollout_depth)` budget against a
 //!   deterministic predicted opponent, striking with the REAL hit-response
 //!   kernel (`ambition_platformer2d_core::hit_response` — the same one
 //!   `damage_apply` resolves authoritative hits with).
 //!
-//! - **the recovery lens** — [`recovery`], the one place a REAL movement-kernel
+//! - **the recovery lens** — [`recovery`](self::recovery), the one place a REAL movement-kernel
 //!   step enters a decision. The shadow is an approximation stacked on an
 //!   approximation about the only question that costs a stock (*"is this fall
 //!   survivable"*), so that question alone is handed to

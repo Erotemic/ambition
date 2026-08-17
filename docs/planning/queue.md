@@ -973,8 +973,19 @@ room-loaded central_hub_complex
 ```
 
 ⇒ the warning describes **a door nobody has pressed yet**, which is every frame
-a player stands in a doorway. ⭐ the fix: say it at DEBUG, or fire only when the
-press HAPPENED and the transition still did not.
+a player stands in a doorway.
+
+✔ **FIXED 2026-08-17 (`ad82531b7`) — by a LEVEL SPLIT, not a filter.** A pressed
+door that does not move still WARNs; an unpressed one goes to DEBUG; every fact
+stays in the message either way.
+
+⛔⛔ **and the first fix I wrote was wrong in a way worth keeping.** I filtered
+the message away whenever no press was buffered — which would have **silenced
+the instrument in the scenario that justified it**: this message exists because a
+failure *"sent an investigation into the key bindings"*, and a broken binding is
+exactly the case where the player pressed and `wants_interact` still reads false.
+⇒ **a value a diagnostic REPORTS is a bad value to gate it on**, because the
+reason it is printed is that it can be wrong.
 ⚠ this also answered a maintainer report in passing — *"in ambition I can't use
 F to go through doors anymore"* does not reproduce on the keyboard preset.
 

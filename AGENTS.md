@@ -269,6 +269,20 @@ Five of its facts belong in your face rather than behind a link:
   catches a registration or dependency edge landing in the wrong place. ⚠ and
   `python3 scripts/check_absence_contracts.py` **exits 0 while printing
   `2 of 25 violated`**; enforcement needs `--check`.
+  ⛔⛔ **THAT IS A HOUSE PATTERN, NOT ONE SCRIPT — assume advisory-by-default
+  whenever you wire one of these into a gate.** Three found so far:
+  `check_absence_contracts.py`, `check_roadmap_evidence.py` (which ran WITHOUT
+  the flag for its whole existence) and `check_doc_link_ratchet.py`. Each ends
+  with the enforcing arm behind `args.check`, and the printed output is
+  IDENTICAL either way — so a red run above a green job reads like a warning.
+  ⭐ the doc-link ratchet now runs in CI **with** `--check`, at the end of
+  `sandbox-headless-smoke`: that job already has the toolchain, Bevy's system
+  dependencies and a warm cache, and the ratchet shells out to `cargo doc`, so
+  the pure-Python job could not host it.
+  ⚠ `compile_ratchet.py` is the COUNTEREXAMPLE and says so at its own call site —
+  it exits 1 by default because *"Gates that require a special enforcement flag
+  are too easy to run in advisory mode accidentally."* Check which kind you have
+  before trusting an exit code, and read it BARE: `cmd | tail` reports TAIL's.
 - ⛔ **NEVER SIT AND WATCH A BUILD — spawn a subagent into the write-ahead
   worktree** (Jon, 2026-08-03, restated 08-05: *"so we don't just wait and stall
   during test and compiles"*). Every job reads the LIVE tree, so a suite on `main`

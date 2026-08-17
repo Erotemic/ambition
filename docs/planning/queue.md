@@ -892,9 +892,25 @@ missing_level_wall GENRE-DEPENDENT — fires on mary_o_1_1 and sanic_speedway
    120, so it does not fall from spawn. The gap is at the level BOUNDARY, and
    whether a player can reach it depends on layout nobody has walked. ⇒ worth
    fixing as a boundary, not reportable as a fall.
-2. **`SurfaceRamp` has no editor definition** (`defs.entities` is missing it), so
-   a supported engine entity cannot be PLACED by an author. Fix is the tool's own
-   `ambition-ldtk def register-entity`.
+2. **`SurfaceRamp` has no editor definition**, so a supported engine entity
+   cannot be PLACED by an author. ⭐ **verified both ways**: the converter is real
+   (`conversion/entity_converters.rs`, 5 sites, plus a winding oracle), and
+   `sandbox.ldtk` carries **33 entity defs with `SurfaceRamp` not among them**.
+
+   ⭐ **the spec is already written, so this is a lookup not a derivation** — the
+   converter documents exactly what a def owes:
+
+```text
+radius       px, REQUIRED, must be > 0 (the converter errors otherwise)
+orientation  one of four RampOrientation names, default FloorToRightWall
+segments     polygon resolution, default 8, minimum 2
+```
+
+   ⚠ **left undone deliberately.** Writing defs means touching every world's
+   `defs.entities`, and this project already pays for LDtk edits that go through
+   the wrong road; it is also a product call whether to invite authors into a
+   capability that has gone unused since it was written. Fix with the tool's own
+   `ambition-ldtk def register-entity`, not by hand.
 
 ⇒ **the row is the instrument, not the content.** A validator whose errors are
 100% noise and whose loudest warning flags a designed relationship is worse than

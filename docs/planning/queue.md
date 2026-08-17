@@ -5369,6 +5369,29 @@ verdict.
 
 - ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
 
+⭐⭐ **THE OUTCOME IS PINNED, NOT JUST THE MECHANISM — checked 2026-08-17, and
+that is the distinction this row kept blurring.** The 05:45 capture shows both
+fighters at **180% and 124% with 3/3 stocks**, i.e. nobody had lost one, which
+reads like "launches do not kill". It is not:
+
+```text
+the_stage_kills (17 tests, all green)
+  a_launched_fighter_is_taken_by_the_world_and_spends_a_stock
+  a_second_match_on_the_same_stage_counts_in_and_ends   ← CPU vs CPU
+  the_worlds_edge_sits_within_a_launch_of_the_platform  ← a RATIO, not a distance
+```
+
+⭐ the second one is the one that matters, and its own comment says why: *"CPU vs
+CPU, which is Jon's repro, and ONE stock so the end arrives from a single launch
+rather than from minutes of fighting."* So a **CPU-produced** launch reaches the
+blast zone and spends a stock — the end is not manufactured by a test writing a
+velocity, which is the failure mode this repo has been bitten by before.
+
+⇒ **so the capture is a mid-match MOMENT, not evidence of a broken KO**, and what
+is actually open here is **PACING**: how long three stocks take when neither CPU
+closes. That is a tuning question for Jon and nothing else — ⛔ do not re-open it
+as a defect on the strength of a screenshot showing a high percent.
+
 ⚠⚠ **THREE OF THIS ROW'S "NEXT" CLAIMS WENT STALE ON 2026-08-16 — read this
 before working any of them.** Everything below is still accurate about the
 FIGHTERS; what changed is everything around them.

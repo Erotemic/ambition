@@ -131,7 +131,10 @@ pub fn integrate_home_body(
     // spell half of it (ledger D108); the signature no longer has a half to
     // spell.
     let input = engine_input_from_actor_control(actor_control, feel, combat, frame_dt);
-    // ⭐ one named rule — the actor road has no hitlag branch at all (D114).
+    // ⭐ one named rule, and as of 2026-08-17 BOTH roads ask it — the actor
+    // road's `integrate_body` takes the same branch off the same predicate
+    // (D114 closed). Until then only this road froze, so a hit between two
+    // actors stopped neither of them.
     let sim_dt = if combat.is_in_hitlag() {
         0.0
     } else {

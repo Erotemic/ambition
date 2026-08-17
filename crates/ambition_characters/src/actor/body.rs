@@ -318,17 +318,21 @@ impl BodyCombat {
     /// **IS THIS BODY IN HITLAG** — the shared freeze a landed hit puts on BOTH
     /// parties, which the damage path states as *"a landed hit is one event"*.
     ///
-    /// ⭐ **named for the same reason as [`Self::hard_lock_timer`] and with the
-    /// same standing gap** (ledger D114). The timer is armed on the victim AND
-    /// the attacker, whoever they are — and it is read by the PLAYER road
-    /// (`sim_dt = 0`) and by a `With<PrimaryPlayer>` clock request, so a hit
-    /// between two bodies that are neither produces no freeze at all. On a
-    /// platform-fighter stage that is CPU versus CPU, and any seat past slot 0.
+    /// ⭐ **named for the same reason as [`Self::hard_lock_timer`], and BOTH
+    /// movement roads now ask it** (ledger D114, closed 2026-08-17). The timer
+    /// is armed on the victim AND the attacker, whoever they are; the avatar
+    /// road (`integrate_player_body`) and the actor road (`integrate_body`)
+    /// each take `sim_dt = 0` off this one predicate.
     ///
-    /// ⚠ **this does not fix it.** The actor road still has no hitlag branch;
-    /// what this buys is that adding one is a call rather than a re-derivation,
-    /// and that the asymmetry is greppable — one road asks the body, the other
-    /// never asks.
+    /// ⛔ **what it was before, because the shape recurs.** Only the avatar road
+    /// branched, so a hit whose two parties were BOTH actors froze neither of
+    /// them — on a platform-fighter stage that is every CPU-versus-CPU exchange
+    /// and every seat past slot 0. Factoring the predicate out first is what
+    /// made closing it a call rather than a re-derivation.
+    ///
+    /// ⚠ **a `With<PrimaryPlayer>` clock request is still slot-0 only.** That is
+    /// the PRESENTATION freeze (the whole screen hitching), a different question
+    /// from whether a struck body advances, and it remains open.
     pub fn is_in_hitlag(&self) -> bool {
         self.hitstop_timer > 0.0
     }
@@ -561,12 +565,15 @@ mod hard_lock_tests {
     /// **AND HITLAG IS THE SAME SHAPE ONE LAYER OVER** — D114.
     ///
     /// ⛔ the freeze is armed on the victim AND the attacker, from a law the
-    /// damage path states as *"a landed hit is one event"*, and it is read by the
-    /// player road and a `With<PrimaryPlayer>` clock request. A hit between two
-    /// bodies that are neither produces no freeze — CPU versus CPU on a
-    /// platform-fighter stage, which is what Smash is made of.
+    /// damage path states as *"a landed hit is one event"*. It USED to be read by
+    /// the avatar road alone, so a hit between two bodies that are neither
+    /// produced no freeze — CPU versus CPU on a platform-fighter stage, which is
+    /// what Smash is made of. Both roads take the branch as of 2026-08-17; this
+    /// pins the predicate they share, and
+    /// `a_hit_between_two_actors_freezes_them_both` pins that the actor road
+    /// actually spends it.
     #[test]
-    fn hitlag_is_a_body_question_even_though_only_one_road_asks_it() {
+    fn hitlag_is_a_body_question_and_both_roads_ask_it() {
         let mut combat = BodyCombat::default();
         assert!(
             !combat.is_in_hitlag(),

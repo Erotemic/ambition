@@ -373,6 +373,16 @@ impl<'a> ActorMut<'a> {
                 .map(|authored| authored.axis_swept_params())
                 .unwrap_or_else(|| tuning.axis_swept_params());
         }
+        // ⭐ **THE SAME NAMED RULE THE AVATAR ROAD USES, and now both roads ask
+        // the body instead of one asking and one never asking** (ledger D114).
+        //
+        // Hitstop is armed on the victim AND the attacker, because a landed hit
+        // is one event. Only `integrate_player_body` read it, so a hit whose two
+        // parties were both actors froze NEITHER of them — which on a platform
+        // fighter is every CPU-versus-CPU exchange, and every seat past slot 0.
+        // The predicate was already factored out for exactly this call; taking
+        // it is a call rather than a re-derivation.
+        let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };
         let mut clusters = self.clusters_mut();
         let result = ae::step_motion(
             motion_model,
@@ -382,7 +392,7 @@ impl<'a> ActorMut<'a> {
                 input,
                 frame: motion_frame,
                 facing_intent: frame.facing,
-                dt,
+                dt: sim_dt,
             },
         );
         drop(clusters);
@@ -644,6 +654,8 @@ impl ContactAttack {
 
 #[cfg(test)]
 mod dash_tests;
+#[cfg(test)]
+mod hitlag_tests;
 #[cfg(test)]
 mod respawn_policy_tests;
 

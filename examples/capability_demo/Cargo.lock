@@ -114,6 +114,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_boss_encounter"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_cutscene",
+ "ambition_encounter",
+ "ambition_entity_catalog",
+ "ambition_interaction",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_sfx",
+ "ambition_sprite_sheet",
+ "ambition_time",
+ "ambition_vfx",
+ "bevy",
+ "ron 0.11.0",
+]
+
+[[package]]
 name = "ambition_causal"
 version = "0.1.0"
 dependencies = [
@@ -365,6 +386,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
@@ -415,6 +437,7 @@ version = "0.2.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_boss_encounter",
  "ambition_characters",
  "ambition_combat",
  "ambition_conversation",
@@ -502,6 +525,7 @@ name = "ambition_platformer2d_provider"
 version = "0.1.0"
 dependencies = [
  "ambition_audio",
+ "ambition_boss_encounter",
  "ambition_characters",
  "ambition_dev_tools",
  "ambition_game_shell",
@@ -521,6 +545,7 @@ dependencies = [
 name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
+ "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
@@ -697,6 +722,7 @@ dependencies = [
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
+ "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",

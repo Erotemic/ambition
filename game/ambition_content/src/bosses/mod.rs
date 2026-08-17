@@ -3,7 +3,7 @@
 //! Owns Ambition's immutable App-local boss fragment and the live
 //! [`BossEncounterRegistry`] resource used by an active session. The general
 //! boss machinery (profiles, specs, encounter registry/system, patterns) still
-//! lives in `ambition_platformer2d_actor_monolith::boss_encounter`; this module owns the bespoke per-boss
+//! lives in `ambition_boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 //!
 //! - [`gnu_ton`] — GNU-ton's bespoke arena gating (retreat-ladder reveal +
@@ -207,7 +207,7 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
 /// making. (GPT 5.6 review, finding 2.)
 pub fn boss_catalog_fragment(
-) -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
+) -> ambition_boss_encounter::BossCatalogFragment {
     // ⛔ **THROUGH THE COMPILER, not beside it.** This used to pass
     // `BOSS_PROFILES_RON` to `from_ron`, which re-parsed bytes the pack had
     // already read and judged — the two-readers split the content pack exists to
@@ -234,7 +234,7 @@ pub fn boss_catalog_fragment(
         )
         .expect("the encounter schema merges its nine files for every pack that compiles")
         .clone();
-    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_prepared(
+    ambition_boss_encounter::BossCatalogFragment::from_prepared(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
@@ -251,10 +251,10 @@ pub fn boss_catalog_fragment(
 ///
 /// Pure content tests use this helper so they exercise the same provider
 /// fragment as production composition rather than installing process state.
-pub fn authored_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog
+pub fn authored_boss_catalog() -> ambition_boss_encounter::BossCatalog
 {
     let mut registry =
-        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
+        ambition_boss_encounter::BossCatalogRegistry::default();
     registry
         .register(boss_catalog_fragment())
         .expect("Ambition boss fragment should register");
@@ -269,7 +269,7 @@ pub fn authored_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_enc
 /// call this before building its asset catalog and later add
 /// [`AmbitionBossContentPlugin`] without coordinating install order.
 pub fn register(app: &mut App) {
-    use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogAppExt as _;
+    use ambition_boss_encounter::BossCatalogAppExt as _;
     app.register_boss_catalog_fragment(boss_catalog_fragment());
 }
 
@@ -286,7 +286,7 @@ impl Plugin for AmbitionBossContentPlugin {
         register(app);
 
         app.insert_resource(
-            ambition_platformer2d_actor_monolith::boss_encounter::BossEncounterRegistry::default(),
+            ambition_boss_encounter::BossEncounterRegistry::default(),
         );
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
@@ -389,7 +389,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // chain) — exactly where the old cut-rope-specific steering ran.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::boss_encounter::tick_commanded_moves
+            ambition_boss_encounter::tick_commanded_moves
                 .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
         );
 
@@ -404,11 +404,11 @@ impl Plugin for AmbitionBossContentPlugin {
                 // Cut-rope arena per-attempt setup — MID boss-tick (after the
                 // engine advances encounter progress, before scripted hazards).
                 setup_cut_rope_encounter
-                    .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentEncounterScriptSet),
+                    .in_set(ambition_boss_encounter::ContentEncounterScriptSet),
                 // Victory NPC spawn — after the boss chain frees the payload,
                 // before the save mirrors run.
                 spawn_cut_rope_victory_npc
-                    .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentEncounterVictorySet),
+                    .in_set(ambition_boss_encounter::ContentEncounterVictorySet),
             ),
         );
 
@@ -478,7 +478,7 @@ mod apple_rain_animation_key_tests {
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
         let catalog = super::authored_boss_catalog();
         let profile = BossAttackProfile::Special("apple_rain".to_string());
-        let claimed = ambition_platformer2d_actor_monolith::boss_encounter::behavior::boss_animation_keys_for_profile(
+        let claimed = ambition_boss_encounter::behavior::boss_animation_keys_for_profile(
             &catalog, &profile,
         );
         assert!(

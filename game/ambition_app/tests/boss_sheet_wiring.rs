@@ -23,12 +23,12 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::actors::boss_encounter::BossBehaviorProfileExt;
+use ambition_platformer2d::boss_encounter::BossBehaviorProfileExt;
 use std::collections::BTreeSet;
 
 /// Load the provider-owned world manifest and assemble the same immutable
 /// App-local boss contribution production uses.
-fn content_boss_catalog() -> ambition_platformer2d::actors::boss_encounter::BossCatalog {
+fn content_boss_catalog() -> ambition_platformer2d::boss_encounter::BossCatalog {
     ambition_content::bosses::authored_boss_catalog()
 }
 
@@ -171,7 +171,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     for room in &room_set.rooms {
         for spawn in &room.boss_spawns {
             placed += 1;
-            let canonical = ambition_platformer2d::actors::boss_encounter::behavior::canonical_boss_id_from(
+            let canonical = ambition_platformer2d::boss_encounter::behavior::canonical_boss_id_from(
                 &spawn.name,
                 &spawn.payload,
             );

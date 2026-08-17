@@ -4,8 +4,8 @@
 //! `use super::*;`.
 
 use super::*;
-use ambition_platformer2d_actor_monolith::boss_encounter::BossBehaviorProfileExt;
-use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterScratch;
+use ambition_boss_encounter::BossBehaviorProfileExt;
+use ambition_boss_encounter::BossClusterScratch;
 use ambition_platformer2d_actor_monolith::features::{
     rebuild_feature_ecs_world_overlay, BossBehaviorProfile,
 };
@@ -144,7 +144,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 
     let status = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounter>(entity)
+        .get::<ambition_boss_encounter::BossEncounter>(entity)
         .unwrap();
     assert!(
         status.sprite_metrics.is_some(),
@@ -160,13 +160,13 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         .unwrap();
     let config = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::boss_encounter::BossConfig>(entity)
+        .get::<ambition_boss_encounter::BossConfig>(entity)
         .unwrap();
     let status = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounter>(entity)
+        .get::<ambition_boss_encounter::BossEncounter>(entity)
         .unwrap();
-    let boss_ref = ambition_platformer2d_actor_monolith::boss_encounter::BossRef {
+    let boss_ref = ambition_boss_encounter::BossRef {
         kin,
         config,
         status,
@@ -186,13 +186,13 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         .unwrap();
     let config = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::boss_encounter::BossConfig>(entity)
+        .get::<ambition_boss_encounter::BossConfig>(entity)
         .unwrap();
     let status = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounter>(entity)
+        .get::<ambition_boss_encounter::BossEncounter>(entity)
         .unwrap();
-    let body = ambition_platformer2d_actor_monolith::boss_encounter::BossRef {
+    let body = ambition_boss_encounter::BossRef {
         kin,
         config,
         status,

@@ -11,7 +11,7 @@ pub use ambition_sprite_sheet::game_assets::*;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use crate::boss_encounter::sprites;
+use ambition_boss_encounter::sprites;
 use crate::character_sprites;
 use crate::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
@@ -24,7 +24,7 @@ pub fn load_game_assets(
     // kind of authority — what this app's providers declared — and a character
     // whose sheet came from one needs the other to size its body.
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     catalog: &crate::assets::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,

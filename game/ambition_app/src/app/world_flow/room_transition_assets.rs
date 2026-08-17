@@ -980,7 +980,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     character_catalog: Res<
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
-    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_platformer2d::boss_encounter::BossCatalog>,
     // ⚠ **PAIRED with the recipes because a Bevy system stops at sixteen
     // params**, the same reason the covered transition path groups them. The
     // authorities travel together anyway: a placement names a character and may

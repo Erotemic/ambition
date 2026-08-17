@@ -320,7 +320,7 @@ rationale = "the platformer_runtime facade in ambition_platformer2d_actor_monoli
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_actor_monolith/src/platformer_runtime"]
-forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::platformer_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
+forbid = ["crate::content", "crate::ambition_content", "crate::intro", "ambition_boss_encounter", "crate::quest", "crate::assets::platformer_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal2d::", "ambition_portal2d;", "ambition_portal2d}"]
 
 
 # was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
@@ -1787,7 +1787,19 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # `ambition_platformer2d_core` — no app, content, host or render — sits at
     # the same depth as `ambition_dialog` above, and the already-allowed monolith
     # has linked it all along, so it adds no graph depth.
-    "ambition_conversation"]
+    "ambition_conversation",
+    # The boss-fight DOMAIN (`BossConfig`, `BossEncounter`, `BossOverrides`,
+    # `EncounterDef`, `BossCatalog`). ⭐ **the FIFTH time this list has learned the
+    # identical lesson, and again not a new edge.** The runtime has
+    # rollback-registered the boss components and ordered the `Progression` phase
+    # around the boss tick since those systems existed; it reached them through
+    # `ambition_platformer2d_actor_monolith::boss_encounter`, a module that carved
+    # out into its own crate on 2026-08-17 (D33). It is a leaf domain over
+    # `ambition_characters` / `ambition_combat` / `ambition_encounter` /
+    # `ambition_cutscene` / `ambition_platformer2d_core` — no app, content, host or
+    # render — and the already-allowed monolith has linked it all along, so it
+    # adds no graph depth.
+    "ambition_boss_encounter"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]
@@ -2829,7 +2841,7 @@ forbid = [
     "dedicated_boss_sheets(",
     "sprite_render_size_for(target: &str",
     "Option<Res<BossCatalog>>",
-    "Option<Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>>",
+    "Option<Res<ambition_boss_encounter::BossCatalog>>",
     "pub struct CharacterCatalog(pub",
 ]
 

@@ -22,18 +22,19 @@
 //! `features::ecs::boss_clusters`, which made the hub re-export boss vocabulary
 //! back to this module's own children — `boss_encounter` and `features` each
 //! depended on the other for the same eight types. The dependency is one-way
-//! now: `features` names `crate::boss_encounter::`, never the reverse.
+//! now: `features` names `crate::`, never the reverse.
 
 use super::behavior::{
     canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile, BossBehaviorProfileExt,
 };
 use super::BossEncounterPhase;
+use ambition_platformer2d_core::snapshot::{put_bool, put_f32, SnapshotCursor, SnapshotState};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-use crate::platformer_runtime::body::BodyKinematics;
+use ambition_platformer2d_shared_tangle::body::BodyKinematics;
 
 /// Authored configuration + identity for a boss actor. Also serves as
 /// the boss marker component (see module docs).
@@ -394,8 +395,8 @@ pub fn boss_is_cleared(
     )
 }
 
-#[cfg(test)]
-pub(crate) mod test_support {
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support {
     //! Shared boss test fixtures. One definition of "a test `BossEncounter` /
     //! `BossConfig`" so the boss test modules build the same shape — adding a
     //! field updates them all at once instead of drifting per-module.
@@ -405,7 +406,7 @@ pub(crate) mod test_support {
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
     /// entity-local `ActorPhaseState` carrying `triggers` (empty ⇒ never phases
     /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
-    pub(crate) fn test_boss_status_with(
+    pub fn test_boss_status_with(
         hp: i32,
         phase: BossEncounterPhase,
         triggers: Vec<PhaseTrigger>,
@@ -428,7 +429,7 @@ pub(crate) mod test_support {
 
     /// A `(BossEncounter, BodyHealth)` at `hp` HP in `phase` with no phase
     /// triggers (fights to death — the common single-phase fixture).
-    pub(crate) fn test_boss_status(
+    pub fn test_boss_status(
         hp: i32,
         phase: BossEncounterPhase,
     ) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
@@ -438,7 +439,7 @@ pub(crate) mod test_support {
     /// A `BossConfig` whose brain `PhaseScript` and behavior profile both resolve
     /// to `script_id`'s authored profile (their real coupling), with the given
     /// placement `id` + display `name`.
-    pub(crate) fn test_boss_config(
+    pub fn test_boss_config(
         id: impl Into<String>,
         name: impl Into<String>,
         script_id: &str,
@@ -454,6 +455,32 @@ pub(crate) mod test_support {
                 super::super::test_boss_catalog(),
                 script_id,
             ),
+        }
+    }
+}
+
+/// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
+///
+/// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
+/// sheet registry, and because `ActorPhaseState.triggers` is authored data.
+///
+/// `encounter_phase` is the exposed MIRROR that `sync_boss_encounter_phase` copies out
+/// of `encounter` every tick. Rewinding only the mirror is rewinding a thermometer:
+/// `mockingbird_arena` telegraphed `wing_sweep` on the replay's tick 21 and stood still
+/// on the original's, with every clock, seed, and cooldown identical, because the
+/// replay's boss was already awake.
+impl SnapshotCursor for BossEncounter {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        self.encounter_phase.encode(out);
+        match &self.encounter {
+            None => put_bool(out, false),
+            Some(e) => {
+                put_bool(out, true);
+                e.phase.encode(out);
+                put_f32(out, e.phase_elapsed);
+                put_f32(out, e.transition_lock);
+                e.start_phase.encode(out);
+            }
         }
     }
 }

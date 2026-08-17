@@ -122,7 +122,7 @@ impl RoomConstructionPlan {
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        boss_catalog: &crate::boss_encounter::BossCatalog,
+        boss_catalog: &ambition_boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
         construction: features::ActorConstructionContext<'_>,
     ) -> Result<Self, RoomConstructionError> {
@@ -154,7 +154,7 @@ impl RoomConstructionPlan {
         content_staging: &features::RoomContentStagingRegistry,
         character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        boss_catalog: &crate::boss_encounter::BossCatalog,
+        boss_catalog: &ambition_boss_encounter::BossCatalog,
         session_scope: SessionSpawnScope,
         construction: features::ActorConstructionContext<'_>,
     ) -> Result<Self, RoomConstructionError> {
@@ -452,7 +452,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::boss_encounter::BossCatalog::default(),
+            &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
             features::ActorConstructionContext::new(&recipes, Default::default())
                 .with_prepared(fixture_cast()),
@@ -490,7 +490,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::boss_encounter::BossCatalog::default(),
+            &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
             features::ActorConstructionContext::new(&recipes, epoch).with_prepared(cast),
         )
@@ -780,7 +780,7 @@ mod tests {
             &staging,
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::boss_encounter::BossCatalog::default(),
+            &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
             features::ActorConstructionContext::new(&recipes, Default::default())
                 .with_prepared(fixture_cast()),
@@ -920,7 +920,7 @@ mod tests {
             &features::RoomContentStagingRegistry::default(),
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
-            &crate::boss_encounter::BossCatalog::default(),
+            &ambition_boss_encounter::BossCatalog::default(),
             SessionSpawnScope::UNSCOPED,
             construction,
         )

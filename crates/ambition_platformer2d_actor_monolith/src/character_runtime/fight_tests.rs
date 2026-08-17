@@ -475,7 +475,7 @@ fn fight_app() -> App {
             ambition_characters::actor::character_catalog::parse_catalog(EMPTY_CATALOG),
         ),
     );
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     // Both fighters author explicit rectangles, so no blade is resolved from
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.

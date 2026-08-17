@@ -1201,12 +1201,67 @@ re-exports (`BodyKinematics`, `CenteredAabb`/`ChestFeature`/`FeatureId`/`Opened`
 `FallingChest`/`BossRewardChest`/`GameplayBanner`, `FeatureSimEntity`); the
 twenty-first is `MountDied`, a real cross-domain message.
 
-⚠ **it is still NOT a carve, and 201 inward sites is why** — `features` alone
-names `crate::boss_encounter::` 155 times (every `With`/`Without<BossConfig>`
-filter, the damage router, anim helpers, save sync, reset). A carve must also take
-`features/ecs/bosses/` (1,791) and `features/bosses.rs`, and
-`features/ecs/damage/boss_hit.rs` wants a `HitEvent` seam first. **The next slice
-is a second relocation, not a Cargo.toml.**
+⚠ the note that stood here said *"it is still NOT a carve, and 201 inward sites
+is why"*, and asked for a second relocation of `features/ecs/bosses/` first.
+
+✔✔ **IT WAS A CARVE, AND IT LANDED THE SAME DAY — `crates/ambition_boss_encounter`,
+7,635 lines out of the monolith, `largest_unit_lines` 121,822 → 114,139.**
+
+⛔⛔ **THE 201 INWARD SITES WERE NEVER THE BLOCKER, AND READING THEM AS ONE WAS A
+DIRECTION ERROR.** An inward edge is a caller naming the domain; after the carve
+it names `ambition_boss_encounter::` instead of `crate::boss_encounter::` and
+compiles unchanged. It is a rename, not a dependency the new crate has to satisfy.
+**Only OUTWARD edges block a carve** — the ones that would make the departing crate
+depend on the monolith it left, which cargo refuses outright. `features/ecs/bosses/`
+never had to move: it CALLS the boss domain, it is not called BY it. ⇒ *count both
+directions, but adjudicate on the outward one.*
+
+⭐ **the outward list had exactly two real names left, and both moved DOWN rather
+than across.** Of the thirteen distinct sibling paths, eleven resolved to crates
+already below the monolith (`BodyKinematics`, `CenteredAabb`, `FeatureId`,
+`FeatureSimEntity`, `GameplayBanner`, `ChestFeature`, `Opened`, `FallingChest`,
+`BossRewardChest`, and `falling_chest::settled_chest_center`) — the hub was
+re-exporting every one of them. The two that were real:
+
+* `CutsceneTriggerQueue` → `ambition_cutscene`, beside the script format it
+  triggers. The boss asks for `boss_intro_<id>` and knows nothing else about
+  cutscenes, so the request channel belongs with the runtime that drains it.
+* `MountDied` → `ambition_platformer2d_shared_tangle::body`, below BOTH domains
+  that share it: the monolith's mount coupling writes it, the boss crate reads it.
+  Same move, and the same reason, as step 1.5 putting `FeatureInteractionSet`
+  there so a carved module could still name its ordering.
+
+⭐ **and the orphan rule adjudicated one more file, exactly as `snapshot_impls.rs`
+own header promised it would**: `impl SnapshotCursor for BossEncounter` stopped
+compiling in the monolith the moment the type crossed the crate line, and moved to
+`clusters.rs` with it. The wire format did not change — the encoding is identical
+and `rollback-wire-format-is-frozen` reports the same 357 names / 85 types.
+
+```text
+  largest_unit_lines   121,822 → 114,139   (−7,683)
+  critical_path_crates      13 → 13        ⭐ NO new hop, unlike the conversation carve
+  boss_encounter → monolith  25 → 0 sites  (11 were re-exports, 2 moved down)
+  monolith → boss crate     201 → 201      unchanged, and it never mattered
+  capability closure         43 → 44 crates, 16 → 17 a movement-only game never asked for
+  ambition_geometry worst_edit_cost  48 → 49 crates (+17.5s) — the honest cost
+```
+
+⚠ **`critical_path_crates` did NOT rise, and that is worth saying because the
+`conversation` carve's did.** The boss domain sits over `ambition_characters` /
+`ambition_combat` / `ambition_encounter` / `ambition_cutscene`, all of which the
+monolith already sat over, so the new crate slots in beside them rather than under
+anything. A carve lengthens the chain only when it inserts a layer BELOW a crate
+that was already deep — which is what happened when `conversation` went under
+`ambition_dialog`.
+
+⚠ **the demos and the app reach it through the umbrella, not by a new edge.**
+`game.demo-mary-o-umbrella-only` / `demo-sanic-umbrella-only` /
+`app-umbrella-plus-local` fired the moment those crates named the domain directly,
+and they were right to: `ambition_platformer2d` re-exports every domain crate under
+a short name for exactly this. Only `ambition_platformer2d_runtime`,
+`ambition_platformer2d_provider`, `ambition_sim_view` and `ambition_content` declare
+the edge, and the runtime's allowlist gained the entry in the same commit — **the
+fifth time that list has lagged a runtime dependency by one file.**
 
 ### Wave F — presentation effects and audio
 

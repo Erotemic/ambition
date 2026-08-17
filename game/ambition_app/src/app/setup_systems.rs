@@ -26,7 +26,7 @@ pub(crate) struct PresentationCatalogs<'w> {
     /// the same question — what did this app's providers declare — asked about
     /// art instead of identity.
     sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
-    bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    bosses: Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>,
     assets:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
 }
@@ -87,7 +87,7 @@ pub(super) fn setup_simulation_system(
         ambition_platformer2d::actors::avatar::InitialBodyPolicy,
     >,
     characters: CharacterAuthorities,
-    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_platformer2d::boss_encounter::BossCatalog>,
     construction: RoomConstructionAuthorities,
     mut platform_set: ResMut<ambition_platformer2d::world::collision::MovingPlatformSet>,
 ) {

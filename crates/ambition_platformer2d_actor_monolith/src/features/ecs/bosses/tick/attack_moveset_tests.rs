@@ -5,7 +5,7 @@
 
 use super::*;
 use ambition_characters::brain::{BossAttackProfile, BossCapability};
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 
 fn warden_behavior() -> crate::features::bosses::BossBehaviorProfile {
     crate::features::bosses::BossBehaviorProfile::clockwork_warden()

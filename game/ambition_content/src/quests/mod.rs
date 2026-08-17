@@ -26,7 +26,7 @@ impl Plugin for AmbitionQuestContentPlugin {
         app.add_systems(
             sim,
             crate::quest::grant_quest_completion_rewards
-                .in_set(ambition_platformer2d_actor_monolith::boss_encounter::ContentQuestRewardSet),
+                .in_set(ambition_boss_encounter::ContentQuestRewardSet),
         );
         app.add_systems(
             sim,

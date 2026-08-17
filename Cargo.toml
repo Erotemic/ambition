@@ -23,6 +23,7 @@ members = [
     "crates/ambition_content_pack",
     "crates/ambition_content_cli",
     "crates/ambition_conversation",
+    "crates/ambition_boss_encounter",
     "game/ambition_content",
     "crates/ambition_cutscene",
     "crates/ambition_dev_tools",

@@ -478,7 +478,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // promise is actually written down instead.
     const PRESENCE_ONLY: &[(&str, &str)] = &[
         (
-            "ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::EncounterDef",
+            "ambition_boss_encounter::encounter_entity::EncounterDef",
             "authored encounter definition; immutable at runtime",
         ),
         (
@@ -510,7 +510,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "republished every tick by the limb router",
         ),
         (
-            "ambition_platformer2d_actor_monolith::boss_encounter::clusters::BossConfig",
+            "ambition_boss_encounter::clusters::BossConfig",
             "authored boss definition; nothing writes it after spawn",
         ),
         (
@@ -538,7 +538,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored art id; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::boss_encounter::clusters::BossOverrides",
+            "ambition_boss_encounter::clusters::BossOverrides",
             "authored spawn overrides; immutable at runtime",
         ),
         (

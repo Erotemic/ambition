@@ -5,26 +5,26 @@
 //! unchanged).
 
 use super::*;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::FeatureCombatTuning;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
-fn gnu_ton_runtime() -> crate::boss_encounter::BossClusterScratch {
+fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let mut scratch = crate::boss_encounter::BossClusterScratch::new(
-        crate::boss_encounter::test_boss_catalog(),
+    let mut scratch = ambition_boss_encounter::BossClusterScratch::new(
+        ambition_boss_encounter::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",
         aabb,
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     scratch.config.behavior = behavior;
-    scratch.status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Phase1;
+    scratch.status.encounter_phase = ambition_boss_encounter::BossEncounterPhase::Phase1;
     // After the data-driven migration, the head-position invariants
     // (rest above shoulder, descent at player level) live in the
     // sprite RON's per-animation `hurtbox.parts`. The test fixture
@@ -269,7 +269,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
     let rest_head =
         crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
-            crate::boss_encounter::test_boss_catalog(),
+            ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
         ));
@@ -289,7 +289,7 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     let descent_head =
         crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
-            crate::boss_encounter::test_boss_catalog(),
+            ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
         ));
@@ -640,7 +640,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
             &cfg,
             &mut state,
             &BossPatternContext {
-                encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
+                encounter_phase: ambition_boss_encounter::BossEncounterPhase::Phase1,
                 actor_pos: seed.kin.pos,
                 target_pos: player_pos,
                 // An ordinary body standing over there. This fight is decided

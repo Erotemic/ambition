@@ -40,6 +40,7 @@ ambition_dialog = { path = "../../crates/ambition_dialog", default-features = fa
 # (2026-08-17). Every gameplay-bearing Yarn command writes through its narrative
 # ledger, and the boss/duel commands read the live conversation from it.
 ambition_conversation = { path = "../../crates/ambition_conversation" }
+ambition_boss_encounter = { path = "../../crates/ambition_boss_encounter" }
 # The LDtk backend, named directly. This crate reached it through the actor
 # monolith's `ldtk_world` compatibility facade, whose own doc says callers
 # should repoint to the owning crate; the edge was already here transitively.

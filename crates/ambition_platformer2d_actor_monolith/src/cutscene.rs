@@ -3,7 +3,7 @@
 //! The cutscene SCRIPT format + stepper + live playback-state resources live in
 //! the foundation crate [`ambition_cutscene`] (pure data + ECS resources, no
 //! renderer). This module is the gameplay-side *player*: it reads triggers from
-//! [`crate::cutscene_trigger::CutsceneTriggerQueue`], starts/advances the active
+//! [`ambition_cutscene::CutsceneTriggerQueue`], starts/advances the active
 //! cutscene, and applies its side effects (save-flag writes via
 //! [`ambition_persistence::save::AmbitionGameSave`]). The HUD/overlay presentation
 //! reads `ActiveCutscene` from the render crate.
@@ -19,7 +19,7 @@ use ambition_cutscene::{
     RoomCutsceneBindings,
 };
 
-use crate::cutscene_trigger::CutsceneTriggerQueue;
+use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Bevy system: when the active room changes, queue up a cutscene if

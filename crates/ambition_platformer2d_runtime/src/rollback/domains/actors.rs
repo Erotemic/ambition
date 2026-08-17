@@ -295,7 +295,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.surface_state",
     );
-    app.rollback_component_cursor::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounter>(
+    app.rollback_component_cursor::<ambition_boss_encounter::BossEncounter>(
         OWNER,
         "boss.encounter",
     );
@@ -328,7 +328,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.anim_override",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::boss_encounter::BossConfig>(
+    app.rollback_component_clone::<ambition_boss_encounter::BossConfig>(
         OWNER,
         "boss.config",
     );
@@ -415,7 +415,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "map.pending_challenge",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::boss_encounter::BossOverrides>(
+    app.rollback_component_clone::<ambition_boss_encounter::BossOverrides>(
         OWNER,
         "boss.overrides",
     );
@@ -708,7 +708,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "gravity.flip_switch",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::boss_encounter::EncounterDef>(
+    app.rollback_component_clone::<ambition_boss_encounter::EncounterDef>(
         OWNER,
         "encounter.definition",
     );
@@ -745,7 +745,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
     );
-    app.rollback_component_cursor::<ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimFrame>(
+    app.rollback_component_cursor::<ambition_boss_encounter::sprites::BossAnimFrame>(
         OWNER,
         "component.boss_anim_frame",
     );
@@ -754,7 +754,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.boss_animation_frame_sample",
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
     );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::boss_encounter::EncounterProgress>(
+    app.declare_rollback_derived_component::<ambition_boss_encounter::EncounterProgress>(
         OWNER,
         "derived.encounter_progress",
         "recomputed from lifecycle and participant health every tick",
@@ -835,7 +835,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.trail_continuity_break",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased>(
+    app.clear_message_on_rollback::<ambition_boss_encounter::PayloadReleased>(
         OWNER,
         "message.payload_released",
     );
@@ -843,7 +843,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.switch_activated",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::MountDied>(
+    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::body::MountDied>(
         OWNER,
         "message.mount_died",
     );
@@ -854,7 +854,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // the feedback fire for a transition the resimulation never committed to,
     // which here means a `DamageBox` shockwave on a timeline the boss never
     // phased on.
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::boss_encounter::BossPhaseChanged>(
+    app.clear_message_on_rollback::<ambition_boss_encounter::BossPhaseChanged>(
         OWNER,
         "message.boss_phase_changed",
     );
@@ -874,7 +874,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.switch_activated",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::MountDied>(
+    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::body::MountDied>(
         OWNER,
         "message.mount_died",
     );

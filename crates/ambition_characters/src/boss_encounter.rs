@@ -16,7 +16,7 @@
 //! component so HUD / debug overlays read from one source of truth.
 //!
 //! The GAME's boss roster (the named `BossEncounterSpec` constructors)
-//! lives in `ambition_platformer2d_actor_monolith::boss_encounter::roster` — machinery
+//! lives in `ambition_boss_encounter::roster` — machinery
 //! owns the schema + state machine; the game owns the data.
 
 use serde::{Deserialize, Serialize};

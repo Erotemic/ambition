@@ -164,7 +164,7 @@ fn prepare(
         staging,
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::boss_encounter::test_boss_catalog(),
+        &ambition_boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(recipes, ae::ContentEpoch(4)).with_prepared(fixture_cast()),
     )
 }
@@ -745,7 +745,7 @@ fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    world.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
     // ⭐ **the CAST, because a summon names a character** (AC6). A summon that
     // resolves none is refused where it used to become a generic `combatant`.
@@ -1075,7 +1075,7 @@ fn every_parameter_variant_constructs_its_root() {
             &Default::default(),
         )
         .with_prepared(fixture_cast()),
-        boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
+        boss_catalog: ambition_boss_encounter::test_boss_catalog().clone(),
     };
     let planned = plan.planned_ids();
     {
@@ -1458,7 +1458,7 @@ fn test_services() -> ActorConstructionServices {
             &Default::default(),
         )
         .with_prepared(fixture_cast()),
-        boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
+        boss_catalog: ambition_boss_encounter::test_boss_catalog().clone(),
     }
 }
 
@@ -1949,7 +1949,7 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
 fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstructionError> {
     preflight_actor_relations(
         &requests,
-        &crate::boss_encounter::test_boss_catalog(),
+        &ambition_boss_encounter::test_boss_catalog(),
         Some(fixture_cast()),
     )
 }
@@ -3233,7 +3233,7 @@ fn prepare_with_placements(
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::boss_encounter::test_boss_catalog(),
+        &ambition_boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
             .with_prepared(fixture_cast()),
     )
@@ -3589,7 +3589,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         &crate::features::RoomContentStagingRegistry::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         &Default::default(),
-        &crate::boss_encounter::test_boss_catalog(),
+        &ambition_boss_encounter::test_boss_catalog(),
         ActorConstructionContext::new(&engine_construction_registry(), ae::ContentEpoch(4))
             .with_prepared(&cast),
     );
@@ -3643,7 +3643,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
 
-    let bosses = crate::boss_encounter::BossCatalog::default();
+    let bosses = ambition_boss_encounter::BossCatalog::default();
     let params = ActorConstructionParams::StagedActor(request.clone());
 
     let planned = crate::construction::mount_capabilities_of(&params, &bosses, Some(&cast));

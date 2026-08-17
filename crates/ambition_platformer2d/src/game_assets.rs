@@ -48,7 +48,7 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_actor_monolith::assets::platformer_assets::Platformer2dAssetCatalog;
-use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
+use ambition_boss_encounter::BossCatalog;
 use ambition_platformer2d_world::world_manifest::WorldManifest;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};

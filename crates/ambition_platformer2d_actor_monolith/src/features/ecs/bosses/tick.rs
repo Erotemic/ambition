@@ -83,9 +83,9 @@ fn possessed_attack_choice(
 ///
 /// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
-    mut bosses: Query<crate::boss_encounter::BossClusterQueryData, With<FeatureSimEntity>>,
+    mut bosses: Query<ambition_boss_encounter::BossClusterQueryData, With<FeatureSimEntity>>,
     mut last_logged: bevy::ecs::system::Local<
-        std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
+        std::collections::HashMap<String, ambition_boss_encounter::BossEncounterPhase>,
     >,
 ) {
     for mut feature in &mut bosses {
@@ -312,17 +312,17 @@ pub fn project_boss_attack_state_from_move(
 /// render no longer owns or writes the frame. Now the SIM owns the cursor: it
 /// picks the anim from the projected `BossAttackState`, advances the frame, and
 /// writes the sample; the renderer mirrors that cursor into its draw-only
-/// [`BossAnimator`](crate::boss_encounter::sprites::BossAnimator).
+/// [`BossAnimator`](ambition_boss_encounter::sprites::BossAnimator).
 /// Runs after `project_boss_attack_state_from_move` (so `BossAttackState` is this
 /// frame's) and before the renderer's `animate_bosses`.
 pub fn drive_boss_animators(
     mut commands: Commands,
-    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     world_time: Res<WorldTime>,
     ecs_bosses: Query<(
         Entity,
         &crate::features::FeatureId,
-        crate::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &BossAttackState,
@@ -331,7 +331,7 @@ pub fn drive_boss_animators(
     mut frames: Query<(
         Entity,
         &crate::features::FeatureId,
-        &mut crate::boss_encounter::sprites::BossAnimFrame,
+        &mut ambition_boss_encounter::sprites::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
 ) {
@@ -342,7 +342,7 @@ pub fn drive_boss_animators(
         else {
             continue;
         };
-        let anim = crate::boss_encounter::sprites::pick_boss_anim(state);
+        let anim = ambition_boss_encounter::sprites::pick_boss_anim(state);
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
         match crate::features::ecs_boss_animation_frame_sample(
@@ -389,7 +389,7 @@ pub fn tick_boss_brains_system(
     mut bosses: Query<
         (
             bevy::ecs::entity::Entity,
-            crate::boss_encounter::BossClusterRef,
+            ambition_boss_encounter::BossClusterRef,
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
@@ -610,7 +610,7 @@ pub fn tick_boss_brains_system(
 
 pub(crate) fn boss_front_wall_clearance(
     world: &ae::World,
-    boss: &crate::boss_encounter::BossRef<'_>,
+    boss: &ambition_boss_encounter::BossRef<'_>,
     target_pos: ae::Vec2,
     standoff: f32,
 ) -> Option<f32> {
@@ -727,7 +727,7 @@ pub fn integrate_boss_bodies(
         (
             Entity,
             super::super::actor_clusters::ActorClusterQueryData,
-            &crate::boss_encounter::BossConfig,
+            &ambition_boss_encounter::BossConfig,
             &crate::combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,

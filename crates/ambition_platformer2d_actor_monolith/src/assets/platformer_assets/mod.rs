@@ -58,7 +58,7 @@ impl bevy::prelude::Plugin for AmbitionAssetSourcePlugin {
 /// content fixture) — this seam consults no process-global audio state.
 pub fn desktop_dev_default_catalog(
     character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
@@ -81,7 +81,7 @@ pub fn desktop_dev_default_catalog(
 pub fn build_platformer2d_asset_catalog(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
@@ -105,7 +105,7 @@ pub fn scaled_asset_id(
 pub fn build_sandbox_catalog_with(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
@@ -121,7 +121,7 @@ pub fn build_sandbox_catalog_with(
 
 pub fn sandbox_catalog_inputs(
     character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalogInputs {
@@ -142,7 +142,7 @@ pub fn sandbox_catalog_inputs(
 
 fn sandbox_catalog_inputs_without_worlds(
     character_catalog: &CharacterCatalog,
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> Platformer2dAssetCatalogInputs {
     Platformer2dAssetCatalogInputs {

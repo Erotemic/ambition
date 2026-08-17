@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
 
-use crate::boss_encounter::BossConfig;
+use ambition_boss_encounter::BossConfig;
 use crate::features::ecs::actor_clusters::ActorConfig;
 use crate::features::ActorSurfaceState;
 

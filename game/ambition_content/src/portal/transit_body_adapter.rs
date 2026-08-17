@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
-use ambition_platformer2d_actor_monolith::boss_encounter::BossConfig;
+use ambition_boss_encounter::BossConfig;
 use ambition_platformer2d_actor_monolith::features::BodyKinematics;
 use ambition_portal2d::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,

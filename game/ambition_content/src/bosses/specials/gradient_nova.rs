@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
 };
-use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
+use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::enemy::ProjectileSpawn;
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
         use ambition_entity_catalog::placements::BossBrain;
-        use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterScratch;
+        use ambition_boss_encounter::BossClusterScratch;
         use ambition_projectiles::enemy::apply_enemy_projectile_effect_requests;
         use ambition_projectiles::enemy::{EnemyProjectile, EnemyProjectileState};
         use ambition_projectiles::ProjectileSeqCounter;

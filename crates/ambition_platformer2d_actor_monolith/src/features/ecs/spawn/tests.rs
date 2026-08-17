@@ -153,7 +153,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     ));
 
     let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-    let boss_catalog = crate::boss_encounter::test_boss_catalog();
+    let boss_catalog = ambition_boss_encounter::test_boss_catalog();
 
     let plan = RoomFeatureConstructionPlan::prepare(
         &room,
@@ -287,11 +287,11 @@ fn boss_spawn_attaches_brain_components() {
         let root = commands.spawn_empty().id();
         spawn_boss_with_overrides_into(
             &mut commands,
-            &crate::boss_encounter::test_boss_catalog(),
+            &ambition_boss_encounter::test_boss_catalog(),
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
             root,
             &authored,
-            &crate::boss_encounter::BossOverrides::default(),
+            &ambition_boss_encounter::BossOverrides::default(),
         );
     });
     app.update();

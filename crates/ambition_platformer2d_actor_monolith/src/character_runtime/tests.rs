@@ -580,7 +580,7 @@ mod live_quality_apply {
         let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
             &config,
             &characters,
-            &crate::boss_encounter::BossCatalog::default(),
+            &ambition_boss_encounter::BossCatalog::default(),
             &crate::session::data::MusicRegistry {
                 default_track: String::new(),
                 tracks: Vec::new(),

@@ -43,12 +43,12 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 
 // `BossBehaviorProfile` / `BossRewardProfile` / `ActorSpriteMetrics` /
 // `canonical_boss_id_from` / `boss_animation_keys_for_profile` moved to
-// `crate::boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
+// `ambition_boss_encounter::behavior` (Stage 20 / A2 stretch): the boss
 // PROFILE vocabulary is machinery (data-driven via boss_profiles.ron);
 // this module keeps generic moveset construction and strike tuning.
 #[cfg(test)]
-use crate::boss_encounter::behavior::canonical_boss_id_from;
-pub use crate::boss_encounter::behavior::{
+use ambition_boss_encounter::behavior::canonical_boss_id_from;
+pub use ambition_boss_encounter::behavior::{
     boss_animation_keys_for_profile, ActorSpriteMetrics, BossBehaviorProfile, BossRewardProfile,
 };
 
@@ -160,7 +160,7 @@ pub fn boss_attack_moveset(
                 // `HitVolume` the move runtime mirrors by facing + rotates into the
                 // gravity frame at spawn.
                 let volumes: Vec<HitVolume> =
-                    crate::boss_encounter::attack_geometry::volumes_for_profile(
+                    ambition_boss_encounter::attack_geometry::volumes_for_profile(
                         profile,
                         ambition_platformer2d_core::Vec2::ZERO,
                         combat_size,

@@ -677,7 +677,7 @@ impl BossCatalogAppExt for App {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 fn test_boss_sprite_filenames() -> BTreeMap<String, String> {
     BTreeMap::from([
         ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
@@ -705,19 +705,19 @@ fn test_boss_sprite_filenames() -> BTreeMap<String, String> {
     ])
 }
 
-#[cfg(test)]
-pub(crate) fn test_boss_catalog() -> &'static BossCatalog {
+#[cfg(any(test, feature = "test-support"))]
+pub fn test_boss_catalog() -> &'static BossCatalog {
     static CATALOG: std::sync::LazyLock<BossCatalog> = std::sync::LazyLock::new(|| {
         let encounters: &[&str] = &[
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
         ];
         let special_anim_keys = BTreeMap::from([
             (
@@ -747,9 +747,9 @@ pub(crate) fn test_boss_catalog() -> &'static BossCatalog {
             "ambition-test",
             Some("clockwork_warden"),
             Some("gradient_sentinel"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_profiles.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
             encounters,
-            include_str!("../../../../game/ambition_content/assets/data/boss_sheets.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
             test_boss_sprite_filenames(),
             special_anim_keys,
         )
@@ -767,23 +767,23 @@ mod tests {
 
     fn fragment(provider: &str) -> BossCatalogFragment {
         let encounters: &[&str] = &[
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
         ];
         BossCatalogFragment::from_ron(
             provider,
             Some("clockwork_warden"),
             Some("gradient_sentinel"),
-            include_str!("../../../../game/ambition_content/assets/data/boss_profiles.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
             encounters,
-            include_str!("../../../../game/ambition_content/assets/data/boss_sheets.ron"),
+            include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
             test_boss_sprite_filenames(),
             BTreeMap::new(),
         )

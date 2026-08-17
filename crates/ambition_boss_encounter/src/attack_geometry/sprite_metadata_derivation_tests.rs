@@ -1,7 +1,7 @@
 //! Tests for the pixel-frame -> world-space AABB derivation used by boss attack volumes.
 
 use super::*;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use crate::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
 
@@ -198,7 +198,7 @@ fn bounding_aabb_returns_none_for_empty_input() {
 /// `body_pixel_bbox` (~106 wide).
 #[test]
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::HashMap;
@@ -253,7 +253,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     attack_state.active_profile = Some(BossAttackProfile::Strike("side_sweep".to_string()));
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::new(640.0, 656.0),
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -286,7 +286,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
 /// but the hurtbox would scale by `boss.size` only.
 #[test]
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -357,7 +357,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -379,7 +379,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
 
 #[test]
 fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -445,7 +445,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
     };
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -473,7 +473,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     // animation at elapsed 0 → frame 0 forever, even as the
     // rendered breathing pose bobbed. An idle `BossAnimationFrameSample`
     // (`profile: None`) now feeds the live frame index through.
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -534,7 +534,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
     // Without a sample, elapsed 0 locks to frame 0 (y = -35).
     let ctx0 = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -559,7 +559,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
         animation_key: Some("rest".into()),
     };
     let ctx1 = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         animation_frame: Some(&idle_frame),
         ..ctx0
     };
@@ -574,7 +574,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
 #[test]
 fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_sprite_sheet::{
         AnimationBox, AnimationBoxFrame, AnimationMetrics, NamedPixelRect,
@@ -665,7 +665,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15;
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -695,7 +695,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
 
 #[test]
 fn damageable_volumes_scales_to_sprite_render_size() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use ambition_platformer2d_core::AabbExt;
     use ambition_sprite_sheet::PixelRect;
@@ -732,7 +732,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     };
 
     let legacy_ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -743,7 +743,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         facing: 1.0,
     };
     let render_ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -862,13 +862,13 @@ fn world_space_body_aabbs_scales_with_world_size() {
 /// is NOT where the bug lives; this pins that at the damageable-volume level.
 #[test]
 fn attack_fully_inside_boss_volume_still_registers() {
-    use crate::boss_encounter::behavior::BossBehaviorProfile;
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::BossAttackState;
 
     let behavior = BossBehaviorProfile::clockwork_warden();
     let attack_state = BossAttackState::default();
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),
@@ -897,7 +897,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
 /// An authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::BossAttackState;
     use std::collections::HashMap;
 
@@ -910,7 +910,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
 
     // Current state: no authored hurtbox -> combat_size fallback (±92.5 tall).
     let ctx_fallback = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),
@@ -944,7 +944,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         animations: HashMap::new(),
     };
     let ctx_authored = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),
@@ -1031,7 +1031,7 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
 /// covers instead of claiming the fold is guarded.
 #[test]
 fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_match() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
@@ -1101,7 +1101,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
     };
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -1136,7 +1136,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
 /// PROBED: swapping `frame.rs`'s check to a key comparison fails THIS one.
 #[test]
 fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
@@ -1203,7 +1203,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
     };
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -1241,7 +1241,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
 /// This pins the behaviour that would be lost.
 #[test]
 fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
 
@@ -1310,7 +1310,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     };
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -1367,7 +1367,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
 /// `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`.
 #[test]
 fn the_row_is_found_only_because_the_sample_names_it() {
-    use crate::boss_encounter::behavior::BossBehaviorProfile;
+    use crate::behavior::BossBehaviorProfile;
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
 
     let behavior = BossBehaviorProfile::gnu_ton_rider();
@@ -1381,7 +1381,7 @@ fn the_row_is_found_only_because_the_sample_names_it() {
         animation_key: Some("head_down".into()),
     };
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -1416,7 +1416,7 @@ fn the_row_is_found_only_because_the_sample_names_it() {
 
 #[test]
 fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
-    use crate::boss_encounter::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
+    use crate::behavior::{ActorSpriteMetrics, BossBehaviorProfile};
     use ambition_characters::brain::boss_pattern::BossAttackProfile;
     use ambition_sprite_sheet::{AnimationBox, AnimationBoxFrame, AnimationMetrics};
     use std::collections::HashMap;
@@ -1469,7 +1469,7 @@ fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
     };
 
     let ctx = BossVolumeContext {
-        boss_catalog: crate::boss_encounter::test_boss_catalog(),
+        boss_catalog: crate::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),

@@ -45,7 +45,7 @@ pub struct BossVolumeContext<'a> {
     /// RON carries `body_metrics` and the derivation system has
     /// snapshotted it. `damageable_volumes` prefers multi-rect
     /// hurtboxes from here over the legacy single-AABB fallback.
-    pub sprite_metrics: Option<&'a crate::boss_encounter::behavior::ActorSpriteMetrics>,
+    pub sprite_metrics: Option<&'a crate::behavior::ActorSpriteMetrics>,
     /// Optional frame sample from the live boss sprite animator.
     /// When present and its profile matches the requested attack,
     /// sprite-authored hit/hurt boxes use this exact frame index
@@ -90,7 +90,7 @@ impl<'a> BossVolumeContext<'a> {
     /// data-driven via `sprite_metrics`.
     pub fn from_ref(
         boss_catalog: &'a super::BossCatalog,
-        boss: crate::boss_encounter::BossRef<'a>,
+        boss: crate::BossRef<'a>,
         attack_state: &'a BossAttackState,
     ) -> Self {
         Self {

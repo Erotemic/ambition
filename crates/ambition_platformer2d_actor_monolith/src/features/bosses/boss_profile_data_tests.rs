@@ -5,7 +5,7 @@
 //! unchanged).
 
 use super::*;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// `assets/data/boss_profiles.ron` must carry a row for every
 /// boss the codebase has a constructor for. Without this, the
@@ -21,7 +21,7 @@ fn ron_carries_every_known_boss() {
     ] {
         // `from_data` panics with a clear message when the row is
         // missing (the registry static is private to behavior.rs).
-        let _ = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
+        let _ = BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
     }
 }
 
@@ -65,7 +65,7 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     use ambition_platformer2d_core as ae;
 
     let behavior = BossBehaviorProfile::from_data(
-        crate::boss_encounter::test_boss_catalog(),
+        ambition_boss_encounter::test_boss_catalog(),
         "smirking_behemoth_boss",
     );
     let combat_size = behavior
@@ -111,7 +111,7 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     // script to minutes of wall clock.
     for tick in 0..600 {
         let ctx = BossPatternContext {
-            encounter_phase: crate::boss_encounter::BossEncounterPhase::Phase1,
+            encounter_phase: ambition_boss_encounter::BossEncounterPhase::Phase1,
             actor_pos,
             target_pos,
             target_body_size,

@@ -48,7 +48,7 @@ pub mod stocks_match;
 pub mod temporary_control;
 pub use temporary_control::TemporaryControl;
 // Stable facade for boss attack geometry.
-pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
+pub use ambition_boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
 pub mod ecs;
 pub use ecs::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
@@ -169,7 +169,7 @@ pub use ecs::{
     EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
     HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
-    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
+    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
     MountRiderLinkEnforced, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,

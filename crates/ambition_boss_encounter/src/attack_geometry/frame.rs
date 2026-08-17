@@ -22,7 +22,7 @@ pub(super) fn sprite_authored_volumes(
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
     for animation in
-        crate::boss_encounter::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile)
+        crate::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile)
     {
         let Some(entry) = metrics.animations.get(&animation) else {
             continue;
@@ -57,7 +57,7 @@ pub(super) fn sprite_authored_volumes(
 /// didn't capture one — test fixtures that build `ActorSpriteMetrics`
 /// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
 pub(super) fn sprite_world_size(
-    metrics: &crate::boss_encounter::behavior::ActorSpriteMetrics,
+    metrics: &crate::behavior::ActorSpriteMetrics,
     fallback: ae::Vec2,
 ) -> ae::Vec2 {
     if metrics.sprite_render_size.x > 0.0 && metrics.sprite_render_size.y > 0.0 {
@@ -178,7 +178,7 @@ pub(super) fn runtime_animation_keys(
     }
     let claimed = active_profile
         .map(|profile| {
-            crate::boss_encounter::behavior::boss_animation_keys_for_profile(
+            crate::behavior::boss_animation_keys_for_profile(
                 ctx.boss_catalog,
                 profile,
             )

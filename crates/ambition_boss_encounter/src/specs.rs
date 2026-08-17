@@ -7,7 +7,7 @@
 use super::BossCatalog;
 
 /// Boss specs authored by the providers linked into this App.
-pub fn default_boss_specs(catalog: &BossCatalog) -> Vec<crate::boss_encounter::BossEncounterSpec> {
+pub fn default_boss_specs(catalog: &BossCatalog) -> Vec<crate::BossEncounterSpec> {
     catalog.encounter_specs().cloned().collect()
 }
 

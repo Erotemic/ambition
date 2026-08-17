@@ -1096,7 +1096,7 @@ fn sanic_setup(
         >,
     >,
     authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
-    boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
+    boss_catalog: bevy::prelude::Res<ambition_platformer2d::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
         ambition_platformer2d::runtime::demo_fixture::PlacementLoweringRegistry,
     >,

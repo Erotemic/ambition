@@ -65,13 +65,13 @@ pub trait BossBehaviorProfileExt {
     /// reference boss. A thin `from_data` alias so a test reads the name instead
     /// of the stringly id; the engine ships NO named bosses, and production
     /// resolves every boss by id.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn clockwork_warden() -> Self;
     /// Mockingbird — airborne ship/bird-like Cycle boss.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn mockingbird() -> Self;
     /// GNU-ton's scholar RIDER — the boss half of the ADR-0020 linked pair.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn gnu_ton_rider() -> Self;
 }
 
@@ -100,7 +100,7 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
     }
 
     fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self {
-        let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
+        let key = crate::encounter_id_from_name(id_or_name);
         if key == "gradient_sentinel" {
             return <Self as BossBehaviorProfileExt>::from_data(catalog, "clockwork_warden");
         }
@@ -113,7 +113,7 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn clockwork_warden() -> Self {
         <Self as BossBehaviorProfileExt>::from_data(
             super::catalog::test_boss_catalog(),
@@ -121,7 +121,7 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn mockingbird() -> Self {
         <Self as BossBehaviorProfileExt>::from_data(
             super::catalog::test_boss_catalog(),
@@ -129,7 +129,7 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn gnu_ton_rider() -> Self {
         <Self as BossBehaviorProfileExt>::from_data(
             super::catalog::test_boss_catalog(),
@@ -152,7 +152,7 @@ fn warn_once_unregistered_boss(key: &str) {
         .unwrap_or(false);
     if fresh {
         bevy::log::warn!(
-            target: "ambition_platformer2d::bosses",
+            target: "ambition_boss_encounter::behavior",
             "boss '{key}' is not in boss_profiles.ron — spawning a GENERIC clone of \
              the clockwork warden under that id. It will draw the generic body no \
              matter how its sheet is wired, because `boss_sprites[\"{key}\"]` cannot \
@@ -193,9 +193,9 @@ pub fn canonical_boss_id_from(
             script_id.clone()
         }
         ambition_entity_catalog::placements::BossBrain::Custom(label) if !label.is_empty() => {
-            crate::boss_encounter::encounter_id_from_name(label)
+            crate::encounter_id_from_name(label)
         }
-        _ => crate::boss_encounter::encounter_id_from_name(name),
+        _ => crate::encounter_id_from_name(name),
     }
 }
 
@@ -378,7 +378,7 @@ mod pilotable_mount_tests {
         );
 
         let rider = BossBehaviorProfile::from_data(
-            crate::boss_encounter::test_boss_catalog(),
+            crate::test_boss_catalog(),
             "gnu_ton_rider",
         );
         assert!(

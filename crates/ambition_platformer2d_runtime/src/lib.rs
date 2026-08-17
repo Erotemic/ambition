@@ -147,7 +147,7 @@ pub mod host_seams {
 pub mod demo_fixture {
     pub use ambition_dev_tools::dev_tools::EditableAbilitySet;
     pub use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-    pub use ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog;
+    pub use ambition_boss_encounter::BossCatalog;
     pub use ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry;
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;

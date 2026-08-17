@@ -156,31 +156,10 @@ snapshot_pod!(crate::features::ActorSurfaceState {
     gravity_scale: f32,
 });
 
-/// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
-///
-/// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
-/// sheet registry, and because `ActorPhaseState.triggers` is authored data.
-///
-/// `encounter_phase` is the exposed MIRROR that `sync_boss_encounter_phase` copies out
-/// of `encounter` every tick. Rewinding only the mirror is rewinding a thermometer:
-/// `mockingbird_arena` telegraphed `wing_sweep` on the replay's tick 21 and stood still
-/// on the original's, with every clock, seed, and cooldown identical, because the
-/// replay's boss was already awake.
-impl SnapshotCursor for crate::boss_encounter::BossEncounter {
-    fn encode_cursor(&self, out: &mut Vec<u8>) {
-        self.encounter_phase.encode(out);
-        match &self.encounter {
-            None => put_bool(out, false),
-            Some(e) => {
-                put_bool(out, true);
-                e.phase.encode(out);
-                put_f32(out, e.phase_elapsed);
-                put_f32(out, e.transition_lock);
-                e.start_phase.encode(out);
-            }
-        }
-    }
-}
+// ✔ `BossEncounter`'s cursor impl LEFT with its type 2026-08-17 (D33) and now
+// lives in `ambition_boss_encounter::clusters`. The orphan rule is what forced
+// the move, exactly as this file's header says it should: the impl stopped
+// compiling here the moment the type crossed the crate line.
 
 impl SnapshotCursor for crate::features::ActorMotionPath {
     fn encode_cursor(&self, out: &mut Vec<u8>) {

@@ -12,7 +12,7 @@ use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
-use crate::boss_encounter::{BossClusterRef, BossConfig};
+use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use crate::features::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
@@ -525,7 +525,7 @@ pub fn step_projectiles(
             Option<&ActorAggression>,
             Option<&ambition_combat::targeting::MatchTeam>,
         )>,
-        Res<crate::boss_encounter::BossCatalog>,
+        Res<ambition_boss_encounter::BossCatalog>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
     ),
 ) {

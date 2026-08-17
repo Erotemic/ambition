@@ -64,7 +64,7 @@ pub fn reset_ecs_room_features(
         // bosses here so Bevy can prove the two queries never alias.
         (
             With<FeatureSimEntity>,
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
     // Content pose PINS. `ActorAnimOverride` is an engine-provided override slot
@@ -79,14 +79,14 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<
         (
             super::actor_clusters::ActorClusterQueryData,
-            &mut crate::boss_encounter::BossConfig,
-            &mut crate::boss_encounter::BossEncounter,
+            &mut ambition_boss_encounter::BossConfig,
+            &mut ambition_boss_encounter::BossEncounter,
             &mut crate::features::MotionModel,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
             &mut ambition_characters::brain::ActorControl,
-            &mut crate::boss_encounter::sprites::BossAnimFrame,
+            &mut ambition_boss_encounter::sprites::BossAnimFrame,
         ),
         With<FeatureSimEntity>,
     >,
@@ -98,9 +98,9 @@ pub fn reset_ecs_room_features(
     // R5 encounter orchestration from the previous attempt: the encounter entity
     // (+ its finished `EncounterScript`), in-flight falling hazards, and the lure
     // override on a boss. `Entity`-only fetches → no aliasing with the queries above.
-    encounter_entities: Query<Entity, With<crate::boss_encounter::EncounterDef>>,
-    falling_hazards: Query<Entity, With<crate::boss_encounter::FallingHazard>>,
-    commanded_bosses: Query<Entity, With<crate::boss_encounter::CommandedMove>>,
+    encounter_entities: Query<Entity, With<ambition_boss_encounter::EncounterDef>>,
+    falling_hazards: Query<Entity, With<ambition_boss_encounter::FallingHazard>>,
+    commanded_bosses: Query<Entity, With<ambition_boss_encounter::CommandedMove>>,
 ) {
     let reasons: Vec<_> = reset_requests
         .read()
@@ -234,7 +234,7 @@ pub fn reset_ecs_room_features(
         // what restores it. There is no second answer to set.
         combat.reset();
         status.encounter = None;
-        status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
+        status.encounter_phase = ambition_boss_encounter::BossEncounterPhase::Dormant;
         // Reset the durable brain cursor/clocks and clear both transient
         // control intent and the move-derived `BossAttackState` read-model.
         // A stale `desired_vel` or projected attack from the previous attempt
@@ -278,7 +278,7 @@ pub fn reset_ecs_room_features(
     for entity in &commanded_bosses {
         commands
             .entity(entity)
-            .remove::<crate::boss_encounter::CommandedMove>();
+            .remove::<ambition_boss_encounter::CommandedMove>();
     }
 }
 

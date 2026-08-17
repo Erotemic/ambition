@@ -25,7 +25,7 @@
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::BodyKinematics;
-use ambition_platformer2d::actors::boss_encounter::BossConfig;
+use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use bevy::prelude::World;

@@ -21,6 +21,10 @@ audio = ["ambition_audio/kira"]
 # graph tells. If this crate ever needs the backend again, add the line back
 # WITH the use.
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+# `BossCatalog` — the lifecycle staging params read the boss catalog directly
+# now that the boss domain is its own crate (D33), instead of through the
+# monolith facade it used to sit behind.
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 # Promoted from dev-dependencies 2026-07-19 (K1a): the session builder reads the
 # neutral `ActiveMovementTuning` authority instead of the dev-tools inspector
 # mirror. No new edge in the graph -- actors already pulls engine_core in.

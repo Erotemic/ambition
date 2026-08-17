@@ -9,7 +9,7 @@ use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef;
+use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::enemy::ProjectileSpawn;

@@ -84,7 +84,7 @@ pub struct SimulationSetup<'a> {
     /// this session was prepared under (Phase 3 planned families).
     pub construction: crate::features::ActorConstructionContext<'a>,
     /// App-local boss profiles, encounter specs, sheets, and special rows.
-    pub boss_catalog: &'a crate::boss_encounter::BossCatalog,
+    pub boss_catalog: &'a ambition_boss_encounter::BossCatalog,
     /// Provider-selected default used only when `StartingCharacter` is empty.
     pub default_character_id: &'a str,
     pub sandbox_data_asset: Option<&'a Platformer2dGameplayDefaultsHandle>,

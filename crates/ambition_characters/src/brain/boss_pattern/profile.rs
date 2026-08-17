@@ -3,7 +3,7 @@
 //!
 //! ## Why this is here and not in the actor crate
 //!
-//! ⛔ It lived in `ambition_platformer2d_actor_monolith::boss_encounter::behavior`
+//! ⛔ It lived in `ambition_boss_encounter::behavior`
 //! until 2026-08-03, and that placement BLOCKED the content compiler. A schema
 //! must be registered by the crate that owns its type, and the validator has to
 //! link that crate to install the schema — so a boss-profile schema meant the

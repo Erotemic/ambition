@@ -6,7 +6,7 @@
 
 use super::brain_builders::enemy_default_brain;
 use super::*;
-use crate::boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
+use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -1017,7 +1017,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // overrides) to the right boss.
     let encounter_id = boss.config.behavior.id.clone();
     let boss_sheet_key = encounter_id.to_ascii_lowercase().replace('-', "_");
-    let boss_anim_frame = crate::boss_encounter::sprites::BossAnimFrame::new(
+    let boss_anim_frame = ambition_boss_encounter::sprites::BossAnimFrame::new(
         boss_catalog.sheet_for_key(&boss_sheet_key),
     );
     let combat_tuning =
@@ -2550,7 +2550,7 @@ mod runtime_giant_refusal_tests {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        app.init_resource::<crate::boss_encounter::BossCatalog>();
+        app.init_resource::<ambition_boss_encounter::BossCatalog>();
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();
         app.add_systems(Update, apply_spawn_actor_requests);

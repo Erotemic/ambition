@@ -26,6 +26,7 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_dialog = { path = "../ambition_dialog" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }

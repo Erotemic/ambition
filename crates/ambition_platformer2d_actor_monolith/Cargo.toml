@@ -358,6 +358,12 @@ ambition_sfx = { path = "../ambition_sfx" }
 # authored hitbox/body-collision joins.
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_encounter = { path = "../ambition_encounter" }
+# The boss-fight DOMAIN. Carved out of this crate 2026-08-17 (D33): the data
+# model relocated here first (`features::ecs::boss_clusters` -> `clusters`), and
+# once the last two upward names (`CutsceneTriggerQueue`, `MountDied`) moved
+# BELOW, nothing in the domain reached back. No facade re-export stands here —
+# callers name the crate.
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # Reusable gameplay flight-recorder FORMAT (schema + buffer + dump). The
 # recording systems stay in dev/trace next to the sim state they sample.
@@ -498,6 +504,12 @@ serde_json = "1"
 # `#[cfg(test)]` does not cross a crate boundary. Enabling the feature from
 # `[dependencies]` would put an early fold on the production surface.
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+# The boss FIXTURES (`test_boss_catalog`, `clusters::test_support`) the
+# boss-adjacent tests here build against — damage routing, mount dissolution,
+# construction, spawn. Same reason as the line above: `#[cfg(test)]` does not
+# cross a crate boundary, and a production `[dependencies]` edge would put the
+# fixtures on the shipping surface.
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
 # The observation-boundary crate: the headless camera example resolves its
 # snapshot through it (dev-only; cyclic dev-deps are fine).
 ambition_sim_view = { path = "../ambition_sim_view" }

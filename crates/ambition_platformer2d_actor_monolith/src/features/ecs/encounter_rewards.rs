@@ -7,7 +7,7 @@
 //! the single point that mirrors that contract from the encounter
 //! registry to the ECS.
 //!
-//! The BOSS half of that contract moved to `crate::boss_encounter::rewards`
+//! The BOSS half of that contract moved to `ambition_boss_encounter::rewards`
 //! (D33) — it reads `BossRewardProfile` and has one caller, both in the boss
 //! domain. These two never shared anything but this file.
 

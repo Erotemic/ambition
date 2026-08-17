@@ -6,7 +6,7 @@
 //! their immutable definitions into one App without plugin-order authority or
 //! process-global cross-App contamination.
 
-use ambition_platformer2d::actors::boss_encounter::{BossCatalog, BossCatalogRegistry};
+use ambition_platformer2d::boss_encounter::{BossCatalog, BossCatalogRegistry};
 use ambition_platformer2d::audio::catalog::AudioCatalogRegistry;
 use ambition_platformer2d::characters::actor::character_catalog::{
     CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners,

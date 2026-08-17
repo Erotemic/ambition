@@ -34,7 +34,7 @@
 
 use bevy::prelude::{Query, With, Without};
 
-use crate::boss_encounter::BossConfig;
+use ambition_boss_encounter::BossConfig;
 
 use super::{
     ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
@@ -121,13 +121,13 @@ pub fn ecs_hit_event_hits_actor(
 }
 
 pub fn ecs_hit_event_hits_boss(
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     event: &HitEvent,
     bosses: &Query<
         (
             &FeatureId,
             &CenteredAabb,
-            crate::boss_encounter::BossClusterRef,
+            ambition_boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

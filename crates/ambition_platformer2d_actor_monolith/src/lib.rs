@@ -19,7 +19,7 @@
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
 //! `combat`, `gravity`, `items`, `dialog`, `menu`, `music`,
-//! `persistence`, `projectile`, `enemy_projectile`, `boss_encounter`,
+//! `persistence`, `projectile`, `enemy_projectile`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
@@ -75,7 +75,11 @@ pub mod actor;
 pub mod affordances;
 pub mod assets;
 pub mod body_mode;
-pub mod boss_encounter;
+// ✔ `boss_encounter` LEFT 2026-08-17 (D33) and is now the
+// `ambition_boss_encounter` crate — the boss data model had been relocated into
+// it the same day, and the two names it still reached upward for
+// (`CutsceneTriggerQueue`, `MountDied`) moved BELOW the monolith instead. No
+// facade re-export stands here on purpose: callers name the crate.
 pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;
@@ -85,7 +89,6 @@ pub mod config;
 // header; the short version is that its zero import edges were never the
 // blocker — the SCHEDULE was.
 pub mod cutscene;
-pub mod cutscene_trigger;
 pub mod dev;
 pub mod dialog;
 pub mod encounter;

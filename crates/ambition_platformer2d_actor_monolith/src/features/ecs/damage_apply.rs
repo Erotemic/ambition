@@ -1207,7 +1207,7 @@ pub fn apply_player_hit_events(
         Query<&ambition_sfx::BodyPresentationSource>,
         // **Which bodies hit HEAVY.** Filter-only, so it reads no components and
         // conflicts with nothing; bundled for the same ceiling reason.
-        Query<(), bevy::prelude::With<crate::boss_encounter::BossConfig>>,
+        Query<(), bevy::prelude::With<ambition_boss_encounter::BossConfig>>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,

@@ -15,7 +15,6 @@
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
 | [`avatar`](src/avatar/mod.rs) | Historical slot-0/home-body and protagonist integration. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
-| [`boss_encounter`](src/boss_encounter/mod.rs) | Ambition-game coordinator for boss fights (distinct from the generic `crate::encounter` enemy-wave system). |
 | [`causal`](src/causal.rs) | This crate's causal facts. |
 | [`character_runtime`](src/character_runtime/mod.rs) | **The engine owns turning a declared character into loaded art.** |
 | [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
@@ -23,10 +22,9 @@
 | [`construction`](src/construction/mod.rs) | **The actor construction domain: three origins, one planner.** |
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
-| [`cutscene_trigger`](src/cutscene_trigger.rs) | The cutscene TRIGGER channel — a presentation-neutral request queue. |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
 | [`dialog`](src/dialog.rs) | Sim-side dialogue glue. |
-| [`encounter`](src/encounter/mod.rs) | Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `crate::boss_encounter`, which is one specific scripted boss fight with hand-authored phases. |
+| [`encounter`](src/encounter/mod.rs) | Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases. |
 | [`enemy_projectile`](src/enemy_projectile/mod.rs) | Enemy-fired projectile glue (pirate volleys etc). |
 | [`equipment`](src/equipment.rs) | **Worn equipment → granted actions**, reconciled continuously. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
@@ -49,7 +47,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask about flags.** |
 
-_42 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_40 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

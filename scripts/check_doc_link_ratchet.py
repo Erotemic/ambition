@@ -61,6 +61,10 @@ CRATES = [
     # earned. ⇒ **when a carve leaves one of these crates, the destination joins
     # the list in the same commit.**
     "ambition_conversation",
+    # ⇒ and D33's `boss_encounter` carve did it again the same day: 7,635 lines
+    # left the monolith, so its count falls for a reason nobody fixed. The
+    # destination joins the list here, in the carve's own commit.
+    "ambition_boss_encounter",
 ]
 
 # rustdoc's two shapes for this class.

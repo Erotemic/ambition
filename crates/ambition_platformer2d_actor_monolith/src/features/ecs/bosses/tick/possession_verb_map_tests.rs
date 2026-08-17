@@ -7,11 +7,11 @@ use super::*;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{BossAttackProfile, BossCapability};
 use ambition_platformer2d_core as ae;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 
 fn rider_behavior() -> crate::features::bosses::BossBehaviorProfile {
     crate::features::bosses::BossBehaviorProfile::from_data(
-        crate::boss_encounter::test_boss_catalog(),
+        ambition_boss_encounter::test_boss_catalog(),
         "gnu_ton_rider",
     )
 }

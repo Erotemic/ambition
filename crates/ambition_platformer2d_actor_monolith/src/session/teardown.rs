@@ -29,7 +29,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeRetired, Sessio
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 use crate::abilities::traversal::possession::PossessionState;
-use crate::boss_encounter::BossEncounterRegistry;
+use ambition_boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
 use crate::encounter::SwitchActivationQueue;
 use crate::RoomTransitionCooldown;

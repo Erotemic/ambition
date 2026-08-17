@@ -8,7 +8,7 @@
 //! `EncounterMob` wave vocabulary it shares.
 
 use super::{BossEncounterRegistry, BossRewardProfile};
-use crate::combat::falling_chest::settled_chest_center;
+use ambition_combat::falling_chest::settled_chest_center;
 use ambition_combat::{
     BossRewardChest, CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
 };

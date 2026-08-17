@@ -5,7 +5,7 @@
 
 use super::*;
 use ambition_characters::brain::BossAttackProfile;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use crate::behavior::BossBehaviorProfileExt;
 
 /// The ORIGINAL hardcoded `volumes_for_profile` arms, verbatim — the reference the
 /// `StrikeRect` DATA table (fable §C6) must reproduce byte-for-byte.
@@ -119,10 +119,10 @@ fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
 /// no edit to core's `strike_geometry`.
 #[test]
 fn an_authored_override_replaces_the_built_in_geometry_for_that_move() {
-    use crate::boss_encounter::behavior::BossBehaviorProfile;
+    use crate::behavior::BossBehaviorProfile;
 
     let mut behavior = BossBehaviorProfile::from_data(
-        crate::boss_encounter::test_boss_catalog(),
+        crate::test_boss_catalog(),
         "clockwork_warden",
     );
     let size = ae::Vec2::new(80.0, 80.0);

@@ -3,7 +3,7 @@
 
 use super::super::CenteredAabb;
 use super::*;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use bevy::prelude::*;
 
 type ActorClusterBundle = (
@@ -281,13 +281,13 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
     // `Brain::StateMachine`, so a surviving `Player` proves the brain is
     // untouched — no new flag, the component IS the marker (Q19b).
     app.world_mut().entity_mut(rider).insert((
-        crate::boss_encounter::BossConfig {
+        ambition_boss_encounter::BossConfig {
             id: "boss_rider".into(),
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
             brain: ambition_entity_catalog::placements::BossBrain::Dormant,
             behavior: crate::features::BossBehaviorProfile::generic(
-                crate::boss_encounter::test_boss_catalog(),
+                ambition_boss_encounter::test_boss_catalog(),
                 "boss_rider",
             ),
         },
@@ -706,7 +706,7 @@ fn dead_rider_does_not_disturb_mount_records() {
 ///     its phase advances to the authored on-foot `Enrage` via `mount_died`.
 #[test]
 fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
-    use crate::boss_encounter::{
+    use ambition_boss_encounter::{
         BossEncounterPhase, BossProfile, PhaseTrigger, PhaseTriggerCondition,
     };
     use ambition_characters::brain::{Brain, PlayerSlot};
@@ -738,7 +738,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // (3) The authored `gnu_ton_rider` boss profile carries the on-foot
     // `mount_died` External trigger (this is what makes the mini-phase authored,
     // not test-injected).
-    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
         .expect("gnu_ton_rider boss profile+encounter are authored");
     assert_eq!(
         profile.behavior.pilotable_mount_classes,
@@ -764,7 +764,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         Update,
         (
             enforce_mount_rider_link,
-            crate::boss_encounter::notify_bosses_on_mount_death,
+            ambition_boss_encounter::notify_bosses_on_mount_death,
         )
             .chain(),
     );
@@ -791,12 +791,12 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let rider_size = ae::Vec2::new(54.0, 96.0);
     let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
     rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
-    let (boss_encounter, _hp) = crate::boss_encounter::test_support::test_boss_status_with(
+    let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
         triggers,
     );
-    let boss_config = crate::boss_encounter::BossConfig {
+    let boss_config = ambition_boss_encounter::BossConfig {
         id: "gnu_ton_rider".into(),
         name: profile.display_name.clone(),
         spawn: rider_pos,
@@ -848,7 +848,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let phase = app
         .world()
         .entity(rider)
-        .get::<crate::boss_encounter::BossEncounter>()
+        .get::<ambition_boss_encounter::BossEncounter>()
         .unwrap()
         .encounter
         .as_ref()
@@ -874,8 +874,8 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use crate::boss_encounter::BossConfig;
-    use crate::boss_encounter::BossProfile;
+    use ambition_boss_encounter::BossConfig;
+    use ambition_boss_encounter::BossProfile;
     use crate::features::{
         fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
         LimbIntents, LimbRig, LimbRouteState, LimbSlot,
@@ -883,7 +883,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
 
-    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
         .expect("gnu_ton_rider boss profile is authored");
     // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
     assert!(
@@ -1034,8 +1034,8 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use crate::boss_encounter::BossConfig;
-    use crate::boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
+    use ambition_boss_encounter::BossConfig;
+    use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use crate::features::{
         fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics, Limb,
         LimbIntents, LimbRig, LimbRouteState, LimbSlot,
@@ -1046,7 +1046,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         SlotControls,
     };
 
-    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+    let profile = BossProfile::from_id(ambition_boss_encounter::test_boss_catalog(), "gnu_ton_rider")
         .expect("gnu_ton_rider boss profile is authored");
     assert!(
         profile
@@ -1167,7 +1167,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         &[],
     )
     .expect("the rider's authored strikes build a moveset");
-    let (boss_encounter, _hp) = crate::boss_encounter::test_support::test_boss_status_with(
+    let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
         PhaseTrigger::intrinsic_from_spec(&profile.encounter),

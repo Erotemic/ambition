@@ -11,8 +11,8 @@
 //! an edge-triggered set here would only be overwritten the same tick. One music
 //! authority, not two.
 
-use crate::boss_encounter::{BossEncounterPhase, BossPhaseEvent};
-use crate::cutscene_trigger::CutsceneTriggerQueue;
+use crate::{BossEncounterPhase, BossPhaseEvent};
+use ambition_cutscene::CutsceneTriggerQueue;
 
 /// **A boss's exposed phase changed, announced by the system that committed the
 /// change.** (P0.2)
@@ -53,7 +53,7 @@ pub(super) fn publish_events(
     encounter_id: &str,
     event: &BossPhaseEvent,
     cutscene_queue: &mut CutsceneTriggerQueue,
-    banner: &mut crate::features::GameplayBanner,
+    banner: &mut ambition_combat::GameplayBanner,
 ) {
     // Only the exposed phase change carries banner/cutscene; the brief
     // `TransitionLockStarted` tell has no presentation of its own.

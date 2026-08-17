@@ -12,7 +12,7 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use crate::boss_encounter::BossEncounter;
+use ambition_boss_encounter::BossEncounter;
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -117,10 +117,10 @@ pub(crate) fn apply_entity_boss_damage(
 /// swallow.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
-    boss_catalog: &crate::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     event: &HitEvent,
     boss_entity: bevy::prelude::Entity,
-    boss: crate::boss_encounter::BossMut<'_>,
+    boss: ambition_boss_encounter::BossMut<'_>,
     // The boss's shared body components (§A1): `BodyHealth` is the HP
     // authority, `BodyCombat.hit_flash` the one damage-blink.
     health: &mut ambition_characters::actor::BodyHealth,
@@ -344,8 +344,8 @@ mod entity_damage_tests {
     //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
     //! phases swallow the hit.
     use super::*;
-    use crate::boss_encounter::test_support::test_boss_status;
-    use crate::boss_encounter::BossEncounterPhase;
+    use ambition_boss_encounter::test_support::test_boss_status;
+    use ambition_boss_encounter::BossEncounterPhase;
 
     fn boss(
         hp: i32,

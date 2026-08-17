@@ -11,7 +11,7 @@
 /// Full authored profile for a boss encounter.
 ///
 /// This is the sandbox-side bridge from encounter progression to actual play.
-/// `crate::boss_encounter::BossEncounterSpec` remains the engine-owned state-machine input, while
+/// `crate::BossEncounterSpec` remains the engine-owned state-machine input, while
 /// `BossProfile` owns the content-facing bundle: phase thresholds, movement,
 /// hitboxes, damage tuning, music, and rewards.
 ///
@@ -26,19 +26,19 @@
 pub struct BossProfile {
     pub id: String,
     pub display_name: String,
-    pub encounter: crate::boss_encounter::BossEncounterSpec,
-    pub behavior: crate::boss_encounter::behavior::BossBehaviorProfile,
+    pub encounter: crate::BossEncounterSpec,
+    pub behavior: crate::behavior::BossBehaviorProfile,
     pub reward: BossRewardProfile,
 }
 
 use super::behavior;
 use super::BossCatalog;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
-use crate::boss_encounter::BossSpecRoster;
+use crate::behavior::BossBehaviorProfileExt;
+use crate::BossSpecRoster;
 /// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
 /// into `BossBehaviorProfile::reward`. Re-exported from its definition
 /// site (`content::features::bosses`) so existing
-/// `crate::boss_encounter::BossRewardProfile` call sites keep compiling.
+/// `crate::BossRewardProfile` call sites keep compiling.
 pub use behavior::BossRewardProfile;
 
 impl BossProfile {
@@ -50,7 +50,7 @@ impl BossProfile {
     /// Returns `None` if the id has no authored encounter spec.
     pub fn from_id(catalog: &BossCatalog, id: &str) -> Option<Self> {
         let encounter = default_boss_specs_by_id(catalog).get(id)?.clone();
-        let behavior = crate::boss_encounter::behavior::BossBehaviorProfile::from_data(catalog, id);
+        let behavior = crate::behavior::BossBehaviorProfile::from_data(catalog, id);
         Some(Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -68,7 +68,7 @@ impl BossProfile {
     ) -> Self {
         let id = id.into();
         let display_name = display_name.into();
-        let mut encounter = crate::boss_encounter::BossEncounterSpec::gradient_sentinel();
+        let mut encounter = crate::BossEncounterSpec::gradient_sentinel();
         encounter.id = id.clone();
         encounter.name = display_name.clone();
         encounter.max_hp = max_hp.max(1);
@@ -76,7 +76,7 @@ impl BossProfile {
             id: id.clone(),
             display_name,
             encounter,
-            behavior: crate::boss_encounter::behavior::BossBehaviorProfile::generic(catalog, id),
+            behavior: crate::behavior::BossBehaviorProfile::generic(catalog, id),
             reward: BossRewardProfile::None,
         }
     }
@@ -98,8 +98,8 @@ impl BossProfile {
 /// gameplay-core only holds the generic schema and the installed roster.
 fn default_boss_specs_by_id(
     catalog: &BossCatalog,
-) -> std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> {
-    let mut specs: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
+) -> std::collections::BTreeMap<String, crate::BossEncounterSpec> {
+    let mut specs: std::collections::BTreeMap<String, crate::BossEncounterSpec> =
         std::collections::BTreeMap::new();
     for spec in catalog.encounter_specs() {
         specs.insert(spec.id.clone(), spec.clone());

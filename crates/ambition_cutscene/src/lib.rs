@@ -408,6 +408,28 @@ pub struct RoomCutsceneBindings {
     pub bindings: Vec<(String, String)>,
 }
 
+/// The cutscene TRIGGER channel — a presentation-neutral request queue.
+///
+/// Gameplay systems (a boss dying, a room entry, a dialogue node) decide *that*
+/// a cutscene should play by pushing its id here; the PLAYBACK runtime drains
+/// the queue and starts the matching [`CutsceneScript`], while the overlay
+/// presentation lives in `ambition_render::cutscene`. Splitting the trigger out
+/// lets sim code request a cutscene without depending on the renderer — the
+/// same request-channel seam used for VFX/SFX.
+///
+/// It lives here, beside the script format and the playback resources, so that
+/// any gameplay domain can REQUEST a cutscene without reaching up into whatever
+/// crate happens to host the playback systems. That is what it is for: the boss
+/// domain asks for `boss_intro_<id>` and knows nothing else about cutscenes.
+#[derive(Resource, Default)]
+pub struct CutsceneTriggerQueue(pub Vec<String>);
+
+impl CutsceneTriggerQueue {
+    pub fn request(&mut self, id: impl Into<String>) {
+        self.0.push(id.into());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

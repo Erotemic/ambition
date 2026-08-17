@@ -23,3 +23,26 @@ use bevy::prelude::*;
 /// marker.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PrimaryBody;
+
+/// Emitted the frame a mount dies and its rider dismounts (the
+/// `(dead-mount, still-mounted)` dissolution the mount coupling enforces).
+/// Carries both entities so a consumer can react to either side.
+///
+/// This is a body FACT crossing out of the mount coupling — deliberately NOT
+/// routed through the `EncounterGate` script bus (that channel is
+/// script-vocabulary). The boss-encounter bridge subscribes to turn it into a
+/// `mount_died` external phase trigger — the boss whose mount died fights on
+/// foot in an authored mini-phase (ADR 0020; Q19). Any other system may
+/// subscribe to the same message later without touching this one.
+///
+/// ⭐ **it lives HERE, below the domains, because two of them share it.** The
+/// writer is the mount coupling in the actor monolith and the reader is
+/// `ambition_boss_encounter`; a message owned by one of the two would make the
+/// other depend on it for a type carrying nothing but a pair of entities. Same
+/// shape, and the same reason, as `FeatureInteractionSet` being put here so a
+/// carved module could still name the ordering it participates in.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct MountDied {
+    pub mount: Entity,
+    pub rider: Entity,
+}

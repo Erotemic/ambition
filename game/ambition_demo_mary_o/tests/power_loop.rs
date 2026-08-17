@@ -655,7 +655,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // authors none.
     app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ProjectileVisualCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -833,7 +833,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     // authors none.
     app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
@@ -981,7 +981,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     // authors none.
     app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
@@ -1127,7 +1127,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     // authors none.
     app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
+    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

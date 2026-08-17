@@ -16,7 +16,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
             &CenteredAabb,
             &mut super::super::super::components::ActorPose,
             Option<&super::super::actor_clusters::BodyKinematics>,
-            Option<crate::boss_encounter::BossClusterRef>,
+            Option<ambition_boss_encounter::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -288,7 +288,7 @@ pub fn tick_actor_brains(
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
             // **A DORMANT ACTOR DOES NOT DECIDE.** Only the brain sleeps: the
             // body still integrates, so a dormant actor mid-fall keeps falling
             // and simply stops choosing. Absent on every actor that declares no
@@ -1017,7 +1017,7 @@ pub fn integrate_sim_bodies(
             // one-frame pose lag, and the boss's chain-1 presentation systems remain
             // regardless — so the carve-out is a presentation-ordering choice, not an
             // un-unified integrator.
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
     // Home/player bodies (primary + any brain-driven clone). Disjoint from the
@@ -1212,7 +1212,7 @@ pub fn sync_actor_read_model(
             // fields — phase, timers), so it is excluded here to avoid a double sync.
             // Same non-swarm-orchestration policy as `tick_actor_brains` /
             // `integrate_boss_bodies`: the boss runs its own chain-1, deliberately.
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
 ) {

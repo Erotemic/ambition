@@ -427,7 +427,7 @@ fn validate_quest_conditions(
 /// two apply the same rule to the same four fields, so the overlap is safe.
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
-    boss_catalog: &ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     report: &mut ContentValidationReport,
 ) {
     let tracks = music
@@ -436,7 +436,7 @@ fn validate_boss_music_tracks(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
     for spec in
-        ambition_platformer2d_actor_monolith::boss_encounter::default_boss_specs(boss_catalog)
+        ambition_boss_encounter::default_boss_specs(boss_catalog)
     {
         for (field, track) in [
             ("music_intro", spec.music_intro.as_str()),
@@ -504,7 +504,7 @@ fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| entity.iid.clone());
                 ids.insert(
-                    ambition_platformer2d_actor_monolith::boss_encounter::encounter_id_from_name(
+                    ambition_boss_encounter::encounter_id_from_name(
                         &name,
                     ),
                 );

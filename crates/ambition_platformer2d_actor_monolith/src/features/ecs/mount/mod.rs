@@ -32,28 +32,20 @@
 //! relationship is data (ADR 0020).
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageWriter, Query, Res, With, Without,
+    Commands, Component, Entity, MessageWriter, Query, Res, With, Without,
 };
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::CenteredAabb;
 use ambition_platformer2d_core as ae;
 
-/// Emitted the frame a mount dies and its rider dismounts (the
-/// `(dead-mount, still-mounted)` dissolution in [`enforce_mount_rider_link`]).
-/// Carries both entities so a consumer can react to either side.
-///
-/// This is a body FACT crossing out of the mount coupling — deliberately NOT
-/// routed through the `EncounterGate` script bus (that channel is
-/// script-vocabulary). The boss-encounter bridge subscribes to turn it into a
-/// `mount_died` external phase trigger — the boss whose mount died fights on
-/// foot in an authored mini-phase (ADR 0020; Q19). Any other system may
-/// subscribe to the same message later without touching this one.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct MountDied {
-    pub mount: Entity,
-    pub rider: Entity,
-}
+// `MountDied` — the `(dead-mount, still-mounted)` dissolution
+// [`enforce_mount_rider_link`] announces — lives in
+// `ambition_platformer2d_shared_tangle::body`, below both of the domains that
+// share it: this coupling WRITES it and `ambition_boss_encounter` READS it.
+// ⛔ imported, never re-exported: a `pub use` here would let a caller keep
+// spelling it `features::MountDied` and hide whose type it is.
+use ambition_platformer2d_shared_tangle::body::MountDied;
 
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
 /// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
@@ -436,7 +428,7 @@ pub fn enforce_mount_rider_link(
             // A rider whose identity is AUTHORED, not derived from its kit (it
             // carries `BossConfig`), keeps its `Brain` untouched on dismount —
             // no new flag, the component IS the marker (ADR 0020; Q19b).
-            Option<&crate::boss_encounter::BossConfig>,
+            Option<&ambition_boss_encounter::BossConfig>,
             Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,

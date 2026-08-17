@@ -236,7 +236,7 @@ fn min_app() -> App {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // Explicit content-free boss authority: the reset processor reads
     // `Res<BossCatalog>` (required, not optional) to rebuild encounter state.
-    app.insert_resource(crate::boss_encounter::BossCatalog::default());
+    app.insert_resource(ambition_boss_encounter::BossCatalog::default());
     // Spawn the player entity so process_new_game_reset_request can query it.
     // Uses the full simulation bundle so every cluster component lands
     // — the reset path queries `BodyClusterQueryData` which needs all

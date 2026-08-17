@@ -223,12 +223,12 @@ pub fn rebuild_feature_view_index(
         // are absent), shadowing the boss view → the boss renders as the generic
         // fallback sprite instead of its sheet. This is the boss-exclusion the
         // deleted `ActorRuntime` tag used to provide implicitly.
-        Without<ambition_platformer2d_actor_monolith::boss_encounter::BossConfig>,
+        Without<ambition_boss_encounter::BossConfig>,
     >,
     hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
-        ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::brain::BossAttackState,
         // Shared combat read-model, synced from the boss runtime by
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
@@ -723,7 +723,7 @@ pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
     bosses: Query<(
         &FeatureId,
-        ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
     )>,
 ) {
     index.begin_rebuild();

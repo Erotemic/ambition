@@ -145,6 +145,11 @@ pub use ambition_audio as audio;
 pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
+// The boss-fight DOMAIN, carved out of the actor monolith 2026-08-17 (D33).
+// Named here rather than under `actors::` because it is no longer part of that
+// crate; the umbrella is how a demo or the app reaches one domain crate without
+// declaring an edge to each.
+pub use ambition_boss_encounter as boss_encounter;
 #[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
 pub use ambition_dev_tools as dev_tools;

@@ -22,7 +22,7 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 }
 
 fn insert_projectile_authority(app: &mut App) {
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     // The stepper resolves each shot's visual id through the (empty here) content
     // catalog for its detonation-FX pick; init it so the `Res` param validates.
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();

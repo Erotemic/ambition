@@ -26,8 +26,8 @@
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_platformer2d::actors::boss_encounter::BossConfig;
-use ambition_platformer2d::actors::boss_encounter::{
+use ambition_platformer2d::boss_encounter::BossConfig;
+use ambition_platformer2d::boss_encounter::{
     BossEncounterPhase, EncounterDef, EncounterProgress,
 };
 use ambition_platformer2d::actors::combat::{HitEvent, HitSource};
@@ -559,7 +559,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// `docs/systems/boss-encounter-architecture.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
-    use ambition_platformer2d::actors::boss_encounter::{BossConfig, BossEncounter};
+    use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");

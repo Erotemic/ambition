@@ -33,7 +33,7 @@ impl Plugin for AmbitionDialogueContentPlugin {
         voiceprints::register(app);
         app.insert_resource(cutscene_defaults::default_cutscene_library())
             .insert_resource(ambition_cutscene::ActiveCutscene::default())
-            .insert_resource(ambition_platformer2d_actor_monolith::cutscene_trigger::CutsceneTriggerQueue::default())
+            .insert_resource(ambition_cutscene::CutsceneTriggerQueue::default())
             .insert_resource(ambition_cutscene::CutsceneAdvanceRequest::default())
             .insert_resource(cutscene_defaults::default_room_cutscene_bindings())
             // Combat-banter registry — story-content lines for the

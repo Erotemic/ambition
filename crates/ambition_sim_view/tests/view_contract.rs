@@ -11,7 +11,7 @@ use ambition_platformer2d_core as ae;
 use ambition_sim_view::{rebuild_feature_view_index, FeatureViewIndex};
 use bevy::prelude::{App, Commands, Entity, IntoScheduleConfigs, Query, Update, With};
 
-fn ambition_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog {
+fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
     const ENCOUNTERS: &[&str] = &[
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
@@ -24,7 +24,7 @@ fn ambition_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encount
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
     ];
     let fragment =
-        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
+        ambition_boss_encounter::BossCatalogFragment::from_ron(
             "view-contract",
             Some("clockwork_warden"),
             None::<String>,
@@ -36,7 +36,7 @@ fn ambition_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encount
         )
         .expect("view-contract boss fixture should parse");
     let mut registry =
-        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
+        ambition_boss_encounter::BossCatalogRegistry::default();
     registry.register(fragment).unwrap();
     registry.assemble().unwrap()
 }
@@ -53,7 +53,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // boss sheet. This pins the exclusion that the deleted `ActorRuntime` tag
     // used to provide implicitly.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
-    let boss = ambition_platformer2d_actor_monolith::boss_encounter::BossClusterScratch::new(
+    let boss = ambition_boss_encounter::BossClusterScratch::new(
         &boss_catalog,
         "gnu_ton_rider",
         "GNU-ton",

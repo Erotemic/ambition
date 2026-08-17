@@ -19,8 +19,8 @@
 
 use bevy::prelude::*;
 
-use crate::boss_encounter::{BossClusterRef, BossEncounter};
-use crate::features::CenteredAabb;
+use crate::{BossClusterRef, BossEncounter};
+use ambition_combat::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -46,7 +46,7 @@ pub fn tick_encounter_scripts(
         &mut ambition_characters::actor::BodyHealth,
     )>,
     session_owners: Query<&SessionScopedEntity>,
-    mut banner: ResMut<crate::features::GameplayBanner>,
+    mut banner: ResMut<ambition_combat::GameplayBanner>,
     mut music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_encounter::EncounterMusicRequest,
     >,

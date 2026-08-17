@@ -1,5 +1,5 @@
 //! Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not
-//! scripted) — distinct from `crate::boss_encounter`, which is one specific
+//! scripted) — distinct from `ambition_boss_encounter`, which is one specific
 //! scripted boss fight with hand-authored phases.
 //!
 //! An "encounter" is a sequence of mob waves with explicit lock / unlock

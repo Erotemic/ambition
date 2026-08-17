@@ -6,7 +6,7 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use ambition_characters::actor::BodyHealth;
@@ -66,7 +66,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
 #[test]
 fn victim_side_enemy_body_hit_does_not_damage_features() {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -144,7 +144,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
     }
     fn strike_an_enemy(strike_sfx: Option<ambition_sfx::SfxId>) -> App {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -211,7 +211,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 
     fn damage_dealt_from(multiplier: f32, source: HitSource, human_controlled: bool) -> i32 {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -294,7 +294,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 #[test]
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -340,7 +340,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
 
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -397,7 +397,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // actor's HP, and enough damage routes through the normal kill
     // path. Complements the enemy-side tests above.
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -560,7 +560,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
 fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
     fn strike_and_count_bubbles(hp: i32) -> usize {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -623,7 +623,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
 fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
     fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -707,7 +707,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     // still hot lands exactly once. (This minimal app runs no integration tick, so the
     // window never decays between the two updates — exactly the sustained-overlap case.)
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -757,7 +757,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
 /// adhesive crawler clung to a LEFT wall (outward normal +x), then slash it.
 fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -872,7 +872,7 @@ fn player_slash_shatters_a_breakable() {
     // Completes the attacker-side hit matrix: a player slash on a
     // 1-HP breakable shatters it through apply_feature_hit_events.
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -933,7 +933,7 @@ fn player_slash_shatters_a_breakable() {
 #[test]
 fn enemy_defeat_drops_a_collectible_currency_coin() {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.add_systems(Update, |mut c: Commands| {
         drop_currency_coin(
             &mut c,
@@ -977,7 +977,7 @@ fn defeated_boss_drops_its_signature_ability() {
     ];
     for (id, ability) in expect {
         let profile =
-            BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
+            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.reward_ability.as_deref(),
             *ability,
@@ -993,7 +993,7 @@ fn defeated_boss_drops_its_signature_ability() {
 
     // The drop spawns a single collectible Ability pickup.
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.add_systems(Update, |mut c: Commands| {
         drop_ability_pickup(
             &mut c,
@@ -1046,7 +1046,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     let mut abilities = 0;
     for (id, gauntlet) in expect {
         let profile =
-            BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
+            BossBehaviorProfile::from_data(ambition_boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.signature_gauntlet.as_deref(),
             *gauntlet,
@@ -1074,7 +1074,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 #[test]
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.add_systems(Update, |mut c: Commands| {
         spawn_death_explosion(
             &mut c,
@@ -1107,7 +1107,7 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
 #[test]
 fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
@@ -1155,7 +1155,7 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     assert_eq!(id_drops_health("goblin_42"), id_drops_health("goblin_42"));
     // The drop spawns one collectible Health pickup.
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.add_systems(Update, |mut c: Commands| {
         drop_health_pickup(
             &mut c,
@@ -1232,7 +1232,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
 
 fn shield_test_app() -> App {
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1396,13 +1396,13 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
         let victim = spawn_hostile_actor(&mut app);
         let attacker = if heavy {
             app.world_mut()
-                .spawn(crate::boss_encounter::BossConfig {
+                .spawn(ambition_boss_encounter::BossConfig {
                     id: "heavy".into(),
                     name: "Heavy".into(),
                     spawn: ae::Vec2::ZERO,
                     brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                     behavior: crate::features::BossBehaviorProfile::generic(
-                        crate::boss_encounter::test_boss_catalog(),
+                        ambition_boss_encounter::test_boss_catalog(),
                         "heavy",
                     ),
                 })
@@ -1519,7 +1519,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1584,7 +1584,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         }
     }
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1683,7 +1683,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
     // in `apply_actor_hit` and the lethal case barks again.
     fn hit_and_count_bubbles(start_hp: i32, damage: i32) -> (usize, bool) {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1736,7 +1736,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     use bevy::ecs::message::Messages;
 
     let mut app = App::new();
-    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -1841,7 +1841,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
 fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     fn thrower_flash_after(source: HitSource) -> f32 {
         let mut app = App::new();
-        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),

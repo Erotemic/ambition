@@ -67,7 +67,7 @@ pub struct RoomReplayRequested;
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameResetCommitted;
 
-use crate::boss_encounter::BossEncounterRegistry;
+use ambition_boss_encounter::BossEncounterRegistry;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::rooms::RoomSet;
 use crate::world::physics;
@@ -85,7 +85,7 @@ pub struct ResetPlayState<'w> {
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    boss_catalog: Res<'w, crate::boss_encounter::BossCatalog>,
+    boss_catalog: Res<'w, ambition_boss_encounter::BossCatalog>,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
     placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,

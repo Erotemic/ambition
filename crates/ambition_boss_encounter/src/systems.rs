@@ -13,7 +13,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::cutscene_trigger::CutsceneTriggerQueue;
+use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
 use super::{
@@ -32,7 +32,7 @@ pub fn populate_boss_encounter_registry(
     }
     if catalog.is_empty() {
         bevy::log::info!(
-            target: "ambition_platformer2d::boss_encounter",
+            target: "ambition_boss_encounter",
             "boss_encounter registry: App has no boss catalog fragments"
         );
         registry.specs_loaded = true;
@@ -45,7 +45,7 @@ pub fn populate_boss_encounter_registry(
     let profiles = default_boss_profiles(&catalog);
     let total = profiles.len();
     bevy::log::info!(
-        target: "ambition_platformer2d::boss_encounter",
+        target: "ambition_boss_encounter",
         "boss_encounter registry: {total} App-local profile(s) loaded"
     );
     for profile in profiles {
@@ -66,7 +66,7 @@ pub fn update_boss_encounters(
     catalog: Res<BossCatalog>,
     world_time: Res<ambition_time::WorldTime>,
     registry: Res<BossEncounterRegistry>,
-    mut banner: ResMut<crate::features::GameplayBanner>,
+    mut banner: ResMut<ambition_combat::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_encounter::EncounterMusicRequest,
@@ -80,27 +80,27 @@ pub fn update_boss_encounters(
     reward_chests: Query<
         (
             Entity,
-            &crate::features::BossRewardChest,
-            &crate::features::FeatureId,
-            Option<&crate::features::Opened>,
-            Option<&crate::features::FallingChest>,
+            &ambition_combat::BossRewardChest,
+            &ambition_combat::FeatureId,
+            Option<&ambition_combat::Opened>,
+            Option<&ambition_combat::FallingChest>,
         ),
-        With<crate::features::ChestFeature>,
+        With<ambition_combat::ChestFeature>,
     >,
     // P0.2: the phase machine's own edge, announced where it is committed.
     mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
     mut bosses: Query<
         (
             Entity,
-            &crate::features::FeatureId,
-            crate::boss_encounter::BossClusterQueryData,
+            &ambition_combat::FeatureId,
+            crate::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
             // hit-flash/reaction timers.
             &mut ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
-            Option<&crate::boss_encounter::BossOverrides>,
+            Option<&crate::BossOverrides>,
         ),
-        With<crate::features::FeatureSimEntity>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
 ) {
     let Some(session_scope) =
@@ -166,18 +166,18 @@ pub fn update_boss_encounters(
             );
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
-                .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));
-            feature.status.encounter = Some(crate::boss_encounter::ActorPhaseState::new(triggers));
+                .unwrap_or_else(|| crate::PhaseTrigger::intrinsic_from_spec(&spec));
+            feature.status.encounter = Some(crate::ActorPhaseState::new(triggers));
         }
 
         // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —
         // a cleared placement renders defeated and is otherwise inert. Shared
         // predicate (`boss_is_cleared`) with the room-load save-sync so they
         // can't drift.
-        if crate::boss_encounter::boss_is_cleared(&save, &feature.config) {
+        if crate::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
-                phase.phase = crate::boss_encounter::BossEncounterPhase::Death;
+                phase.phase = crate::BossEncounterPhase::Death;
             }
             continue;
         }
@@ -193,7 +193,7 @@ pub fn update_boss_encounters(
             if alive
                 && matches!(
                     phase.phase,
-                    crate::boss_encounter::BossEncounterPhase::Dormant
+                    crate::BossEncounterPhase::Dormant
                 )
             {
                 phase_events.extend(phase.wake());
@@ -206,7 +206,7 @@ pub fn update_boss_encounters(
             // (P0.2). Every consumer of "this boss just changed phase" reads
             // this rather than diffing state against a memory of its own; see
             // `BossPhaseChanged` for what the `Local` diff cost on a rollback.
-            if let crate::boss_encounter::BossPhaseEvent::PhaseChanged { from, to } = ev {
+            if let crate::BossPhaseEvent::PhaseChanged { from, to } = ev {
                 phase_changes.write(super::events::BossPhaseChanged {
                     boss: boss_entity,
                     from: *from,
@@ -235,13 +235,13 @@ pub fn update_boss_encounters(
         // the placement flips to Cleared). The quest event still carries the
         // ARCHETYPE id (quest objectives are about the boss kind, e.g. "defeat
         // the Gradient Sentinel").
-        if matches!(phase, crate::boss_encounter::BossEncounterPhase::Death) && death_done {
+        if matches!(phase, crate::BossEncounterPhase::Death) && death_done {
             // A scripted / environmental kill can reach Death with HP left —
             // zero it so `alive()` (THE liveness authority, §A1) agrees.
             if health.alive() {
                 health.health.current = 0;
             }
-            if !crate::boss_encounter::boss_is_cleared(&save, &feature.config) {
+            if !crate::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
                     ambition_persistence::save_data::PersistedEncounterState::Cleared,
@@ -287,7 +287,7 @@ pub fn update_boss_encounters(
         None => music_request.release_priority(BOSS_MUSIC_OWNER),
     }
 
-    crate::boss_encounter::sync_boss_reward_chests_ecs(
+    crate::sync_boss_reward_chests_ecs(
         &mut commands,
         session_scope,
         save.data(),
@@ -298,12 +298,12 @@ pub fn update_boss_encounters(
     );
 }
 
-/// Bridge a [`MountDied`](crate::features::MountDied) body fact into the rider's
+/// Bridge a [`MountDied`](ambition_platformer2d_shared_tangle::body::MountDied) body fact into the rider's
 /// entity-local phase machine (ADR 0020; Q19a). A rider that both carries
 /// `BossConfig` (a boss) and holds an encounter phase state fires its
 /// `External("mount_died")` trigger — flipping a dismounted boss into its
 /// authored on-foot mini-phase. This is
-/// [`PhaseTriggerCondition::External`](crate::boss_encounter::PhaseTriggerCondition::External)'s
+/// [`PhaseTriggerCondition::External`](crate::PhaseTriggerCondition::External)'s
 /// first production caller.
 ///
 /// A DIRECT bridge on purpose, never the `EncounterGate` script bus: this is a
@@ -318,10 +318,10 @@ pub fn update_boss_encounters(
 /// `update_boss_encounters` in the Progression chain so the swap — from a
 /// `MountDied` written in the earlier `Combat` set — is visible the same frame.
 pub fn notify_bosses_on_mount_death(
-    mut mount_deaths: MessageReader<crate::features::MountDied>,
+    mut mount_deaths: MessageReader<ambition_platformer2d_shared_tangle::body::MountDied>,
     mut riders: Query<
-        &mut crate::boss_encounter::BossEncounter,
-        With<crate::boss_encounter::BossConfig>,
+        &mut crate::BossEncounter,
+        With<crate::BossConfig>,
     >,
 ) {
     for ev in mount_deaths.read() {
@@ -338,10 +338,10 @@ pub fn notify_bosses_on_mount_death(
 /// The adaptive-music track a boss plays in `phase`, from its authored spec.
 /// `None` for `Dormant` / `Death` (no boss music — room music resumes).
 fn phase_music_track(
-    spec: &crate::boss_encounter::BossEncounterSpec,
-    phase: crate::boss_encounter::BossEncounterPhase,
+    spec: &crate::BossEncounterSpec,
+    phase: crate::BossEncounterPhase,
 ) -> Option<&str> {
-    use crate::boss_encounter::BossEncounterPhase as P;
+    use crate::BossEncounterPhase as P;
     let track = match phase {
         P::Intro => &spec.music_intro,
         P::Phase1 | P::Transition => &spec.music_phase1,
@@ -392,15 +392,15 @@ pub fn boss_phase_transition_feedback(
     // Boss geometry — the actor that emits the phase-transition shockwave.
     bosses: Query<
         (
-            &crate::features::BodyKinematics,
-            &crate::features::CenteredAabb,
+            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_combat::CenteredAabb,
         ),
-        With<crate::boss_encounter::BossConfig>,
+        With<crate::BossConfig>,
     >,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
-    use crate::boss_encounter::BossEncounterPhase as P;
+    use crate::BossEncounterPhase as P;
     for change in phase_changes.read() {
         let entity = change.boss;
         let Ok((kin, aabb)) = bosses.get(entity) else {
@@ -454,9 +454,10 @@ mod phase_feedback_tests {
     //! P0.2: the feedback fires from the ANNOUNCED edge, not from a memory of
     //! its own.
     use super::*;
-    use crate::boss_encounter::test_support::{test_boss_config, test_boss_status};
-    use crate::boss_encounter::BossEncounterPhase;
-    use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
+    use crate::test_support::{test_boss_config, test_boss_status};
+    use crate::BossEncounterPhase;
+    use ambition_combat::{CenteredAabb, FeatureId};
+    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
@@ -639,10 +640,10 @@ mod mount_death_bridge_tests {
     //! trigger. `notify_bosses_on_mount_death` is
     //! `PhaseTriggerCondition::External`'s first production caller.
     use super::*;
-    use crate::boss_encounter::test_support::{test_boss_config, test_boss_status_with};
-    use crate::boss_encounter::BossEncounter;
-    use crate::boss_encounter::{BossEncounterPhase, PhaseTrigger};
-    use crate::features::MountDied;
+    use crate::test_support::{test_boss_config, test_boss_status_with};
+    use crate::BossEncounter;
+    use crate::{BossEncounterPhase, PhaseTrigger};
+    use ambition_platformer2d_shared_tangle::body::MountDied;
 
     fn bridge_app() -> App {
         let mut app = App::new();

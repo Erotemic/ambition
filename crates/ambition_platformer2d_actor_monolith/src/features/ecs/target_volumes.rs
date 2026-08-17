@@ -61,7 +61,7 @@ pub fn refresh_body_damageable_volumes(
         // Everything else -- player, enemy, npc, sandbag, a possessed anything --
         // resolves here, through ONE rule.
         (
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
             Without<BreakableFeature>,
         ),
     >,
@@ -120,9 +120,9 @@ fn authored_world_volumes(
 /// pogo derivation therefore exposes the thing the player can actually damage,
 /// not the composite body's bounding rectangle.
 pub fn refresh_boss_damageable_volumes(
-    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     mut bosses: Query<(
-        crate::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
         Option<&crate::features::BossAnimationFrameSample>,

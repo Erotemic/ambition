@@ -60,8 +60,8 @@ pub fn ecs_breakable_state(
 
 fn boss_anim_for_attack_profile(
     profile: &ambition_characters::brain::BossAttackProfile,
-) -> Option<crate::boss_encounter::sprites::BossAnim> {
-    use crate::boss_encounter::sprites::BossAnim;
+) -> Option<ambition_boss_encounter::sprites::BossAnim> {
+    use ambition_boss_encounter::sprites::BossAnim;
     match profile.move_id().as_str() {
         "floor_slam" | "hand_slam" | "converging_shockwave" => Some(BossAnim::FloorSlam),
         "side_sweep" | "hand_sweep" | "broadside" => Some(BossAnim::SideSweep),
@@ -76,11 +76,11 @@ fn boss_anim_for_attack_profile(
 }
 
 fn boss_animation_key_for_sample(
-    catalog: &crate::boss_encounter::BossCatalog,
+    catalog: &ambition_boss_encounter::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
-    anim: crate::boss_encounter::sprites::BossAnim,
+    anim: ambition_boss_encounter::sprites::BossAnim,
 ) -> Option<String> {
-    use crate::boss_encounter::sprites::BossAnim;
+    use ambition_boss_encounter::sprites::BossAnim;
     match (profile.move_id().as_str(), anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
         // `gnu_shockwave`) but the damageable head/body box should follow
@@ -98,13 +98,13 @@ fn boss_animation_key_for_sample(
 }
 
 pub fn boss_anim_state_for(
-    boss: crate::boss_encounter::BossRef<'_>,
+    boss: ambition_boss_encounter::BossRef<'_>,
     // Liveness + damage-blink from the boss's shared body components (§A1).
     alive: bool,
     hit_flash: f32,
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
-) -> crate::boss_encounter::sprites::BossAnimState {
+) -> ambition_boss_encounter::sprites::BossAnimState {
     // attack_active / attack_windup read the move-derived
     // BossAttackState read-model instead of mirror fields on BossRuntime.
     // pattern_timer remains durable brain cursor state; non-BossPattern
@@ -113,7 +113,7 @@ pub fn boss_anim_state_for(
         .boss_pattern_state()
         .map(|s| s.pattern_timer)
         .unwrap_or(0.0);
-    crate::boss_encounter::sprites::BossAnimState {
+    ambition_boss_encounter::sprites::BossAnimState {
         alive,
         attack_active: attack_state.active_profile.is_some(),
         attack_windup: attack_state.telegraph_profile.is_some(),
@@ -137,7 +137,7 @@ pub fn ecs_boss_anim_state_and_entity(
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        crate::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -145,7 +145,7 @@ pub fn ecs_boss_anim_state_and_entity(
     )>,
 ) -> Option<(
     bevy::prelude::Entity,
-    crate::boss_encounter::sprites::BossAnimState,
+    ambition_boss_encounter::sprites::BossAnimState,
 )> {
     bosses.iter().find_map(
         |(entity, feature_id, boss, health, combat, attack_state, brain)| {
@@ -174,18 +174,18 @@ pub fn ecs_boss_anim_state_and_entity(
 /// callers then fall back to elapsed-time sampling instead of using a
 /// frame from the wrong visual row.
 pub fn ecs_boss_animation_frame_sample(
-    catalog: &crate::boss_encounter::BossCatalog,
+    catalog: &ambition_boss_encounter::BossCatalog,
     id: &str,
     bosses: &Query<(
         bevy::prelude::Entity,
         &FeatureId,
-        crate::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
-    anim: crate::boss_encounter::sprites::BossAnim,
+    anim: ambition_boss_encounter::sprites::BossAnim,
     frame_index: usize,
 ) -> Option<(
     bevy::prelude::Entity,
@@ -238,7 +238,7 @@ pub fn ecs_boss_animation_frame_sample(
             // animation instead of locking to frame 0. Hit/Death rows are
             // deliberately left as `None` — geometry should stay on the
             // rest-pose shape rather than chase a recoil/death frame.
-            if result.is_none() && anim == crate::boss_encounter::sprites::BossAnim::Rest {
+            if result.is_none() && anim == ambition_boss_encounter::sprites::BossAnim::Rest {
                 result = Some((
                     entity,
                     crate::features::BossAnimationFrameSample {
@@ -257,13 +257,13 @@ pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(
         &FeatureId,
-        crate::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
-) -> Option<crate::boss_encounter::sprites::BossAnimState> {
+) -> Option<ambition_boss_encounter::sprites::BossAnimState> {
     bosses
         .iter()
         .find_map(|(feature_id, boss, health, combat, attack_state, brain)| {
@@ -318,7 +318,7 @@ mod sample_key_agrees_with_profile_keys_tests {
     /// case has to be answered against a real catalog, not here.
     #[test]
     fn every_hardcoded_sample_key_names_a_row_its_profile_claims() {
-        let catalog = crate::boss_encounter::test_boss_catalog();
+        let catalog = ambition_boss_encounter::test_boss_catalog();
         for move_id in [
             "head_descent",
             "converging_shockwave",
@@ -331,7 +331,7 @@ mod sample_key_agrees_with_profile_keys_tests {
             let key = boss_animation_key_for_sample(catalog, &profile, anim)
                 .unwrap_or_else(|| panic!("{move_id} yields a sample key"));
             let claimed =
-                crate::boss_encounter::behavior::boss_animation_keys_for_profile(catalog, &profile);
+                ambition_boss_encounter::behavior::boss_animation_keys_for_profile(catalog, &profile);
             assert!(
                 claimed.iter().any(|candidate| *candidate == key),
                 "the sample writer emits `{key}` for `{move_id}`, and the profile \

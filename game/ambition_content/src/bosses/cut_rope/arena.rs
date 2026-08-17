@@ -14,7 +14,7 @@
 
 use super::*;
 
-use ambition_platformer2d_actor_monolith::boss_encounter::{EncounterGate, FallingHazard};
+use ambition_boss_encounter::{EncounterGate, FallingHazard};
 use ambition_sfx::SfxWriter;
 
 /// Cut-rope VISUAL/FLAVOR state. The anvil's PHYSICS lives on the generic

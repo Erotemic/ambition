@@ -17,9 +17,9 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 
-use crate::boss_encounter::BossEncounterPhase;
-use crate::boss_encounter::{BossConfig, BossEncounter};
-use crate::features::FeatureSimEntity;
+use crate::BossEncounterPhase;
+use crate::{BossConfig, BossEncounter};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_encounter::{
     Encounter, EncounterCommand, EncounterCommandKind, EncounterLifecycle, EncounterObjective,
     EncounterParticipant, EncounterParticipants, EncounterRole, Objective,
@@ -96,7 +96,7 @@ pub fn sync_boss_encounter_entities(
             Entity,
             &BossConfig,
             &BossEncounter,
-            Option<&crate::boss_encounter::BossOverrides>,
+            Option<&crate::BossOverrides>,
             Option<&SessionScopedEntity>,
             Option<&ambition_characters::actor::BodyHealth>,
         ),
@@ -338,7 +338,7 @@ pub fn release_payloads_on_death(
         (
             Entity,
             &ambition_characters::actor::BodyHealth,
-            &crate::features::BodyKinematics,
+            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
         ),
         With<ReleaseOnDeath>,
     >,

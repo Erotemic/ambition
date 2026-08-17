@@ -44,7 +44,7 @@ use image::{Rgba, RgbaImage};
 use sb::persistence::settings::video::CameraFramingPreset;
 use sb::persistence::settings::CameraAspectPolicy;
 
-fn ambition_boss_catalog() -> sb::boss_encounter::BossCatalog {
+fn ambition_boss_catalog() -> ambition_boss_encounter::BossCatalog {
     const ENCOUNTERS: &[&str] = &[
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
@@ -56,7 +56,7 @@ fn ambition_boss_catalog() -> sb::boss_encounter::BossCatalog {
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
     ];
-    let fragment = sb::boss_encounter::BossCatalogFragment::from_ron(
+    let fragment = ambition_boss_encounter::BossCatalogFragment::from_ron(
         "geometry-debug",
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
@@ -90,7 +90,7 @@ fn ambition_boss_catalog() -> sb::boss_encounter::BossCatalog {
         std::collections::BTreeMap::new(),
     )
     .expect("geometry-debug boss fixture should parse");
-    let mut registry = sb::boss_encounter::BossCatalogRegistry::default();
+    let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();
     registry.register(fragment).unwrap();
     registry.assemble().unwrap()
 }
@@ -264,7 +264,7 @@ fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: R
 }
 
 fn render_room(
-    boss_catalog: &sb::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     room: &sb::rooms::RoomSpec,
 ) -> RgbaImage {
     let world = &room.world;
@@ -273,7 +273,7 @@ fn render_room(
 }
 
 fn render_room_snapshot(
-    boss_catalog: &sb::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     room: &sb::rooms::RoomSpec,
     snapshot: &CameraSnapshot2d,
     image_size: (u32, u32),
@@ -283,7 +283,7 @@ fn render_room_snapshot(
 }
 
 fn render_room_projected(
-    boss_catalog: &sb::boss_encounter::BossCatalog,
+    boss_catalog: &ambition_boss_encounter::BossCatalog,
     room: &sb::rooms::RoomSpec,
     proj: &Projection,
     w: u32,

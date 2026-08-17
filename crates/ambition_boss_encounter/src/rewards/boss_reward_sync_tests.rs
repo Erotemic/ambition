@@ -10,7 +10,7 @@
 //! non-ECS world/anchors params are carried in test-only resources so
 //! a normal wrapper system can drive the helper.
 use super::*;
-use crate::boss_encounter::{test_boss_catalog, BossProfile};
+use crate::{test_boss_catalog, BossProfile};
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::PersistedEncounterState;
 use bevy::prelude::{App, Res, Resource, Update};

@@ -208,7 +208,7 @@ pub struct FeatureHitCatalogs<'w> {
     /// from its sheet like anything else, so the damage path carries it beside
     /// the catalog it already carries.
     pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
+    pub bosses: Res<'w, ambition_boss_encounter::BossCatalog>,
     /// AD8: the prepared cast, so a struck or provoked character speaks in its
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
@@ -329,7 +329,7 @@ pub fn apply_feature_hit_events(
         // `&mut BodyCombat` query below, now that both share the unified component.
         (
             With<FeatureSimEntity>,
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
             Without<crate::actor::PlayerEntity>,
         ),
     >,
@@ -338,7 +338,7 @@ pub fn apply_feature_hit_events(
             Entity,
             &FeatureId,
             &CenteredAabb,
-            crate::boss_encounter::BossClusterQueryData,
+            ambition_boss_encounter::BossClusterQueryData,
             // The boss's shared body components (§A1): HP authority + the
             // hit-flash the damage path arms. `Without<PlayerEntity>` keeps
             // this `&mut BodyCombat` provably disjoint from the player query
@@ -405,7 +405,7 @@ pub fn apply_feature_hit_events(
     // pattern matches on the cause vocabulary; both are facts about the striker,
     // and the event names the striker.
     (heavy_attackers, controlled_attackers, combat_sides): (
-        Query<(), With<crate::boss_encounter::BossConfig>>,
+        Query<(), With<ambition_boss_encounter::BossConfig>>,
         Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
         // **Whose side each body is on**, read for the boss scan's relationship
         // check. Read-only and looked up by entity, so it may overlap the

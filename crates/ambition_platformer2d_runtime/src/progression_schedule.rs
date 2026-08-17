@@ -23,13 +23,13 @@ impl Plugin for ProgressionSchedulePlugin {
         let sim = app.sim_schedule();
         // R5 encounter-script messages: the named gate (rope cut / hazard impact
         // / cues) + the on-death payload-release signal.
-        app.add_message::<ambition_platformer2d_actor_monolith::boss_encounter::EncounterGate>();
-        app.add_message::<ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased>();
+        app.add_message::<ambition_boss_encounter::EncounterGate>();
+        app.add_message::<ambition_boss_encounter::PayloadReleased>();
         // ADR 0020 / Q19: mount dissolution → the rider boss's `mount_died`
         // external phase trigger. Written in the `Combat` set (earlier this
         // frame) by `enforce_mount_rider_link`, consumed by
         // `notify_bosses_on_mount_death` at the head of the boss chain below.
-        app.add_message::<ambition_platformer2d_actor_monolith::features::MountDied>();
+        app.add_message::<ambition_platformer2d_shared_tangle::body::MountDied>();
         // P0.2: the phase machine's own transition edge. Written by
         // `update_boss_encounters` in `BossAdvance` where the swap is committed,
         // consumed by `boss_phase_transition_feedback` in `BossHazards` — the
@@ -41,7 +41,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // really makes it. The thing this replaced — a `Local` map diffed against
         // the current phase — was the opposite: memory that outlived the rewind
         // and told the corrected pass nothing had changed.
-        app.add_message::<ambition_platformer2d_actor_monolith::boss_encounter::BossPhaseChanged>();
+        app.add_message::<ambition_boss_encounter::BossPhaseChanged>();
         // The ENGINE-generic Progression chain. Every content system that used
         // to be wedged into this chain (cut-rope setup/victory, quest-completion
         // rewards, the gnu-ton gate, the quest-registry populate) now hangs on a
@@ -73,10 +73,10 @@ impl Plugin for ProgressionSchedulePlugin {
             (
                 // Mount-death → `mount_died` external phase trigger, ahead of the
                 // phase driver so the swap is same-frame (Q19).
-                ambition_platformer2d_actor_monolith::boss_encounter::notify_bosses_on_mount_death,
-                ambition_platformer2d_actor_monolith::boss_encounter::update_boss_encounters,
-                ambition_platformer2d_actor_monolith::boss_encounter::sync_boss_encounter_entities,
-                ambition_platformer2d_actor_monolith::boss_encounter::update_encounter_progress,
+                ambition_boss_encounter::notify_bosses_on_mount_death,
+                ambition_boss_encounter::update_boss_encounters,
+                ambition_boss_encounter::sync_boss_encounter_entities,
+                ambition_boss_encounter::update_encounter_progress,
             )
                 .chain()
                 .in_set(ProgressionSet::BossAdvance),
@@ -84,10 +84,10 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::boss_encounter::tick_falling_hazards,
-                ambition_platformer2d_actor_monolith::boss_encounter::tick_encounter_scripts,
-                ambition_platformer2d_actor_monolith::boss_encounter::release_payloads_on_death,
-                ambition_platformer2d_actor_monolith::boss_encounter::boss_phase_transition_feedback,
+                ambition_boss_encounter::tick_falling_hazards,
+                ambition_boss_encounter::tick_encounter_scripts,
+                ambition_boss_encounter::release_payloads_on_death,
+                ambition_boss_encounter::boss_phase_transition_feedback,
             )
                 .chain()
                 .in_set(ProgressionSet::BossHazards),
@@ -159,7 +159,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // positions. Content plugins register `.in_set(the slot)`; ordering is
         // preserved byte-for-byte because each slot pins the SAME `.after`/
         // `.before` engine neighbors the wedged system had.
-        use ambition_platformer2d_actor_monolith::boss_encounter::{
+        use ambition_boss_encounter::{
             ContentEncounterScriptSet, ContentEncounterVictorySet, ContentQuestRewardSet,
         };
         app.configure_sets(
@@ -190,7 +190,7 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::boss_encounter::populate_boss_encounter_registry,
+                ambition_boss_encounter::populate_boss_encounter_registry,
                 ambition_platformer2d_actor_monolith::encounter::populate_encounter_registry,
             )
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),

@@ -117,7 +117,7 @@ pub fn advance_room_transition_content_epoch_system(
         ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
     >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    boss_catalog: Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     mut epoch: ResMut<RoomTransitionContentEpoch>,
     // The room ids this last saw. Allocation-free on the steady path: the
     // comparison walks the two lists and only clones when they genuinely differ.
@@ -510,7 +510,7 @@ pub fn begin_room_transition_load_system(
         Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
+        Res<ambition_boss_encounter::BossCatalog>,
         Res<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.

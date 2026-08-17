@@ -3421,6 +3421,88 @@ Cargo.toml.**
 
 ⛔ nothing was committed against the carve itself: no crate, no manifest, no
 lockfile moved, so `critical_path_crates` stays at 13 and no baseline was touched.
+
+✔✔✔ **THE CARVE LANDED 2026-08-17 — `crates/ambition_boss_encounter`, and the
+paragraph above was WRONG ABOUT WHY.** 7,635 lines left the monolith; the second
+relocation it asked for was never needed.
+
+```text
+largest_unit_lines   ambition_platformer2d_actor_monolith
+                     121,822 → 114,139   (−7,683; still +2,710 over the frozen
+                                          111,429, was +10,393 this morning)
+critical_path_crates      13 → 13        ⭐ NO new hop
+```
+
+⛔⛔ **THE 201 INWARD SITES WERE NEVER A BLOCKER, AND THE DIRECTION ERROR IS THE
+FINDING.** An inward site is a CALLER naming the domain; after the carve it spells
+`ambition_boss_encounter::` instead of `crate::boss_encounter::` and compiles
+unchanged — a rename, not a dependency the departing crate must satisfy. **Only
+OUTWARD edges block a carve**, because those are the ones cargo refuses. So
+`features/ecs/bosses/` never had to move: it CALLS the boss domain, it is not
+called BY it. ⇒ **count both directions, adjudicate on the outward one.**
+
+⭐ **the outward list had TWO real names, and both moved DOWN, not across.**
+Measured with the honest instrument (`crate::` on NON-COMMENT lines, in SITES);
+each distinct path chased to its `pub struct` / `pub fn`:
+
+```text
+module            lines   out sites/mods   in sites/mods   ← the ranking that chose it
+  features        42,343     579 / 21        499 / 20   the hub; it IS the monolith
+  character_runtime 13,788    87 / 12        288 / 10
+  avatar           7,717     164 /  8         85 / 14   ⛔ 15 of 164 are one type in
+                                                          character_runtime — pinned
+  boss_encounter   7,635      24 /  3        201 / 12   ← ⭐ CHOSEN
+  construction     5,906     245 /  6         39 /  4   ⛔ Wave G leaves LAST
+  items            4,991      85 / 13         44 /  4
+  abilities        4,881     136 / 10         30 /  4   ⛔ calls spawn_runtime_minion
+  world            4,452      55 /  9         53 /  4
+```
+
+⛔ **`out mods` alone would have picked the wrong one** — `character_sprites` (3)
+and `boss_encounter` (3) tie, and `world` (9) looks worse than `avatar` (8) while
+being far cleaner. The number that decided it was the outward SITES chased to a
+DEFINITION: eleven of `boss_encounter`'s thirteen distinct paths resolved to crates
+already BELOW the monolith and the hub was merely re-exporting them
+(`BodyKinematics`, `CenteredAabb`, `FeatureId`, `FeatureSimEntity`,
+`GameplayBanner`, `ChestFeature`, `Opened`, `FallingChest`, `BossRewardChest`,
+`falling_chest::settled_chest_center`). The two that were real:
+
+* `CutsceneTriggerQueue` → `ambition_cutscene`, beside the script format it
+  triggers. `crate::cutscene_trigger` is deleted, not re-exported.
+* `MountDied` → `ambition_platformer2d_shared_tangle::body`, below BOTH domains
+  that share it — the mount coupling WRITES it, the boss crate READS it. Same move
+  and same reason as step 1.5 putting `FeatureInteractionSet` there. ⛔ imported
+  privately into `features/ecs/mount`, never re-exported, so nothing can keep
+  spelling it `features::MountDied`.
+
+⭐ **the ORPHAN RULE adjudicated one more file, exactly as `snapshot_impls.rs`'s own
+header promised**: `impl SnapshotCursor for BossEncounter` stopped compiling the
+moment the type crossed the crate line and moved to `clusters.rs` with it. The wire
+format did NOT change — `rollback-wire-format-is-frozen` reports the same 357 names
+and 85 encoded types.
+
+⚠ **the umbrella, not a new edge, is how a demo reaches it.** Naming
+`ambition_boss_encounter` directly from `ambition_app` / `demo_mary_o` /
+`demo_sanic` reddened three `game.*-umbrella-only` policies, correctly:
+`ambition_platformer2d` re-exports every domain crate under a short name for
+exactly this. Only `platformer2d_runtime`, `platformer2d_provider`, `sim_view` and
+`ambition_content` declare the edge — and the runtime allowlist gained its entry in
+the same commit, **the fifth time that list has lagged a runtime dependency**.
+
+⚠ **the ledgers a carve launders, all moved in the same commit:**
+`check_doc_link_ratchet.py`'s `CRATES` gained `ambition_boss_encounter` (monolith
+109 → 107, new crate 2, total 191 → 192 — the carve is link-neutral);
+`capability-footprint-baseline.json` 43 → 44 crates and 16 → 17 never-asked-for,
+with the argument written in; three lockfiles; `engine.toml`'s runtime allowlist
+plus two now-stale absence strings re-pointed so they still guard something.
+⚠ **and one honest cost UP:** `ambition_geometry`'s `worst_edit_cost` goes 48 → 49
+crates (+17.5s) — one more compilation unit sits above it.
+
+⇒ ▢ **NEXT.** The residue is still +2,710 over the frozen baseline. By the same
+instrument the next candidates are `items` (4,991; 85 out / 13 mods) and `world`
+(4,452; 55 out / 9 mods) — both need their outward sites chased to definitions
+first. `avatar` (7,717) is bigger but pinned to `character_runtime`, and
+`construction` is Wave G by policy.
  Prefer boundaries that improve capability closure, compile isolation,
 public API shape or change amplification.
 

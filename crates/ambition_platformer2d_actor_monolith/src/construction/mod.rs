@@ -32,7 +32,7 @@
 //!   It now takes a proper `SimId::spawned` under its summoner and states its
 //!   parent in [`SpawnOrigin::Dynamic`] rather than implying it by spelling.
 
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
@@ -41,7 +41,7 @@ use ambition_platformer2d_shared_tangle::construction::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
-use crate::boss_encounter::BossCatalog;
+use ambition_boss_encounter::BossCatalog;
 use crate::features::{SpawnActorKind, SpawnActorRequest};
 use crate::world::placements::ActorPlacementContext;
 
@@ -741,7 +741,7 @@ fn construct_authored_boss(
         ctx.session,
         root.entity(),
         authored,
-        &crate::boss_encounter::BossOverrides::default(),
+        &ambition_boss_encounter::BossOverrides::default(),
     );
 }
 
@@ -1273,9 +1273,9 @@ pub fn mount_capabilities_of(
             // preflight reads the profile the commit will read.
             SpawnActorKind::Boss { brain, .. } => PlannedMountCapabilities {
                 mount_class: None,
-                pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+                pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
                     bosses,
-                    &crate::boss_encounter::behavior::canonical_boss_id_from(&request.name, brain),
+                    &ambition_boss_encounter::behavior::canonical_boss_id_from(&request.name, brain),
                 )
                 .pilotable_mount_classes
                 .clone(),
@@ -1308,9 +1308,9 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::PortalGunSpawn { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
-            pilots: crate::boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+            pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
                 bosses,
-                &crate::boss_encounter::behavior::canonical_boss_id_from(
+                &ambition_boss_encounter::behavior::canonical_boss_id_from(
                     &authored.name,
                     &authored.payload,
                 ),

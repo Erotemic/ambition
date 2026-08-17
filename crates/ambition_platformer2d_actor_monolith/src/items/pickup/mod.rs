@@ -1981,7 +1981,7 @@ pub fn held_projectile_step(
     // because retargeting a thrown bolt's owner changes hit attribution (feel), and
     // that never ships blind. Tracked in refactor-chain.md R6.
     player: Query<Entity, crate::actor::PrimaryPlayerOnly>,
-    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
+    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     ecs_breakables: Query<
         (
             &crate::features::FeatureId,
@@ -2004,14 +2004,14 @@ pub fn held_projectile_step(
         ),
         (
             With<crate::features::FeatureSimEntity>,
-            Without<crate::boss_encounter::BossConfig>,
+            Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
     ecs_bosses: Query<
         (
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
-            crate::boss_encounter::BossClusterRef,
+            ambition_boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,

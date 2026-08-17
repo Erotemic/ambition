@@ -119,7 +119,7 @@ pub fn sync_ecs_bosses_with_save(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut bosses: Query<
         (
-            crate::boss_encounter::BossClusterQueryData,
+            ambition_boss_encounter::BossClusterQueryData,
             &mut ambition_characters::actor::BodyHealth,
             Option<&mut BossDeathAnimation>,
             Option<&mut BossPhase>,
@@ -131,7 +131,7 @@ pub fn sync_ecs_bosses_with_save(
         // R4: "cleared" is keyed to this PLACEMENT, not the archetype. Shared
         // predicate (`boss_is_cleared`) with the per-tick encounter driver so
         // they can't drift.
-        if crate::boss_encounter::boss_is_cleared(&save, &feature.config) {
+        if ambition_boss_encounter::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(mut death_anim) = death_anim {
                 death_anim.clear();

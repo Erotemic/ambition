@@ -4,10 +4,10 @@
 //! `use super::*;`.
 
 use super::*;
-use crate::boss_encounter::test_support::{test_boss_config, test_boss_status};
-use crate::boss_encounter::BossEncounter;
-use crate::boss_encounter::BossEncounterPhase;
-use crate::features::GameplayBanner;
+use crate::test_support::{test_boss_config, test_boss_status};
+use crate::BossEncounter;
+use crate::BossEncounterPhase;
+use ambition_combat::GameplayBanner;
 use ambition_encounter::{
     EncounterBeat, EncounterEffect, EncounterGate, EncounterMusicRequest, EncounterParticipant,
     EncounterParticipants, EncounterRole, EncounterScript, EncounterTrigger,
@@ -119,7 +119,7 @@ fn beats_advance_in_order_with_timer_and_banner() {
     assert!(q.single(app.world()).unwrap().done());
 }
 
-fn boss_config() -> crate::boss_encounter::BossConfig {
+fn boss_config() -> crate::BossConfig {
     test_boss_config("b", "B", "mockingbird")
 }
 
@@ -131,7 +131,7 @@ fn commanded_move_steers_the_boss_toward_target() {
     let boss = app
         .world_mut()
         .spawn((
-            crate::features::BodyKinematics {
+            ambition_platformer2d_shared_tangle::body::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(40.0),

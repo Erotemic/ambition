@@ -272,7 +272,7 @@ pub struct BossFrameIndex {
 
 #[derive(Clone, Copy, Debug)]
 pub struct BossFrameView {
-    pub anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimState,
+    pub anim: ambition_boss_encounter::sprites::BossAnimState,
     /// The SIM-owned draw cursor (`BossAnimFrame`), published by id so the
     /// render's draw-only [`BossAnimator`] can mirror the advancing frame WITHOUT
     /// borrowing the sim entity's component. The render's `FeatureVisual` entity
@@ -280,7 +280,7 @@ pub struct BossFrameView {
     /// the frame — like every other sim→render fact — has to cross the boundary
     /// through this read-model. `drive_boss_animators` advances the cursor earlier
     /// in the sim tick; this captures its current value.
-    pub cursor_anim: ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim,
+    pub cursor_anim: ambition_boss_encounter::sprites::BossAnim,
     pub cursor_frame: usize,
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
@@ -333,7 +333,7 @@ pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
     bosses: Query<(
         &FeatureId,
-        ambition_platformer2d_actor_monolith::boss_encounter::BossClusterRef,
+        ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -343,11 +343,11 @@ pub fn rebuild_boss_frame_index(
         // FeatureViewSync rebuild), so we read the CURRENT frame and publish it for
         // the render mirror. `Option` so a boss fixture spawned without the anim
         // cursor still lands in the index (it just draws Rest frame 0).
-        Option<&ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimFrame>,
+        Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
     )>,
 ) {
     use ambition_characters::brain::BossAttackProfile;
-    use ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim;
+    use ambition_boss_encounter::sprites::BossAnim;
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
         let boss = feature.as_boss_ref();

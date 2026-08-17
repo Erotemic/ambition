@@ -18,11 +18,11 @@ use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
 use ambition_encounter::EncounterParticipants;
-use ambition_platformer2d_actor_monolith::boss_encounter::BossConfig;
-use ambition_platformer2d_actor_monolith::boss_encounter::{
+use ambition_boss_encounter::BossConfig;
+use ambition_boss_encounter::{
     BossClusterQueryData, BossClusterRef, BossRef,
 };
-use ambition_platformer2d_actor_monolith::boss_encounter::{
+use ambition_boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
 };

@@ -18,7 +18,7 @@ pub fn spawn_cut_rope_victory_npc(
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     mut released: MessageReader<
-        ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased,
+        ambition_boss_encounter::PayloadReleased,
     >,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,

@@ -49,7 +49,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::actor::BodyCombat,
         ),
-        bevy::prelude::Without<ambition_platformer2d::actors::boss_encounter::BossConfig>,
+        bevy::prelude::Without<ambition_platformer2d::boss_encounter::BossConfig>,
     >,
 }
 
@@ -72,8 +72,8 @@ pub(super) fn update_hud(
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
-        &ambition_platformer2d::actors::boss_encounter::EncounterDef,
-        &ambition_platformer2d::actors::boss_encounter::EncounterProgress,
+        &ambition_platformer2d::boss_encounter::EncounterDef,
+        &ambition_platformer2d::boss_encounter::EncounterProgress,
     )>,
     // E12: the encounter status line reads the generic LIFECYCLE on the live
     // encounter entities — one line per in-flight encounter that is not
@@ -86,7 +86,7 @@ pub(super) fn update_hud(
             Option<&ambition_platformer2d::encounter::EncounterWaves>,
             Option<&ambition_platformer2d::encounter::EncounterParticipants>,
         ),
-        Without<ambition_platformer2d::actors::boss_encounter::EncounterDef>,
+        Without<ambition_platformer2d::boss_encounter::EncounterDef>,
     >,
     mut query: Query<&mut Text, With<HudText>>,
 ) {

@@ -2233,6 +2233,33 @@ definitely_not_a_real_room ×1
 one caller relies on falling back. The written argument protects a hypothetical
 future library caller in a composition that lacks the room.
 
+✔✔ **DONE 2026-08-17 (`3f116e88b` seam, `90187a559` migration) — and the shape
+was not strict-by-default at all.** A test disagreed in EXECUTABLE form:
+`unknown_start_room_does_not_panic_or_error` names, explains and asserts the
+fallback, so tolerance is a PROMISE. ⇒ the verb keeps its meaning and the CALLER
+states intent — `with_start_room` (tolerant) vs `with_required_start_room`
+(refuses to boot, listing all 72 ids). **37 sites across 24 files migrated; one
+tolerant literal remains, and it is that promise's own test.**
+
+⭐ **the two highest-leverage sites were NOT in the literal census** — a shared
+`fixed_60hz_room_options` helper fanning out to ~20 more fixtures, and the two
+`ambition_app_tools` binaries, *"the tool class that produced the original sweep
+failure"*. A grep for literals cannot see a helper.
+
+⭐⭐ **and the one real exception changes the COUNT, not the premise: the census
+had folded a SENTINEL in with the room names.**
+`collision_invariant_oracle::run_episode` takes `start_room: &str` where `""`
+means *keep the authored start*. That was never a room id — and it was not
+BENEFITING from the fallback, it was ABUSING it to express "no override". Fixed
+by passing no start room at all rather than asking tolerantly for one.
+⇒ **nothing relies on tolerance as a fallback**; the row's premise held.
+
+⛔ **zero fixtures turned out to be quietly misdirected** — every literal, every
+`const ROOM`-style id and every hand-listed array was checked against the live
+72-id set. Including `boss_sheet_wiring`, whose `let Ok(..) else { continue }`
+would NOT have caught a fallback and was therefore the likeliest silent
+passenger. All five arenas real.
+
 ▢ **so the shape that honours both is strict-by-default with a NAMED opt-out**
 (the negative test takes it, and a future foreign-composition caller has
 somewhere to say so) — not a silent flip. ⚠ `StartRoomMustResolve` is opt-in with

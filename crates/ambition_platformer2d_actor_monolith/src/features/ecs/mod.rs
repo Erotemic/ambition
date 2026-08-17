@@ -141,7 +141,7 @@ pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,
 };
-// ⚠ the continuity systems moved to `crate::conversation` on 2026-08-07. What
+// ⚠ the continuity systems moved to `ambition_conversation` on 2026-08-07. What
 // stays here is what this module is actually about: the moment somebody presses
 // Interact. Keeping a conversation ALIVE is not an interaction.
 pub use interact::interact_ecs_actors_and_switches;

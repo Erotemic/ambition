@@ -614,19 +614,65 @@ own.
    `ambition_platformer2d_shared_tangle` (deliberately BELOW the monolith, so a
    carved crate can still name it). Four schedule-graph tests assert the edges as
    the plugin composes them. See the 2026-08-15/16 section below.
-2. **Move `conversation/` + `dialog.rs`** into `crates/ambition_conversation`.
-3. **`ambition_dialog` becomes a `[dev-dependency]`** of the monolith — the two
-   test files still name `DialogState`, and a dev-dependency does not reach a
-   consumer's resolved graph.
-4. **Repoint the rollback registration.** `rollback/domains/actors.rs` names
-   `ambition_platformer2d_actor_monolith::conversation::{ActiveConversation,
-   ConversationEnded, ConversationInstanceId, ConversationInputOwner}`; the
-   runtime already sits above both crates, so this is a path rewrite. ⚠ the
-   schema NAMES do not change, so the wire format and both baselines stay put —
-   confirm that rather than assuming it.
-5. **Remeasure**: `cargo tree --offline --edges normal -i ambition_dialog` from
-   `fixtures/minimal_game` must come back empty, and
-   `capability-footprint-may-not-grow` should report **13**, not 15.
+2. ✔ **DONE 2026-08-17 — `conversation/` MOVED to `crates/ambition_conversation`.**
+   2,734 lines, ten files, `mod.rs` → `lib.rs`, and **not one line inside them
+   changed shape**: `use super::…` resolves to the crate root exactly as it
+   resolved to the parent module, so every internal path survived the move
+   untouched. The only edit inside the carved code was a log `target:` string
+   that still spelled the monolith. ⚠ **`dialog.rs` did NOT go with it** — see
+   the note under step 3.
+3. ▢ **`ambition_dialog` is NOT yet a `[dev-dependency]`** of the monolith, and
+   step 2 landing does not change that: `dialog.rs` (135 lines, `ui`-gated) is
+   still a production namer of it. ⭐ that file is the obvious next slice and it
+   is clean — **zero `crate::` edges**, naming only `ambition_dialog`,
+   `ambition_input` and `ambition_platformer2d_shared_tangle`. What it costs is a
+   `ui` feature on the carved crate forwarding to `ambition_dialog/ui`, which is
+   why it was left out of a move that was otherwise a manifest.
+4. ✔ **DONE — the rollback registration is repointed and the wire format did not
+   move.** `rollback/domains/actors.rs` and `room_transition/commit.rs` now name
+   `ambition_conversation::`, and `ambition_platformer2d_runtime` declares the
+   edge. ⭐ **CONFIRMED rather than assumed**, as this step asked:
+   `rollback-wire-format-is-frozen` reports the same 357 stable names and 85
+   encoded types across 11 crates, and `rollback_schema_baseline.txt` needed no
+   edit — it records SHORT type names, so the crate move is invisible to it. The
+   one full path in the tree is `rollback_coverage.rs`'s `NarrativeInputLedger`
+   entry, which is a `type_name` string and follows the crate.
+5. ✔ **REMEASURED — and both halves of the prediction were WRONG, in opposite
+   directions.**
+   - `cargo tree -i ambition_dialog` from `fixtures/minimal_game` does NOT come
+     back empty and never could: the monolith depends on `ambition_conversation`
+     unconditionally, so `ambition_dialog` and `ambition_ui_nav` still arrive.
+     This is the C4e correction above arriving in practice; the step's own
+     expectation was written before it.
+   - `capability-footprint-may-not-grow` went **15 → 16**, not 15 → 13. The
+     ratchet stopped the change and was right to — a new crate name entered the
+     sentinel's closure — and the baseline moved in the same commit with the
+     reasoning written into it. ⭐ **the carve did not CAUSE the 16; it NAMED
+     it.** The same code was already linked, inside the monolith, under a name
+     the counter could not see.
+   - ⛔⛔ **`critical_path_crates` went 12 → 13, and this plan predicted it would
+     stay at 12.** Measured, not inferred: recomputing the first-party height
+     with `ambition_conversation` folded back into the monolith gives 12, and
+     with it carved gives 13. The chain is
+     `conversation → ambition_dialog → ambition_ui_nav → ambition_input →
+     ambition_platformer2d_core → ambition_geometry`, and inserting a layer
+     under `ambition_dialog` pushed that whole tail down one hop. ⭐ **this is
+     exactly the regression `critical_path_crates` is guarded for** — every size
+     metric can improve while the serial chain, and so the wall clock, gets
+     worse. ⚠ read it in HOPS, not seconds: rustc releases a dependent at the
+     predecessor's `rmeta`, so a chain edge serialises only the frontend.
+   - ⚠ **the ratchet baseline was NOT re-frozen.** It is frozen at
+     `208cf8acf937` (2026-08-09) and reports **nine** findings, of which the
+     critical path is the only one this carve caused — the other eight are eight
+     days of unrelated growth (`ambition_platformer2d_actor_monolith` +10,390
+     lines, `ambition_platformer2d_core` +5,391, `ambition_content` +11,883).
+     Re-freezing here would launder all of them under a carve commit. Whoever
+     re-freezes should say what they are blessing.
+   - ⚠ **the seconds column for this crate is a PLACEHOLDER.** `ambition_binding`
+     and `ambition_conversation` are unpriced, so the ratchet estimates them at
+     the population median 2.9059 ms/line — and size predicts compile cost with
+     R² = 0.12. `python3 scripts/compile_collect.py` is what makes those numbers
+     real.
 
 ⚠ **the `ParticipantId` ↔ `PlayerSlot` correspondence is the carve hazard to
 watch.** `conversation/opening.rs` briefly acquired an edge to

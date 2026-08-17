@@ -379,22 +379,22 @@ pub fn declare_in_session_input_contexts(
     // `Option` because a composition without the conversation feature still has
     // cutscenes, and a missing authority means no conversation rather than an
     // error.
-    conversation: Option<Res<crate::conversation::ActiveConversation>>,
+    conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
 ) {
     let owner = conversation
         .as_deref()
-        .and_then(crate::conversation::ActiveConversation::input_owner);
+        .and_then(ambition_conversation::ActiveConversation::input_owner);
     let in_cutscene = cutscene.is_playing();
     for (participant, mut contexts) in &mut participants {
         let in_dialogue = match owner {
-            Some(crate::conversation::ConversationInputOwner::Participant(id)) => {
+            Some(ambition_conversation::ConversationInputOwner::Participant(id)) => {
                 participant.id == id
             }
-            Some(crate::conversation::ConversationInputOwner::Primary) => {
+            Some(ambition_conversation::ConversationInputOwner::Primary) => {
                 participant.id == ambition_input::ParticipantId::PRIMARY
             }
-            Some(crate::conversation::ConversationInputOwner::AllParticipants) => true,
+            Some(ambition_conversation::ConversationInputOwner::AllParticipants) => true,
             None => false,
         };
         // Touch the component only when a claim actually moves, so a quiet
@@ -1522,7 +1522,7 @@ mod focus_gate_tests {
         app.init_resource::<SlotControls>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
-        app.init_resource::<crate::conversation::ActiveConversation>();
+        app.init_resource::<ambition_conversation::ActiveConversation>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
         app.world_mut().spawn(seat(0));
@@ -1548,12 +1548,12 @@ mod focus_gate_tests {
         // 1. A conversation this seat is in suppresses its input — through a
         //    declared claim, and with no router matching `GameMode` any more.
         app.world_mut()
-            .resource_mut::<crate::conversation::ActiveConversation>()
-            .open(crate::conversation::LiveConversation::for_test(
+            .resource_mut::<ambition_conversation::ActiveConversation>()
+            .open(ambition_conversation::LiveConversation::for_test(
                 None,
                 None,
                 "chat",
-                crate::conversation::ConversationInputOwner::Participant(ParticipantId(1)),
+                ambition_conversation::ConversationInputOwner::Participant(ParticipantId(1)),
             ));
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
@@ -1583,12 +1583,12 @@ mod focus_gate_tests {
         //    the bug it looked like it covered. The whole chain runs now, and
         //    the conversation's own owner is what makes seat 1 keep playing.
         app.world_mut()
-            .resource_mut::<crate::conversation::ActiveConversation>()
-            .open(crate::conversation::LiveConversation::for_test(
+            .resource_mut::<ambition_conversation::ActiveConversation>()
+            .open(ambition_conversation::LiveConversation::for_test(
                 None,
                 None,
                 "chat",
-                crate::conversation::ConversationInputOwner::Participant(ParticipantId(0)),
+                ambition_conversation::ConversationInputOwner::Participant(ParticipantId(0)),
             ));
         app.update();
 

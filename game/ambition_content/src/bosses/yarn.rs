@@ -27,9 +27,7 @@ const HEAVY_OBJECT_KEY: &str = "cut_rope_heavy_object";
 /// browser after a settings/privacy opt-in. For now the Yarn line presents the
 /// link and this command records the choice as a save flag for traceability.
 pub fn cmd_watch_cut_rope_video(
-    mut narrative: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
-        SetFlagRequested,
-    >,
+    mut narrative: ambition_conversation::NarrativeInputWriter<SetFlagRequested>,
 ) {
     info!(
         target: "ambition_platformer2d_actor_monolith::dialog::yarn",
@@ -48,9 +46,7 @@ pub fn cmd_watch_cut_rope_video(
 /// against the live conversation; the simulation latches it and emits the real
 /// replay request once that conversation is over.
 pub fn cmd_reset_cut_rope_room(
-    mut narrative: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
-        super::CutRopeRoomReplayRequested,
-    >,
+    mut narrative: ambition_conversation::NarrativeInputWriter<super::CutRopeRoomReplayRequested>,
 ) {
     narrative.write(super::CutRopeRoomReplayRequested);
     info!(

@@ -20,6 +20,10 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
     "input",
     "portal_ldtk",
 ] }
+# Conversation continuity, named directly since it left the actor monolith
+# (2026-08-17). `rollback/domains/actors.rs` registers the authority and the two
+# message buffers; `room_transition/commit.rs` reads whether one is live.
+ambition_conversation = { path = "../ambition_conversation" }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }

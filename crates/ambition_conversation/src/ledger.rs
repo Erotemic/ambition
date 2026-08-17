@@ -211,7 +211,7 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
     pub fn write(&mut self, payload: M) {
         let Some(instance) = self.conversation.instance() else {
             warn!(
-                target: "ambition_platformer2d_actor_monolith::conversation",
+                target: "ambition_conversation",
                 "a narrative command fired with no conversation live; dropping {}",
                 std::any::type_name::<M>(),
             );

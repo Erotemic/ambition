@@ -5,7 +5,7 @@
 //! and switch-activation interactions that share the
 //! `PlayerInteractionState` buffered-press contract.
 //!
-//! ⚠ **the DIALOGUE half moved to `crate::conversation::opening`.** This module
+//! ⚠ **the DIALOGUE half moved to `ambition_conversation::opening`.** This module
 //! owns the interaction facts — a body, a reach box, a buffered press — and the
 //! world-side consequences of a conversation starting (the banner, the flags,
 //! the quest pump, the mode flip). Deciding whether the pair has anything to say
@@ -15,8 +15,8 @@
 use super::*;
 
 // ⭐ the ONLY dialogue name this module has left, and it is a port rather than a
-// type from `ambition_dialog`. See `crate::conversation::opening`.
-use crate::conversation::DialogueDispatch;
+// type from `ambition_dialog`. See `ambition_conversation::opening`.
+use ambition_conversation::DialogueDispatch;
 
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
@@ -136,7 +136,7 @@ pub fn interact_ecs_actors_and_switches(
         let request =
             super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
         let listener_id =
-            crate::conversation::character_id_of(interactable).unwrap_or(&identity.id);
+            ambition_conversation::character_id_of(interactable).unwrap_or(&identity.id);
 
         // **THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S.** Whether this pair
         // has anything to say — a self-conversation needs an authored `__self`
@@ -157,9 +157,9 @@ pub fn interact_ecs_actors_and_switches(
         // capturing the whole couch for a conversation nobody at it started is
         // the behaviour that was removed.
         let input_owner = dialogue.driving_slot(subject).map_or(
-            crate::conversation::ConversationInputOwner::Primary,
+            ambition_conversation::ConversationInputOwner::Primary,
             |slot| {
-                crate::conversation::ConversationInputOwner::Participant(
+                ambition_conversation::ConversationInputOwner::Participant(
                     crate::participant_seat::participant_of(slot),
                 )
             },

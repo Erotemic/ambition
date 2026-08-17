@@ -299,11 +299,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // generic. `<<reset_cut_rope_room>>` is a gameplay-bearing choice
         // (a room replay despawns the world), so it crosses the boundary with a
         // stamped record rather than by setting a resource from `Update`.
-        app.add_plugins(
-            ambition_platformer2d_actor_monolith::conversation::NarrativeInputPlugin::<
-                CutRopeRoomReplayRequested,
-            >::default(),
-        );
+        app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
+            CutRopeRoomReplayRequested,
+        >::default());
         // The cycle advances on room reset, and a reset can be sim-triggered
         // (`NewGameResetRequested` is rollback state) — so a rewound reset that
         // replays must not advance the choice twice. Copy-cheap; registered

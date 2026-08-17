@@ -334,7 +334,7 @@ fn interact_buffered_starts_npc_dialogue() {
     // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
-    app.init_resource::<crate::conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -393,7 +393,7 @@ fn interact_buffered_starts_npc_dialogue() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );

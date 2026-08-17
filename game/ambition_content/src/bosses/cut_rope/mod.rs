@@ -162,7 +162,7 @@ impl CutRopeHeavyObjectCycle {
 /// The conversation authority answers the same question deterministically, and
 /// it is the thing the box is a projection of.
 pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
-    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    conversation: Res<ambition_conversation::ActiveConversation>,
     mut chosen: MessageReader<CutRopeRoomReplayRequested>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
     mut replay_requests: MessageWriter<

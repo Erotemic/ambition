@@ -211,7 +211,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // used to be a presentation-side write into rollback state or
                 // into a channel the host clears on rollback; the ledger hands
                 // them over on the tick they were stamped for. See
-                // `crate::conversation::ledger`.
+                // `ambition_conversation::ledger`.
                 //
                 // ⚠ ARMING a challenge is first, so the grace that
                 // `tick_pending_challenges` counts down starts on the tick the
@@ -771,7 +771,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
 /// prose rationale lives on the variant it explains rather than beside the
 /// system it happened to precede. This plugin declares the total order ONCE and
 /// each domain only says which phase it is in — `conversation` says so from
-/// [`crate::conversation::ConversationPlugin`], naming nothing in `features`.
+/// [`ambition_conversation::ConversationPlugin`], naming nothing in `features`.
 pub struct FeatureInteractionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
@@ -784,7 +784,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // cut-bark port channel, its own narrative payload, its presentation
         // pair, and its three sim systems placed by PHASE. Nothing about
         // conversation is registered here any more.
-        app.add_plugins(crate::conversation::ConversationPlugin);
+        app.add_plugins(ambition_conversation::ConversationPlugin);
         // ⚠ **the ledger payloads that are NOT conversation's.** The ledger is
         // the record of what the narrative — which runs outside the simulation —
         // told the simulation, stamped with the tick it applies from. A rewind
@@ -806,12 +806,12 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // and registers only `ConversationEnded`, the payload it both defines
         // and consumes.
         app.add_plugins((
-            crate::conversation::NarrativeInputPlugin::<ambition_combat::events::SetFlagRequested>::default(),
-            crate::conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
-            crate::conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
-            crate::conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
-            crate::conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
-            crate::conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_combat::events::SetFlagRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
+            ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
         ));
 
         // ⭐⭐ **THE ORDER, SAID OUT LOUD.** Every reason each boundary exists is

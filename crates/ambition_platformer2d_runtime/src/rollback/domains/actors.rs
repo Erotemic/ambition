@@ -201,40 +201,40 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // ⚠ **no raw entity numbers in the fingerprint.** Those differ across a load
     // by design, which is exactly why the entity half is probed through
     // identities. This is the complement, not a second answer to it.
-    app.rollback_resource_clone_entity_set_probed::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
-            OWNER,
-            "resource.active_conversation",
-            |conversation| conversation.referenced_entities(),
-            |conversation| {
-                use std::hash::{Hash, Hasher};
-                let Some(live) = conversation.live() else {
-                    // Distinct from a live conversation that hashes to nothing:
-                    // "nobody is talking" is a state the probe must be able to
-                    // name.
-                    return 0;
-                };
-                let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                live.instance.hash(&mut hasher);
-                match live.input_owner {
-                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::Participant(id) => {
-                        (1u8, id.slot()).hash(&mut hasher)
-                    }
-                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::Primary => {
-                        (2u8, 0u8).hash(&mut hasher)
-                    }
-                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::AllParticipants => {
-                        (3u8, 0u8).hash(&mut hasher)
-                    }
+    app.rollback_resource_clone_entity_set_probed::<ambition_conversation::ActiveConversation>(
+        OWNER,
+        "resource.active_conversation",
+        |conversation| conversation.referenced_entities(),
+        |conversation| {
+            use std::hash::{Hash, Hasher};
+            let Some(live) = conversation.live() else {
+                // Distinct from a live conversation that hashes to nothing:
+                // "nobody is talking" is a state the probe must be able to
+                // name.
+                return 0;
+            };
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            live.instance.hash(&mut hasher);
+            match live.input_owner {
+                ambition_conversation::ConversationInputOwner::Participant(id) => {
+                    (1u8, id.slot()).hash(&mut hasher)
                 }
-                // ⚠ `speaker_name` is deliberately absent: it is a DISPLAY
-                // string, and a localization changing it is not a desync.
-                hasher.finish()
-            },
-        );
-    app.rollback_resource_map_entities::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
-            OWNER,
-            "map.resource.active_conversation",
-        );
+                ambition_conversation::ConversationInputOwner::Primary => {
+                    (2u8, 0u8).hash(&mut hasher)
+                }
+                ambition_conversation::ConversationInputOwner::AllParticipants => {
+                    (3u8, 0u8).hash(&mut hasher)
+                }
+            }
+            // ⚠ `speaker_name` is deliberately absent: it is a DISPLAY
+            // string, and a localization changing it is not a desync.
+            hasher.finish()
+        },
+    );
+    app.rollback_resource_map_entities::<ambition_conversation::ActiveConversation>(
+        OWNER,
+        "map.resource.active_conversation",
+    );
     // **The narrative end, as the conversation ledger RELEASES it.**
     //
     // ⛔ **clearing this message was once the whole bug, and clearing it is now
@@ -251,16 +251,18 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // ledger stays out of the schema for the same reason the device input stream
     // does: a rewind restores what the simulation decided, never what it was
     // told.
-    app.clear_message_on_rollback::<
-        ambition_platformer2d_actor_monolith::conversation::ConversationEnded,
-    >(OWNER, "message.conversation_ended");
+    app.clear_message_on_rollback::<ambition_conversation::ConversationEnded>(
+        OWNER,
+        "message.conversation_ended",
+    );
     // **The continuity → cast port.** The break rule asks for a bark; the cast
     // answers on the same tick. Cleared on load like every other in-tick sim
     // channel: a resimulated break asks again, and a request from a branch the
     // host abandoned must not reach the cast at all.
-    app.clear_message_on_rollback::<
-        ambition_platformer2d_actor_monolith::conversation::ConversationCutBark,
-    >(OWNER, "message.conversation_cut_bark");
+    app.clear_message_on_rollback::<ambition_conversation::ConversationCutBark>(
+        OWNER,
+        "message.conversation_cut_bark",
+    );
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

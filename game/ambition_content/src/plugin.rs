@@ -183,11 +183,9 @@ impl Plugin for AmbitionContentPlugin {
         // conversation and released on the tick it belongs to. Registered
         // unconditionally: the ledger and its release are `ui`-free, and only
         // the command that fills it is behind the runner.
-        app.add_plugins(
-            ambition_platformer2d_actor_monolith::conversation::NarrativeInputPlugin::<
-                ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
-            >::default(),
-        );
+        app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
+            ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
+        >::default());
 
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);

@@ -79,11 +79,11 @@ pub mod boss_encounter;
 pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;
-/// Conversation continuity: the rollback-owned authority, the hold projected
-/// from it, and the break rule. Written to be lifted out as
-/// `ambition_conversation`. ⚠ its import edges into this crate are zero and its
-/// SCHEDULE coupling is not — see its module header.
-pub mod conversation;
+// ✔ `conversation` LEFT 2026-08-17 (D33 step 2) and is now the
+// `ambition_conversation` crate. No facade re-export stands here on purpose:
+// callers name the crate. The departure and what earned it are in that crate's
+// header; the short version is that its zero import edges were never the
+// blocker — the SCHEDULE was.
 pub mod cutscene;
 pub mod cutscene_trigger;
 pub mod dev;

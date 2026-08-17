@@ -616,7 +616,7 @@ mod tests {
 
 /// **Answer a cut conversation's bark request.** (sim)
 ///
-/// ⭐ **the CAST half of the continuity port.** `conversation::rules` decides a
+/// ⭐ **the CAST half of the continuity port.** `ambition_conversation::rules` decides a
 /// conversation broke and says WHO should speak; this decides WHAT they say,
 /// because that needs the character catalog, the prepared registry and the
 /// `Interactable` → character-id resolution — none of which is about continuity.
@@ -632,7 +632,7 @@ mod tests {
 /// with no catalog (a demo, a headless fixture) must still break conversations,
 /// and losing an unwritten line is not worth failing over.
 pub fn speak_conversation_cut_barks(
-    mut requests: bevy::prelude::MessageReader<crate::conversation::ConversationCutBark>,
+    mut requests: bevy::prelude::MessageReader<ambition_conversation::ConversationCutBark>,
     speakers: bevy::prelude::Query<(
         &ambition_platformer2d_shared_tangle::body::BodyKinematics,
         &ambition_combat::ActorInteraction,

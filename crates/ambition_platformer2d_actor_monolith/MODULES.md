@@ -22,7 +22,6 @@
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction`](src/construction/mod.rs) | **The actor construction domain: three origins, one planner.** |
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
-| [`conversation`](src/conversation/mod.rs) | **Conversation continuity: the authority, the hold, and the break rule.** |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`cutscene_trigger`](src/cutscene_trigger.rs) | The cutscene TRIGGER channel — a presentation-neutral request queue. |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
@@ -47,7 +46,8 @@
 | [`shrine`](src/shrine.rs) | Healing / save-point shrine. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
-| [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
+| [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
+| [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask about flags.** |
 
 _42 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

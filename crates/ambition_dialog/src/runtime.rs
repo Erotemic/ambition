@@ -54,7 +54,7 @@ pub struct DialogState {
 
     // ⛔ **the two participant entities LIVED HERE and no longer do.** They were
     // the simulation's only record of who was talking, in a resource rollback
-    // does not rewind; `ambition_platformer2d_actor_monolith::conversation::
+    // does not rewind; `ambition_conversation::
     // ActiveConversation` owns them now and IS rewound. ⚠ the landmine this used
     // to carry is worth keeping written down: `speaker_entity` meant the NPC
     // while the interaction site's `speaker_id` meant the body that walked UP.

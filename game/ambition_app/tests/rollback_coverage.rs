@@ -180,7 +180,7 @@ const WAIVED: &[(&str, &str)] = &[
     // family a game registers is the same category, and a waiver that had to be
     // re-typed per payload would go stale the first time content added one.
     (
-        "ambition_platformer2d_actor_monolith::conversation::ledger::NarrativeInputLedger",
+        "ambition_conversation::ledger::NarrativeInputLedger",
         "an EXTERNAL INPUT, stamped with the tick it applies from — the same \
          category as the device input stream, and rewinding it would erase what \
          the simulation was told rather than what it decided",

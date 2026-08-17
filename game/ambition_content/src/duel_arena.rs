@@ -160,9 +160,7 @@ fn cmd_duel(
     // `SpawnActorRequest` is cleared on rollback by a host that will not re-run
     // this presentation-side command — so a rewind past the duel deleted the
     // request and the duellists never appeared.
-    mut spawns: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
-        SpawnActorRequest,
-    >,
+    mut spawns: ambition_conversation::NarrativeInputWriter<SpawnActorRequest>,
 ) {
     let Some(kin) = player.iter().next() else {
         warn!("<<duel>>: no player to center the duel on; ignoring");

@@ -175,6 +175,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_conversation"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_dialog",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_time",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_cutscene"
 version = "0.1.0"
 dependencies = [
@@ -375,6 +390,7 @@ dependencies = [
  "ambition_audio",
  "ambition_characters",
  "ambition_combat",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",
@@ -486,6 +502,7 @@ dependencies = [
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",

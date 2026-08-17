@@ -49,7 +49,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
-    app.init_resource::<crate::conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -89,7 +89,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -118,7 +118,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
-    app.init_resource::<crate::conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -191,7 +191,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -246,7 +246,7 @@ fn dialogue_app(nodes: &[&str]) -> App {
     // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
     // this be absent" when the question is who OWNS registering it, and in
     // production the feature plugin does.
-    app.init_resource::<crate::conversation::ActiveConversation>();
+    app.init_resource::<ambition_conversation::ActiveConversation>();
     let mut index = ambition_dialog::DialogueNodeIndex::default();
     index.populate(nodes.iter().map(|n| (*n).to_string()));
     app.insert_resource(index);
@@ -278,7 +278,7 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -307,7 +307,7 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -347,7 +347,7 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -396,7 +396,7 @@ fn an_unpopulated_node_index_never_suppresses() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::project_the_dialog_ui_from_the_conversation,
+            ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );

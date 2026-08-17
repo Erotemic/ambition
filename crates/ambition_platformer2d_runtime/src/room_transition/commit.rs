@@ -159,8 +159,7 @@ pub struct RoomTransitionApplication<'w, 's> {
     clock: RoomClock<'w>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     dialogue: ResMut<'w, ambition_dialog::DialogState>,
-    conversation:
-        ResMut<'w, ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
     // ⭐ **RESIDENTS, not merely room-scoped.** An object a body is carrying is
     // scoped to a room and resident in none — it crosses with whoever holds it —
     // so it is not part of what the room being left retires. The distinction is
@@ -547,7 +546,9 @@ fn cancel_eager_room_transition_transaction(
     transition_state: &mut super::loading::RoomTransitionLoadState,
     loads: &mut ambition_load::LoadCoordinator,
     load_events: &mut MessageWriter<ambition_load::LoadEvent>,
-    next_mode: &mut bevy::prelude::NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>,
+    next_mode: &mut bevy::prelude::NextState<
+        ambition_platformer2d_shared_tangle::schedule::GameMode,
+    >,
     active: &super::loading::ActiveRoomTransitionLoad,
     mode_cause: &'static str,
 ) {

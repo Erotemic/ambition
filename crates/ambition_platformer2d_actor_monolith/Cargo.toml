@@ -398,6 +398,11 @@ ambition_characters = { path = "../ambition_characters" }
 # `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_combat = { path = "../ambition_combat" }
+# Conversation continuity — the `ActiveConversation` authority, the hold, the
+# break rule + its cast port, the narrative-input ledger, and the dialogue-
+# opening seam. Carved out of this crate 2026-08-17 (D33 step 2); `features`
+# and `schedule` are the callers that keep the edge.
+ambition_conversation = { path = "../ambition_conversation" }
 # Cutscene script format + runtime stepper + playback-state resources (pure
 # data + ECS resources). The playback systems that drive them live in
 # `crate::cutscene`.

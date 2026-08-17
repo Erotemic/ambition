@@ -62,7 +62,7 @@
 //! again.
 //!
 //! So a **gameplay-bearing** command records a request in the conversation's
-//! [`NarrativeInputLedger`](ambition_platformer2d_actor_monolith::conversation::NarrativeInputLedger) and a
+//! [`NarrativeInputLedger`](ambition_conversation::NarrativeInputLedger) and a
 //! simulation system applies it on the tick it was stamped for. A
 //! **presentation-facing** command writes its own channel exactly as before,
 //! because its consumer is already downstream of the effect quarantine's release
@@ -105,7 +105,7 @@ use ambition_platformer2d_actor_monolith::features::SetFlagRequested;
 
 use ambition_dialog::YarnStateMirror;
 
-use ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter;
+use ambition_conversation::NarrativeInputWriter;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
@@ -207,7 +207,7 @@ pub fn cmd_challenge(
     // ⛔ **the AUTHORITY, not `DialogState`.** This command provokes a fight, so
     // it is a simulation effect; keying it off the UI read-model meant a
     // gameplay consequence read a resource that rollback does not rewind.
-    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    conversation: Res<ambition_conversation::ActiveConversation>,
     player: Query<Entity, With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>>,
     sim_ids: Query<&SimId>,
     mut narrative: NarrativeInputWriter<
@@ -249,7 +249,7 @@ pub fn cmd_challenge(
 /// stable id (scripted/anonymous dialogue).
 pub fn cmd_use_brain(
     In(preset): In<String>,
-    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    conversation: Res<ambition_conversation::ActiveConversation>,
     sim_ids: Query<&SimId>,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::BrainCommand,
@@ -278,7 +278,7 @@ pub fn cmd_use_brain(
 /// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
-    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    conversation: Res<ambition_conversation::ActiveConversation>,
     sim_ids: Query<&SimId>,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::ReleaseProvocation,

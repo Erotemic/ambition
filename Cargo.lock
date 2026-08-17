@@ -280,6 +280,7 @@ dependencies = [
  "ambition_content",
  "ambition_content_cli",
  "ambition_content_pack",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dialog",
  "ambition_encounter",
@@ -334,6 +335,21 @@ dependencies = [
  "ron 0.11.0",
  "serde",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ambition_conversation"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_dialog",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_time",
+ "bevy",
 ]
 
 [[package]]
@@ -659,6 +675,7 @@ dependencies = [
  "ambition_causal",
  "ambition_characters",
  "ambition_combat",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",
@@ -787,6 +804,7 @@ dependencies = [
  "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",

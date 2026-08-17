@@ -981,6 +981,32 @@ instead of the box that collides; (2) lays out one text system without knowing
 the other exists. ⇒ **whatever fixes these should ask what OCCUPIES SCREEN
 SPACE, rather than adding a third rule beside two.**
 
+⭐⭐ **AND THAT MECHANISM ALREADY EXISTS — the speech bubble is simply a FOURTH
+FAMILY THAT NEVER JOINED IT** (measured 2026-08-17).
+`crates/ambition_render/src/rendering/label_layout.rs` is *"ONE ranked placement
+pass over every world-space text label"* (queue row AC12), and its header
+diagnoses (2) verbatim, before anybody looked at this bug:
+
+> *"each family used to place itself … Neither could see the other, so a signage
+> label and an actor plate could be drawn through each other and **both passes
+> would correctly report 'no overlaps found'** … That is not a positioning bug in
+> any one family; it is the absence of a placement MODEL. Spacing within a family
+> cannot stop a cross-family overlap. So placement moves here, and **every label
+> — whoever spawns it — participates by carrying a [`WorldLabel`]**."*
+
+⛔ `WorldLabelFamily` is `Signage · Fixture · Actor`. **A speech bubble carries no
+`WorldLabel` at all** — grep `crates/ambition_render/src/fx.rs`, nothing. So the
+nameplate pass and the bubble pass each correctly report no overlap, exactly as
+that header predicts, and D158's fix could never have seen it.
+
+▢ **so the fix is to JOIN, not to invent**: give the bubble a `WorldLabel` and a
+family, and let the ranked pass place it. ⚠ ranking is declaration order and the
+comment explains the principle — *the family that yields is the one that can
+yield without anything visibly jumping*. A bubble is short-lived and already
+rises; decide where it sits against `Actor` on that argument, not by taste.
+⚠ **(1) may fall out for free**: a pass that places by occupied BOX has no
+`_STACK_X_RANGE` point radius to be wrong about.
+
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
 

@@ -119,6 +119,7 @@
 
 
 * in the title menu FPS is 60 FPS, whereas ambition itself gets 140 FPS, and I don't know if the title 60FPS is intentional
+  * ⊙ Not intentional — there is ONE global `bevy_framepace` limiter driven by the Video `frame_cap` setting and nothing anywhere paces the title differently, so the split is emergent; say whether you want the title capped on purpose.
 
 
 * When you challenge PCA in the C4 symmetry room we should change the music to a smash track.

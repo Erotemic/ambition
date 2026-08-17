@@ -16,11 +16,19 @@
 //!
 //! The bindings split into three concerns:
 //!
-//! **Commands** (`<<set_flag X>>` syntax). Bevy systems with
+//! **Commands** (`<<challenge>>` syntax). Bevy systems with
 //! `In<T>` parameters. Registered on the runner's `commands_mut()`
 //! via `world.register_system(...)`. Each one writes to a typed
-//! game-state channel (`GameplayEffect::SetFlag`, `SfxMessage::Play`,
+//! game-state channel (`ChallengeRequested`, `SfxMessage::Play`,
 //! …). Authored dialogue uses them to *drive* gameplay.
+//!
+//! ⛔ **a new gameplay verb should NOT be added here.** The engine has one
+//! generic `<<command "domain.verb" arg…>>` binding that reaches any command a
+//! domain published — see
+//! [`ambition_conversation::dialog::authored_commands`]. What is left in this
+//! file is the remainder: verbs whose subject is the CONVERSATION itself (the
+//! speaker being challenged, their brain) or whose target is presentation, both
+//! of which the command catalog has no vocabulary for yet.
 //!
 //! **Functions** (`<<if boss_cleared("X")>>` syntax). Pure closures
 //! registered on the runner's `library_mut()`, reading save state
@@ -70,7 +78,6 @@
 //!
 //! | command | crosses into the sim? | how |
 //! |---|---|---|
-//! | `set_flag` / `clear_flag` | yes — save flags drive quests and content | ledger → `SetFlagRequested` |
 //! | `challenge` | yes — it starts a fight | ledger → `ChallengeRequested` |
 //! | `use_brain` / `restore_brain` | yes — it changes autonomous behaviour | ledger → `BrainCommand` / `ReleaseProvocation` |
 //! | `give_item` | yes — `OwnedItems` is rollback state | ledger → `ItemGrantRequested` |
@@ -101,7 +108,6 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 
 use ambition_persistence::save::AmbitionGameSave;
-use ambition_platformer2d_actor_monolith::features::SetFlagRequested;
 
 use ambition_dialog::YarnStateMirror;
 
@@ -180,20 +186,19 @@ pub fn refresh_yarn_state_mirror(
 // at runner-build time. Each takes ownership of its args and writes
 // to a typed message channel.
 
-/// `<<set_flag "id">>` — flip a save flag to `true`. Routes through
-/// `SetFlagRequested` so existing consumers (quest advance
-/// listeners, save mirror) see the change.
-pub fn cmd_set_flag(In(name): In<String>, mut narrative: NarrativeInputWriter<SetFlagRequested>) {
-    narrative.write(SetFlagRequested { id: name, on: true });
-}
-
-/// `<<clear_flag "id">>` — flip a save flag to `false`.
-pub fn cmd_clear_flag(In(name): In<String>, mut narrative: NarrativeInputWriter<SetFlagRequested>) {
-    narrative.write(SetFlagRequested {
-        id: name,
-        on: false,
-    });
-}
+// ⛔⛔ **`cmd_set_flag` AND `cmd_clear_flag` USED TO BE HERE, and their deletion
+// is what the COMMAND half of the authored-logic contract cost.** Two
+// hand-written Bevy systems differing by one bool, each registered by name below,
+// each with its own conversion from Yarn's untyped text — for a verb the
+// world-fact domain is perfectly able to describe itself.
+//
+// The world-fact domain publishes `world.set_flag(flag, on)` into the command
+// catalog (`ambition_platformer2d_actor_monolith::world_facts`), and authored
+// dialogue asks for it through the engine's generic
+// `<<command "world.set_flag" "<id>" true>>` verb — the same road, pointed the
+// other way, that `condition("world.flag_set", "<id>")` already takes. Two
+// mechanisms for one verb is the second authority this project refuses
+// elsewhere. See `ambition_conversation::dialog::authored_commands`.
 
 /// `<<challenge>>` — provoke the NPC the player is currently talking to into
 /// a fight. The generic dialogue-gated combat trigger: it emits an
@@ -519,8 +524,6 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
 /// after via [`ambition_dialog::YarnContentBindings`]. Each command name maps to a
 /// Bevy system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
-    let set_flag_id = commands.register_system(cmd_set_flag);
-    let clear_flag_id = commands.register_system(cmd_clear_flag);
     let challenge_id = commands.register_system(cmd_challenge);
     let use_brain_id = commands.register_system(cmd_use_brain);
     let restore_brain_id = commands.register_system(cmd_restore_brain);
@@ -532,8 +535,6 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let spawn_fireworks_id = commands.register_system(cmd_spawn_fireworks);
     let camera_zoom_id = commands.register_system(cmd_camera_zoom);
     let cmds = runner.commands_mut();
-    cmds.add_command("set_flag", set_flag_id);
-    cmds.add_command("clear_flag", clear_flag_id);
     cmds.add_command("challenge", challenge_id);
     cmds.add_command("use_brain", use_brain_id);
     cmds.add_command("restore_brain", restore_brain_id);

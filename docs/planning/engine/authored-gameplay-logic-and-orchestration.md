@@ -547,54 +547,149 @@ forcing one abstraction.
 - **[Inspection, diagnostics and workbench](inspection-diagnostics-and-workbench.md):**
   owns the discovery/explanation surface M5 lands in.
 
-## The command half — its customer, and the shape it should copy (2026-08-17)
+## The command half — LANDED (2026-08-17)
 
-**M1 is met for conditions and had no customer for commands. It has one now.**
+**M1 is now met for commands too: the contract, one command, one converted
+customer, and a deletion.**
 
-`game/ambition_content/src/encounters.rs` keeps `KERNEL_FACES`, a hand-kept
-const table pairing four AUTHORED switch ids to hardcoded behaviour, read by a
-bespoke reducer that ends by writing `SYMMETRY_ATTUNEMENT_FLAG`. That is the
-same shape as `INTRO_FLAG_GATED_LOCK_WALLS` — the table the condition half
-DELETED to earn its place — and it is this program's own headline example
-(*"when two switches are active, power a lift"*) in the world already.
+### What shipped
 
-**The asymmetry names the first command exactly:**
+`ambition_platformer2d_shared_tangle::authored_logic::commands` — the mirror of
+the condition contract, with the same shape and the same privacy:
 
 ```text
-world.flag_set(<flag>)   published (world_facts.rs), and it has consumers
-world.set_flag(<flag>)   absent — the flag is written by bespoke Rust
+CommandId          domain.verb; `new` panics, `parse` refuses. A SEPARATE type
+                   from ConditionId, sharing one spelling rule.
+AuthoredArg        ⭐ the RENAMED `ConditionArg`. One prepared scalar for both
+                   halves — a second four-variant enum would have been a fork
+                   declared in its own name.
+CommandDescriptor  id + summary + &[ParamSpec]   (ParamSpec/ParamKind shared)
+CommandOutcome     Done | Refused(reason)  — ⭐ deliberately one FEWER answer
+                   than ConditionOutcome; "I cannot tell" is a question's
+                   answer, not a verb's.
+CommandRunner      fn(&mut World, &[AuthoredArg]) -> CommandOutcome
+CommandCatalog     private `publish`, private `run`
+PublishCommand     the whole provider surface, on App
+RunAuthoredCommand a Message: the only public road to `run`
+AuthoredCommandSet where in the frame an authored verb happens
 ```
 
-### What the command catalog must copy, and why
+### The three answers
 
-⭐⭐ **the condition catalog's load-bearing trick is not its API, it is its
-PRIVACY.** `ConditionCatalog::publish` is private; the only way in is the
-`PublishCondition` trait on `App`; and **a simulation tick holds a `World`,
-never an `App`**. So *"immutable once the simulation starts"* is a property of
-the TYPE rather than a promise in a comment — and that is precisely what earns
-the catalog its rollback waiver. Its own doc warns that making `publish` public
-*"for convenience would silently convert the waiver into a lie."*
+**1. Immutability, reproduced first.** `CommandCatalog::publish` is private; the
+only way in is `PublishCommand` on `App`; a tick holds a `World`. The catalog is
+WAIVED in `rollback_coverage`, with the same structural argument
+`ConditionCatalog` carries and the same consequence if anybody makes `publish`
+public.
 
-⇒ **a command catalog that a system could write to IS rollback state**, and then
-every authored verb joins the snapshot. Reproduce the privacy first; the
-vocabulary second.
+**2. Authority: `run` is private too, and that is the entire answer.** Holding
+the catalog lets a caller DISCOVER the vocabulary and speak none of it. The one
+road is `RunAuthoredCommand`; the one reader is
+`run_requested_authored_commands`, defined in the same file as the private
+function it is the only caller of. ⚠ **the narrow choice, stated so the next
+widening is a decision**: authority is the RUNNER, not the requester. Anything
+that can write a message can ASK; nothing can perform one out of phase. A
+per-command list of permitted callers was rejected — this engine has no
+vocabulary for *who* a caller is that is not already a seat, a session or a
+body, and inventing a fourth here would answer a question nobody has asked.
 
-### The three a command owes that a condition did not
+**3. Ordering + rollback, and the first command makes the second a non-question.**
+`AuthoredCommandSet` sits inside `GameplaySimulationRoot`, after
+`CoreSimulation` and before `GameplayEffects` — both sets live in the same
+schedule, so neither pin is the silently-vacuous cross-schedule kind.
+`world.set_flag`'s runner writes `SetFlagRequested`, a channel that already
+existed, is already cleared on rollback, and is already applied by
+`apply_flag_effects` in the phase the set is ordered before. ⇒ **the command
+introduces no new kind of write.** ⭐ and the dispatcher DRAINS rather than
+reading with a cursor, so it holds no `Local` — the trap a message-clear
+registration usually exists to close is absent by construction, and
+`message.run_authored_command` covers only the residual window (a request
+released onto a frame the host rewinds past before the set ran).
 
-1. **rollback semantics.** ⭐ `world.set_flag` is the cheap first customer here
-   too: a save flag is ALREADY snapshot state, so the command mutates something
-   the sweep covers rather than introducing a new kind of write. Pick the first
-   command so this question is answered by construction, not by argument.
-2. **ordering.** A condition is safe anywhere in the frame because it reads; a
-   command has a phase. Name it as a SET, below the monolith.
-3. **authority** — who may run it. ⚠ the condition side got this free by being
-   read-only, so there is no precedent to copy; it is genuinely new.
+Wire format: 358 → 359 stable names, encoded types unchanged at 85,
+`GGRS_ROLLBACK_SCHEMA_VERSION` 35 → 36. ⚠ the JSON baseline's
+`stable_schema_name_count` read 357 against a 358-entry list before this
+commit — a stale field, corrected in passing.
 
-### The deletion gate, stated up front
+### The customer, and the deletion — ⚠ NOT the one this section named
 
-Following this module's own standard: **if `KERNEL_FACES` and the reducer that
-reads it do not go, the command half has not earned its place.** That is the
-gate, named before the vocabulary exists.
+⛔ **`KERNEL_FACES` did NOT go, and the refusal has a cause worth writing down.**
+It pairs an authored switch id with a *signal key*, which is the encounter
+domain's vocabulary, not the world-fact domain's. Deleting it needs:
+
+1. a SECOND command, `encounter.signal(<encounter>, <signal>)`, in
+   `ambition_encounter` — outside "one command, one customer"; and, decisively,
+2. **an authored surface in LDtk that carries a command WITH ITS ARGUMENTS** —
+   a `Switch` field spelling `encounter.signal symmetry_attunement gravity_down`
+   or a pair of fields. That is *prepared arguments from authored source*, which
+   this plan already assigns to **M2**.
+
+⚠ **the condition half hit the same wall and narrowed rather than invented.**
+`LockWall.gated_by` names a FLAG, not a whole condition, and
+`gated_lock_walls`'s own header says why: *"the mechanism is general; the
+spelling is not... an authored surface is much harder to take back than to
+widen."* Inventing an LDtk command-call syntax to pay a gate would be the
+opposite of that judgement.
+
+⚠ **and only HALF of `KERNEL_FACES` is the offending shape.** Its use in
+`spawn_symmetry_attunement` builds `Objective::All([ReceiveSignal(…)])` — an
+encounter stating its own win condition, which is legitimate and survives any
+version of this. The id→behaviour pairing in `drive_symmetry_attunement` is the
+part that owes a deletion.
+
+⭐ **a real deletion was paid instead, in the same file the condition half paid
+its second one in.** `ambition_content::yarn_vocabulary` lost `cmd_set_flag` and
+`cmd_clear_flag` — two hand-written Bevy systems differing by one bool, each
+registered by name in a second list, each with its own conversion from Yarn's
+untyped text — plus both `add_command` registrations, the module header's
+classification row, and `NarrativeInputPlugin::<SetFlagRequested>` (whose only
+narrative writer they were). Authored `.yarn` now spells it
+`<<command "world.set_flag" "<id>" true>>`, and `intro.yarn` / `kernel.yarn`
+were rewritten to it.
+
+⇒ **the rival mechanism is gone in BOTH directions.** Authored content asks with
+`condition("world.flag_set", …)` and tells with `command("world.set_flag", …)`,
+and a domain publishing either adds nothing to any bridge.
+
+### What the command verb can do that the condition verb cannot
+
+⭐ **it is not limited to one argument, and the reason the other one is turned
+out to be specific to FUNCTIONS.** Yarn's VM asserts a function call's argument
+count against the registered parameter count; a **command** is dispatched by
+name with its parameters as a list (`Command::parse`), with no arity assertion
+anywhere, and `Option` parameters retrieve `None` when the list runs out. So
+`<<command id arg…>>` carries up to three arguments — a cap this repo chose, not
+one Yarn imposed — and `world.set_flag(flag, on)` takes two, which is why
+`set_flag` and `clear_flag` collapsed into one verb rather than two.
+
+⚠ **but every authored argument arrives as TEXT**, because Yarn types a
+function's arguments and does not type a command's. The bridge parses against
+the published descriptor's declared kind — the descriptor decides, the text only
+has to fit. ⛔ and `Truth` accepts exactly `true`/`false`: a lenient parse would
+map an unrecognised spelling to `false`, and `false` on `world.set_flag` is not
+a no-op, it is a flag being CLEARED.
+
+⛔ **a prepared `Reference` is refused**, the same as on the condition side and
+for a sharper reason: a condition that guesses returns a wrong answer; a command
+that guesses changes the wrong thing.
+
+### The falsifier
+
+`authored_logic::commands::tests::a_provider_that_names_no_other_domain_can_publish_and_be_performed`
+publishes a command from a module that names no other domain, using only
+`PublishCommand`, and asserts the world is UNCHANGED while the request is merely
+written and changed only after the dispatcher runs. ⚠ **both terms are
+observed**, so it cannot pass with the dispatcher deleted — verified by probe:
+short-circuiting `run_requested_authored_commands` turns it and its once-only
+sibling red.
+
+At the consumer end,
+`ambition_conversation::dialog::authored_commands::tests` drives the REAL
+interpreter and publishes `gossip.spread` from the test module — a domain
+nothing in the engine mentions — asserting the released request carries
+`AuthoredArg::Truth(true)` prepared from the authored text `true`. ⭐ the Yarn
+harness those tests share with the condition ones was extracted rather than
+copied (`dialog::yarn_harness`).
 
 ## Open design questions — deliberately unresolved
 

@@ -92,6 +92,21 @@ impl Plugin for ConversationPlugin {
         // the domains that consume them — see this file's header.
         app.add_plugins(NarrativeInputPlugin::<ConversationEnded>::default());
 
+        // ⭐⭐ **and the AUTHORED-COMMAND request, which is the one exception to
+        // the "the consumer owns the install" rule above — because its consumer
+        // structurally CANNOT own it.** `RunAuthoredCommand` is performed by
+        // `shared_tangle::authored_logic`, a crate below this one that cannot
+        // name a narrative ledger at all. What this module owns is the
+        // `<<command …>>` verb that produces it — the only narrative writer this
+        // channel has, or will have.
+        //
+        // ⭐ **one install for EVERY authored verb, forever.** The six below used
+        // to grow by one per gameplay-bearing Yarn command; a domain publishing a
+        // command now adds nothing here.
+        app.add_plugins(NarrativeInputPlugin::<
+            ambition_platformer2d_shared_tangle::authored_logic::RunAuthoredCommand,
+        >::default());
+
         // The TWO presentation halves of the seam: one projects the box from the
         // authority (and detaches from it), one observes the runner finishing and
         // records it for the simulation. Neither runs in the sim schedule, which

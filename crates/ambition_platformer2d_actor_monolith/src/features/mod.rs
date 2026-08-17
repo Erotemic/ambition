@@ -804,7 +804,15 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // and registers only `ConversationEnded`, the payload it both defines
         // and consumes.
         app.add_plugins((
-            ambition_conversation::NarrativeInputPlugin::<ambition_combat::events::SetFlagRequested>::default(),
+            // ⛔ **`SetFlagRequested`'s install is GONE** (D127 M1, commands).
+            // Its only narrative writer was `<<set_flag>>` / `<<clear_flag>>` in
+            // `ambition_content::yarn_vocabulary`, and both were deleted when the
+            // world-fact domain published `world.set_flag` into the command
+            // catalog. Authored flag writes now ride
+            // `RunAuthoredCommand`'s ledger, installed once by the conversation
+            // plugin. ⚠ the CHANNEL is untouched — chests, pickups and
+            // interactions still write it from inside the simulation, and
+            // `sim_core_resources` registers it.
             ambition_conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
             ambition_conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),

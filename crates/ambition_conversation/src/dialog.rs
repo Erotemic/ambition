@@ -83,15 +83,28 @@ impl Plugin for YarnBindingsPlugin {
         // vocabulary does, because the seam is how anything reaches the runner —
         // but it names no question, so a domain publishing a new one never
         // touches this line. See [`authored_conditions`].
+        //
+        // ⭐⭐ **and its COMMAND twin, pushed the same way.** Between them,
+        // authored dialogue can ask any published question and ask for any
+        // published verb — two lines here, forever, however many either domain
+        // grows.
         app.init_resource::<ambition_dialog::YarnContentBindings>();
-        app.world_mut()
-            .resource_mut::<ambition_dialog::YarnContentBindings>()
+        let mut bindings = app
+            .world_mut()
+            .resource_mut::<ambition_dialog::YarnContentBindings>();
+        bindings
             .installers
             .push(authored_conditions::install_condition_binding);
+        bindings
+            .installers
+            .push(authored_commands::install_command_binding);
     }
 }
 
+pub mod authored_commands;
 pub mod authored_conditions;
+#[cfg(test)]
+mod yarn_harness;
 
 /// Host-side dialogue bridge plugin: the reusable
 /// [`ambition_dialog::YarnBridgePlugin`] plus the [`sync_dialogue_game_mode`]

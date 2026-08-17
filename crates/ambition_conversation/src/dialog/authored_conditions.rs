@@ -87,7 +87,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::{DialogueRunner, YarnValue};
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionArg, ConditionCatalog, ConditionId, ConditionOutcome, ParamKind,
+    AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome, ParamKind,
 };
 
 /// The name authored `.yarn` content spells this verb.
@@ -156,7 +156,7 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
     outcome.is_satisfied()
 }
 
-/// Turn one Yarn value into the [`ConditionArg`] the published descriptor
+/// Turn one Yarn value into the [`AuthoredArg`] the published descriptor
 /// declares, or refuse.
 ///
 /// ⭐⭐ **the descriptor decides the kind; the Yarn value only has to fit.** The
@@ -169,7 +169,7 @@ fn prepare_argument(
     catalog: &ConditionCatalog,
     id: &ConditionId,
     value: YarnValue,
-) -> Result<Vec<ConditionArg>, ConditionOutcome> {
+) -> Result<Vec<AuthoredArg>, ConditionOutcome> {
     // ⚠ **an unpublished id is passed THROUGH rather than refused here**, and
     // that is not laziness: the catalog's own refusal names how many other
     // questions the installed engine knows, which is the sentence that tells an
@@ -186,9 +186,9 @@ fn prepare_argument(
         )));
     };
     let arg = match (param.kind, value) {
-        (ParamKind::Name, YarnValue::String(name)) => ConditionArg::Name(name),
-        (ParamKind::Number, YarnValue::Number(number)) => ConditionArg::Number(number as f64),
-        (ParamKind::Truth, YarnValue::Boolean(truth)) => ConditionArg::Truth(truth),
+        (ParamKind::Name, YarnValue::String(name)) => AuthoredArg::Name(name),
+        (ParamKind::Number, YarnValue::Number(number)) => AuthoredArg::Number(number as f64),
+        (ParamKind::Truth, YarnValue::Boolean(truth)) => AuthoredArg::Truth(truth),
         (ParamKind::Reference, _) => {
             return Err(ConditionOutcome::unanswerable(format!(
                 "`{id}` argument `{}` is a prepared reference to an occurrence, and \

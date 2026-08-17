@@ -12,7 +12,7 @@
 //! reason the outcome is not a `bool`.
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
+    AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::World;
@@ -43,7 +43,7 @@ pub fn is_held_descriptor() -> ConditionDescriptor {
 /// between bodies never flickers false. A condition phrased "is body B holding
 /// it" would be a different question and would need a second parameter; this one
 /// deliberately does not ask who, because most gates do not care.
-pub fn is_held(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
+pub fn is_held(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(wanted) = args[0].as_reference() else {
         return ConditionOutcome::unanswerable("`occurrence` must be a prepared reference");
     };

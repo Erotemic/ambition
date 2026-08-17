@@ -214,6 +214,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     domains::cutscene::register(app);
     domains::projectiles::register(app);
     domains::lifecycle::register(app);
+    domains::authored_logic::register(app);
 
     // **DOMAINS THAT REGISTER THEMSELVES.** The adapters above are modules in
     // THIS crate standing in for domains that cannot reach the registration

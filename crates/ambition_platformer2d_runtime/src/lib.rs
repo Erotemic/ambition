@@ -514,6 +514,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // anything central knows what conditions exist. The item domain
             // publishes its own from `ItemPickupSimulationPlugin`, and neither
             // names the other.
+            // The authored-COMMAND machinery: the request channel, the one set
+            // authored verbs happen in, and the one system that performs them.
+            // ⭐ it publishes no command — a domain adds its verbs from its own
+            // plugin, exactly as it adds its questions.
+            .add(ambition_platformer2d_shared_tangle::authored_logic::AuthoredCommandPlugin)
             .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
             // the same way. ⭐ it is the THIRD provider and it cost one line of

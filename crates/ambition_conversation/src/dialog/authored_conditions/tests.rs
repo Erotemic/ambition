@@ -16,11 +16,9 @@
 //! the parts that were believed impossible.
 
 use bevy::prelude::*;
-use bevy_yarnspinner::events::PresentLine;
-use bevy_yarnspinner::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
+    AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
     PublishCondition,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -48,7 +46,7 @@ fn heard_descriptor() -> ConditionDescriptor {
     }
 }
 
-fn heard(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
+fn heard(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(rumour) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`rumour` must be a name");
     };
@@ -76,7 +74,7 @@ fn carried_descriptor() -> ConditionDescriptor {
 /// world the reference test builds. It is the poison: the only way the authored
 /// line can take the satisfied branch is if something coerced the quoted string
 /// `"axe"` into an occurrence identity.
-fn carried(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
+fn carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(wanted) = args[0].as_reference() else {
         return ConditionOutcome::unanswerable("`occurrence` must be a prepared reference");
     };
@@ -87,85 +85,16 @@ fn carried(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
 }
 
 // ===== Harness ==================================================
+//
+// ⭐ **the harness moved to [`crate::dialog::yarn_harness`]** when the COMMAND
+// verb wanted the same thing. A second copy would have been a fork of the one
+// piece of test code whose whole job is to be the production path.
 
-/// Every line the interpreter presented, in order.
-#[derive(Resource, Default)]
-struct PresentedLines(Vec<String>);
+use crate::dialog::yarn_harness::{advance, lines, start};
 
-fn record_line(event: On<PresentLine>, mut lines: ResMut<PresentedLines>) {
-    lines.0.push(event.line.text.clone());
-}
-
-/// Build an app whose only dialogue vocabulary is the one generic verb.
-///
-/// ⚠ it installs through [`super::install_condition_binding`] — the exact
-/// function `YarnBindingsPlugin` pushes into the installer seam — rather than
-/// calling `add_function` itself, so a change that broke the production
-/// installation would break this too.
+/// Build an app whose only dialogue vocabulary is the one generic condition verb.
 fn app_running(source: &str) -> App {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(AssetPlugin {
-        watch_for_changes_override: Some(false),
-        ..default()
-    });
-    app.add_plugins(YarnSpinnerPlugin::with_yarn_source(
-        YarnFileSource::InMemory(YarnFile::new("authored_conditions_test.yarn", source)),
-    ));
-    app.init_resource::<PresentedLines>();
-    app.add_observer(record_line);
-    app
-}
-
-fn runner_entity(app: &mut App) -> Entity {
-    if let Some(entity) = app
-        .world_mut()
-        .query_filtered::<Entity, With<DialogueRunner>>()
-        .iter(app.world())
-        .next()
-    {
-        return entity;
-    }
-    while !app.world().contains_resource::<YarnProject>() {
-        app.update();
-    }
-    let mirror = ambition_dialog::YarnStateMirror::default();
-    let mut system_state: bevy::ecs::system::SystemState<(Commands, Res<YarnProject>)> =
-        bevy::ecs::system::SystemState::new(app.world_mut());
-    let (mut commands, project) = system_state.get_mut(app.world_mut());
-    let mut runner = project.create_dialogue_runner(&mut commands);
-    super::install_condition_binding(&mut commands, &mut runner, &mirror);
-    system_state.apply(app.world_mut());
-    app.world_mut().spawn(runner).id()
-}
-
-/// Spawn the runner if needed, install the verb, and run the node to its first
-/// line.
-fn start(app: &mut App, node: &str) {
-    let entity = runner_entity(app);
-    let mut runner = app
-        .world_mut()
-        .get_mut::<DialogueRunner>(entity)
-        .expect("runner");
-    if runner.is_running() {
-        runner.stop();
-    }
-    runner.start_node(node);
-    app.update();
-}
-
-/// Advance one beat.
-fn advance(app: &mut App) {
-    let entity = runner_entity(app);
-    app.world_mut()
-        .get_mut::<DialogueRunner>(entity)
-        .expect("runner")
-        .continue_in_next_update();
-    app.update();
-}
-
-fn lines(app: &App) -> Vec<String> {
-    app.world().resource::<PresentedLines>().0.clone()
+    crate::dialog::yarn_harness::app_running(source, &[super::install_condition_binding])
 }
 
 // ===== The acceptance ===========================================

@@ -21,7 +21,7 @@
 //! definition site invites.
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
+    AuthoredArg, ConditionDescriptor, ConditionId, ConditionOutcome, ParamKind, ParamSpec,
 };
 use bevy::prelude::World;
 
@@ -52,7 +52,7 @@ pub fn holds_descriptor() -> ConditionDescriptor {
 /// composition whose catalog has no such item is not "no, you have none" — it is
 /// a question about a thing that does not exist, and an author who misspelled an
 /// item deserves to be told rather than quietly told "no" forever.
-pub fn holds(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
+pub fn holds(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(name) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`item` must be a name");
     };
@@ -90,7 +90,7 @@ mod tests {
     use bevy::prelude::*;
 
     fn ask(world: &World, name: &str) -> ConditionOutcome {
-        holds(world, &[ConditionArg::Name(name.to_string())])
+        holds(world, &[AuthoredArg::Name(name.to_string())])
     }
 
     /// **THE BAG ANSWERS, AND IT ANSWERS ABOUT THE LIVE BAG.**

@@ -308,7 +308,7 @@ use super::{
 /// the baseline watches the registered SET and the key was still there. **A
 /// payload change under a stable key is invisible to it by construction**, which
 /// is why the codec-shape tracker is a separate instrument.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 35;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 36;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

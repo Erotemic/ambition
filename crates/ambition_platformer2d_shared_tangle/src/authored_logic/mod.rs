@@ -1,6 +1,13 @@
 //! **The condition contract: how a domain lets authored content ask it a
 //! question.**
 //!
+//! ⭐ **its COMMAND twin lives in [`commands`]** — how a domain lets authored
+//! content tell it to do something. The two halves share this module's scalar
+//! vocabulary ([`ParamKind`], [`ParamSpec`], [`AuthoredArg`]) and its id
+//! spelling rule, and nothing else: a question is answered from `&World` and a
+//! verb is performed against `&mut World`, which is why one of them needs a
+//! phase, an authority and a rollback story and the other does not.
+//!
 //! # What this is for
 //!
 //! Authoring in this engine is strong for **nouns** — characters, items, rooms,
@@ -27,11 +34,17 @@
 //! no central registry of condition *kinds* exists, because a test crate could
 //! not have edited one.
 //!
-//! ⚠ **[`ConditionArg`] is a closed enum and is NOT the thing that rule
+//! ⚠ **[`AuthoredArg`] is a closed enum and is NOT the thing that rule
 //! forbids.** The non-goal is a central enum of *operations* — a god
 //! `EngineEffect` every domain must extend. This is a scalar value type, the
 //! same role JSON's value enum plays: domains extend the set of *questions*
 //! freely, and nobody needs a new kind of *number*.
+//!
+//! ⭐ **and it is spelled `AuthoredArg` rather than `ConditionArg` because the
+//! COMMAND half takes the same values.** A prepared argument is a prepared
+//! argument; a second four-variant enum with the same four variants would have
+//! been a fork declared in its own name, and the two copies would have drifted
+//! the first time one of them learned a kind.
 //!
 //! # What this deliberately is NOT
 //!
@@ -67,15 +80,67 @@
 //! mentions are prose like this one.
 //!
 //! ⚠ **the gate stays written down rather than deleted**, because it is the
-//! standard the SECOND half owes too. Commands are still pure addition, and the
-//! same question applies to them: name the bespoke Rust a command vocabulary
-//! deletes before building the vocabulary.
+//! standard the SECOND half owes too — and the second half has now been held to
+//! it. See [`commands`] for the command contract, and
+//! `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` for what
+//! it paid: **not** `KERNEL_FACES`, which was named up front and REFUSED with
+//! cause (it needs an authored LDtk surface carrying a command's arguments,
+//! which is M2's job), but `cmd_set_flag` / `cmd_clear_flag` in
+//! `ambition_content::yarn_vocabulary` — two hand-written Bevy systems differing
+//! by one bool, plus their registrations and the narrative-ledger install that
+//! served only them.
+//!
+//! ⭐⭐ **so authored content now asks and tells through one road each.**
+//! `condition("world.flag_set", …)` and `command("world.set_flag", …)` are the
+//! same mechanism pointed in two directions, and neither has a bridge that
+//! learns a name.
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::{App, Resource, World};
 
 use crate::sim_id::SimId;
+
+pub mod commands;
+
+pub use commands::{
+    AuthoredCommandPlugin, AuthoredCommandSet, CommandCatalog, CommandDescriptor, CommandId,
+    CommandOutcome, CommandRunner, PublishCommand, RunAuthoredCommand,
+};
+
+/// **The one spelling rule both halves obey**: `<domain>.<leaf>`, exactly one
+/// dot, neither side empty.
+///
+/// ⚠ **it lives here once because a condition id and a command id are the same
+/// SHAPE with different meanings.** Two copies would be two chances to disagree
+/// about whether `a.b.c` is legal — and the day they disagreed, an id that
+/// parsed on one side and not the other would look like a missing registration.
+fn split_namespaced(raw: &str) -> Option<(&str, &str)> {
+    let (domain, leaf) = raw.split_once('.')?;
+    if domain.is_empty() || leaf.is_empty() || leaf.contains('.') {
+        return None;
+    }
+    Some((domain, leaf))
+}
+
+/// Build a namespaced id, asserting the spelling rule.
+///
+/// ⛔ **panics**, and the two nouns exist so the panic names the caller's world:
+/// a provider that spelled its own id wrongly is a bug in the engine, and the
+/// message should say `condition`/`question` or `command`/`verb` rather than a
+/// generic complaint about segments.
+fn join_namespaced(noun: &str, leaf_noun: &str, domain: &str, leaf: &str) -> String {
+    assert!(
+        !domain.is_empty() && !leaf.is_empty(),
+        "a {noun} id needs both a domain and a {leaf_noun}, got `{domain}.{leaf}`"
+    );
+    assert!(
+        !domain.contains('.') && !leaf.contains('.'),
+        "`.` separates a {noun} id's segments and may not appear inside one: \
+         `{domain}.{leaf}`"
+    );
+    format!("{domain}.{leaf}")
+}
 
 /// **A namespaced identifier for one condition a domain can answer.**
 ///
@@ -92,16 +157,7 @@ impl ConditionId {
     /// ⛔ **panics on a segment containing `.`**, because an id that can be
     /// spelled two ways is an id that can be registered twice.
     pub fn new(domain: &str, question: &str) -> Self {
-        assert!(
-            !domain.is_empty() && !question.is_empty(),
-            "a condition id needs both a domain and a question, got `{domain}.{question}`"
-        );
-        assert!(
-            !domain.contains('.') && !question.contains('.'),
-            "`.` separates a condition id's segments and may not appear inside one: \
-             `{domain}.{question}`"
-        );
-        Self(format!("{domain}.{question}"))
+        Self(join_namespaced("condition", "question", domain, question))
     }
 
     /// Read an id back out of one authored string (`"world.flag_set"`).
@@ -120,10 +176,7 @@ impl ConditionId {
     /// prevent — and a parser that quietly fixed content would make the
     /// published name and the authored name different strings.
     pub fn parse(raw: &str) -> Option<Self> {
-        let (domain, question) = raw.split_once('.')?;
-        if domain.is_empty() || question.is_empty() || question.contains('.') {
-            return None;
-        }
+        split_namespaced(raw)?;
         Some(Self(raw.to_string()))
     }
 
@@ -176,14 +229,14 @@ pub struct ParamSpec {
 
 /// **A prepared argument value.** Prepared, so nothing here is parsed on a tick.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ConditionArg {
+pub enum AuthoredArg {
     Reference(SimId),
     Name(String),
     Number(f64),
     Truth(bool),
 }
 
-impl ConditionArg {
+impl AuthoredArg {
     pub fn kind(&self) -> ParamKind {
         match self {
             Self::Reference(_) => ParamKind::Reference,
@@ -273,7 +326,7 @@ impl ConditionOutcome {
 /// meaningful rather than a nuisance: a domain asking about a component no
 /// installed plugin registered is genuinely *unanswerable*, not false — which is
 /// the same distinction [`ConditionOutcome`] exists to keep.
-pub type ConditionEvaluator = fn(&World, &[ConditionArg]) -> ConditionOutcome;
+pub type ConditionEvaluator = fn(&World, &[AuthoredArg]) -> ConditionOutcome;
 
 #[derive(Clone)]
 struct Registered {
@@ -357,7 +410,7 @@ impl ConditionCatalog {
     /// evaluator that had to validate its own arguments would be fifty domains
     /// each writing the same four lines, and the day one of them wrote them
     /// differently the catalog's schema would stop meaning anything.
-    pub fn evaluate(&self, world: &World, id: &ConditionId, args: &[ConditionArg]) -> ConditionOutcome {
+    pub fn evaluate(&self, world: &World, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
         let Some(row) = self.rows.get(id) else {
             return ConditionOutcome::unanswerable(format!(
                 "no condition `{id}` is published; the installed engine knows {} others",

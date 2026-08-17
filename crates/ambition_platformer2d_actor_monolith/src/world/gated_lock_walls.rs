@@ -65,7 +65,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    ConditionArg, ConditionCatalog, ConditionId,
+    AuthoredArg, ConditionCatalog, ConditionId,
 };
 
 /// **The block-name prefix a gated wall contributes under.**
@@ -212,7 +212,7 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
                 .evaluate(
                     world,
                     &flag_set,
-                    &[ConditionArg::Name(wall.gated_by.clone())],
+                    &[AuthoredArg::Name(wall.gated_by.clone())],
                 )
                 .is_satisfied()
         })

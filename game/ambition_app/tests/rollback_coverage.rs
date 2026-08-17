@@ -976,6 +976,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog",
         "published during plugin build only; `publish` is private and a tick has no `App`",
     ),
+    // **The command catalog**: which verbs the installed domains can perform,
+    // and the function that performs each.
+    //
+    // ⭐ THE SAME STRUCTURAL ARGUMENT, and this is the half where it had to be
+    // made before anything was built. `publish` is private, the only way in is
+    // `PublishCommand` on `App`, and a tick holds a `World`. ⛔ a command
+    // registry a system could write to IS rollback state, and then every
+    // authored verb in the game joins the snapshot.
+    //
+    // ⚠ and `run` is private too, which is a different claim from this waiver
+    // but the reason the waiver is not merely true: nothing can perform a
+    // command out of `AuthoredCommandSet`, so there is no timeline in which the
+    // catalog and the world disagree about what happened.
+    (
+        "ambition_platformer2d_shared_tangle::authored_logic::commands::CommandCatalog",
+        "published during plugin build only; `publish` is private and a tick has no `App`",
+    ),
     // **Every game's death rules** (ADR 0033): how long a death holds, and the
     // roster question that decides a level reset — one declaration per game,
     // keyed by the rooms that game governs.

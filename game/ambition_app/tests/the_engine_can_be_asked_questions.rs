@@ -19,7 +19,7 @@
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::platformer::authored_logic::{
-    ConditionArg, ConditionCatalog, ConditionId, ConditionOutcome,
+    AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome,
 };
 use ambition_platformer2d::platformer::sim_id::SimId;
 
@@ -36,7 +36,7 @@ fn catalog(sim: &Platformer2dSimHarness) -> ConditionCatalog {
         .clone()
 }
 
-fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[ConditionArg]) -> ConditionOutcome {
+fn ask(sim: &Platformer2dSimHarness, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
     catalog(sim).evaluate(sim.world(), id, args)
 }
 
@@ -128,7 +128,7 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
     };
 
     assert_eq!(
-        ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())]),
+        ask(&sim, &is_held, &[AuthoredArg::Reference(authored.clone())]),
         ConditionOutcome::NotSatisfied,
         "it is lying on the floor"
     );
@@ -141,21 +141,21 @@ fn the_item_domain_answers_about_custody_and_says_so_when_it_cannot() {
             ..base()
         });
         sim.step(base());
-        if ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())])
+        if ask(&sim, &is_held, &[AuthoredArg::Reference(authored.clone())])
             == ConditionOutcome::Satisfied
         {
             break;
         }
     }
     assert_eq!(
-        ask(&sim, &is_held, &[ConditionArg::Reference(authored.clone())]),
+        ask(&sim, &is_held, &[AuthoredArg::Reference(authored.clone())]),
         ConditionOutcome::Satisfied,
         "the pressed pickup took custody, and the domain says so"
     );
 
     // ⭐ the third answer.
     let never_authored = SimId::placement("a_key_this_world_does_not_have");
-    let outcome = ask(&sim, &is_held, &[ConditionArg::Reference(never_authored)]);
+    let outcome = ask(&sim, &is_held, &[AuthoredArg::Reference(never_authored)]);
     assert!(
         matches!(outcome, ConditionOutcome::Unanswerable(_)),
         "an occurrence this world never authored is UNANSWERABLE, not false — a \
@@ -183,7 +183,7 @@ fn the_world_fact_domain_answers_from_the_save_layer() {
     let flag = "a_fact_this_run_has_not_recorded";
 
     assert_eq!(
-        ask(&sim, &flag_set, &[ConditionArg::Name(flag.to_string())]),
+        ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
         ConditionOutcome::NotSatisfied
     );
 
@@ -193,7 +193,7 @@ fn the_world_fact_domain_answers_from_the_save_layer() {
         .set_flag(flag, true);
 
     assert_eq!(
-        ask(&sim, &flag_set, &[ConditionArg::Name(flag.to_string())]),
+        ask(&sim, &flag_set, &[AuthoredArg::Name(flag.to_string())]),
         ConditionOutcome::Satisfied,
         "the domain reads the live save rather than a copy taken at startup"
     );
@@ -214,7 +214,7 @@ fn the_inventory_domain_answers_about_the_live_bag() {
 
     let holds = ConditionId::new("inventory", "holds");
     let carried = |sim: &Platformer2dSimHarness, item: &str| {
-        ask(sim, &holds, &[ConditionArg::Name(item.to_string())])
+        ask(sim, &holds, &[AuthoredArg::Name(item.to_string())])
     };
 
     assert_eq!(

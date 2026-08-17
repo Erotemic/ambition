@@ -152,7 +152,7 @@ title: hub_guide__test
     <<jump hub_guide__test_whisper>>
 -> Multi-line accumulation.
     <<jump hub_guide__test_multiline>>
--> Command: set_flag / clear_flag
+-> Command: world.set_flag
     <<jump hub_guide__test_flag>>
 -> Command: play_sfx
     <<jump hub_guide__test_sfx>>
@@ -212,10 +212,10 @@ title: hub_guide__test_flag
 <<endif>>
 Kernel Guide: There is no mirror any more — condition() asks the world-fact domain live, the same way a gated lock wall does. Toggle the flag here, return to the test menu, then come back to see the readback flip.
 -> Set the flag.
-    <<set_flag "kernel_guide_demo_flag">>
+    <<command "world.set_flag" "kernel_guide_demo_flag" true>>
     <<jump hub_guide__test>>
 -> Clear the flag.
-    <<clear_flag "kernel_guide_demo_flag">>
+    <<command "world.set_flag" "kernel_guide_demo_flag" false>>
     <<jump hub_guide__test>>
 -> Back to test menu (no change).
     <<jump hub_guide__test>>

@@ -39,7 +39,7 @@ title: bob_intro_stub
     -> Hand him the sealed note.
         <<sell_item "sealednote" 0>>
         <<give_item "fieldsurvey" 1>>
-        <<set_flag "bob_field_survey_received">>
+        <<command "world.set_flag" "bob_field_survey_received" true>>
         <<jump bob_intro_stub__1>>
     -> ⟨keep it folded⟩
 <<else>>

@@ -18,7 +18,7 @@ const OCCURRENCE: ParamSpec = ParamSpec {
 #[derive(Component)]
 struct Carried;
 
-fn is_carried(world: &World, args: &[ConditionArg]) -> ConditionOutcome {
+fn is_carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(wanted) = args[0].as_reference() else {
         return ConditionOutcome::unanswerable("argument was not a reference");
     };
@@ -62,7 +62,7 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
         catalog.evaluate(
             app.world(),
             &id,
-            &[ConditionArg::Reference(SimId::placement("axe"))]
+            &[AuthoredArg::Reference(SimId::placement("axe"))]
         ),
         ConditionOutcome::Satisfied
     );
@@ -70,7 +70,7 @@ fn a_provider_that_names_no_other_domain_can_publish_and_be_asked() {
         catalog.evaluate(
             app.world(),
             &id,
-            &[ConditionArg::Reference(SimId::placement("rock"))]
+            &[AuthoredArg::Reference(SimId::placement("rock"))]
         ),
         ConditionOutcome::NotSatisfied
     );
@@ -130,7 +130,7 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     let ConditionOutcome::Unanswerable(wrong_kind) = catalog.evaluate(
         app.world(),
         &id,
-        &[ConditionArg::Name("axe".to_string())],
+        &[AuthoredArg::Name("axe".to_string())],
     ) else {
         panic!("a Name where a Reference belongs must be refused");
     };

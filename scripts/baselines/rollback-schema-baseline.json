@@ -1,5 +1,6 @@
 {
   "_comment": [
+    "⚠ 2026-08-17 ADDS message.run_authored_command and bumps GGRS_ROLLBACK_SCHEMA_VERSION 35 -> 36 (D127 M1, the COMMAND half of the authored-logic contract). One channel carries every authored verb: a .yarn `<<command \"domain.verb\" arg…>>` line, or any sim system, asks for a command the owning domain published, and one drained dispatcher in AuthoredCommandSet performs it. ⭐ the buffer is normally EMPTY at a save boundary — the dispatcher drains inside the frame the narrative ledger released into and holds no MessageReader cursor — so this covers the one window that is not: a request released onto a frame the host rewinds past before the set ran, which the ledger re-releases and which would otherwise fire twice. ⛔ CommandCatalog itself is NOT here and must not be: `publish` is private, the only way in is PublishCommand on App, and a tick holds a World — the same structural argument that waives ConditionCatalog. ⚠ stable_schema_name_count read 357 against a 358-entry list before this commit; the field was stale, and 359 is the corrected count.",
     "⚠ 2026-08-16 RENAMES resource.inventory_restored to resource.save_restored and bumps GGRS_ROLLBACK_SCHEMA_VERSION 33 -> 34. No value and no projection moved — it is still a bare clone with no checksum, for the reason its own registration records (the systems run in literal Update, outside resimulation, so projecting the bool desynced the checksum). What changed is what the latch MEANS: it stopped answering 'has the catalog been applied?' and started answering 'has the loaded save been applied?', because the DURABLE occurrence horizon (ambition_platformer2d_actor_monolith::session::durable_horizon) reads it too. ⭐ deliberately ONE latch: two would be two answers to a single question, free to disagree the first time one leg's precondition was met and the other's was not. ⚠ the bump is for the row KEY, which is part of the wire identity — two peers whose schemas differ here cannot agree about a snapshot even though no byte of the value moved. ⛔ NOTHING was added for the durable save itself, and that is the finding worth keeping: the save file is not rollback state. The three values it serializes (resource.occurrence_baseline, resource.custody_baseline, resource.minted_item_baseline) were already registered as of v32/v33, and a durable LOAD writes them through the same adopt-and-resume road a death takes.",
     "⚠ 2026-08-15 ADDS derived.placement_continuity, the FIRST durable-room-state row and a DECLARED-DERIVED one. AuthoredOccurrences answers the question a rebuilt room cannot ask its own authored records: what became of the occurrence this record minted last time? Its only producing leg (persisting) is republished WHOLE every tick from the live InCustodyOf population, which is itself derived from the registered item.item_custody, so it carries no already-applied gate, converges on the step after a rewind, and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 - no encoding changed. It exists because custody let an authored object cross a room boundary alive, and re-entering the room then minted a SECOND occurrence claiming the same SimId::placement(..). ⛔⛔ the day OccurrenceDisposition::Consumed gains a producer this row becomes a lie: that leg ACCUMULATES a fact no live component still carries, nothing re-derives it, and it will owe a real registration with a value projection over the id set plus a durable-save representation, in the same change.",
     "⚠ 2026-08-15 ADDS derived.custody_residency, a DECLARED-DERIVED row rather than a registration: InCustodyOf is recomputed unconditionally every tick from the registered item.item_custody, with no 'already applied' gate, so it is not rollback state and GGRS_ROLLBACK_SCHEMA_VERSION stays at 31 — no encoding changed. It exists so a held item's RESIDENCY follows its holder: the roster a room change retires is now (With<RoomScopedEntity>, Without<InCustodyOf>), which is how a carried object crosses a room boundary without the transition knowing that items exist. ⛔ deliberately NOT _component_state: its only value is an entity handle, and hashing a raw handle is the hazard item.item_custody's entity-set probe already answers through the holder's SimId.",
@@ -312,6 +313,7 @@
     "message.respawn_room_visuals",
     "message.room_loaded",
     "message.room_replay_requested",
+    "message.run_authored_command",
     "message.sandbox_reset_committed",
     "message.set_flag_requested",
     "message.shop_transaction_requested",
@@ -400,7 +402,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 357,
+  "stable_schema_name_count": 359,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

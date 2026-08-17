@@ -898,11 +898,30 @@ goblin_cantina_entry                                  ← the zone, a raw id
 ⇒ two authored strings written with care and one identifier, side by side, in a
 room a player reaches early. Whatever this is, it is not a decision anyone made.
 
-▢ **the fix is a question about ownership, not a patch**: a zone wants a
-player-facing label DISTINCT from its id, and absent one it should draw nothing.
+⭐⭐ **AND A THIRD CAPTURE CHANGES WHAT THE FIX IS.** `water_world`'s door reads
+**"to basement hub"** — prose — and it comes from **the same `zone.name` field**
+that rendered `goblin_cantina_entry`. So the renderer is not missing a
+player-facing road and the schema is not wrong:
+
+```text
+water_world          to basement hub        ← zone.name, authored as prose
+goblin_cantina_lair  goblin_cantina_entry   ← zone.name, left as the id
+```
+
+⇒ **the field already carries prose wherever an author bothered.** 260 of 302
+simply never got one, and the renderer faithfully shows whatever is there.
+
+▢ **so this is mostly CONTENT, plus one guard.** Authoring the missing names is
+the work; what stops it recurring is a lint that REFUSES a zone name matching
+`^[a-z0-9]+(_[a-z0-9]+)+$`, in the same family as the repo's other authoring
+checks. ⚠ a lint is only worth adding if it can go green — 260 rows is a
+campaign, so it wants a ratchet (may fall, must not rise) rather than a gate
+that is red on day one.
+
 ⛔ do not "prettify" the id by swapping underscores for spaces — that
 manufactures prose the author never wrote, and `wake_to_raid` has no good
-rendering.
+rendering. ⚠ and drawing nothing when the name looks like an id is a REGRESSION
+for the doors that legitimately want a label; the answer is to author them.
 
 ⛔ **AND A SECOND FINDING I WITHDREW — recorded because the withdrawal is the
 lesson.** I first wrote that the clipped `wake_to…` at the top-right proved a

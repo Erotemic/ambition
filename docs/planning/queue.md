@@ -885,9 +885,13 @@ missing_level_wall GENRE-DEPENDENT — fires on mary_o_1_1 and sanic_speedway
 ```
 
 ▢ **the two that survive scrutiny:**
-1. **`portal_lab` has no floor and no `EdgeExit`** — *"the controlled body can
-   leave the world."* Real for an AMBITION exploration room, where falling out
-   is not a mechanic.
+1. **`portal_lab`'s bottom EDGE is open** — no `Solid` on it and no `EdgeExit`.
+   Real for an AMBITION room, where falling out is not a mechanic.
+   ⚠ **but "the player can leave the world" is NOT demonstrated**: driven
+   headlessly, the body rests at `(92, 872)` at 20 ticks and is still there at
+   120, so it does not fall from spawn. The gap is at the level BOUNDARY, and
+   whether a player can reach it depends on layout nobody has walked. ⇒ worth
+   fixing as a boundary, not reportable as a fall.
 2. **`SurfaceRamp` has no editor definition** (`defs.entities` is missing it), so
    a supported engine entity cannot be PLACED by an author. Fix is the tool's own
    `ambition-ldtk def register-entity`.

@@ -791,6 +791,52 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D162 — EVERY BOOT PRINTS FOUR WARNINGS AND NOBODY HAS TRIAGED THEM, which
+  is how a log stops being read. (opened 2026-08-17, from capture output)**
+
+⭐ **one is now DISMISSED WITH EVIDENCE, so it never needs investigating again:**
+
+```text
+SheetRegistry: 39 target(s) claimed twice with different frame geometry
+```
+
+⚠ it reads like an art-corruption alarm (*"the survivor crops with the wrong
+grid"*) and it is FINE. Counting the full-res tier offline: **166 targets, FOUR
+geometry collisions — `goblin`, `robot`, `sandbag`, `toon`, every one a shared
+RIG target**, which the code's own doc calls legitimate. **No character id
+collides.** The 39 counts CLAIMS, not targets: 17 characters share `toon`, 18
+share `robot`, 9 share `goblin`. ⭐ and the guard that would catch the real case,
+`report_shadowed_character_sheets`, is silent because there is nothing to say
+rather than because it is dead — the offline count agrees with its silence.
+
+▢ **the other three are unexamined:**
+
+```text
+1  the controlled body is TOUCHING loading zone `pirate_cove_entry` (Door) and
+   the transition did not fire … A `Door` needs the press
+2  GgrsSchedule … hierarchy contains redundant edge(s) — `apply_actor_contact_damage`
+   cannot be child of system set `WorldPrep`, longer path exists
+3  LDtk validation: level 'sanic_sandbox' world origin (9600, 3000) is not
+   aligned to 16px grid
+```
+
+⚠ **(1) looks like a diagnostic firing on an ORDINARY state.** The body spawns
+at the arrival point, the arrival point is a `Door`, and a Door needs a press —
+so "touching and not transitioning" is simply what a fresh spawn looks like. A
+WARN that fires every boot for correct behaviour is the thing that teaches
+people to skim the log, and this repo has already paid for a suite nobody runs.
+⭐ if that reading is right the fix is to say it at DEBUG, or to fire only when
+the press HAPPENED and the transition still did not.
+
+⚠ (2) is Bevy reporting a redundant set membership — cheap to fix, but it sits
+in `ContactDamage`/`WorldPrep`, which D33's boss carve is moving; do it after.
+
+⚠ (3) is one authored level off-grid, and `tools/ambition_ldtk_tools` is the only
+road that may edit a `.ldtk`.
+
+⛔ **the row is about the LOG, not the four items.** Four standing warnings mean
+a new warning arrives into noise, which is the failure mode that matters.
+
 - ▢ **D161 — A LOADING ZONE PRINTS ITS AUTHORING ID AT THE PLAYER, and the same
   frame shows the game already knows how to do it properly. (opened 2026-08-17,
   found by CAPTURE of `intro_wake_room` — the flagship's OPENING room)**

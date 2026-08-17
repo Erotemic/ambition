@@ -56,7 +56,7 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("duel_arena"),
+            .with_required_start_room("duel_arena"),
     )
     .expect("the sim harness builds in the duel arena");
 

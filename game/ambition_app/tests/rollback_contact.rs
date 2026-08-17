@@ -5,7 +5,7 @@
 //! real schedule". Three of those had rewound scenarios and contact did not, which
 //! the 2026-07-27 status audit found by reading the one file that owns contact:
 //! `collision_invariant_oracle` builds every one of its sims with
-//! `Platformer2dSimHarnessOptions::default().with_timestep(..).with_start_room(..)` and no
+//! `Platformer2dSimHarnessOptions::default()` with a timestep and a start room, and no
 //! rollback settings anywhere in it. It walks contact invariants hard and never
 //! rewinds one.
 //!
@@ -40,7 +40,7 @@ fn contact_sim() -> Platformer2dSimHarness {
             // The lab floor, its blocks and its hazard band — a room whose
             // authored geometry the body is guaranteed to touch, rather than an
             // open field where "no contact" would pass vacuously.
-            .with_start_room("combat_calibration_lab")
+            .with_required_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
     )
     .expect("the Ambition GGRS sync-test harness builds in the calibration lab")

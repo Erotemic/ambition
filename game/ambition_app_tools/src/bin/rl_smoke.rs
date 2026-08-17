@@ -29,18 +29,19 @@ fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room(room_id),
+            .with_required_start_room(room_id),
     )
     .map_err(|e| format!("room '{room_id}': Platformer2dSimHarness::new failed: {e}"))?;
     let initial = sim.observation();
     if initial.active_room != room_id {
-        // start_room override falls back to authored start when the id
-        // doesn't resolve. For the smoke test that's a soft fail (not
-        // a panic) since the sim still ran — we report it but don't
-        // exit. This usually means a room id with a different
-        // active-area name in LDtk.
+        // ⭐ the id came from `room_ids()` and is now asked for with
+        // `with_required_start_room`, so an UNRESOLVED id refuses to boot above
+        // rather than landing here. Reaching this line therefore means something
+        // else: the room resolved and the sim still reported a DIFFERENT active
+        // room on frame zero (an active area carrying another name in LDtk, or
+        // an immediate transition). Still a soft report — the sim ran.
         eprintln!(
-            "  [{room_id}] start_room override fell back to '{}' (likely id-vs-active-area mismatch)",
+            "  [{room_id}] resolved, but the first observation is in '{}' (likely id-vs-active-area mismatch)",
             initial.active_room
         );
     }

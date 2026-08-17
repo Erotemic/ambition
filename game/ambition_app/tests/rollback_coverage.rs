@@ -456,7 +456,7 @@ fn list_what_every_waiver_actually_covers() {
         let mut sim = Platformer2dSimHarness::new_with_options(
             ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
-                .with_start_room(room),
+                .with_required_start_room(room),
         )
         .expect("sandbox sim builds");
         for _ in 0..8 {
@@ -506,7 +506,7 @@ fn every_component_in_the_combat_calibration_lab_is_registered_derived_or_waived
     let mut sim = Platformer2dSimHarness::new_with_options(
         ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab"),
+            .with_required_start_room("combat_calibration_lab"),
     )
     .expect("sandbox sim builds in the calibration lab");
     for _ in 0..8 {
@@ -537,7 +537,7 @@ fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("mockingbird_arena"),
+            .with_required_start_room("mockingbird_arena"),
     )
     .expect("sandbox sim builds in a boss arena");
     for _ in 0..8 {
@@ -580,7 +580,7 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         let mut sim = Platformer2dSimHarness::new_with_options(
             ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
-                .with_start_room(room),
+                .with_required_start_room(room),
         )
         .unwrap_or_else(|error| panic!("sandbox sim builds in `{room}`: {error}"));
         for _ in 0..8 {
@@ -610,7 +610,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab"),
+            .with_required_start_room("combat_calibration_lab"),
     )
     .expect("sandbox sim builds in the calibration lab");
     for _ in 0..8 {

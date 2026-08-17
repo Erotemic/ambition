@@ -48,7 +48,7 @@ fn repro_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab")
+            .with_required_start_room("combat_calibration_lab")
             .with_sync_test_rollback_settings(4, 10),
     )
     .expect("Ambition GGRS sync-test harness builds in the calibration lab")
@@ -403,7 +403,7 @@ fn probe_what_a_rollback_frame_costs() {
     let base = || {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab")
+            .with_required_start_room("combat_calibration_lab")
     };
     run("fixed60 no rollback", base().with_fixed_tick(true));
     // ⭐ **d=0 is what the SHIPPED build runs**, and B9 counted `SaveWorld` 0×
@@ -435,7 +435,7 @@ fn probe_what_a_rollback_frame_costs() {
     let empty = || {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("tiny_chamber")
+            .with_required_start_room("tiny_chamber")
     };
     // ⚠ **the knob is the ROOM, not a body count.** `stage_on_floor`'s second
     // argument is HP — I read it as a population and nearly ran an experiment

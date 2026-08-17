@@ -63,7 +63,7 @@ pub fn fixed_60hz_options() -> Platformer2dSimHarnessOptions {
 
 /// Fixed-60Hz options for a named start room.
 pub fn fixed_60hz_room_options(room: &str) -> Platformer2dSimHarnessOptions {
-    fixed_60hz_options().with_start_room(room)
+    fixed_60hz_options().with_required_start_room(room)
 }
 
 /// Fixed-60Hz simulation in the default start room.

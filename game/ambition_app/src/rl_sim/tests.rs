@@ -182,7 +182,7 @@ fn sim_can_start_in_a_specific_room_via_options() {
     let mut goblin_encounter_sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("goblin_encounter"),
+            .with_required_start_room("goblin_encounter"),
     )
     .expect("goblin_encounter override builds");
     let active = goblin_encounter_sim.observation().active_room.clone();

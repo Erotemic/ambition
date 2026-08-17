@@ -126,7 +126,7 @@ fn the_schema_is_the_same_from_a_second_build() {
         let mut options = ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz());
         if let Some(room) = room {
-            options = options.with_start_room(room);
+            options = options.with_required_start_room(room);
         }
         let sim = Platformer2dSimHarness::new_with_options(options).expect("sandbox sim builds");
         sim.world()

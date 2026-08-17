@@ -51,7 +51,7 @@ fn repro_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room(SOURCE_ROOM)
+            .with_required_start_room(SOURCE_ROOM)
             .with_sync_test_rollback_settings(4, 10),
     )
     .expect("Ambition GGRS sync-test harness builds in the calibration lab")

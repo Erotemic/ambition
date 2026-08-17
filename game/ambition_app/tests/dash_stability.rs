@@ -26,7 +26,7 @@ fn grounded_horizontal_dash_does_not_oscillate_pos_y() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("central_hub_complex"),
+            .with_required_start_room("central_hub_complex"),
     )
     .expect("sim builds");
 
@@ -81,7 +81,7 @@ fn grounded_horizontal_plus_down_dash_does_not_oscillate_pos_y() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("central_hub_complex"),
+            .with_required_start_room("central_hub_complex"),
     )
     .expect("sim builds");
 

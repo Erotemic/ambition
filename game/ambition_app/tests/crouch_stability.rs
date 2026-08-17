@@ -24,7 +24,7 @@ fn holding_down_on_flat_ground_does_not_flicker_body_mode() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("central_hub_complex"),
+            .with_required_start_room("central_hub_complex"),
     )
     .expect("sim builds");
 

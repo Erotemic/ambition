@@ -642,15 +642,25 @@ fn check_step(
 /// Violations are labelled with the room the player is actually in (not the
 /// start room) so a transition mid-episode attributes correctly. Returns
 /// `(violations, steps_actually_run, oob_suppressed_at_authored_exits)`.
+///
+/// ⛔ **`start_room == ""` is this function's own sentinel for "whatever the
+/// LDtk world authors as the start", not a room id** (`collision_oracle_smoke`
+/// passes it). It has to stay OUT of the start-room option entirely — asking for
+/// `""` and letting the fallback answer would be the silent substitution D125
+/// exists to end, and `with_required_start_room("")` would rightly refuse to
+/// boot. Every NAMED room reaching here comes from `room_ids()`, so it is
+/// required.
 fn run_episode(
     start_room: &str,
     seed: u64,
     steps: u64,
     zones: &std::collections::HashMap<String, Vec<ae::Aabb>>,
 ) -> (Vec<Violation>, u64, u32) {
-    let opts = Platformer2dSimHarnessOptions::default()
-        .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room(start_room);
+    let mut opts =
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    if !start_room.is_empty() {
+        opts = opts.with_required_start_room(start_room);
+    }
     let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {
         return (Vec::new(), 0, 0);
     };
@@ -921,7 +931,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
 fn trace_oob_under_town_pipes() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room("under_town_pipes");
+        .with_required_start_room("under_town_pipes");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("sim");
     let mut policy = RandomWalkPolicy::traversal_stress(1);
     let mut prev = sim.observation().player_pos;
@@ -1532,7 +1542,7 @@ fn measure_how_many_frames_end_with_a_body_overlapping_solid() {
     for room in &rooms {
         let opts = Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room(room);
+            .with_required_start_room(room);
         let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {
             continue;
         };

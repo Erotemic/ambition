@@ -242,7 +242,7 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
     ] {
         let opts = Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room(room);
+            .with_required_start_room(room);
         let Ok(mut sim) = Platformer2dSimHarness::new_with_options(opts) else {
             continue; // a room the fixture cannot load is not this test's business
         };

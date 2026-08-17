@@ -48,10 +48,14 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// never both at once, which is the shape an item-kind rule cannot produce.
 ///
 /// ⛔⛔ **this used to say `central_hub_basement`, which is a LEVEL name and not
-/// a ROOM id.** `with_start_room` warns and falls back to the authored entry
-/// room for an id it cannot resolve, so the fixture had been running in
-/// `central_hub_complex` all along while every comment in it described somewhere
-/// else. Nothing it measured was wrong; every sentence naming the room was.
+/// a ROOM id.** The tolerant `with_start_room` warned and fell back to the
+/// authored entry room for an id it could not resolve, so the fixture had been
+/// running in `central_hub_complex` all along while every comment in it
+/// described somewhere else. Nothing it measured was wrong; every sentence
+/// naming the room was. ⭐ **that substitution can no longer happen silently
+/// here**: this fixture boots through `fixed_60hz_room_sim`, which now asks with
+/// `with_required_start_room` (D125) — an id this composition does not have
+/// refuses to boot and lists every valid one.
 const ROOM: &str = "central_hub_complex";
 
 /// The object the player BANKS: acquired, then a checkpoint committed over it.

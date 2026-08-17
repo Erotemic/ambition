@@ -57,7 +57,7 @@ fn parse_named_value(args: &[String], name: &str) -> Option<String> {
 fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<String>) -> i32 {
     let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
     if let Some(room) = start_room {
-        options = options.with_start_room(room);
+        options = options.with_required_start_room(room);
     }
     let mut sim = match Platformer2dSimHarness::new_with_options(options) {
         Ok(s) => s,

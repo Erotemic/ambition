@@ -75,7 +75,7 @@ fn sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab"),
+            .with_required_start_room("combat_calibration_lab"),
     )
     .expect("the calibration lab sim builds")
 }

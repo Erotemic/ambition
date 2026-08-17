@@ -74,9 +74,16 @@ impl Platformer2dSimHarnessOptions {
     /// Builder: set the starting room id and REFUSE to boot without it.
     ///
     /// ⭐ what almost every test means. Of the `with_start_room` literals in the
-    /// tree, every one names a real room id except a single deliberate negative
-    /// — so the tolerance protects a caller that does not exist yet, while the
-    /// tests it silently covers for are the ones that would rather fail.
+    /// tree, every one named a real room id except a single deliberate negative
+    /// — so the tolerance protected a caller that does not exist yet, while the
+    /// tests it silently covered for are the ones that would rather fail.
+    ///
+    /// ⚠ **and the callers HAVE since been migrated** (D125, 2026-08-17): every
+    /// test and tool that names a room asks for it here. What still asks
+    /// tolerantly is the negative test that pins the promise, and
+    /// `collision_invariant_oracle::run_episode`, whose `""` means *"do not
+    /// override the authored start"* — so it passes no room at all rather than
+    /// asking tolerantly for one.
     pub fn with_required_start_room(mut self, room_id: impl Into<String>) -> Self {
         self.start_room = Some(room_id.into());
         self.start_room_must_resolve = true;

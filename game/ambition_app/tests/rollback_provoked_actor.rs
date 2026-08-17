@@ -41,7 +41,7 @@ fn hall_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("hall_of_characters")
+            .with_required_start_room("hall_of_characters")
             // ⭐ prediction distance 4: the session predicts and then RESIMULATES,
             // so `LoadWorld` runs for real. `0` is what the shipped build uses and
             // saves nothing (`rollback_lifecycle_reset`'s cost probe measured it),

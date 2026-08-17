@@ -192,7 +192,7 @@ fn resetting_the_room_restages_the_duel_fighters_fresh() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("duel_arena"),
+            .with_required_start_room("duel_arena"),
     )
     .expect("sandbox sim builds in the duel arena");
     for _ in 0..3 {
@@ -261,7 +261,7 @@ fn duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("duel_arena"),
+            .with_required_start_room("duel_arena"),
     )
     .expect("sandbox sim builds in the duel arena");
     for _ in 0..5 {
@@ -294,7 +294,7 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("duel_arena"),
+            .with_required_start_room("duel_arena"),
     )
     .expect("sandbox sim builds in the duel arena");
     for _ in 0..3 {
@@ -415,7 +415,7 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("duel_arena"),
+            .with_required_start_room("duel_arena"),
     )
     .expect("sandbox sim builds in the duel arena");
 

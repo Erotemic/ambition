@@ -2240,6 +2240,40 @@ exactly TWO adopters today (`capture_scene`, `tests/shield_ring_probe.rs`)
 against **24 files** that call `with_start_room`, which is the asymmetry the row
 is really about: the RUNTIME is already strict and the HARNESS is not.
 
+✅ **LANDED 2026-08-17 — the seam, then the callers.** `with_start_room` stayed
+tolerant and `with_required_start_room` was added beside it (`3f116e88b`), so the
+CALLER states which of the two it means rather than the verb changing meaning
+underneath both. Then **all 24 files migrated**: every test, helper and tool that
+names a room now asks for it strictly — including the two shared helpers
+`tests/common::fixed_60hz_room_options` (which fans out to ~20 more fixtures) and
+`ambition_app_tools`' `headless` + `rl_smoke` binaries. `cargo test --workspace
+--lib` 4867 passed / 0 failed; `app_it` 412 passed / 0 failed.
+
+⭐ **the migration was also a TEST of the room ids, and they all held**: not one
+call site changed behaviour, so nothing in the tree had been quietly testing
+somewhere else. Checked against the live 72-id set — every literal, every `const
+ROOM`/`SOURCE_ROOM`/`TWO_ITEM_ROOM`/`ROOM_ID`, and every hand-listed room array
+(`boss_sheet_wiring`'s five boss arenas, `content_dormancy`'s four,
+`rollback_coverage`'s unswept-population six) resolves. ⇒ **the row's premise
+held: nothing relied on the fallback.**
+
+⛔ **TWO deliberate non-adopters, and only one of them was known.** The negative
+test `unknown_start_room_does_not_panic_or_error` keeps its tolerant literal by
+design — it *is* the promise. The one the measurement had missed:
+**`collision_invariant_oracle::run_episode` uses `""` as its OWN sentinel for
+"keep the LDtk-authored start"** (`collision_oracle_smoke` passes it), so it was
+never a room id at all and never a beneficiary of the fallback — the count of 40
+literals had folded a sentinel in with the room names. It now passes **no start
+room** rather than asking tolerantly for one, which is the honest spelling:
+`with_required_start_room("")` would rightly refuse to boot, and asking
+tolerantly for `""` is the silent substitution this row exists to end.
+
+⚠ **and a stale comment that the fallback had authored got corrected**:
+`rl_smoke` explained a soft-fail branch as "start_room override fell back", which
+is now unreachable — an id from `room_ids()` asked for strictly refuses to boot
+instead. Reaching that branch now means something else entirely (an active area
+under another LDtk name, or an immediate transition), and it says so.
+
 ⭐ **PROMOTED FROM THE RESERVOIR 2026-08-14, and the promotion IS the work that
 was missing.** Measured: seven focused plans for this frontier already exist and
 are already good —

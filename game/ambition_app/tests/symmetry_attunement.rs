@@ -47,7 +47,7 @@ fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &
 fn the_noether_attunement_completes_through_the_generic_path() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
-        .with_start_room("symmetry_room");
+        .with_required_start_room("symmetry_room");
     let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("symmetry_room boots");
 
     // Entering the chamber starts the puzzle (content emits Start; the

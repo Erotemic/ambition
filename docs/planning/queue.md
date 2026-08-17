@@ -4866,7 +4866,27 @@ structural fix. We should not be able to clip sprite artwork so easily."*
 
 ✔✔ **GUARD LANDED 2026-08-16** (renderer `6228c58`) — the renderer now WARNS,
 at draw time, when a frame's drawing runs off the logical frame, naming the
-animation, frame and edges. It warns rather than raises because 52 sheets already
+animation, frame and edges.
+
+⛔⛔ **AND THE "52 SHEETS" NUMBER CANNOT BE CASUALLY REFRESHED — measured
+2026-08-17, and it changes how this row should be worked.** `clipped_frame_edges`
+is called from `sheet_build.py:943`, **during a BUILD, on the drawing canvas
+BEFORE padding** — and its own comment says why: *"this is the only place a
+clipped edge is still visible."* The shipped PNG no longer carries the evidence,
+because the frame it would be measured from is the one the packer already
+trimmed.
+
+⇒ **the count is a BUILD-TIME observation, not a property of the repository.**
+Re-measuring it means a full regen of all 196 sheets, which rewrites gitignored
+art — so `52 of 196` is a SNAPSHOT dated 2026-08-16, and anyone quoting it later
+should say so rather than treat it as current.
+⭐ **the practical consequence: this row is closed by REDRAWING, and the
+measurement comes free with the redraw.** Nobody needs to re-run a survey first —
+the guard fires on the next build of any sheet somebody touches, which is exactly
+when the number matters.
+⚠ this also explains why the row could not simply be made fatal: a fatal check at
+build time would block regenerating ANY sheet until the whole roster was redrawn,
+which is the deadlock its author declined. It warns rather than raises because 52 sheets already
 trip it and a fatal check would stop everyone regenerating anything until the
 roster is redrawn; whoever fixes the art can make it fatal. Seven tests.
 

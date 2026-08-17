@@ -354,42 +354,43 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 /// The ultrapack synthesizes its own [`SheetRecord`] from atlas frame rects,
 /// which cannot know which way the body in those pixels points — so the base
 /// manifest's drawn facing has to be carried onto it, the same way the caller
-/// carries the base spec's `tuning`. The Patent Clerk is packed at all four
-/// tiers, so a pack path that dropped this would have left him facing
-/// backwards again on exactly the devices that load packs, while his own sheet
-/// looked correct.
+/// carries the base spec's `tuning`. Both west-drawn characters are packed at
+/// all four tiers, so a pack path that dropped this would have left them facing
+/// backwards again on exactly the devices that load packs, while their own
+/// sheets looked correct.
 #[test]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
-    let base = record_for_target("patent_clerk")
-        .expect("the Patent Clerk's sheet is baked into the sheet table");
-    // The premise. Without it the assertions below hold vacuously for a sheet
-    // that never exercised the inheritance.
-    assert!(
-        base.authored_faces_left,
-        "patent_clerk's base manifest must declare its left-drawn artwork"
-    );
-
-    let mut tiers_checked = 0usize;
-    for scale in [
-        super::super::TextureResolutionScale::Full,
-        super::super::TextureResolutionScale::Half,
-        super::super::TextureResolutionScale::Quarter,
-        super::super::TextureResolutionScale::Potato,
-    ] {
-        let Some((tier, spec)) =
-            try_load_pack_spec_for_target("patent_clerk", &DEFAULT_TUNING, scale)
-                .map(|(spec, tier)| (tier, spec))
-        else {
-            continue;
-        };
-        tiers_checked += 1;
+    for target in ["patent_clerk", "carl_stargan"] {
+        let base = record_for_target(target)
+            .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
+        // The premise. Without it the assertions below hold vacuously for a
+        // sheet that never exercised the inheritance.
         assert!(
-            spec.authored_faces_left(),
-            "the {tier} pack dropped the Patent Clerk's drawn facing"
+            base.authored_faces_left,
+            "{target}'s base manifest must declare its left-drawn artwork"
+        );
+
+        let mut tiers_checked = 0usize;
+        for scale in [
+            super::super::TextureResolutionScale::Full,
+            super::super::TextureResolutionScale::Half,
+            super::super::TextureResolutionScale::Quarter,
+            super::super::TextureResolutionScale::Potato,
+        ] {
+            let Some((tier, spec)) = try_load_pack_spec_for_target(target, &DEFAULT_TUNING, scale)
+                .map(|(spec, tier)| (tier, spec))
+            else {
+                continue;
+            };
+            tiers_checked += 1;
+            assert!(
+                spec.authored_faces_left(),
+                "the {tier} pack dropped {target}'s drawn facing"
+            );
+        }
+        assert!(
+            tiers_checked > 0,
+            "no baked pack tier resolved {target}, so this proved nothing"
         );
     }
-    assert!(
-        tiers_checked > 0,
-        "no baked pack tier resolved the Patent Clerk, so this proved nothing"
-    );
 }

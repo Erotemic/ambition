@@ -397,43 +397,49 @@ mod tests {
         }
     }
 
-    /// **The Patent Clerk faces the way he is going, exactly like a character
-    /// whose art was drawn the other way round.**
+    /// **A left-drawn character faces the way they are going, exactly like a
+    /// character whose art was drawn the other way round.**
     ///
     /// Jon, 2026-08-16: *"Patent clerk faces backwards."* His sheet is drawn
     /// facing WEST (the SVG paperdoll view is `Patent Clerk - Side Left`, and
     /// his rig declares `features.facing: "west"`), while the renderer assumed
     /// every sheet is drawn facing +x — so the one mirror it applied pointed
-    /// him away from his own movement.
+    /// him away from his own movement. Carl Stargan is the same paperdoll shape
+    /// and was found in the same sweep.
     ///
     /// The comparison is the point: the goblin is drawn facing right, and Emmy
-    /// (`noether`) is a rigged character from the same pipeline drawn facing
-    /// east. Given the same facing all three must LOOK the same way, and
-    /// neither of the other two may move.
+    /// (`noether`) is a rigged character from the SAME pipeline drawn facing
+    /// east — so this is not "rigged characters are special", it is "the sheet
+    /// says which way it was drawn". Given the same facing every one of these
+    /// must LOOK the same way, and the right-drawn ones may not move.
     #[test]
-    fn the_patent_clerk_faces_the_way_he_is_going_like_every_other_character() {
-        let clerk = record_for_target("patent_clerk")
-            .expect("the Patent Clerk's sheet is baked into the sheet table");
-        // The premise, pinned: this is a LEFT-drawn sheet. Without it the
-        // comparison below passes for a sheet that never exercised the term.
-        assert!(
-            clerk.authored_faces_left,
-            "patent_clerk's manifest must publish the drawn facing its rig declares \
-             (`features.facing: \"west\"`); regenerate the sheet if this is missing"
-        );
-        for right_drawn in ["goblin_cave_dagger", "noether"] {
-            let other = record_for_target(right_drawn)
-                .unwrap_or_else(|| panic!("{right_drawn} is baked into the sheet table"));
+    fn a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one() {
+        for left_drawn in ["patent_clerk", "carl_stargan"] {
+            let sheet = record_for_target(left_drawn)
+                .unwrap_or_else(|| panic!("{left_drawn}'s sheet is baked into the sheet table"));
+            // The premise, pinned: this really is a LEFT-drawn sheet. Without
+            // it the comparison passes for a sheet that never exercised the
+            // term — which is precisely the state Carl was left in when his rig
+            // declared `west` and his manifest published nothing.
             assert!(
-                !other.authored_faces_left,
-                "{right_drawn} is drawn facing +x and must not have acquired a mirror"
+                sheet.authored_faces_left,
+                "{left_drawn}'s manifest must publish the drawn facing its rig declares \
+                 (`features.facing: \"west\"`); regenerate the sheet if this is missing"
             );
-            for facing in [-1.0_f32, 1.0] {
-                assert_eq!(
-                    drawn_direction(clerk.authored_faces_left, facing),
-                    drawn_direction(other.authored_faces_left, facing),
-                    "at facing {facing} the clerk and {right_drawn} must look the same way"
+            for right_drawn in ["goblin_cave_dagger", "noether"] {
+                let other = record_for_target(right_drawn)
+                    .unwrap_or_else(|| panic!("{right_drawn} is baked into the sheet table"));
+                assert!(
+                    !other.authored_faces_left,
+                    "{right_drawn} is drawn facing +x and must not have acquired a mirror"
                 );
+                for facing in [-1.0_f32, 1.0] {
+                    assert_eq!(
+                        drawn_direction(sheet.authored_faces_left, facing),
+                        drawn_direction(other.authored_faces_left, facing),
+                        "at facing {facing} {left_drawn} and {right_drawn} must look the same way"
+                    );
+                }
             }
         }
     }
@@ -473,11 +479,16 @@ mod tests {
         // did before the field existed. This list is the complete set of sheets
         // whose drawing changed.
         //
-        // ⚠ Carl Stargan is drawn facing west too and his rig says so, but his
-        // sheet has not been regenerated — he is reported, not fixed, and
-        // belongs on this list only when Jon queues him.
+        // ⚠ the list is EXACT on purpose. It fails both ways: if a left-drawn
+        // sheet silently stops publishing its facing (a regen against a stale
+        // generator), and if some other sheet starts declaring one without
+        // anybody deciding that its art was redrawn.
         left_drawn.sort_unstable();
         let expected: Vec<&str> = vec![
+            "carl_stargan",
+            "carl_stargan.0_25x",
+            "carl_stargan.0_5x",
+            "carl_stargan.potato",
             "patent_clerk",
             "patent_clerk.0_25x",
             "patent_clerk.0_5x",
@@ -485,8 +496,8 @@ mod tests {
         ];
         assert_eq!(
             left_drawn, expected,
-            "exactly the Patent Clerk's sheet (and its quality tiers) declares a left-drawn \
-             art facing; every other sheet must keep the +x default"
+            "exactly the two west-drawn paperdoll sheets (and their quality tiers) declare a \
+             left-drawn art facing; every other sheet must keep the +x default"
         );
     }
 }

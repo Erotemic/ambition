@@ -80,10 +80,15 @@ three had landed and no worker was running, so the ledger was describing a
 workforce that did not exist. Refill this table when a lane returns; never leave
 it describing the last run.
 
+⭐ **REFILLED 2026-08-17**, following this table's own rule that it must never
+describe the last run. D125's lane CLOSED (the start-room seam landed and all 24
+callers migrated). D33 ran three slices and is parked with the monolith **under**
+its frozen baseline.
+
 | Lane | Owner | Executable next action |
 |---|---|---|
-| **D125 — checkpoint/reset truth over persistent occurrences** | coordinator, in the main tree | the seven-step behavioural fixture below |
-| **D128 — Smash CPU showcase** | one worker, in its own worktree | measure real matches first, then spend on the single largest visible deficiency |
+| **D127 — M1 for COMMANDS** | one worker, main tree | build `world.set_flag` beside its published condition twin; delete `KERNEL_FACES` or refuse with cause |
+| **D128 — Smash CPU showcase** | unstaffed | the ladder rig was re-run 2026-08-17 (d0 no longer self-KOs; d12 first self-KO 21.8s) — next is a real two-CPU match, not the rig |
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
 rule — *workers never run `cargo`* — rested on one shared target dir against a

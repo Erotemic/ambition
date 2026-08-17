@@ -910,10 +910,18 @@ player.
 `game/ambition_map_assets`):
 
 ```text
-loading zones carrying a name          302
-name is snake_case, i.e. an id         260   (86%)
-of those, NOT Door ⇒ printed always     38
+loading zones carrying a name          151
+name is snake_case, i.e. an id         130   (86%)
+of those, NOT Door ⇒ printed always     19
 ```
+
+⛔ **CORRECTED 2026-08-17 — I first published these DOUBLED (302 / 260 / 38).**
+`game/ambition_content/assets/worlds/` and `game/ambition_map_assets/*/worlds/`
+are the SAME worlds, and I counted both. ⚠ the ratio survived the error at 86%,
+which is exactly why it read as plausible — **a proportion is not a check on a
+total.** Same duplication had already inflated a sign-text count in the same
+session; fixing it there and not here is the tell that a per-measurement fix is
+not a fix.
 
 ⚠ **so this is not one bad level.** It reads as a debug affordance that was
 never gated, and the `→ corridor` label in the same room proves the
@@ -941,7 +949,7 @@ water_world          to basement hub        ← zone.name, authored as prose
 goblin_cantina_lair  goblin_cantina_entry   ← zone.name, left as the id
 ```
 
-⇒ **the field already carries prose wherever an author bothered.** 260 of 302
+⇒ **the field already carries prose wherever an author bothered.** 130 of 151
 simply never got one, and the renderer faithfully shows whatever is there.
 
 ▢ **so this is mostly CONTENT, plus one guard.** Authoring the missing names is

@@ -129,6 +129,7 @@
 
 
 * When you challenge PCA in the C4 symmetry room we should change the music to a smash track.
+  * ▢ Authoring, not machinery: encounters and rooms already author a `music_track` and `content_validation` checks the id against the registry, so this is setting one value on the symmetry-room encounter. ⚠ the only real cost is whether a smash track id exists in AMBITION's registry — `music_registry.ron` is generated, so a new one needs a regen.
 
 
 * I want to implement a camera mode for gravity where the camera just follows the player's reference frame. We should be careful so we use player-reference frame inputs in this mode. It doesn't need special gravity affordances. 

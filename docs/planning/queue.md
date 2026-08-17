@@ -990,7 +990,10 @@ a player stands in a doorway.
 
 ✔ **FIXED 2026-08-17 (`ad82531b7`) — by a LEVEL SPLIT, not a filter.** A pressed
 door that does not move still WARNs; an unpressed one goes to DEBUG; every fact
-stays in the message either way.
+stays in the message either way. ⭐ **verified with the rebuilt driver, both
+directions**: `pirate_cove` with no press now prints **0** of these warnings
+(it printed 1 before), and `--press f` still transitions
+`pirate_cove -> central_hub_complex`. Noise gone, function preserved.
 
 ⛔⛔ **and the first fix I wrote was wrong in a way worth keeping.** I filtered
 the message away whenever no press was buffered — which would have **silenced

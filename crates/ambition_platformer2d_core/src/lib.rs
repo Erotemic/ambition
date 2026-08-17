@@ -74,8 +74,9 @@ pub use body_clusters::{
 pub use ambition_geometry::combat_volume::CombatVolume;
 pub use ambition_geometry::geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use ambition_geometry::reference_frame::{
-    AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
-    MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
+    AccelerationFrame, CameraReferenceFrame, ControlFrameModes, GameplayFramePolicy,
+    InputFrameMode, LocalAxes, MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes,
+    WorldVec2,
 };
 pub use ambition_geometry::swing_shape::SwingShape;
 pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};

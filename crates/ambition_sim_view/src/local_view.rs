@@ -350,6 +350,13 @@ mod tests {
     /// deliberately unbuilt, because a policy that belongs to a VIEW must not
     /// become a process-global mode. This is that policy having a home: writing
     /// the component is the selection.
+    ///
+    /// ⭐ **the Gameplay-menu option now drives it too** (`camera_reference_frame`
+    /// → [`crate::camera_snapshot::CameraObservationPlugin`]), and this test is
+    /// still the one that matters: the setting writes this COMPONENT, so the
+    /// direct-write path stays the contract and nothing here has to be removed
+    /// when views become indexed. See
+    /// `the_gameplay_setting_selects_the_views_reference_frame` for the wiring.
     #[test]
     fn a_views_reference_frame_is_a_component_a_game_can_write() {
         let mut app = App::new();
@@ -375,6 +382,81 @@ mod tests {
                 .get::<CameraReferenceFrame>()
                 .unwrap(),
             CameraReferenceFrame::SubjectFrame
+        );
+    }
+
+    /// **The player's setting reaches the view — through the real plugin, not a
+    /// hand-run system.**
+    ///
+    /// ⭐ the component stays the selection (the test above pins that a game can
+    /// still write it directly); this pins that the shipped Gameplay-menu option
+    /// is wired to it, which is the half a "capability with zero adopters" would
+    /// silently fail. Absent the settings resource nothing is forced, so the
+    /// direct-write path keeps working.
+    #[test]
+    fn the_gameplay_setting_selects_the_views_reference_frame() {
+        let mut app = App::new();
+        app.add_plugins(CameraObservationPlugin);
+        let view = the_only_view(app.world_mut());
+
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.gameplay.camera_reference_frame = CameraReferenceFrame::SubjectFrame;
+        app.insert_resource(settings);
+        app.update();
+
+        assert_eq!(
+            *app.world()
+                .entity(view)
+                .get::<CameraReferenceFrame>()
+                .unwrap(),
+            CameraReferenceFrame::SubjectFrame,
+            "choosing player-relative in the Gameplay menu did not reach the view"
+        );
+
+        app.world_mut()
+            .resource_mut::<ambition_persistence::settings::UserSettings>()
+            .gameplay
+            .camera_reference_frame = CameraReferenceFrame::WorldFixed;
+        app.update();
+        assert_eq!(
+            *app.world()
+                .entity(view)
+                .get::<CameraReferenceFrame>()
+                .unwrap(),
+            CameraReferenceFrame::WorldFixed,
+            "switching back must return the view to world-fixed"
+        );
+    }
+
+    /// ⛔ **the write is conditional, and that is load-bearing.** `is_changed()`
+    /// ticks do not rewind, so a system that wrote the component every frame
+    /// would report a fresh change on every replayed rollback tick.
+    #[test]
+    fn a_settled_reference_frame_is_not_rewritten_every_frame() {
+        let mut app = App::new();
+        app.add_plugins(CameraObservationPlugin);
+        let view = the_only_view(app.world_mut());
+        app.insert_resource(ambition_persistence::settings::UserSettings::default());
+
+        app.update();
+        let settled = app
+            .world()
+            .entity(view)
+            .get_ref::<CameraReferenceFrame>()
+            .unwrap()
+            .last_changed();
+        app.update();
+        let after = app
+            .world()
+            .entity(view)
+            .get_ref::<CameraReferenceFrame>()
+            .unwrap()
+            .last_changed();
+
+        assert_eq!(
+            settled, after,
+            "the reference frame was rewritten on a frame where the setting did not \
+             change, so every rollback resimulation would see it as freshly changed"
         );
     }
 }

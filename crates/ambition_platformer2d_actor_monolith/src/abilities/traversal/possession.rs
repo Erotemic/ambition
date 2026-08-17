@@ -245,7 +245,7 @@ pub fn possession_trigger_system(
     );
     let movement_mode = user_settings.as_deref().map_or(
         ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
-        |s| s.gameplay.movement_frame_mode,
+        |s| s.gameplay.resolved_movement_frame_mode(),
     );
     let down = holding_descend(control.axis_x, control.axis_y, gravity_dir, movement_mode);
     // The gesture is a HOLD, so it accumulates on the interact button being

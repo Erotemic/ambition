@@ -93,6 +93,7 @@ const ALL_SETTINGS_OPTION_IDS: &[SettingsOptionId] = &[
     SettingsOptionId::PortalReverseFacing,
     SettingsOptionId::MovementFrameMode,
     SettingsOptionId::AimFrameMode,
+    SettingsOptionId::CameraReferenceFrame,
     SettingsOptionId::Close,
 ];
 
@@ -159,6 +160,7 @@ fn assert_all_settings_option_ids_listed(id: SettingsOptionId) {
         | SettingsOptionId::PortalReverseFacing
         | SettingsOptionId::MovementFrameMode
         | SettingsOptionId::AimFrameMode
+        | SettingsOptionId::CameraReferenceFrame
         | SettingsOptionId::Close => {}
     }
 }
@@ -494,7 +496,9 @@ mod dispatch_parity {
     use super::*;
     use bevy::prelude::*;
 
-    use ambition_platformer2d::menu::render::bevy_ui::{install_bevy_ui_menu_actions, BevyUiMenuInteractionSet};
+    use ambition_platformer2d::menu::render::bevy_ui::{
+        install_bevy_ui_menu_actions, BevyUiMenuInteractionSet,
+    };
     use ambition_platformer2d::menu::ActiveMenuPages;
 
     use crate::menu::grid_backend::{grid_menu_action_activated, GridMenuTabState};

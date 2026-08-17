@@ -560,7 +560,7 @@ fn position_frame_axis_glyphs(
     let mode = user_settings
         .as_deref()
         .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.movement_frame_mode
+            s.gameplay.resolved_movement_frame_mode()
         });
     let frame = AccelerationFrame::new(gdir);
     let layout = movement_joystick_layout();

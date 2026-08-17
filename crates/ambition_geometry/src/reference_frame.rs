@@ -251,6 +251,74 @@ impl InputFrameMode {
     /// THE default for PRECISION-AIM input (blink steer, ranged/held aim) — point
     /// where the stick points on screen at any gravity. Single source of truth.
     pub const DEFAULT_AIM: Self = Self::ScreenRelative;
+
+    /// **The mode that actually applies once the observing view's frame is known.**
+    ///
+    /// ⭐⭐ **under [`CameraReferenceFrame::SubjectFrame`] every mode collapses to
+    /// [`Self::BodyRelativeStrict`], and that is an IDENTITY rather than a
+    /// preference.** A subject-frame view rolls until screen-down *is* the body's
+    /// `down` and screen-right *is* its `side`. Feed a stick `(sx, sy)` through
+    /// [`AccelerationFrame::resolve_input`] under that roll and
+    /// `ScreenRelative` computes `((sx·side + sy·down)·side, (…)·down)`, which is
+    /// `(sx, sy)` because the basis is orthonormal — exactly what
+    /// `BodyRelativeStrict` returns. `BodyRelativeAssist` collapses for a
+    /// different reason: its whole job is to revert past 90° "where the flip is
+    /// hard to map", and a body that never *appears* flipped has nothing to
+    /// accommodate.
+    ///
+    /// ⛔ **this is why `ScreenRelative` must not be read raw once a view can
+    /// roll.** `side`/`down` are the body basis *expressed in world coordinates*
+    /// (see [`AccelerationFrame`]), so reading the stored mode directly means
+    /// "screen" silently means "world" — correct only while no view rotates.
+    ///
+    /// ⚠ takes the view's POLICY, never its rotation. The presented roll is eased
+    /// and is not rollback-registered; resolving off it would put presentation
+    /// state under the simulation. The policy is a settings-derived enum, which is
+    /// the same class of read the stored mode already is.
+    pub fn under_camera(self, camera: CameraReferenceFrame) -> Self {
+        match camera {
+            CameraReferenceFrame::WorldFixed => self,
+            CameraReferenceFrame::SubjectFrame => Self::BodyRelativeStrict,
+        }
+    }
+}
+
+/// **Which frame a view presents the world in.**
+///
+/// A presentation policy and nothing else: gravity, collision and body
+/// integration are the same simulation facts whichever frame observes them. It
+/// belongs to a VIEW, so when views become indexed this moves with them rather
+/// than becoming a process-global mode.
+///
+/// ⭐ **it lives beside [`InputFrameMode`] because they are one question asked
+/// twice** — "which frame is this human operating in?" — and
+/// [`InputFrameMode::under_camera`] is the rule that keeps the two answers
+/// consistent. Splitting them across crates is what let `ScreenRelative` mean
+/// "world-relative" without anything noticing.
+#[derive(
+    bevy_ecs::prelude::Component,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub enum CameraReferenceFrame {
+    /// Screen orientation stays tied to the world frame even when the subject
+    /// enters sideways or inverted gravity. Ordinary platformer readability, and
+    /// the only behaviour that existed before this policy.
+    #[default]
+    WorldFixed,
+    /// Screen orientation follows the view subject's resolved body frame, so a
+    /// gravity change presents as the world rotating around an upright body.
+    ///
+    /// ⭐ **the subject is a view's subject, not a protagonist.** The resolver
+    /// takes a direction, never an entity, so a spectator, a replay or a second
+    /// local view can orient on whatever body it is watching.
+    SubjectFrame,
 }
 
 /// The pair of [`InputFrameMode`] policies a control authority maps raw input

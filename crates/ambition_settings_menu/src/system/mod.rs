@@ -540,6 +540,7 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
             SettingsOptionId::Difficulty,
             SettingsOptionId::Assist,
             SettingsOptionId::PlayerDamage,
+            SettingsOptionId::CameraReferenceFrame,
             SettingsOptionId::MovementFrameMode,
             SettingsOptionId::AimFrameMode,
             SettingsOptionId::PortalReverseFacing,

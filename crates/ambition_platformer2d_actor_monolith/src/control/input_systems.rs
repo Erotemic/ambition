@@ -83,7 +83,7 @@ pub fn input_timer_system(
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.movement_frame_mode
+            s.gameplay.resolved_movement_frame_mode()
         });
     let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
         movement_mode,
@@ -173,7 +173,7 @@ pub fn interaction_input_system(
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
-            s.gameplay.movement_frame_mode
+            s.gameplay.resolved_movement_frame_mode()
         });
     let down_held = crate::abilities::traversal::possession::holding_descend(
         control_frame.axis_x,

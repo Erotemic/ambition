@@ -341,7 +341,12 @@ special simulation.
 The camera-frame implementation is COMPLETE: subject-relative roll, rotated
 viewport clamping, safe-area framing in screen axes, roll easing with portal-seam
 adoption, and view-owned policy (`CameraReferenceFrame` is a component on the
-local view). ⛔ **do not continue it as a standalone campaign.** C5 — camera policy
+local view). ✔ **and the SELECTION shipped 2026-08-17** — Gameplay → *Camera
+Frame*, world-fixed / player-relative, written onto the view component from
+`GameplaySettings::camera_reference_frame`. ⭐ the input pairing needed no second
+setting: a player-relative view collapses every `InputFrameMode` onto
+body-relative as an identity, so the movement/aim rows report inactive instead of
+being clobbered. ⛔ **do not continue it as a standalone campaign.** C5 — camera policy
 read off the view index — is N-VIEW work and belongs to D116; the feel questions
 (shake units, acceptance customers) are filed in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). ⭐ **a row

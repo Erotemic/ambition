@@ -1,6 +1,9 @@
 # Camera reference-frame policy
 
-**State:** OPEN / DECIDED DIRECTION. The capability is wanted; exact presentation UX remains intentionally unresolved.
+**State (2026-08-17): SHIPPED as a player option.** Gameplay → **Camera Frame**,
+*world-fixed* (default) / *player-relative*. C1–C4 and the C2 selection are done;
+C5 (policy read off the view index) is N-VIEW work under D116, and the feel
+questions stay in [`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
 
 ## Maintainer decision
 
@@ -193,7 +196,7 @@ consumer at the authoritative seam rather than sitting unused until C2. All five
 construction sites state the world-fixed default, and because the struct is built
 exhaustively, a new view cannot forget to say which frame it presents in.
 
-### C2 — one-view Ambition proof — DATA WIRED, SELECTION OPEN
+### C2 — one-view Ambition proof — DONE (selection shipped 2026-08-17)
 
 The live camera system reads the followed body's `ResolvedMotionFrame` and passes
 its down axis as `subject_down`. ⭐ **read off the SAME entity the framing
@@ -206,14 +209,34 @@ other subject would orient on the protagonist — the exact assumption acceptanc
 forbids — and it is a world-gravity resource, which is what "do not put gravity
 queries in the camera" rules out.
 
-**What remains is the selection, and it is deliberately unbuilt.** The policy
-still resolves to `WorldFixed` everywhere, so selecting `SubjectFrame` is now a
-policy change rather than a plumbing change. ⛔ whatever selects it must not be a
-process-global mode: a VIEW owns this, and the one-view case should be the
-one-entry case rather than an architecture to remove at D116. A component on the
-camera/view entity is the shape that survives that migration; a resource is not.
-Pairing the product preset with body-relative movement/aim stays a separate
-policy — camera code must not mutate input state.
+**The selection shipped 2026-08-17 as a Gameplay-menu option** —
+`GameplaySettings::camera_reference_frame`, labelled *world-fixed* /
+*player-relative*, applied by `apply_camera_reference_frame_setting` onto the
+view's `CameraReferenceFrame` COMPONENT. The constraint held: the setting writes
+per-view state, so D116 has nothing here to remove, and a game that supplies no
+`UserSettings` keeps the direct-write path.
+
+⭐⭐ **the input pairing turned out to be an IDENTITY, not a preset.** A
+subject-frame view rolls until screen-down *is* the body's `down`, so feeding a
+stick through `resolve_input` under that roll makes `ScreenRelative` return
+exactly what `BodyRelativeStrict` returns; `BodyRelativeAssist` collapses too,
+since its whole job is to revert past 90° and a body that never *appears* flipped
+has nothing to accommodate. All three modes therefore agree under a
+player-relative view, which is why the movement/aim rows report themselves
+inactive instead of being force-written.
+
+⛔ **and this is why `ScreenRelative` must not be read raw once a view can roll.**
+`side`/`down` are the body basis *expressed in world coordinates*, so the stored
+mode silently means "world-relative" — correct only while nothing rotates.
+`InputFrameMode::under_camera` is the single resolution point;
+`GameplaySettings::resolved_movement_frame_mode` / `control_frame_modes` are the
+only two doors, and both apply it.
+
+⚠ **resolution takes the view's POLICY, never its rotation.** The presented roll
+is eased and is not rollback-registered; resolving off it would put presentation
+state under the simulation. Camera code still mutates no input state — the stored
+`movement_frame_mode` is left intact so switching back restores the player's own
+choice.
 
 ### C2 — one-view Ambition proof
 

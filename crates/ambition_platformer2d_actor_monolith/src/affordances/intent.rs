@@ -179,7 +179,7 @@ pub fn compute_controlled_actor_intent(
     let gravity_dir = resolved_frame.down();
     let movement_mode = user_settings.as_deref().map_or(
         ambition_platformer2d_core::InputFrameMode::DEFAULT_MOVEMENT,
-        |s| s.gameplay.movement_frame_mode,
+        |s| s.gameplay.resolved_movement_frame_mode(),
     );
     let local_axis = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).resolve_input(
         movement_mode,

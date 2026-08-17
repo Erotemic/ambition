@@ -23,14 +23,16 @@
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
+use ambition_app::rl_sim::ambition_sim_composition;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
 use ambition_platformer2d::platformer::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d::sim_view::camera_snapshot::{
     CameraScreenFraming, CameraViewport, ResolvedCameraSnapshot,
 };
-use ambition_app::rl_sim::ambition_sim_composition;
-use ambition_sim_harness::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_sim_harness::{
+    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 
 const DISPLAY: ae::Vec2 = ae::Vec2::new(2400.0, 1080.0);
 const RESIZED: ae::Vec2 = ae::Vec2::new(1600.0, 1200.0);
@@ -202,9 +204,43 @@ fn the_camera_resolve_is_not_inside_the_rollback_schedule() {
          schedule: nothing rolls CameraEaseState back, so every resimulated \
          frame would integrate presentation easing again",
     );
+
+    // ⛔ **counting the SET was a proxy, and it broke the first time the set
+    // legitimately grew** (the camera-frame setting's applier joined it, which
+    // has to be in this set to inherit the not-in-rollback guarantee). The
+    // condition was never "the set has one member" — it is that the ONE writer of
+    // `CameraEaseState` runs once per rendered frame. So name it.
+    let schedules = sim.world().resource::<Schedules>();
+    let update = schedules.get(Update).expect("Update exists in the host");
+    let graph = update.graph();
+    let in_set = graph
+        .systems_in_set(set)
+        .expect("the plugin registers CameraObservationSet in Update");
+    // ⚠ names come off the EXECUTABLE, not the graph: once a schedule is built
+    // its `SystemNode`s are drained into the executor, so `graph.systems.get`
+    // answers `None` for every key and a name-based filter silently matches
+    // nothing — a check that cannot fail in the direction that matters.
+    let names: Vec<String> = update
+        .systems()
+        .expect("the host has run, so Update is initialized")
+        .filter(|(key, _)| in_set.contains(key))
+        .map(|(_, system)| system.name().to_string())
+        .collect();
     assert_eq!(
-        members(Update.intern()),
-        1,
-        "...and it must run exactly once per rendered frame in Update",
+        names.len(),
+        in_set.len(),
+        "every system in the set must be resolvable to a name, or the filter \
+         below proves nothing"
+    );
+    let resolves = names
+        .iter()
+        .filter(|name| name.contains("resolve_camera_observation"))
+        .count();
+    assert_eq!(
+        resolves, 1,
+        "`resolve_camera_observation` must appear exactly once per rendered \
+         frame in Update — it is the only writer of CameraEaseState, so a second \
+         copy double-integrates the easing. Other systems may share the set; \
+         only this one is rationed. The set holds: {names:?}",
     );
 }

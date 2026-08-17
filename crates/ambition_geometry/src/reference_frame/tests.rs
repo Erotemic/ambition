@@ -350,3 +350,132 @@ fn launch_is_away_from_feet() {
     // Away from up-feet = screen-down (+y); perpendicular x preserved.
     assert_eq!(v, Vec2::new(5.0, 600.0));
 }
+
+// ── CAMERA FRAME × INPUT FRAME ───────────────────────────────────────────────
+//
+// ⭐⭐ **the claim these pin is that a player-relative VIEW makes the input-frame
+// setting inert, and that this is an IDENTITY rather than a tuned
+// approximation.** `ScreenRelative` resolves by projecting the stick onto
+// `side`/`down`, which are the body basis *expressed in world coordinates* — so
+// "screen" silently means "world", correct only while no view rotates. The
+// moment a view can roll, reading the stored mode raw is a defect, and these
+// tests are what fail if someone reverts to it.
+
+/// Every gravity direction worth distinguishing: down, both sideways, inverted,
+/// and an off-cardinal angle (the frame is a general rotation, not a snap).
+fn gravities() -> [Vec2; 5] {
+    [
+        Vec2::new(0.0, 1.0),
+        Vec2::new(1.0, 0.0),
+        Vec2::new(-1.0, 0.0),
+        Vec2::new(0.0, -1.0),
+        Vec2::new(0.6, 0.8),
+    ]
+}
+
+fn sticks() -> [ScreenAxes; 5] {
+    [
+        ScreenAxes::new(1.0, 0.0),
+        ScreenAxes::new(-1.0, 0.0),
+        ScreenAxes::new(0.0, 1.0),
+        ScreenAxes::new(0.0, -1.0),
+        ScreenAxes::new(0.7, -0.7),
+    ]
+}
+
+const ALL_MODES: [InputFrameMode; 3] = [
+    InputFrameMode::ScreenRelative,
+    InputFrameMode::BodyRelativeAssist,
+    InputFrameMode::BodyRelativeStrict,
+];
+
+/// **Under a player-relative view every input mode resolves identically.**
+///
+/// This is the whole reason the movement/aim options can read as inactive
+/// instead of being force-written: there is nothing left for them to select.
+#[test]
+fn a_player_relative_view_collapses_every_input_mode() {
+    for g in gravities() {
+        let frame = AccelerationFrame::new(g);
+        for stick in sticks() {
+            let resolved: Vec<LocalAxes> = ALL_MODES
+                .iter()
+                .map(|&m| {
+                    frame.resolve_input(m.under_camera(CameraReferenceFrame::SubjectFrame), stick)
+                })
+                .collect();
+            assert!(
+                resolved.windows(2).all(|w| w[0] == w[1]),
+                "gravity {g:?}, stick {stick:?}: modes disagreed under a player-relative \
+                 view ({resolved:?}) — the collapse is an identity, so a difference here \
+                 means a mode stopped resolving through `under_camera`"
+            );
+        }
+    }
+}
+
+/// **JON'S INVARIANT: player-relative at any gravity feels like world-fixed at
+/// normal gravity.**
+///
+/// "Press right, go right on screen" is the thing a player actually checks, and
+/// the baseline everyone already agrees on is screen-directed input under
+/// ordinary down gravity with an unrotated camera. This says a player-relative
+/// view reproduces exactly that, whatever gravity is doing.
+///
+/// ⭐ stated in LOCAL axes on purpose: it needs no render-space sign convention,
+/// so it cannot pass for the wrong reason if the roll's sign is ever redefined.
+#[test]
+fn player_relative_at_any_gravity_matches_world_fixed_at_normal_gravity() {
+    let baseline_frame = AccelerationFrame::new(Vec2::new(0.0, 1.0));
+    for stick in sticks() {
+        let baseline = baseline_frame.resolve_input(
+            InputFrameMode::ScreenRelative.under_camera(CameraReferenceFrame::WorldFixed),
+            stick,
+        );
+        for g in gravities() {
+            let frame = AccelerationFrame::new(g);
+            for mode in ALL_MODES {
+                let actual = frame
+                    .resolve_input(mode.under_camera(CameraReferenceFrame::SubjectFrame), stick);
+                assert_eq!(
+                    actual, baseline,
+                    "stick {stick:?} under gravity {g:?} with {mode:?}: a player-relative \
+                     view must move the body exactly as screen-directed input does under \
+                     normal gravity — that IS 'press right, go right on screen'"
+                );
+            }
+        }
+    }
+}
+
+/// ⛔ **the poison for the above**: a world-fixed view must keep the modes
+/// distinct, or the two tests above would pass on a `under_camera` that always
+/// returned `BodyRelativeStrict` and the setting would be dead everywhere.
+#[test]
+fn a_world_fixed_view_keeps_the_input_modes_distinct() {
+    let frame = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+    let stick = ScreenAxes::new(1.0, 0.0);
+    let screen = frame.resolve_input(
+        InputFrameMode::ScreenRelative.under_camera(CameraReferenceFrame::WorldFixed),
+        stick,
+    );
+    let strict = frame.resolve_input(
+        InputFrameMode::BodyRelativeStrict.under_camera(CameraReferenceFrame::WorldFixed),
+        stick,
+    );
+    assert_ne!(
+        screen, strict,
+        "under sideways gravity a world-fixed view must still distinguish \
+         screen-directed from body-relative, or `under_camera` is collapsing \
+         unconditionally and the setting means nothing"
+    );
+}
+
+/// A world-fixed view returns the stored mode untouched — the property that lets
+/// the camera setting leave `movement_frame_mode` alone instead of clobbering it.
+#[test]
+fn a_world_fixed_view_preserves_the_stored_mode() {
+    for mode in ALL_MODES {
+        assert_eq!(mode.under_camera(CameraReferenceFrame::WorldFixed), mode);
+    }
+}

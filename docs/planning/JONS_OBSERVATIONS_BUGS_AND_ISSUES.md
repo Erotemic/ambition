@@ -133,7 +133,8 @@
 
 
 * I want to implement a camera mode for gravity where the camera just follows the player's reference frame. We should be careful so we use player-reference frame inputs in this mode. It doesn't need special gravity affordances. 
-  * ◐ Decision recorded; implementation remains open in [`engine/camera-reference-frame-policy.md`](engine/camera-reference-frame-policy.md). Existing external/world-observer camera behavior remains an option.
+  * ✔ SHIPPED 2026-08-17. Gameplay → **Camera Frame**, *world-fixed* / *player-relative*. The world-observer camera stays the default and remains an option.
+  * ⭐ the player-reference-frame input you asked to be careful about needs no separate setting: a player-relative view makes screen axes BE body axes, so all three input frame modes collapse onto body-relative — an identity, pinned by `a_player_relative_view_collapses_every_input_mode`. The movement/aim rows say they are inactive rather than being overwritten, so your choice survives switching back. Design: [`engine/camera-reference-frame-policy.md`](engine/camera-reference-frame-policy.md).
 
 
 * Holding up for 2 seconds should be an alternative way of entering a door or interacting with an object.

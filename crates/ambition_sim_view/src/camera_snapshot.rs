@@ -61,27 +61,15 @@ pub struct CameraSnapshot2d {
     pub active_camera_zone: Option<String>,
 }
 
-/// **Which frame a view presents the world in.**
+/// **Which frame a view presents the world in** — defined in
+/// [`ambition_geometry::reference_frame`], beside the [`ae::InputFrameMode`] it
+/// has to stay consistent with.
 ///
-/// A presentation policy and nothing else: gravity, collision and body
-/// integration are the same simulation facts whichever frame observes them. It
-/// belongs to a VIEW, so when views become indexed this moves with them rather
-/// than becoming a process-global mode.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CameraReferenceFrame {
-    /// Screen orientation stays tied to the world frame even when the subject
-    /// enters sideways or inverted gravity. Ordinary platformer readability, and
-    /// the only behaviour that existed before this policy.
-    #[default]
-    WorldFixed,
-    /// Screen orientation follows the view subject's resolved body frame, so a
-    /// gravity change presents as the world rotating around an upright body.
-    ///
-    /// ⭐ **the subject is a view's subject, not a protagonist.** The resolver
-    /// takes a direction, never an entity, so a spectator, a replay or a second
-    /// local view can orient on whatever body it is watching.
-    SubjectFrame,
-}
+/// ⭐ it moved there when the camera option shipped: a settings crate that must
+/// store this policy cannot depend on the view layer, and two enums meaning one
+/// thing is the fork that let `ScreenRelative` quietly mean "world-relative".
+/// [`ae::InputFrameMode::under_camera`] is the rule that ties them together.
+pub use ae::CameraReferenceFrame;
 
 /// The camera roll a view wants, given its frame policy and — for
 /// [`CameraReferenceFrame::SubjectFrame`] — the subject's resolved down axis.
@@ -1722,6 +1710,36 @@ impl PresentedViewState<'_, '_> {
     }
 }
 
+/// **The player's camera-frame setting, applied to the local view.**
+///
+/// ⭐ **the component is still the selection; this only gives it a player-facing
+/// source.** D118 left the selection unbuilt on purpose so the policy could not
+/// become a process-global mode, and that constraint is intact: this writes a
+/// per-view COMPONENT, so when views become indexed each one can take its policy
+/// from wherever it likes and nothing here has to be removed.
+///
+/// ⛔ **writes only on a real change.** An unconditional write would mark the
+/// component changed every frame, and `is_changed()` ticks do not rewind — a
+/// rollback resimulation would see a fresh "changed" on every replayed tick.
+///
+/// ⚠ absent settings leave the component alone rather than forcing a default, so
+/// a host that has no `UserSettings` (the unit tests, a headless probe) keeps the
+/// "a game can just write the component" path that `local_view` pins.
+fn apply_camera_reference_frame_setting(
+    user_settings: Option<bevy::prelude::Res<ambition_persistence::settings::UserSettings>>,
+    mut views: bevy::prelude::Query<&mut CameraReferenceFrame>,
+) {
+    let Some(settings) = user_settings.as_deref() else {
+        return;
+    };
+    let wanted = settings.gameplay.camera_reference_frame;
+    for mut frame in &mut views {
+        if *frame != wanted {
+            *frame = wanted;
+        }
+    }
+}
+
 pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
@@ -1776,7 +1794,12 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         );
         app.add_systems(
             bevy::prelude::Update,
-            resolve_camera_observation.in_set(CameraObservationSet),
+            (
+                apply_camera_reference_frame_setting,
+                resolve_camera_observation,
+            )
+                .chain()
+                .in_set(CameraObservationSet),
         );
     }
 }

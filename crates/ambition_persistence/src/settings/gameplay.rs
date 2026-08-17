@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub use ambition_platformer2d_core::InputFrameMode;
+pub use ambition_platformer2d_core::{CameraReferenceFrame, InputFrameMode};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Difficulty {
@@ -149,6 +149,22 @@ pub struct GameplaySettings {
     /// precision aiming points where the stick points on screen at any gravity.
     #[serde(default = "default_aim_frame_mode")]
     pub aim_frame_mode: InputFrameMode,
+    /// Which frame the local view presents the world in — world-fixed (the world
+    /// stays upright and the body rotates) or player-relative (the body stays
+    /// upright and the world rotates around it).
+    ///
+    /// ⭐⭐ **it also decides the frame the sticks resolve in**, because a
+    /// player-relative view makes screen axes *be* body axes and collapses every
+    /// [`InputFrameMode`] onto `BodyRelativeStrict` — see
+    /// [`InputFrameMode::under_camera`] for why that is an identity. Read
+    /// [`Self::resolved_movement_frame_mode`] rather than the stored field.
+    ///
+    /// ⛔ the stored [`Self::movement_frame_mode`] is deliberately NOT rewritten
+    /// when this changes: clobbering it would lose the player's choice for when
+    /// they switch back, and `camera-reference-frame-policy.md` rules out camera
+    /// policy mutating input state. The collapse happens at the point of use.
+    #[serde(default)]
+    pub camera_reference_frame: CameraReferenceFrame,
 }
 
 /// Locomotion frame-mode default (see [`GameplaySettings::movement_frame_mode`]),
@@ -183,6 +199,7 @@ impl Default for GameplaySettings {
             portal_reverses_facing: false,
             movement_frame_mode: default_movement_frame_mode(),
             aim_frame_mode: default_aim_frame_mode(),
+            camera_reference_frame: CameraReferenceFrame::default(),
         }
     }
 }
@@ -210,11 +227,78 @@ impl GameplaySettings {
 
     /// The pair of control-authority frame policies these settings express, for
     /// the gameplay verbs that resolve input by source ([`ae::ControlFrameModes`]).
+    ///
+    /// ⭐ **resolved against the camera frame, not the raw stored fields** — this
+    /// is one of the two doors onto the frame modes, and both apply the collapse
+    /// so no caller can reach an un-resolved mode by picking the wrong one.
     pub fn control_frame_modes(&self) -> ambition_platformer2d_core::ControlFrameModes {
         ambition_platformer2d_core::ControlFrameModes {
-            movement: self.movement_frame_mode,
-            aim: self.aim_frame_mode,
+            movement: self.resolved_movement_frame_mode(),
+            aim: self.resolved_aim_frame_mode(),
         }
+    }
+
+    /// **The locomotion frame mode that actually applies**, given the camera frame.
+    ///
+    /// ⛔ read this, never `self.movement_frame_mode`. The stored field is the
+    /// player's preference for world-fixed viewing; under a player-relative view
+    /// it is not what the stick means. See [`InputFrameMode::under_camera`].
+    pub fn resolved_movement_frame_mode(&self) -> InputFrameMode {
+        self.movement_frame_mode
+            .under_camera(self.camera_reference_frame)
+    }
+
+    /// **The precision-aim frame mode that actually applies**, given the camera
+    /// frame. Same collapse as [`Self::resolved_movement_frame_mode`]: aiming at a
+    /// screen point and aiming in the body frame are the same gesture once the
+    /// screen IS the body frame.
+    pub fn resolved_aim_frame_mode(&self) -> InputFrameMode {
+        self.aim_frame_mode
+            .under_camera(self.camera_reference_frame)
+    }
+
+    /// The camera frames surfaced to the user, in cycle order.
+    pub const CAMERA_FRAMES: [CameraReferenceFrame; 2] = [
+        CameraReferenceFrame::WorldFixed,
+        CameraReferenceFrame::SubjectFrame,
+    ];
+
+    /// Short, user-facing label for a camera reference frame.
+    pub fn camera_frame_label(frame: CameraReferenceFrame) -> &'static str {
+        match frame {
+            CameraReferenceFrame::WorldFixed => "world-fixed",
+            CameraReferenceFrame::SubjectFrame => "player-relative",
+        }
+    }
+
+    /// Position of the live camera frame within [`Self::CAMERA_FRAMES`] and the
+    /// surfaced count, for the cycle UI.
+    pub fn camera_reference_frame_index(&self) -> (usize, usize) {
+        let i = Self::CAMERA_FRAMES
+            .iter()
+            .position(|&f| f == self.camera_reference_frame)
+            .unwrap_or(0);
+        (i, Self::CAMERA_FRAMES.len())
+    }
+
+    /// Cycle the camera reference frame; `dir < 0` goes back, otherwise forward.
+    pub fn cycle_camera_reference_frame(&mut self, dir: i32) {
+        let frames = Self::CAMERA_FRAMES;
+        let n = frames.len() as i32;
+        let cur = frames
+            .iter()
+            .position(|&f| f == self.camera_reference_frame)
+            .unwrap_or(0) as i32;
+        let step = if dir < 0 { -1 } else { 1 };
+        self.camera_reference_frame = frames[(((cur + step) % n + n) % n) as usize];
+    }
+
+    /// **Whether the locomotion/aim frame options still mean anything.**
+    ///
+    /// False under a player-relative camera, where every mode collapses. The menu
+    /// uses this to say so rather than letting the player cycle a dead option.
+    pub fn frame_modes_are_live(&self) -> bool {
+        self.camera_reference_frame == CameraReferenceFrame::WorldFixed
     }
 
     /// Position of `mode` within [`Self::FRAME_MODES`] and the surfaced count, for
@@ -345,5 +429,106 @@ mod tests {
         s.player_damage_multiplier = -10.0;
         s.clamp_all();
         assert!(s.player_damage_multiplier >= 0.25 - 1e-6);
+    }
+
+    /// **The camera setting never rewrites the input setting.**
+    ///
+    /// ⭐ this is the property that made resolve-at-read-time worth the extra
+    /// method over simply forcing the stored field: a player who tries
+    /// player-relative and goes back gets their locomotion preference intact.
+    #[test]
+    fn choosing_a_player_relative_camera_does_not_clobber_the_stored_frame_mode() {
+        let mut g = GameplaySettings {
+            movement_frame_mode: InputFrameMode::BodyRelativeAssist,
+            ..Default::default()
+        };
+
+        g.camera_reference_frame = CameraReferenceFrame::SubjectFrame;
+        assert_eq!(
+            g.movement_frame_mode,
+            InputFrameMode::BodyRelativeAssist,
+            "the stored preference was overwritten by a camera choice"
+        );
+        assert_eq!(
+            g.resolved_movement_frame_mode(),
+            InputFrameMode::BodyRelativeStrict,
+            "a player-relative view must resolve locomotion body-relative"
+        );
+
+        g.camera_reference_frame = CameraReferenceFrame::WorldFixed;
+        assert_eq!(
+            g.resolved_movement_frame_mode(),
+            InputFrameMode::BodyRelativeAssist,
+            "switching back must restore the player's own choice, not a default"
+        );
+    }
+
+    /// Both doors onto the frame modes apply the collapse, so no caller can reach
+    /// an unresolved mode by picking the other one.
+    #[test]
+    fn control_frame_modes_resolves_both_sticks_against_the_camera() {
+        let g = GameplaySettings {
+            movement_frame_mode: InputFrameMode::ScreenRelative,
+            aim_frame_mode: InputFrameMode::ScreenRelative,
+            camera_reference_frame: CameraReferenceFrame::SubjectFrame,
+            ..Default::default()
+        };
+        let modes = g.control_frame_modes();
+        assert_eq!(modes.movement, InputFrameMode::BodyRelativeStrict);
+        assert_eq!(modes.aim, InputFrameMode::BodyRelativeStrict);
+        assert!(
+            !g.frame_modes_are_live(),
+            "the menu must report the frame rows as inactive here"
+        );
+    }
+
+    /// Defaults are unchanged: a save written before this setting existed, and a
+    /// fresh profile, both keep the shipped world-fixed behaviour.
+    #[test]
+    fn the_camera_frame_defaults_to_world_fixed_and_leaves_input_alone() {
+        let g = GameplaySettings::default();
+        assert_eq!(g.camera_reference_frame, CameraReferenceFrame::WorldFixed);
+        assert_eq!(g.resolved_movement_frame_mode(), g.movement_frame_mode);
+        assert_eq!(g.resolved_aim_frame_mode(), g.aim_frame_mode);
+        assert!(g.frame_modes_are_live());
+
+        // A save written before this field existed: the real blob minus the one
+        // new key. ⛔ not `{}` — most fields here carry no `#[serde(default)]`, so
+        // an empty object fails for reasons that have nothing to do with this
+        // setting and would let the test pass while proving nothing.
+        let mut blob = serde_json::to_value(GameplaySettings {
+            movement_frame_mode: InputFrameMode::BodyRelativeAssist,
+            ..Default::default()
+        })
+        .expect("settings serialize");
+        blob.as_object_mut()
+            .expect("settings serialize as a map")
+            .remove("camera_reference_frame")
+            .expect("the field is present before removal, or this proves nothing");
+
+        let restored: GameplaySettings =
+            serde_json::from_value(blob).expect("a settings blob predating this field still loads");
+        assert_eq!(
+            restored.camera_reference_frame,
+            CameraReferenceFrame::WorldFixed,
+            "an existing profile must keep the shipped camera behaviour"
+        );
+        assert_eq!(
+            restored.movement_frame_mode,
+            InputFrameMode::BodyRelativeAssist,
+            "and its existing locomotion choice"
+        );
+    }
+
+    /// Cycling walks the surfaced set and wraps in both directions.
+    #[test]
+    fn cycling_the_camera_frame_wraps_both_ways() {
+        let mut g = GameplaySettings::default();
+        g.cycle_camera_reference_frame(1);
+        assert_eq!(g.camera_reference_frame, CameraReferenceFrame::SubjectFrame);
+        g.cycle_camera_reference_frame(1);
+        assert_eq!(g.camera_reference_frame, CameraReferenceFrame::WorldFixed);
+        g.cycle_camera_reference_frame(-1);
+        assert_eq!(g.camera_reference_frame, CameraReferenceFrame::SubjectFrame);
     }
 }

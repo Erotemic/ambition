@@ -519,6 +519,25 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Reverse facing when a portal turns the controlled body back along the same wall.",
             ),
             {
+                let (i, n) = g.camera_reference_frame_index();
+                cycle(
+                    SettingsOptionId::CameraReferenceFrame,
+                    "Camera Frame",
+                    ambition_persistence::settings::gameplay::GameplaySettings::camera_frame_label(
+                        g.camera_reference_frame,
+                    ),
+                    i,
+                    n,
+                    "Which frame the camera presents: world-fixed keeps the world \
+                     upright and rotates you, player-relative keeps you upright and \
+                     rotates the world. Player-relative also fixes the sticks to \
+                     your body, so the two frame options below stop applying.",
+                )
+            },
+            // ⭐ the two rows below sit AFTER the camera frame because it governs
+            // them: under player-relative every mode collapses onto body-relative,
+            // so the label says so rather than letting a player cycle a dead value.
+            {
                 let (i, n) = g.movement_frame_mode_index();
                 cycle(
                     SettingsOptionId::MovementFrameMode,
@@ -528,8 +547,14 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     ),
                     i,
                     n,
-                    "How raw locomotion input maps onto the controlled body under \
-                     rotated gravity: body-relative assist or screen-directed.",
+                    if g.frame_modes_are_live() {
+                        "How raw locomotion input maps onto the controlled body under \
+                         rotated gravity: body-relative assist or screen-directed."
+                    } else {
+                        "Inactive while the camera frame is player-relative — the \
+                         screen already is your body's frame, so every mode means \
+                         body-relative. Your choice is kept for world-fixed."
+                    },
                 )
             },
             {
@@ -542,8 +567,13 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     ),
                     i,
                     n,
-                    "How raw precision-aim input (blink steer, shots) maps onto the \
-                     controlled body under rotated gravity. Defaults to screen-directed.",
+                    if g.frame_modes_are_live() {
+                        "How raw precision-aim input (blink steer, shots) maps onto the \
+                         controlled body under rotated gravity. Defaults to screen-directed."
+                    } else {
+                        "Inactive while the camera frame is player-relative, for the \
+                         same reason as the movement frame. Your choice is kept."
+                    },
                 )
             },
         ],
@@ -551,5 +581,66 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
 
     SettingsMenuModel {
         categories: vec![video, audio, controls, gameplay],
+    }
+}
+
+#[cfg(test)]
+mod camera_frame_row_tests {
+    use super::*;
+    use ambition_persistence::settings::gameplay::CameraReferenceFrame;
+
+    fn option_of(settings: &UserSettings, id: SettingsOptionId) -> SettingsOption {
+        settings_menu_model(settings)
+            .categories
+            .into_iter()
+            .flat_map(|c| c.options)
+            .find(|o| o.id == id)
+            .unwrap_or_else(|| panic!("{id:?} is not in the settings model"))
+    }
+
+    /// The row exists and says which frame is live, in the words the player chose.
+    #[test]
+    fn the_camera_frame_row_shows_the_selected_frame() {
+        let mut settings = UserSettings::default();
+        assert_eq!(
+            option_of(&settings, SettingsOptionId::CameraReferenceFrame).value_label,
+            "world-fixed"
+        );
+
+        settings.gameplay.camera_reference_frame = CameraReferenceFrame::SubjectFrame;
+        let row = option_of(&settings, SettingsOptionId::CameraReferenceFrame);
+        assert_eq!(row.value_label, "player-relative");
+        assert_eq!(row.label, "Camera Frame");
+    }
+
+    /// ⭐ **the menu TELLS the player the frame rows went inactive.**
+    ///
+    /// Without this the collapse is invisible: the movement row would keep
+    /// displaying "screen-directed" while the game resolved body-relative, which
+    /// reads as the setting being broken rather than superseded.
+    #[test]
+    fn a_player_relative_camera_marks_the_input_frame_rows_inactive() {
+        let mut settings = UserSettings::default();
+        for id in [
+            SettingsOptionId::MovementFrameMode,
+            SettingsOptionId::AimFrameMode,
+        ] {
+            assert!(
+                !option_of(&settings, id).description.contains("Inactive"),
+                "{id:?} must read as live under a world-fixed camera"
+            );
+        }
+
+        settings.gameplay.camera_reference_frame = CameraReferenceFrame::SubjectFrame;
+        for id in [
+            SettingsOptionId::MovementFrameMode,
+            SettingsOptionId::AimFrameMode,
+        ] {
+            assert!(
+                option_of(&settings, id).description.contains("Inactive"),
+                "{id:?} still claims to apply under a player-relative camera, where \
+                 every mode collapses onto body-relative"
+            );
+        }
     }
 }

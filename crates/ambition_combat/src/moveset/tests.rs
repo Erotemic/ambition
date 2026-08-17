@@ -269,6 +269,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
                 effect: "starburst".to_string(),
                 at: (0.0, 0.0),
                 scale: 1.0,
+                sfx: None,
             },
         });
     app.update();
@@ -287,6 +288,37 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
         asked.sfx.is_none(),
         "the request named an OVERRIDE cue, so the move would still be dictating \
          its own sound instead of taking the one its art already addresses"
+    );
+
+    // ⭐ and the OTHER arm, because it is the one the corpus needs: ten shipped
+    // effect rows pack their sound only as `<cue>.loop`, so a sustained burst
+    // says which cue on the burst itself rather than pairing itself with a
+    // second event. `sfx: None` above is "say what the art says"; this is "say
+    // this instead".
+    app.world_mut()
+        .resource_mut::<Messages<MoveEventMessage>>()
+        .write(MoveEventMessage {
+            world_offset: ae::Vec2::ZERO,
+            owner,
+            move_id: "smash".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+            kind: MoveEventKind::Vfx {
+                effect: "starburst".to_string(),
+                at: (0.0, 0.0),
+                scale: 1.0,
+                sfx: Some("vfx.explosion.starburst.loop".to_string()),
+            },
+        });
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<Seen>()
+            .0
+            .as_ref()
+            .and_then(|r| r.sfx),
+        Some(ambition_sfx::SfxId::new("vfx.explosion.starburst.loop")),
+        "an authored override never reached the request, so a sustained burst \
+         could only be expressed as a hand-written pair again",
     );
 }
 

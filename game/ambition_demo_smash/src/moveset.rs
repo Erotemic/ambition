@@ -338,6 +338,7 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
                 effect: effect.to_string(),
                 at: (0.0, 0.0),
                 scale: 1.0,
+                sfx: None,
             },
         );
     }

@@ -668,6 +668,22 @@ pub enum MoveEventKind {
         /// super asks for more.
         #[serde(default = "default_vfx_scale")]
         scale: f32,
+        /// **WHAT IT SOUNDS LIKE, when that is not what it looks like.**
+        ///
+        /// ⭐⭐ `None` — the default and the overwhelming case — means *the cue
+        /// the effect's own name addresses*. The shipped bank carries one
+        /// `vfx.<family>.<row>` cue per authored row, so a burst that wants its
+        /// own sound has already said which one by naming the art; presentation
+        /// resolves it and the author remembers nothing.
+        ///
+        /// ⛔ **this field is why the ceremony could go.** Fourteen fighter
+        /// tables hand-wrote a `Sfx` event beside every `Vfx` one — 74 of 145
+        /// authored cues did nothing but restate the default — because the only
+        /// way to say "a looping variant of this row's sound" was a second
+        /// event. A sustained burst is ONE authored thing now, and the pair is
+        /// not a thing an author can get half-right.
+        #[serde(default)]
+        sfx: Option<String>,
     },
     /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
     /// resolves it), carrying its opaque params.

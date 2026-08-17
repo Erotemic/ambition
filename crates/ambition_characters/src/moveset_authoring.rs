@@ -66,6 +66,13 @@ pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> 
 /// **A CUE AT A MOMENT.** The move's own timeline is where its sound lives, so a
 /// windup you can hear and a swing you can hear are two events and not two
 /// systems.
+///
+/// ⛔⛔ **for a sound of the move's OWN — a grunt, a charge whine, a metal
+/// chink — never for a burst's paired cue** (D149). A [`vfx`] burst is heard on
+/// its own; writing `sfx(m, t, "vfx.<family>.<row>")` beside one plays it TWICE.
+/// Fourteen tables did exactly that, 74 times, because a `Vfx` event used to be
+/// silent. If the sound is genuinely not the row's default, say so ON the burst
+/// with [`vfx_cued`].
 pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     event(
         m,
@@ -76,12 +83,19 @@ pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     )
 }
 
-/// **A BURST AT A MOMENT.**
+/// **A BURST AT A MOMENT** — picture and sound, because they are one thing.
 ///
 /// ⚠ `effect` is the NAME of a row on one of the shipped FX spritesheets
 /// (`ambition_sprite_sheet::fx` — 189 of them). `MoveSpec::presentation_problems`
 /// refuses a name no sheet carries, and the renderer counts it as a miss rather
 /// than playing nothing quietly.
+///
+/// ⭐⭐ **it is heard as well as seen, and the author writes nothing for that.**
+/// The bank ships one `vfx.<family>.<row>` cue per authored row, so the name
+/// that finds the clip finds the sound; `dispatch_move_events` asks for the pair
+/// and presentation resolves it. ⛔ do NOT follow this with an [`sfx`] naming
+/// that same cue — the burst would be heard twice. [`vfx_cued`] is for the
+/// exception where the sound is genuinely not the row's default.
 pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
     event(
         m,
@@ -90,6 +104,7 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
             effect: effect.to_string(),
             at: (0.0, 0.0),
             scale: 1.0,
+            sfx: None,
         },
     )
 }
@@ -112,6 +127,39 @@ pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) 
             effect: effect.to_string(),
             at,
             scale,
+            sfx: None,
+        },
+    )
+}
+
+/// **A PLACED BURST THAT DOES NOT SOUND LIKE ITS OWN ROW.**
+///
+/// ⭐ the exception [`vfx`]'s default exists to make rare. Ten of the shipped
+/// effect rows are SUSTAINED — a stream, an orbit, a held field — and the bank
+/// packs their sound as the looping variant `vfx.<family>.<row>.loop` rather
+/// than as the plain row cue. A burst of one of those says so here, in ONE
+/// authored thing, instead of pairing itself with a hand-written [`sfx`] event
+/// the way fourteen tables used to.
+///
+/// ⛔ **`cue` is a bank cue name, not an effect row name.** An id neither the
+/// registry nor the packed bank authorizes is counted and dropped, not heard —
+/// so a typo here is silence, exactly as it is for [`sfx`].
+pub fn vfx_cued(
+    m: MoveSpec,
+    at_s: f32,
+    effect: &str,
+    at: (f32, f32),
+    scale: f32,
+    cue: &str,
+) -> MoveSpec {
+    event(
+        m,
+        at_s,
+        MoveEventKind::Vfx {
+            effect: effect.to_string(),
+            at,
+            scale,
+            sfx: Some(cue.to_string()),
         },
     )
 }

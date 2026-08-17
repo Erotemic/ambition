@@ -58,7 +58,7 @@ use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRe
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
+    committed_tail, impulse, on_contact, strike, vfx_at, vfx_cued,
 };
 
 /// Burst sizes, as multiples of the presentation default. Jon, 2026-08-16:
@@ -108,7 +108,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let jab = vfx_at(jab, 0.08, "stamp_at_rest", (28.0, 0.0), STAMP_FX);
-    let jab = sfx(jab, 0.08, "vfx.patent_clerk.stamp_at_rest");
 
     // CONTROLLER, not killer: it pops them straight up, at a launch too weak to
     // finish anybody. What it buys is the next four moves happening above a body
@@ -127,8 +126,14 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    let up_tilt = vfx_at(up_tilt, 0.10, "proper_time_tick", (8.0, -30.0), SWING_FX);
-    let up_tilt = sfx(up_tilt, 0.10, "vfx.patent_clerk.proper_time_tick.loop");
+    let up_tilt = vfx_cued(
+        up_tilt,
+        0.10,
+        "proper_time_tick",
+        (8.0, -30.0),
+        SWING_FX,
+        "vfx.patent_clerk.proper_time_tick.loop",
+    );
     let up_tilt = on_contact(up_tilt, "player.hit");
 
     // The other half of the setup: along the floor, almost no vertical. They end
@@ -147,14 +152,14 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         Some((1.0, -0.10)),
         None,
     );
-    let down_tilt = vfx_at(
+    let down_tilt = vfx_cued(
         down_tilt,
         0.09,
         "simultaneity_slice",
         (28.0, 14.0),
         SWING_FX,
+        "vfx.patent_clerk.simultaneity_slice.loop",
     );
-    let down_tilt = sfx(down_tilt, 0.09, "vfx.patent_clerk.simultaneity_slice.loop");
     let down_tilt = on_contact(down_tilt, "player.hit");
 
     // ── smashes: the FINISHERS ───────────────────────────────────────────────
@@ -178,7 +183,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     f_smash.smash_charge_mult = 1.7;
     let f_smash = vfx_at(f_smash, 0.06, "stamp_mass", (0.0, -8.0), STAMP_FX);
-    let f_smash = sfx(f_smash, 0.06, "vfx.patent_clerk.stamp_mass");
     let f_smash = vfx_at(
         f_smash,
         0.38,
@@ -186,9 +190,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         (42.0, -4.0),
         PROOF_FX,
     );
-    let f_smash = sfx(f_smash, 0.38, "vfx.patent_clerk.mass_energy_exchange");
     let f_smash = vfx_at(f_smash, 0.44, "stamp_energy", (42.0, -4.0), STAMP_FX);
-    let f_smash = sfx(f_smash, 0.44, "vfx.patent_clerk.stamp_energy");
     let f_smash = on_contact(f_smash, "player.hit");
 
     let mut up_smash = strike(
@@ -207,7 +209,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     up_smash.smash_charge_mult = 1.7;
     let up_smash = vfx_at(up_smash, 0.34, "light_cone", (6.0, -36.0), PROOF_FX);
-    let up_smash = sfx(up_smash, 0.34, "vfx.patent_clerk.light_cone");
     let up_smash = on_contact(up_smash, "player.hit");
 
     let mut down_smash = strike(
@@ -226,7 +227,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     down_smash.smash_charge_mult = 1.7;
     let down_smash = vfx_at(down_smash, 0.32, "clock_desync", (0.0, 16.0), SWING_FX);
-    let down_smash = sfx(down_smash, 0.32, "vfx.patent_clerk.clock_desync");
     let down_smash = on_contact(down_smash, "player.hit");
 
     // ── aerials ──────────────────────────────────────────────────────────────
@@ -253,7 +253,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         (0.0, 0.0),
         SWING_FX,
     );
-    let n_air = sfx(n_air, 0.09, "vfx.patent_clerk.relative_velocity_arrows");
     let n_air = on_contact(n_air, "player.hit");
 
     let f_air = strike(
@@ -271,7 +270,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let f_air = vfx_at(f_air, 0.13, "stamp_moving", (32.0, -2.0), SWING_FX);
-    let f_air = sfx(f_air, 0.13, "vfx.patent_clerk.stamp_moving");
     let f_air = on_contact(f_air, "player.hit");
 
     let b_air = strike(
@@ -289,7 +287,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let b_air = vfx_at(b_air, 0.15, "stamp_at_rest", (-34.0, 0.0), SWING_FX);
-    let b_air = sfx(b_air, 0.15, "vfx.patent_clerk.stamp_at_rest");
     let b_air = on_contact(b_air, "player.hit");
 
     let u_air = strike(
@@ -307,7 +304,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let u_air = vfx_at(u_air, 0.10, "light_cone", (2.0, -32.0), SWING_FX);
-    let u_air = sfx(u_air, 0.10, "vfx.patent_clerk.light_cone");
     let u_air = on_contact(u_air, "player.hit");
 
     // ⭐ the exception, and the one place *AT REST* shows up as a swing: it stops
@@ -327,7 +323,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let d_air = vfx_at(d_air, 0.16, "mass_energy_exchange", (4.0, 30.0), SWING_FX);
-    let d_air = sfx(d_air, 0.16, "vfx.patent_clerk.mass_energy_exchange");
     let d_air = on_contact(d_air, "player.hit");
 
     // ── 2026-08-16: THE FIVE THAT WERE MISSING ───────────────────────────────
@@ -351,7 +346,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         None,
     );
     let f_tilt = vfx_at(f_tilt, 0.12, "stamp_moving", (34.0, -4.0), SWING_FX);
-    let f_tilt = sfx(f_tilt, 0.12, "vfx.patent_clerk.stamp_moving");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // **NEUTRAL — `light_argument`.** The speed of light is the same in every
@@ -373,7 +367,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let n_b = committed_tail(n_b, 0.66, 0.0);
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
-    let n_b = sfx(n_b, 0.22, "vfx.patent_clerk.light_cone");
     let n_b = on_contact(n_b, "player.hit");
 
     // **SIDE — `reference_frame`.** He declares a frame and moves in it. ⭐ the
@@ -399,8 +392,14 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let side_b = impulse(side_b, 0.20, (640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.66, 0.0);
-    let side_b = vfx_at(side_b, 0.20, "reference_frame_grid", (0.0, 0.0), PROOF_FX);
-    let side_b = sfx(side_b, 0.20, "vfx.patent_clerk.reference_frame_grid.loop");
+    let side_b = vfx_cued(
+        side_b,
+        0.20,
+        "reference_frame_grid",
+        (0.0, 0.0),
+        PROOF_FX,
+        "vfx.patent_clerk.reference_frame_grid.loop",
+    );
     let side_b = vfx_at(
         side_b,
         0.34,
@@ -408,7 +407,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         (30.0, 0.0),
         SWING_FX,
     );
-    let side_b = sfx(side_b, 0.34, "vfx.patent_clerk.relative_velocity_arrows");
     let side_b = on_contact(side_b, "player.hit");
 
     // **UP — `elevator_thought`. THE RECOVERY, and it is the equivalence
@@ -439,17 +437,12 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let up_b = committed_tail(up_b, ELEVATOR_ENDS_S, 0.0);
     let up_b = vfx_at(up_b, 0.06, "elevator_frame", (0.0, 0.0), PROOF_FX);
-    let up_b = sfx(up_b, 0.06, "vfx.patent_clerk.elevator_frame");
-    let up_b = vfx_at(
+    let up_b = vfx_cued(
         up_b,
         ELEVATOR_AT_S,
         "proper_time_tick",
         (0.0, 10.0),
         SWING_FX,
-    );
-    let up_b = sfx(
-        up_b,
-        ELEVATOR_AT_S,
         "vfx.patent_clerk.proper_time_tick.loop",
     );
     let up_b = on_contact(up_b, "player.hit");
@@ -472,11 +465,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let down_b = committed_tail(down_b, 0.65, 0.0);
     let down_b = vfx_at(down_b, 0.20, "clock_sync", (-30.0, 18.0), SWING_FX);
-    let down_b = sfx(down_b, 0.20, "vfx.patent_clerk.clock_sync");
     let down_b = vfx_at(down_b, 0.26, "clock_desync", (30.0, 18.0), SWING_FX);
-    let down_b = sfx(down_b, 0.26, "vfx.patent_clerk.clock_desync");
     let down_b = vfx_at(down_b, 0.33, "known_result_stamp", (0.0, 4.0), STAMP_FX);
-    let down_b = sfx(down_b, 0.33, "vfx.patent_clerk.known_result_stamp");
     let down_b = on_contact(down_b, "player.hit");
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
@@ -512,7 +502,6 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     air_down_b.landing_lag_s = Some(0.32);
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.12, "clock_sync", (0.0, 20.0), SWING_FX);
-    let air_down_b = sfx(air_down_b, 0.12, "vfx.patent_clerk.clock_sync");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
     SmashRepertoire {

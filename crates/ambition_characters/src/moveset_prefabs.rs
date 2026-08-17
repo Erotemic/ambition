@@ -256,6 +256,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                         effect: effect.clone(),
                         at: (0.0, 0.0),
                         scale: 1.0,
+                        sfx: None,
                     },
                 });
             }
@@ -552,6 +553,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                         effect: effect.clone(),
                         at: (0.0, 0.0),
                         scale: 1.0,
+                        sfx: None,
                     },
                 });
             }

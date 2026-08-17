@@ -1450,7 +1450,9 @@ pub fn dispatch_move_events(
                     sfx.write_from(ev.presentation_source.clone(), request);
                 }
             }
-            MoveEventKind::Vfx { effect, scale, .. } => {
+            MoveEventKind::Vfx {
+                effect, scale, sfx, ..
+            } => {
                 // CM5 per-move cosmetic effect. ⭐ there is no table here any
                 // more: the authored NAME goes on the wire as its hash, and
                 // presentation resolves it against the rows the shipped FX
@@ -1474,15 +1476,18 @@ pub fn dispatch_move_events(
                 // to remember a backend detail, and several characters grew a
                 // test whose whole job was checking they had.
                 //
-                // ⚠ the `.loop` cues stay, and they are why the OVERRIDE arm is
-                // not speculative: a sustained effect wants a looping variant of
-                // its own row's sound, which is a real thing to say. `sfx: None`
-                // here means *say what the art says*.
-                fx_requests.write(
-                    ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
-                        .with_scale(*scale)
-                        .from_source(ev.presentation_source.clone()),
-                );
+                // ⚠ the `.loop` cues are why the OVERRIDE arm is not
+                // speculative: a sustained effect wants a looping variant of its
+                // own row's sound, which is a real thing to say. An authored
+                // `sfx: None` means *say what the art says* — and that is what
+                // 74 of those 145 calls were laboriously spelling out.
+                let mut request = ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
+                    .with_scale(*scale)
+                    .from_source(ev.presentation_source.clone());
+                if let Some(cue) = sfx {
+                    request = request.with_sfx(SfxId::new(cue));
+                }
+                fx_requests.write(request);
             }
             MoveEventKind::Effect(effect) => {
                 // Bridge to the content-technique seam by the effect KEY, and

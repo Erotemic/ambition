@@ -61,15 +61,18 @@
 //! ⭐ **an effect is a NAME.** `invariant_core` addresses a row on a shipped FX
 //! sheet and needs no table, enum or registry to reach the screen.
 //!
-//! ⛔⛔ **a `Vfx` event is SILENT on its own** — the paired-cue lookup only runs
-//! on the `FxRequest` path — so every burst below is authored as a PAIR, and
-//! `every_burst_in_this_table_is_heard` keeps it that way.
+//! ⭐⭐ **and the name carries the SOUND too** (D149). `dispatch_move_events`
+//! asks for a paired `FxRequest`; presentation resolves the cue the row's own
+//! name addresses. So a burst below states the art and stops. ⛔ this table used
+//! to author an `Sfx` event beside every one of them — put one back and the
+//! burst is heard TWICE.
 //!
 //! ⛔ **five of her twelve cues carry a `.loop` suffix the sprite row does not**
 //! (`vfx.noether.invariant_core.loop`, `conserved_current`, `group_orbit`,
 //! `paired_trajectory`, `conserved_pair_exchange`). The derived
-//! `vfx.<family>.<row>` name misses the bank for all five, which is why they are
-//! spelled out here rather than generated.
+//! `vfx.<family>.<row>` name misses the bank for all five, so those five say
+//! their cue on the burst itself through `vfx_cued` — the override arm, one
+//! authored thing instead of a pair.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
@@ -79,7 +82,7 @@ use ambition_platformer2d::entity_catalog::{
 };
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx_at,
+    committed_tail, impulse, on_contact, strike, strike_tag, vfx_at, vfx_cued,
 };
 
 /// **How big a burst is, by what kind of move throws it** — multiples of the
@@ -210,7 +213,6 @@ pub fn noether_moveset() -> MovesetContract {
     );
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.05, "generator_steps", (26.0, -6.0), POKE_FX);
-    let jab = sfx(jab, 0.05, "vfx.noether.generator_steps");
 
     // The committed swing the blueprint calls *"her fastest way to say no"*.
     // Nine damage buys a tenth of a second.
@@ -230,9 +232,7 @@ pub fn noether_moveset() -> MovesetContract {
     );
     f_tilt.start_impulse = Some((130.0, 0.0));
     let f_tilt = vfx_at(f_tilt, 0.10, "generator_steps", (32.0, -4.0), SWING_FX);
-    let f_tilt = sfx(f_tilt, 0.10, "vfx.noether.generator_steps");
     let f_tilt = vfx_at(f_tilt, 0.13, "symmetry_axis_snap", (32.0, -4.0), POKE_FX);
-    let f_tilt = sfx(f_tilt, 0.13, "vfx.noether.symmetry_axis_snap");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     let up_tilt = strike(
@@ -249,8 +249,14 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.1, -1.0)),
         None,
     );
-    let up_tilt = vfx_at(up_tilt, 0.09, "group_orbit", (6.0, -26.0), SWING_FX);
-    let up_tilt = sfx(up_tilt, 0.09, "vfx.noether.group_orbit.loop");
+    let up_tilt = vfx_cued(
+        up_tilt,
+        0.09,
+        "group_orbit",
+        (6.0, -26.0),
+        SWING_FX,
+        "vfx.noether.group_orbit.loop",
+    );
     let up_tilt = on_contact(up_tilt, "player.hit");
 
     let down_tilt = strike(
@@ -267,8 +273,14 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.9, -0.35)),
         None,
     );
-    let down_tilt = vfx_at(down_tilt, 0.08, "conserved_current", (24.0, 15.0), SWING_FX);
-    let down_tilt = sfx(down_tilt, 0.08, "vfx.noether.conserved_current.loop");
+    let down_tilt = vfx_cued(
+        down_tilt,
+        0.08,
+        "conserved_current",
+        (24.0, 15.0),
+        SWING_FX,
+        "vfx.noether.conserved_current.loop",
+    );
     let down_tilt = on_contact(down_tilt, "player.hit");
 
     // ── the smashes: the expensive end of the curve ──────────────────────────
@@ -295,7 +307,6 @@ pub fn noether_moveset() -> MovesetContract {
     // The tell sits on HER, not on the box — it is the wind-up, and the box
     // does not exist yet.
     let f_smash = vfx_at(f_smash, 0.02, "symmetry_axis_snap", (0.0, -10.0), SWING_FX);
-    let f_smash = sfx(f_smash, 0.02, "vfx.noether.symmetry_axis_snap");
     let f_smash = vfx_at(
         f_smash,
         0.20,
@@ -303,7 +314,6 @@ pub fn noether_moveset() -> MovesetContract {
         (36.0, -8.0),
         SMASH_FX,
     );
-    let f_smash = sfx(f_smash, 0.20, "vfx.noether.broken_symmetry_shards");
     let f_smash = on_contact(f_smash, "player.hit");
 
     let mut up_smash = strike(
@@ -321,8 +331,14 @@ pub fn noether_moveset() -> MovesetContract {
         None,
     );
     up_smash.smash_charge_mult = 1.70;
-    let up_smash = vfx_at(up_smash, 0.17, "group_orbit", (2.0, -34.0), SMASH_FX);
-    let up_smash = sfx(up_smash, 0.17, "vfx.noether.group_orbit.loop");
+    let up_smash = vfx_cued(
+        up_smash,
+        0.17,
+        "group_orbit",
+        (2.0, -34.0),
+        SMASH_FX,
+        "vfx.noether.group_orbit.loop",
+    );
     let up_smash = on_contact(up_smash, "player.hit");
 
     // ⭐ the down smash is the up smash REFLECTED: same damage, same window, same
@@ -342,8 +358,14 @@ pub fn noether_moveset() -> MovesetContract {
         None,
     );
     down_smash.smash_charge_mult = 1.70;
-    let down_smash = vfx_at(down_smash, 0.17, "conserved_current", (0.0, 20.0), SMASH_FX);
-    let down_smash = sfx(down_smash, 0.17, "vfx.noether.conserved_current.loop");
+    let down_smash = vfx_cued(
+        down_smash,
+        0.17,
+        "conserved_current",
+        (0.0, 20.0),
+        SMASH_FX,
+        "vfx.noether.conserved_current.loop",
+    );
     let down_smash = on_contact(down_smash, "player.hit");
 
     // ── the air game ─────────────────────────────────────────────────────────
@@ -364,8 +386,14 @@ pub fn noether_moveset() -> MovesetContract {
     );
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
-    let n_air = vfx_at(n_air, 0.08, "group_orbit", (0.0, -6.0), SWING_FX);
-    let n_air = sfx(n_air, 0.08, "vfx.noether.group_orbit.loop");
+    let n_air = vfx_cued(
+        n_air,
+        0.08,
+        "group_orbit",
+        (0.0, -6.0),
+        SWING_FX,
+        "vfx.noether.group_orbit.loop",
+    );
     let n_air = on_contact(n_air, "player.hit");
 
     // ⭐⭐ **THE SYMMETRY, and it is the whole character in two moves.** The
@@ -394,14 +422,14 @@ pub fn noether_moveset() -> MovesetContract {
         );
         aerial.landing_lag_s = Some(0.18);
         aerial.autocancel_after_s = Some(0.32);
-        let aerial = vfx_at(
+        let aerial = vfx_cued(
             aerial,
             0.10,
             "paired_trajectory",
             (28.0 * dir_x, -4.0),
             SWING_FX,
+            "vfx.noether.paired_trajectory.loop",
         );
-        let aerial = sfx(aerial, 0.10, "vfx.noether.paired_trajectory.loop");
         on_contact(aerial, "player.hit")
     });
 
@@ -422,7 +450,6 @@ pub fn noether_moveset() -> MovesetContract {
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
     let up_air = vfx_at(up_air, 0.08, "equivalence_bridge", (2.0, -28.0), SWING_FX);
-    let up_air = sfx(up_air, 0.08, "vfx.noether.equivalence_bridge");
     let up_air = on_contact(up_air, "player.hit");
 
     // The spike. Ten damage buys the second-narrowest window she has.
@@ -443,7 +470,6 @@ pub fn noether_moveset() -> MovesetContract {
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
     let d_air = vfx_at(d_air, 0.12, "ether_cancel", (0.0, 24.0), SWING_FX);
-    let d_air = sfx(d_air, 0.12, "vfx.noether.ether_cancel");
     let d_air = on_contact(d_air, "player.hit");
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
@@ -481,14 +507,24 @@ pub fn noether_moveset() -> MovesetContract {
         n_b.duration_s >= 0.66,
         "the last term of the field must fit inside the move"
     );
-    let n_b = vfx_at(n_b, 0.0, "invariant_core", (0.0, 0.0), SWING_FX);
-    let n_b = sfx(n_b, 0.0, "vfx.noether.invariant_core.loop");
-    let n_b = vfx_at(n_b, 0.16, "conserved_pair_exchange", (0.0, 18.0), FIELD_FX);
-    let n_b = sfx(n_b, 0.16, "vfx.noether.conserved_pair_exchange.loop");
+    let n_b = vfx_cued(
+        n_b,
+        0.0,
+        "invariant_core",
+        (0.0, 0.0),
+        SWING_FX,
+        "vfx.noether.invariant_core.loop",
+    );
+    let n_b = vfx_cued(
+        n_b,
+        0.16,
+        "conserved_pair_exchange",
+        (0.0, 18.0),
+        FIELD_FX,
+        "vfx.noether.conserved_pair_exchange.loop",
+    );
     let n_b = vfx_at(n_b, 0.56, "conservation_transfer", (0.0, 18.0), FIELD_FX);
-    let n_b = sfx(n_b, 0.56, "vfx.noether.conservation_transfer");
     let n_b = vfx_at(n_b, 0.66, "proof_complete", (0.0, 0.0), SMASH_FX);
-    let n_b = sfx(n_b, 0.66, "vfx.noether.proof_complete");
     let n_b = on_contact(n_b, "player.hit");
 
     // **SIDE — `symmetry_shift`.** A lateral displacement that keeps her facing.
@@ -516,11 +552,16 @@ pub fn noether_moveset() -> MovesetContract {
     let side_b = impulse(side_b, 0.14, (-640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.55);
     let side_b = vfx_at(side_b, 0.14, "equivalence_bridge", (18.0, -2.0), SWING_FX);
-    let side_b = sfx(side_b, 0.14, "vfx.noether.equivalence_bridge");
     // The trail she leaves BEHIND her, which is the half of a retreat a watcher
     // needs to see.
-    let side_b = vfx_at(side_b, 0.30, "paired_trajectory", (34.0, -2.0), SWING_FX);
-    let side_b = sfx(side_b, 0.30, "vfx.noether.paired_trajectory.loop");
+    let side_b = vfx_cued(
+        side_b,
+        0.30,
+        "paired_trajectory",
+        (34.0, -2.0),
+        SWING_FX,
+        "vfx.noether.paired_trajectory.loop",
+    );
     let side_b = on_contact(side_b, "player.hit");
 
     // **UP — `ethereal_lift`. THE RECOVERY, AND IT DOES NOT ATTACK.**
@@ -571,12 +612,30 @@ pub fn noether_moveset() -> MovesetContract {
         sustain_effect: None,
     });
     let up_b = impulse(up_b, LIFT_AT_S, (0.0, -LIFT_SPEED), ImpulseMode::Set);
-    let up_b = vfx_at(up_b, 0.04, "invariant_core", (0.0, 6.0), SWING_FX);
-    let up_b = sfx(up_b, 0.04, "vfx.noether.invariant_core.loop");
-    let up_b = vfx_at(up_b, LIFT_AT_S, "group_orbit", (0.0, 0.0), SMASH_FX);
-    let up_b = sfx(up_b, LIFT_AT_S, "vfx.noether.group_orbit.loop");
-    let up_b = vfx_at(up_b, 0.62, "conserved_current", (0.0, 20.0), SWING_FX);
-    let up_b = sfx(up_b, 0.62, "vfx.noether.conserved_current.loop");
+    let up_b = vfx_cued(
+        up_b,
+        0.04,
+        "invariant_core",
+        (0.0, 6.0),
+        SWING_FX,
+        "vfx.noether.invariant_core.loop",
+    );
+    let up_b = vfx_cued(
+        up_b,
+        LIFT_AT_S,
+        "group_orbit",
+        (0.0, 0.0),
+        SMASH_FX,
+        "vfx.noether.group_orbit.loop",
+    );
+    let up_b = vfx_cued(
+        up_b,
+        0.62,
+        "conserved_current",
+        (0.0, 20.0),
+        SWING_FX,
+        "vfx.noether.conserved_current.loop",
+    );
 
     // **DOWN — `invariant_field`.** A low, wide field that denies the ground in
     // front of her. The widest box in the table and the cheapest damage on it.
@@ -594,10 +653,22 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.8, -0.5)),
         None,
     );
-    let down_b = vfx_at(down_b, 0.14, "invariant_core", (14.0, 20.0), FIELD_FX);
-    let down_b = sfx(down_b, 0.14, "vfx.noether.invariant_core.loop");
-    let down_b = vfx_at(down_b, 0.22, "conserved_current", (14.0, 20.0), FIELD_FX);
-    let down_b = sfx(down_b, 0.22, "vfx.noether.conserved_current.loop");
+    let down_b = vfx_cued(
+        down_b,
+        0.14,
+        "invariant_core",
+        (14.0, 20.0),
+        FIELD_FX,
+        "vfx.noether.invariant_core.loop",
+    );
+    let down_b = vfx_cued(
+        down_b,
+        0.22,
+        "conserved_current",
+        (14.0, 20.0),
+        FIELD_FX,
+        "vfx.noether.conserved_current.loop",
+    );
     let down_b = on_contact(down_b, "player.hit");
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
@@ -634,8 +705,14 @@ pub fn noether_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1200.0), ImpulseMode::Set);
     // ⚠ this table's own rule: every burst is heard. The conserved current comes
     // down with her.
-    let air_down_b = vfx_at(air_down_b, 0.10, "conserved_current", (0.0, 20.0), FIELD_FX);
-    let air_down_b = sfx(air_down_b, 0.10, "vfx.noether.conserved_current.loop");
+    let air_down_b = vfx_cued(
+        air_down_b,
+        0.10,
+        "conserved_current",
+        (0.0, 20.0),
+        FIELD_FX,
+        "vfx.noether.conserved_current.loop",
+    );
     let air_down_b = on_contact(air_down_b, "player.hit");
 
     let repertoire = SmashRepertoire {
@@ -880,47 +957,19 @@ mod tests {
         );
     }
 
-    /// **Every burst she shows is one somebody can hear.**
-    ///
-    /// ⛔ a `Vfx` event plays no sound on its own — the paired-cue lookup only
-    /// runs on the `FxRequest` path — so a move with an effect and no cue is a
-    /// silent animation, and nothing else in the build reports it.
-    #[test]
-    fn every_burst_in_this_table_is_heard() {
-        let set = noether_moveset();
-        for m in &set.moves {
-            let cues: std::collections::BTreeSet<String> = m
-                .events
-                .iter()
-                .filter_map(|e| match &e.kind {
-                    MoveEventKind::Sfx { cue } => Some(cue.clone()),
-                    _ => None,
-                })
-                .collect();
-            let bursts: std::collections::BTreeSet<String> = m
-                .events
-                .iter()
-                .filter_map(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect, .. } => Some(effect.clone()),
-                    _ => None,
-                })
-                .collect();
-            assert!(
-                !bursts.is_empty(),
-                "`{}` throws no effect at all — it is one of Emmy's, and she has \
-                 twelve of them",
-                m.id
-            );
-            for burst in &bursts {
-                assert!(
-                    cues.iter().any(|c| c.contains(burst.as_str())),
-                    "`{}` shows `{burst}` and never names a cue for it, so it \
-                     plays in silence",
-                    m.id
-                );
-            }
-        }
-    }
+    // ⭐⭐ **`every_burst_in_this_table_is_heard` was RETIRED here (D149).** Its
+    // whole job was checking that whoever authored a `Vfx` remembered to write
+    // an `Sfx` beside it — infrastructure making a content author carry a
+    // backend detail. A burst carries its own sound now: `dispatch_move_events`
+    // asks for a paired `FxRequest` and presentation resolves the cue the
+    // effect's name addresses.
+    //
+    // ⚠ **what guards it instead**, and it is a stronger claim than this test
+    // made: `a_paired_burst_is_heard_exactly_once` (`src/moveset_sound.rs`)
+    // drives these very tables through the real dispatcher and the real fan-out
+    // and counts what reaches the SFX channel — so it catches the silence this
+    // test caught AND the double-play this test could not, having been written
+    // to require the second half of the pair.
 
     /// **THE ART IS HERS, AND IT ALL SHIPS.**
     ///

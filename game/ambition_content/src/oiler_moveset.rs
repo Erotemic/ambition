@@ -41,16 +41,17 @@
 //! against the rows the art actually carries. Every effect this table names is
 //! one of Oiler's own twenty-three.
 //!
-//! ⛔⛔ **and a `Vfx` event is SILENT on its own.** The paired-cue lookup only
-//! runs on the `FxRequest` path; a move's `Vfx` event writes `VfxMessage::Effect`
-//! straight through and spawns no sound. So every burst in this table is
-//! authored as a PAIR — a `Vfx` and an `Sfx` at the same instant — and
-//! `every_burst_in_this_table_is_heard` is the guard that keeps it that way.
+//! ⭐⭐ **a `Vfx` event is HEARD as well as seen** (D149). `dispatch_move_events`
+//! asks for a paired `FxRequest`, and presentation resolves the cue the effect's
+//! own name addresses — so a burst here states the art and nothing else. ⛔ this
+//! table used to spell out an `Sfx` event beside every one of them; adding one
+//! back would play the burst TWICE.
 //!
-//! ⚠ **four cues carry a `.loop` suffix the row name does not**
+//! ⚠ **one cue carries a `.loop` suffix the row name does not**
 //! (`vfx.oiler.oil_geyser_stream.loop`), because the sound was rendered as a
 //! loop and the sprite row was not. The derived `vfx.<family>.<row>` cue misses
-//! for those four, which is precisely why they are spelled out here.
+//! the bank for that row, so the geyser's sustained column names its cue on the
+//! burst itself through `vfx_cued` — the override arm, one authored thing.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
@@ -59,7 +60,7 @@ use ambition_platformer2d::entity_catalog::{
 };
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx,
+    committed_tail, impulse, on_contact, strike, strike_tag, vfx, vfx_cued,
 };
 
 /// **The tolerance band**: the least time any Oiler move keeps a hitbox in the
@@ -134,7 +135,6 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx(jab, 0.06, "friction_tick");
-    let jab = sfx(jab, 0.06, "vfx.oiler.friction_tick");
 
     // ⛔ **a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab** — the hole George Booul's
@@ -158,7 +158,6 @@ pub fn oiler_moveset() -> MovesetContract {
     // dash.
     f_tilt.start_impulse = Some((150.0, 0.0));
     let f_tilt = vfx(f_tilt, 0.11, "wrench_strike");
-    let f_tilt = sfx(f_tilt, 0.11, "vfx.oiler.wrench_strike");
     let f_tilt = on_contact(f_tilt, "player.robot.slash.impact.metal.chink");
 
     // The needle sweeping the dial: an overhead arc that beats a shorthop and
@@ -178,7 +177,6 @@ pub fn oiler_moveset() -> MovesetContract {
         None,
     );
     let up_tilt = vfx(up_tilt, 0.10, "gauge_sweep");
-    let up_tilt = sfx(up_tilt, 0.10, "vfx.oiler.gauge_sweep");
     let up_tilt = on_contact(up_tilt, "player.robot.slash.impact.metal.chink");
 
     // Oil dragged along the floor at ankle height. The lowest, longest-lived box
@@ -199,7 +197,6 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     let down_tilt = strike_tag(down_tilt, SLASH_POKE_VFX);
     let down_tilt = vfx(down_tilt, 0.09, "oil_drip");
-    let down_tilt = sfx(down_tilt, 0.09, "vfx.oiler.oil_drip");
 
     // ── the smashes ──────────────────────────────────────────────────────────
 
@@ -224,11 +221,8 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     f_smash.smash_charge_mult = 1.7;
     let f_smash = vfx(f_smash, 0.0, "tolerance_brackets");
-    let f_smash = sfx(f_smash, 0.0, "vfx.oiler.tolerance_brackets");
     let f_smash = vfx(f_smash, 0.26, "wrench_strike");
-    let f_smash = sfx(f_smash, 0.26, "vfx.oiler.wrench_strike");
     let f_smash = vfx(f_smash, 0.28, "brass_spark");
-    let f_smash = sfx(f_smash, 0.28, "vfx.oiler.brass_spark");
     let f_smash = on_contact(f_smash, "player.robot.slash.impact.metal.gong");
 
     // A bearing thrown straight up out of the housing.
@@ -248,7 +242,6 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     up_smash.smash_charge_mult = 1.7;
     let up_smash = vfx(up_smash, 0.24, "bearing_ping");
-    let up_smash = sfx(up_smash, 0.24, "vfx.oiler.bearing_ping");
     let up_smash = on_contact(up_smash, "player.robot.slash.impact.metal.gong");
 
     // Oil slapped out both sides at his feet — the widest box in the table and
@@ -269,9 +262,7 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     down_smash.smash_charge_mult = 1.7;
     let down_smash = vfx(down_smash, 0.22, "oil_splash");
-    let down_smash = sfx(down_smash, 0.22, "vfx.oiler.oil_splash");
     let down_smash = vfx(down_smash, 0.30, "oil_slick");
-    let down_smash = sfx(down_smash, 0.30, "vfx.oiler.oil_slick");
     let down_smash = on_contact(down_smash, "player.robot.slash.impact.metal.gong");
 
     // ── the aerials ──────────────────────────────────────────────────────────
@@ -300,7 +291,6 @@ pub fn oiler_moveset() -> MovesetContract {
     n_air.landing_lag_s = Some(0.12);
     n_air.autocancel_after_s = Some(0.26);
     let n_air = vfx(n_air, 0.07, "unit_circle_rotation");
-    let n_air = sfx(n_air, 0.07, "vfx.oiler.unit_circle_rotation");
 
     let mut f_air = strike(
         "air_forward",
@@ -319,7 +309,6 @@ pub fn oiler_moveset() -> MovesetContract {
     f_air.landing_lag_s = Some(0.16);
     f_air.autocancel_after_s = Some(0.30);
     let f_air = vfx(f_air, 0.12, "curve_trace");
-    let f_air = sfx(f_air, 0.12, "vfx.oiler.curve_trace");
     let f_air = on_contact(f_air, "player.robot.slash.impact.metal.chink");
 
     // The hardest thing he can throw that is not the torque smash — and it faces
@@ -341,7 +330,6 @@ pub fn oiler_moveset() -> MovesetContract {
     b_air.landing_lag_s = Some(0.18);
     b_air.autocancel_after_s = Some(0.32);
     let b_air = vfx(b_air, 0.13, "bearing_ping");
-    let b_air = sfx(b_air, 0.13, "vfx.oiler.bearing_ping");
     let b_air = on_contact(b_air, "player.robot.slash.impact.metal.gong");
 
     let mut u_air = strike(
@@ -361,7 +349,6 @@ pub fn oiler_moveset() -> MovesetContract {
     u_air.landing_lag_s = Some(0.14);
     u_air.autocancel_after_s = Some(0.28);
     let u_air = vfx(u_air, 0.09, "chalk_spiral");
-    let u_air = sfx(u_air, 0.09, "vfx.oiler.chalk_spiral");
 
     // ⚠ no pogo rebound. A body that could bounce off a victim would out-recover
     // the geyser, and the geyser is supposed to be the decision.
@@ -382,7 +369,6 @@ pub fn oiler_moveset() -> MovesetContract {
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.36);
     let d_air = vfx(d_air, 0.13, "oil_drip");
-    let d_air = sfx(d_air, 0.13, "vfx.oiler.oil_drip");
     let d_air = on_contact(d_air, "player.robot.slash.impact.metal.chink");
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
@@ -444,13 +430,9 @@ pub fn oiler_moveset() -> MovesetContract {
         "the last term must fit inside the move"
     );
     let convergence = vfx(convergence, 0.0, "tolerance_brackets");
-    let convergence = sfx(convergence, 0.0, "vfx.oiler.tolerance_brackets");
     let convergence = vfx(convergence, 0.14, "convergence_ticks");
-    let convergence = sfx(convergence, 0.14, "vfx.oiler.convergence_ticks");
     let convergence = vfx(convergence, 0.26, "convergence_ticks");
-    let convergence = sfx(convergence, 0.26, "vfx.oiler.convergence_ticks");
     let convergence = vfx(convergence, 0.36, "error_term_collapse");
-    let convergence = sfx(convergence, 0.36, "vfx.oiler.error_term_collapse");
     let convergence = on_contact(convergence, "player.robot.slash.impact.metal.chink");
 
     // **SIDE — `slick_dash`.** He oils the floor under himself and goes.
@@ -484,9 +466,7 @@ pub fn oiler_moveset() -> MovesetContract {
     let side_b = impulse(side_b, 0.16, (720.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.66, 1.0);
     let side_b = vfx(side_b, 0.16, "oil_slick");
-    let side_b = sfx(side_b, 0.16, "vfx.oiler.oil_slick");
     let side_b = vfx(side_b, 0.34, "oil_drip");
-    let side_b = sfx(side_b, 0.34, "vfx.oiler.oil_drip");
     let side_b = on_contact(side_b, "player.robot.slash.impact.metal.chink");
 
     // **UP — `oil_geyser`. THE RECOVERY, and the move Jon asked for by name.**
@@ -530,15 +510,21 @@ pub fn oiler_moveset() -> MovesetContract {
     // nothing more, which is what makes edgeguarding this possible.
     let up_b = committed_tail(up_b, GEYSER_ENDS_S, 0.12);
     let up_b = vfx(up_b, 0.06, "oil_geyser_emerge");
-    let up_b = sfx(up_b, 0.06, "vfx.oiler.oil_geyser_emerge");
-    let up_b = vfx(up_b, GEYSER_AT_S, "oil_geyser_stream");
-    // ⛔ the `.loop` suffix is REAL — see the module doc. The derived cue name
-    // for this row misses the bank; this one does not.
-    let up_b = sfx(up_b, GEYSER_AT_S, "vfx.oiler.oil_geyser_stream.loop");
+    let up_b = vfx_cued(
+        up_b,
+        GEYSER_AT_S,
+        "oil_geyser_stream",
+        (0.0, 0.0),
+        1.0,
+        // ⛔ the `.loop` suffix is REAL — see the module doc. The cue this row's
+        // name derives misses the bank; this one does not.
+        "vfx.oiler.oil_geyser_stream.loop",
+    );
+    // ⚠ the column's two re-strikes carry no cue of their own: the loop above is
+    // still running, and this row's derived cue is the one that misses the bank.
     let up_b = vfx(up_b, 0.44, "oil_geyser_stream");
     let up_b = vfx(up_b, 0.66, "oil_geyser_stream");
     let up_b = vfx(up_b, 0.88, "oil_geyser_impact");
-    let up_b = sfx(up_b, 0.88, "vfx.oiler.oil_geyser_impact");
     let up_b = on_contact(up_b, "player.hit");
 
     // **DOWN — `pressure_vent`.** He cracks a valve and everything in the seal
@@ -566,9 +552,7 @@ pub fn oiler_moveset() -> MovesetContract {
     );
     down_b.start_impulse = Some((0.0, 520.0));
     let down_b = vfx(down_b, 0.10, "pressure_vent");
-    let down_b = sfx(down_b, 0.10, "vfx.oiler.pressure_vent");
     let down_b = vfx(down_b, 0.12, "brass_spark");
-    let down_b = sfx(down_b, 0.12, "vfx.oiler.brass_spark");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.gong");
 
     let repertoire = SmashRepertoire {
@@ -983,54 +967,16 @@ mod tests {
         );
     }
 
-    /// **EVERY BURST IN THIS TABLE IS HEARD.**
-    ///
-    /// ⛔⛔ **the defect this exists to forbid is silent by construction.** The
-    /// paired `vfx.<family>.<row>` cue is only looked up on the `FxRequest`
-    /// path; a move's `Vfx` event writes `VfxMessage::Effect` directly and
-    /// spawns no sound at all. So a perfectly correct effect name plays a
-    /// perfectly silent animation, and the only way to notice is to watch the
-    /// match with the volume up.
-    ///
-    /// ⚠ the geyser's stream is the one exception and it is authored as one: it
-    /// is struck three times to keep the column alive, and its loop cue is
-    /// started once rather than restarted on every strike.
-    #[test]
-    fn every_burst_in_this_table_is_heard() {
-        let set = oiler_moveset();
-        for m in &set.moves {
-            let cues: std::collections::BTreeSet<String> = m
-                .events
-                .iter()
-                .filter_map(|e| match &e.kind {
-                    MoveEventKind::Sfx { cue } => Some(cue.clone()),
-                    _ => None,
-                })
-                .collect();
-            let bursts: std::collections::BTreeSet<String> = m
-                .events
-                .iter()
-                .filter_map(|e| match &e.kind {
-                    MoveEventKind::Vfx { effect, .. } => Some(effect.clone()),
-                    _ => None,
-                })
-                .collect();
-            assert!(
-                !bursts.is_empty(),
-                "`{}` throws no effect at all — it is one of Oiler's, and he has \
-                 twenty-three of them",
-                m.id
-            );
-            for burst in &bursts {
-                assert!(
-                    cues.iter().any(|c| c.contains(burst.as_str())),
-                    "`{}` shows `{burst}` and never names a cue for it, so it \
-                     plays in silence",
-                    m.id
-                );
-            }
-        }
-    }
+    // ⭐⭐ **`every_burst_in_this_table_is_heard` was RETIRED here (D149).** It
+    // asserted that whoever authored a `Vfx` also wrote an `Sfx` beside it —
+    // ceremony a content author should never have carried. A burst is heard on
+    // its own now: `dispatch_move_events` asks for a paired `FxRequest` and
+    // presentation resolves the cue the effect's name addresses.
+    //
+    // ⚠ **what guards it instead**: `a_paired_burst_is_heard_exactly_once`
+    // (`src/moveset_sound.rs`) runs these tables through the real dispatcher and
+    // the real fan-out and counts what reaches the SFX channel — the silence
+    // this test caught, plus the double-play it was structurally unable to.
 
     /// **THE ART IS OILER'S OWN, AND IT ALL EXISTS.**
     ///

@@ -1062,8 +1062,8 @@ another crate flipped the winner. A claim about the WORDING of a card must not
 depend on combat tuning — every elimination is now caused by the test on a fixed
 schedule.
 
-- ▢ **D149 — MOVE VFX BYPASSES `FxRequest`, SO FOURTEEN MOVESETS HAND-PAIR EVERY
-  SOUND. (review finding 3, MED-HIGH, refactor after D146)**
+- ✔ **D149 — MOVE VFX BYPASSES `FxRequest`, SO FOURTEEN MOVESETS HAND-PAIR EVERY
+  SOUND. (review finding 3, MED-HIGH, refactor after D146) — LANDED 2026-08-17**
 
 ⭐ **the reviewer calls this the most valuable post-D146 cleanup for making
 character authoring agent-friendly**, and it is the one that pays D144 back.
@@ -1114,6 +1114,52 @@ needs, and the `.loop` rows are the proof the override arm is not speculative.
    (`lib.rs:572`), not by the combat crate.** Any headless fixture that asserts
    on `VfxMessage` after a move event would see nothing once the write becomes an
    `FxRequest`. Inventory those fixtures before switching the arm.
+
+⭐⭐ **CLOSED 2026-08-17, and the half-landing in between was a live feel bug.**
+`1e2aa6337` switched the arm and left the 74 restatements standing, so for one
+session every burst in four tables played its sound TWICE — individually correct,
+jointly a doubled jab, and 412 app tests green throughout. The migration is
+complete now rather than reverted: the arm, the override channel and the table
+sweep are one change.
+
+- **the 74 were VERIFIED, not assumed.** Every authored `vfx.*` cue was compared
+  against `effect_cue(FxId::new(effect))` for the effect it sat beside — the
+  row's own `cue` field, read out of the baked FX manifests. **74 equalled it
+  exactly and 21 (not 20) were `<cue>.loop`; ZERO differed.** No override was
+  wearing a default's name.
+- **the override arm is `MoveEventKind::Vfx { sfx: Option<String> }`**, serde-
+  defaulted so every authored table stays valid, threaded to `FxRequest.sfx` via
+  `FxRequest::with_sfx`. Authoring says it once:
+  `vfx_cued(m, at_s, effect, at, scale, cue)`. ⚠ those 21 are not decoration —
+  ten shipped rows pack their sound ONLY as `vfx.<family>.<row>.loop` and ship no
+  plain row cue at all, so deleting them wholesale would have silenced a held
+  field.
+- **the guard is `a_paired_burst_is_heard_exactly_once`**
+  (`game/ambition_content/src/moveset_sound.rs`), and it was SEEN RED on the
+  shipped tables — *"carl_stargan's `jab` writes `vfx.carl_stargan.evidence_ping`
+  by hand at 0.05s, and the burst beside it already addresses that cue"*. It runs
+  the real `dispatch_move_events` + `process_fx_requests` over every table this
+  crate ships, one authored INSTANT at a time, and intersects what the bursts say
+  with what the hand-written events say — so "what a burst already addresses" is
+  answered by the engine, never by a table transcribed from it. Beside it:
+  `a_sustained_burst_keeps_its_looping_cue` (the 21) and
+  `a_moves_own_voice_is_not_ceremony` (the 50 independent grunts and chinks).
+- **three `every burst is heard` tests were RETIRED** (noether, oiler, carl),
+  each with a tombstone naming the guard above. Their whole job was checking that
+  a content author had remembered a backend detail, and they could only ever see
+  the MISSING half of the pair — never the doubled one.
+- **net −74 authored calls; the four tables lose ~95 lines of sound bookkeeping.**
+  No `MoveSpec` changed in timing, geometry, damage, launch or gates.
+
+⚠ **the measured residue, deliberately left.** Two moves — Alice's `side_channel`
+and the cellular automaton's `garden_growth` — throw the SAME effect at `±x` on
+the same frame, so each is now heard twice: two spatialised bursts, two
+spatialised sounds. That is a burst COUNT, not a restatement, and the guard says
+so in as many words. The `silent` arm of the `default | override | silent`
+vocabulary is what would answer it; it is not built, because two mirrored bursts
+making two mirrored sounds is not obviously wrong and nothing else in the corpus
+wants it. ⚠ and 83 previously-silent bursts across the other tables now make
+their row's sound — that is the point of the change, not a side effect.
 
 - ✔ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
   finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect) —
@@ -4330,11 +4376,40 @@ D146  dash left the vocabulary, shield became a real action, and the smash pad
       got its own profile — so the thing a watcher drives changed too.
 ```
 
-▢ **THE NEXT ACTION ON THIS ROW IS THEREFORE A CAPTURE, not a code change.**
-`capture_scene` with `--press touch:XxY` (D130) can photograph the two-CPU
-match; nobody has looked since launches began working. ⚠ and per
-[[reference_capture_scene_is_the_phone_proxy]] there are three ways it renders
-NOTHING, so check for actual pixels before believing a quiet result.
+✔ **THE CAPTURE IS DONE — 2026-08-17, three frames of one two-CPU match
+(George Booul vs Pirate Admiral), the documented tap sequence, 1280x720.**
+Pixels verified (11,900 distinct colours), so this is a look and not a blank.
+
+```text
+  420 ticks   George 34%  · 3/3     Pirate 36%  · 3/3    both fighting
+ 1200 ticks   George 180% · 3/3     Pirate 124% · 3/3    still nobody dead
+ 2400 ticks   back at CHOOSE YOUR FIGHTER, every slot NOT PLAYING
+```
+
+⭐ **the stock loop CLOSES.** The match ran to completion and returned to the
+select screen on its own — which is the thing D140 was about and it holds under
+a real CPU match rather than a fixture.
+⭐ **the percent meter climbs and the fighters engage** — 34%→180% in thirteen
+seconds, with hit VFX on the stage. After D155 that is the first time this has
+been true.
+⚠ **but at 1200 ticks NEITHER fighter had lost a stock at 180%/124%.** Not
+called a defect here — a stock did fall before 2400 — but *"how long a stock
+takes at these numbers"* is now an answerable tuning question for the first
+time, and 180% with all three stocks intact is worth Jon's eye.
+
+▢ **AND THE CAPTURE FOUND ONE REAL PRESENTATION DEFECT: speech bubbles STACK
+ILLEGIBLY.** The 1200-tick frame has three lines drawn over one another —
+*"Either you are on the stage or you are not."* twice, and *"Belay that, ye
+barnacle!"* printed ON TOP of another bubble's text. Two CPUs taunting at once
+is the ordinary case on this stage, so the stack offsets
+(`SPEECH_BUBBLE_STACK_STEP` / `_MAX` / `_SPEED` in `ambition_render::fx`) are
+not separating what a two-fighter match actually produces.
+
+⛔ **and one thing that is NOT a defect, checked before reporting it**: George
+Booul renders as a white GHOST, which reads as a missing texture on the stage.
+The select screen's own portrait grid shows the same ghost — it is his authored
+art. ⚠ the frame that made it look broken was the stage frame; the frame that
+settled it was the roster.
 ```text
 ```
 

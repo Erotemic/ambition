@@ -73,6 +73,11 @@ pub mod intro;
 pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
+/// **What these tables SOUND like, asked of the running seam** (D149). Test-only:
+/// it owns the cross-table invariant no single fighter's module can state — that
+/// an authored burst is heard exactly once.
+#[cfg(test)]
+mod moveset_sound;
 pub mod ninja_shadow_oni_leader_moveset;
 pub mod noether_moveset;
 pub mod oiler_moveset;

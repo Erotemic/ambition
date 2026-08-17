@@ -49,7 +49,7 @@ use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRe
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MoveSpec, MovesetContract, WindowTag};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx_at,
+    committed_tail, impulse, on_contact, strike, strike_tag, vfx_at, vfx_cued,
 };
 
 /// Burst sizes, as multiples of the presentation default. See
@@ -133,7 +133,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.05, "evidence_ping", (14.0, -6.0), POKE_FX);
-    let jab = sfx(jab, 0.05, "vfx.carl_stargan.evidence_ping");
 
     let mut f_tilt = strike(
         "tilt_forward",
@@ -151,7 +150,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     f_tilt.start_impulse = Some((120.0, 0.0));
     let f_tilt = vfx_at(f_tilt, 0.09, "perspective_shift", (24.0, -4.0), SWING_FX);
-    let f_tilt = sfx(f_tilt, 0.09, "vfx.carl_stargan.perspective_shift");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     let up_tilt = strike(
@@ -175,7 +173,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         (4.0, -24.0),
         SWING_FX,
     );
-    let up_tilt = sfx(up_tilt, 0.09, "vfx.carl_stargan.constellation_resolve");
     let up_tilt = on_contact(up_tilt, "player.hit");
 
     let down_tilt = strike(
@@ -193,7 +190,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         None,
     );
     let down_tilt = vfx_at(down_tilt, 0.10, "horizon_arc", (22.0, 14.0), SWING_FX);
-    let down_tilt = sfx(down_tilt, 0.10, "vfx.carl_stargan.horizon_arc");
     let down_tilt = on_contact(down_tilt, "player.hit");
 
     // ── far, and slow ────────────────────────────────────────────────────────
@@ -222,9 +218,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     f_smash.smash_charge_mult = 1.80;
     let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
     let f_smash = vfx_at(f_smash, 0.06, "cosmic_scale_zoom", (0.0, -8.0), SWING_FX);
-    let f_smash = sfx(f_smash, 0.06, "vfx.carl_stargan.cosmic_scale_zoom");
     let f_smash = vfx_at(f_smash, 0.34, "starstuff_burst", (58.0, -6.0), COSMIC_FX);
-    let f_smash = sfx(f_smash, 0.34, "vfx.carl_stargan.starstuff_burst");
     let f_smash = on_contact(f_smash, "player.hit");
 
     let mut up_smash = strike(
@@ -249,7 +243,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         (2.0, -34.0),
         SWING_FX,
     );
-    let up_smash = sfx(up_smash, 0.18, "vfx.carl_stargan.constellation_resolve");
     let up_smash = on_contact(up_smash, "player.hit");
 
     let mut down_smash = strike(
@@ -268,7 +261,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     down_smash.smash_charge_mult = 1.70;
     let down_smash = vfx_at(down_smash, 0.18, "horizon_arc", (0.0, 20.0), SWING_FX);
-    let down_smash = sfx(down_smash, 0.18, "vfx.carl_stargan.horizon_arc");
     let down_smash = on_contact(down_smash, "player.hit");
 
     // ── the air game ─────────────────────────────────────────────────────────
@@ -289,8 +281,14 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
-    let n_air = vfx_at(n_air, 0.08, "nebula_breath", (0.0, -6.0), SWING_FX);
-    let n_air = sfx(n_air, 0.08, "vfx.carl_stargan.nebula_breath.loop");
+    let n_air = vfx_cued(
+        n_air,
+        0.08,
+        "nebula_breath",
+        (0.0, -6.0),
+        SWING_FX,
+        "vfx.carl_stargan.nebula_breath.loop",
+    );
     let n_air = on_contact(n_air, "player.hit");
 
     let mut f_air = strike(
@@ -310,7 +308,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     f_air.landing_lag_s = Some(0.18);
     f_air.autocancel_after_s = Some(0.32);
     let f_air = vfx_at(f_air, 0.12, "orbit_lock", (30.0, -4.0), SWING_FX);
-    let f_air = sfx(f_air, 0.12, "vfx.carl_stargan.orbit_lock");
     let f_air = on_contact(f_air, "player.hit");
 
     let mut b_air = strike(
@@ -330,7 +327,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     b_air.landing_lag_s = Some(0.18);
     b_air.autocancel_after_s = Some(0.30);
     let b_air = vfx_at(b_air, 0.10, "orbit_lock", (-26.0, -4.0), SWING_FX);
-    let b_air = sfx(b_air, 0.10, "vfx.carl_stargan.orbit_lock");
     let b_air = on_contact(b_air, "player.hit");
 
     let mut up_air = strike(
@@ -350,7 +346,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
     let up_air = vfx_at(up_air, 0.08, "voyager_signal", (2.0, -28.0), SWING_FX);
-    let up_air = sfx(up_air, 0.08, "vfx.carl_stargan.voyager_signal");
     let up_air = on_contact(up_air, "player.hit");
 
     let mut d_air = strike(
@@ -370,7 +365,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
     let d_air = vfx_at(d_air, 0.13, "cosmic_scale_zoom", (0.0, 24.0), SWING_FX);
-    let d_air = sfx(d_air, 0.13, "vfx.carl_stargan.cosmic_scale_zoom");
     let d_air = on_contact(d_air, "player.hit");
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
@@ -392,9 +386,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         None,
     );
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
-    let n_b = sfx(n_b, 0.04, "vfx.carl_stargan.cosmic_calendar_sweep");
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
-    let n_b = sfx(n_b, 0.30, "vfx.carl_stargan.perspective_shift");
     let n_b = on_contact(n_b, "player.hit");
 
     // **SIDE — `planetary_orbit`.** A slingshot: he commits to a pass and comes
@@ -417,9 +409,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let side_b = impulse(side_b, 0.18, (700.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.35);
     let side_b = vfx_at(side_b, 0.18, "planetary_slingshot", (30.0, 0.0), COSMIC_FX);
-    let side_b = sfx(side_b, 0.18, "vfx.carl_stargan.planetary_slingshot");
     let side_b = vfx_at(side_b, 0.36, "orbit_lock", (0.0, 0.0), SWING_FX);
-    let side_b = sfx(side_b, 0.36, "vfx.carl_stargan.orbit_lock");
     let side_b = on_contact(side_b, "player.hit");
 
     // **UP — `starstuff`. THE RECOVERY.** We are made of it, and it goes up.
@@ -446,7 +436,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_b = committed_tail(up_b, STARSTUFF_ENDS_S, 0.12);
     let up_b = vfx_at(up_b, 0.06, "voyager_signal", (0.0, 0.0), SWING_FX);
-    let up_b = sfx(up_b, 0.06, "vfx.carl_stargan.voyager_signal");
     let up_b = vfx_at(
         up_b,
         STARSTUFF_AT_S,
@@ -454,7 +443,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         (0.0, 8.0),
         COSMIC_FX,
     );
-    let up_b = sfx(up_b, STARSTUFF_AT_S, "vfx.carl_stargan.starstuff_burst");
     let up_b = on_contact(up_b, "player.hit");
 
     // **DOWN — `pale_blue_dot`.** A pixel, at distance. The SMALLEST box in the
@@ -476,7 +464,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let down_b = strike_tag(down_b, SLASH_POKE_VFX);
     let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (62.0, -2.0), POKE_FX);
-    let down_b = sfx(down_b, 0.24, "vfx.carl_stargan.pale_blue_dot_ping");
     let down_b = on_contact(down_b, "player.hit");
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
@@ -514,7 +501,6 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // ⚠ this table's own rule: every move throws an effect and every effect is
     // heard. The dot he points at is under him now.
     let air_down_b = vfx_at(air_down_b, 0.11, "pale_blue_dot_ping", (0.0, 22.0), POKE_FX);
-    let air_down_b = sfx(air_down_b, 0.11, "vfx.carl_stargan.pale_blue_dot_ping");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
     SmashRepertoire {
@@ -670,32 +656,32 @@ mod tests {
             .all(|w| !matches!(w.tag, WindowTag::Cancelable { .. })));
     }
 
-    /// **Every burst he shows is one somebody can hear**, and it is placed.
+    /// **NONE OF HIS BURSTS SIT ON HIS NAVEL.**
+    ///
+    /// ⭐⭐ **this used to also assert that every burst was PAIRED with an `Sfx`
+    /// event, and that half was retired in D149.** Its job was making a content
+    /// author remember a backend detail; a burst carries its own sound now,
+    /// because `dispatch_move_events` asks for a paired `FxRequest` and
+    /// presentation resolves the cue the effect's name addresses. ⚠ what guards
+    /// the sound instead — and catches the double-play the paired form could
+    /// not — is `a_paired_burst_is_heard_exactly_once` in `src/moveset_sound.rs`,
+    /// which drives this table through the real dispatcher and the real fan-out.
+    ///
+    /// The PLACEMENT half is his own and stays: Jon's 2026-08-16 report was
+    /// bursts blooming out of a fighter's chest, and Carl's kit is the widest
+    /// table on the grid.
     #[test]
-    fn every_burst_is_heard_and_none_of_them_sit_on_his_navel() {
+    fn none_of_his_bursts_sit_on_his_navel() {
         let set = carl_stargan_moveset();
         let mut placed = 0;
         for m in &set.moves {
-            let cues: std::collections::BTreeSet<String> = m
-                .events
-                .iter()
-                .filter_map(|e| match &e.kind {
-                    MoveEventKind::Sfx { cue } => Some(cue.clone()),
-                    _ => None,
-                })
-                .collect();
             let mut bursts = 0;
             for ev in &m.events {
-                if let MoveEventKind::Vfx { effect, at, .. } = &ev.kind {
+                if let MoveEventKind::Vfx { at, .. } = &ev.kind {
                     bursts += 1;
                     if *at != (0.0, 0.0) {
                         placed += 1;
                     }
-                    assert!(
-                        cues.iter().any(|c| c.contains(effect.as_str())),
-                        "`{}` shows `{effect}` and names no cue for it",
-                        m.id
-                    );
                 }
             }
             assert!(bursts > 0, "`{}` throws no effect at all", m.id);

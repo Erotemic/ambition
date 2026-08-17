@@ -342,6 +342,15 @@ impl FxRequest {
         self.scale = scale;
         self
     }
+
+    /// **Say something other than what the art says.** The override arm of
+    /// [`sfx`](Self::sfx) — a sustained effect asking for the looping variant of
+    /// its own row's cue is the case that makes it real, and the only one the
+    /// shipped fighter tables use.
+    pub fn with_sfx(mut self, sfx: ambition_sfx::SfxId) -> Self {
+        self.sfx = Some(sfx);
+        self
+    }
 }
 
 /// Request a short, spatially distributed sequence of explosion VFX/SFX. Higher

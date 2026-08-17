@@ -144,6 +144,7 @@ pub fn boss_attack_moveset(
                                 effect,
                                 at: (0.0, 0.0),
                                 scale: 1.0,
+                                sfx: None,
                             },
                         });
                     }

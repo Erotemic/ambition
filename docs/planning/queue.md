@@ -1249,7 +1249,7 @@ baselines, not one: `scripts/baselines/rollback-schema-baseline.json` (the
 absence contract) and `game/ambition_app/tests/rollback_schema_baseline.txt`
 (inside `app_it`, the one a per-crate run never sees).
 
-- ▢ **D151 — `MatchAbilities`' `None → permitted` BRIDGE MAKES PERMISSION INTO A
+- ✔ **D151 — CLOSED 2026-08-17. `MatchAbilities`' `None → permitted` BRIDGE MADE PERMISSION INTO A
   GRANT. (review finding 5, MEDIUM, retire the bridge)**
 
 Not a new user-visible regression — the pre-D142 code had equivalent migration
@@ -1304,10 +1304,18 @@ character/body capability declarations become complete"*) made concrete:**
    asserts `apply(Some(kit)) == apply(None)` (so the step is provably neutral),
    that the kit can actually fight (so the equality is not comparing two empty
    sets), and that both fighters really carry it now.
-2. ▢ **UNBLOCKED as of `a480c1381`** — `apply(None)` is now unreachable for the
-   only stage that declares a ceiling, so the arm can change without any fighter
-   losing anything. Then make `None` mean *no authored claim*, and decide what
-   that yields —
+2. ✔ **DONE (`d21031fc4`)** — `apply` reads `authored.unwrap_or(AbilitySet::NONE)`.
+   An absent claim now gets exactly what the mode GRANTS, and a ceiling grants
+   nothing. ⭐ **`levelled` is untouched** (its `granted == permitted`, so the
+   smash stage's fourteen fighters are byte-identical); only `at_most` changed,
+   and its two fighters were dressed in step 1 for precisely this. Exactly ONE
+   test failed — the one that pinned the bridge — and it now pins the rule,
+   including the widened-ceiling case the bridge hid: a mode saying
+   `permitted ⊃ granted` to let ONE fighter keep a wall jump no longer hands it
+   to everybody who stayed silent.
+   ⚠ the line's own doc had named today's condition in advance: *"the day it is
+   unreachable this line is `unwrap_or(AbilitySet::NONE)`."*
+3. ▢ still open —
    ⚠ it must NARROW the body's own kit rather than REPLACE it, which `apply`
    cannot do today because it never receives that kit. That signature is the
    real work, not the `unwrap_or`.

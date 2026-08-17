@@ -111,6 +111,23 @@ anything but time integration.
   a feel question, not a fork to collapse. Merging the three into one system
   would force one clock and decide D114 by refactor.
 
+  ⛔⛔ **AND D114's OTHER HALF LANDED ON 2026-08-17 BY DOING THE THING THIS
+  PARAGRAPH WARNS AGAINST.** `818218949` added
+  `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };` to the actor
+  road, so a hit between two actors now freezes both — which it never did, and
+  that half was a real gap (CPU-versus-CPU froze nobody). ⚠ but
+  `awaiting-maintainer-decision.md` §6 records a per-body zero-dt as an
+  experiment that *"made AI-vs-AI bouts degenerate"* and says **do not
+  reintroduce that fix**; the commit does not mention either document, so the
+  prohibition was unseen rather than overruled.
+
+  ⭐ **what is genuinely different**: it shipped with 153 lines of
+  `hitlag_tests.rs`, and a CPU-versus-CPU match still reaches a verdict. ⚠ what
+  is unchanged: *degenerate* was a feel word, and nothing in this repository
+  measures feel — the `ladder_probe` rig CANNOT, because it disables the
+  opponent, so no hits land and no hitlag occurs. **One played match settles
+  it; the revert is one line.**
+
   ⚠ **the automatic pacify is a candidate with a stated cost.** `if
   disposition.is_hostile() && target.entity.is_none() && !in_a_fight` reverting a
   body to `Peaceful` is a consequence of target LOSS, so it belongs with

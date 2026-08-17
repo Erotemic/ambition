@@ -146,6 +146,8 @@
 * The smash UI for character select looks good, but the controls don't feel good, they are very hard to use with a gamepad. 
 
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
+  * ⊙ BUILT, TESTED, AND SWITCHED OFF. `InputAssignmentPolicy::JoinToClaim` makes the keyboard a source with its own slot, so keyboard + one pad is two players — your couch milestone 2, written into the code. But the enum's `#[default]` is `UnifiedPrimary` (*"today's behaviour exactly"*) and **the only three places that select `JoinToClaim` are unit tests**, so no shipped composition ever turns it on.
+  * ⊙ Enabling it is one `insert_resource` in the smash app, and it is YOUR call because it is exactly what your milestone 8 protects: solo play must not discover that plugging a controller in created a second empty chair.
 
 
 *  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.

@@ -3150,8 +3150,29 @@ REFUSED — BOTH PRECONDITIONS BELOW ARE FALSE, AND THE MEASUREMENT THAT PRODUCE
 THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original
 proposal; it is kept because the correction only makes sense against it.
 
-⛔⛔ **AND THE ROW'S OWN SCOREBOARD SAYS DECOMPOSITION IS LOSING GROUND —
-measured 2026-08-17, and it is the most important number on this row.** The
+
+⭐⭐ **RESOLVED 2026-08-17 — the monolith is UNDER its frozen baseline for the
+first time, and `largest_unit_lines` has left the findings list entirely.**
+
+```text
+111,429   the frozen baseline (2026-08-09)
+121,822   2026-08-17 morning        +10,393 over, ~5× budget
+114,139   boss_encounter CARVED     725de8c26   −7,683
+110,932   four modules RELOCATED    355874fe1   −3,207   ⭐ UNDER baseline
+```
+
+⭐ **the second slice created NO new crate** and cost no hop
+(`critical_path_crates` 13 → 13 → 13, where the `conversation` carve had cost
+12 → 13). It moved modules whose owning crate ALREADY existed and deleted a dead
+1,336-line `persistence` module outright.
+
+⚠ **the growth finding below is still true about the eight days it measured** —
+kept because the lesson stands: this row cannot be judged by "did a crate leave
+this session", and broad feature growth can outrun one carve per session. What
+changed is that two slices in one day beat it.
+
+⛔⛔ **THE ROW'S SCOREBOARD SAID DECOMPOSITION WAS LOSING GROUND — and it was,
+for eight days. ⭐ RESOLVED THE SAME DAY; the arc is below.** The
 compile ratchet's baseline was frozen 2026-08-09. Since then:
 
 ```text

@@ -4591,9 +4591,30 @@ mod launched {
         // and short enough that a hard one has not yet reached the blast zone.
         // Both percents sit inside their own hitstun for the whole window, so
         // the brain cannot steer the reading.
-        for _ in 0..8 {
+        //
+        // ⛔⛔ **EIGHT TICKS IN WHICH THE BODY CAN MOVE, not eight ticks of wall
+        // clock** (2026-08-17). `hitlag_duration` is `hitlag_time × reaction
+        // scale`, so a HARDER hit freezes LONGER — and once the actor road
+        // started spending hitlag (D114), the 1427% launch spent the entire
+        // eight-tick window frozen and read as `0.0px of rise`. The guard then
+        // reported the percent meter as broken when what it had actually
+        // measured was the freeze working. A fixed frame count cannot compare
+        // two launches whose freezes differ by design.
+        let in_hitlag = |app: &App| {
+            app.world()
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
+                .is_some_and(|c| c.is_in_hitlag())
+        };
+        let mut reacting_ticks = 0usize;
+        for _ in 0..240 {
+            if reacting_ticks >= 8 {
+                break;
+            }
             park(app, attacker, ATTACKER_X);
             app.update();
+            if !in_hitlag(app) {
+                reacting_ticks += 1;
+            }
             let pos = app.world().get::<BodyKinematics>(victim).unwrap().pos;
             // A blast-zone respawn TELEPORTS; past that the displacement is
             // about the respawn point, not about the launch.

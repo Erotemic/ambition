@@ -738,7 +738,11 @@ pub fn commit_ready_room_transition_system(
         return;
     }
 
-    let intent = active.intent;
+    // CLONED rather than moved out: the terminal-cancellation arm below hands
+    // `&active` to `cancel_eager_room_transition_transaction`, which reads the
+    // transaction's own `sequence` and `load_id`. Moving the intent out first
+    // would partially move the value those arms still need to describe.
+    let intent = active.intent.clone();
     // **The body that CROSSED is the body that ARRIVES** — resolved from the
     // `SimId` the DETECTION recorded, never re-derived here.
     //

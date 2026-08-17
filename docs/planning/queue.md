@@ -129,33 +129,41 @@ place**: couch play is NOT switched off, and a clipped label is not a defect.
 
 **1. ⚠ TWO WORLDS FAIL LDtk VALIDATION TODAY, and the tool writes them anyway.**
 
-⭐⭐ **MEASURED 2026-08-17: 30 `error:` lines, and NOT ONE is a content defect.**
-Run it as `PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools
-validate <world>` (⚠ the package is not installed in this env, so a bare
-`python3 -m …` prints *"No module named"* and exits 1 — which reads exactly like
-a clean run if you only count matching lines).
+⭐⭐ **MEASURED 2026-08-17 — and it is ONE world, not two. The count depends on
+WHICH PATH you validate, which is a footgun worth more than the finding.**
 
 ```text
-sandbox.ldtk    4 errors   ALL cross-world LoadingZone targets
-                           (`intro_wake_room`, `gate_stack_lower`,
-                            `hall_of_characters`, `you_have_to_cut_the_rope`)
-mary_o.ldtk    26 errors   ALL `MaryOBlock` "the engine does not know it"
+game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk    exit 0 · 0 errors · 5 warnings
+game/ambition_map_assets/…/worlds/mary_o.ldtk          exit 1 · 26 errors
+game/ambition_content/assets/worlds/sandbox.ldtk       exit 1 · 4 errors · 8 warnings
 ```
 
-⭐ **both are validator gaps, not authoring mistakes.** The four sandbox targets
-EXIST — `intro_wake_room` is a live room id and this session drove a real
-transition through one of these doors — the validator is simply single-file and
-cannot see a sibling world. And `MaryOBlock` is implemented
-(`platformer2d_ldtk/src/fields.rs`, `demo_mary_o/src/bricks.rs`, with tests); the
-error's own wording is the fix: *"no game entity manifest declares it."*
+⛔ **the same file, twice.** The demo path is a SYMLINK into `ambition_map_assets`,
+and the sidecar manifest a world is validated against —
+`<world>.entities.json`, resolved strictly BESIDE the path you name — sits next
+to the **symlink**, not next to the real file. ⇒ validating the raw copy invents
+**26 `MaryOBlock` errors** that do not exist through the canonical path.
+⭐ **Mary-O is CLEAN.** Its manifest declares `MaryOBlock` and always did.
 
-▢ **so 26 of the 30 have a cheap, real fix** — declare `MaryOBlock` in a game
-entity manifest. The remaining 4 need cross-world resolution or a documented
-suppression, and are the reason the tool writes anyway.
+⚠ **so only `sandbox.ldtk` genuinely fails, with 4 errors, and they are false
+positives too**: all four are cross-world `LoadingZone` targets
+(`intro_wake_room`, `gate_stack_lower`, `hall_of_characters`,
+`you_have_to_cut_the_rope`). Those rooms EXIST — this session drove a live
+transition through one of these doors — the validator is single-file and cannot
+see a sibling world.
 
-⛔ **this is D162's disease in the authoring tools**: 30 red lines that are all
-noise teach an author that `error:` means nothing, and the next real one lands in
-a stream nobody reads.
+▢ **so the fix is cross-world resolution (or a documented suppression) for four
+edges, and nothing for Mary-O.** ⛔ do NOT hand-write an entities manifest for the
+map_assets copy: that file is *"the same shape `def register-entity --spec`
+consumes"*, i.e. what editor definitions are GENERATED from, so a second copy is
+a fork of an authoring source.
+
+⚠ **invocation, because getting it wrong looks like success**:
+`PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools validate <world>`
+— the package is not installed in this environment, so a bare `python3 -m …`
+prints *"No module named"* and exits 1, which a naive error-count reads as clean.
+⚠ and its diagnostics are INDENTED, so `grep -c '^error:'` returns 0 on a failing
+run.
 `sandbox.ldtk` and `mary_o.ldtk` emit `error:` diagnostics on every edit —
 cross-world `LoadingZone` targets (intro names sandbox's rooms and vice versa, so
 a SINGLE-FILE validator cannot resolve either) and `MaryOBlock`, which no entity

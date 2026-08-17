@@ -1760,6 +1760,29 @@ fn start_the_battle_when_asked(
             },
         )),
     });
+    // ⭐⭐ **AND THE PAD THIS GAME IS PLAYED ON** (D146 slice 3). Jon:
+    // *"my preferred smash layout for an xbox controller is a=normal,
+    // x=special, b=jump, y=grab (we don't have grab yet), left trigger is
+    // shield. The rest of the bindings are normal I think"* — followed by the
+    // ruling that makes it a declaration rather than an edit:
+    // *"B=jump is the way I like my smash controller, it's probably non
+    // standard. **Will need to have control profiles eventually.**"*
+    //
+    // ⛔ so this is emphatically NOT a change to `insert_gamepad_bindings`.
+    // A=Jump stays right for Ambition; a fighting game says otherwise for the
+    // duration of its own experience, and gives the pad back on the way out.
+    // Same declare-don't-borrow shape as the rules above, owner and all —
+    // the versus route is another provider in the same binary that could
+    // eventually declare its own.
+    //
+    // ⭐ this is also the ONLY thing that gives gamepad-Special a button.
+    // The default pad is fully assigned (`presets.rs` refuses to double-bind),
+    // so Special was keyboard- and touch-only; a layout PERMUTES an assigned
+    // pad, which is exactly the freedom an addition does not have.
+    commands.insert_resource(ambition_platformer2d::input::DeclaredBindingLayout::new(
+        SMASH_EXPERIENCE,
+        ambition_platformer2d::input::BindingLayout::Smash,
+    ));
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
     ));
@@ -1907,6 +1930,18 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .releasing_owned::<
                     ambition_platformer2d::combat::rules::DeclaredCombatRules,
                 >(|rules, owner| rules.is_declared_by(owner.as_str()))
+                // **AND THE PAD GOES BACK TO NORMAL.** Removing the declaration
+                // IS the exit, exactly like the rules above: the layout is a
+                // layer inside `BindingRecipe::build`, so the next rebuild
+                // returns every seat to the base preset with nothing to restore.
+                //
+                // ⛔ this release is the whole difference between "a profile"
+                // and "we changed the defaults". Left standing, B would jump in
+                // Ambition after one smash match, and the bug would look like
+                // the engine forgetting its own controls.
+                .releasing_owned::<
+                    ambition_platformer2d::input::DeclaredBindingLayout,
+                >(|layout, owner| layout.is_declared_by(owner.as_str()))
                 // A RESTART IS FRESH. `resetting`, never `releasing`: the
                 // screen's systems take these as plain `ResMut`, so REMOVING
                 // them panics the app on the frame the experience ends — which

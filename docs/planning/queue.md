@@ -1027,6 +1027,12 @@ edit a `.ldtk` — never re-serialise the JSON.
 ⛔ **the row is about the LOG, not the four items.** Four standing warnings mean
 a new warning arrives into noise, which is the failure mode that matters.
 
+⭐ **but the scale is small, and saying so stops a pointless campaign**: the
+whole engine holds **34 plain `warn!` and 5 `warn_once!`**, and boot prints only
+four. ⇒ this is not an epidemic to sweep — it is a handful of individually wrong
+calls, and the fix is per-call judgement about whether the condition is ORDINARY
+(see item 1's level split), not a policy about warnings.
+
 - ▢ **D161 — A LOADING ZONE PRINTS ITS AUTHORING ID AT THE PLAYER, and the same
   frame shows the game already knows how to do it properly. (opened 2026-08-17,
   found by CAPTURE of `intro_wake_room` — the flagship's OPENING room)**

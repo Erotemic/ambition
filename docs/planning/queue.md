@@ -2572,10 +2572,31 @@ fourteen bodies, runs them CPU-vs-CPU, and launches them — so it reads floors
 that Ambition's own play had never leaned on. That is the argument for keeping
 the row's rule rather than the argument for a second engine.
 
-⚠ **the residuals this campaign leaves are named and small**: presentation
-hitstop is still `With<PrimaryPlayer>` (the simulation freeze is fixed for every
-body; the SCREEN hitch is slot-0 only), and D158's speech-bubble stacking. Both
-are presentation, both are in their own rows.
+⚠ **the residuals this campaign leaves are named and small**: D158's
+speech-bubble stacking, and one thing that turned out NOT to be a residual at
+all on inspection.
+
+⛔ **I filed "presentation hitstop is slot-0 only" as a defect and it is a
+DESIGN FORK — corrected the same day, before anyone spent a session on it.**
+Reading `emit_player_time_intent_system`
+(`actor_monolith/src/time/time_control/mod.rs:307`) says three things:
+1. **D114 already fixed the part that matters.** Both movement roads spend
+   hitlag now, so BOTH BODIES STOP on a connect — that IS the visible impact.
+   The clock request only adds freezing everything else on the sim clock
+   (particles, VFX, other bodies) as a flourish on top.
+2. **slot-0 is CORRECT for what this system is for.** Its other arms are
+   bullet-time and blink-hold — per-PLAYER feel affordances by ADR 0010/0011.
+   Slot 0's blink slows slot 0's world; a second player would emit its own
+   intent against its own clock.
+3. **in a CPU-vs-CPU match there is no `PrimaryPlayer` at all** — and this file
+   already carries Jon's 2026-08-07 freeze from exactly that shape (a paused
+   match forced the clock to zero, and with nobody to ask for the neutral pace
+   back the world ran at scale 0.0 forever, *"the characters are just stuck in
+   air"*).
+⇒ **so "whose hitstop owns the SCREEN when nobody is playing" is a real question
+with several defensible answers** — nobody's, the most recent hit's, the framed
+fighter's — and not a bug with an obvious fix. ▢ recorded as a fork; do not
+guess it.
 
 ✔✔ **THE SELF-KO CAUSE IS FIXED (2026-08-15), and it was ARCHITECTURE, not
 tuning.** The measured defect — depth 12 survives 7.4s while depth 0 survives

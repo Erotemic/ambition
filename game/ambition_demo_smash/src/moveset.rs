@@ -60,12 +60,12 @@ pub(crate) fn grounded_only() -> MoveGates {
     }
 }
 
-/// A move either posture can reach. Used by the SPECIALS: a recovery move that a
-/// grounded body could not press would be a recovery move you have to fall off
-/// the stage to practise, and an out-of-shield option nobody has.
-pub(crate) fn either_posture() -> MoveGates {
-    MoveGates { grounded: None }
-}
+// ⭐ **`either_posture` retired 2026-08-16.** Its only callers were the SPECIALS
+// of the fighters that have since moved onto `SmashRepertoire`, where the SLOT
+// owns the posture gate. `fighter_moveset` below authors no specials — the
+// duelists take theirs from the kit their body derives — so nothing here needs
+// it. The two helpers that remain have callers in this file and only in this
+// file.
 
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.

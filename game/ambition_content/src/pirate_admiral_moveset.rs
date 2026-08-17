@@ -52,11 +52,11 @@
 //! move list would give one press two owners, which is the exact double-ownership
 //! `RangedExecution` exists to prevent.
 
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    vfx, vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, vfx, vfx_at,
 };
 
 /// **How far across the grapple hauls him**, engine units per second along
@@ -86,13 +86,11 @@ pub(crate) const GRAPPLE_ENDS_S: f32 = 0.88;
 /// See the module doc. Fifteen moves: the genre's standard verb map plus four
 /// specials.
 pub fn pirate_admiral_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // ── grounded ─────────────────────────────────────────────────────────────
     //
     // Even the jab is a blade: it starts slower than the goblin's whole punish
     // window and reaches half a body further.
-    let mut jab = strike(
+    let jab = strike(
         "jab",
         "jab",
         0.06,
@@ -106,12 +104,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         None,
         None,
     );
-    jab.gates = grounded_only();
-    moves.push(jab);
 
     // A rising cutlass arc. Wide, because a sword's up-tilt covers the space in
     // front of the shoulder as well as above it.
-    let mut up_tilt = strike(
+    let up_tilt = strike(
         "tilt_up",
         "attack_up",
         0.09,
@@ -125,12 +121,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.25, -1.0)),
         None,
     );
-    up_tilt.gates = grounded_only();
-    moves.push(up_tilt);
 
     // A low sweep along the deck. Long, shallow, and it sends them along the
     // ground rather than up — the setup, not the finish.
-    let mut down_tilt = strike(
+    let down_tilt = strike(
         "tilt_down",
         "attack_down",
         0.08,
@@ -144,8 +138,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((1.0, -0.18)),
         None,
     );
-    down_tilt.gates = grounded_only();
-    moves.push(down_tilt);
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
@@ -166,9 +158,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((1.0, -0.42)),
         None,
     );
-    f_smash.gates = grounded_only();
     f_smash.smash_charge_mult = 1.7;
-    moves.push(f_smash);
 
     let mut up_smash = strike(
         "smash_up",
@@ -184,9 +174,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
-    moves.push(up_smash);
 
     // Both sides at deck height — the boarding-action answer to being flanked.
     let mut down_smash = strike(
@@ -203,12 +191,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.9, -0.50)),
         None,
     );
-    down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.7;
-    moves.push(down_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────
-    let mut n_air = strike(
+    let n_air = strike(
         "air_neutral",
         "air_neutral",
         0.07,
@@ -222,10 +208,8 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         None,
         None,
     );
-    n_air.gates = airborne_only();
-    moves.push(n_air);
 
-    let mut f_air = strike(
+    let f_air = strike(
         "air_forward",
         "air_forward",
         0.11,
@@ -239,10 +223,8 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
         None,
     );
-    f_air.gates = airborne_only();
-    moves.push(f_air);
 
-    let mut b_air = strike(
+    let b_air = strike(
         "air_back",
         "air_back",
         0.13,
@@ -256,10 +238,8 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((-1.0, -0.35)),
         None,
     );
-    b_air.gates = airborne_only();
-    moves.push(b_air);
 
-    let mut u_air = strike(
+    let u_air = strike(
         "air_up",
         "air_up",
         0.08,
@@ -273,7 +253,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    u_air.gates = airborne_only();
     // ⭐⭐ **THE STALL.** A rising cutlass overhead that takes the admiral up with
     // it — the genre's juggle aerial, and the reason this table can chain one
     // hit into the next instead of falling out from under its own combo.
@@ -292,13 +271,12 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let u_air = sfx(u_air, 0.0, "player.robot.slash.air");
     let u_air = on_contact(u_air, "player.robot.slash.impact.flesh.light");
     let u_air = vfx(u_air, 0.08, "burst_round");
-    moves.push(u_air);
 
     // ⭐ a real spike: point-down cutlass, straight into the blast zone. ⚠ no
     // `on_hit` rebound, same as the goblin's — the robot is the only body that
     // says it can bounce off what it hits, and that is a property of the
     // character rather than of down-airs.
-    let mut d_air = strike(
+    let d_air = strike(
         "air_down",
         "air_down",
         0.14,
@@ -312,8 +290,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    d_air.gates = airborne_only();
-    moves.push(d_air);
 
     // ── the four specials ────────────────────────────────────────────────────
     //
@@ -328,7 +304,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // with firing one from a standing start. The volume is short and wide; the
     // admiral is thrown BACKWARD out of it, which is a real spacing tool and a
     // real way to remove yourself from the stage.
-    let mut neutral_b = strike(
+    let neutral_b = strike(
         "grapeshot",
         "special",
         0.14,
@@ -342,7 +318,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.85, -0.55)),
         None,
     );
-    neutral_b.gates = either_posture();
     // ⭐ **negative side, and that sign is the whole move.** The catalog reads
     // this as a route with `lift_side < 0` — a displacement that carries its
     // owner AWAY from whatever it is facing. A recovery search will happily
@@ -353,7 +328,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let neutral_b = sfx(neutral_b, 0.14, "player.slash");
     let neutral_b = vfx(neutral_b, 0.14, "smoke_burst");
     let neutral_b = on_contact(neutral_b, "world.rock.hit");
-    moves.push(neutral_b);
 
     // **SIDE — `boarding_run`.** A shoulder-first charge across the deck.
     //
@@ -363,7 +337,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // therefore states no speed, so it advertises no route: a static reader
     // cannot say what an additive impulse produces, and this table does not ask
     // it to pretend.
-    let mut side_b = strike(
+    let side_b = strike(
         "boarding_run",
         "special",
         0.16,
@@ -377,14 +351,12 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.9, -0.4)),
         None,
     );
-    side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Add);
     let side_b = committed_tail(side_b, 0.72, 0.15);
     let side_b = sfx(side_b, 0.0, "player.attack.charge");
     let side_b = sfx(side_b, 0.16, "player.slash");
     let side_b = vfx(side_b, 0.16, "shockwave");
     let side_b = on_contact(side_b, "player.robot.slash.impact.metal.gong");
-    moves.push(side_b);
 
     // **UP — `grapple_line`. THE RECOVERY, and it is not a rise.**
     //
@@ -403,7 +375,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // ⛔ and it is not flight. The tail runs to `GRAPPLE_ENDS_S` with no
     // `Cancelable` window, so the move cannot be re-pressed until it has handed
     // back more altitude than its 20px of climb ever bought.
-    let mut up_b = strike(
+    let up_b = strike(
         "grapple_line",
         "special_up",
         GRAPPLE_AT_S,
@@ -417,7 +389,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.7, -0.7)),
         None,
     );
-    up_b.gates = either_posture();
     let up_b = impulse(
         up_b,
         GRAPPLE_AT_S,
@@ -434,7 +405,6 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // player knows this fighter is not dead yet.
     let up_b = vfx(up_b, GRAPPLE_AT_S, "classic_burst");
     let up_b = on_contact(up_b, "player.hit");
-    moves.push(up_b);
 
     // **DOWN — `heave_to`.** The anchor. It commands a FULL STOP: `(0, 0)`, a
     // `Set` of zero.
@@ -444,7 +414,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // read into a survivable one. ⚠ it advertises NO route (`local.1` is not
     // negative, so the catalog's lift derivation skips it), which is correct:
     // stopping dead in mid-air is not a way home from anywhere.
-    let mut down_b = strike(
+    let down_b = strike(
         "heave_to",
         "special_down",
         0.12,
@@ -458,12 +428,10 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    down_b.gates = either_posture();
     let down_b = impulse(down_b, 0.12, (0.0, 0.0), ImpulseMode::Set);
     let down_b = sfx(down_b, 0.12, "player.slash");
     let down_b = vfx(down_b, 0.12, "starburst");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.chink");
-    moves.push(down_b);
 
     // ── 2026-08-16: THE ONE THAT WAS MISSING ─────────────────────────────────
     //
@@ -472,7 +440,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // carrying a cutlass answering "forward" with a jab. A LEVEL CUT at chest
     // height: the longest tilt on the grid, because reach is what the cutlass is
     // for, and slower than the goblin's whole jab because carrying one costs.
-    let mut f_tilt = strike(
+    let f_tilt = strike(
         "tilt_forward",
         "attack_side",
         0.10,
@@ -486,35 +454,29 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
         None,
     );
-    f_tilt.gates = grounded_only();
     let f_tilt = vfx_at(f_tilt, 0.10, "air_slice", (38.0, -4.0), 1.0);
     let f_tilt = sfx(f_tilt, 0.10, "enemy.pirate.cutlass_swing");
     let f_tilt = on_contact(f_tilt, "player.hit");
-    moves.push(f_tilt);
 
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        ("attack_forward", "tilt_forward"),
-        ("special", "grapeshot"),
-        ("special_forward", "boarding_run"),
-        ("special_up", "grapple_line"),
-        ("special_down", "heave_to"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
-
-    MovesetContract { verbs, moves }
+    SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt,
+        down_tilt,
+        forward_smash: f_smash,
+        up_smash,
+        down_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(neutral_b),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::OneForm(down_b),
+    }
+    .into_contract()
 }
 
 #[cfg(test)]
@@ -561,23 +523,17 @@ mod tests {
             .unwrap_or(0)
     }
 
-    /// **Every verb the admiral binds resolves to a move that exists.**
-    ///
-    /// ⛔ a verb bound to a missing id is silence at the press: the runtime looks
-    /// the move up, finds nothing, and the button does nothing at all.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let moveset = pirate_admiral_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            moveset.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &moveset.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        assert_eq!(moveset.verbs.len(), 16);
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The commanded (`Set`) velocity a move states, if it states one.
     fn commanded(set: &MovesetContract, id: &str) -> Option<(f32, f32)> {

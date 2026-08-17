@@ -29,11 +29,11 @@
 //! `four_point_glint`, `phase_ripple`). The day she gets her own art, this file
 //! is where the names change and nothing else does.
 
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 
 /// How big a cipher's burst draws.
@@ -42,11 +42,9 @@ const SEAL_FX: f32 = 1.15;
 
 /// See the module doc. Sixteen presses.
 pub fn alice_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // **JAB — `challenge`.** She asks a question. Quick, short, and it is not
     // meant to end anything.
-    let mut jab = strike(
+    let jab = strike(
         "challenge",
         "jab",
         0.05,
@@ -60,14 +58,12 @@ pub fn alice_moveset() -> MovesetContract {
         None,
         None,
     );
-    jab.gates = grounded_only();
     let jab = vfx_at(jab, 0.05, "four_point_glint", (24.0, 0.0), GLYPH_FX);
     let jab = on_contact(jab, "player.hit");
-    moves.push(jab);
 
     // **FORWARD TILT — `cipher_sweep`.** The reach the module doc claims, spent
     // on the press that uses it most.
-    let mut f_tilt = strike(
+    let f_tilt = strike(
         "cipher_sweep",
         "attack_side",
         0.08,
@@ -81,13 +77,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((1.0, -0.28)),
         None,
     );
-    f_tilt.gates = grounded_only();
     let f_tilt = vfx_at(f_tilt, 0.08, "rune_burst", (32.0, -2.0), GLYPH_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
-    moves.push(f_tilt);
 
     // **UP TILT — `nonce_flick`.** A number used once, thrown straight up.
-    let mut u_tilt = strike(
+    let u_tilt = strike(
         "nonce_flick",
         "attack_up",
         0.07,
@@ -101,13 +95,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    u_tilt.gates = grounded_only();
     let u_tilt = vfx_at(u_tilt, 0.07, "pickup_twinkle", (8.0, -26.0), GLYPH_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
-    moves.push(u_tilt);
 
     // **DOWN TILT — `padding_oracle`.** She asks the floor one bit at a time.
-    let mut d_tilt = strike(
+    let d_tilt = strike(
         "padding_oracle",
         "attack_down",
         0.07,
@@ -121,13 +113,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.9, -0.35)),
         None,
     );
-    d_tilt.gates = grounded_only();
     let d_tilt = vfx_at(d_tilt, 0.07, "phase_ripple", (26.0, 13.0), GLYPH_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
-    moves.push(d_tilt);
 
     // **FORWARD SMASH — `brute_force`.** Every key in order until one opens.
-    let mut f_smash = strike(
+    let f_smash = strike(
         "brute_force",
         "smash_forward",
         0.17,
@@ -141,15 +131,13 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.95, -0.42)),
         None,
     );
-    f_smash.gates = grounded_only();
     let f_smash = vfx_at(f_smash, 0.17, "magic_seal_break", (38.0, -2.0), SEAL_FX);
     let f_smash = sfx(f_smash, 0.17, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
-    moves.push(f_smash);
 
     // **UP SMASH — `birthday_attack`.** Two of them meet overhead, which is more
     // likely than anybody expects.
-    let mut u_smash = strike(
+    let u_smash = strike(
         "birthday_attack",
         "smash_up",
         0.16,
@@ -163,14 +151,12 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.10, -1.0)),
         None,
     );
-    u_smash.gates = grounded_only();
     let u_smash = vfx_at(u_smash, 0.16, "rune_circle", (4.0, -32.0), SEAL_FX);
     let u_smash = on_contact(u_smash, "player.hit");
-    moves.push(u_smash);
 
     // **DOWN SMASH — `side_channel`.** She does not read the message; she reads
     // what leaked out either side of it.
-    let mut d_smash = strike(
+    let d_smash = strike(
         "side_channel",
         "smash_down",
         0.17,
@@ -184,14 +170,12 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.8, -0.58)),
         None,
     );
-    d_smash.gates = grounded_only();
     let d_smash = vfx_at(d_smash, 0.17, "phase_ripple", (-28.0, 17.0), GLYPH_FX);
     let d_smash = vfx_at(d_smash, 0.17, "phase_ripple", (28.0, 17.0), GLYPH_FX);
     let d_smash = on_contact(d_smash, "player.hit");
-    moves.push(d_smash);
 
     // **NEUTRAL AIR — `entropy_pool`.** Noise, all around her.
-    let mut n_air = strike(
+    let n_air = strike(
         "entropy_pool",
         "air_neutral",
         0.06,
@@ -205,13 +189,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.55, -0.75)),
         None,
     );
-    n_air.gates = airborne_only();
     let n_air = vfx_at(n_air, 0.06, "rune_burst", (0.0, 0.0), GLYPH_FX);
     let n_air = on_contact(n_air, "player.hit");
-    moves.push(n_air);
 
     // **FORWARD AIR — `signature`.** She signs it on the way past.
-    let mut f_air = strike(
+    let f_air = strike(
         "signature",
         "air_forward",
         0.08,
@@ -225,13 +207,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.95, -0.45)),
         None,
     );
-    f_air.gates = airborne_only();
     let f_air = vfx_at(f_air, 0.08, "four_point_glint", (30.0, -4.0), GLYPH_FX);
     let f_air = on_contact(f_air, "player.hit");
-    moves.push(f_air);
 
     // **BACK AIR — `revocation`.** The key is withdrawn behind her, hard.
-    let mut b_air = strike(
+    let b_air = strike(
         "revocation",
         "air_back",
         0.09,
@@ -245,13 +225,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((-0.95, -0.40)),
         None,
     );
-    b_air.gates = airborne_only();
     let b_air = vfx_at(b_air, 0.09, "magic_seal_break", (-30.0, -2.0), GLYPH_FX);
     let b_air = on_contact(b_air, "player.hit");
-    moves.push(b_air);
 
     // **UP AIR — `public_key`.** Held up where anyone may take it.
-    let mut u_air = strike(
+    let u_air = strike(
         "public_key",
         "air_up",
         0.07,
@@ -265,13 +243,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.08, -1.0)),
         None,
     );
-    u_air.gates = airborne_only();
     let u_air = vfx_at(u_air, 0.07, "pickup_twinkle", (2.0, -26.0), GLYPH_FX);
     let u_air = on_contact(u_air, "player.hit");
-    moves.push(u_air);
 
     // **DOWN AIR — `known_plaintext`.** She already knows what is under you.
-    let mut d_air = strike(
+    let d_air = strike(
         "known_plaintext",
         "air_down",
         0.11,
@@ -285,14 +261,12 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    d_air.gates = airborne_only();
     let d_air = vfx_at(d_air, 0.11, "rune_burst", (2.0, 24.0), GLYPH_FX);
     let d_air = on_contact(d_air, "player.hit");
-    moves.push(d_air);
 
     // **NEUTRAL — `one_time_pad`.** Used once and never again: her single
     // hardest hit, with the recovery to match.
-    let mut n_b = strike(
+    let n_b = strike(
         "one_time_pad",
         "attack",
         0.18,
@@ -306,17 +280,15 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.9, -0.48)),
         None,
     );
-    n_b.gates = either_posture();
     let n_b = committed_tail(n_b, 0.66, 0.05);
     let n_b = vfx_at(n_b, 0.18, "magic_seal_break", (30.0, -4.0), SEAL_FX);
     let n_b = sfx(n_b, 0.18, "player.directional_special");
     let n_b = on_contact(n_b, "player.hit");
-    moves.push(n_b);
 
     // **SIDE — `key_exchange`.** She crosses the gap and arrives having already
     // agreed the terms. ⭐ `Set`, so the distance is the move's and not her
     // momentum's.
-    let mut side_b = strike(
+    let side_b = strike(
         "key_exchange",
         "attack_side",
         0.13,
@@ -330,13 +302,11 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.95, -0.36)),
         None,
     );
-    side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.13, (640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.58, 0.10);
     let side_b = vfx_at(side_b, 0.13, "phase_ripple", (0.0, 0.0), SEAL_FX);
     let side_b = sfx(side_b, 0.13, "player.blink");
     let side_b = on_contact(side_b, "player.hit");
-    moves.push(side_b);
 
     // **UP — `elliptic_curve`. THE RECOVERY.** She rides the curve up. Cheap to
     // land, because her whole design is that a whiff does not end her.
@@ -354,18 +324,16 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    up_b.gates = either_posture();
     up_b.landing_lag_s = Some(0.22);
     let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.48, 0.25);
     let up_b = vfx_at(up_b, 0.07, "rune_circle", (0.0, 0.0), GLYPH_FX);
     let up_b = sfx(up_b, 0.07, "player.double_jump");
     let up_b = on_contact(up_b, "player.hit");
-    moves.push(up_b);
 
     // **DOWN — `hash_collision`.** Two inputs, one output, on the floor either
     // side of her.
-    let mut down_b = strike(
+    let down_b = strike(
         "hash_collision",
         "attack_down",
         0.15,
@@ -379,11 +347,9 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.75, -0.62)),
         None,
     );
-    down_b.gates = grounded_only();
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.15, "magic_seal_break", (0.0, 16.0), SEAL_FX);
     let down_b = on_contact(down_b, "player.hit");
-    moves.push(down_b);
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
     //
@@ -415,62 +381,50 @@ pub fn alice_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    air_down_b.gates = airborne_only();
     air_down_b.landing_lag_s = Some(0.24);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1180.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "magic_seal_break", (0.0, 20.0), GLYPH_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    moves.push(air_down_b);
 
-    let verbs = [
-        ("attack", "challenge"),
-        ("attack_forward", "cipher_sweep"),
-        ("attack_up", "nonce_flick"),
-        ("attack_down", "padding_oracle"),
-        ("smash_forward", "brute_force"),
-        ("smash_up", "birthday_attack"),
-        ("smash_down", "side_channel"),
-        ("attack_air", "entropy_pool"),
-        ("attack_air_forward", "signature"),
-        ("attack_air_back", "revocation"),
-        ("attack_air_up", "public_key"),
-        ("attack_air_down", "known_plaintext"),
-        ("special", "one_time_pad"),
-        ("special_forward", "key_exchange"),
-        ("special_up", "elliptic_curve"),
-        ("special_down", "hash_collision"),
-        ("special_air_down", "collision_dive"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
-
-    MovesetContract { verbs, moves }
+    SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt: u_tilt,
+        down_tilt: d_tilt,
+        forward_smash: f_smash,
+        up_smash: u_smash,
+        down_smash: d_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(n_b),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::ByPosture {
+            grounded: down_b,
+            airborne: air_down_b,
+        },
+    }
+    .into_contract()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// **Every verb she binds resolves to a move that exists.** A verb bound to
-    /// a missing id is silence at the press.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let moveset = alice_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            moveset.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &moveset.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        assert_eq!(
-            moveset.verbs.len(),
-            17,
-            "sixteen presses, and the down-B answers in BOTH postures"
-        );
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **Alice is not Bob with different names.** The pair's split is the
     /// design: she reaches further and recovers sooner, he hits harder and

@@ -53,13 +53,13 @@
 //! for those four, which is precisely why they are spelled out here.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
 
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    strike_tag, vfx,
+    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx,
 };
 
 /// **The tolerance band**: the least time any Oiler move keeps a hitbox in the
@@ -103,8 +103,6 @@ pub const GEYSER_ENDS_S: f32 = 1.20;
 /// See the module doc. Sixteen moves: the genre's standard verb map plus four
 /// specials.
 pub fn oiler_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // ── the ground game: a spanner at arm's length ────────────────────────────
     //
     // ⚠ **every clip name here is a row the rig actually publishes.** Oiler's
@@ -120,7 +118,7 @@ pub fn oiler_moveset() -> MovesetContract {
 
     // A knuckle-rap with the wrench still in hand. Nearly harmless, and out for
     // longer than most fighters' smashes.
-    let mut jab = strike(
+    let jab = strike(
         "jab",
         "attack_side",
         0.06,
@@ -134,11 +132,9 @@ pub fn oiler_moveset() -> MovesetContract {
         None,
         None,
     );
-    jab.gates = grounded_only();
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx(jab, 0.06, "friction_tick");
     let jab = sfx(jab, 0.06, "vfx.oiler.friction_tick");
-    moves.push(jab);
 
     // ⛔ **a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab** — the hole George Booul's
@@ -157,7 +153,6 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
         None,
     );
-    f_tilt.gates = grounded_only();
     // A short stride, ADDITIVE: it contributes to whatever walk he brought into
     // it rather than replacing it, so the same swing covers more ground out of a
     // dash.
@@ -165,11 +160,10 @@ pub fn oiler_moveset() -> MovesetContract {
     let f_tilt = vfx(f_tilt, 0.11, "wrench_strike");
     let f_tilt = sfx(f_tilt, 0.11, "vfx.oiler.wrench_strike");
     let f_tilt = on_contact(f_tilt, "player.robot.slash.impact.metal.chink");
-    moves.push(f_tilt);
 
     // The needle sweeping the dial: an overhead arc that beats a shorthop and
     // stays out long enough to catch the second one.
-    let mut up_tilt = strike(
+    let up_tilt = strike(
         "tilt_up",
         "attack_up",
         0.10,
@@ -183,15 +177,13 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.1, -1.0)),
         None,
     );
-    up_tilt.gates = grounded_only();
     let up_tilt = vfx(up_tilt, 0.10, "gauge_sweep");
     let up_tilt = sfx(up_tilt, 0.10, "vfx.oiler.gauge_sweep");
     let up_tilt = on_contact(up_tilt, "player.robot.slash.impact.metal.chink");
-    moves.push(up_tilt);
 
     // Oil dragged along the floor at ankle height. The lowest, longest-lived box
     // in the table and the one that beats a ledge get-up.
-    let mut down_tilt = strike(
+    let down_tilt = strike(
         "tilt_down",
         "attack_down",
         0.09,
@@ -205,11 +197,9 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((1.0, -0.20)),
         None,
     );
-    down_tilt.gates = grounded_only();
     let down_tilt = strike_tag(down_tilt, SLASH_POKE_VFX);
     let down_tilt = vfx(down_tilt, 0.09, "oil_drip");
     let down_tilt = sfx(down_tilt, 0.09, "vfx.oiler.oil_drip");
-    moves.push(down_tilt);
 
     // ── the smashes ──────────────────────────────────────────────────────────
 
@@ -232,7 +222,6 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((1.0, -0.42)),
         None,
     );
-    f_smash.gates = grounded_only();
     f_smash.smash_charge_mult = 1.7;
     let f_smash = vfx(f_smash, 0.0, "tolerance_brackets");
     let f_smash = sfx(f_smash, 0.0, "vfx.oiler.tolerance_brackets");
@@ -241,7 +230,6 @@ pub fn oiler_moveset() -> MovesetContract {
     let f_smash = vfx(f_smash, 0.28, "brass_spark");
     let f_smash = sfx(f_smash, 0.28, "vfx.oiler.brass_spark");
     let f_smash = on_contact(f_smash, "player.robot.slash.impact.metal.gong");
-    moves.push(f_smash);
 
     // A bearing thrown straight up out of the housing.
     let mut up_smash = strike(
@@ -258,12 +246,10 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
     let up_smash = vfx(up_smash, 0.24, "bearing_ping");
     let up_smash = sfx(up_smash, 0.24, "vfx.oiler.bearing_ping");
     let up_smash = on_contact(up_smash, "player.robot.slash.impact.metal.gong");
-    moves.push(up_smash);
 
     // Oil slapped out both sides at his feet — the widest box in the table and
     // his answer to being surrounded on a ledge.
@@ -281,14 +267,12 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.9, -0.50)),
         None,
     );
-    down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.7;
     let down_smash = vfx(down_smash, 0.22, "oil_splash");
     let down_smash = sfx(down_smash, 0.22, "vfx.oiler.oil_splash");
     let down_smash = vfx(down_smash, 0.30, "oil_slick");
     let down_smash = sfx(down_smash, 0.30, "vfx.oiler.oil_slick");
     let down_smash = on_contact(down_smash, "player.robot.slash.impact.metal.gong");
-    moves.push(down_smash);
 
     // ── the aerials ──────────────────────────────────────────────────────────
     //
@@ -313,12 +297,10 @@ pub fn oiler_moveset() -> MovesetContract {
         None,
         None,
     );
-    n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.12);
     n_air.autocancel_after_s = Some(0.26);
     let n_air = vfx(n_air, 0.07, "unit_circle_rotation");
     let n_air = sfx(n_air, 0.07, "vfx.oiler.unit_circle_rotation");
-    moves.push(n_air);
 
     let mut f_air = strike(
         "air_forward",
@@ -334,13 +316,11 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
         None,
     );
-    f_air.gates = airborne_only();
     f_air.landing_lag_s = Some(0.16);
     f_air.autocancel_after_s = Some(0.30);
     let f_air = vfx(f_air, 0.12, "curve_trace");
     let f_air = sfx(f_air, 0.12, "vfx.oiler.curve_trace");
     let f_air = on_contact(f_air, "player.robot.slash.impact.metal.chink");
-    moves.push(f_air);
 
     // The hardest thing he can throw that is not the torque smash — and it faces
     // the wrong way, which is the genre's oldest trade.
@@ -358,13 +338,11 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((-1.0, -0.34)),
         None,
     );
-    b_air.gates = airborne_only();
     b_air.landing_lag_s = Some(0.18);
     b_air.autocancel_after_s = Some(0.32);
     let b_air = vfx(b_air, 0.13, "bearing_ping");
     let b_air = sfx(b_air, 0.13, "vfx.oiler.bearing_ping");
     let b_air = on_contact(b_air, "player.robot.slash.impact.metal.gong");
-    moves.push(b_air);
 
     let mut u_air = strike(
         "air_up",
@@ -380,12 +358,10 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    u_air.gates = airborne_only();
     u_air.landing_lag_s = Some(0.14);
     u_air.autocancel_after_s = Some(0.28);
     let u_air = vfx(u_air, 0.09, "chalk_spiral");
     let u_air = sfx(u_air, 0.09, "vfx.oiler.chalk_spiral");
-    moves.push(u_air);
 
     // ⚠ no pogo rebound. A body that could bounce off a victim would out-recover
     // the geyser, and the geyser is supposed to be the decision.
@@ -403,13 +379,11 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    d_air.gates = airborne_only();
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.36);
     let d_air = vfx(d_air, 0.13, "oil_drip");
     let d_air = sfx(d_air, 0.13, "vfx.oiler.oil_drip");
     let d_air = on_contact(d_air, "player.robot.slash.impact.metal.chink");
-    moves.push(d_air);
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
     //
@@ -427,7 +401,7 @@ pub fn oiler_moveset() -> MovesetContract {
     // sampled at keyframes cannot bill a victim once per segment — and a window
     // that starts after a gap is a box that went away and came back, which
     // rehits. So the empty 0.06s and 0.04s between these three is the move.
-    let mut convergence = strike(
+    let convergence = strike(
         "convergence",
         "special",
         0.14,
@@ -441,7 +415,6 @@ pub fn oiler_moveset() -> MovesetContract {
         None,
         None,
     );
-    convergence.gates = either_posture();
     // ⚠ tagged BEFORE the later terms are pushed: the first two are jabs and the
     // third is the swing they were converging on, so re-tagging afterwards would
     // flatten exactly the distinction.
@@ -479,7 +452,6 @@ pub fn oiler_moveset() -> MovesetContract {
     let convergence = vfx(convergence, 0.36, "error_term_collapse");
     let convergence = sfx(convergence, 0.36, "vfx.oiler.error_term_collapse");
     let convergence = on_contact(convergence, "player.robot.slash.impact.metal.chink");
-    moves.push(convergence);
 
     // **SIDE — `slick_dash`.** He oils the floor under himself and goes.
     //
@@ -492,7 +464,7 @@ pub fn oiler_moveset() -> MovesetContract {
     // this the one displacing move in the table that can be aimed after it
     // starts, at the cost of being the one that most easily carries him off the
     // stage.
-    let mut side_b = strike(
+    let side_b = strike(
         "slick_dash",
         "special",
         0.16,
@@ -506,7 +478,6 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.9, -0.35)),
         None,
     );
-    side_b.gates = either_posture();
     // ⚠ exactly horizontal, so it advertises no lift and the recovery search is
     // never offered a way home that is really a way off. That is a CONTENT
     // decision: Oiler's way home is the geyser.
@@ -517,7 +488,6 @@ pub fn oiler_moveset() -> MovesetContract {
     let side_b = vfx(side_b, 0.34, "oil_drip");
     let side_b = sfx(side_b, 0.34, "vfx.oiler.oil_drip");
     let side_b = on_contact(side_b, "player.robot.slash.impact.metal.chink");
-    moves.push(side_b);
 
     // **UP — `oil_geyser`. THE RECOVERY, and the move Jon asked for by name.**
     //
@@ -552,7 +522,6 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    up_b.gates = either_posture();
     // Landing out of the column costs. Onstage that makes it a bad panic button;
     // offstage it is irrelevant, which is the right shape for a way home.
     up_b.landing_lag_s = Some(0.30);
@@ -571,7 +540,6 @@ pub fn oiler_moveset() -> MovesetContract {
     let up_b = vfx(up_b, 0.88, "oil_geyser_impact");
     let up_b = sfx(up_b, 0.88, "vfx.oiler.oil_geyser_impact");
     let up_b = on_contact(up_b, "player.hit");
-    moves.push(up_b);
 
     // **DOWN — `pressure_vent`.** He cracks a valve and everything in the seal
     // goes at once.
@@ -596,49 +564,46 @@ pub fn oiler_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    down_b.gates = either_posture();
     down_b.start_impulse = Some((0.0, 520.0));
     let down_b = vfx(down_b, 0.10, "pressure_vent");
     let down_b = sfx(down_b, 0.10, "vfx.oiler.pressure_vent");
     let down_b = vfx(down_b, 0.12, "brass_spark");
     let down_b = sfx(down_b, 0.12, "vfx.oiler.brass_spark");
     let down_b = on_contact(down_b, "player.robot.slash.impact.metal.gong");
-    moves.push(down_b);
 
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_forward", "tilt_forward"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        ("special", "convergence"),
-        ("special_forward", "slick_dash"),
-        ("special_up", "oil_geyser"),
-        ("special_down", "pressure_vent"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
+    let repertoire = SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt,
+        down_tilt,
+        forward_smash: f_smash,
+        up_smash,
+        down_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(convergence),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::OneForm(down_b),
+    }
+    .into_contract();
 
     // ⭐ **the tolerance band is checked WHERE IT IS AUTHORED**, not only in the
     // test module. A move edited under it stops being Oiler's before anything
-    // else notices, and the builder is the last place that still holds the whole
-    // table at once.
+    // else notices, and this is the last place that still holds the whole table
+    // at once.
     debug_assert!(
-        moves
+        repertoire
+            .moves
             .iter()
             .all(|m| total_active_s(m) + 1e-4 >= TOLERANCE_S),
         "an Oiler move closed its window inside the tolerance band"
     );
 
-    MovesetContract { verbs, moves }
+    repertoire
 }
 
 /// One later term of `convergence` — an Active window separated from the last by
@@ -705,25 +670,17 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    /// **Every verb Oiler binds resolves to a move that exists.**
-    ///
-    /// ⛔ a verb bound to a missing id is silence at the press: the runtime looks
-    /// the move up, finds nothing, and the button does nothing at all. It is the
-    /// one defect in a move table that cannot be seen by reading it.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let moveset = oiler_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            moveset.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &moveset.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        assert_eq!(moveset.verbs.len(), 16);
-        assert_eq!(moveset.moves.len(), 16);
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **THE TOLERANCE BAND, AS AN ASSERTION.**
     ///

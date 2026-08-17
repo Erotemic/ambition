@@ -30,14 +30,14 @@
 //! the equivalent on a fighter built for this — it is a boss standing in a
 //! platform fighter, and the numbers say so.
 
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
 };
 
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 
 /// How big a pattern's burst is drawn, as a multiple of the presentation
@@ -61,7 +61,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // helper would give it a slash arc and a different window shape; this move's
     // numbers came off an archetype row and the migration that brought them here
     // promised not to retune them. Everything after it uses the helper.
-    let mut moves = vec![MoveSpec {
+    let cellular_pulse = MoveSpec {
         id: "cellular_pulse".to_string(),
         clip: ClipBinding {
             clip: "special".to_string(),
@@ -100,18 +100,21 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                 cue: "pca.cellular_pulse".to_string(),
             },
         }],
+        // ⭐ the SLOT owns the posture — `SmashRepertoire` sets it from
+        // `neutral_special`, so this field is only here because a struct literal
+        // has to name every field.
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
         landing_lag_s: None,
         autocancel_after_s: None,
-    }];
+    };
 
     // ── grounded ─────────────────────────────────────────────────────────────
 
     // **JAB — `still_life`.** A block appears where its hand would be and does
     // not change. The fastest thing it owns, and the only one with no telegraph.
-    let mut jab = strike(
+    let jab = strike(
         "still_life",
         "jab",
         0.06,
@@ -125,14 +128,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         None,
         None,
     );
-    jab.gates = grounded_only();
     let jab = vfx_at(jab, 0.06, "still_life_lock", (26.0, 0.0), CELL_FX);
     let jab = on_contact(jab, "player.hit");
-    moves.push(jab);
 
     // **FORWARD TILT — `rule_front`.** The rule advances one cell into you.
     // ⛔ without this the commonest press in the genre fell to the jab.
-    let mut f_tilt = strike(
+    let f_tilt = strike(
         "rule_front",
         "attack_side",
         0.09,
@@ -146,14 +147,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((1.0, -0.28)),
         None,
     );
-    f_tilt.gates = grounded_only();
     let f_tilt = vfx_at(f_tilt, 0.09, "rule_front", (32.0, -2.0), PATTERN_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
-    moves.push(f_tilt);
 
     // **UP TILT — `cell_birth`.** A neighbourhood above it reaches three live
     // neighbours and something is born there. Anti-air.
-    let mut u_tilt = strike(
+    let u_tilt = strike(
         "cell_birth",
         "attack_up",
         0.09,
@@ -167,14 +166,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    u_tilt.gates = grounded_only();
     let u_tilt = vfx_at(u_tilt, 0.09, "cell_birth", (8.0, -28.0), CELL_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
-    moves.push(u_tilt);
 
     // **DOWN TILT — `phase_boundary`.** The edge between two rules, at ankle
     // height, where standing on the wrong side of it costs.
-    let mut d_tilt = strike(
+    let d_tilt = strike(
         "phase_boundary",
         "attack_down",
         0.08,
@@ -188,10 +185,8 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.9, -0.35)),
         None,
     );
-    d_tilt.gates = grounded_only();
     let d_tilt = vfx_at(d_tilt, 0.08, "phase_boundary", (26.0, 14.0), CELL_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
-    moves.push(d_tilt);
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
@@ -209,7 +204,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // **FORWARD — `generation_wipe`.** One step of the rule applied to the whole
     // row in front of it. Everything in that row is in the next generation or it
     // is not.
-    let mut f_smash = strike(
+    let f_smash = strike(
         "generation_wipe",
         "smash_forward",
         0.32,
@@ -223,16 +218,14 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.95, -0.42)),
         None,
     );
-    f_smash.gates = grounded_only();
     let f_smash = vfx_at(f_smash, 0.32, "generation_wipe", (40.0, -2.0), PATTERN_FX);
     let f_smash = sfx(f_smash, 0.32, "pca.cellular_pulse");
     let f_smash = on_contact(f_smash, "player.hit");
-    moves.push(f_smash);
 
     // **UP — `causal_cone_expand`.** The light cone of one changed cell, opening
     // upward. Tall and narrow at the base, which is what makes it an anti-air
     // rather than a second forward smash.
-    let mut u_smash = strike(
+    let u_smash = strike(
         "causal_cone_expand",
         "smash_up",
         0.30,
@@ -246,7 +239,6 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.10, -1.0)),
         None,
     );
-    u_smash.gates = grounded_only();
     let u_smash = vfx_at(
         u_smash,
         0.18,
@@ -256,11 +248,10 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     );
     let u_smash = sfx(u_smash, 0.18, "pca.cellular_pulse");
     let u_smash = on_contact(u_smash, "player.hit");
-    moves.push(u_smash);
 
     // **DOWN — `garden_growth`.** A garden of Eden has no predecessor: it can
     // only be placed. It places one, either side of itself, along the floor.
-    let mut d_smash = strike(
+    let d_smash = strike(
         "garden_growth",
         "smash_down",
         0.31,
@@ -274,18 +265,16 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.8, -0.58)),
         None,
     );
-    d_smash.gates = grounded_only();
     let d_smash = vfx_at(d_smash, 0.31, "garden_growth", (-30.0, 18.0), CELL_FX);
     let d_smash = vfx_at(d_smash, 0.31, "garden_growth", (30.0, 18.0), CELL_FX);
     let d_smash = sfx(d_smash, 0.31, "pca.cellular_pulse");
     let d_smash = on_contact(d_smash, "player.hit");
-    moves.push(d_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────
 
     // **NEUTRAL AIR — `oscillator_pulse`.** A blinker, around itself, flipping
     // through both of its states.
-    let mut n_air = strike(
+    let n_air = strike(
         "oscillator_pulse",
         "air_neutral",
         0.07,
@@ -299,14 +288,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.55, -0.75)),
         None,
     );
-    n_air.gates = airborne_only();
     let n_air = vfx_at(n_air, 0.07, "oscillator_pulse", (0.0, 0.0), PATTERN_FX);
     let n_air = on_contact(n_air, "player.hit");
-    moves.push(n_air);
 
     // **FORWARD AIR — `glider_cut`.** The glider's leading edge, swung rather
     // than launched. ⛔ this press used to fall through to the neutral air.
-    let mut f_air = strike(
+    let f_air = strike(
         "glider_cut",
         "air_forward",
         0.09,
@@ -320,14 +307,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.95, -0.45)),
         None,
     );
-    f_air.gates = airborne_only();
     let f_air = vfx_at(f_air, 0.09, "glider_impact", (30.0, -4.0), CELL_FX);
     let f_air = on_contact(f_air, "player.hit");
-    moves.push(f_air);
 
     // **BACK AIR — `cell_death`.** Underpopulation, behind it. The hardest
     // single hit in its aerial game, because it cannot see it coming either.
-    let mut b_air = strike(
+    let b_air = strike(
         "cell_death",
         "air_back",
         0.10,
@@ -341,14 +326,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((-0.95, -0.40)),
         None,
     );
-    b_air.gates = airborne_only();
     let b_air = vfx_at(b_air, 0.10, "cell_death", (-30.0, -2.0), CELL_FX);
     let b_air = on_contact(b_air, "player.hit");
-    moves.push(b_air);
 
     // **UP AIR — `fixed_point_acquire`.** It finds the state that maps to
     // itself, directly overhead, and holds it there.
-    let mut u_air = strike(
+    let u_air = strike(
         "fixed_point_acquire",
         "air_up",
         0.08,
@@ -362,14 +345,12 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.08, -1.0)),
         None,
     );
-    u_air.gates = airborne_only();
     let u_air = vfx_at(u_air, 0.08, "fixed_point_acquire", (2.0, -28.0), CELL_FX);
     let u_air = on_contact(u_air, "player.hit");
-    moves.push(u_air);
 
     // **DOWN AIR — `corruption_seed`.** It drops a seed and the rule below it
     // stops being the rule. Straight down and hard.
-    let mut d_air = strike(
+    let d_air = strike(
         "corruption_seed",
         "air_down",
         0.12,
@@ -383,10 +364,8 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    d_air.gates = airborne_only();
     let d_air = vfx_at(d_air, 0.12, "corruption_seed", (2.0, 26.0), CELL_FX);
     let d_air = on_contact(d_air, "player.hit");
-    moves.push(d_air);
 
     // ── the three specials the pulse was standing in for ─────────────────────
 
@@ -394,7 +373,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // move DISPLACES the automaton rather than spawning a projectile: its ranged
     // glider already exists on its action set, and a second spawner here would
     // be two authorities on one pattern.
-    let mut side_b = strike(
+    let side_b = strike(
         "glider_launch",
         "special",
         0.16,
@@ -408,12 +387,10 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.92, -0.38)),
         None,
     );
-    side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.05);
     let side_b = vfx_at(side_b, 0.16, "glider_launch", (30.0, 0.0), PATTERN_FX);
     let side_b = on_contact(side_b, "player.hit");
-    moves.push(side_b);
 
     // **UP — `spaceship_ascent`. THE RECOVERY.** A lightweight spaceship
     // translates itself one cell per generation, forever, in whatever direction
@@ -432,19 +409,17 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    up_b.gates = either_posture();
     up_b.landing_lag_s = Some(0.32);
     let up_b = impulse(up_b, 0.10, (0.0, -740.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.56, 0.15);
     let up_b = vfx_at(up_b, 0.10, "causal_cone_expand", (0.0, 16.0), CELL_FX);
     let up_b = vfx_at(up_b, 0.22, "cell_birth", (0.0, -14.0), CELL_FX);
     let up_b = on_contact(up_b, "player.hit");
-    moves.push(up_b);
 
     // **DOWN — `generation_collapse`.** It runs the rule BACKWARDS: the cone
     // closes instead of opening, and everything inside it arrives at the same
     // cell. No displacement, the longest tail it has, and grounded-only.
-    let mut down_b = strike(
+    let down_b = strike(
         "generation_collapse",
         "special",
         0.22,
@@ -458,13 +433,11 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.7, -0.68)),
         None,
     );
-    down_b.gates = grounded_only();
     let down_b = committed_tail(down_b, 0.74, 0.0);
     let down_b = vfx_at(down_b, 0.06, "corruption_seed", (0.0, 12.0), CELL_FX);
     let down_b = vfx_at(down_b, 0.22, "causal_cone_collapse", (0.0, 0.0), PATTERN_FX);
     let down_b = sfx(down_b, 0.22, "pca.cellular_pulse");
     let down_b = on_contact(down_b, "player.hit");
-    moves.push(down_b);
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
     //
@@ -496,7 +469,6 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    air_down_b.gates = airborne_only();
     air_down_b.landing_lag_s = Some(0.32);
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1200.0), ImpulseMode::Set);
     let air_down_b = vfx_at(
@@ -507,59 +479,46 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         CELL_FX,
     );
     let air_down_b = on_contact(air_down_b, "player.hit");
-    moves.push(air_down_b);
 
-    let verbs = [
-        ("attack", "still_life"),
-        ("attack_forward", "rule_front"),
-        ("attack_up", "cell_birth"),
-        ("attack_down", "phase_boundary"),
-        ("smash_forward", "generation_wipe"),
-        ("smash_up", "causal_cone_expand"),
-        ("smash_down", "garden_growth"),
-        ("attack_air", "oscillator_pulse"),
-        ("attack_air_forward", "glider_cut"),
-        ("attack_air_back", "cell_death"),
-        ("attack_air_up", "fixed_point_acquire"),
-        ("attack_air_down", "corruption_seed"),
-        ("special", "cellular_pulse"),
-        ("special_forward", "glider_launch"),
-        ("special_up", "spaceship_ascent"),
-        ("special_down", "generation_collapse"),
-        ("special_air_down", "collapse_dive"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
-
-    MovesetContract { verbs, moves }
+    SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt: u_tilt,
+        down_tilt: d_tilt,
+        forward_smash: f_smash,
+        up_smash: u_smash,
+        down_smash: d_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(cellular_pulse),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::ByPosture {
+            grounded: down_b,
+            airborne: air_down_b,
+        },
+    }
+    .into_contract()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// **Every verb this table binds resolves to a move that exists.**
-    ///
-    /// ⛔ a verb bound to a missing id is silence at the press — the runtime
-    /// looks the move up, finds nothing, and the button does nothing at all.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let moveset = cellular_pulse_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            moveset.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &moveset.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        assert_eq!(
-            moveset.verbs.len(),
-            17,
-            "sixteen presses, and the down-B answers in BOTH postures"
-        );
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **THE PULSE IS UNTOUCHED.** Fifteen moves were written around it and the
     /// one that came off the archetype row still carries the row's numbers —

@@ -72,14 +72,14 @@
 //! spelled out here rather than generated.
 
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, HitVolume, ImpulseMode, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
     WindowTag,
 };
 
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    strike_tag, vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, strike_tag, vfx_at,
 };
 
 /// **How big a burst is, by what kind of move throws it** — multiples of the
@@ -184,8 +184,6 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
 /// See the module doc. Sixteen moves: the genre's standard verb map, every clip
 /// a row her rig actually publishes.
 pub fn noether_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // ── the ground game ──────────────────────────────────────────────────────
     //
     // ⚠ **every clip below is one of her 123 authored rows.** Where the sheet has
@@ -196,14 +194,23 @@ pub fn noether_moveset() -> MovesetContract {
 
     // Five damage held out for nearly a fifth of a second: the cheap end of the
     // curve, and the easiest thing she has to land.
-    let mut jab = strike(
-        "jab", "jab", 0.05, 0.18, 0.14, (26.0, -6.0), (16.0, 13.0), 5, 44.0, 1.05, None, None,
+    let jab = strike(
+        "jab",
+        "jab",
+        0.05,
+        0.18,
+        0.14,
+        (26.0, -6.0),
+        (16.0, 13.0),
+        5,
+        44.0,
+        1.05,
+        None,
+        None,
     );
-    jab.gates = grounded_only();
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.05, "generator_steps", (26.0, -6.0), POKE_FX);
     let jab = sfx(jab, 0.05, "vfx.noether.generator_steps");
-    moves.push(jab);
 
     // The committed swing the blueprint calls *"her fastest way to say no"*.
     // Nine damage buys a tenth of a second.
@@ -221,16 +228,14 @@ pub fn noether_moveset() -> MovesetContract {
         Some((1.0, -0.30)),
         None,
     );
-    f_tilt.gates = grounded_only();
     f_tilt.start_impulse = Some((130.0, 0.0));
     let f_tilt = vfx_at(f_tilt, 0.10, "generator_steps", (32.0, -4.0), SWING_FX);
     let f_tilt = sfx(f_tilt, 0.10, "vfx.noether.generator_steps");
     let f_tilt = vfx_at(f_tilt, 0.13, "symmetry_axis_snap", (32.0, -4.0), POKE_FX);
     let f_tilt = sfx(f_tilt, 0.13, "vfx.noether.symmetry_axis_snap");
     let f_tilt = on_contact(f_tilt, "player.hit");
-    moves.push(f_tilt);
 
-    let mut up_tilt = strike(
+    let up_tilt = strike(
         "tilt_up",
         "attack_up",
         0.09,
@@ -244,13 +249,11 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.1, -1.0)),
         None,
     );
-    up_tilt.gates = grounded_only();
     let up_tilt = vfx_at(up_tilt, 0.09, "group_orbit", (6.0, -26.0), SWING_FX);
     let up_tilt = sfx(up_tilt, 0.09, "vfx.noether.group_orbit.loop");
     let up_tilt = on_contact(up_tilt, "player.hit");
-    moves.push(up_tilt);
 
-    let mut down_tilt = strike(
+    let down_tilt = strike(
         "tilt_down",
         "attack_down",
         0.08,
@@ -264,11 +267,9 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.9, -0.35)),
         None,
     );
-    down_tilt.gates = grounded_only();
     let down_tilt = vfx_at(down_tilt, 0.08, "conserved_current", (24.0, 15.0), SWING_FX);
     let down_tilt = sfx(down_tilt, 0.08, "vfx.noether.conserved_current.loop");
     let down_tilt = on_contact(down_tilt, "player.hit");
-    moves.push(down_tilt);
 
     // ── the smashes: the expensive end of the curve ──────────────────────────
 
@@ -289,17 +290,21 @@ pub fn noether_moveset() -> MovesetContract {
         Some((1.0, -0.55)),
         None,
     );
-    f_smash.gates = grounded_only();
     f_smash.smash_charge_mult = 1.85;
     let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
     // The tell sits on HER, not on the box — it is the wind-up, and the box
     // does not exist yet.
     let f_smash = vfx_at(f_smash, 0.02, "symmetry_axis_snap", (0.0, -10.0), SWING_FX);
     let f_smash = sfx(f_smash, 0.02, "vfx.noether.symmetry_axis_snap");
-    let f_smash = vfx_at(f_smash, 0.20, "broken_symmetry_shards", (36.0, -8.0), SMASH_FX);
+    let f_smash = vfx_at(
+        f_smash,
+        0.20,
+        "broken_symmetry_shards",
+        (36.0, -8.0),
+        SMASH_FX,
+    );
     let f_smash = sfx(f_smash, 0.20, "vfx.noether.broken_symmetry_shards");
     let f_smash = on_contact(f_smash, "player.hit");
-    moves.push(f_smash);
 
     let mut up_smash = strike(
         "smash_up",
@@ -315,12 +320,10 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.70;
     let up_smash = vfx_at(up_smash, 0.17, "group_orbit", (2.0, -34.0), SMASH_FX);
     let up_smash = sfx(up_smash, 0.17, "vfx.noether.group_orbit.loop");
     let up_smash = on_contact(up_smash, "player.hit");
-    moves.push(up_smash);
 
     // ⭐ the down smash is the up smash REFLECTED: same damage, same window, same
     // growth, opposite launch. Her table is meant to look like this.
@@ -338,12 +341,10 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.70;
     let down_smash = vfx_at(down_smash, 0.17, "conserved_current", (0.0, 20.0), SMASH_FX);
     let down_smash = sfx(down_smash, 0.17, "vfx.noether.conserved_current.loop");
     let down_smash = on_contact(down_smash, "player.hit");
-    moves.push(down_smash);
 
     // ── the air game ─────────────────────────────────────────────────────────
 
@@ -361,23 +362,22 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.5, -0.75)),
         None,
     );
-    n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
     let n_air = vfx_at(n_air, 0.08, "group_orbit", (0.0, -6.0), SWING_FX);
     let n_air = sfx(n_air, 0.08, "vfx.noether.group_orbit.loop");
     let n_air = on_contact(n_air, "player.hit");
-    moves.push(n_air);
 
     // ⭐⭐ **THE SYMMETRY, and it is the whole character in two moves.** The
     // forward and back aerials are built from the same numbers by construction —
-    // one `for` over the two ids rather than two hand-written blocks, so they
-    // cannot drift apart in a later retune. A fighter whose theorem is invariance
-    // does not get to care which way she is facing.
-    for (id, clip, dir_x) in [
+    // ONE expression over the two ids rather than two hand-written blocks, so
+    // they cannot drift apart in a later retune. A fighter whose theorem is
+    // invariance does not get to care which way she is facing.
+    let [f_air, b_air] = [
         ("air_forward", "air_forward", 1.0_f32),
         ("air_back", "air_back", -1.0_f32),
-    ] {
+    ]
+    .map(|(id, clip, dir_x)| {
         let mut aerial = strike(
             id,
             clip,
@@ -392,14 +392,18 @@ pub fn noether_moveset() -> MovesetContract {
             Some((dir_x, -0.45)),
             None,
         );
-        aerial.gates = airborne_only();
         aerial.landing_lag_s = Some(0.18);
         aerial.autocancel_after_s = Some(0.32);
-        let aerial = vfx_at(aerial, 0.10, "paired_trajectory", (28.0 * dir_x, -4.0), SWING_FX);
+        let aerial = vfx_at(
+            aerial,
+            0.10,
+            "paired_trajectory",
+            (28.0 * dir_x, -4.0),
+            SWING_FX,
+        );
         let aerial = sfx(aerial, 0.10, "vfx.noether.paired_trajectory.loop");
-        let aerial = on_contact(aerial, "player.hit");
-        moves.push(aerial);
-    }
+        on_contact(aerial, "player.hit")
+    });
 
     let mut up_air = strike(
         "air_up",
@@ -415,13 +419,11 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.0, -1.0)),
         None,
     );
-    up_air.gates = airborne_only();
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
     let up_air = vfx_at(up_air, 0.08, "equivalence_bridge", (2.0, -28.0), SWING_FX);
     let up_air = sfx(up_air, 0.08, "vfx.noether.equivalence_bridge");
     let up_air = on_contact(up_air, "player.hit");
-    moves.push(up_air);
 
     // The spike. Ten damage buys the second-narrowest window she has.
     let mut d_air = strike(
@@ -438,13 +440,11 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    d_air.gates = airborne_only();
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
     let d_air = vfx_at(d_air, 0.12, "ether_cancel", (0.0, 24.0), SWING_FX);
     let d_air = sfx(d_air, 0.12, "vfx.noether.ether_cancel");
     let d_air = on_contact(d_air, "player.hit");
-    moves.push(d_air);
 
     // ── THE FOUR SPECIALS ────────────────────────────────────────────────────
 
@@ -455,7 +455,7 @@ pub fn noether_moveset() -> MovesetContract {
     // ⛔ **not the counter the sheet's blueprint imagined** — `MoveSpec` has no
     // absorb or reflect, and inventing one for one character would be the wrong
     // shape. See the module doc.
-    let mut n_b = strike(
+    let n_b = strike(
         "conservation_law",
         "conservation_law",
         0.16,
@@ -473,7 +473,6 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.2, -0.9)),
         None,
     );
-    n_b.gates = either_posture();
     let mut n_b = strike_tag(n_b, SLASH_POKE_VFX);
     // Even gaps, identical terms — the invariant holding, three times.
     n_b.windows.push(field_term(0.36, 0.46));
@@ -491,7 +490,6 @@ pub fn noether_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.66, "proof_complete", (0.0, 0.0), SMASH_FX);
     let n_b = sfx(n_b, 0.66, "vfx.noether.proof_complete");
     let n_b = on_contact(n_b, "player.hit");
-    moves.push(n_b);
 
     // **SIDE — `symmetry_shift`.** A lateral displacement that keeps her facing.
     //
@@ -501,7 +499,7 @@ pub fn noether_moveset() -> MovesetContract {
     // conceding the neutral"*. Every other displacing special in this repo
     // commits you to the direction you are moving; this one buys distance and
     // keeps the threat pointed where it was.
-    let mut side_b = strike(
+    let side_b = strike(
         "symmetry_shift",
         "symmetry_shift",
         0.14,
@@ -515,7 +513,6 @@ pub fn noether_moveset() -> MovesetContract {
         Some((-0.6, -0.55)),
         None,
     );
-    side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.14, (-640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.55);
     let side_b = vfx_at(side_b, 0.14, "equivalence_bridge", (18.0, -2.0), SWING_FX);
@@ -525,7 +522,6 @@ pub fn noether_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.30, "paired_trajectory", (34.0, -2.0), SWING_FX);
     let side_b = sfx(side_b, 0.30, "vfx.noether.paired_trajectory.loop");
     let side_b = on_contact(side_b, "player.hit");
-    moves.push(side_b);
 
     // **UP — `ethereal_lift`. THE RECOVERY, AND IT DOES NOT ATTACK.**
     //
@@ -543,11 +539,7 @@ pub fn noether_moveset() -> MovesetContract {
         // move, the drawing is not.
         clip: ClipBinding {
             clip: "ethereal_lift".to_string(),
-            fallbacks: vec![
-                "jump".to_string(),
-                "fall".to_string(),
-                "idle".to_string(),
-            ],
+            fallbacks: vec!["jump".to_string(), "fall".to_string(), "idle".to_string()],
         },
         duration_s: LIFT_ENDS_S,
         windows: vec![MoveWindow {
@@ -559,7 +551,10 @@ pub fn noether_moveset() -> MovesetContract {
             sustain_effect: None,
         }],
         events: Vec::new(),
-        gates: either_posture(),
+        // ⭐ the SLOT owns the posture — `SmashRepertoire` sets it from
+        // `up_special`; this field is only here because a struct literal has to
+        // name every field.
+        gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
         landing_lag_s: Some(0.24),
@@ -582,11 +577,10 @@ pub fn noether_moveset() -> MovesetContract {
     let up_b = sfx(up_b, LIFT_AT_S, "vfx.noether.group_orbit.loop");
     let up_b = vfx_at(up_b, 0.62, "conserved_current", (0.0, 20.0), SWING_FX);
     let up_b = sfx(up_b, 0.62, "vfx.noether.conserved_current.loop");
-    moves.push(up_b);
 
     // **DOWN — `invariant_field`.** A low, wide field that denies the ground in
     // front of her. The widest box in the table and the cheapest damage on it.
-    let mut down_b = strike(
+    let down_b = strike(
         "invariant_field",
         "invariant_field",
         0.14,
@@ -600,13 +594,11 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.8, -0.5)),
         None,
     );
-    down_b.gates = grounded_only();
     let down_b = vfx_at(down_b, 0.14, "invariant_core", (14.0, 20.0), FIELD_FX);
     let down_b = sfx(down_b, 0.14, "vfx.noether.invariant_core.loop");
     let down_b = vfx_at(down_b, 0.22, "conserved_current", (14.0, 20.0), FIELD_FX);
     let down_b = sfx(down_b, 0.22, "vfx.noether.conserved_current.loop");
     let down_b = on_contact(down_b, "player.hit");
-    moves.push(down_b);
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
     //
@@ -638,7 +630,6 @@ pub fn noether_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    air_down_b.gates = airborne_only();
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1200.0), ImpulseMode::Set);
     // ⚠ this table's own rule: every burst is heard. The conserved current comes
@@ -646,43 +637,43 @@ pub fn noether_moveset() -> MovesetContract {
     let air_down_b = vfx_at(air_down_b, 0.10, "conserved_current", (0.0, 20.0), FIELD_FX);
     let air_down_b = sfx(air_down_b, 0.10, "vfx.noether.conserved_current.loop");
     let air_down_b = on_contact(air_down_b, "player.hit");
-    moves.push(air_down_b);
 
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_forward", "tilt_forward"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        ("special", "conservation_law"),
-        ("special_forward", "symmetry_shift"),
-        ("special_up", "ethereal_lift"),
-        ("special_down", "invariant_field"),
-        ("special_air_down", "falling_invariant"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
+    let repertoire = SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt,
+        down_tilt,
+        forward_smash: f_smash,
+        up_smash,
+        down_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(n_b),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::ByPosture {
+            grounded: down_b,
+            airborne: air_down_b,
+        },
+    }
+    .into_contract();
 
     // ⭐ **the invariant is checked WHERE IT IS AUTHORED.** A move edited off the
-    // curve stops being Emmy's before anything else notices, and the builder is
-    // the last place that holds the whole table at once.
+    // curve stops being Emmy's before anything else notices, and this is the last
+    // place that holds the whole table at once.
     debug_assert!(
-        moves
+        repertoire
+            .moves
             .iter()
             .filter(|m| conserved_impulse(m) > 0.0)
             .all(|m| (conserved_impulse(m) - NOETHER_IMPULSE).abs() <= INVARIANT_BAND),
         "a Noether move left the conservation curve"
     );
 
-    MovesetContract { moves, verbs }
+    repertoire
 }
 
 #[cfg(test)]
@@ -722,26 +713,17 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    /// **Every verb she binds resolves to a move that exists.**
-    ///
-    /// ⛔ a verb bound to a missing id is silence at the press: the runtime looks
-    /// the move up, finds nothing, and the button does nothing at all.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let set = noether_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            set.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &set.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        // Seventeen: sixteen presses, and the down-B answers in BOTH postures
-        // (Jon's Bowser ruling, 2026-08-16).
-        assert_eq!(set.verbs.len(), 17);
-        assert_eq!(set.moves.len(), 17);
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **THE SYMMETRY, AS AN ASSERTION — and the poison is every other fighter.**
     ///
@@ -985,10 +967,9 @@ mod tests {
     #[test]
     fn every_clip_names_a_row_her_sheet_carries() {
         let set = noether_moveset();
-        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_target(
-            "noether",
-        )
-        .expect("Emmy's sheet is baked into the registry");
+        let record =
+            ambition_platformer2d::sprite_sheet::character::sheets::record_for_target("noether")
+                .expect("Emmy's sheet is baked into the registry");
         let rows: std::collections::BTreeSet<&str> =
             record.rows.iter().map(|r| r.animation.as_str()).collect();
         for m in &set.moves {

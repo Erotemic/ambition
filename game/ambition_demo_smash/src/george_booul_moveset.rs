@@ -37,12 +37,12 @@
 //! for exactly that reason: heavier than it on every smash, faster nowhere, and
 //! carrying a startup GAP the shared table does not have.
 
+use ambition_platformer2d::characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire,
+};
 use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
-use crate::moveset::{
-    airborne_only, cancelable, committed_tail, either_posture, feel, grounded_only, impulse,
-    on_hit, strike, Feel,
-};
+use crate::moveset::{cancelable, committed_tail, feel, impulse, on_hit, strike, Feel};
 
 /// **The rise George's Up-B commands**, engine units per second against gravity.
 ///
@@ -76,14 +76,12 @@ const COMMIT_MIN_STARTUP_S: f32 = 0.15;
 /// See the module doc. Sixteen moves, the genre's standard verb map plus four
 /// specials.
 pub fn george_booul_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // ── the three pokes ──────────────────────────────────────────────────────
     //
     // Everything George owns that comes out quickly is also nearly harmless. He
     // is not paid for these; they exist so that "not committing" is a legal
     // move rather than standing still.
-    let mut jab = strike(
+    let jab = strike(
         "jab",
         "attack",
         0.05,
@@ -96,7 +94,6 @@ pub fn george_booul_moveset() -> MovesetContract {
         1.05,
         None,
     );
-    jab.gates = grounded_only();
     // ⭐⭐ **THE ONE ROUTE ACROSS THE GAP, AND IT ONLY OPENS ON CONTACT.**
     //
     // George's whole problem is that he has three fast options worth nothing and
@@ -115,7 +112,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         &["smash", "special"],
         CancelCondition::OnHit,
     );
-    moves.push(feel(jab, Feel::Poke));
+    let jab = feel(jab, Feel::Poke);
 
     let mut n_air = strike(
         "air_neutral",
@@ -130,10 +127,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         1.20,
         None,
     );
-    n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.24);
-    moves.push(feel(n_air, Feel::Poke));
+    let n_air = feel(n_air, Feel::Poke);
 
     let mut u_air = strike(
         "air_up",
@@ -148,10 +144,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         1.35,
         Some((0.0, -1.0)),
     );
-    u_air.gates = airborne_only();
     u_air.landing_lag_s = Some(0.16);
     u_air.autocancel_after_s = Some(0.26);
-    moves.push(feel(u_air, Feel::Launcher));
+    let u_air = feel(u_air, Feel::Launcher);
 
     // ── the tilts, which for George are COMMITMENTS ──────────────────────────
     //
@@ -160,7 +155,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // you do not want to decide. George does not have one. His up-tilt starts
     // more than twice as late as the shared table's and hits more than twice as
     // hard, which is the same trade every one of his slow moves makes.
-    let mut up_tilt = strike(
+    let up_tilt = strike(
         "tilt_up",
         "attack",
         0.16,
@@ -173,10 +168,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.20,
         Some((0.1, -1.0)),
     );
-    up_tilt.gates = grounded_only();
-    moves.push(feel(up_tilt, Feel::Launcher));
+    let up_tilt = feel(up_tilt, Feel::Launcher);
 
-    let mut down_tilt = strike(
+    let down_tilt = strike(
         "tilt_down",
         "attack",
         0.17,
@@ -189,8 +183,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.30,
         Some((1.0, -0.20)),
     );
-    down_tilt.gates = grounded_only();
-    moves.push(feel(down_tilt, Feel::Launcher));
+    let down_tilt = feel(down_tilt, Feel::Launcher);
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
@@ -211,9 +204,8 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.45,
         Some((1.0, -0.44)),
     );
-    f_smash.gates = grounded_only();
     f_smash.smash_charge_mult = 1.7;
-    moves.push(feel(f_smash, Feel::Heavy));
+    let f_smash = feel(f_smash, Feel::Heavy);
 
     let mut up_smash = strike(
         "smash_up",
@@ -228,9 +220,8 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.30,
         Some((0.0, -1.0)),
     );
-    up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
-    moves.push(feel(up_smash, Feel::Heavy));
+    let up_smash = feel(up_smash, Feel::Heavy);
 
     let mut down_smash = strike(
         "smash_down",
@@ -245,9 +236,8 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.05,
         Some((0.95, -0.45)),
     );
-    down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.7;
-    moves.push(feel(down_smash, Feel::Heavy));
+    let down_smash = feel(down_smash, Feel::Heavy);
 
     // ── the committed aerials ────────────────────────────────────────────────
     //
@@ -267,10 +257,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.35,
         Some((1.0, -0.30)),
     );
-    f_air.gates = airborne_only();
     f_air.landing_lag_s = Some(0.24);
     f_air.autocancel_after_s = Some(0.34);
-    moves.push(feel(f_air, Feel::Poke));
+    let f_air = feel(f_air, Feel::Poke);
 
     let mut b_air = strike(
         "air_back",
@@ -285,10 +274,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.75,
         Some((-1.0, -0.36)),
     );
-    b_air.gates = airborne_only();
     b_air.landing_lag_s = Some(0.26);
     b_air.autocancel_after_s = Some(0.36);
-    moves.push(feel(b_air, Feel::Heavy));
+    let b_air = feel(b_air, Feel::Heavy);
 
     // The heaviest landing lag on the grid. A missed spike over the stage is a
     // free smash for whoever is standing under it — which, for a fighter whose
@@ -306,10 +294,9 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.55,
         Some((0.0, 1.0)),
     );
-    d_air.gates = airborne_only();
     d_air.landing_lag_s = Some(0.34);
     d_air.autocancel_after_s = Some(0.44);
-    moves.push(feel(d_air, Feel::Dive));
+    let d_air = feel(d_air, Feel::Dive);
 
     // ── the forward tilt, which was MISSING ──────────────────────────────────
     //
@@ -330,13 +317,12 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.80,
         Some((1.0, -0.28)),
     );
-    f_tilt.gates = grounded_only();
     // A short stride, ADDITIVE: it contributes to whatever run George brought
     // into it, so the same move covers more ground out of a dash. This is
     // `start_impulse`'s meaning and the right one here — nothing about a shoulder
     // check should erase the momentum behind it.
     f_tilt.start_impulse = Some((190.0, 0.0));
-    moves.push(feel(f_tilt, Feel::Heavy));
+    let f_tilt = feel(f_tilt, Feel::Heavy);
 
     // ── THE SPECIALS ─────────────────────────────────────────────────────────
     //
@@ -365,7 +351,6 @@ pub fn george_booul_moveset() -> MovesetContract {
         2.00,
         Some((0.2, -1.0)),
     );
-    bivalence.gates = either_posture();
     bivalence.smash_charge_mult = 1.6;
     // The second half, authored as a window rather than a second move: same
     // press, same clock, harder answer.
@@ -395,7 +380,7 @@ pub fn george_booul_moveset() -> MovesetContract {
             });
         debug_assert!(end >= 0.50, "the second window must fit inside the move");
     }
-    moves.push(feel(bivalence, Feel::Special));
+    let bivalence = feel(bivalence, Feel::Special);
 
     // **SIDE — `modus_ponens`.** *If you are there, then you are here.* A
     // travelling body-check: the burst is `Set`, so it erases whatever George was
@@ -403,7 +388,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // steered out of. Thrown offstage it is a real horizontal recovery — and a
     // real way to die, because it also erases the fall you might have drifted
     // out of.
-    let mut side_b = strike(
+    let side_b = strike(
         "modus_ponens",
         "special",
         0.20,
@@ -416,7 +401,6 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.20,
         Some((1.0, -0.30)),
     );
-    side_b.gates = either_posture();
     // ⚠ **exactly horizontal, and the zero used to be a WORKAROUND.**
     //
     // ⛔ the reason recorded here was: *"a charge with a little lift in it would
@@ -447,7 +431,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // (one fighter, one way home) rather than about the engine.
     let side_b = impulse(side_b, 0.20, (760.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.74, 0.0);
-    moves.push(feel(side_b, Feel::Special));
+    let side_b = feel(side_b, Feel::Special);
 
     // **UP — `excluded_middle`. THE RECOVERY.**
     //
@@ -480,7 +464,6 @@ pub fn george_booul_moveset() -> MovesetContract {
         1.90,
         Some((0.05, -1.0)),
     );
-    up_b.gates = either_posture();
     // Landing out of the ascent costs — the other half of "a recovery is a
     // commitment". Onstage this makes it a bad panic button; offstage it is
     // irrelevant, which is exactly the right shape.
@@ -489,7 +472,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // The helpless tail. `0.15` leaves George able to nudge his landing and
     // nothing more, which is what makes an edgeguard against this move possible.
     let up_b = committed_tail(up_b, ASCENT_ENDS_S, 0.15);
-    moves.push(feel(up_b, Feel::Recovery));
+    let up_b = feel(up_b, Feel::Recovery);
 
     // **DOWN — `reductio`.** Assume you are above me; derive a contradiction.
     // A commanded plunge with the pogo technique on contact: connect and George
@@ -509,14 +492,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.00,
         Some((0.0, 1.0)),
     );
-    down_b.gates = airborne_only();
     down_b.landing_lag_s = Some(0.36);
     let down_b = impulse(down_b, 0.16, (0.0, 1500.0), ImpulseMode::Set);
     let down_b = on_hit(
         down_b,
         ambition_platformer2d::characters::technique::POGO_BOUNCE_KEY,
     );
-    moves.push(feel(down_b, Feel::Dive));
+    let down_b = feel(down_b, Feel::Dive);
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
     //
@@ -538,7 +520,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // first: a short arc up, and then the same contradiction, derived on the way
     // down. ⚠ the plunge impulse and the active window are `reductio`'s numbers
     // — this is the same argument with a premise added, not a second move.
-    let mut ground_down_b = strike(
+    let ground_down_b = strike(
         "reductio_ad_absurdum",
         "special",
         0.34,
@@ -551,7 +533,6 @@ pub fn george_booul_moveset() -> MovesetContract {
         3.00,
         Some((0.0, 1.0)),
     );
-    ground_down_b.gates = grounded_only();
     // ⛔⛔ **THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY.** `strike`'s
     // frame data derives `lift_speed` from `Set` impulses only — *"an `Add`
     // states no speed, so no static reader may claim one for it"* — and
@@ -570,37 +551,37 @@ pub fn george_booul_moveset() -> MovesetContract {
         ambition_platformer2d::characters::technique::POGO_BOUNCE_KEY,
     );
     let ground_down_b = committed_tail(ground_down_b, 0.86, 0.10);
-    moves.push(feel(ground_down_b, Feel::Dive));
+    let ground_down_b = feel(ground_down_b, Feel::Dive);
 
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_forward", "tilt_forward"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        ("special", "bivalence"),
-        ("special_forward", "modus_ponens"),
-        ("special_up", "excluded_middle"),
-        ("special_down", "reductio_ad_absurdum"),
-        ("special_air_down", "reductio"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
+    let repertoire = SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt,
+        down_tilt,
+        forward_smash: f_smash,
+        up_smash,
+        down_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::Authored(bivalence),
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::ByPosture {
+            grounded: ground_down_b,
+            airborne: down_b,
+        },
+    }
+    .into_contract();
 
     // ⭐ **the disjunction is checked WHERE IT IS AUTHORED**, not only in the
     // test module. These two numbers are the character; a move edited into the
     // band between them stops being George's before anything else notices, and
-    // the builder is the last place that still knows both halves at once.
+    // this is the last place that still knows both halves at once.
     debug_assert!(
-        moves.iter().all(|m| {
+        repertoire.moves.iter().all(|m| {
             let startup = m
                 .windows
                 .iter()
@@ -616,7 +597,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         "a George move landed between the pokes and the commitments"
     );
 
-    MovesetContract { verbs, moves }
+    repertoire
 }
 
 #[cfg(test)]
@@ -649,27 +630,17 @@ mod tests {
             .unwrap_or(0)
     }
 
-    /// **Every verb George binds resolves to a move that exists.**
-    ///
-    /// ⛔ a verb bound to a missing id is silence at the press: the runtime looks
-    /// the move up, finds nothing, and the button does nothing at all.
-    #[test]
-    fn every_bound_verb_names_a_move_that_exists() {
-        let moveset = george_booul_moveset();
-        let ids: std::collections::BTreeSet<&str> =
-            moveset.moves.iter().map(|m| m.id.as_str()).collect();
-        for (verb, id) in &moveset.verbs {
-            assert!(
-                ids.contains(id.as_str()),
-                "verb `{verb}` binds move `{id}`, which this table does not define"
-            );
-        }
-        assert_eq!(
-            moveset.verbs.len(),
-            17,
-            "sixteen presses, and the down-B answers in BOTH postures"
-        );
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **THE EXCLUDED MIDDLE, AS AN ASSERTION.**
     ///
@@ -985,8 +956,8 @@ mod tests {
         let mut effects = std::collections::BTreeSet::new();
         let mut cues = std::collections::BTreeSet::new();
         for m in &set.moves {
-            for problem in m
-                .presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
+            for problem in
+                m.presentation_problems(ambition_platformer2d::sprite_sheet::fx::is_authored_effect)
             {
                 panic!("{problem}");
             }

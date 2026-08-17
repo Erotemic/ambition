@@ -17,6 +17,7 @@
 //! which is what lets Ambition read this table as Hollow-Knight combat and
 //! Smash read it as a platform fighter.
 
+use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveGates, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
@@ -26,8 +27,7 @@ use ambition_platformer2d::entity_catalog::{
 // table below is written with the same `strike` this one is rather than a copy
 // of it. They left this file the day a second character authored moves.
 use ambition_characters::moveset_authoring::{
-    airborne_only, committed_tail, either_posture, grounded_only, impulse, on_contact, sfx, strike,
-    vfx_at,
+    committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
 use ambition_platformer2d::entity_catalog::ImpulseMode;
 
@@ -37,13 +37,11 @@ use ambition_platformer2d::entity_catalog::ImpulseMode;
 /// an architectural one: the moveset rides the CHARACTER, so giving George a
 /// heavier one is editing his definition and nothing else.
 pub fn player_robot_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
     // ── grounded ─────────────────────────────────────────────────────────────
     //
     // The jab is the fast, safe, boring one — it exists to be thrown at nothing
     // and get away with it, which is what makes the smash below a decision.
-    let mut jab = strike(
+    let jab = strike(
         "jab",
         "jab",
         0.05,
@@ -57,10 +55,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         None,
         None,
     );
-    jab.gates = grounded_only();
-    moves.push(jab);
 
-    let mut up_tilt = strike(
+    let up_tilt = strike(
         "tilt_up",
         "attack_up",
         0.07,
@@ -76,10 +72,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.15, -1.0)),
         None,
     );
-    up_tilt.gates = grounded_only();
-    moves.push(up_tilt);
 
-    let mut down_tilt = strike(
+    let down_tilt = strike(
         "tilt_down",
         "attack_down",
         0.06,
@@ -94,8 +88,6 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.5, -0.85)),
         None,
     );
-    down_tilt.gates = grounded_only();
-    moves.push(down_tilt);
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
@@ -120,13 +112,11 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((1.0, -0.42)),
         None,
     );
-    f_smash.gates = grounded_only();
     // A fully-held charge lands 1.7× as hard. `smash_charge_mult` scales damage
     // AND knockback by how far the owner's clock got through the leading
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
     f_smash.smash_charge_mult = 1.7;
-    moves.push(f_smash);
 
     let mut up_smash = strike(
         "smash_up",
@@ -142,9 +132,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
-    moves.push(up_smash);
 
     let mut down_smash = strike(
         "smash_down",
@@ -161,9 +149,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((1.0, -0.25)),
         None,
     );
-    down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.6;
-    moves.push(down_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────
     //
@@ -184,10 +170,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         None,
         None,
     );
-    n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.10);
     n_air.autocancel_after_s = Some(0.26);
-    moves.push(n_air);
 
     let mut f_air = strike(
         "air_forward",
@@ -203,10 +187,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((1.0, -0.35)),
         None,
     );
-    f_air.gates = airborne_only();
     f_air.landing_lag_s = Some(0.18);
     f_air.autocancel_after_s = Some(0.30);
-    moves.push(f_air);
 
     let mut b_air = strike(
         "air_back",
@@ -224,10 +206,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((-1.0, -0.38)),
         None,
     );
-    b_air.gates = airborne_only();
     b_air.landing_lag_s = Some(0.20);
     b_air.autocancel_after_s = Some(0.32);
-    moves.push(b_air);
 
     let mut u_air = strike(
         "air_up",
@@ -243,10 +223,8 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.1, -1.0)),
         None,
     );
-    u_air.gates = airborne_only();
     u_air.landing_lag_s = Some(0.14);
     u_air.autocancel_after_s = Some(0.28);
-    moves.push(u_air);
 
     let mut d_air = strike(
         "air_down",
@@ -268,11 +246,9 @@ pub fn player_robot_moveset() -> MovesetContract {
             ambition_platformer2d::combat::on_hit::POGO_BOUNCE_KEY,
         )),
     );
-    d_air.gates = airborne_only();
     // The heaviest lag in the set: a missed spike over the stage should hurt.
     d_air.landing_lag_s = Some(0.28);
     d_air.autocancel_after_s = Some(0.40);
-    moves.push(d_air);
 
     // ── 2026-08-16: THE FOUR THAT WERE MISSING ───────────────────────────────
     //
@@ -289,7 +265,7 @@ pub fn player_robot_moveset() -> MovesetContract {
     // down the directional chain to the jab — the hole five of the ten authored
     // tables had. A straight servo-driven extension: longer than the jab, slower,
     // and it moves you.
-    let mut f_tilt = strike(
+    let f_tilt = strike(
         "tilt_forward",
         "attack_side",
         0.07,
@@ -303,17 +279,15 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((1.0, -0.26)),
         None,
     );
-    f_tilt.gates = grounded_only();
     let f_tilt = vfx_at(f_tilt, 0.07, "air_slice", (30.0, -2.0), 0.8);
     let f_tilt = sfx(f_tilt, 0.07, "player.directional_primary");
     let f_tilt = on_contact(f_tilt, "player.hit");
-    moves.push(f_tilt);
 
     // **SIDE — `rocket_dash`.** The dash it has at home, spent as one committed
     // pass instead of a movement option. ⭐ `Set`, so it crosses the same
     // distance whatever it was doing — a recovery mix-up rather than a
     // momentum bonus.
-    let mut side_b = strike(
+    let side_b = strike(
         "rocket_dash",
         "dash",
         0.12,
@@ -327,13 +301,11 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.95, -0.38)),
         None,
     );
-    side_b.gates = either_posture();
     let side_b = impulse(side_b, 0.12, (660.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.60, 0.05);
     let side_b = vfx_at(side_b, 0.12, "dash_streak", (0.0, 0.0), 1.0);
     let side_b = sfx(side_b, 0.12, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
-    moves.push(side_b);
 
     // **UP — `thruster_climb`. THE RECOVERY.** At home this body can FLY; a
     // platform fighter does not get flight, so the thrusters get one burst and
@@ -353,7 +325,6 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.12, -1.0)),
         None,
     );
-    up_b.gates = either_posture();
     up_b.landing_lag_s = Some(0.28);
     let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.50, 0.20);
@@ -361,12 +332,11 @@ pub fn player_robot_moveset() -> MovesetContract {
     let up_b = sfx(up_b, 0.07, "player.fly.start");
     let up_b = vfx_at(up_b, 0.19, "energy_release", (0.0, -12.0), 0.9);
     let up_b = on_contact(up_b, "player.hit");
-    moves.push(up_b);
 
     // **DOWN — `stabilizer_slam`.** It drops its weight through its stabilizers
     // and the floor answers. Wide, flat, grounded-only, and slow enough that
     // whiffing it is the whole risk.
-    let mut down_b = strike(
+    let down_b = strike(
         "stabilizer_slam",
         "attack_down",
         0.14,
@@ -380,13 +350,11 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.75, -0.62)),
         None,
     );
-    down_b.gates = grounded_only();
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.14, "shockwave", (0.0, 20.0), 1.1);
     let down_b = sfx(down_b, 0.14, "player.land.heavy");
     let down_b = vfx_at(down_b, 0.14, "hit_metal", (0.0, 16.0), 0.8);
     let down_b = on_contact(down_b, "player.hit");
-    moves.push(down_b);
 
     // ── 2026-08-16: THE OTHER POSTURE ────────────────────────────────────────
     //
@@ -419,62 +387,53 @@ pub fn player_robot_moveset() -> MovesetContract {
         Some((0.0, 1.0)),
         None,
     );
-    air_down_b.gates = airborne_only();
     air_down_b.landing_lag_s = Some(0.30);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "hit_metal", (0.0, 20.0), 0.9);
     let air_down_b = sfx(air_down_b, 0.10, "player.fast_fall");
     let air_down_b = on_contact(air_down_b, "player.hit");
-    moves.push(air_down_b);
 
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_forward", "tilt_forward"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        // ⚠ `special` is deliberately ABSENT: the Hadouken comes from the
-        // derived kit and authoring a second binding here would replace it.
-        ("special_forward", "rocket_dash"),
-        ("special_up", "thruster_climb"),
-        ("special_down", "stabilizer_slam"),
-        ("special_air_down", "stabilizer_dive"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .collect();
-
-    MovesetContract { verbs, moves }
+    SmashRepertoire {
+        jab,
+        forward_tilt: f_tilt,
+        up_tilt,
+        down_tilt,
+        forward_smash: f_smash,
+        up_smash,
+        down_smash,
+        neutral_air: n_air,
+        forward_air: f_air,
+        back_air: b_air,
+        up_air: u_air,
+        down_air: d_air,
+        neutral_special: NeutralSpecial::FromBodyKit {
+            because: "the charged Hadouken the robot's own body derives",
+        },
+        side_special: side_b,
+        up_special: up_b,
+        down_special: DownSpecial::ByPosture {
+            grounded: down_b,
+            airborne: air_down_b,
+        },
+    }
+    .into_contract()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// **Every verb the robot binds resolves to a move that exists.**
-    #[test]
-    fn every_authored_verb_resolves() {
-        let set = player_robot_moveset();
-        for (verb, id) in &set.verbs {
-            assert!(
-                set.move_by_id(id).is_some(),
-                "verb `{verb}` names move `{id}`, which is not in the contract"
-            );
-        }
-        assert_eq!(
-            set.verbs.len(),
-            16,
-            "the full directional repertoire, minus `special` — the Hadouken \
-             arrives from the DERIVED kit and this table must not rebind it"
-        );
-    }
+    // ⭐⭐ **RETIRED 2026-08-16 — the per-file verb-map test.**
+    //
+    // Fourteen fighters each carried a copy of it: every bound verb names a move
+    // this table defines, and the table binds the whole vocabulary. Both are now
+    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
+    // strings, so there is no string in this file to misspell; it is a struct
+    // with no `Default` and no private fields, so a missing or renamed slot is a
+    // COMPILE error here. What the fourteen copies stood for — that every press
+    // is answered, in every posture it is asked in — is checked once, by
+    // `ambition_characters::smash_repertoire`, and by the host ratchet
+    // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// **The protagonist states its own verbs, so a match stops guessing.**
     ///

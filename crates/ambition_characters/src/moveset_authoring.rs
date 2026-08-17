@@ -33,28 +33,15 @@ use ambition_entity_catalog::{
     MoveWindow, VolumeShape, WindowTag,
 };
 
-/// Ground moves are grounded-only so an airborne body falls THROUGH them to its
-/// aerials rather than throwing a tilt in mid-air.
-pub fn grounded_only() -> MoveGates {
-    MoveGates {
-        grounded: Some(true),
-    }
-}
-
-/// Aerials are airborne-only for the mirror reason: a grounded press must not
-/// reach a move whose whole design is that landing costs you.
-pub fn airborne_only() -> MoveGates {
-    MoveGates {
-        grounded: Some(false),
-    }
-}
-
-/// **A move that answers its button from the ground OR the air.** The specials
-/// are the moves that do this: a recovery that could only be pressed with your
-/// feet down is not a recovery.
-pub fn either_posture() -> MoveGates {
-    MoveGates { grounded: None }
-}
+// ⭐⭐ **`grounded_only` / `airborne_only` / `either_posture` were DELETED here on
+// 2026-08-16, and their absence is the point.** Every one of their callers was a
+// smash move hand-setting the gate its SLOT already implies — fourteen tables,
+// every move, and all fourteen agreed with the slot without exception. The
+// posture now follows from the slot in
+// [`crate::smash_repertoire::SmashRepertoire`], which is the only place in the
+// repo that knows what a tilt or an aerial IS. Leaving the helpers here would
+// have left the per-move override available to a fighter that did not mean to
+// take it.
 
 fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
     m.events.push(MoveEvent { at_s, kind });

@@ -16,6 +16,9 @@ that are easy to miss if we describe it only as "RON save files":
 - missing fields default so older records can be extended compatibly;
 - a save from a **newer** build is detected as `FromTheFuture` and left
   untouched rather than overwritten by an older executable;
+- a file declaring a schema with no migration path (including historical
+  `version: 0` development saves) is likewise non-fatal: startup uses fresh
+  defaults, preserves the original bytes, and explains how to reset the file;
 - an unreadable or unparseable existing file also disables writes for that
   session instead of turning a fallback fresh state into destructive autosave;
 - a migrated value is marked `upgraded` so it is actually rewritten in the new
@@ -141,6 +144,7 @@ new complete save.**
 | durable schema | project-defined save object/data | typed versioned `AmbitionGameSaveData` |
 | old saves | serializer defaults/project migration | explicit migration chain + rewrite-needed state |
 | future saves | often project convention | `FromTheFuture` => usable fallback but file becomes non-writable |
+| unsupported old schema | often migration crash/error | fresh in-memory fallback, original preserved, actionable reset diagnostic |
 | corrupt/unreadable file | fallback or error | fresh in-memory fallback while preserving existing bytes |
 | write safety | normal file write / async slot API | temp replacement with backup/restore fallback |
 | process/app isolation | global user-data path | `PersistenceRoot` resource, isolated roots for non-session Apps |

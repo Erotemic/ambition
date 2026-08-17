@@ -397,8 +397,9 @@ fn default_save_version() -> u32 {
 /// What loading a file concluded about its format.
 ///
 /// Returned rather than logged because the interesting case is not "it worked":
-/// [`SaveCompatibility::FromTheFuture`] means the caller MUST NOT write over the
-/// file, and a caller that cannot see the verdict cannot honour that.
+/// an incompatible file means the caller MUST NOT write over the bytes it could
+/// not safely interpret, and a caller that cannot see the verdict cannot honour
+/// that.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SaveCompatibility {
     /// Already at [`CURRENT_SAVE_VERSION`].
@@ -410,12 +411,20 @@ pub enum SaveCompatibility {
     /// newer build knew and this one does not. A player who launches an older
     /// build once should not lose the save they made in the newer one.
     FromTheFuture { found: u32 },
+    /// The file names a schema version for which this build has no migration
+    /// path. This includes historical/accidental `version: 0` files. Parsing the
+    /// surrounding RON successfully does not make those bytes safe to adopt or
+    /// overwrite, so callers must preserve the file and continue from defaults.
+    Unsupported { found: u32 },
 }
 
 impl SaveCompatibility {
     /// May this build commit its own state over the file it read?
     pub fn is_writable(self) -> bool {
-        !matches!(self, Self::FromTheFuture { .. })
+        !matches!(
+            self,
+            Self::FromTheFuture { .. } | Self::Unsupported { .. }
+        )
     }
 }
 
@@ -623,6 +632,11 @@ impl AmbitionGameSaveData {
                 found: self.version,
             };
         }
+        if self.version < PRE_VERSIONING_SAVE_VERSION {
+            return SaveCompatibility::Unsupported {
+                found: self.version,
+            };
+        }
         if self.version == CURRENT_SAVE_VERSION {
             return SaveCompatibility::Current;
         }
@@ -646,12 +660,12 @@ impl AmbitionGameSaveData {
                 // occurrences leaves every authored record to reconstruct from
                 // itself, exactly as it always did.
                 3 => {}
-                // Unreachable while the loop bound is CURRENT_SAVE_VERSION, but a
-                // future version added without a step must not spin here.
+                // A future version bump without its migration step is an
+                // incompatibility, not a process-fatal programmer assertion.
+                // The disk caller will preserve the original bytes and continue
+                // from defaults instead of blocking startup.
                 other => {
-                    self.version = CURRENT_SAVE_VERSION;
-                    debug_assert!(false, "no migration step from save version {other}");
-                    break;
+                    return SaveCompatibility::Unsupported { found: other };
                 }
             }
             self.version += 1;
@@ -856,6 +870,23 @@ mod tests {
             s.encounter("goblin_encounter"),
             PersistedEncounterState::Cleared
         );
+    }
+
+    /// `version: 0` existed as an accidental/default value in historical
+    /// development saves, but there has never been a defined v0 wire schema.
+    /// Treat it as incompatible rather than guessing that it means v1, and most
+    /// importantly do not panic just because such a file exists on disk.
+    #[test]
+    fn an_unsupported_old_version_is_refused_without_mutating_it() {
+        let mut s = AmbitionGameSaveData::new();
+        s.version = 0;
+        s.set_flag("old_progress", true);
+
+        let verdict = s.migrate();
+        assert_eq!(verdict, SaveCompatibility::Unsupported { found: 0 });
+        assert!(!verdict.is_writable());
+        assert_eq!(s.version, 0, "refusing a schema must not relabel it current");
+        assert!(s.flag("old_progress"), "classification must not erase parsed data");
     }
 
     /// The case that loses real progress if it is got wrong: a player runs a

@@ -22,7 +22,9 @@ use std::path::{Path, PathBuf};
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-use crate::save_data::{AmbitionGameSaveData, SaveCompatibility, CURRENT_SAVE_VERSION};
+use crate::save_data::{
+    AmbitionGameSaveData, SaveCompatibility, CURRENT_SAVE_VERSION, PRE_VERSIONING_SAVE_VERSION,
+};
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
@@ -64,7 +66,7 @@ pub fn save_path_under(root: &Path) -> PathBuf {
 pub struct LoadedSave {
     pub data: AmbitionGameSaveData,
     /// False when the file on disk holds something this build must not replace:
-    /// a save from a NEWER build, or bytes it could not parse at all.
+    /// a save from an incompatible schema, or bytes it could not parse at all.
     pub writable: bool,
     /// True when `data` no longer matches the bytes on disk because a migration
     /// ran. The caller must NOT record it as the persisted shadow — see
@@ -143,6 +145,23 @@ pub fn load_save(path: &Path) -> LoadedSave {
                     "save file {} is version {found}, newer than this build's \
                      {CURRENT_SAVE_VERSION}; playing on a fresh sandbox and \
                      leaving the file untouched",
+                    path.display(),
+                );
+                LoadedSave::preserve()
+            }
+            SaveCompatibility::Unsupported { found } => {
+                // A parsed structure is not automatically a schema we understand.
+                // In particular, historical development files can contain an
+                // explicit `version: 0`, while the first defined schema is v1.
+                // Preserve those bytes exactly as we do a future-version save.
+                warn!(
+                    target: "ambition_platformer2d::save",
+                    "save file {} declares unsupported version {found}; this build \
+                     supports save versions {PRE_VERSIONING_SAVE_VERSION} through \
+                     {CURRENT_SAVE_VERSION}. Starting with a fresh sandbox and \
+                     leaving the file untouched. Rename or delete {} and restart \
+                     to allow saving again",
+                    path.display(),
                     path.display(),
                 );
                 LoadedSave::preserve()
@@ -541,6 +560,53 @@ mod tests {
             on_disk_before,
             "an older build overwrote a save it could not understand — the \
              player's progress in the newer build is gone"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A syntactically valid file with an unsupported schema is no more reason
+    /// to abort startup than a corrupt file. The session gets a fresh save, the
+    /// unknown bytes stay untouched, and writes remain disabled until the user
+    /// moves the incompatible file out of the way.
+    #[test]
+    fn an_unsupported_save_never_blocks_startup_or_gets_overwritten() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("unsupported_version");
+        let path = save_path_under(&root);
+        let mut unsupported = AmbitionGameSaveData::default();
+        unsupported.version = 0;
+        unsupported.set_flag("old_progress", true);
+        write_save(&path, &unsupported).unwrap();
+        let on_disk_before = fs::read_to_string(&path).unwrap();
+
+        std::env::set_var("AMBITION_DATA_DIR", &root);
+        let mut app = App::new();
+        app.init_resource::<AmbitionGameSave>()
+            .init_resource::<crate::settings::UserSettings>()
+            .add_plugins(crate::PersistenceSchedulePlugin);
+
+        // This update runs the real startup loader. The regression was a
+        // debug_assert inside migration that panicked here on `version: 0`.
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<AmbitionGameSave>().data(),
+            &AmbitionGameSaveData::default(),
+            "an unsupported save should yield a playable fresh session"
+        );
+        assert!(
+            !app.world().resource::<SaveFileWritable>().0,
+            "the fresh fallback must not overwrite bytes from an unknown schema"
+        );
+
+        touch_save(&mut app, "wandered_around");
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            on_disk_before,
+            "the unsupported save was overwritten after startup fallback"
         );
         let _ = fs::remove_dir_all(&root);
     }

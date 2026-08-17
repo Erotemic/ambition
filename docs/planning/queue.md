@@ -936,9 +936,24 @@ before it was written down.
 `central_hub_main` carries a SIGN whose text is a developer note —
 *"LDtk-authored central_hub_complex: hub chunk, doors, and continuous basement"*
 — rendered large and centred where `intro_wake_room` shows *"creator's basement
-lab"*. ⭐ **it is the only one**: scanning every `text` field in every `.ldtk`
-gives 268 sign texts and exactly ONE that reads as a dev note, so this is a
-single bad string and not a content-hygiene problem.
+lab"*. ⭐ **it is the only one**, and establishing that took two passes:
+
+```text
+134 sign texts (268 across the two asset copies, which are duplicates)
+ 43 match a "looks like a dev note" pattern
+  1 actually is
+```
+
+⛔⛔ **the other 42 are an AUTHORED HOUSE STYLE and I nearly filed them.** This
+game is about an AI in a lab, and its signage speaks that way on purpose —
+`// PERIMETER BREACH — TWO HEADINGS`, `// 'this one isn't on the manifest'`,
+`[scanner beam]`, `MAP_WATCHED: low route observed`. A regex looking for `//`,
+`[…]` and `SCREAMING_CASE:` finds the voice, not a defect.
+
+⭐ **the discriminator, worth keeping**: a dev note talks about the AUTHORING
+ARTIFACT — LDtk, chunks, levels — while diegetic text talks about the FICTION.
+*"LDtk-authored central_hub_complex: hub chunk"* fails that test and nothing
+else does.
 
 ▢ **left for Jon rather than fixed**, for two reasons: replacing it means
 WRITING player-facing prose for the hub, which is his voice to choose; and a

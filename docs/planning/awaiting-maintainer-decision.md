@@ -107,6 +107,33 @@ survives 47.8s, depth 12 survives 7.4s.** The L3 rollout is enabled
 automatically at level ≥ 6, so the upper half of the ladder is the half that
 self-destructs fastest.
 
+⛔⛔ **HALF OF THIS IS FALSIFIED BY A PHOTOGRAPH — 2026-08-17.** The claim above
+is *"they never hit each other"*, evidenced as **peak 0.84% damage**. A capture
+of a live two-CPU match this morning shows:
+
+```text
+George Booul     180%   ·  3/3 stocks
+Pirate Admiral   124%   ·  3/3 stocks
+```
+
+⇒ **the CPUs now hit each other constantly.** That is not a mystery: the
+measurement predates D155 (every authored `launch_dir` was inverted and a
+tumbling launch resolved as a landing), D114 (hitlag reached only the avatar
+road, so a CPU-versus-CPU hit froze nobody) and D157. Damage was landing all
+along; almost nothing about it worked.
+
+⚠ **the OTHER half is untested and is the part that mattered** — whether a
+level-9 duelist still walks off the stage, and whether `rollout_depth` still
+inverts the ladder (depth 0 survived 47.8 s, depth 12 survived 7.4 s). Nothing
+since has touched the decision model, so the finding is *plausibly* intact — but
+the rig that produced it was measuring a fighter that could not deal damage, and
+a search that now has real hits to weigh may choose differently.
+
+▢ **re-run the A/B before designing around it.** It is the same rig, and the
+numbers above are the ones to beat. ⚠ the 3/3 stocks in that capture are also a
+data point in the other direction: at 180% neither had died to anything, itself
+included.
+
 ⇒ engine-side this is a decision-model investigation (a twelve-tick search is
 choosing to leave the stage), and it blocks ladder calibration entirely. The
 question for you is priority: is CPU quality on the path to what Smash is for,

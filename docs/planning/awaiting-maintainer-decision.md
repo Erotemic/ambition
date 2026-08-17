@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 11
+## Open decisions — 13
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -169,6 +169,18 @@ should not invent one.
 **471 tests are hidden behind features in eight crates, nothing runs them
 automatically, and every one of them is green today.** So this is a question
 about future regressions, and the price is small but not zero.
+
+⭐⭐ **NARROWED 2026-08-17 by D160, which changed the premise.** The project gate
+now runs `cargo test --workspace --lib`, so **every crate's BARE lib suite is
+watched** — that half of "nothing runs them automatically" is no longer true.
+⇒ **what stays unwatched is only the WITH-FEATURES DELTA**, which is what the
+table below actually measures: `ambition_input` 54 → 115, `ambition_audio`
+25 → 64, `ambition_touch_input` 4 → 45. ⚠ note the delta is where the interesting
+tests live — a crate whose bare suite is 4 and whose real suite is 45 is being
+watched at under a tenth of its coverage.
+
+⇒ so the decision is now the smaller one: **is the feature-gated delta worth a
+second gate pass, and if so which features?** — not "should anything run at all".
 
 `scripts/feature_gated_tests.py` says 24 crates hide 629 tests. Eight were run
 explicitly at HEAD:

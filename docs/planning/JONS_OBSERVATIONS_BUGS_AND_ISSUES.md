@@ -141,6 +141,9 @@
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
 
 
-*  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.                           
+*  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.
+  * ✔ The F half does NOT reproduce on the keyboard preset — pressed it against a live Door and the room changed: `capture_scene pirate_cove 0,0 out.png 1280x720 --warmup 90 --press f` logs `room-transition begin pirate_cove -> central_hub_complex` then `room-loaded`.
+  * ⊙ So if it still fails for you it is the gamepad or a saved rebind, not the door — say which you were using.
+  * ▢ The emmy sprite half is untouched.                           
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 

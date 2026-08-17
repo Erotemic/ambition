@@ -6,6 +6,19 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
+⭐ **Every row re-checked against the tree on 2026-08-17.** Two closed (12: the
+submodule pushes fine; 13: the policy suite is green AND now runs in CI), and
+five had moved without anyone noticing — 1 is half-landed, 5's headline is
+falsified by a capture and re-measured by its own rig, 8's fork was decided and
+pinned by the D146 campaign, 9 was narrowed by D160, 11 is two-thirds executed.
+⛔ **6 is the one that needs you most**: a landed fix took the option that row
+tells us not to take.
+
+⚠ **the same items also live in
+[`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)**
+and the two files did not reference each other, so a settled decision kept
+reading there as an unfixed bug. Cross-links added for 1, 4 and 7.
+
 ## Open decisions — 11
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)

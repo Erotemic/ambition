@@ -5,6 +5,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
+use super::allegiance::ProjectileAllegiance;
 use super::diagnostics::log_press_diagnostics;
 use super::entity::{LiveProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq};
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
@@ -28,15 +29,21 @@ const PROJECTILE_REFLECT_SPEED_SCALE: f32 = 1.3;
 const PARRY_HEAL: i32 = 1;
 
 /// Body-generic projectile PARRY reflect: a timed shield RE-OWNS the shot to the
-/// parrying body (so its firer faction becomes the parrier's next tick → damage
-/// routes off the parrier, back at whoever it feuds with) and reverses+boosts the
-/// velocity. Re-owning — not flipping a faction label — is how a reflected shot
-/// becomes the parrier's attack now that damage is owner-driven. The SAME mechanic
+/// parrying body — both halves of that, the owner HANDLE and the
+/// [`ProjectileAllegiance`] the damage rule actually reads — and reverses+boosts
+/// the velocity. Re-owning is how a reflected shot becomes the parrier's attack
+/// now that damage is attribution-driven. The SAME mechanic
 /// for the player and any shielding actor (a possessed body, a mixed-faction
 /// duelist); the player's parry HEAL stays a player-facing reward at the call site
 /// (fable review 2026-07-02 §A10).
 ///
 /// # Combat ownership moves; the bolt's VOICE does not (H1/H7)
+///
+/// ⭐ **the allegiance is REWRITTEN, not dropped.** The shot's side is a stamp it
+/// carries (D150), so a parry is the one thing entitled to overwrite it: this is
+/// the parrier's bolt now. Before the stamp existed the re-own worked by making
+/// the next tick's owner LOOKUP find a different body, which is the same mechanism
+/// that lost the shot's allegiance entirely when a firer died.
 ///
 /// The re-own above is a combat fact: damage now routes off the parrier's faction.
 /// It deliberately does NOT re-stamp `BodyPresentationSource`, so the shot's impact
@@ -54,13 +61,14 @@ fn reflect_parried_shot(
     proj_entity: Entity,
     kin: &mut BodyKinematics,
     parrier: Entity,
+    parrier_allegiance: ProjectileAllegiance,
     parrier_source: Option<&ambition_sfx::PresentationSourceId>,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
 ) {
     commands
         .entity(proj_entity)
-        .insert(ProjectileOwner(parrier));
+        .insert((ProjectileOwner(parrier), parrier_allegiance));
     kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
     sfx.write_for_body(
         parrier_source,
@@ -408,6 +416,10 @@ pub fn step_projectiles(
             &mut BodyKinematics,
             &mut ProjectileGameplay,
             Option<&ProjectileOwner>,
+            // D150: the shot's OWN side of the fight, stamped the first tick it
+            // flies and read every tick after. `None` only for a bolt that has
+            // never had a living owner to freeze — a genuinely ownerless volley.
+            Option<&ProjectileAllegiance>,
             Option<&ProjectileOwnerId>,
             &ProjectileSeq,
             Option<&crate::projectile::ProjectileKind>,
@@ -527,16 +539,27 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, _, seq, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, _owner_id, _, kind, visual_id, bolt_source)) =
-            projectiles.get_mut(proj_entity)
+        let Ok((
+            _,
+            mut kin,
+            mut game,
+            owner,
+            stamped_allegiance,
+            _owner_id,
+            _,
+            kind,
+            visual_id,
+            bolt_source,
+        )) = projectiles.get_mut(proj_entity)
         else {
             continue;
         };
+        let stamped_allegiance = stamped_allegiance.cloned();
         let bolt_source = bolt_source.map(|source| source.id().clone());
         // Named kind for player shots (None for kind-less enemy volleys).
         let kind = kind.copied();
@@ -548,23 +571,54 @@ pub fn step_projectiles(
             .and_then(|id| visual_catalog.get(id))
             .and_then(|art| art.expiry_vfx);
         let owner_entity = owner.map(|o| o.0);
-        // The firer's real faction — the OWNER's, not the shot's stored label.
-        // `None` = OWNERLESS (a truly ownerless volley, or a shot whose firer
-        // despawned mid-flight): there is no one to be friendly to, so it becomes
-        // INDISCRIMINATE — environmental damage that hurts every body it overlaps,
-        // friend or foe. A Player-faction firer's shot is the player's universal
-        // attack (hits breakables/actors/bosses); any other firer's shot is hostile
-        // (damages the player + relational foes).
         let owner_combat_data = owner_entity.and_then(|e| owner_combat.get(e).ok());
-        let firer_faction: Option<ActorFaction> = owner_combat_data.map(|(f, _, _)| *f);
-        let firer_team: Option<&ambition_combat::targeting::MatchTeam> =
-            owner_combat_data.and_then(|(_, _, team)| team);
+        // **The shot's side, CARRIED BY THE SHOT** (D150). Stamped the first tick
+        // this bolt is stepped and read on every tick after, so the answer stops
+        // depending on whether the firer is still resident.
+        //
+        // ⛔⛔ **it used to be re-derived every tick from the owner ENTITY, and a
+        // miss was read as "ownerless" — which this loop treats as INDISCRIMINATE,
+        // "there is no one to be friendly to".** That is the right reading for an
+        // environmental volley and a disaster for a fighter's bolt: a stocks
+        // ruleset DESPAWNS a fighter who spends their last stock
+        // (`take_eliminated_fighters_out_of_play`), so the tick after they lost,
+        // their shot in flight turned on their own team. A shot does not become
+        // neutral because the body that fired it stopped being resident.
+        //
+        // ⚠ **freezing is not memoising a lookup** — the stamp is the AUTHORITY
+        // from here on, which is what lets a parry deliberately REWRITE it
+        // (`reflect_parried_shot`) instead of reaching for whoever the owner
+        // handle now points at. It is registered rollback state for the same
+        // reason: after a rewind past the firer's death there is nothing left to
+        // re-derive it from.
+        let allegiance: Option<ProjectileAllegiance> = match stamped_allegiance {
+            Some(stamped) => Some(stamped),
+            // First sight. A shot always takes flight while its firer lives, so
+            // this is the tick the fact is still there to be frozen.
+            None => {
+                let fresh = owner_combat_data.map(|(faction, _, team)| ProjectileAllegiance {
+                    faction: *faction,
+                    team: team.cloned(),
+                });
+                if let Some(fresh) = fresh.clone() {
+                    commands.entity(proj_entity).insert(fresh);
+                }
+                fresh
+            }
+        };
         // The firer's personal grudge — the per-entity damage override (a duelist's
         // shot lands on the rival it feuds with even at the same faction).
+        //
+        // ⚠ deliberately NOT frozen onto the shot beside the allegiance: a grudge
+        // is a feud the firer holds *now*, not a side the shot was launched on,
+        // and a body that no longer exists is not feuding with anybody.
         let firer_grudge: Option<Entity> = owner_combat_data
             .and_then(|(_, agg, _)| agg)
             .and_then(|a| a.grudge);
-        let indiscriminate = firer_faction.is_none();
+        // No allegiance at all ⇒ a bolt that never had a living owner: a truly
+        // ownerless volley, environmental damage that hurts every body it
+        // overlaps, friend or foe.
+        let indiscriminate = allegiance.is_none();
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
@@ -626,11 +680,11 @@ pub fn step_projectiles(
                 // The plain `damage_lands` this used to call cannot see a match
                 // at all — see the note on `owner_combat` above.
                 let can_hit = indiscriminate
-                    || firer_faction.is_some_and(|f| {
+                    || allegiance.as_ref().is_some_and(|side| {
                         ambition_combat::targeting::damage_lands_between(
-                            f,
+                            side.faction,
                             victim.effective_faction(),
-                            firer_team,
+                            side.team(),
                             victim.team,
                             friendly_fire,
                             firer_grudge,
@@ -675,6 +729,14 @@ pub fn step_projectiles(
                         proj_entity,
                         &mut kin,
                         victim.entity,
+                        // The parrier's side, written OVER the firer's: this is
+                        // the parrier's bolt now. Authored faction, the same one
+                        // the firer's stamp freezes, so the two sides of the
+                        // re-own are the same question asked the same way.
+                        ProjectileAllegiance {
+                            faction: *victim.faction,
+                            team: victim.team.cloned(),
+                        },
                         victim.voice.map(ambition_sfx::BodyPresentationSource::id),
                         &mut sfx,
                         &mut vfx,
@@ -868,6 +930,10 @@ mod parry_tests {
                 proj,
                 &mut kin,
                 parrier.0,
+                ProjectileAllegiance {
+                    faction: ActorFaction::Player,
+                    team: None,
+                },
                 parrier_source.as_ref(),
                 &mut sfx,
                 &mut vfx,
@@ -970,6 +1036,20 @@ mod parry_tests {
             .get::<ProjectileOwner>(proj)
             .expect("the parried shot is re-owned to the parrier");
         assert_eq!(owner.0, parrier, "re-owned to the body that parried it");
+        // ⭐ **and the SIDE moves with the handle** (D150). The shot's allegiance
+        // is a stamp it carries, so the re-own has to overwrite it deliberately —
+        // before the stamp existed, changing the owner handle was the whole
+        // mechanism, and that is the same mechanism that lost a shot's side when
+        // its firer died.
+        assert_eq!(
+            world.get::<ProjectileAllegiance>(proj),
+            Some(&ProjectileAllegiance {
+                faction: ActorFaction::Player,
+                team: None,
+            }),
+            "the parry REWRITES the shot's side; a re-own that only moved the \
+             entity handle would leave it fighting for whoever fired it"
+        );
         let kin = world.get::<BodyKinematics>(proj).unwrap();
         assert_eq!(
             kin.vel,

@@ -1115,8 +1115,9 @@ needs, and the `.loop` rows are the proof the override arm is not speculative.
    on `VfxMessage` after a move event would see nothing once the write becomes an
    `FxRequest`. Inventory those fixtures before switching the arm.
 
-- ▢ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
-  finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect)**
+- ✔ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
+  finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect) —
+  PROBED RED AND CLOSED 2026-08-17**
 
 Not introduced by D145; D145 touched this authority boundary and left the hole.
 Allegiance is reconstructed EVERY TICK by querying the firing `Entity`, and the
@@ -1133,6 +1134,38 @@ was I on — independent of owner-body lifetime, with reflection able to rewrite
 deliberately. ⭐ this is the same occurrence-vs-entity distinction D125 is
 already working through. ⚠ do this before four-player/team matches are showcase
 material.
+
+⭐⭐ **REPRODUCED, then closed.** The probe is
+`a_shot_outlives_its_firer_without_changing_sides` — two bolts from one seated
+fighter, one aimed at a teammate and one at an opponent, the firer despawned
+between the first step and the rest. It failed on the line it exists for: *"the
+orphaned shot turned on its firer's own team."* Not a reading about the reader.
+
+⭐ **and the shot's PRESENTATION half already had the answer.**
+`inherit_projectile_presentation_sources` says it in as many words — *"the bolt
+is the emitter … it routinely outlives the body that fired it. So the source is
+STAMPED at spawn rather than looked up at impact"* — so the fix is that same
+stamp for the other question: `ProjectileAllegiance { faction, team }`, frozen
+onto the bolt the first tick it flies, authoritative from then on, registered
+rollback state (`projectile.allegiance`) because after a rewind past the firer's
+death there is nothing left to re-derive it from.
+
+⚠ two deliberate NOTs. The **grudge** is not frozen — a feud is something the
+firer holds now, not a side the shot launched on — and the **faction** stamped is
+the authored one, exactly what the owner lookup read, so this changes a LIFETIME
+and not a rule. The parry re-own now rewrites the stamp beside the owner handle
+(pinned in `reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity`);
+moving only the handle would have left a reflected bolt fighting for whoever
+fired it.
+
+⚠ the component lives in `…actor_monolith/src/projectile/allegiance.rs` and NOT
+in the model crate: `engine.ambition_projectiles-manifest-deny` forbids
+`ambition_combat` / `ambition_characters` there, so the two materializers cannot
+stamp it and the stepper freezes it on first sight instead. **The residue**: a
+firer who dies in the window between materialization and the bolt's first step
+leaves it unstamped forever. Closing that means stamping at birth, which means
+either an observer or moving the vocabulary — neither worth building for a
+one-tick coincidence, and named here rather than discovered.
 
 - ▢ **D151 — `MatchAbilities`' `None → permitted` BRIDGE MAKES PERMISSION INTO A
   GRANT. (review finding 5, MEDIUM, retire the bridge)**

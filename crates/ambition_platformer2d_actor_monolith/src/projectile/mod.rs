@@ -18,6 +18,14 @@
 
 pub use ambition_projectiles::*;
 
+/// The shot's own combat side. Lives HERE rather than in the model crate because
+/// it is built from combat vocabulary (`ActorFaction` / `MatchTeam`) that
+/// `ambition_projectiles` is forbidden to link — the boundary that keeps the
+/// projectile model content-free is the same boundary that puts this component
+/// beside the stepper that reads it.
+mod allegiance;
+pub use allegiance::ProjectileAllegiance;
+
 pub mod systems;
 pub use systems::{charge_projectile_input, step_projectiles, ProjectileStepSet};
 

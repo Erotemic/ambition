@@ -422,6 +422,111 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     );
 }
 
+/// **A SHOT IN FLIGHT DOES NOT CHANGE SIDES WHEN ITS FIRER DIES (D150).**
+///
+/// The four-fighter case the queue names: a fighter fires, loses their final
+/// stock, and the ruleset takes the body out of play —
+/// `ambition_demo_smash::take_eliminated_fighters_out_of_play` DESPAWNS it, and
+/// says why in as many words. The bolt is still in the air.
+///
+/// Allegiance used to be reconstructed every tick by querying the firing
+/// `Entity`, so the tick after that despawn the lookup failed and the shot fell
+/// into the OWNERLESS arm — "there is no one to be friendly to", indiscriminate
+/// environmental damage. It turned on its own team.
+///
+/// ⭐ **the presentation half of this shot already knew better.**
+/// `inherit_projectile_presentation_sources` says it outright: *"the bolt is the
+/// emitter … it routinely outlives the body that fired it. So the source is
+/// STAMPED at spawn rather than looked up at impact."* The combat half was the
+/// one that kept asking who was still standing.
+///
+/// Two shots, two victims, so neither assertion depends on victim iteration
+/// order: an indiscriminate shot despawns on the FIRST body it strikes, so a
+/// single shot overlapping both bodies would spare the teammate half the time.
+///
+/// The second assertion is the poison: a "fix" that makes an orphaned shot hit
+/// NOBODY satisfies the first one and is equally wrong.
+#[test]
+fn a_shot_outlives_its_firer_without_changing_sides() {
+    use ambition_combat::targeting::MatchTeam;
+
+    let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+
+    let firer = app
+        .world_mut()
+        .spawn((
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let teammate_pos = ae::Vec2::new(300.0, 100.0);
+    let opponent_pos = ae::Vec2::new(300.0, 300.0);
+    let teammate = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("same_team_fighter"),
+            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 1"),
+        ))
+        .id();
+    let opponent = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("seat_two_fighter"),
+            crate::features::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorFaction::Player,
+            MatchTeam::new("seat 2"),
+        ))
+        .id();
+
+    // Both bolts start well short of their target, so they are genuinely IN
+    // FLIGHT — the firer is alive for the first step and dead for the rest.
+    spawn_owned_glider(&mut app, teammate_pos - ae::Vec2::new(150.0, 0.0), firer);
+    spawn_owned_glider(&mut app, opponent_pos - ae::Vec2::new(150.0, 0.0), firer);
+    app.update();
+    assert!(
+        app.world().resource::<CapturedHits>().0.is_empty(),
+        "the fixture is wrong: something was already in range on the firer's last tick"
+    );
+
+    // The final stock is spent; the ruleset takes the body out of play.
+    app.world_mut().despawn(firer);
+
+    // ⛔ `app.update()` is not a tick of sim time — loop on the property (every
+    // bolt resolved) with a ceiling. 150 px at 200 px/s is ~45 ticks; the
+    // 2 s lifetime retires an unspent bolt at 120.
+    let mut live_projectiles = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+    for _ in 0..240 {
+        if live_projectiles.iter(app.world()).next().is_none() {
+            break;
+        }
+        app.update();
+    }
+
+    let cap = app.world().resource::<CapturedHits>();
+    let hit = |who: Entity| {
+        cap.0.iter().any(|e| {
+            matches!(e.source, HitSource::Projectile)
+                && e.target == crate::features::HitTarget::Body(who)
+        })
+    };
+    assert!(
+        !hit(teammate),
+        "the orphaned shot turned on its firer's own team — allegiance evaporated \
+         with the body instead of being carried by the bolt"
+    );
+    assert!(
+        hit(opponent),
+        "the orphaned shot hit nobody at all, which is the other way to get this \
+         wrong: it is still that fighter's attack, aimed at that fighter's foes"
+    );
+}
+
 /// A shot owned by `firer`, overlapping `pos`. Like
 /// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
 /// what is under test is a fact about the owner (its team).

@@ -72,6 +72,20 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "projectile.enemy_marker",
         )
+        // **Whose attack this bolt is** (D150). The type lives in the actor
+        // crate, not `ambition_projectiles`, because it is built from combat
+        // vocabulary the projectile model is forbidden to link — the domain is
+        // still the projectile's, which is why the registration is here.
+        //
+        // ⚠ **not derivable on resimulation, and that is the point.** The stamp
+        // is taken from the firing body the first tick the shot flies; rewind
+        // past a firer's elimination and the body it was read from does not
+        // exist to be read again. Restoring the bolt without it restores a shot
+        // that has forgotten whose side it is on — indiscriminate, landing on
+        // its own team.
+        .rollback_component_canonical::<
+            ambition_platformer2d_actor_monolith::projectile::ProjectileAllegiance,
+        >(OWNER, "projectile.allegiance")
         // ⚠ `projectile.gameplay` stays central: its type is
         // `ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay`, which
         // belongs to the primitives crate rather than this domain. Moving a

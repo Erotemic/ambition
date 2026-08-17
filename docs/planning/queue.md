@@ -842,6 +842,46 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D163 — THE LDtk VALIDATOR'S WARNINGS HOLD THREE REAL CONTENT DEFECTS, AND
+  ITS ERRORS ARE ALL NOISE, WHICH IS WHY NOBODY READS EITHER. (opened
+  2026-08-17)**
+
+⭐ found by actually running it — `PYTHONPATH=tools/ambition_ldtk_tools python3 -m
+ambition_ldtk_tools validate game/ambition_content/assets/worlds/sandbox.ldtk`.
+Its 4 `error:` lines are false positives (see the note above); its **warnings are
+not**.
+
+⛔⛔ **1. `pirate_sky_lookout` SPAWNS FOUR ENEMIES TWICE — verified in the file,
+not inferred from the warning.** Ten `EnemySpawn` entities, four of them at
+pixel-identical positions:
+
+```text
+[192, 240]  ×2      [560, 160]  ×2
+[960, 240]  ×2      [720, 320]  ×2      ⇒ 10 spawns, 6 distinct
+```
+
+⇒ that room fields **four extra enemies stacked exactly on top of four
+existing ones**, so its difficulty is not what anyone authored. ⚠ the two ids run
+in separate ranges (`44xx` and `68xx`), which is the signature of an editor
+session duplicating a selection — the same family as the EntityRef nulling this
+project already tracks. **Count entities after an editor session, not just refs.**
+
+⚠ **2. `portal_lab` has no floor.** *"no `Solid` blocking the bottom edge and no
+`EdgeExit` on that side; the controlled body can leave the world."* A room the
+player falls out of.
+
+⚠ **3. `SurfaceRamp` has no editor definition** — `defs.entities` is missing it,
+so a supported engine entity cannot be PLACED by an author. Fix is the tool's own
+`ambition-ldtk def register-entity`.
+
+⚠ plus two known: `gnu_ton_arena`'s EnemySpawn/BossSpawn overlap, and
+`sanic_sandbox`'s half-tile Y origin (D162 item 3).
+
+⇒ **the row is the pattern, not the three items**: 30 error lines that are all
+noise sit above 8 warnings of which three are real, so the signal-to-noise runs
+the wrong way and the tool is not in any gate. ⛔ fix the `.ldtk` files only
+through `tools/ambition_ldtk_tools` — never re-serialise the JSON.
+
 - ▢ **D162 — EVERY BOOT PRINTS FOUR WARNINGS AND NOBODY HAS TRIAGED THEM, which
   is how a log stops being read. (opened 2026-08-17, from capture output)**
 

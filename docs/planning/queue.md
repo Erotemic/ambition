@@ -791,6 +791,58 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D161 — A LOADING ZONE PRINTS ITS AUTHORING ID AT THE PLAYER, and the same
+  frame shows the game already knows how to do it properly. (opened 2026-08-17,
+  found by CAPTURE of `intro_wake_room` — the flagship's OPENING room)**
+
+⭐⭐ **the contrast is in ONE frame**, which is what makes this a defect rather
+than a taste question:
+
+```text
+→ corridor            ← authored prose, player-facing, correct
+wake_room_arrival     ← an authoring id, printed under the robot
+wake_to…              ← an authoring id, printed CLIPPED at the top-right corner
+```
+
+All three are loading-zone labels in `intro_wake_room`. A player's first screen
+in Ambition shows two internal identifiers.
+
+**Where it comes from** — `spawn_loading_zone` in
+`crates/ambition_render/src/rendering/world.rs`, which branches on activation:
+
+```text
+activation == Door   → DoorNameplateSource(zone.id, zone.name, aabb)   proximity-gated
+otherwise            → spawn_world_label(… &zone.name …)               UNCONDITIONAL
+```
+
+⇒ both roads render **`zone.name`**, and a zone's name is a LEVEL-AUTHORING
+identifier, not prose. Nothing anywhere asks whether the string is fit to show a
+player.
+
+**Measured population** (parsing every `.ldtk` under `game/ambition_content` and
+`game/ambition_map_assets`):
+
+```text
+loading zones carrying a name          302
+name is snake_case, i.e. an id         260   (86%)
+of those, NOT Door ⇒ printed always     38
+```
+
+⚠ **so this is not one bad level.** It reads as a debug affordance that was
+never gated, and the `→ corridor` label in the same room proves the
+authored-prose road already exists.
+
+▢ **the fix is a question about ownership, not a patch**: a zone wants a
+player-facing label DISTINCT from its id, and absent one it should draw nothing.
+⛔ do not "prettify" the id by swapping underscores for spaces — that
+manufactures prose the author never wrote, and `wake_to_raid` has no good
+rendering.
+
+⚠ second, smaller thing in the same frame: the clipped `wake_to…` sits in the
+HUD band at the top-right and is cut by the viewport, so a world label can leave
+the world area entirely. Worth checking against D159's pass, which now owns
+world-label placement.
+
 - ✔ **D157 — CLOSED 2026-08-16. MARY-O HAD HER WHOLE SMASH MOVESET IN HER
   PLATFORMER. The ability gate did not exist, and a test that reported it was
   overruled. (Jon, PLAYING)**

@@ -785,15 +785,15 @@ pub fn build_actor_moveset(
     }
 }
 
-/// Equip one [`EquipmentRow`] onto a body, returning the rebuilt
+/// Equip one [`crate::equipment::EquipmentRow`] onto a body, returning the rebuilt
 /// [`MovesetContract`] when — and only when — the row actually changed what the
 /// body can do.
 ///
 /// This is the A3 equip contract, and the split it encodes is the point: an
 /// equipment row is either
 ///
-/// - **read-time only** (no [`EquipmentGrant`]s — a grow-cap, an armor plate, a
-///   damage-scaling flower): it lands in [`WornEquipment`] and nothing else moves.
+/// - **read-time only** (no [`crate::equipment::EquipmentGrant`]s — a grow-cap, an armor plate, a
+///   damage-scaling flower): it lands in [`crate::equipment::WornEquipment`] and nothing else moves.
 ///   Its effect is folded at the moment it matters, by
 ///   [`resolved_ranged`](crate::equipment::resolved_ranged) and
 ///   friends. Rebuilding a moveset for it would be pure churn, so this returns

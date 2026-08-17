@@ -59,7 +59,8 @@ fn normalized_facing(facing: f32) -> f32 {
 }
 
 /// Combat-side faction tag (OVERNIGHT-TODO #17.2/17.3 — shared actor
-/// facets). Distinct from [`ActorDisposition`]: disposition is the
+/// facets). Distinct from `ActorDisposition` (`ambition_combat`, which this
+/// crate sits BELOW and cannot link to): disposition is the
 /// per-tick hostility flag NPCs can toggle into (a guide can become
 /// `Hostile` when struck); faction is the structural "which side
 /// owns this actor" tag that damage routing, projectile hit policy,

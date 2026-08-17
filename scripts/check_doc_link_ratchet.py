@@ -53,6 +53,14 @@ CRATES = [
     "ambition_characters",
     "ambition_platformer2d_core",
     "ambition_combat",
+    # ⛔⛔ **A CARVE CAN LAUNDER DEBT OFF THIS LEDGER, and one just did.** D33
+    # step 2 moved `conversation` out of the monolith into its own crate, and
+    # the monolith's count fell 122 → 109 — thirteen broken links that did not
+    # get FIXED, they got RE-HOMED into a crate this list did not name. Banking
+    # 109 without this line would have recorded a 13-link improvement nobody
+    # earned. ⇒ **when a carve leaves one of these crates, the destination joins
+    # the list in the same commit.**
+    "ambition_conversation",
 ]
 
 # rustdoc's two shapes for this class.

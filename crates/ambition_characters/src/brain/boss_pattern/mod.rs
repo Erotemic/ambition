@@ -7,7 +7,8 @@
 //! [`tick_boss_pattern`] turns [`BossPatternCfg`] + [`BossPatternState`] +
 //! [`BossPatternContext`] into an [`crate::actor::control::ActorControlFrame`]
 //! plus [`BossAttackIntent`]. The matching move owns the execution timeline and
-//! projects [`BossAttackState`]. The boss tick is separate from [`BrainSnapshot`]
+//! projects [`BossAttackState`]. The boss tick is separate from
+//! [`crate::brain::BrainSnapshot`]
 //! because bosses need encounter phase, arena bounds, spawn anchors, and other
 //! boss-specific context that should not bloat every actor snapshot.
 //!

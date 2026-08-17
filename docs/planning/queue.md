@@ -954,6 +954,33 @@ gate is a point radius and the thing that collides is a wide box. (2) a
 fighter's world NAME LABEL prints through the lowest bubble; the label and the
 bubble do not know about each other at all.
 
+- ▢ **D159 — TEXT STILL PRINTS THROUGH TEXT, TWICE, FOR TWO REASONS NEITHER OF
+  WHICH WAS D158. (found by the same capture, 2026-08-17)**
+
+⭐ **promoted out of D158's closed row so an open marker points at them.** D158
+fixed bubble-vs-bubble stacking; these two survived it and are visible in the
+verification frame.
+
+**(1) THE GATE IS A POINT AND THE THING THAT COLLIDES IS A BOX.**
+`speech_bubbles_should_stack` compares CENTRES against
+`SPEECH_BUBBLE_STACK_X_RANGE` = 160, but a taunt renders **~336 world units
+wide**. So two speakers 202 apart in x are judged "not stacking" and their lines
+overlap horizontally anyway. ⇒ the range wants to be the rendered WIDTH of the
+two lines, not a fixed radius — and the width is knowable, because the text is
+what is being laid out.
+
+**(2) A FIGHTER'S NAME LABEL PRINTS THROUGH THE LOWEST BUBBLE.** They are two
+separate presentation systems that do not know about each other, so no amount of
+bubble-vs-bubble stacking can see it. ⚠ visible in `target/d158/match.png` — the
+"George Booul" label sits inside *"Either you are on the stage or you are not."*
+
+⚠ **both are the SAME SHAPE as D158's real cause**, which is why they are one
+row: a layout rule measured in the wrong quantity. D158 stacked by each
+speaker's own head instead of by WHERE THE TEXT LANDS; (1) gates on a point
+instead of the box that collides; (2) lays out one text system without knowing
+the other exists. ⇒ **whatever fixes these should ask what OCCUPIES SCREEN
+SPACE, rather than adding a third rule beside two.**
+
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
 

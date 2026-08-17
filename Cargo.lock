@@ -372,6 +372,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_time",
  "bevy",
+ "bevy_yarnspinner",
 ]
 
 [[package]]
@@ -582,6 +583,7 @@ name = "ambition_items"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_combat",
  "ambition_content_pack",
  "ambition_persistence",
  "bevy",
@@ -611,6 +613,11 @@ dependencies = [
 name = "ambition_menu"
 version = "0.1.0"
 dependencies = [
+ "ambition_input",
+ "ambition_persistence",
+ "ambition_platformer2d_ldtk",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_ui_nav",
  "bevy",
 ]
@@ -649,6 +656,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_content_pack",
+ "ambition_conversation",
  "ambition_cutscene",
  "ambition_dev_tools",
  "ambition_dialog",
@@ -709,7 +717,6 @@ dependencies = [
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
- "ambition_menu",
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_ldtk",
@@ -733,7 +740,6 @@ dependencies = [
  "bevy_framepace",
  "bevy_kira_audio",
  "bevy_math",
- "bevy_yarnspinner",
  "console_error_panic_hook",
  "image",
  "insta",
@@ -747,7 +753,6 @@ dependencies = [
  "tempfile",
  "virtual_joystick",
  "wasm-bindgen",
- "yarnspinner",
 ]
 
 [[package]]

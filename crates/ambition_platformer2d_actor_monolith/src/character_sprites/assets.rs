@@ -306,37 +306,37 @@ pub fn all_character_sprite_filenames_in(
 /// rather than silently resolving as something else.
 fn persistence_texture_scale(
     scale: SpriteTextureResolutionScale,
-) -> crate::persistence::settings::TextureResolutionScale {
+) -> ambition_persistence::settings::TextureResolutionScale {
     match scale {
         SpriteTextureResolutionScale::Potato => {
-            crate::persistence::settings::TextureResolutionScale::Potato
+            ambition_persistence::settings::TextureResolutionScale::Potato
         }
         SpriteTextureResolutionScale::Quarter => {
-            crate::persistence::settings::TextureResolutionScale::Quarter
+            ambition_persistence::settings::TextureResolutionScale::Quarter
         }
         SpriteTextureResolutionScale::Half => {
-            crate::persistence::settings::TextureResolutionScale::Half
+            ambition_persistence::settings::TextureResolutionScale::Half
         }
         SpriteTextureResolutionScale::Full => {
-            crate::persistence::settings::TextureResolutionScale::Full
+            ambition_persistence::settings::TextureResolutionScale::Full
         }
     }
 }
 
 fn sprite_texture_scale(
-    scale: crate::persistence::settings::TextureResolutionScale,
+    scale: ambition_persistence::settings::TextureResolutionScale,
 ) -> SpriteTextureResolutionScale {
     match scale {
-        crate::persistence::settings::TextureResolutionScale::Potato => {
+        ambition_persistence::settings::TextureResolutionScale::Potato => {
             SpriteTextureResolutionScale::Potato
         }
-        crate::persistence::settings::TextureResolutionScale::Quarter => {
+        ambition_persistence::settings::TextureResolutionScale::Quarter => {
             SpriteTextureResolutionScale::Quarter
         }
-        crate::persistence::settings::TextureResolutionScale::Half => {
+        ambition_persistence::settings::TextureResolutionScale::Half => {
             SpriteTextureResolutionScale::Half
         }
-        crate::persistence::settings::TextureResolutionScale::Full => {
+        ambition_persistence::settings::TextureResolutionScale::Full => {
             SpriteTextureResolutionScale::Full
         }
     }
@@ -739,7 +739,7 @@ pub fn build_prop_sprite_asset_packed(
     let scale = quality
         .filter(|q| q.sprites.prefer_scaled_variants)
         .map(|q| q.sprites.resolution_scale)
-        .unwrap_or(crate::persistence::settings::TextureResolutionScale::Full);
+        .unwrap_or(ambition_persistence::settings::TextureResolutionScale::Full);
     let tuning = base_spec.tuning();
     let (spec, tier) =
         sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;

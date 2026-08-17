@@ -207,7 +207,7 @@ pub fn apply_audio_environment(
     env: Res<AudioEnvironment>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
-    mut last: Local<Option<(crate::persistence::settings::AudioSettings, f32)>>,
+    mut last: Local<Option<(ambition_persistence::settings::AudioSettings, f32)>>,
 ) {
     let current_settings = settings.audio;
     let wetness = env.wetness;

@@ -11,6 +11,13 @@ description = "Conversation continuity: the rollback-owned ActiveConversation au
 # runtime's rollback registration, and the content crate's Yarn commands.
 crate-type = ["rlib"]
 
+[features]
+default = []
+# The Yarn runtime half of `dialog`: the binding-installer seam and the
+# bevy_yarnspinner bridge. Without it this crate is the conversation authority
+# alone. Mirrors `ambition_dialog`'s own `ui` feature.
+ui = ["dep:bevy_yarnspinner", "ambition_dialog/ui"]
+
 [dependencies]
 # `BodyCombat` (the hit that breaks a conversation) and `ScriptedControl` (the
 # body a conversation holds still).
@@ -46,3 +53,4 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "ui_api",
     "x11",
 ] }
+bevy_yarnspinner = { version = "0.8", optional = true }

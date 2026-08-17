@@ -11,6 +11,8 @@ crate-type = ["rlib"]
 
 [dependencies]
 ambition_characters = { path = "../ambition_characters" }
+# `equipment` derives a body's live moveset from its granted verbs.
+ambition_combat = { path = "../ambition_combat" }
 ambition_persistence = { path = "../ambition_persistence" }
 # The content compiler, OPTIONAL and default-OFF for the same §2e reason as
 # `ambition_characters`: a game that never validates its content must not link a

@@ -432,22 +432,30 @@ id = "game.lib-menu-no-host-files"
 scope = "game"
 kind = "forbidden-path"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/menu"]
+# the directory itself is gone (see `game.lib-menu-gone`), so the watch has to
+# name the parent that still exists — the forbidden paths below are unchanged
+# and now also cover the directory never coming back with these files in it.
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "lib menu should not regain app-host/backend menu files"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/model.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/dispatch.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/effects.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/grid_backend.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/kaleidoscope_app.rs", "crates/ambition_platformer2d_actor_monolith/src/menu/backend.rs"]
 
 [[policy]]
-id = "game.lib-menu-keeps-map"
+id = "game.lib-menu-gone"
 scope = "game"
-kind = "required-path"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/menu"]
-rationale = "lib menu keeps only map hydration/UI adapters"
+kind = "forbidden-path"
+owners = ["ambition_menu"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+# ⭐ this used to REQUIRE `src/menu/map` in the monolith ("lib menu keeps only
+# map hydration/UI adapters"). D33 (2026-08-17) moved that adapter into
+# `ambition_menu::map`, beside the `MapMenuState` it always rendered, so the
+# requirement became false and the guard had to change SIDES rather than be
+# deleted: the monolith now owns no menu at all.
+rationale = "the actor monolith owns no menu; the Map tab lives in ambition_menu::map"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/map"]
+paths = ["crates/ambition_platformer2d_actor_monolith/src/menu"]
 
 [[policy]]
 id = "game.app-menu-host-stack"
@@ -529,14 +537,14 @@ watch_paths = ["crates/ambition_menu/src"]
 rationale = "renderer-agnostic MapMenuState lives in ambition_menu::map"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_menu/src/map.rs"]
+paths = ["crates/ambition_menu/src/map/mod.rs"]
 
 [[policy]]
 id = "game.actor-menu-map-model-gone"
 scope = "game"
 kind = "forbidden-path"
 owners = ["ambition_menu"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/menu/map"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "actor-side map model facade deleted"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -561,7 +569,7 @@ id = "game.actor-menu-ir-gone"
 scope = "game"
 kind = "forbidden-path"
 owners = ["ambition_app"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/menu"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
 rationale = "actor-side settings/menu IR facade deleted"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"

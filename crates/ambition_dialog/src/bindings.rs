@@ -48,7 +48,7 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 /// definition sites that can disagree, which is the second-authority shape this
 /// project refuses elsewhere; the `flags` slice was exactly that and is gone. See
 /// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` and
-/// `ambition_platformer2d_actor_monolith::dialog::authored_conditions`.
+/// `ambition_conversation::dialog::authored_conditions`.
 ///
 /// ⚠ **what is left is the remainder, and it is legitimate.** Encounter/quest
 /// state, per-node visit counts, wallet and content `extras` have no published

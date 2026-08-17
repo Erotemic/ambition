@@ -7,7 +7,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use ambition_menu::map::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
+use super::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
 use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 
 const MAP_PANEL_WIDTH: f32 = 720.0;
@@ -192,7 +192,9 @@ struct RoomLabel {
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
     mut roots: Query<&mut Visibility, (With<MapMenuRoot>, Without<MinimapRoot>)>,
     mut minimap_roots: Query<&mut Visibility, (With<MinimapRoot>, Without<MapMenuRoot>)>,
     canvases: Query<Entity, With<MapMenuCanvas>>,

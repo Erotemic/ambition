@@ -1,5 +1,5 @@
 //! The renderer-agnostic settings + system menu IR (E1e carve out of
-//! `ambition_platformer2d_actor_monolith::menu::ir`).
+//! `ambition_menu`).
 //!
 //! - [`settings`] — the shared settings model (`SettingsMenuModel` /
 //!   `SettingsOption` / `settings_menu_model` / `apply_settings_option`), built

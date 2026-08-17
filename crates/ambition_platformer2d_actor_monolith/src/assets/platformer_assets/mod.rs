@@ -97,7 +97,7 @@ pub fn build_platformer2d_asset_catalog(
 
 pub fn scaled_asset_id(
     id: &ambition_asset_manager::AssetId,
-    scale: crate::persistence::settings::TextureResolutionScale,
+    scale: ambition_persistence::settings::TextureResolutionScale,
 ) -> Option<ambition_asset_manager::AssetId> {
     core::scaled_asset_id(id, scale.asset_id_suffix())
 }
@@ -177,16 +177,16 @@ fn sandbox_catalog_inputs_without_worlds(
 }
 
 fn texture_scale_variants() -> Vec<AssetScaleVariant> {
-    crate::persistence::settings::TextureResolutionScale::MANIFEST_VARIANTS
+    ambition_persistence::settings::TextureResolutionScale::MANIFEST_VARIANTS
         .iter()
         .filter_map(|scale| {
             Some(AssetScaleVariant {
                 asset_id_suffix: scale.asset_id_suffix()?,
                 sprite_subdir_suffix: match scale {
-                    crate::persistence::settings::TextureResolutionScale::Half => "0_5x",
-                    crate::persistence::settings::TextureResolutionScale::Quarter => "0_25x",
-                    crate::persistence::settings::TextureResolutionScale::Potato => "potato",
-                    crate::persistence::settings::TextureResolutionScale::Full => return None,
+                    ambition_persistence::settings::TextureResolutionScale::Half => "0_5x",
+                    ambition_persistence::settings::TextureResolutionScale::Quarter => "0_25x",
+                    ambition_persistence::settings::TextureResolutionScale::Potato => "potato",
+                    ambition_persistence::settings::TextureResolutionScale::Full => return None,
                 },
                 parallax_subdir: scale.parallax_subdir(),
             })

@@ -202,7 +202,7 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         "{context}: no gameplay dialog root",
     );
     assert_eq!(
-        count::<ambition_platformer2d::actors::menu::map::MapMenuRoot>(app),
+        count::<ambition_platformer2d::menu::map::MapMenuRoot>(app),
         0,
         "{context}: no gameplay map root",
     );

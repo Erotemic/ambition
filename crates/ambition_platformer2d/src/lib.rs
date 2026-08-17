@@ -150,6 +150,9 @@ pub use ambition_combat as combat;
 // crate; the umbrella is how a demo or the app reaches one domain crate without
 // declaring an edge to each.
 pub use ambition_boss_encounter as boss_encounter;
+// The conversation authority — and, under `ui`, the Yarn host glue that used to
+// sit in the monolith as `actors::dialog` (D33, 2026-08-17).
+pub use ambition_conversation as conversation;
 #[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
 pub use ambition_dev_tools as dev_tools;

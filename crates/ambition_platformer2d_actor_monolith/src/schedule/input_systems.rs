@@ -487,7 +487,7 @@ pub fn populate_control_frame_from_actions(
     // `find` below), so it asks the primary seat's context. Every other seat is
     // gated individually in `populate_secondary_slot_controls`.
     if !active_context.primary().gameplay_owned() {
-        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
+        dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }
@@ -496,7 +496,7 @@ pub fn populate_control_frame_from_actions(
     // (and the setting is on). Reset the dash edge too so the post-refocus re-press
     // starts clean, mirroring the pause path.
     if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
-        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
+        dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }
@@ -552,7 +552,7 @@ pub fn populate_control_frame_from_actions(
                 // While paused, suppress gameplay input AND reset the
                 // dash trigger state so the post-pause re-press starts
                 // from a clean Released edge.
-                dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
+                dash_state.edge = ambition_persistence::settings::TriggerEdgeState::default();
                 read_menu_control_frame(action_state)
             }
         }
@@ -570,7 +570,7 @@ pub fn populate_control_frame_from_actions(
 /// on its participant entity.
 #[cfg(feature = "input")]
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeState);
+pub struct SeatDashTriggerState(pub ambition_persistence::settings::TriggerEdgeState);
 
 /// **Every non-primary seat writes its OWN slot.** (C4 couch versus)
 ///
@@ -646,7 +646,7 @@ pub fn populate_secondary_slot_controls(
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state — the same rule the primary seat follows.
-            dash.0 = crate::persistence::settings::TriggerEdgeState::default();
+            dash.0 = ambition_persistence::settings::TriggerEdgeState::default();
             slots.set(slot, ControlFrame::default());
             // The latch is CLEARED rather than drained: a seat that has stopped
             // being driven must not hand a held direction to the tick after the

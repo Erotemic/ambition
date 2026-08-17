@@ -18,7 +18,6 @@
 //!   [`ambition_dialog::DialogState::active`]. This system maps "dialogue ended"
 //!   back onto `GameMode::Playing`.
 
-#[cfg(feature = "ui")]
 use bevy::prelude::*;
 
 /// Host-side dialogue bindings plugin: brings up the reusable binding
@@ -34,10 +33,8 @@ use bevy::prelude::*;
 /// forwards whatever authored dialogue asks to whichever domain published the
 /// answer. See that module for why one generic verb is not the same kind of
 /// thing as a vocabulary table.
-#[cfg(feature = "ui")]
 pub struct YarnBindingsPlugin;
 
-#[cfg(feature = "ui")]
 impl Plugin for YarnBindingsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_dialog::YarnBindingsPlugin);
@@ -94,16 +91,13 @@ impl Plugin for YarnBindingsPlugin {
     }
 }
 
-#[cfg(feature = "ui")]
 pub mod authored_conditions;
 
 /// Host-side dialogue bridge plugin: the reusable
 /// [`ambition_dialog::YarnBridgePlugin`] plus the [`sync_dialogue_game_mode`]
 /// coupling that maps the runtime's `active` flag onto Ambition's `GameMode`.
-#[cfg(feature = "ui")]
 pub struct YarnBridgePlugin;
 
-#[cfg(feature = "ui")]
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_dialog::YarnBridgePlugin);
@@ -115,7 +109,6 @@ impl Plugin for YarnBridgePlugin {
 /// `GameMode`. Entering `Dialogue` stays the interaction system's job (it sets
 /// the mode when it starts a conversation); this closes the loop by returning
 /// to `Playing` the moment the conversation ends.
-#[cfg(feature = "ui")]
 fn sync_dialogue_game_mode(
     dialogue: Res<ambition_dialog::DialogState>,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,

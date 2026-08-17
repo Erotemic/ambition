@@ -409,7 +409,7 @@ fn ambition_activate_session_visuals(
             continue;
         };
         let scope = ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
-        ambition_platformer2d::actors::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
+        ambition_platformer2d::menu::map::spawn_map_menu_with_scope(&mut commands, scope);
         // Parallax + room visuals are the generic `SessionRoomVisualsPlugin`'s
         // job; this system adds only Ambition's own dressing.
         super::scene_setup::session_gameplay_dressing(

@@ -1120,16 +1120,22 @@ contains = ["pub use ambition_input::settings as controls"]
 file = "crates/ambition_persistence/src/settings/mod.rs"
 
 [[policy]]
-id = "engine.actors-settings-surfaces-controls"
+id = "engine.actors-persistence-facade-gone"
 scope = "engine"
-kind = "file-contains"
-owners = ["ambition_input"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence/settings/mod.rs"]
-rationale = "actors persistence::settings re-surfaces controls (E1a layering)"
+kind = "forbidden-path"
+owners = ["ambition_persistence"]
+watch_paths = ["crates/ambition_platformer2d_actor_monolith/src"]
+# ⭐ this used to assert that `actors::persistence::settings` RE-SURFACED
+# `controls` — a layering claim about a compatibility adapter. D33
+# (2026-08-17) deleted the adapter: its `settings::model` pause-menu
+# vocabulary had no consumer left in the workspace, and every remaining
+# `crate::persistence::settings::…` path was repointed at
+# `ambition_persistence::settings`. The guard therefore changed SIDES instead
+# of being deleted — the re-surfacing must not come back.
+rationale = "the actor monolith re-surfaces no persistence facade; consumers name ambition_persistence"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-contains = ["controls"]
-file = "crates/ambition_platformer2d_actor_monolith/src/persistence/settings/mod.rs"
+paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence"]
 
 
 # was: architecture_boundaries_touch_input_render_edge_is_intentional
@@ -2004,8 +2010,14 @@ forbid = ["ambition_platformer2d_actor_monolith::DeveloperRuntimeState", "ambiti
 id = "engine.actor-dialog-no-runtime-reexport"
 scope = "engine"
 kind = "file-omits"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dialog.rs"]
+owners = ["ambition_conversation"]
+# ⭐ **the file MOVED, so the watch moved with it (D33, 2026-08-17).** The host
+# glue left the actor monolith for `ambition_conversation`, the crate that owns
+# the conversation authority this dialogue runtime is driven by. Re-pointing is
+# the only correct edit: a `file-omits` policy whose file does not exist is not a
+# passing guard, it is a panic — exactly what the retired
+# `engine.actor-yarn-no-runtime-reexport` note below records.
+watch_paths = ["crates/ambition_conversation/src/dialog.rs"]
 rationale = "actor dialog does not re-export reusable dialog runtime vocabulary"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
@@ -2022,7 +2034,7 @@ severity = "error"
 # ⛔ the alternative — adding `dialog.rs` to an exemption list — would have
 # switched the whole policy off for the one file it watches.
 forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "DialogueRunnerEntity"]
-file = "crates/ambition_platformer2d_actor_monolith/src/dialog.rs"
+file = "crates/ambition_conversation/src/dialog.rs"
 
 # ⛔ `engine.actor-yarn-no-runtime-reexport` was RETIRED on 2026-08-08 and should
 # not be re-added at a new path. It watched
@@ -2042,18 +2054,20 @@ file = "crates/ambition_platformer2d_actor_monolith/src/dialog.rs"
 # scope, different owner, and guarding a game crate rather than an engine one.
 
 
-# was: architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias
-[[policy]]
-id = "engine.actor-persistence-no-dev-tools-alias"
-scope = "engine"
-kind = "file-omits"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/persistence/mod.rs"]
-rationale = "actor persistence keeps no dev-tools persistence compatibility alias"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-forbid = ["DeveloperPersistenceSchedulePlugin"]
-file = "crates/ambition_platformer2d_actor_monolith/src/persistence/mod.rs"
+# ⛔ `engine.actor-persistence-no-dev-tools-alias` was RETIRED on 2026-08-17
+# (D33) and must not be re-added at a new path. It forbade
+# `DeveloperPersistenceSchedulePlugin` inside
+# `…/src/persistence/mod.rs` — an eleven-line compatibility adapter that
+# re-exported `ambition_persistence::{save, save_data, PersistenceSchedulePlugin}`
+# on the historical path. **The whole module is deleted**: its only real content,
+# the `settings::model` pause-menu vocabulary, had no consumer anywhere in the
+# workspace (all eight of its public names were referenced only by doc
+# comments), and every `crate::persistence::settings::…` path was repointed at
+# `ambition_persistence::settings`.
+# ⭐ the boundary it defended is now STRUCTURAL and stronger than the rule: a
+# module that does not exist cannot alias anything. What replaces it is
+# `engine.actors-persistence-facade-gone`, which forbids the DIRECTORY, so the
+# adapter cannot come back under a different filename either.
 
 
 # was: architecture_boundaries_touch_input_crate_is_extracted

@@ -65,6 +65,14 @@ CRATES = [
     # left the monolith, so its count falls for a reason nobody fixed. The
     # destination joins the list here, in the carve's own commit.
     "ambition_boss_encounter",
+    # ⇒ and D33's outer-shell relocation (2026-08-17) did it a THIRD way: the
+    # departing code went into crates that ALREADY EXISTED, so there was no new
+    # `Cargo.toml` to remind anyone. `equipment` joined `ambition_items`, the
+    # dialogue host glue joined `ambition_conversation` (already listed), and the
+    # Map tab's renderer joined `ambition_menu`. Two more destinations, same
+    # rule: **a relocation launders exactly as well as a carve does.**
+    "ambition_items",
+    "ambition_menu",
 ]
 
 # rustdoc's two shapes for this class.

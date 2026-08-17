@@ -35,7 +35,7 @@
 //! ⚠ **the ending is not a special case any more.** It is one payload type in a
 //! ledger every gameplay-bearing narrative fact crosses through; see
 //! [`super::ledger`] for the four rules and
-//! [`crate::dialog::yarn_bindings`] for which commands are which.
+//! the `dialog` module for which commands are which.
 
 use bevy::prelude::*;
 

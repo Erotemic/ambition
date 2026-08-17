@@ -2,7 +2,7 @@
 //! that authored `.yarn` content can invoke at runtime.
 //!
 //! ⛔ **this lived in the ENGINE crate**
-//! (`ambition_platformer2d_actor_monolith::dialog::yarn_bindings`) and named
+//! (`ambition_conversation::dialog::yarn_bindings`) and named
 //! this game's items, shop, brains and save flags from inside it. That is an
 //! ownership error, not a decomposition one: `ambition_dialog` already exposes
 //! [`YarnContentBindings`](ambition_dialog::YarnContentBindings) precisely so a
@@ -35,7 +35,7 @@
 //! necessity — and `flag(id)` is gone because `world.flag_set` is published. A
 //! new read here should first ask whether its domain can publish a condition
 //! instead; see
-//! [`ambition_platformer2d_actor_monolith::dialog::authored_conditions`].
+//! [`ambition_conversation::dialog::authored_conditions`].
 //!
 //! **Markup cues** (`Speaker: [shout]LINE[/shout]` inline). The
 //! bridge's `on_present_line` observer scans `LocalizedLine.attributes`
@@ -153,7 +153,7 @@ pub fn refresh_yarn_state_mirror(
     for boss in &data.bosses {
         if matches!(
             boss.state,
-            ambition_platformer2d_actor_monolith::save::PersistedEncounterState::Cleared
+            ambition_persistence::save_data::PersistedEncounterState::Cleared
         ) {
             snap.bosses_cleared.insert(boss.id.clone());
         }
@@ -162,7 +162,7 @@ pub fn refresh_yarn_state_mirror(
     for quest in &data.quests {
         if matches!(
             quest.state,
-            ambition_platformer2d_actor_monolith::save::PersistedQuestState::InProgress
+            ambition_persistence::save_data::PersistedQuestState::InProgress
         ) {
             snap.quests_active.insert(quest.id.clone());
         }
@@ -310,7 +310,7 @@ pub fn cmd_give_item(
 ) {
     let Some(request) = item_grant(&kind, count) else {
         warn!(
-            target: "ambition_platformer2d_actor_monolith::dialog::yarn",
+            target: "ambition_conversation::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
         );
         return;
@@ -328,7 +328,7 @@ pub fn cmd_buy_item(
     >,
 ) {
     let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
-        warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "buy_item: unknown item {id:?}");
+        warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
     narrative.write(
@@ -349,7 +349,7 @@ pub fn cmd_sell_item(
     >,
 ) {
     let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
-        warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "sell_item: unknown item {id:?}");
+        warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
     narrative.write(
@@ -390,7 +390,7 @@ fn item_grant(
 /// data, not by dialogue. Wire when needed.
 pub fn cmd_spawn_chest(In(id): In<String>) {
     info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
+        target: "ambition_conversation::dialog::yarn",
         "spawn_chest: id={id} (stub; chest spawn consumer pending)",
     );
 }
@@ -430,7 +430,7 @@ pub fn cmd_spawn_fireworks(
 /// resource lands.
 pub fn cmd_camera_zoom(In(factor): In<f32>) {
     info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
+        target: "ambition_conversation::dialog::yarn",
         "camera_zoom: factor={factor:.2} (stub; cinematic zoom consumer pending)",
     );
 }
@@ -468,7 +468,7 @@ pub fn register_functions(runner: &mut DialogueRunner, mirror: &YarnStateMirror)
     // `condition("world.flag_set", "<id>")` verb — the same road a lock wall
     // takes. Two mechanisms answering one question is exactly the second
     // authority this project refuses elsewhere. See
-    // `ambition_platformer2d_actor_monolith::dialog::authored_conditions`.
+    // `ambition_conversation::dialog::authored_conditions`.
     // visit_count(id) -> f32: how many times the named dialogue
     // node has been entered. Returns f32 because Yarn arithmetic
     // is f32-typed (`<<if visit_count("oiler") == 1>>` etc.).

@@ -133,7 +133,7 @@ policies = ["engine.ambition_vfx-manifest-deny", "engine.ambition_vfx-source-pur
 [[entry]]
 old_test = "architecture_boundaries_input_crate_is_extracted"
 disposition = "declarative"
-policies = ["engine.ambition_input-extracted-paths", "engine.ambition_input-absent-paths", "engine.ambition_input-manifest-deny", "engine.actors-no-input-shim", "engine.persistence-reexports-input-controls", "engine.actors-settings-surfaces-controls"]
+policies = ["engine.ambition_input-extracted-paths", "engine.ambition_input-absent-paths", "engine.ambition_input-manifest-deny", "engine.actors-no-input-shim", "engine.persistence-reexports-input-controls", "engine.actors-persistence-facade-gone"]
 
 [[entry]]
 old_test = "architecture_boundaries_control_frame_lives_with_engine_body_contract"
@@ -198,7 +198,7 @@ policies = ["engine.actor-dialog-no-runtime-reexport"]
 [[entry]]
 old_test = "architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias"
 disposition = "declarative"
-policies = ["engine.actor-persistence-no-dev-tools-alias"]
+policies = ["engine.actors-persistence-facade-gone"]
 
 [[entry]]
 old_test = "architecture_boundaries_dialog_vocab_consumers_use_dialog_crate"
@@ -347,7 +347,7 @@ policies = ["engine.enemy-config-archetype-free"]
 [[entry]]
 old_test = "architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces"
 disposition = "declarative"
-policies = ["game.lib-menu-no-host-files", "game.lib-menu-keeps-map", "game.app-menu-host-stack"]
+policies = ["game.lib-menu-no-host-files", "game.lib-menu-gone", "game.app-menu-host-stack"]
 
 [[entry]]
 old_test = "architecture_boundaries_dev_overlays_live_in_app"

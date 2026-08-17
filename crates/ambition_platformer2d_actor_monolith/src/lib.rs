@@ -18,9 +18,12 @@
 //! old `crate::{input,engine_core,…}` compat re-exports have been removed.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `combat`, `gravity`, `items`, `dialog`, `menu`, `music`,
-//! `persistence`, `projectile`, `enemy_projectile`,
+//! `combat`, `gravity`, `items`, `music`, `projectile`, `enemy_projectile`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
+//! ⛔ **`dialog`, `menu`, `equipment` and `persistence` are NOT among them any
+//! more** (D33, 2026-08-17): the first three joined the domain crates that
+//! already owned their subject (`ambition_conversation`, `ambition_menu`,
+//! `ambition_items`) and the fourth was deleted outright.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
 //! `RoomTransitionCooldown`) that submodules reference through the actor crate.
@@ -61,7 +64,6 @@ pub mod platformer_runtime;
 pub mod quest;
 pub mod schedule;
 // Stable facade for save-game data shapes used by dialogue bindings.
-pub use persistence::save_data as save;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
@@ -90,10 +92,8 @@ pub mod config;
 // blocker — the SCHEDULE was.
 pub mod cutscene;
 pub mod dev;
-pub mod dialog;
 pub mod encounter;
 pub mod enemy_projectile;
-pub mod equipment;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
@@ -103,11 +103,9 @@ pub use ambition_combat as combat;
 pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab).
-pub mod menu;
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-pub mod persistence;
 pub mod physics;
 // The presentation layer was extracted to the `ambition_render` crate (the
 // sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.

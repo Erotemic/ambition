@@ -3545,11 +3545,131 @@ plus two now-stale absence strings re-pointed so they still guard something.
 ⚠ **and one honest cost UP:** `ambition_geometry`'s `worst_edit_cost` goes 48 → 49
 crates (+17.5s) — one more compilation unit sits above it.
 
-⇒ ▢ **NEXT.** The residue is still +2,710 over the frozen baseline. By the same
-instrument the next candidates are `items` (4,991; 85 out / 13 mods) and `world`
-(4,452; 55 out / 9 mods) — both need their outward sites chased to definitions
-first. `avatar` (7,717) is bigger but pinned to `character_runtime`, and
-`construction` is Wave G by policy.
+⇒ ✔✔✔ **THE RATCHET IS GREEN — `largest_unit_lines` 114,139 → 110,929, BELOW
+the 111,429 frozen on 2026-08-09 for the first time since it was frozen.**
+`critical_path_crates` stayed **13** — no new hop, because no new crate was
+made. Landed 2026-08-17.
+
+⛔⛔ **BOTH NAMED CANDIDATES WERE REFUSED, AND THEY WERE REFUSED FOR THE SAME
+REASON `encounter` WAS.** Chasing every outward site to its `pub struct` /
+`pub fn` — and splitting PRODUCTION from TEST, which no previous measurement on
+this row did:
+
+```text
+module   lines   real-out PROD   real-out TEST   re-export (not real)
+  items   4,991      30 sites         5              49
+  world   4,452      11 sites        26              17
+```
+
+⭐ **the split is what the earlier column was hiding.** `world` looks far
+cleaner than `items` by production sites (11 vs 30) — and 20 of `items`' 30 are
+one thing, `ItemPickupPlugin` registering **eighteen `abilities` systems and two
+`shrine` systems** into its own sets, which is step 1.5's shape and mechanical to
+fix. ⛔ **but both keep a `construction` edge**: `items/pickup/mod.rs` rebuilds a
+carried object from `construction::authored_occurrence_request` +
+`ActorConstructionParams::GroundItem`, and `world/rooms/{stage,transaction}.rs`
+stage actors through `ActorConstructionPlan` / `verify_rig_composition`. That is
+**actor construction, which Wave G says leaves LAST** — the identical blocker
+(`features::spawn_encounter_mob`) that refused the `encounter` carve this
+morning. ⚠ and `world`'s is BIDIRECTIONAL: `construction/mod.rs:47` imports
+`crate::world::placements::ActorPlacementContext`.
+
+⇒ **the direction rule holds and gains a corollary: only OUTWARD edges block a
+carve, and the one that blocks BOTH remaining outer domains is the same one.
+Until `construction` moves, `items` and `world` are not carves.**
+
+⭐⭐ **SO THE SLICE MEASURED ALL FORTY MODULES WITH THAT INSTRUMENT INSTEAD, AND
+THE ANSWER WAS NOT A CARVE AT ALL — IT WAS FOUR RELOCATIONS INTO CRATES THAT
+ALREADY EXISTED.** Ranking every top-level module by real production outward
+edges surfaced a population nobody had counted: **modules with ZERO of them,
+whose owning crate is already in the tree.**
+
+```text
+                                          real-out   destination
+  persistence   1,336  DELETED — dead       0/0      (nothing; see below)
+  menu            809  → ambition_menu      0/0      map.rs was already there
+  dialog          672  → ambition_conversation 0/0   the dialogue authority
+  equipment       388  → ambition_items     0/0      it IS an item
+                ─────
+                 3,205  measured 3,207 in the monolith's line count
+```
+
+⛔⛔ **`persistence` WAS DEAD, and the falsifier is the finding.** Its 1,336
+lines were an eleven-line re-export adapter, a 36-line settings facade, and
+`settings/model` — 1,289 lines of pause-menu vocabulary. **All eight of its
+public names (`SettingsPage`, `SettingsItem`, `SettingsAction`,
+`SettingsOutcome`, `DevToggleSnapshot`, `apply_action`, `apply_display_mode`,
+`PLAYER_DAMAGE_SLIDER_MAX`) have zero code references anywhere in `crates/` or
+`game/`** — every hit outside the module is a doc comment. ⭐ the instrument was
+shown WORKING first: the same grep run on `TextureResolutionScale` and
+`reconcile_equipment_grants` returns real call sites. The remaining 25
+`crate::persistence::settings::…` paths were all re-exports of
+`ambition_persistence::settings::{TextureResolutionScale, AudioSettings,
+TriggerEdgeState}` and were repointed at their real home.
+
+⭐ **and each destination was chosen by what the crate ALREADY OWNED, not by
+where there was room.** `ambition_menu::map` already held `MapMenuState` and the
+monolith held the renderer that imported it — the two halves of the Map tab were
+a crate apart. `ambition_conversation` already owns the conversation authority
+the Yarn runtime is driven by. `ambition_items` already owns the item catalog
+`equipment` grants verbs from.
+
+⛔⛔ **AND THE DESTINATION CHOICE IS WHERE THIS SLICE ALMOST WENT WRONG — THREE
+OTHER "OBVIOUS" HOMES WERE REFUSED BY THE CRATES THEMSELVES.** `ambition_dialog`
+declares itself *"content-free — the host maps `DialogState.active` onto its own
+session mode"*, which is precisely what the moved glue does, so it cannot host
+it. `ambition_settings_menu` is the *renderer-agnostic* IR and carries no
+`bevy`. `ambition_menu`'s manifest says its trimmed bevy feature set is
+*"load-bearing for the WHOLE workspace"*. ⇒ **read the destination's stated
+contract before moving code into it; a crate that refuses your dependency is
+telling you the code does not belong there.** The Map tab passed that test
+because its three new edges (`ambition_input`,
+`ambition_platformer2d_shared_tangle`, `ambition_platformer2d_world`) widen
+nothing: `ambition_menu` already sat downstream of `ambition_platformer2d_core`
+through `ambition_ui_nav → ambition_input`, so **no crate joined
+`ambition_geometry`'s or `ambition_platformer2d_core`'s rebuild set** — both
+`edit_cost` ledgers moved DOWN, not up.
+
+⭐ **two declared dependency EDGES died with the moves, which a line count cannot
+see.** The monolith no longer names `ambition_menu` at all, and `bevy_yarnspinner`
++ `yarnspinner` left its manifest entirely (its `ui` feature now only FORWARDS to
+`ambition_conversation/ui` + `ambition_dialog/ui`). ⚠ one edge was added on
+purpose: `ambition_platformer2d` now re-exports `ambition_conversation as
+conversation`, because a game reaches a domain crate through the umbrella —
+`ambition_platformer2d::conversation::dialog::YarnBridgePlugin`.
+
+⚠ **the ledgers a relocation launders, all moved in the same commit** — and this
+shape launders *better* than a carve does, because there is no new `Cargo.toml`
+to remind anyone: `check_doc_link_ratchet.py`'s `CRATES` gained
+**`ambition_items` and `ambition_menu`** (monolith 107 → 103; the two
+destinations were carrying 5 and 3 unlisted); four lockfiles under `fixtures/`
+and `examples/` refreshed; **seven** workspace policies re-pointed rather than
+deleted, two of which had to change SIDES —
+`game.lib-menu-keeps-map` REQUIRED `src/menu/map` in the monolith and is now
+`game.lib-menu-gone` forbidding `src/menu`, and
+`engine.actors-settings-surfaces-controls` asserted the persistence facade
+re-surfaced `controls` and is now `engine.actors-persistence-facade-gone`
+forbidding the whole directory. ⭐ `capability-footprint-baseline.json` needed
+NO edit — 44 crates / 17 never-asked-for, unchanged — and
+`rollback-wire-format-is-frozen` reports the same **357 names, 85 encoded
+types**: nothing that moved was rollback-registered.
+
+Green: `cargo check -p ambition_app --all-targets`, `cargo test --workspace
+--lib`, `ambition_app --test app_it` (412), `ambition_demo_smash_app` (32),
+`ambition_workspace_policy` (34), `check_absence_contracts.py --check` (29/29).
+
+⇒ ▢ **NEXT, and the row's shape has changed.** The ratchet is green, so the next
+slice is not a race against a number. The remaining outer domains are
+`audio`+`music` (1,842 lines, ZERO real outward edges either direction, and
+**nothing else in the monolith references them** — three `Platformer2dAudioPlugin`
+adds and one rollback-oracle string are its whole consumer set) and
+`character_roster`/`cutscene`; each wants a home that will accept it, and
+`audio` additionally wants the monolith's `audio`/`web_audio` persona features
+forwarded to wherever it lands, which is the real cost there. ⛔ **`items` and
+`world` are blocked behind `construction` and should not be attempted again
+until it moves** — and the `abilities`-registration half of `items` (20 of its 30
+production edges) is a step-1.5 slice that can land independently and would
+make `items` a genuine candidate the moment Wave G opens.
  Prefer boundaries that improve capability closure, compile isolation,
 public API shape or change amplification.
 

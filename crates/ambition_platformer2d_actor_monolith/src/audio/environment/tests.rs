@@ -75,7 +75,7 @@ fn underwater_attenuation_is_strictly_below_dry() {
 /// preference would leak audio while submerged.
 #[test]
 fn underwater_composes_with_user_settings() {
-    use crate::persistence::settings::AudioSettings;
+    use ambition_persistence::settings::AudioSettings;
 
     let dry = AudioEnvironment::default();
     let mut wet = AudioEnvironment::default();

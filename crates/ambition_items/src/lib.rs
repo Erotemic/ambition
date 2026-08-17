@@ -22,6 +22,7 @@
 //! shows "every item you could ever have," OoT-style, with un-acquired entries
 //! dimmed.
 
+pub mod equipment;
 pub mod shop;
 
 /// The `item_catalog` authored-content schema this capability owns. Behind the

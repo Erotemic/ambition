@@ -12,7 +12,7 @@
 //! [`assets`] — the actor/content JOIN: `load_character_sprites_in`,
 //! `sheet_for_character_id_in`, catalog-driven body collision, prop sprite
 //! construction. It stays because it is bidirectionally coupled to
-//! `crate::assets::platformer_assets`, `crate::persistence::settings` and the
+//! `crate::assets::platformer_assets`, `ambition_persistence::settings` and the
 //! character-runtime materializer, which is the coupling `character_runtime`
 //! shares.
 //!

@@ -5,10 +5,12 @@
 
 use bevy::prelude::*;
 
-use ambition_menu::map::{MapMenuState, MapRoomNode};
+use super::{MapMenuState, MapRoomNode};
 
 pub fn track_room_visits(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
     mut map: ResMut<MapMenuState>,
     mut last: Local<Option<String>>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
@@ -39,6 +41,9 @@ pub fn sync_map_from_save(
     }
 }
 
+/// Fill room geometry from the LDtk project levels. Behind `ldtk` because
+/// the map is drawable without a backend — only the room RECTANGLES need one.
+#[cfg(feature = "ldtk")]
 pub fn populate_map_rooms(
     project: Res<ambition_platformer2d_ldtk::ActiveLdtkProject>,
     mut map: ResMut<MapMenuState>,

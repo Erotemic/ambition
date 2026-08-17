@@ -100,8 +100,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     #[cfg(feature = "ui")]
     {
         app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
-        app.add_plugins(ambition_platformer2d::actors::dialog::YarnBridgePlugin);
-        app.add_plugins(ambition_platformer2d::actors::dialog::YarnBindingsPlugin);
+        app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBridgePlugin);
+        app.add_plugins(ambition_platformer2d::conversation::dialog::YarnBindingsPlugin);
     }
 
     // The content-free engine SIMULATION plugins (E5): the SAME
@@ -517,7 +517,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     app.insert_resource(inventory_ui::InventoryUiState::default())
         .add_systems(
             Update,
-            (ambition_platformer2d::actors::menu::map::sync_map_menu,)
+            (ambition_platformer2d::menu::map::sync_map_menu,)
                 .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
@@ -537,7 +537,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // it was testing for.
                 setup_host_presentation_system.in_set(PresentationSetupSet),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_presentation"),
-                ambition_platformer2d::actors::menu::map::populate_map_rooms,
+                ambition_platformer2d::menu::map::populate_map_rooms,
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
@@ -557,7 +557,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // it belongs in `DevToolsSimPlugin`'s `DevEditApplySet`,
                 // which is in the schedule that rewinds.
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
-                ambition_platformer2d::actors::menu::map::handle_map_menu_hotkeys,
+                ambition_platformer2d::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
                 .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
@@ -758,7 +758,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // Mouse / touch dismissal for the map menu.
     .add_systems(
         Update,
-        ambition_platformer2d::actors::menu::map::map_menu_pointer_dismiss
+        ambition_platformer2d::menu::map::map_menu_pointer_dismiss
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Quest panel runs alongside the verbose HUD.

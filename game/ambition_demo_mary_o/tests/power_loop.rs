@@ -22,7 +22,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::equipment::reconcile_equipment_grants;
+use ambition_platformer2d::items::equipment::reconcile_equipment_grants;
 use ambition_platformer2d::actors::features::transform_beat::{
     TransformBeatPolicy, TransformBeatRequested,
 };

@@ -1,4 +1,4 @@
-//! Map / minimap state — the renderer-agnostic source of truth the Map tab renders.
+//! Map / minimap state AND the Map tab that renders it.
 //!
 //! `MapMenuState` holds the visited-room set, per-room geometry
 //! (`MapRoomNode`), open/minimap toggles, and the clamped zoom level
@@ -97,3 +97,28 @@ impl bevy::prelude::Plugin for MapStatePlugin {
         app.init_resource::<MapMenuState>();
     }
 }
+
+// ⭐ **THE MAP TAB'S RENDERER JOINED ITS STATE, 2026-08-17 (D33).** These four
+// modules lived in the actor monolith as `menu::map` and imported
+// `ambition_menu::map` for the very state they render — the renderer-agnostic
+// half was already here and the adapter half was a crate away. Nothing in the
+// simulation ever called them: their only consumers are the runtime's
+// progression schedule and the app's shell host, both of which reach this crate
+// directly.
+mod input;
+mod pointer;
+mod systems;
+mod ui;
+
+#[cfg(test)]
+mod tests;
+
+pub use input::handle_map_menu_hotkeys;
+pub use pointer::map_menu_pointer_dismiss;
+#[cfg(feature = "ldtk")]
+pub use systems::populate_map_rooms;
+pub use systems::{sync_map_from_save, track_room_visits};
+pub use ui::{spawn_map_menu_with_scope, sync_map_menu, MapMenuRoot};
+
+#[cfg(test)]
+use ui::short_room_label;

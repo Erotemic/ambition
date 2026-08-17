@@ -30,7 +30,7 @@ pub fn cmd_watch_cut_rope_video(
     mut narrative: ambition_conversation::NarrativeInputWriter<SetFlagRequested>,
 ) {
     info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
+        target: "ambition_conversation::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
     narrative.write(SetFlagRequested {
@@ -50,7 +50,7 @@ pub fn cmd_reset_cut_rope_room(
 ) {
     narrative.write(super::CutRopeRoomReplayRequested);
     info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
+        target: "ambition_conversation::dialog::yarn",
         "reset_cut_rope_room: recorded a Smirking Behemoth room replay for this conversation",
     );
 }

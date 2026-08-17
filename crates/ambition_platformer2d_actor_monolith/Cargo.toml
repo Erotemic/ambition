@@ -288,11 +288,13 @@ authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
 web_audio = ["audio"]
 # The DIALOGUE/YARN umbrella. It carried `dep:bevy_material_ui` until
 # 2026-08-08; no file in this crate ever named the crate, and the app-side plugin
-# install that did has been deleted. The feature itself stays — its callers
-# select it for the Yarn runtime and `ambition_dialog/ui`.
+# install that did has been deleted. ⭐ **and it stopped carrying the Yarn
+# runtime on 2026-08-17 (D33)**: the host glue that named `bevy_yarnspinner`
+# moved to `ambition_conversation::dialog`, so both yarnspinner crates left this
+# manifest entirely and the feature now only FORWARDS. Its callers still select
+# it for the Yarn runtime and `ambition_dialog/ui`.
 ui = [
-    "dep:bevy_yarnspinner",
-    "dep:yarnspinner",
+    "ambition_conversation/ui",
     "ambition_dialog/ui",
 ]
 physics_debris = ["dep:avian2d"]
@@ -426,11 +428,6 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # docs/current/state.md.
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
-# 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
-# the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs
-# the Bevy-UI grid (#31). De-vendored from the submodule into a normal repo crate
-# so it can be edited without the submodule commit + gitlink-bump dance.
-ambition_menu = { path = "../ambition_menu" }
 ambition_persistence = { path = "../ambition_persistence" }
 # Reusable dialogue runtime (E1c): DialogState view model + typewriter reveal +
 # input systems + the bevy_yarnspinner bridge and binding-installer seam. The
@@ -470,11 +467,6 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "ui_api",
 ] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
-bevy_yarnspinner = { version = "0.8", optional = true }
-# The standalone Yarn compiler (same version bevy_yarnspinner pulls). Used only
-# by the `ui`-gated yarn-compiles test so a malformed `.yarn` file fails at
-# `cargo test` instead of crashing the running game's asset loader.
-yarnspinner = { version = "0.8", optional = true }
 bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }
 bevy-inspector-egui = { version = "0.36", optional = true }

@@ -108,6 +108,7 @@ profile = ["ambition_platformer2d_actor_monolith/profile"]
 portal_ldtk = ["ambition_platformer2d_actor_monolith/portal_ldtk"]
 input = [
     "ambition_platformer2d_actor_monolith/input",
+    "ambition_menu?/input",
     "ambition_platformer2d_host/input",
     # Weak: input does not FORCE the render edge; it configures it if present.
     "ambition_render?/input",
@@ -130,7 +131,7 @@ audio = [
     "ambition_audio/kira",
     "ambition_platformer2d_provider/audio",
 ]
-ui = ["ambition_platformer2d_actor_monolith/ui"]
+ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_conversation/ui"]
 bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
 relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
@@ -147,6 +148,7 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_conversation = { path = "../ambition_conversation" }
 ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"], optional = true }
@@ -162,7 +164,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", optional 
 ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
-ambition_menu = { path = "../ambition_menu", optional = true }
+ambition_menu = { path = "../ambition_menu", features = ["ldtk"], optional = true }
 ambition_persistence = { path = "../ambition_persistence", optional = true }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }

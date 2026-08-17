@@ -1286,6 +1286,47 @@ When the residue really is actor/body/control simulation, rename
 `ambition_platformer2d_actor_monolith` to the final actor-domain name and update
 the public facade to re-export semantic API modules from their actual owners.
 
+## ✔✔✔ 2026-08-17: the compile ratchet is GREEN, and the slice that did it was NOT a carve
+
+`largest_unit_lines` **114,139 → 110,929**, below the 111,429 frozen on
+2026-08-09 for the first time. `critical_path_crates` held at **13** — no new
+crate was made, so no new hop.
+
+⛔⛔ **Both named candidates were refused, both for Wave G.** Chasing every
+outward site to its definition AND splitting production from test — a split no
+earlier measurement on this campaign made — gives `items` 30 real production
+sites and `world` 11. But `items/pickup` rebuilds a carried object through
+`construction::authored_occurrence_request`, and `world/rooms/{stage,transaction}`
+stages actors through `ActorConstructionPlan`; `construction/mod.rs` imports
+`crate::world::placements::ActorPlacementContext` back. **Actor construction is
+the blocker for both, exactly as it was for `encounter`.**
+
+⭐⭐ **The population nobody had counted is modules with ZERO real outward edges
+whose owning crate ALREADY EXISTS.** Four of them left in this slice:
+`persistence` (1,336, deleted outright — all eight public names of its
+pause-menu `settings/model` had zero code references in the workspace),
+`menu` (809 → `ambition_menu`, which already held the `MapMenuState` the
+renderer imported), `dialog` (672 → `ambition_conversation`), `equipment`
+(388 → `ambition_items`).
+
+⭐⭐⭐ **The transferable rule is about the DESTINATION.** Three other "obvious"
+homes were refused by the crates themselves: `ambition_dialog` declares itself
+content-free and the moved glue is host coupling; `ambition_settings_menu` is
+renderer-agnostic and carries no bevy; `ambition_menu`'s manifest says its
+trimmed bevy features are *"load-bearing for the WHOLE workspace"*. ⇒ **read a
+destination's stated contract before moving code into it — a crate that refuses
+your dependency is telling you the code does not belong there.** The Map tab
+passed because `ambition_menu` already sat downstream of
+`ambition_platformer2d_core` via `ambition_ui_nav → ambition_input`, so its
+three new edges added **no crate** to `ambition_geometry`'s or
+`ambition_platformer2d_core`'s rebuild sets.
+
+⚠ **a relocation launders the per-crate ledgers better than a carve does**,
+because there is no new `Cargo.toml` to prompt the edit: `ambition_items` and
+`ambition_menu` joined `check_doc_link_ratchet.py`'s `CRATES` in the same
+commit, and seven workspace policies were re-pointed — two of which had to
+change SIDES, from *requiring* a path in the monolith to *forbidding* it.
+
 ## Scoreboard
 
 Record these measurements after meaningful waves, not after every tiny edit:

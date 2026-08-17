@@ -128,8 +128,8 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::menu::map::track_room_visits,
-                ambition_platformer2d_actor_monolith::menu::map::sync_map_from_save,
+                ambition_menu::map::track_room_visits,
+                ambition_menu::map::sync_map_from_save,
             )
                 .chain()
                 .in_set(ProgressionSet::Map),

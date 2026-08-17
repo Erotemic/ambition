@@ -9,6 +9,13 @@ publish = false
 [features]
 default = []
 bevy_ui_menu = ["bevy/ui_picking"]
+# Forwarded from the host: real keyboard/gamepad hotkeys for the Map tab.
+# Without it the map input system compiles as a no-op stub. Same shape as
+# `ambition_dialog`'s.
+input = ["ambition_input/input"]
+# The LDtk backend supplies the room RECTANGLES `populate_map_rooms` draws.
+# Optional because the visited-room list needs no backend at all.
+ldtk = ["dep:ambition_platformer2d_ldtk"]
 kaleidoscope_menu = []
 
 [dependencies]
@@ -36,6 +43,20 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # it, and a fourth copy of "did this press survive as a tap" is exactly the
 # drift this renderer's bridge exists to prevent.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
+# The Map tab's own three edges, arriving with it from the actor monolith
+# (D33, 2026-08-17). ⚠ none of them widens what an edit rebuilds: this crate
+# already sat downstream of `ambition_platformer2d_core` through
+# `ambition_ui_nav -> ambition_input`.
+# `MenuControlFrame` — the hotkey/pointer frame the map input systems read.
+ambition_input = { path = "../ambition_input" }
+# `SessionSpawnScope` / `SessionWorldRef` — the map UI is session-scoped.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# `RoomSet` — the room graph the map draws.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# `AmbitionGameSave` — the visited-room set the Map tab hydrates from.
+ambition_persistence = { path = "../ambition_persistence" }
+# `ActiveLdtkProject` — room rectangles, behind the `ldtk` feature.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
 # The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
 # extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
 # grid renderer + the renderer-agnostic page model).

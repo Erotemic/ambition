@@ -99,6 +99,14 @@
 //! - [`plugin`] — what this module registers, and the phases its systems name.
 
 mod authority;
+// ⭐ **the dialogue HOST GLUE joined its domain, 2026-08-17 (D33).** These
+// plugins wire `ambition_dialog`'s runtime into a session: the binding
+// installer seam, the input/reveal presentation pair, and the mapping from
+// "the conversation ended" back onto `GameMode::Playing`. They lived in the
+// actor monolith because that is where the session mode lived; they belong
+// beside the conversation authority that decides when a dialogue is live.
+#[cfg(feature = "ui")]
+pub mod dialog;
 mod hold;
 mod instance;
 mod ledger;

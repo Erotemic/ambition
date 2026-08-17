@@ -26,10 +26,15 @@ Do not schedule the old campaign again. Current source already has:
 - the D73 character-definition/construction convergence.
 
 D107 and D108 were closed by the D73 authority-convergence work rather than by
-adding parallel fighter exceptions. D114 is no longer an architecture defect:
-its remaining question is product feel for hit emphasis when no primary local
-seat should own a global camera/time beat; that decision lives in
-[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+adding parallel fighter exceptions. **D114 is closed outright as of 2026-08-17**:
+the actor road now freezes its own integration during that body's hitlag, and the
+maintainer ruled that *"hitlag is a combat/body semantic, not something that
+should depend on whether a body happens to occupy the primary local-control
+road"* — so the feel question this line used to defer was answered by removing the
+per-road distinction, not by choosing a beat.
+⛔ a future stickiness complaint is answered by hitlag's duration or shape;
+restoring a controlled-body/actor asymmetry is forbidden. See
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 ## What the expressive-fighter pass measured (2026-08-15)
 

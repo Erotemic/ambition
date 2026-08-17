@@ -88,7 +88,7 @@ its frozen baseline.
 | Lane | Owner | Executable next action |
 |---|---|---|
 | **D127 — authored logic** | **unstaffed** | ⛔ M1 is complete and M2's prepared-call half LANDED (`7e7552c4b`); the `when … then` rule form is deliberately UNBUILT for want of a customer. ⇒ nothing here is dispatchable until a customer appears or M5 diagnostics are wanted — **do not re-open M1 or M2** |
-| **D128 — Smash CPU showcase** | **unstaffed; blocked on Jon's eye** | ⛔ the two-CPU match HAS been captured (2026-08-17, post-D155 knockback: 34%→180% in 13s, real exchanges, stock loop closes) and the ladder rig HAS been re-run — **do not dispatch either again**. ⇒ the one outstanding item is PRODUCT ACCEPTANCE: does a three-stock match at these numbers pace right? That is Jon's, not a lane's |
+| **D128 — Smash CPU showcase** | unstaffed | ✔ **PACING IS ACCEPTED** (Jon, 2026-08-17: a 3-stock CPU match completing in under ~40s is *"if anything… brisk"*) ⇒ ⛔ do NOT retune stock count, knockback or damage, and do not re-capture to establish status. **What is left is ENGINEERING**, in this order: seat-independent respawn placement · standalone smash-app asset composition · the residual presentation defects in D128's ACTIVE TRUTH block |
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
 rule — *workers never run `cargo`* — rested on one shared target dir against a
@@ -1217,11 +1217,25 @@ ARTIFACT — LDtk, chunks, levels — while diegetic text talks about the FICTIO
 *"LDtk-authored central_hub_complex: hub chunk"* fails that test and nothing
 else does.
 
-▢ **left for Jon rather than fixed**, for two reasons: replacing it means
-WRITING player-facing prose for the hub, which is his voice to choose; and a
-`.ldtk` must be edited through `tools/ambition_ldtk_tools`, never by
-re-serialising the JSON. Deleting the sign outright is the other option and is
-also a content call.
+✔✔ **REPLACED 2026-08-17 BY MAINTAINER RULING — and *replaced*, not deleted.**
+Jon, verbatim: *"replace it, don't delete it. The hub benefits from an orientation
+sign; only the authoring-language content is wrong."* His text, which keeps the
+house `//` prefix on purpose:
+
+```text
+// CENTRAL HUB — ROUTES OUTWARD; BASEMENT ACCESS BELOW
+```
+
+⭐ landed on `DebugLabel-0019` in `central_hub_main` via
+`ambition_ldtk_tools entity set-field` — **through the tooling, which he named as
+part of the decision** (*"not by editing the JSON directly"*). Diff is 2 lines:
+`__value` and its `realEditorValues` param, both halves of the one field.
+⚠ **only `text` is player-facing**, so `name` stays an authoring id exactly as
+`intro_wake_room`'s labels do; ⛔ and the EntityRef counts were checked before and
+after (12 `entityIid`, 58 `mounted_on`, unchanged) because an LDtk write is the
+operation that has silently nulled mount refs in this repo before.
+⭐ **the deletion option is closed**: the hub wants signage, and *"only the
+authoring-language content is wrong"* is the general test for the next one found.
 
 - ✔ **D157 — CLOSED 2026-08-16. MARY-O HAD HER WHOLE SMASH MOVESET IN HER
   PLATFORMER. The ability gate did not exist, and a test that reported it was
@@ -1390,37 +1404,39 @@ lowest bubble; the label and the bubble did not know about each other at all.
 label — which is where within-family spacing was already happening for the
 plates, so this whole mechanism was a duplicate of it.
 
-- ▢ **D160 — THE EXECUTABLE PROJECT GATE STILL RUNS NO `--lib` TESTS. The unit
-  tier is a DOCUMENTED PRE-PUSH OBLIGATION, not a gated one. (measured
-  2026-08-17; ⛔ this row was CLOSED that day on a false premise and REOPENED
-  2026-08-17 in the handoff pass)**
+- ✔ **D160 — CLOSED 2026-08-17 BY MAINTAINER RULING, AND THE ANSWER IS THAT THE
+  OMISSION IS DELIBERATE. The cheap unit tier is a REQUIRED PRE-PUSH CHECK, not a
+  per-turn gate — and those are two different tiers on purpose.**
 
-⭐ **the active statement, current as of `7e7552c4b`:**
+⭐⭐ **Jon's ruling, verbatim:** *"keep the per-turn gate small. Close D160 as an
+intentional policy choice, not by redefining 'gate.' … The workspace lib suite
+remains a required pre-push/finalization check. … 'Gate' should continue to mean
+an executable gate; the pre-push checklist is a separate validation tier."*
+Full record in [`maintainer-decisions.md`](maintainer-decisions.md).
+
+⭐ **THE THREE TIERS, which is what this row actually produced:**
 
 ```text
-scripts/gate_suite.py  →  cargo test -p ambition_app --test app_it --quiet
-                          …and NOTHING else. One integration target.
-cargo check -p ambition_app --all-targets  COMPILES lib tests, never RUNS them
-AGENTS.md              →  "run `cargo test --workspace --lib` before you push"
-⇒ every crate's `--lib` suite is outside the EXECUTABLE gate, `ambition_app`'s
-  included. It is a checklist item a human or agent must remember.
+per-turn EXECUTABLE gate   scripts/gate_suite.py → cargo test -p ambition_app
+                           --test app_it. Cheap, and it STAYS cheap.
+pre-push / finalization    cargo test --workspace --lib. REQUIRED — and
+                           "required" is not "gated". Stated in AGENTS.md.
+feature-gated suites       run when you touch the subsystem. ⛔ never wholesale.
 ```
 
-⛔⛔ **THE FALSE CLOSURE, named so it cannot be repeated.** This row claimed the
-sweep was *"added to the stated gate"* and `awaiting-maintainer-decision.md` §9
-inherited it as *"the project gate now runs `cargo test --workspace --lib`"*.
-What actually landed (`4e92acd04`) was a PARAGRAPH IN `AGENTS.md`. Two commands
-being run in one turn is not one command invoking the other — ⇒ **"in the gate"
-means a line in `scripts/gate_suite.py` (or a CI job), and nothing else.**
+⛔⛔ **DO NOT ADD `--workspace --lib` TO `gate_suite.py`.** Ruled against
+explicitly, and consistent with his 2026-08-08 *"bias towards running less
+tests… we will catch regressions eventually"*.
 
-▢ **what is genuinely unresolved, and it is NOT this row's to decide:** whether
-the per-turn suite should grow to carry the unit tier at all. That is
-`awaiting-maintainer-decision.md` §9 (*"what should the per-turn suite actually
-run?"*), live under Jon's 2026-08-08 ruling *"bias towards running less tests"*.
-⛔⛔ **do NOT enlarge `gate_suite.py` to make this row's old sentence true** —
-that smuggles a maintainer policy decision in as a bug fix. This row closes when
-either §9 is answered, or Jon says the pre-push checklist IS the intended
-meaning of "gate".
+⛔⛔ **AND THIS ROW WAS ONCE CLOSED ON A FALSE PREMISE — kept because the shape
+recurs.** It claimed the sweep was *"added to the stated gate"*, and
+`awaiting-maintainer-decision.md` §9 inherited it as *"the project gate now runs
+`cargo test --workspace --lib`"*. What actually landed (`4e92acd04`) was a
+PARAGRAPH IN `AGENTS.md`. ⇒ **two commands run in one turn is not one command
+invoking the other**, and *"in the gate"* means a line in `scripts/gate_suite.py`
+or a CI job and nothing else. ⭐ Jon's *"not by redefining 'gate'"* is the rule
+that falls out of it: **do not relabel a documented obligation AS a gate to make
+a ledger row true, and do not enlarge the gate to make one true either.**
 
 **What the omission hid — both landed on `main` in one session, both REPAIRED in
 `ea5ca88df`, and re-verified green in the 2026-08-17 handoff pass:**
@@ -1434,11 +1450,13 @@ meaning of "gate".
 new ability/composition semantics are the point.
 
 ⚠ this is the same shape as D134 (the workspace-policy suite nobody ran) and
-D137 (the doc ratchet in no gate): **a suite that exists and is not in the gate
-is a suite that goes red and stays red.** ⇒ when adding a check, say which
-command runs it per-turn, or it is decoration. ⭐ **and this row is now its own
-third instance** — the fix WAS documentation, and documenting it read as gating
-it for a day.
+D137 (the doc ratchet in no gate): **a suite nothing runs is a suite that goes
+red and stays red.** ⇒ ⭐ **and the ruling refines what that obligation is, rather
+than repealing it: when you add a check, name the TIER that runs it** — per-turn
+gate, pre-push, or touched-the-subsystem — **and a check with no named tier is
+decoration.** ⛔ what it does NOT license is answering "which tier?" with "the
+per-turn one" by default; that is the reflex this row's own false closure came
+from.
 ⚠ **BOTH failures were guards that were CORRECT when written** and became wrong
 when a rule moved under them — so this is not "someone wrote a bad test", it is
 the cost of not re-running the cheap tier.
@@ -4651,6 +4669,8 @@ workflow that does not run and call the hole closed.
 ## Waiting on an external fact or maintainer decision
 
 These are real unresolved items but are deliberately **not** `▢` queue work.
+⭐ **a `✔` row here is one Jon has since answered**, kept in place for one pass so
+anyone who came looking for the question finds the ruling instead of a gap.
 
 - **D23 — projectile collision feel:** authored hurt geometry versus coarse body
   box; see [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
@@ -4663,20 +4683,21 @@ These are real unresolved items but are deliberately **not** `▢` queue work.
   needs game/room/time context.
 - **D42 / D47 — character sizing/rig art:** currently principally authored
   rig/body-inset and visual-review work unless a reproduced engine defect appears.
-- ⚠⚠ **D114 — fighter-vs-fighter hit emphasis: THE MECHANICAL HALF LANDED
-  2026-08-17 BY TAKING THE OPTION AN EARLIER DECISION FORBADE, AND THE PRODUCT
-  QUESTION IS STILL OPEN.** `818218949` added
-  `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };` to the ACTOR road,
-  so a hit between two actors now freezes both — a real gap, because
-  CPU-versus-CPU froze nobody. ⛔ but that is **a direct per-body zero-dt**, which
-  `awaiting-maintainer-decision.md` §6 records as an experiment that *"made
-  AI-vs-AI bouts degenerate"* and says **do not reintroduce**; the same trap is
-  named again in `engine/controlled-character-actor-kernel.md`. The prohibition
-  was **unseen, not overruled**. ⭐ it shipped with 153 lines of `hitlag_tests.rs`
-  and CPU matches still reach a verdict — ⚠ but *degenerate* was a FEEL word and
-  no test here can settle it. ⇒ **DO NOT record this as fixed, and do not revert
-  it on an agent's judgement.** One played CPU-vs-CPU match is the discriminator;
-  the revert is one line at `features/enemies/integration.rs` if Jon says so. See
+- ✔✔ **D114 — CLOSED 2026-08-17 BY MAINTAINER RULING. Hitlag freezes the BODY that
+  is in it, on both roads, and the old per-body-zero-dt prohibition is
+  SUPERSEDED.** `818218949` gave the actor road
+  `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };`, so a hit between
+  two actors freezes both — which it never did, and CPU-versus-CPU froze nobody.
+  ⭐⭐ Jon kept it and overruled the prohibition: *"hitlag is a combat/body
+  semantic, not something that should depend on whether a body happens to occupy
+  the primary local-control road."* ⛔⛔ **the three options this row used to offer
+  are void — every one of them preserved a per-road distinction, and the
+  distinction WAS the defect. If hitlag ever feels too sticky, tune its DURATION
+  or SHAPE; restoring a controlled-body/actor asymmetry is forbidden.** ⚠ the
+  superseded warning was not wrong when written — it was measured before D155, on
+  a build where nobody was ever launched, so **a feel verdict inherits the build
+  it was formed on**. Ruling in
+  [`maintainer-decisions.md`](maintainer-decisions.md); record in
   [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §6.
 
 ---
@@ -6260,19 +6281,36 @@ SUPERSEDED BY THIS BLOCK.** This row accumulated seven separate "next" claims
 across three days; several of them were carried out and the instruction was left
 standing, which is how a compacted agent re-does landed work.
 
+✔✔ **PACING IS ACCEPTED — RULED 2026-08-17, so this row no longer waits on
+anybody.** Jon, verbatim: *"A three-stock CPU showcase finishing in under ~40
+seconds is certainly not too long; if anything it is brisk. **Do not retune stock
+count, knockback, or damage** around that partial 20-second frame. … Human-vs-human
+balance can be judged separately later."*
+
+⭐⭐ **AND HE CORRECTED HOW THIS ROW READ ITS OWN CAPTURE, which is the reusable
+lesson.** The row led with the 1200-tick frame — 180%/124%, nobody dead — and
+buried the whole-match fact two paragraphs down: **at 2400 ticks (~40s) the match
+had COMPLETED and returned to CHOOSE YOUR FIGHTER.** ⇒ **when a capture sweeps
+time, the acceptance question is answered by the LAST frame, not the most alarming
+one.** A partial observation was framed as the finding while the complete one sat
+underneath it.
+
+⇒ **so what is left in this row is ENGINEERING, not acceptance:**
+
 ```text
-THE ONE OUTSTANDING ITEM  product acceptance: PACING.
-                          Jon watches ONE two-CPU match and says whether three
-                          stocks at these numbers takes too long.
-                          ⛔ not a lane. Not measurable by any test here.
+1  seat-independent respawn placement           (defect 3 below)
+2  standalone smash-app asset composition       (no PlatformerAssetsPlugin)
+3  the residual presentation defects            (5-8 below)
+⛔ NOT on this list: stock count, knockback, damage. Ruled. Do not retune them.
+⛔ NOT on this list: another capture or another ladder run. Both are done.
 ```
 
-⭐ **the state that acceptance is asked against** — two-CPU match captured
-2026-08-17 through the shipped shell, AFTER D155 gave the game working
-knockback: 34%→180% in thirteen seconds, real exchanges with hit VFX, the stock
-loop closes on its own back to CHOOSE YOUR FIGHTER. ⇒ **every feel judgement
-recorded anywhere in this row before that date was made on a build where nobody
-was ever launched, and is void.**
+⭐ **the state acceptance was given against** — two-CPU match captured 2026-08-17
+through the shipped shell, AFTER D155 gave the game working knockback: 34%→180% in
+thirteen seconds, real exchanges with hit VFX, the stock loop closing on its own.
+⇒ **every feel judgement recorded anywhere in this row before that date was made
+on a build where nobody was ever launched, and is void** — the same reasoning Jon
+used to supersede D114's prohibition.
 
 ⛔ **the six named defects from the 2026-08-16 photo session — do not re-derive
 their status, and do not re-run the capture or the ladder rig to get it:**
@@ -6333,10 +6371,11 @@ rather than from minutes of fighting."* So a **CPU-produced** launch reaches the
 blast zone and spends a stock — the end is not manufactured by a test writing a
 velocity, which is the failure mode this repo has been bitten by before.
 
-⇒ **so the capture is a mid-match MOMENT, not evidence of a broken KO**, and what
-is actually open here is **PACING**: how long three stocks take when neither CPU
-closes. That is a tuning question for Jon and nothing else — ⛔ do not re-open it
-as a defect on the strength of a screenshot showing a high percent.
+⇒ **so the capture is a mid-match MOMENT, not evidence of a broken KO** — ⛔ do not
+re-open it as a defect on the strength of a screenshot showing a high percent.
+✔ **and the PACING question this paragraph raised is ANSWERED: Jon accepted it
+2026-08-17** (*"under ~40 seconds … if anything it is brisk"*). ⛔ do not retune
+stock count, knockback or damage.
 
 ⚠⚠ **THREE OF THIS ROW'S "NEXT" CLAIMS WENT STALE ON 2026-08-16 — read this
 before working any of them.** Everything below is still accurate about the
@@ -6401,13 +6440,18 @@ a real CPU match rather than a fixture.
 ⭐ **the percent meter climbs and the fighters engage** — 34%→180% in thirteen
 seconds, with hit VFX on the stage. After D155 that is the first time this has
 been true.
-⚠ **but at 1200 ticks NEITHER fighter had lost a stock at 180%/124%.** Not
-called a defect here — a stock did fall before 2400 — but *"how long a stock
-takes at these numbers"* is now an answerable tuning question for the first
-time, and 180% with all three stocks intact is worth Jon's eye.
+⚠ **at 1200 ticks NEITHER fighter had lost a stock at 180%/124%.** ✔ **shown to
+Jon and ACCEPTED 2026-08-17** — and ⭐ **he read past this line to the one above
+it**: the match had COMPLETED by 2400 ticks (~40s), *"certainly not too long; if
+anything it is brisk"*. ⇒ **the 1200-tick frame was a partial observation
+presented as the finding**, which is why it read as a pacing problem. ⛔ do not
+retune stock count, knockback or damage around it.
 
-▢ **AND THE CAPTURE FOUND ONE REAL PRESENTATION DEFECT: speech bubbles STACK
-ILLEGIBLY.** The 1200-tick frame has three lines drawn over one another —
+✔ **AND THE CAPTURE FOUND ONE REAL PRESENTATION DEFECT — CLOSED as D158→D159 the
+same day, so ⛔ do not work it: speech bubbles STACKED ILLEGIBLY.** (The fix was
+to make a bubble a `WorldLabel` in the one ranked placement pass, not to retune
+the offsets named below.) The 1200-tick frame has three lines drawn over one
+another —
 *"Either you are on the stage or you are not."* twice, and *"Belay that, ye
 barnacle!"* printed ON TOP of another bubble's text. Two CPUs taunting at once
 is the ordinary case on this stage, so the stack offsets
@@ -6546,16 +6590,19 @@ either match, and `--combat-overlay` reads **100/100 over both fighters**. The
    primary player, so every log above is silent about where anybody was. ⇒ print
    each `MatchSeat` body, ~20 lines.
 
-⇒ **the plain answer to the standing question:** *not yet, and the reason is no
-longer the fighters.* With George Booul and the Pirate Admiral seated, a watcher
-sees two mechanically different bodies inside four seconds — different
-silhouettes, different effects, a cutlass against a Boolean ghost, 36% traded —
-so **"content underuse" is answered: the authored kits DO read**. What the same
-watcher does not see is a fight: the match is over in 13-23 seconds, every stock
-is lost to the void at nearly zero percent, the camera is pointing at an empty
-platform when it happens, and the game announces *"seat 2 wins"*. ⛔ **the next
-spend is the stage-return loop (1 + 2), not more repertoire** — a fighter that
-cannot get back on the stage has no room to show a repertoire at all.
+◻ **HISTORY (2026-08-16). Its verdict — *"not yet"* — was OVERTAKEN by D155's
+knockback fix and then by Jon's acceptance of the pacing; ⛔ its closing
+instruction is spent.** What survives is the half that was never in doubt: with
+George Booul and the Pirate Admiral seated, a watcher sees two mechanically
+different bodies inside four seconds — different silhouettes, different effects, a
+cutlass against a Boolean ghost, 36% traded — so **"content underuse" is answered:
+the authored kits DO read**. ⚠ the rest of the paragraph described a build where
+the match ended in 13-23 seconds with every stock lost to the void at nearly zero
+percent, the camera on an empty platform, and the card announcing *"seat 2 wins"*:
+**the camera and the winner card are both fixed, the launches were inverted at the
+time, and the current match runs ~40s with real exchanges.** ⛔ **its parting
+instruction — *"the next spend is the stage-return loop (1 + 2)"* — is spent**: 2
+is closed and 1's cause was architecture, already repaired.
 
 ✔✔ **FIRST FIGHTER LANDED AND VERIFIED (George Booul, 2026-08-15)** — Smash lib
 73, Smash app 21, characters 531, core 393, app_it 365, gate clean.

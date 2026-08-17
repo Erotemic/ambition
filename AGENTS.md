@@ -179,6 +179,18 @@ touch the stall fuse — that one is answered by committing something.
   unit tier is FAST — this costs a sweep, not a suite. ⚠ both failures were
   guards that were CORRECT when written and went wrong when a rule moved under
   them, which is exactly what the cheap tier is for.
+  * ⛔⛔ **THIS IS A PRE-PUSH OBLIGATION AND THE OMISSION FROM THE GATE IS
+    DELIBERATE — DO NOT "FIX" IT BY EDITING `scripts/gate_suite.py`.** Jon ruled
+    2026-08-17: *"keep the per-turn gate small … do not add cargo test
+    --workspace --lib to every turn. The workspace lib suite remains a required
+    pre-push/finalization check … 'Gate' should continue to mean an executable
+    gate; the pre-push checklist is a separate validation tier."* ⭐ **three
+    tiers, and name the one you mean**: the per-turn executable gate (cheap, and
+    it stays cheap) · pre-push/finalization (`--workspace --lib`, required) ·
+    a crate's **feature-gated** suite, run when you touch that subsystem and
+    ⛔ never wholesale. ⚠ D160 was once closed by claiming the sweep had been
+    "added to the gate" when what had been added was this paragraph — **two
+    commands run in one turn is not one command invoking the other.**
 * ⛔ **AND `ambition_app` IS NOT THE WHOLE GATE EITHER — run
   `cargo test -p ambition_demo_smash_app` when you touch character, movement or
   combat.** Two crates have been found red while every check the run performed

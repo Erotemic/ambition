@@ -107,26 +107,30 @@ anything but time integration.
   consolidated into one function called from three places — controlled bodies in
   `control::input_systems`, actors here, bosses in the boss tick — one per
   population, and the controlled site decays on `frame_dt` where the other two
-  use sim `dt`. That difference is deliberate and is the open half of **D114**,
-  a feel question, not a fork to collapse. Merging the three into one system
-  would force one clock and decide D114 by refactor.
+  use sim `dt`.
 
-  ⛔⛔ **AND D114's OTHER HALF LANDED ON 2026-08-17 BY DOING THE THING THIS
-  PARAGRAPH WARNS AGAINST.** `818218949` added
-  `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };` to the actor
-  road, so a hit between two actors now freezes both — which it never did, and
-  that half was a real gap (CPU-versus-CPU froze nobody). ⚠ but
-  `awaiting-maintainer-decision.md` §6 records a per-body zero-dt as an
-  experiment that *"made AI-vs-AI bouts degenerate"* and says **do not
-  reintroduce that fix**; the commit does not mention either document, so the
-  prohibition was unseen rather than overruled.
+  ⛔⛔ **THIS PARAGRAPH USED TO CALL THAT DIFFERENCE DELIBERATE AND WARN AGAINST
+  "deciding D114 by refactor". IT IS SUPERSEDED — D114 WAS RULED ON 2026-08-17
+  AND THE PER-BODY FREEZE IS NOW THE INTENDED BEHAVIOUR.** `818218949` gave the
+  actor road `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };`, so a
+  hit between two actors freezes both, and Jon kept it: *"hitlag is a combat/body
+  semantic, not something that should depend on whether a body happens to occupy
+  the primary local-control road."* ⇒ **the per-road distinction was the defect,
+  not a feel fork.** ⛔ if hitlag ever feels too sticky, tune its DURATION or
+  SHAPE — **restoring a controlled-body/actor asymmetry is forbidden.** Ruling in
+  [`../maintainer-decisions.md`](../maintainer-decisions.md).
 
-  ⭐ **what is genuinely different**: it shipped with 153 lines of
-  `hitlag_tests.rs`, and a CPU-versus-CPU match still reaches a verdict. ⚠ what
-  is unchanged: *degenerate* was a feel word, and nothing in this repository
-  measures feel — the `ladder_probe` rig CANNOT, because it disables the
-  opponent, so no hits land and no hitlag occurs. **One played match settles
-  it; the revert is one line.**
+  ⚠ **what survives of the warning, and it is the part worth keeping**: the old
+  prohibition was measured on a build where every authored launch direction was
+  vertically inverted and a tumbling launch resolved as a landing, i.e. where
+  nobody was ever knocked anywhere (queue D155). ⇒ **a feel verdict inherits the
+  build it was formed on**, and a prohibition written from one is only as durable
+  as that build. ⚠ note also that `ladder_probe` CANNOT measure this either way,
+  because it disables the opponent, so no hits land and no hitlag occurs.
+
+  ⚠ **the `frame_dt` vs sim `dt` split at the three decay sites is a SEPARATE
+  question** and this ruling does not settle it; what it settles is the hitlag
+  freeze. Do not cite the D114 closure as permission to merge the three systems.
 
   ⚠ **the automatic pacify is a candidate with a stated cost.** `if
   disposition.is_hostile() && target.entity.is_none() && !in_a_fight` reverting a

@@ -11,21 +11,31 @@ submodule pushes fine; 13: the policy suite is green AND now runs in CI), and
 five had moved without anyone noticing — 1 is half-landed, 5's headline is
 falsified by a capture and re-measured by its own rig, 8's fork was decided and
 pinned by the D146 campaign, 11 is two-thirds executed.
-⛔ **6 is the one that needs you most**: a landed fix took the option that row
-tells us not to take.
+⭐⭐ **AND JON ANSWERED TWO OF THEM THE SAME DAY — 6 AND 9 ARE CLOSED**, both
+recorded verbatim in [`maintainer-decisions.md`](maintainer-decisions.md). Their
+sections below are kept as answered records, not as questions:
 
-⛔⛔ **AND 9 WAS NOT NARROWED — that claim is retracted 2026-08-17.** It said D160
-had put the workspace unit tier in the project gate; D160 put it in `AGENTS.md`
-as a pre-push instruction, and `scripts/gate_suite.py` is unchanged. 9 is open at
-its original width, plus the bare-lib half. ⇒ **a row's premise is worth
-re-checking against the tree, not against the row that claims to have moved it.**
+- **6 (hitlag)** — the landed fix STANDS and the old *"do not reintroduce a
+  per-body zero-dt"* prohibition is **superseded**. Hitlag is a body semantic and
+  must not depend on which control road a body is on. ⛔ a future feel complaint
+  is answered by DURATION/SHAPE, never by restoring the asymmetry.
+- **9 (per-turn suite)** — the per-turn gate STAYS SMALL, deliberately. ⛔ do not
+  add `cargo test --workspace --lib` to `gate_suite.py`; it is a pre-push tier.
+
+⛔⛔ **BOTH had been mis-stated by an agent-closed ledger row first, and that is
+the pattern to watch.** 6 was answered by an implementation that never read this
+file, so a written prohibition was *unseen rather than overruled*. 9 had inherited
+a false premise from D160's premature closure (*"the project gate now runs
+`cargo test --workspace --lib`"* — it did not; D160 added a pre-push paragraph to
+`AGENTS.md`). ⇒ **a row's premise is worth re-checking against the tree, not
+against the row that claims to have moved it.**
 
 ⚠ **the same items also live in
 [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)**
 and the two files did not reference each other, so a settled decision kept
 reading there as an unfixed bug. Cross-links added for 1, 4 and 7.
 
-## Open decisions — 11
+## Open decisions — 9 (§6 and §9 are ANSWERED and kept below as records)
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -209,69 +219,47 @@ question for you is priority: is CPU quality on the path to what Smash is for,
 or is it acceptable that CPUs are currently sparring partners that suicide?
 Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
-### 6. What should fighter-vs-fighter hit emphasis do without the primary local seat? (former D114)
+### 6. ✔ ANSWERED 2026-08-17 — fighter-vs-fighter hit emphasis without the primary local seat (former D114). THE LANDED FIX STANDS; THE OLD PROHIBITION IS SUPERSEDED.
 
-⛔⛔ **THIS DECISION WAS ANSWERED BY IMPLEMENTATION ON 2026-08-17, AND THE OPTION
-TAKEN IS THE ONE THIS ROW TOLD US NOT TO TAKE. Please confirm or revert.**
+⭐⭐ **Jon's ruling, verbatim:** *"keep the landed fix and overrule the old
+prohibition. Close the decision. The older 'per-body zero-dt makes AI-vs-AI
+degenerate' judgement predates D155, when Smash launch/landing behavior was
+materially broken; the D128 record itself now treats those pre-D155 feel
+judgements as invalid. More importantly, **hitlag is a combat/body semantic, not
+something that should depend on whether a body happens to occupy the primary
+local-control road**. CPU-vs-CPU now has real exchanges, the match still
+terminates, and the later capture exercises corrected knockback. Keep sim_dt =
+0.0 during that body's hitlag. Mark the old prohibition superseded. **If hitlag
+later feels too sticky, tune its duration/shape rather than restoring a
+controlled-body/actor asymmetry.**"* ⇒ recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
-`818218949` (*"Both roads spend hitlag, so a CPU-versus-CPU hit freezes
-somebody"*) added to the actor road:
+⇒ **so what landed in `818218949` is now the intended behaviour**, on both roads:
 
 ```rust
 let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };
 ```
 
-⇒ that is **a direct per-body zero-dt**, which the paragraph below calls an
-experiment that *"made AI-vs-AI bouts degenerate"* and says explicitly: **do not
-reintroduce that fix.** The commit does not mention this row, so the prohibition
-was not weighed — it was not overruled, it was unseen. ⚠ and this row had already
-named that risk exactly: *"guessing it decides feel by refactor."*
+⛔⛔ **THE THREE OPTIONS THIS ROW USED TO OFFER ARE ALL VOID, and it is worth
+knowing why**: *no extra freeze* · *a proper-time treatment at the ADR 0011 seam*
+· *extend the global 0.125 beat to any seated-fighter hit*. **Every one preserved
+a per-road distinction**, and the ruling says the distinction itself was the
+defect. ⇒ **the only sanctioned future repair is hitlag's DURATION or SHAPE**;
+reintroducing a controlled-body/actor split is explicitly forbidden.
 
-⭐ **what is genuinely different this time, and why it may nonetheless be right:**
-
-```text
-+153 lines  features/enemies/integration/hitlag_tests.rs   (new, with the fix)
-green       a_second_match_on_the_same_stage_counts_in_and_ends  — CPU vs CPU,
-            a CPU-produced launch still spends a stock and the match still ENDS
-```
-
-⇒ so the bout does not degenerate in the sense a test can see: it still
-terminates. ⚠ **but "degenerate" in the original report was a FEEL word**, and no
-test in this repository can tell a good AI-vs-AI bout from a bad one — which is
-precisely why this was your decision and not an agent's.
-
-⚠ **AND THE WARNING WAS WRITTEN DOWN TWICE, in two documents, by different
-slices.** P0's owner doc,
+⚠ **the superseded prohibition, kept because the lesson is about EVIDENCE, not
+about hitlag.** This row said a direct per-body zero-dt *"was already tried and
+made AI-vs-AI bouts degenerate, so **do not reintroduce that fix**"*, and
 [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
-(2026-08-14), says of the same fork:
-
-> *"That difference is deliberate and is the open half of **D114**, a feel
-> question, not a fork to collapse. Merging the three into one system would force
-> one clock and **decide D114 by refactor**."*
-
-⇒ so this was not one stray prohibition in one file — **the roadmap's own P0
-owner names the same trap in the same words**, and the landed change is exactly
-"decide it by refactor". ⭐ that makes the flag stronger, not the fix wronger:
-two documents agreeing raises the odds the feel concern is real, and neither
-document was consulted.
-
-▢ **the ask is small: play one CPU-versus-CPU match and say whether it feels like
-the bad experiment.** If yes, the revert is one line at
-`features/enemies/integration.rs`. If no, this row closes and the third option it
-proposes (extending the global 0.125 beat) never needs trying.
-
-
-`BodyCombat::hitstop_timer` is armed for every body, but the actor road does not
-freeze its integration from that timer. A direct per-body zero-dt experiment was
-already tried and made AI-vs-AI bouts degenerate, so **do not reintroduce that
-fix**.
-
-Choose the desired feel for a landed hit between two fighters where neither is
-the primary local controlled body:
-
-- no extra freeze beyond today's timers/presentation;
-- a proper-time/per-body treatment designed at the ADR 0011 seam; or
-- extend the existing global 0.125 hit-emphasis beat to any seated-fighter hit.
+independently warned against deciding *"D114 by refactor"*. Two documents agreed
+— and both were **measured on a build where every authored launch direction was
+vertically inverted and a tumbling launch resolved as a landing** (D155), i.e.
+where nobody was ever knocked anywhere. ⇒ ⭐⭐ **a feel verdict inherits the build
+it was formed on. D155 invalidated every judgement that predates it, including
+the ones written as prohibitions.** ⚠ the process failure was still real and is
+not excused by the outcome: the commit consulted neither document, so the
+prohibition was *unseen rather than overruled*, and it took a maintainer to
+notice that its premise had expired.
 
 The third is the smallest Smash-oriented experiment; it has not been tried.
 
@@ -365,35 +353,36 @@ Choose one:
 goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
 should not invent one.
 
-### 9. What should the per-turn suite actually run? (measured 2026-08-14; premise re-checked 2026-08-17)
+### 9. ✔ ANSWERED 2026-08-17 — what should the per-turn suite actually run? (asked 2026-08-14)
 
-**471 tests are hidden behind features in eight crates, nothing runs them
-automatically, and every one of them is green today** — and, separately, **no
-executable gate runs any crate's bare `--lib` suite either** (see D160). So this
-is a question about future regressions, and the price is small but not zero.
-
-⛔⛔ **THIS ROW CARRIED A FALSE PREMISE FOR A DAY — corrected 2026-08-17 in the
-handoff pass. It said *"the project gate now runs `cargo test --workspace
---lib`"*. IT DOES NOT.** `scripts/gate_suite.py` runs
-`cargo test -p ambition_app --test app_it` and nothing else; what D160 actually
-added was a **pre-push paragraph in `AGENTS.md`**. ⇒ so the question below is
-still the WHOLE question, not a narrowed one, and it now has a second half:
+⭐⭐ **Jon's ruling, verbatim:** *"keep the per-turn gate small. … gate_suite.py
+should remain the cheap executable per-turn gate; do not add cargo test
+--workspace --lib to every turn. The workspace lib suite remains a required
+pre-push/finalization check. Likewise, **feature-gated suites should be run when
+the affected subsystem is touched, not wholesale every turn**. … So §9 is
+answered: the absence of --workspace --lib from the per-turn gate is deliberate."*
+⇒ recorded in [`maintainer-decisions.md`](maintainer-decisions.md); **this row is
+kept for its measurements, and it is no longer a question.**
 
 ```text
-BARE lib suites     watched by NO executable gate — a manual pre-push sweep only
-WITH-FEATURES delta watched by nothing at all: ambition_input 54 → 115,
-                    ambition_audio 25 → 64, ambition_touch_input 4 → 45
+per-turn EXECUTABLE gate   gate_suite.py → cargo test -p ambition_app --test
+                           app_it. ⛔ DO NOT GROW IT.
+pre-push / finalization    cargo test --workspace --lib. Required.
+touched the subsystem      that crate's feature-gated suite. ⛔ never wholesale.
 ```
 
-⇒ **two decisions, and the first is cheap**: (a) should the per-turn gate run the
-bare unit tier (`cargo test --workspace --lib`), or is a documented pre-push
-obligation the intended meaning of "gate"? and (b) is the feature-gated delta
-worth a second pass, and if so which features? ⚠ the delta is where the
-interesting tests live — a crate whose bare suite is 4 and whose real suite is 45
-is being watched at under a tenth of its coverage. ⛔ **nothing was added to
-`gate_suite.py` on the agent side**, deliberately: your 2026-08-08 ruling was
-*"bias towards running less tests"*, so growing the per-turn suite is yours to
-authorise, not an agent's to slip in as a repair.
+⛔⛔ **AND THIS ROW HAD CARRIED A FALSE PREMISE FOR A DAY** — it said *"the project
+gate now runs `cargo test --workspace --lib`"*, inherited from D160's premature
+closure. It never did; what landed was a pre-push paragraph in `AGENTS.md`. ⇒ **a
+row's premise is worth re-checking against the tree, not against the row that
+claims to have moved it.**
+
+⇒ **what the measurements below are now FOR**: they say which crate's
+feature-gated suite is worth running when you touch that crate — which is exactly
+the tier the ruling assigns them to. The delta is where the interesting tests
+live (`ambition_input` 54 → 115, `ambition_audio` 25 → 64,
+`ambition_touch_input` 4 → 45), so *"I ran `--workspace --lib`"* is not evidence
+about a crate whose real suite is ten times its bare one.
 
 ⭐⭐ **AND HERE IS WHAT THE DELTA ACTUALLY HOLDS — a named consequence rather
 than a count (2026-08-17).** `game/ambition_demo_mary_o_app/tests/painted_blocks_still_change_their_art.rs`

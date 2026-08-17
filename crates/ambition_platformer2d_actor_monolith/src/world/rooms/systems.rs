@@ -217,12 +217,47 @@ pub fn detect_room_transition_system(
         // ⚠ and it costs nothing on the normal path: it runs only after the
         // swept test has already declined, and only for a body actually
         // overlapping an authored zone.
+        //
+        // ⛔⛔ **A `Door` NOBODY HAS PRESSED IS NOT A SYMPTOM, so this SPLITS BY
+        // LEVEL rather than going silent** (D162, 2026-08-17). Standing in a
+        // doorway without pressing is what a doorway is FOR, and this fired on
+        // ordinary play in half the rooms sampled — a WARN that describes
+        // correct behaviour is how a log stops being read. Demonstrated rather
+        // than argued: driving the press against this very zone shows the
+        // warning first and the transition working immediately after it.
+        //
+        // ⛔ **but it must NOT be filtered away on `!wants_interact`**, which
+        // was the first fix I wrote and it was wrong: the failure this message
+        // was BUILT for *"sent an investigation into the key bindings"*, and a
+        // broken binding is exactly the case where the press happened and
+        // `wants_interact` still reads false. Suppressing that silences the
+        // instrument in its own founding scenario.
+        //
+        // ⇒ WARN when the press HAPPENED and nothing moved (unambiguous), DEBUG
+        // when it did not (ordinary, and still one log level away). Every fact
+        // stays in the message either way. `EdgeExit`/`Walk` need no press, so
+        // they are anomalous whenever they are touched without transitioning.
         use ae::AabbExt as _;
         if let Some(touching) = room_set
             .active_loading_zones()
             .iter()
             .find(|zone| kin.aabb().strict_intersects(zone.aabb))
         {
+            let ordinary_unpressed = !wants_interact
+                && matches!(
+                    touching.activation,
+                    ambition_platformer2d_world::rooms::LoadingZoneActivation::Door
+                );
+            if ordinary_unpressed {
+                bevy::log::debug_once!(
+                    target: "ambition_platformer2d_actor_monolith::rooms",
+                    "the controlled body is touching `{}` (Door) and has not \
+                     pressed interact — ordinary; raised to WARN once a press \
+                     is buffered and the transition still does not fire.",
+                    touching.id,
+                );
+                return;
+            }
             bevy::log::warn_once!(
                 target: "ambition_platformer2d_actor_monolith::rooms",
                 "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \

@@ -936,7 +936,8 @@ share `robot`, 9 share `goblin`. ⭐ and the guard that would catch the real cas
 `report_shadowed_character_sheets`, is silent because there is nothing to say
 rather than because it is dead — the offline count agrees with its silence.
 
-▢ **the other three are unexamined:**
+✔ **AND THE OTHER THREE ARE NOW EXAMINED TOO — all four are triaged as of
+2026-08-17, which was this row's whole purpose:**
 
 ```text
 1  the controlled body is TOUCHING loading zone `pirate_cove_entry` (Door) and

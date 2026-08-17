@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`fx`](src/fx.rs) | **An effect is a NAME.** |
 | [`vfx`](src/vfx.rs) | The visual-effects MESSAGE vocabulary — the presentation-neutral data a simulation system emits to ask for a cue, with NO renderer attached. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

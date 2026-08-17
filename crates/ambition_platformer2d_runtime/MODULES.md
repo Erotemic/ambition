@@ -7,10 +7,13 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`causal`](src/causal.rs) | The ECS side of causal recording. |
+| [`checkpoint_horizon`](src/checkpoint_horizon.rs) | **Wiring the reset horizon into the tick.** |
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
+| [`durable_save_horizon`](src/durable_save_horizon.rs) | **Wiring the DURABLE save horizon into every composition, not just the visible one.** |
 | [`external_effects`](src/external_effects.rs) | Holding external effects at the confirmed-frame boundary. |
 | [`input_stream`](src/input_stream.rs) | **Input-stream capture** (netcode N0.2) — the one place a session's input is recorded. |
+| [`ldtk_world`](src/ldtk_world.rs) | **The LDtk world's runtime install — offered by the engine, accepted by a game that HAS an LDtk world.** |
 | [`lifecycle_commit`](src/lifecycle_commit.rs) | Confirmed-frame lifecycle commit (Track B, Piece 2). |
 | [`mode_scope`](src/mode_scope.rs) | The demo-hosting seam (decomposition D-C, vision §5): **scoped game modes**. |
 | [`player_schedule`](src/player_schedule.rs) | The per-frame PLAYER schedule wiring (E5 step 5) — the engine-generic player-frame lifecycle every platformer built on this engine runs, headless or windowed: time control → input → controlled-subject resolution → brains → body mode → possession → hit events → presentation write-back. |
@@ -24,7 +27,7 @@
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

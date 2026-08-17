@@ -12,14 +12,16 @@
 | [`boss_encounter`](src/boss_encounter.rs) | Boss encounter state machine. |
 | [`brain`](src/brain/mod.rs) | Universal brain interface. |
 | [`equipment`](src/equipment.rs) | A3 — equipment→params. |
+| [`moveset_authoring`](src/moveset_authoring.rs) | **The primitives a character's move table is written with** — shared, because the second character to author one must not begin by copying the first. |
 | [`moveset_prefabs`](src/moveset_prefabs.rs) | **Move authoring** — the build-time half of the Smash model: the functions that turn authored specs (`MeleeActionSpec`/`RangedActionSpec`), tunable params (`Simple{Melee,Ranged,Charge}Params`), and the `MovePrefabRegistry` into `MoveSpec`s, plus `build_actor_moveset` which assembles an actor's full `MovesetContract` from its catalog + worn equipment. |
 | [`perception`](src/perception.rs) | `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4). |
 | [`prepared`](src/prepared.rs) | **One registration per character.** (§4.1, §4.6, §5) |
 | [`prepared_fixtures`](src/prepared_fixtures.rs) | Fixture builders shared by preparation's own tests and the registration tests one crate up. |
+| [`smash_repertoire`](src/smash_repertoire.rs) | **THE STANDARD SMASH REPERTOIRE — the vocabulary and the bookkeeping, once.** |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | **THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES** — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

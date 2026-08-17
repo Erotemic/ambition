@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`app_finalization`](src/app_finalization.rs) | Finish a manually driven `App` the way a runner would. |
+| [`authored_logic`](src/authored_logic/mod.rs) | **The condition contract: how a domain lets authored content ask it a question.** |
 | [`binding`](src/binding.rs) | **THE BINDING BOUNDARY MOVED OUT OF THIS CRATE — this is only the door.** |
 | [`block_nudge`](src/block_nudge.rs) | **A struck block flinches** — the presentation half of hitting one. |
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
@@ -21,7 +22,6 @@
 | [`gameplay_presentation`](src/gameplay_presentation/mod.rs) | Gameplay presentation policy: where the gameplay camera renders on the physical display, and where important subjects should stay inside it. |
 | [`gravity`](src/gravity.rs) | Shared world physics applied to every actor body. |
 | [`held_item_art`](src/held_item_art.rs) | Provider-contributed art declarations for inventory/held items (the ground pickup + in-hand icon of a `HeldItem`: an axe, a javelin, a gun-sword, a wielded-gauntlet ability prop). |
-| [`kinematic`](src/kinematic.rs) | Generic kinematic body — gravity + axis-separated sweep against a `World`. |
 | [`lifecycle`](src/lifecycle/mod.rs) | Lifecycle vocabulary for entities spawned by reusable platformer systems. |
 | [`markers`](src/markers.rs) | Generic entity-marker components shared by reusable mechanics. |
 | [`math`](src/math.rs) | Pure portal-map vector math for platformer mechanics. |

@@ -13,8 +13,9 @@
 | [`ron_room`](src/ron_room.rs) | The `ron-room` loader: rooms as serialized world IR. |
 | [`rooms`](src/rooms/mod.rs) | Room graph and authored room IR. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`world_manifest`](src/world_manifest.rs) | **Which authored world documents a game ships, and where play starts.** |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

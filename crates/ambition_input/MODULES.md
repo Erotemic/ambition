@@ -13,6 +13,7 @@
 | [`control`](src/control.rs) | Device adapters that build the engine-owned `ControlFrame` resource. |
 | [`cues`](src/cues.rs) | Resolved UI cues — what the submit-functional controls DO right now, in the owning surface's own words. |
 | [`glyphs`](src/glyphs.rs) | Device-conditional glyph rendering for a seat's bindings. |
+| [`layout`](src/layout.rs) | **A GAME's gamepad layout — what each physical button MEANS in this mode.** |
 | [`local_seats`](src/local_seats.rs) | **Which physical device drives which local seat.** (C4 slice 5) |
 | [`menu`](src/menu.rs) | Menu-side input vocabulary: the device-agnostic `MenuInputFrame` / `MenuControlFrame` / `MenuInputState` resources and the `MenuDir` / `analog_to_dir` helpers. |
 | [`motion_input`](src/motion_input.rs) | Motion-input gesture recognition: a rolling directional buffer, a generic ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an **open, content-owned** [`MotionTechniqueCatalog`] of named techniques. |
@@ -23,7 +24,7 @@
 | [`settings`](src/settings.rs) | Controls / input settings. |
 | [`sources`](src/sources.rs) | **Which physical input SOURCE a participant owns.** |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

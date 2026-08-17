@@ -7,11 +7,12 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`dev_tools`](src/dev_tools/mod.rs) | Developer-facing tuning and inspection tools. |
+| [`hot_reload`](src/hot_reload.rs) | **A debounced mtime watch over the authored world file, and the transactional reload it offers the developer controls.** |
 | [`persistence`](src/persistence.rs) | Disk persistence for the [`DeveloperTools`] resource (developer.ron). |
 | [`profiling`](src/profiling.rs) | Lightweight startup profiler. |
 | [`sim_plugin`](src/sim_plugin.rs) | `DevToolsSimPlugin` — the dev-tools DOMAIN plugin for the simulation App. |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

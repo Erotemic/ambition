@@ -12,13 +12,14 @@
 | [`boss`](src/boss.rs) | Boss spritesheet animation, parallel to `character_sprites` but with the boss generator's own animation rows (rest / floor_slam / side_sweep / spike_halo / dash_echo / hit / death) instead of the standard 8-row `CharacterAnim` grid. |
 | [`character`](src/character/mod.rs) | Character sprite-sheet vocabulary and Bevy-side animation helpers. |
 | [`frames`](src/frames.rs) | The single frame-addressing algebra for every sprite sheet. |
+| [`fx`](src/fx.rs) | **The effect sheets the ENGINE ships, and the one mapping it owes them.** |
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring with fallback-friendly loading. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

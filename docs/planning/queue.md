@@ -899,32 +899,60 @@ out of order, and Noether's rig names `head_base`/`head_features` where
 `validate_one` requires `head`/`torso`. The `build` path both regens use is fine;
 only `validate` is red.
 
-- ▢ **D158 — TWO TAUNTING CPUs STACK THEIR SPEECH BUBBLES ON TOP OF EACH
-  OTHER. (found by the D128 capture, 2026-08-17)**
+- ✔ **D158 — CLOSED 2026-08-17. TWO TAUNTING CPUs PRINTED THROUGH EACH
+  OTHER: stacking separated the OFFSETS and nothing separated the LINES.**
 
-Seen in the 1200-tick frame of a real two-CPU match: THREE taunt lines, two of
-them separated correctly (~45px apart) and a third printed straight THROUGH
-another bubble's text. Two CPUs taunting at once is the ordinary case on this
-stage, so this is what a watcher sees.
+Seen in the 1200-tick frame of a real two-CPU match: THREE taunt lines, two
+separated correctly (~45px) and a third printed straight THROUGH another
+bubble's text.
 
-⛔ **it is NOT "stacking is missing", and that is the whole difficulty.** The
-mechanism exists and is applied to BOTH populations —
-`make_room_for_pending_speech_bubble` (the pending queue) and
-`make_room_for_speech_bubble` (the live entities), both in
-`crates/ambition_render/src/fx.rs`. Both gate on `speech_bubbles_should_stack`
-(|Δx| ≤ `SPEECH_BUBBLE_STACK_X_RANGE` 160, |Δy| ≤ `_Y_RANGE` 96) and both push
-through `pushed_speech_bubble`, stepping `_STACK_STEP` 28 up to `_STACK_MAX` 84.
-Two of the three bubbles in the frame WERE pushed apart correctly.
+⛔ **the same-frame hypothesis was REFUTED by probe.** Three arrivals in one
+frame already came out of `make_room_for_pending_speech_bubble` at `0 / 28 / 56`.
+The pending queue was never the problem.
 
-⇒ so two bubbles ended up at the SAME offset. ▢ **probe the same-frame case
-first**: a bubble makes room against the bubbles that already exist, so two
-created in one frame may each push the older ones and not each other. ⚠ the
-speakers were also nearly co-located (both fighters standing on the same tile),
-which is exactly the geometry the ranges are widest for.
+⭐ **`stack_offset` is measured from each SPEAKER'S OWN HEAD, and the two
+speakers were not at the same height.** Traced live out of the photographed
+match: taunts anchor at `y = 225.44` from the stage floor and at `y = 208.84`
+and `y = 196.62` from mid-air. Floor-to-air is 28.8 — one `_STACK_STEP` — so
+pushing the older line 28 up from a grounded speaker landed it 0.8 from an
+airborne speaker's untouched line. Every offset was distinct and every line was
+on top of another. A platform fighter has somebody airborne constantly, so this
+is the ordinary geometry, not a corner.
 
-⚠ **`_STACK_MAX` 84 with `_STACK_STEP` 28 tops out at FOUR bubbles.** A
-four-fighter free-for-all is a supported mode; whatever the fix is, check what
-the fifth does.
+⭐ **the fix: ONE column, swept once, in ELEVATION** (`restack_speech_bubbles`,
+`crates/ambition_render/src/fx.rs`). Live entities and this frame's arrivals are
+gathered into one list — the two near-identical make-room routines were a FORK,
+and each could clear every member of the other population and still collide.
+The column sorts by where the text lands (`target_stack_offset - pos.y`), the
+lowest line stays at its speaker's head, and every line above is lifted to clear
+the one beneath by a step. ⭐ **the arrival is a member, not a privileged
+newcomer** — it slots into the middle when that is where it belongs, which is
+what fixes the newcomer landing on a line already at the ceiling.
+
+✅ **the fifth bubble RETIRES the oldest line.** `_STACK_MAX` 84 / `_STACK_STEP`
+28 is now stated as `_STACK_DEPTH = 4` — the widest supported match — and the
+ceiling is measured from the column's own bottom rather than from anyone's head,
+so four fighters at four different heights all fit. A line squeezed past the top
+ends immediately (alpha is already zero at full age) instead of clamping onto
+its neighbour. `SPEECH_BUBBLE_PUSH_FADE_AFTER` is no longer a race being lost:
+it is now spent only when a line actually MOVED, and the retired line was within
+0.85s of dying anyway.
+
+Guards in `crates/ambition_render/src/fx.rs`, all three seen RED against the
+pre-fix algorithm: `speakers_at_different_heights_do_not_print_through_each_other`
+(11.4 apart), `a_live_line_and_a_new_line_share_one_column` (behavioural, through
+the real `vfx_spawn_messages`, 8.2px apart), and
+`a_four_fighter_free_for_all_fits_and_a_fifth_retires_the_oldest_line`
+(5 live lines where 4 fit). Re-captured with the D128 invocation at
+`--warmup 1200`: three simultaneous taunts, all legible. `cargo check
+--workspace --all-targets`, `ambition_render` (129) and `app_it` (412) green.
+
+▢ **two SEPARATE overlaps the same capture shows, neither of them this bug.**
+(1) `SPEECH_BUBBLE_STACK_X_RANGE` is 160, but a taunt renders ~336 world units
+WIDE — so two lines 202 apart in x do not stack and DO overlap horizontally. The
+gate is a point radius and the thing that collides is a wide box. (2) a
+fighter's world NAME LABEL prints through the lowest bubble; the label and the
+bubble do not know about each other at all.
 
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
@@ -2573,8 +2601,9 @@ that Ambition's own play had never leaned on. That is the argument for keeping
 the row's rule rather than the argument for a second engine.
 
 ⚠ **the residuals this campaign leaves are named and small**: D158's
-speech-bubble stacking, and one thing that turned out NOT to be a residual at
-all on inspection.
+speech-bubble stacking (closed 2026-08-17 — the offsets were separated and the
+LINES were not), and one thing that turned out NOT to be a residual at all on
+inspection.
 
 ⛔ **I filed "presentation hitstop is slot-0 only" as a defect and it is a
 DESIGN FORK — corrected the same day, before anyone spent a session on it.**

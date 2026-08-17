@@ -49,7 +49,24 @@ def test_the_shipped_bank_agrees_with_the_metadata_it_carries():
     entries = al.read_bank(bank)
     assert len(entries) > 100, 'the shipped bank is not nearly empty'
 
-    for entry in entries[:24]:
+    # ⛔ **THE LEVEL COMPARISON ONLY MEANS ANYTHING FOR A LOSSLESS PAYLOAD.** The
+    # bank carries both WAV/PCM_16 and OGG/VORBIS clips, and Vorbis is not
+    # sample-exact: re-decoding it returns a *similar* waveform, not the one the
+    # packer measured. Measured across all 609 entries — WAV agrees to within
+    # 0.002 dB on every one of 233, while OGG drifts by up to 1.16 dB on 339.
+    #
+    # ⚠ this test previously sampled `entries[:24]` and passed only because that
+    # window happened to hold no Vorbis clip. The bank's contents shifted, one
+    # landed inside it, and a test that was always scoped wrong started failing
+    # while nobody had touched it or the packer.
+    #
+    # ⭐ so it now checks EVERY lossless entry rather than the first 24 — both
+    # honest about what it can prove and about ten times stronger.
+    lossless = []
+    for entry in entries:
+        if sf.info(io.BytesIO(entry.payload)).format != 'WAV':
+            continue
+        lossless.append(entry)
         frames, rate = sf.read(io.BytesIO(entry.payload), dtype='float64', always_2d=True)
         assert rate == entry.sample_rate
         assert frames.shape[1] == entry.channels
@@ -57,6 +74,13 @@ def test_the_shipped_bank_agrees_with_the_metadata_it_carries():
         rms_db = 20.0 * np.log10(np.sqrt(np.mean(frames**2)))
         assert peak_db == pytest.approx(entry.stored_peak_db, abs=0.05), entry.sfx_id
         assert rms_db == pytest.approx(entry.stored_rms_db, abs=0.05), entry.sfx_id
+
+    # ⛔ without this the whole test passes on a bank of pure Vorbis, having
+    # proved nothing at all.
+    assert len(lossless) > 100, (
+        f'only {len(lossless)} lossless entries were examined — the slice-boundary '
+        'proof needs sample-exact payloads, and a bank without them cannot supply it'
+    )
 
 
 def _provider_files_that_author_specs() -> list[Path]:

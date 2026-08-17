@@ -195,6 +195,39 @@ lifetime.
 
 ### 8. Which platform-fighter verbs does each creature author?
 
+⭐⭐ **THE FORK IS DECIDED AND PINNED — reconciled 2026-08-17. Only the absence
+list below is still yours.** The recommended option, *universal baseline with
+absences authored*, was taken during the D146/D151 campaign:
+
+```text
+the grant arm is DELETED      MatchAbilities::apply now reads
+                              authored.unwrap_or(AbilitySet::NONE);
+                              the doc still names unwrap_or(self.permitted)
+                              as "a migration bridge ... until today"
+the baseline is AUTHORED      smash fighters state the full ground kit, with
+                              fly / blink / dash omitted DELIBERATELY and each
+                              omission carrying its reason
+```
+
+⭐ **and the population is guarded, not assumed** —
+`smash_roster_movesets.rs` walks every id the character grid offers, computes
+`effective_abilities(authored, rules)` and requires each to equal
+`SMASH_FIGHTER_KIT`. ⚠ it also carries the two guards that stop it going
+vacuous: **at least 8 fighters must resolve** (*"the host is not composing the
+cast and this test is about to prove nothing"*) and **at least one must author a
+kit that DIFFERS** from the stage's, or the union is a no-op and the test would
+pass on the old mask too.
+
+⇒ so *"two of fourteen author, and the grant scaffold cannot be deleted while
+the rest do not"* is no longer the situation: the scaffold is gone and the
+EFFECTIVE set is uniform across the cast whether or not a given character
+authors one.
+
+▢ **what is left is exactly the part this row already calls yours**: the
+per-creature absence list — which creature should NOT shield, dodge, ledge-grab
+or double-jump, so that the omission means something.
+
+
 **Authoring verbs is currently a nerf, and that is why only two characters do
 it.** A seat's abilities are the character's authored set ∩ the mode's declared
 set. The intersection is right and is pinned — a ruleset may forbid, and may

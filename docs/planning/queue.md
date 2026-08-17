@@ -899,6 +899,33 @@ out of order, and Noether's rig names `head_base`/`head_features` where
 `validate_one` requires `head`/`torso`. The `build` path both regens use is fine;
 only `validate` is red.
 
+- ▢ **D158 — TWO TAUNTING CPUs STACK THEIR SPEECH BUBBLES ON TOP OF EACH
+  OTHER. (found by the D128 capture, 2026-08-17)**
+
+Seen in the 1200-tick frame of a real two-CPU match: THREE taunt lines, two of
+them separated correctly (~45px apart) and a third printed straight THROUGH
+another bubble's text. Two CPUs taunting at once is the ordinary case on this
+stage, so this is what a watcher sees.
+
+⛔ **it is NOT "stacking is missing", and that is the whole difficulty.** The
+mechanism exists and is applied to BOTH populations —
+`make_room_for_pending_speech_bubble` (the pending queue) and
+`make_room_for_speech_bubble` (the live entities), both in
+`crates/ambition_render/src/fx.rs`. Both gate on `speech_bubbles_should_stack`
+(|Δx| ≤ `SPEECH_BUBBLE_STACK_X_RANGE` 160, |Δy| ≤ `_Y_RANGE` 96) and both push
+through `pushed_speech_bubble`, stepping `_STACK_STEP` 28 up to `_STACK_MAX` 84.
+Two of the three bubbles in the frame WERE pushed apart correctly.
+
+⇒ so two bubbles ended up at the SAME offset. ▢ **probe the same-frame case
+first**: a bubble makes room against the bubbles that already exist, so two
+created in one frame may each push the older ones and not each other. ⚠ the
+speakers were also nearly co-located (both fighters standing on the same tile),
+which is exactly the geometry the ranges are widest for.
+
+⚠ **`_STACK_MAX` 84 with `_STACK_STEP` 28 tops out at FOUR bubbles.** A
+four-fighter free-for-all is a supported mode; whatever the fix is, check what
+the fifth does.
+
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
 

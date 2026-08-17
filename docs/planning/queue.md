@@ -984,58 +984,63 @@ command runs it per-turn, or it is decoration.
 wrong when a rule moved under them — so this is not "someone wrote a bad test",
 it is the cost of not re-running the cheap tier.
 
-- ▢ **D159 — TEXT STILL PRINTS THROUGH TEXT, TWICE, FOR TWO REASONS NEITHER OF
-  WHICH WAS D158. (found by the same capture, 2026-08-17)**
+- ✔ **D159 — CLOSED 2026-08-17. A NAME PLATE PRINTED THROUGH A TAUNT: the
+  speech bubble was a FOURTH FAMILY that never joined the one placement pass.**
 
-⭐ **promoted out of D158's closed row so an open marker points at them.** D158
-fixed bubble-vs-bubble stacking; these two survived it and are visible in the
-verification frame.
+⭐⭐ **the fix was to JOIN, not to invent, and `label_layout.rs` had already
+written the diagnosis** — *"each family used to place itself … Neither could see
+the other … and **both passes would correctly report 'no overlaps found'** … it
+is the absence of a placement MODEL … every label — whoever spawns it —
+participates by carrying a [`WorldLabel`]"*. `WorldLabelFamily` was
+`Signage · Fixture · Actor`; a bubble carried no `WorldLabel` at all, so the
+nameplate pass and the bubble pass each truthfully reported no overlap about a
+frame in which *"George Booul"* sat inside *"Either you are on the stage or you
+are not."*
 
-**(1) THE GATE IS A POINT AND THE THING THAT COLLIDES IS A BOX.**
-`speech_bubbles_should_stack` compares CENTRES against
-`SPEECH_BUBBLE_STACK_X_RANGE` = 160, but a taunt renders **~336 world units
-wide**. So two speakers 202 apart in x are judged "not stacking" and their lines
-overlap horizontally anyway. ⇒ the range wants to be the rendered WIDTH of the
-two lines, not a fixed radius — and the width is knowable, because the text is
-what is being laid out.
+⭐ **RANKED LAST — `Signage · Fixture · Actor · Speech` — on the module's own
+test**, which is *which family can move without anything visibly jumping?* A
+plate is permanent furniture on a body the eye is using to keep track of who is
+who; displacing it makes it hop up and back once per taunt. A bubble is BORN in
+motion (it rises through `SPEECH_BUBBLE_BASE_RISE` for its whole 2.2s) and is
+gone before the moment is over. There is no reading under which the plate is the
+better candidate to absorb the push. The argument is written at the variant.
 
-**(2) A FIGHTER'S NAME LABEL PRINTS THROUGH THE LOWEST BUBBLE.** They are two
-separate presentation systems that do not know about each other, so no amount of
-bubble-vs-bubble stacking can see it. ⚠ visible in `target/d158/match.png` — the
-"George Booul" label sits inside *"Either you are on the stage or you are not."*
+⚠ **D158's mechanism was SUBSUMED, not separate, and it is deleted.** The pass
+already spaces a family against ITSELF — that is how two nameplates avoid each
+other — so keeping `restack_speech_bubbles` would have left two systems placing
+bubbles, which is exactly how this bug happened. Gone with it:
+`speech_bubbles_should_stack`, `advance_speech_bubble_stack_offset`,
+`lift_to`/`retire`/`elevation`, `PendingSpeechBubble`, `stack_offset` /
+`target_stack_offset`, every `SPEECH_BUBBLE_STACK_*` constant, and
+`update_speech_bubble_outlines` (the pass paints outline children through
+`WorldLabel::outline_color`). `SpeechBubbleVisual` is now only the line's clock;
+`update_speech_bubbles` publishes an anchor and an opacity and writes NEITHER the
+transform nor the colour, because the pass is the single writer of both.
 
-⚠ **both are the SAME SHAPE as D158's real cause**, which is why they are one
-row: a layout rule measured in the wrong quantity. D158 stacked by each
-speaker's own head instead of by WHERE THE TEXT LANDS; (1) gates on a point
-instead of the box that collides; (2) lays out one text system without knowing
-the other exists. ⇒ **whatever fixes these should ask what OCCUPIES SCREEN
-SPACE, rather than adding a third rule beside two.**
+✅ **half (1) fell out for free, as predicted: `SPEECH_BUBBLE_STACK_X_RANGE` is
+deleted.** It gated stacking on a 160-unit point radius while a taunt renders
+~336 wide, so two speakers 202 apart did not stack and did overlap. A pass that
+compares the measured BOXES has no radius to be wrong about.
 
-⭐⭐ **AND THAT MECHANISM ALREADY EXISTS — the speech bubble is simply a FOURTH
-FAMILY THAT NEVER JOINED IT** (measured 2026-08-17).
-`crates/ambition_render/src/rendering/label_layout.rs` is *"ONE ranked placement
-pass over every world-space text label"* (queue row AC12), and its header
-diagnoses (2) verbatim, before anybody looked at this bug:
+⭐ **and the pass's OWN arithmetic had the same defect, one level down.**
+Displacement advanced in a fixed 11px quantum, so clearing one ~22px line of text
+cost three steps and a budget of "six steps" bought two lines of clearance, not
+six — a four-fighter free-for-all lost a line. A label now lifts to EXACTLY clear
+the highest box in its way, and `step_px`/`max_steps` are replaced by one honest
+`max_displacement_px` (96.0, sized for four lines of world text in one cluster).
+Terminates in at most one pass per already-placed label, and the loop bound says
+so rather than trusting the float arithmetic.
 
-> *"each family used to place itself … Neither could see the other, so a signage
-> label and an actor plate could be drawn through each other and **both passes
-> would correctly report 'no overlaps found'** … That is not a positioning bug in
-> any one family; it is the absence of a placement MODEL. Spacing within a family
-> cannot stop a cross-family overlap. So placement moves here, and **every label
-> — whoever spawns it — participates by carrying a [`WorldLabel`]**."*
-
-⛔ `WorldLabelFamily` is `Signage · Fixture · Actor`. **A speech bubble carries no
-`WorldLabel` at all** — grep `crates/ambition_render/src/fx.rs`, nothing. So the
-nameplate pass and the bubble pass each correctly report no overlap, exactly as
-that header predicts, and D158's fix could never have seen it.
-
-▢ **so the fix is to JOIN, not to invent**: give the bubble a `WorldLabel` and a
-family, and let the ranked pass place it. ⚠ ranking is declaration order and the
-comment explains the principle — *the family that yields is the one that can
-yield without anything visibly jumping*. A bubble is short-lived and already
-rises; decide where it sits against `Actor` on that argument, not by taste.
-⚠ **(1) may fall out for free**: a pass that places by occupied BOX has no
-`_STACK_X_RANGE` point radius to be wrong about.
+**Guards** (`crates/ambition_render/src/fx.rs`, all through the real systems and
+read off the `Transform`s the renderer would use):
+`a_name_plate_and_a_speech_bubble_do_not_print_through_each_other` — **seen RED
+on the pre-fix tree**, both boxes at `Vec2(-649.3, 224.56)`, exact same centre —
+and `the_bubble_yields_to_the_name_plate_and_not_the_other_way_round`, which pins
+the ranking argument rather than describing it. D158's three scenarios survive
+against the mechanism that now answers them, same measured anchors:
+`speakers_at_different_heights_do_not_print_through_each_other`,
+`a_live_line_and_a_line_born_this_frame_are_placed_together`,
+`a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through`.
 
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**
@@ -2911,6 +2916,55 @@ target.
 REFUSED — BOTH PRECONDITIONS BELOW ARE FALSE, AND THE MEASUREMENT THAT PRODUCED
 THEM WAS TAKEN WITH THE WRONG INSTRUMENT.** The block below is the original
 proposal; it is kept because the correction only makes sense against it.
+
+⛔⛔ **AND THE ROW'S OWN SCOREBOARD SAYS DECOMPOSITION IS LOSING GROUND —
+measured 2026-08-17, and it is the most important number on this row.** The
+compile ratchet's baseline was frozen 2026-08-09. Since then:
+
+```text
+largest_unit_lines  ambition_platformer2d_actor_monolith
+                    111,429 → 121,822   (+10,393, budget was +2,228)
+```
+
+⭐ **confirmed by a second, independent route** before reporting: counting `.rs`
+lines from `git ls-tree` at the freeze commit vs `HEAD` gives 112,201 → 122,599,
+**+10,398**. Two instruments, one conclusion — the monolith gained ten thousand
+lines in eight days while this row carved one module out of it.
+
+⚠ **and the growth is BROAD, not one bad module**, which is what makes it a
+plan-level fact rather than a cleanup task:
+
+```text
+features          +4,301   (+10,260 / -5,959 — the hub, churning hard)
+items             +2,255
+world             +1,121
+avatar            +1,040
+session           +1,038
+construction        +691
+character_runtime   +627   (+3,050 / -2,423)
+dialog              +537   ⚠ grew even though conversation was carved OUT
+```
+
+⇒ **carving one module per session does not keep pace with ordinary feature
+work.** That does not make the carves wrong — it means the row cannot be judged
+by "did a crate leave this session", and the honest measure is this ratchet.
+
+⚠ **the ratchet is a REAL gate, not advisory** — `compile_ratchet.py` exits 1
+by default (verified without a pipe; its own comment says *"Gates that require a
+special enforcement flag are too easy to run in advisory mode accidentally"*),
+and `scripts/run_tests.py` runs it. So this regression is live, not dormant.
+
+⛔ **DELIBERATELY NOT RE-FROZEN.** The tool offers *"if this is a deliberate
+landing, say so and re-freeze"* — this is not a landing anyone declared, and
+re-freezing would launder ten thousand lines off the ledger exactly the way a
+carve launders doc-link debt off a per-crate one. It stays red until someone
+either carves it back down or states the growth as intended.
+
+⚠ two smaller readings from the same run: `critical_path_crates` **12 → 13**,
+which is the `conversation` carve's own cost (a new crate adds a hop), and
+`ambition_conversation` is **UNPRICED** — it is being charged the population
+median, and size predicts compile cost with R² = 0.12, so its seconds are a
+placeholder. `python3 scripts/compile_collect.py` would measure it.
 
 > ⭐⭐ **THE NEXT CARVE IS MEASURED, 2026-08-17 — `encounter`, and its one edge is
 > NOT REAL.** Doing what this row asks (choose from current measurements) over the

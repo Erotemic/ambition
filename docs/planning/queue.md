@@ -2053,6 +2053,34 @@ as (x, y) guesses.
 - ▢ **D125 — The systemic world substrate: what a thing IS, which occurrence it
   is, why it exists, and how long it lasts.**
 
+⭐ **A THIRD INSTANCE ARRIVED 2026-08-17, from a domain this row had not
+touched — and it is the cleanest statement of the row's thesis yet.** D150: a
+projectile's ALLEGIANCE was reconstructed every tick by querying the firing
+`Entity`, so a shot in flight turned on its own team the moment its firer lost
+a last stock and despawned.
+
+```text
+what a thing IS            the shot's side          ← was read off a LIVE ENTITY
+which occurrence it is     the body that fired it   ← the entity WAS the answer
+how long it lasts          the bolt outlives it     ← and that is ordinary
+```
+
+⇒ **body RESIDENCY was standing in for stable identity**, which is this row's
+whole subject. ⭐⭐ and the same domain had already SOLVED it on the other half:
+`inherit_projectile_presentation_sources` says *"the bolt is the emitter … it
+routinely outlives the body that fired it. So the source is STAMPED at spawn
+rather than looked up at impact."* The presentation half stamped; the COMBAT
+half kept counting who was still standing.
+
+⚠ **and D148 was the same error in a third place the same day** — the winner
+banner decided "is this side a team" by counting RESIDENT bodies, so a team
+whose other member had been eliminated announced its last survivor's name.
+
+⇒ **three independent sites in one campaign, none of them aware of each other,
+each fixed by asking a FROZEN record instead of a live query.** That is the
+argument for the substrate rather than for three more point fixes — and it is
+evidence this row should be worked before the next domain rediscovers it.
+
 ✔✔ **THE RESTORE FALSIFIER IS GREEN (2026-08-16, `13dd4d31b`)** — bank a reward
 at a checkpoint, carry it to another room, DROP it there, leave so that room
 UNLOADS, then die: it comes back **into the hand that banked it**, as the same

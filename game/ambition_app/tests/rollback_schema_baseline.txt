@@ -352,6 +352,7 @@ portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; state che
 portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+projectile.allegiance	component-canonical	ProjectileAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.enemy_marker	component-canonical	EnemyProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

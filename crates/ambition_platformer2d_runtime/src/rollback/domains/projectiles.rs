@@ -77,15 +77,22 @@ pub(in crate::rollback) fn register(app: &mut App) {
         // vocabulary the projectile model is forbidden to link — the domain is
         // still the projectile's, which is why the registration is here.
         //
+        // ⚠ named through `projectile_schedule`, not
+        // `ambition_platformer2d_actor_monolith::projectile::` — this crate's
+        // ONE door onto the actor-side projectile module, which
+        // `engine.runtime-actor-projectile-centralized` keeps enumerable while
+        // the residual steppers are still uncarved. It caught this line.
+        //
         // ⚠ **not derivable on resimulation, and that is the point.** The stamp
         // is taken from the firing body the first tick the shot flies; rewind
         // past a firer's elimination and the body it was read from does not
         // exist to be read again. Restoring the bolt without it restores a shot
         // that has forgotten whose side it is on — indiscriminate, landing on
         // its own team.
-        .rollback_component_canonical::<
-            ambition_platformer2d_actor_monolith::projectile::ProjectileAllegiance,
-        >(OWNER, "projectile.allegiance")
+        .rollback_component_canonical::<crate::projectile_schedule::ProjectileAllegiance>(
+            OWNER,
+            "projectile.allegiance",
+        )
         // ⚠ `projectile.gameplay` stays central: its type is
         // `ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay`, which
         // belongs to the primitives crate rather than this domain. Moving a

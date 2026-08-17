@@ -1167,6 +1167,15 @@ leaves it unstamped forever. Closing that means stamping at birth, which means
 either an observer or moving the vocabulary — neither worth building for a
 one-tick coincidence, and named here rather than discovered.
 
+⚠ **two guards outside the per-turn gate caught real work, and both were right.**
+`engine.runtime-actor-projectile-centralized` rejected the rollback registration
+for naming `…actor_monolith::projectile::` directly — the runtime's one door onto
+that module is `projectile_schedule.rs`, so the registration goes through the
+re-export and the policy stands unedited. And a NEW rollback name reddens **two**
+baselines, not one: `scripts/baselines/rollback-schema-baseline.json` (the
+absence contract) and `game/ambition_app/tests/rollback_schema_baseline.txt`
+(inside `app_it`, the one a per-crate run never sees).
+
 - ▢ **D151 — `MatchAbilities`' `None → permitted` BRIDGE MAKES PERMISSION INTO A
   GRANT. (review finding 5, MEDIUM, retire the bridge)**
 

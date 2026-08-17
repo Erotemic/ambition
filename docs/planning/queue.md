@@ -2751,7 +2751,43 @@ committed-fall value comes from recoverability under the body's own capabilities
 
 Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 Choose carves from current dependency and authority measurements, not an old LOC
-target. Prefer boundaries that improve capability closure, compile isolation,
+target.
+
+⭐⭐ **THE NEXT CARVE IS MEASURED, 2026-08-17 — `encounter`, and its one edge is
+NOT REAL.** Doing what this row asks (choose from current measurements) over the
+monolith's fourteen top modules:
+
+```text
+                     lines   outward `use crate::` edges
+  features           43018   17     ← the hub; not a carve, it IS the monolith
+  character_runtime  13788    3
+  avatar              7717    7
+  boss_encounter      6940    3     (cutscene_trigger, encounter, features)
+  encounter           2168    1     ← ⭐ and the one is a RE-EXPORT
+  schedule            2384    1     (character_runtime)
+  character_sprites   1808    2     (assets, character_roster)
+```
+
+⭐ **`encounter`'s single edge is `use crate::features::FeatureEcsWorldOverlay`,
+in ONE file — and that type is DEFINED in
+`ambition_platformer2d_shared_tangle::feature_overlay`, BELOW the monolith.**
+`world/overlay.rs` merely `pub use`s it and `features` re-exports that. So the
+edge is a re-export chain, not a dependency: addressing the type where it
+actually lives takes `encounter` to **zero** outward edges.
+⇒ this is step 1.5's lesson arriving already-satisfied — *"the NAME has to live
+somewhere the module can still reach after it has left"*, and here it always did.
+
+⭐ **AND IT IS NOT SCHEDULE-PINNED**, which is the trap that cost `conversation`
+a whole slice. `EncounterSimulationSchedulePlugin` already owns its
+registrations, already uses a NAMED set (`WaveEncounterDriven`) and already
+carries a run condition with its reasoning written out. Nothing to un-chain
+first.
+
+⚠ inward edges are `audio/plugin.rs` and `boss_encounter` (which imports
+`crate::encounter` directly) — ordinary, and they become a dependency on the new
+crate. ⚠ `boss_encounter` is 6,940 lines with three outward edges and is a
+plausible slice AFTER this one, not before: it imports `encounter`.
+ Prefer boundaries that improve capability closure, compile isolation,
 public API shape or change amplification.
 
 ⭐⭐ **MEASURED 2026-08-15, and the headline is a REFUTATION worth more than the

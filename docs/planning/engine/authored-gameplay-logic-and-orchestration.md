@@ -547,6 +547,55 @@ forcing one abstraction.
 - **[Inspection, diagnostics and workbench](inspection-diagnostics-and-workbench.md):**
   owns the discovery/explanation surface M5 lands in.
 
+## The command half — its customer, and the shape it should copy (2026-08-17)
+
+**M1 is met for conditions and had no customer for commands. It has one now.**
+
+`game/ambition_content/src/encounters.rs` keeps `KERNEL_FACES`, a hand-kept
+const table pairing four AUTHORED switch ids to hardcoded behaviour, read by a
+bespoke reducer that ends by writing `SYMMETRY_ATTUNEMENT_FLAG`. That is the
+same shape as `INTRO_FLAG_GATED_LOCK_WALLS` — the table the condition half
+DELETED to earn its place — and it is this program's own headline example
+(*"when two switches are active, power a lift"*) in the world already.
+
+**The asymmetry names the first command exactly:**
+
+```text
+world.flag_set(<flag>)   published (world_facts.rs), and it has consumers
+world.set_flag(<flag>)   absent — the flag is written by bespoke Rust
+```
+
+### What the command catalog must copy, and why
+
+⭐⭐ **the condition catalog's load-bearing trick is not its API, it is its
+PRIVACY.** `ConditionCatalog::publish` is private; the only way in is the
+`PublishCondition` trait on `App`; and **a simulation tick holds a `World`,
+never an `App`**. So *"immutable once the simulation starts"* is a property of
+the TYPE rather than a promise in a comment — and that is precisely what earns
+the catalog its rollback waiver. Its own doc warns that making `publish` public
+*"for convenience would silently convert the waiver into a lie."*
+
+⇒ **a command catalog that a system could write to IS rollback state**, and then
+every authored verb joins the snapshot. Reproduce the privacy first; the
+vocabulary second.
+
+### The three a command owes that a condition did not
+
+1. **rollback semantics.** ⭐ `world.set_flag` is the cheap first customer here
+   too: a save flag is ALREADY snapshot state, so the command mutates something
+   the sweep covers rather than introducing a new kind of write. Pick the first
+   command so this question is answered by construction, not by argument.
+2. **ordering.** A condition is safe anywhere in the frame because it reads; a
+   command has a phase. Name it as a SET, below the monolith.
+3. **authority** — who may run it. ⚠ the condition side got this free by being
+   read-only, so there is no precedent to copy; it is genuinely new.
+
+### The deletion gate, stated up front
+
+Following this module's own standard: **if `KERNEL_FACES` and the reducer that
+reads it do not go, the command half has not earned its place.** That is the
+gate, named before the vocabulary exists.
+
 ## Open design questions — deliberately unresolved
 
 - Is the authored surface one rule form, or several domain-shaped forms sharing a

@@ -474,8 +474,15 @@ fn seed_count() -> usize {
 /// One configuration, run under `seeds` different execution-noise streams.
 ///
 /// The seeds are `0..seeds` mixed through the same splitmix constant the brain
-/// builder uses, so they are as unrelated to each other as any two levels'
-/// streams are — and they are FIXED, so this stays reproducible.
+/// builder's level term uses, so they are as unrelated to each other as any two
+/// levels' streams are — and they are FIXED, so this stays reproducible.
+///
+/// ⚠ **this rig SUPPLIES its streams and does not model how a real fighter gets
+/// one.** A live CPU's stream is `participant ⊕ level`
+/// (`brain_builders::fighter_cognition_seed`); sweeping `i` here is the point of
+/// the probe — it is measuring the SPREAD across streams — so it deliberately
+/// does not go through that seam. ⛔ do not "fix" this to match the builder, and
+/// do not read this loop as evidence of what the builder does.
 fn run_seeds(level: u8, forced_depth: Option<u32>, seeds: usize) -> Vec<LadderRun> {
     (0..seeds.max(1))
         .map(|i| {

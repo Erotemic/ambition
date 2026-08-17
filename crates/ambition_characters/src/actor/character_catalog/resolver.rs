@@ -156,10 +156,18 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             cfg.decision_interval_ticks = *decision_interval_ticks;
             let state = crate::brain::fighter::FighterState::new(
                 &cfg,
-                // Seeded from the LEVEL, so two fighters on the same rung are the
-                // same fighter and a replay reproduces both. A clock-seeded
-                // stream would make the brain the one part of the sim that does
-                // not rewind.
+                // ⚠ **level-only, and that is correct HERE and nowhere else.**
+                // This builds a catalog PREVIEW brain — there is no live runtime,
+                // no match and therefore no PARTICIPANT to key a stream on, so
+                // the rung is the only stable identity available.
+                //
+                // ⛔ **do not copy this into a construction path.** The identical
+                // expression on the real road made every CPU on one rung the SAME
+                // MIND, so a same-character CPU-vs-CPU match played as a perfect
+                // reflection; the live seam is
+                // `brain_builders::fighter_cognition_seed`, which mixes the
+                // participant in and carries Emmy's authored exception. A replay
+                // still reproduces this preview because the rung does not change.
                 0x5F37_7A11_u64.wrapping_mul(*level as u64 + 1),
             );
             StateMachineCfg::Fighter {

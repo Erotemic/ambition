@@ -229,6 +229,19 @@ fn a_definition_carries_no_controller_binding() {
         // capability of the creature, and one no controller changes: a possessed
         // shark is still a shark somebody can sit on.
         mount: _,
+        // ⚠ **the field that reads most like a controller fact and is not one**,
+        // so it is justified here rather than ignored. It says that two
+        // AUTONOMOUS twins of this character begin on one deterministic
+        // cognitive stream — which is a fact about the creature, in the same
+        // family as `autonomous_profile` above: what this character is like when
+        // a driver is not a person. It names no driver, and a HUMAN wearing this
+        // character is wholly unaffected by it, which is the §4.7 test.
+        //
+        // ⛔ it is deliberately NOT on `BrainProfile`. A profile is *reusable
+        // across characters* by construction, so authoring it there would hand
+        // the trait to whichever other characters happen to share the policy —
+        // and this is Emmy's identity, not a difficulty rung's.
+        preserves_mirror_symmetry: _,
     } = def;
 }
 
@@ -872,4 +885,42 @@ fn naming_a_policy_in_a_composition_with_no_registry_is_a_composition_error() {
         CharacterDefinition::new("ghost", "Ghost", "test").with_autonomous_profile_named("striker"),
         &CharacterBindings::default(),
     );
+}
+
+/// **THE AUTHORED MIRROR-SYMMETRY TRAIT SURVIVES THE WHOLE FOLD.**
+///
+/// ⭐ this is the plumbing test, and it is the one that would have caught the
+/// interesting failure: the trait is decided by a CHARACTER and consumed by
+/// `enemy_default_brain` three crates away, through
+/// `definition → PreparedCharacterOverrides → PreparedCharacterDefinition →
+/// CharacterBodyBlueprint → ActorConfig`. Every link is a hand-written field
+/// assignment, so a trait that is authored and never arrives looks exactly like a
+/// trait nobody authored — the shape this repo calls *a hand-listed chain pins
+/// the FUNCTION, not the WIRING*.
+///
+/// ⚠ **both directions**, because a fold that hard-coded `true` would pass a
+/// one-sided test while giving every character in the game Emmy's trait.
+#[test]
+fn mirror_symmetry_survives_preparation_and_reaches_the_body_blueprint() {
+    for authored in [false, true] {
+        let mut definition = mary_o();
+        if authored {
+            definition = definition.preserving_mirror_symmetry();
+        }
+        let prepared =
+            prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared;
+        assert_eq!(
+            prepared.preserves_mirror_symmetry, authored,
+            "preparation lost or invented the mirror-symmetry trait (authored: \
+             {authored})"
+        );
+        // A SEAT is the road that matters — this is a Smash CPU trait — and the
+        // seat blueprint is the one a match builds.
+        assert_eq!(
+            prepared.seat_blueprint(200.0).preserves_mirror_symmetry,
+            authored,
+            "the seat blueprint dropped the mirror-symmetry trait, so a seated \
+             fighter's brain could never read it (authored: {authored})"
+        );
+    }
 }

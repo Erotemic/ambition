@@ -126,6 +126,76 @@ pub(super) fn action_set_from_combat_kit(
     kit.to_action_set(held_item.map(|item| &item.spec))
 }
 
+/// **WHICH DETERMINISTIC COGNITIVE STREAM THIS FIGHTER THINKS ON.**
+///
+/// ⛔⛔ **this used to be `0x5F37_7A11 * (level + 1)` and nothing else, which
+/// made every CPU on one rung the SAME MIND.** Two equally skilled fighters got
+/// byte-identical noise, so a same-character CPU-vs-CPU match played as a perfect
+/// reflection — not because the game was mirroring anything, but because both
+/// brains were drawing from one stream and seeing a symmetric stage. The old
+/// comment said this out loud (*"two fighters on one rung are the same
+/// fighter"*) and treated it as the goal; as the default it is a defect, because
+/// a viewer watching two Georges is watching one George twice.
+///
+/// ⚠ **the fix is not randomness.** The stream must stay deterministic and
+/// replayable, so what it gains is a STABLE SEMANTIC IDENTITY, never a clock, a
+/// process-global RNG, or a Bevy `Entity`:
+///
+/// ```text
+/// ordinary  seed_from_id(<participant>) ⊕ level   distinct per participant
+/// authored  seed_from_id(<character>)   ⊕ level   shared by every twin
+/// ```
+///
+/// ⭐ **`enemy.id` is already the participant**, not the character:
+/// `PreparedSeat::feature_id` mints `"<character>#seat<n>"` precisely so a mirror
+/// match is two bodies rather than one, and this file's every OTHER template
+/// (Smash, brute, skirmisher, sniper, aerial) already varies off it through
+/// `seed_from_id`. The fighter template was the sole outlier — so this is the
+/// file's own established rule reaching the one brain that had missed it.
+///
+/// ⭐ **and the level still mixes in**, so raising a CPU's difficulty gives it a
+/// different stream as well as different weights. That is the one thing the old
+/// seed got right and it is kept.
+///
+/// ## The authored exception
+///
+/// A character may ask for the old behaviour BY NAME — see
+/// [`ActorConfig::preserves_mirror_symmetry`], authored on the character and
+/// carried here so every construction road agrees. Emmy No-Ether is the one
+/// customer: her whole subject is that a symmetry implies a conservation law, and
+/// two of her thinking identical thoughts about a symmetric stage is the joke
+/// made mechanical.
+///
+/// ⛔ **the exception drops the PARTICIPANT term and substitutes the CHARACTER's
+/// own name — it does not zero the seed.** Zeroing would hand every
+/// mirror-preserving character in the game one shared stream, so two Emmys and
+/// two of somebody else would all think alike; keying on the character keeps the
+/// trait per-character while still collapsing twins.
+///
+/// ⛔⛔ **and it synchronises NOTHING per tick.** All it decides is where two
+/// streams START. The mirror is then an emergent consequence of *identical
+/// cognition + symmetric information*, and it breaks by itself the moment the two
+/// Emmys observe different worlds — which is correct, and is the difference
+/// between a character trait and a puppet show.
+fn fighter_cognition_seed(enemy: &ActorConfig, level: u8) -> u64 {
+    // A participant id is `"<character>#seat<n>"`; the character alone is what is
+    // left when the seat is dropped. Falling back to the whole id keeps a body
+    // that carries no seat suffix (a room spawn) on a stream of its own rather
+    // than silently joining a shared one.
+    let identity = if enemy.preserves_mirror_symmetry {
+        enemy
+            .id
+            .split_once('#')
+            .map_or(enemy.id.as_str(), |(character, _seat)| character)
+    } else {
+        enemy.id.as_str()
+    };
+    // ⚠ MIX, not add: `seed_from_id` is a 32-bit FNV-1a, so shifting it into the
+    // high half and folding the level in below keeps two nearby levels of one
+    // participant far apart in the stream rather than adjacent.
+    ((seed_from_id(identity) as u64) << 32) ^ 0x5F37_7A11_u64.wrapping_mul(level as u64 + 1)
+}
+
 /// Build the enemy's default `Brain` from its resolved controller profile.
 pub(crate) fn enemy_default_brain(
     enemy: &ActorConfig,
@@ -144,11 +214,7 @@ pub(crate) fn enemy_default_brain(
             );
             let state = ambition_characters::brain::fighter::FighterState::new(
                 &cfg,
-                // Seeded from the LEVEL, so two fighters on one rung are the same
-                // fighter and a replay reproduces both. A clock-seeded stream
-                // would make the brain the one part of the sim that does not
-                // rewind.
-                0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
+                fighter_cognition_seed(enemy, level),
             );
             Brain::StateMachine(StateMachineCfg::Fighter {
                 cfg: Box::new(cfg),
@@ -512,18 +578,29 @@ mod ladder_projection_tests {
          utility_weights: (reach_fit: 1.0, frame_advantage: 0.20, kill_potential: 0.00, stage_risk: -0.20, expected_payoff: 0.00)),
     ]";
 
+    /// ⚠ **the seed is arbitrary and DISTINCTIVE on purpose.** It stands for
+    /// "whatever stream construction chose", so
+    /// [`the_projection_carries_the_stream_it_was_handed`] can tell carrying it
+    /// apart from re-deriving it — which is the bug that pass used to have.
+    const CONSTRUCTED_STREAM: u64 = 0xC0FF_EE00_D15E_A5E5;
+
     fn fighter_brain(level: u8) -> Brain {
         let cfg = ambition_characters::brain::fighter::FighterCfg::new(
             ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
         );
-        let state = ambition_characters::brain::fighter::FighterState::new(
-            &cfg,
-            0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
-        );
+        let state =
+            ambition_characters::brain::fighter::FighterState::new(&cfg, CONSTRUCTED_STREAM);
         Brain::StateMachine(StateMachineCfg::Fighter {
             cfg: Box::new(cfg),
             state: Box::new(state),
         })
+    }
+
+    fn stream_of(brain: &Brain) -> u64 {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => state.noise,
+            other => panic!("not a fighter brain: {other:?}"),
+        }
     }
 
     fn profile_of(brain: &Brain) -> ambition_characters::brain::fighter::FighterBrainProfile {
@@ -603,6 +680,45 @@ mod ladder_projection_tests {
         );
     }
 
+    /// ⛔⛔ **THE PROJECTION MUST NOT RE-CHOOSE THE COGNITIVE STREAM.**
+    ///
+    /// This is the second half of the same-character CPU symmetry defect, and it
+    /// is the half that would have silently undone the first. The pass rebuilds
+    /// `FighterState` to re-derive the profile-cached fields, and it used to
+    /// rebuild it with `0x5F37_7A11 * (level + 1)` — so however carefully
+    /// construction had chosen a per-participant stream, this pass overwrote it
+    /// with a level-only one a moment later and every CPU on a rung was one mind
+    /// again.
+    ///
+    /// ⚠ the fixture seed is deliberately nothing the old formula could produce,
+    /// so a regression cannot pass by coincidence.
+    #[test]
+    fn the_projection_carries_the_stream_it_was_handed() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+
+        let brain = app.world().get::<Brain>(entity).expect("brain");
+        // Non-vacuity: the pass must actually have DONE its job, or "the stream
+        // survived" is only saying that nothing ran.
+        assert_ne!(
+            profile_of(brain),
+            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            "the ladder did not project, so this test is not observing the rebuild \
+             it exists to constrain"
+        );
+        assert_eq!(
+            stream_of(brain),
+            CONSTRUCTED_STREAM,
+            "the ladder projection reseeded the fighter's noise stream, which is \
+             what made every CPU on one rung think identical thoughts"
+        );
+    }
+
     /// ⚠ **a level the ladder does not author keeps the floor** rather than
     /// failing — the same fallback `profile_for_level` states, so the two agree.
     #[test]
@@ -618,6 +734,217 @@ mod ladder_projection_tests {
             profile_of(app.world().get::<Brain>(entity).expect("brain")),
             ambition_characters::brain::fighter::FighterBrainProfile::for_level(7),
             "level 7 is not in the two-rung fixture and must keep the floor"
+        );
+    }
+}
+
+/// **WHO THINKS WHAT — the CPU cognition-stream policy and its one authored
+/// exception.** See [`fighter_cognition_seed`].
+///
+/// ⭐ these read `state.noise` at construction, which IS the stream: `FighterCfg`
+/// stores the seed there verbatim and every later sample advances from it. It is
+/// the smallest deterministic property that answers *"are these two fighters the
+/// same mind?"*, so nothing here is probabilistic and nothing has to run a match.
+#[cfg(test)]
+mod cognition_stream_tests {
+    use super::*;
+
+    /// A CPU fighter seat, as `PreparedSeat` builds one: the participant id is
+    /// `"<character>#seat<n>"` — the body's identity, not its costume's.
+    fn seat(character: &str, seat_index: usize, level: u8, mirrors: bool) -> ActorConfig {
+        ActorConfig {
+            id: format!("{character}#seat{seat_index}"),
+            name: character.to_string(),
+            tuning: ActorTuning::default(),
+            brain_profile: BrainProfile {
+                template: CharacterBrainTemplate::Fighter,
+                fighter_level: level,
+                ..Default::default()
+            },
+            brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+            spawn: crate::features::ActorSpawnState {
+                pos: ambition_platformer2d_core::Vec2::ZERO,
+                size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            },
+            sprite_override_npc_name: None,
+            sprite_character_id: Some(character.to_string()),
+            preserves_mirror_symmetry: mirrors,
+        }
+    }
+
+    /// The stream a seat's fighter brain is actually built on — asked through the
+    /// real builder, not through the seed helper, so the test constrains the
+    /// composition and not an internal function.
+    fn stream_for(config: &ActorConfig) -> u64 {
+        match enemy_default_brain(config, ambition_platformer2d_core::AbilitySet::NONE) {
+            Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => state.noise,
+            other => panic!("expected a fighter brain, got {other:?}"),
+        }
+    }
+
+    /// ⛔⛔ **THE DEFECT, PINNED: two CPUs wearing one character at one difficulty
+    /// were the SAME MIND.**
+    ///
+    /// The seed was `0x5F37_7A11 * (level + 1)` and nothing else, so a
+    /// same-character CPU-vs-CPU match was a perfect reflection — two brains
+    /// drawing byte-identical noise while reading a symmetric stage. A viewer
+    /// watching two Georges was watching one George twice.
+    #[test]
+    fn two_participants_of_one_character_do_not_share_a_stream() {
+        let one = stream_for(&seat("george_booul", 0, 6, false));
+        let two = stream_for(&seat("george_booul", 1, 6, false));
+        assert_ne!(
+            one, two,
+            "seat 0 and seat 1 of one character at one level got the same \
+             cognitive stream, so a mirror match is a reflection again"
+        );
+    }
+
+    /// **Replay determinism, which is the constraint the fix had to respect.**
+    ///
+    /// The stream may not come from a clock, a process-global RNG or an `Entity`.
+    /// Rebuilding the same participant under the same setup — which is exactly
+    /// what a rollback resimulation does — must land on the same stream.
+    #[test]
+    fn the_same_participant_rebuilds_on_the_same_stream() {
+        let config = seat("george_booul", 1, 6, false);
+        assert_eq!(
+            stream_for(&config),
+            stream_for(&config),
+            "a rebuilt participant got a different stream, so the brain is the one \
+             part of the sim that does not rewind"
+        );
+        // And a separately CONSTRUCTED but equal seat agrees, which is the
+        // property a replay actually needs — it does not keep the old value
+        // around to hand back.
+        assert_eq!(
+            stream_for(&seat("george_booul", 1, 6, false)),
+            stream_for(&config),
+            "two equal seats disagreed, so something outside the seat's own \
+             identity is leaking into the stream"
+        );
+    }
+
+    /// ⭐ **difficulty still contributes**, which the old seed got right and the
+    /// fix keeps: raising a CPU's rung changes how it thinks as well as what it
+    /// weighs.
+    #[test]
+    fn one_participant_at_two_levels_thinks_differently() {
+        assert_ne!(
+            stream_for(&seat("george_booul", 0, 3, false)),
+            stream_for(&seat("george_booul", 0, 7, false)),
+            "the same seat at two difficulties got one stream, so the level term \
+             was dropped"
+        );
+    }
+
+    /// ⭐ **and the ordinary symmetry-breaker is the PARTICIPANT, not the
+    /// character.** Two different characters differ anyway — that is not the
+    /// property under test — so this pins the thing that would be wrong if
+    /// somebody "fixed" the defect with per-character seed constants: seats of one
+    /// character must already differ, which
+    /// [`two_participants_of_one_character_do_not_share_a_stream`] proves, and
+    /// the character term must not be the ONLY term.
+    #[test]
+    fn the_character_is_not_the_ordinary_symmetry_breaker() {
+        // If the seed were keyed on the character alone, these two would be equal
+        // — which is the state this whole change exists to leave.
+        assert_ne!(
+            stream_for(&seat("emmy_stand_in", 0, 5, false)),
+            stream_for(&seat("emmy_stand_in", 1, 5, false)),
+            "an ordinary character's two seats share a stream, so the participant \
+             term is missing and only the character is keying the seed"
+        );
+    }
+
+    /// ⭐⭐ **EMMY'S AUTHORED EXCEPTION: her twins think alike on purpose.**
+    ///
+    /// Two seats, two participants, one stream — because the character asked for
+    /// it, not because the default leaked. This is what makes an Emmy-vs-Emmy
+    /// mirror match play as a reflection when the stage is symmetric.
+    #[test]
+    fn a_mirror_preserving_characters_twins_share_one_stream() {
+        assert_eq!(
+            stream_for(&seat("npc_noether", 0, 6, true)),
+            stream_for(&seat("npc_noether", 1, 6, true)),
+            "two Emmys at one difficulty got different cognitive streams, so her \
+             authored mirror symmetry reached nothing"
+        );
+    }
+
+    /// ⛔ **the exception drops the PARTICIPANT term; it does not zero the seed.**
+    ///
+    /// A `rng_seed = 0` style implementation would hand every mirror-preserving
+    /// character in the game ONE shared stream, so two Emmys and two of somebody
+    /// else would all think alike — a global, not a character trait.
+    #[test]
+    fn two_mirror_preserving_characters_keep_their_own_streams() {
+        assert_ne!(
+            stream_for(&seat("npc_noether", 0, 6, true)),
+            stream_for(&seat("some_other_mirror", 0, 6, true)),
+            "the exception collapsed two different characters onto one stream, so \
+             it is a global rather than an authored per-character trait"
+        );
+    }
+
+    /// ⭐ **the exception still respects difficulty**, so two Emmys on different
+    /// rungs are not forced to agree — the trait shares a stream between EQUALLY
+    /// CONFIGURED twins, which is what makes the mirror a fair one.
+    #[test]
+    fn mirror_symmetry_does_not_flatten_difficulty() {
+        assert_ne!(
+            stream_for(&seat("npc_noether", 0, 2, true)),
+            stream_for(&seat("npc_noether", 1, 8, true)),
+            "a level-2 Emmy and a level-8 Emmy were put on one stream"
+        );
+    }
+
+    /// ⚠ **a body with no seat suffix keeps a stream of its own.** A room spawn's
+    /// id is not `"<character>#seat<n>"`, and the exception's `split_once` must
+    /// fall back to the whole id rather than silently joining every unsuffixed
+    /// body of that character to one stream.
+    #[test]
+    fn an_unsuffixed_body_is_not_special_cased_into_sharing() {
+        let mut room_body = seat("npc_noether", 0, 6, true);
+        room_body.id = "npc_noether_lab_copy".to_string();
+        let mut other_room_body = room_body.clone();
+        other_room_body.id = "npc_noether_hall_copy".to_string();
+        assert_ne!(
+            stream_for(&room_body),
+            stream_for(&other_room_body),
+            "two differently-identified bodies with no seat suffix collapsed onto \
+             one stream"
+        );
+    }
+
+    /// ⛔⛔ **THE TRAIT DECIDES A STREAM AND NOTHING ELSE.** It must not reach the
+    /// profile, the difficulty or the template — if it ever starts shaping how a
+    /// fighter decides rather than which stream it decides from, the mirror has
+    /// stopped being emergent and become a policy.
+    #[test]
+    fn the_trait_changes_only_the_stream() {
+        let ordinary = seat("npc_noether", 0, 6, false);
+        let mirroring = seat("npc_noether", 0, 6, true);
+        let (
+            Brain::StateMachine(StateMachineCfg::Fighter { cfg: plain_cfg, .. }),
+            Brain::StateMachine(StateMachineCfg::Fighter {
+                cfg: mirror_cfg, ..
+            }),
+        ) = (
+            enemy_default_brain(&ordinary, ambition_platformer2d_core::AbilitySet::NONE),
+            enemy_default_brain(&mirroring, ambition_platformer2d_core::AbilitySet::NONE),
+        )
+        else {
+            panic!("both seats must build fighter brains");
+        };
+        assert_eq!(
+            plain_cfg.profile, mirror_cfg.profile,
+            "authoring mirror symmetry changed the fighter's PROFILE, so it is no \
+             longer only choosing a stream"
+        );
+        assert_eq!(
+            plain_cfg.decision_interval_ticks, mirror_cfg.decision_interval_ticks,
+            "authoring mirror symmetry changed how often the fighter decides"
         );
     }
 }
@@ -654,10 +981,20 @@ mod ladder_projection_tests {
 /// could see. The state has to be rebuilt, and the only moment that costs nothing
 /// is before any habit has accumulated.
 ///
-/// ⚠ **the seed is the construction seed, reproduced exactly.** Both builders use
-/// `0x5F37_7A11 * (level + 1)` precisely so two fighters on one rung are the same
-/// fighter and a replay reproduces both; a projection that reseeded differently
-/// would make the brain the one part of the sim that does not rewind.
+/// ⛔⛔ **THIS MUST NOT RE-CHOOSE THE STREAM, AND IT USED TO.** It rebuilt the
+/// state with `0x5F37_7A11 * (level + 1)` — the same participant-blind constant
+/// [`fighter_cognition_seed`] replaced — so whatever stream construction had
+/// chosen was overwritten a moment later by a level-only one. That is how the
+/// same-character CPU symmetry would have survived a fix at the construction
+/// seam alone: two roads seeded the same brain and the second one won.
+///
+/// ⭐ **it now CARRIES the stream instead**, which is both the fix and the more
+/// honest operation: this pass exists to re-derive the profile-cached fields
+/// (`DelayedPerception`, `HabitModel`), and a fighter's position in its own noise
+/// stream is not a profile-cached field. Carrying `state.noise` is therefore
+/// correct whenever this runs, not merely on the tick it happens to run today —
+/// so it does not quietly depend on `Added<Brain>` firing before the first
+/// sample is drawn.
 ///
 /// ⭐ **idempotent, which is what makes it safe under change detection.** It runs
 /// on `Added<Brain>` and rewrites only when the authored rung differs from what
@@ -685,10 +1022,11 @@ pub fn project_authored_fighter_ladder(
             continue;
         }
         cfg.profile = *rung;
-        **state = ambition_characters::brain::fighter::FighterState::new(
-            cfg,
-            0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
-        );
+        // ⭐ the stream this fighter was CONSTRUCTED on, carried across the
+        // rebuild. See the ⛔⛔ note above: reseeding here is what would undo
+        // `fighter_cognition_seed`.
+        let stream = state.noise;
+        **state = ambition_characters::brain::fighter::FighterState::new(cfg, stream);
     }
 }
 

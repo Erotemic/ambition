@@ -427,6 +427,30 @@ pub struct CharacterDefinition {
     ///
     /// `None` = does not participate, which is nearly everything.
     pub dream_seed: Option<f32>,
+    /// **Two of this character, told the same things, think the same thoughts —
+    /// so a mirror match plays as a reflection.**
+    ///
+    /// ⭐ **an authored TRAIT, not the default CPU policy.** Ordinarily an
+    /// autonomous participant's deterministic decision/noise stream is derived
+    /// from WHICH PARTICIPANT it is, so two CPUs wearing one character diverge
+    /// within a few decisions — that is what a viewer expects of two opponents.
+    /// A character that authors this asks for the opposite: every equally
+    /// configured twin begins on the SAME cognitive stream.
+    ///
+    /// ⛔⛔ **it does NOT synchronise their actions, and must never be
+    /// implemented that way.** The property is *identical cognition + symmetric
+    /// information → symmetric behaviour*, which is an emergent consequence of
+    /// sharing one stream, not a canned mirror animation. The moment two of them
+    /// see different worlds — different damage, different position, a different
+    /// foe — they decide differently, and that is correct. A mirror that survived
+    /// asymmetric observations would be a puppet show.
+    ///
+    /// ⚠ so the only thing this authorises is the CHOICE OF STREAM, made once at
+    /// construction. Nothing reads it per tick, and nothing compares two bodies.
+    ///
+    /// `false` — the default and nearly everything — means this character's CPUs
+    /// think for themselves.
+    pub preserves_mirror_symmetry: bool,
 }
 
 impl CharacterDefinition {
@@ -463,6 +487,7 @@ impl CharacterDefinition {
             held_item: None,
             mount: None,
             dream_seed: None,
+            preserves_mirror_symmetry: false,
         }
     }
 
@@ -488,6 +513,14 @@ impl CharacterDefinition {
     /// Author this character's deep-dream seed. See [`Self::dream_seed`].
     pub fn with_dream_seed(mut self, seed: f32) -> Self {
         self.dream_seed = Some(seed);
+        self
+    }
+
+    /// Author this character's CPU twins onto one cognitive stream, so a mirror
+    /// match plays as a reflection. See [`Self::preserves_mirror_symmetry`] —
+    /// especially the paragraph on what this deliberately does NOT do.
+    pub fn preserving_mirror_symmetry(mut self) -> Self {
+        self.preserves_mirror_symmetry = true;
         self
     }
 
@@ -688,7 +721,7 @@ mod authority_tests {
             practice_target: _,
             ranged_execution: _,
 
-            // ── DEFAULT CONTROLLER (3) — see the ⚠ above ────────────────────
+            // ── DEFAULT CONTROLLER (4) — see the ⚠ above ────────────────────
             //
             // A policy this character COMES WITH, by name or inline. Not the
             // controller itself, and never a reason for a body fact to live in
@@ -696,6 +729,17 @@ mod authority_tests {
             autonomous_profile: _,
             autonomous_profile_ref: _,
             provoked_profile_ref: _,
+            // ⭐ **filed HERE and not under BODY**, and the group's own ⚠ is the
+            // reason: it states something about this character's AUTONOMOUS
+            // drivers — two of them share one deterministic cognitive stream —
+            // and it says nothing about the body. It passes the group's test
+            // exactly: **changing the controller does not change the body.** Put
+            // a person on the sticks and this field means nothing at all.
+            //
+            // ⛔ it is not on `BrainProfile` because a profile is reusable across
+            // characters, and this is one character's identity rather than a
+            // difficulty rung's. See [`Self::preserves_mirror_symmetry`].
+            preserves_mirror_symmetry: _,
 
             // ── PRESENTATION PROJECTED FROM THE BODY (2) ────────────────────
             //

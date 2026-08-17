@@ -1886,3 +1886,124 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
          teammate whose body happened to still be standing"
     );
 }
+
+/// **PRODUCT ACCEPTANCE: TWO CPUs WEARING ONE CHARACTER STOP BEING A PERFECT
+/// REFLECTION OF EACH OTHER, MEASURED ON THE REAL STAGE.** (queue D128, 2026-08-17)
+///
+/// ⛔⛔ **the reported defect was that same-character CPU-vs-CPU matches are
+/// perfectly symmetric**, and it was literally true: the fighter brain seeded its
+/// noise stream from difficulty alone, so two seats at one rung drew byte-identical
+/// noise, and — seated at mirrored spawns on a symmetric stage — they stayed exact
+/// mirror images of each other for the whole match.
+///
+/// ⭐⭐ **THE METRIC IS MIRROR ERROR, NOT DISTANCE, and getting that wrong made a
+/// first draft of this test vacuous.** Two bodies drift apart on this stage
+/// whatever their brains do, so *"the gap grew"* passes with the defect fully
+/// present — it was measuring collision, not cognition. What "a perfect reflection"
+/// means is that seat 1 is seat 0 flipped about the spawn midline:
+///
+/// ```text
+/// mirror error = |(x0 − mid) + (x1 − mid)|  +  |y0 − y1|
+///                 ^ equal and opposite            ^ same height
+/// shared stream   stays ~0 all match  (the reflection)
+/// own streams     grows              (two fighters)
+/// ```
+///
+/// ⚠ **the spawns really are mirrored** — measured at 224 and 416 about a midline
+/// of 320 — so the two fighters begin in circumstances that are symmetric rather
+/// than merely similar. That is what makes this a fair test of the fighters: the
+/// stage is handing them a symmetric problem, and the question is whether they
+/// answer it identically.
+///
+/// ## What this test deliberately does NOT cover, and where that lives
+///
+/// ⚠ **the authored EXCEPTION cannot be measured here**, for a composition reason
+/// rather than a gap: Emmy No-Ether is one of Ambition's catalog characters and
+/// this standalone demo app does not compose `ambition_content`, so
+/// `smash_roster_at_levels(["npc_noether", …])` seats nothing at all. ⛔ do not
+/// "fix" that by teaching this app Ambition's cast — the demo host's own roster is
+/// the point of the demo host.
+///
+/// ⇒ each half of the exception is pinned where it is observable:
+///
+/// ```text
+/// Emmy AUTHORS the trait, through the one cast table
+///     ambition_content   authored::npc_noether::tests
+/// the trait survives preparation to the seat blueprint
+///     ambition_characters  prepared_tests::mirror_symmetry_survives_preparation_…
+/// two seated CPU twins of a mirror-preserving character share one stream, and
+/// two of an ordinary character do not — through real seating + activation
+///     actor_monolith  prepared_match::tests::{a_mirror_preserving_…, two_cpu_seats_…}
+/// shared stream + symmetric info → same behaviour; + ASYMMETRIC info → may differ
+///     ambition_characters  decision::tests::the_same_seed_{produces_…, shown_a_different_world_…}
+/// ```
+#[test]
+fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    // ⚠ **the same character in BOTH seats at the SAME rung** — the exact
+    // configuration that used to produce one mind played twice.
+    let character = ambition_demo_smash::SMASH_CHARACTER_ID;
+    let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
+    let countdown = roster.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let seats = |app: &mut App| -> Option<[ambition_platformer2d::engine_core::Vec2; 2]> {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &BodyKinematics)>();
+        let mut rows: Vec<_> = query
+            .iter(world)
+            .map(|(seat, kin)| (seat.0, kin.pos))
+            .collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        (rows.len() == 2).then(|| [rows[0].1, rows[1].1])
+    };
+
+    let mut midline: Option<f32> = None;
+    let mut worst_mirror_error = 0.0f32;
+    let mut ticks_observed = 0usize;
+    for _ in 0..(countdown + 900) {
+        app.update();
+        let Some([zero, one]) = seats(&mut app) else {
+            continue;
+        };
+        // The midline is taken from the FIRST frame both bodies exist on, so it is
+        // the stage's own symmetry rather than a number written here.
+        let mid = *midline.get_or_insert((zero.x + one.x) / 2.0);
+        ticks_observed += 1;
+        let error = ((zero.x - mid) + (one.x - mid)).abs() + (zero.y - one.y).abs();
+        worst_mirror_error = worst_mirror_error.max(error);
+    }
+
+    // Non-vacuity, both halves: a match that seated nobody, or whose spawns were
+    // not mirrored to begin with, would make the measurement meaningless.
+    assert!(
+        ticks_observed > 100,
+        "only {ticks_observed} ticks had two seated bodies, so there was no match \
+         to observe"
+    );
+    let mid = midline.expect("checked by ticks_observed above");
+    assert!(
+        (mid - 320.0).abs() < 200.0,
+        "the spawn midline came out at {mid}, which is not the stage's centre — \
+         re-derive this test's symmetry claim before trusting its verdict"
+    );
+    assert!(
+        worst_mirror_error > 1.0,
+        "two CPU {character} fighters at one level stayed an EXACT mirror image of \
+         each other for {ticks_observed} ticks (worst mirror error \
+         {worst_mirror_error}px) — they are one mind played twice, which is exactly \
+         the symmetry that was reported"
+    );
+}

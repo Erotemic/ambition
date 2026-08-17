@@ -133,6 +133,8 @@ struct PreparedCharacterOverrides {
     held_item: Option<String>,
     /// See [`CharacterDefinition::dream_seed`]. Carried.
     dream_seed: Option<f32>,
+    /// See [`CharacterDefinition::preserves_mirror_symmetry`]. Carried.
+    preserves_mirror_symmetry: bool,
     /// See [`CharacterDefinition::mount`]. Carried.
     mount: Option<crate::actor::CharacterMount>,
     moveset: Option<MovesetContract>,
@@ -254,6 +256,15 @@ pub struct CharacterBodyBlueprint<'a> {
     pub locomotion: crate::actor::CharacterLocomotion,
     pub contact_damage: Option<crate::actor::ContactDamage>,
     pub dream_seed: Option<f32>,
+    /// **Do this character's autonomous twins share one cognitive stream?** See
+    /// [`CharacterDefinition::preserves_mirror_symmetry`].
+    ///
+    /// ⭐ carried on the blueprint rather than looked up later, for the reason
+    /// this whole type exists: the brain is chosen at construction on three
+    /// separate roads (a seat, a room spawn, a rewind rebuild), and a fact one
+    /// road reads from a registry the others cannot reach is a fact that goes
+    /// missing on two of them.
+    pub preserves_mirror_symmetry: bool,
     pub practice_target: bool,
     pub autonomous_profile: Option<crate::brain::BrainProfile>,
     pub mount: Option<&'a crate::actor::CharacterMount>,
@@ -362,6 +373,7 @@ impl PreparedCharacterDefinition {
                 .unwrap_or(crate::actor::DEFAULT_UNAUTHORED_BODY_HEALTH),
             contact_damage: self.contact_damage,
             dream_seed: self.dream_seed,
+            preserves_mirror_symmetry: self.preserves_mirror_symmetry,
             practice_target: self.practice_target,
             autonomous_profile: self.autonomous_profile,
             mount: self.mount.as_ref(),
@@ -475,6 +487,10 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::dream_seed`] — presentation, true of every
     /// instance, and until now reachable only through an archetype row.
     pub dream_seed: Option<f32>,
+    /// **Do this character's autonomous twins share one cognitive stream?** See
+    /// [`CharacterDefinition::preserves_mirror_symmetry`] for the trait and for
+    /// what it deliberately does not do.
+    pub preserves_mirror_symmetry: bool,
     /// **Mount and pilot capabilities.** See [`CharacterDefinition::mount`].
     pub mount: Option<crate::actor::CharacterMount>,
     /// What this character fights with — resolved, not inherited.
@@ -957,6 +973,7 @@ fn prepare_character(
         practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
+        preserves_mirror_symmetry: definition.preserves_mirror_symmetry,
         mount: definition.mount,
         moveset: definition.moveset,
         action_set: definition.action_set,
@@ -1035,6 +1052,7 @@ fn finalize_character(
         contact_damage,
         autonomous_profile,
         dream_seed,
+        preserves_mirror_symmetry,
         mount,
         moveset,
         action_set,
@@ -1225,6 +1243,7 @@ fn finalize_character(
         practice_target,
         held_item,
         dream_seed,
+        preserves_mirror_symmetry,
         mount,
         authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a

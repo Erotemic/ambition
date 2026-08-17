@@ -40,6 +40,14 @@ fn cpu(character: &str) -> MatchParticipant {
     })
 }
 
+/// A CPU seat driven by a policy that instantiates a real FIGHTER brain — the
+/// only template that owns a deterministic cognitive stream.
+fn cpu_fighter(character: &str) -> MatchParticipant {
+    MatchParticipant::new(character).driven_by(ControllerBinding::Cpu {
+        brain_profile: Some("fighter_policy".into()),
+    })
+}
+
 /// **The policy authority this fixture's composition publishes**, keyed exactly
 /// as assembly keys one.
 ///
@@ -67,6 +75,11 @@ fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainPro
             "mary_o_demo::cpu_policy": (template: StandStill),
             "sanic_demo::cpu_policy": (template: StandStill),
             "arena::cpu_policy": (template: StandStill),
+            // ⭐ **ADDITIVE, under its own key**, so the StandStill rows above keep
+            // seating exactly what they always did. The mirror-symmetry tests need
+            // a policy that actually instantiates a FIGHTER brain, because that is
+            // the only template with a cognitive stream to share.
+            "demo::fighter_policy": (template: Fighter, fighter_level: 6),
         },
         brain_presets: {},
         action_set_presets: {},
@@ -3372,5 +3385,104 @@ fn a_plan_can_tell_when_the_cast_moved_on_under_it() {
         "and the latecomer must NOT have joined: the plan is frozen against the \
          cast it was made from, and a generation change is something to SAY, \
          never something to re-resolve"
+    );
+}
+
+/// The cognitive stream every seated CPU fighter in this app was built on, in
+/// seat order. `FighterState::noise` IS the stream — construction stores the seed
+/// there verbatim — so this is the smallest deterministic property that answers
+/// *"are these two fighters the same mind?"*.
+fn seated_fighter_streams(app: &mut App) -> Vec<(usize, u64)> {
+    let world = app.world_mut();
+    let mut streams: Vec<(usize, u64)> = world
+        .query::<(
+            &crate::character_runtime::MatchSeat,
+            &ambition_characters::brain::Brain,
+        )>()
+        .iter(world)
+        .filter_map(|(seat, brain)| match brain {
+            ambition_characters::brain::Brain::StateMachine(
+                ambition_characters::brain::StateMachineCfg::Fighter { state, .. },
+            ) => Some((seat.0, state.noise)),
+            _ => None,
+        })
+        .collect();
+    streams.sort_by_key(|(seat, _)| *seat);
+    streams
+}
+
+/// ⛔⛔ **A SAME-CHARACTER CPU MIRROR MATCH IS NOT TWO COPIES OF ONE MIND**, driven
+/// end to end through real seating.
+///
+/// This is the defect Jon reported as *"CPU-vs-CPU matches are perfectly
+/// symmetric"*, and it was true: the fighter brain seeded its noise stream from
+/// difficulty alone, so two seats wearing one character at one level got
+/// byte-identical cognition and mirrored each other exactly. Every OTHER brain
+/// template in `brain_builders` already varied off the participant id; the fighter
+/// was the sole outlier.
+///
+/// ⚠ **through `MatchParticipantRoster` and activation**, not by calling the seed
+/// helper — so it constrains what a real match produces rather than what one
+/// function returns.
+#[test]
+fn two_cpu_seats_of_one_character_are_not_the_same_mind() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("twin", "Twin", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu_fighter("twin"), cpu_fighter("twin")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let streams = seated_fighter_streams(&mut app);
+    assert_eq!(
+        streams.len(),
+        2,
+        "the fixture must seat TWO CPU FIGHTERS or this test proves nothing — got \
+         {streams:?}"
+    );
+    assert_ne!(
+        streams[0].1, streams[1].1,
+        "both seats of one character got the same cognitive stream, so a mirror \
+         match plays as a perfect reflection again"
+    );
+}
+
+/// ⭐⭐ **EMMY'S AUTHORED EXCEPTION, END TO END: her twins ARE one mind, and the
+/// character asked for it.**
+///
+/// The same roster shape as the test above, differing only in that the character
+/// authors [`CharacterDefinition::preserving_mirror_symmetry`]. ⇒ so this pins the
+/// trait as the *whole* cause: nothing about the seating, the policy or the stage
+/// changed, and the streams collapse.
+///
+/// ⛔⛔ **it does NOT assert that two Emmys act alike.** Sharing a stream is where
+/// the mirror comes FROM; it is not the mirror itself. Two Emmys observing
+/// different worlds must be free to decide differently, which
+/// [`an_emmy_whose_world_differs_may_decide_differently`] pins from the other
+/// side.
+#[test]
+fn a_mirror_preserving_characters_two_cpu_seats_share_one_mind() {
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("mirror_twin", "Mirror Twin", "demo").preserving_mirror_symmetry(),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu_fighter("mirror_twin"), cpu_fighter("mirror_twin")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let streams = seated_fighter_streams(&mut app);
+    assert_eq!(
+        streams.len(),
+        2,
+        "the fixture must seat TWO CPU FIGHTERS or this test proves nothing — got \
+         {streams:?}"
+    );
+    assert_eq!(
+        streams[0].1, streams[1].1,
+        "two seats of a character that AUTHORS mirror symmetry got different \
+         cognitive streams, so the authored trait reached nothing"
     );
 }

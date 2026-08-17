@@ -105,6 +105,23 @@ pub struct ActorConfig {
     /// character at runtime (Sanic's transformation) and take its new
     /// repertoire and volumes with it while this field stays put.
     pub sprite_character_id: Option<String>,
+    /// **Does this body's autonomous driver share one deterministic cognitive
+    /// stream with its twins?** Resolved from the character at construction — see
+    /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
+    ///
+    /// ⭐⭐ **it lives HERE, on the config, because three roads build this body's
+    /// brain and they must not disagree**: a match seat, a room spawn, and a
+    /// rewind/live restore all go through
+    /// [`enemy_default_brain`](crate::features::ecs::enemy_default_brain), and
+    /// the note on `PreparedCharacterDefinition::autonomous_profile` says why
+    /// that matters — *"spawn, rewind and live restore all make the same call,
+    /// which is why they cannot disagree"*. A trait the seat road looked up in a
+    /// registry the restore road cannot reach would let a rewound Emmy think
+    /// different thoughts from the one that was standing there a frame ago.
+    ///
+    /// ⚠ `ActorConfig` is registered `rollback_component_clone`, so this rewinds
+    /// with the rest of the config and costs no wire format.
+    pub preserves_mirror_symmetry: bool,
 }
 
 /// Optional patrol path the kinematic step advances each tick.
@@ -766,6 +783,12 @@ impl ActorClusterSeed {
                 sprite_override_npc_name: None,
                 // Peaceful actors already resolved their catalog id above.
                 sprite_character_id: character_id.map(String::from),
+                // ⚠ this road takes no `CharacterBodyBlueprint`, so no authored
+                // character trait reaches it. A peaceful catalog NPC has no CPU
+                // fighter brain to give a stream to, so `false` is the answer
+                // rather than a gap — and if this road ever grows a fighter, it
+                // grows a blueprint first.
+                preserves_mirror_symmetry: false,
             },
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
@@ -837,6 +860,7 @@ impl ActorClusterSeed {
             locomotion,
             contact_damage,
             dream_seed,
+            preserves_mirror_symmetry,
             practice_target,
             autonomous_profile,
             abilities,
@@ -970,6 +994,10 @@ impl ActorClusterSeed {
                 // ⭐ the CHARACTER, stated rather than resolved from a display
                 // name. A seat knows exactly which character it is seating.
                 sprite_character_id: Some(character_id.to_string()),
+                // ⭐ **the character's own answer, carried on the blueprint** —
+                // so a seat, a room spawn and a rewind rebuild all give this
+                // body the same cognitive stream.
+                preserves_mirror_symmetry,
             },
             // ⛔ **this was `ActorMotionPath(None)`, unconditionally**, and it
             // is the shape of defect this campaign keeps finding: the archetype
@@ -1160,6 +1188,8 @@ pub(crate) fn fixture_body_blueprint(
             amount: 1,
         }),
         dream_seed: None,
+        // A fixture body is nobody's twin.
+        preserves_mirror_symmetry: false,
         practice_target: false,
         autonomous_profile: Some(ambition_characters::brain::BrainProfile {
             patrol_effort: 0.6774,
@@ -1260,6 +1290,7 @@ mod tests {
             locomotion,
             contact_damage: None,
             dream_seed: None,
+            preserves_mirror_symmetry: false,
             practice_target,
             autonomous_profile: Some(profile),
             mount: None,

@@ -929,6 +929,9 @@ fn boss_actor_cluster(
         },
         sprite_override_npc_name: None,
         sprite_character_id: None,
+        // A boss drives a `BossPattern`, never the fighter brain the trait picks
+        // a stream for, and there is only ever one of it.
+        preserves_mirror_symmetry: false,
     };
     (
         super::actor_clusters::ActorStatus {

@@ -202,6 +202,73 @@ fn the_same_seed_produces_the_same_fighter() {
     );
 }
 
+/// ⛔⛔ **THE SAME SEED SHOWN A DIFFERENT WORLD IS ALLOWED TO DECIDE
+/// DIFFERENTLY**, and this is the half that keeps Emmy No-Ether's authored mirror
+/// symmetry an emergent property rather than a puppet show.
+///
+/// ⭐ [`the_same_seed_produces_the_same_fighter`] above is the other half:
+/// *identical cognition + symmetric information → symmetric behaviour*, which is
+/// exactly what her trait buys by putting two CPU twins on one stream (see
+/// `CharacterDefinition::preserves_mirror_symmetry`). ⇒ **together the pair states
+/// the whole invariant**: the mirror follows from shared cognition reading a
+/// symmetric stage, so it must BREAK as soon as the stage stops being symmetric.
+///
+/// ⚠ **a forced mirror would pass the first test and fail this one**, which is the
+/// only reason this test earns its place: it is the falsifier for an
+/// implementation that synchronised two fighters' actions instead of their
+/// starting streams. Noether's theorem is that claim precisely — the symmetry has
+/// to be real for the conservation law to hold.
+#[test]
+fn the_same_seed_shown_a_different_world_may_decide_differently() {
+    let mut profile = immediate_profile();
+    profile.execution_noise = 0.9;
+    let cfg = FighterCfg::new(profile);
+    let snapshot = BrainSnapshot::idle();
+
+    // ONE stream, which is what the authored trait grants a pair of twins.
+    let mut near = FighterState::new(&cfg, 0xABCD_EF01);
+    let mut far = FighterState::new(&cfg, 0xABCD_EF01);
+    assert_eq!(
+        near.noise, far.noise,
+        "the fixture must start both fighters on ONE stream, or it is not testing \
+         the mirror at all"
+    );
+
+    // ...and two DIFFERENT worlds. ⭐ **the foe is on the OPPOSITE SIDE**, which is
+    // the asymmetry this fixture can actually express: it supplies no moveset, so
+    // neither fighter ever has an attack option to choose between, and the only
+    // decision on the table is which way to go. That makes it the sharpest
+    // possible version of the claim — a forced mirror would walk them both the
+    // same way.
+    let foe_right = scene(300.0, 500.0);
+    let foe_left = scene(300.0, 100.0);
+    let mut right_out = ActorControlFrame::neutral();
+    let mut left_out = ActorControlFrame::neutral();
+    let mut diverged = false;
+    for _ in 0..180 {
+        tick_fighter(&cfg, &mut near, &snapshot, Some(&foe_right), &mut right_out);
+        tick_fighter(&cfg, &mut far, &snapshot, Some(&foe_left), &mut left_out);
+        if right_out != left_out || near.noise != far.noise {
+            diverged = true;
+            break;
+        }
+    }
+    assert!(
+        diverged,
+        "two fighters on one stream never diverged across 180 ticks despite their \
+         foes being on opposite sides — that would mean behaviour is synchronised \
+         rather than emerging from what each one observes"
+    );
+    // ⭐ and name the divergence rather than only counting it: they walk APART.
+    assert!(
+        right_out.locomotion.x * left_out.locomotion.x < 0.0,
+        "the two twins did not head in opposite directions toward opposite foes \
+         (right: {:?}, left: {:?})",
+        right_out.locomotion,
+        left_out.locomotion,
+    );
+}
+
 /// **A tick that consumes no noise leaves the seed alone.** That is the property
 /// that makes the stream rewindable — a step-per-tick generator would depend on
 /// how many ticks happened rather than on how many samples were taken.

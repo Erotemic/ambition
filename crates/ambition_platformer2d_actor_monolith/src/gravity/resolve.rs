@@ -164,6 +164,8 @@ mod tests {
             },
             sprite_override_npc_name: None,
             sprite_character_id: None,
+            // A fixture body, not a seated CPU twin.
+            preserves_mirror_symmetry: false,
         };
         let aerial = app
             .world_mut()

@@ -429,6 +429,8 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         },
         sprite_override_npc_name: None,
         sprite_character_id: Some("npc_villager".into()),
+        // A fixture body, not a seated CPU twin.
+        preserves_mirror_symmetry: false,
     }
 }
 

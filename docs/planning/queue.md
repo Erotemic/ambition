@@ -6301,9 +6301,88 @@ underneath it.
 1  seat-independent respawn placement           (defect 3 below)
 2  standalone smash-app asset composition       (no PlatformerAssetsPlugin)
 3  the residual presentation defects            (5-8 below)
+✔  same-character CPU symmetry — FIXED 2026-08-17, see below
 ⛔ NOT on this list: stock count, knockback, damage. Ruled. Do not retune them.
 ⛔ NOT on this list: another capture or another ladder run. Both are done.
 ```
+
+✔✔ **CPU SYMMETRY: TWO CPUs WEARING ONE CHARACTER WERE THE SAME MIND, AND THAT IS
+FIXED (2026-08-17). Emmy No-Ether now AUTHORS the old behaviour as her own
+trait.**
+
+⛔⛔ **the defect, and it was stated as a goal in its own comment.** The fighter
+brain seeded its noise stream from difficulty alone —
+`0x5F37_7A11 * (level + 1)` — so any two CPUs on one rung drew byte-identical
+noise. Reading a symmetric stage, they mirrored each other exactly, and a
+same-character CPU-vs-CPU match was one fighter played twice. ⭐ **the tell was
+local**: every OTHER template in `brain_builders.rs` (Smash, brute, skirmisher,
+sniper, aerial) already varied off `seed_from_id(&enemy.id)`; the fighter was the
+sole outlier, so this was the file's own rule reaching the one brain that missed
+it.
+
+```text
+ordinary   seed_from_id("<character>#seat<n>") ⊕ level    distinct per PARTICIPANT
+authored   seed_from_id("<character>")         ⊕ level    shared by every twin
+```
+
+⭐ **`enemy.id` was already the right input** — `PreparedSeat::feature_id` mints
+`"<character>#seat<n>"` precisely so a mirror match is two bodies rather than one.
+⛔ no clock, no process-global RNG, no Bevy `Entity`: **replay determinism is
+preserved**, and `the_same_participant_rebuilds_on_the_same_stream` pins it.
+
+⛔⛔ **AND THE FIX NEEDED TWO SITES, WHICH IS THE PART THAT WOULD HAVE BITTEN.**
+`project_authored_fighter_ladder` rebuilt `FighterState` with the same level-only
+constant on `Added<Brain>`, so fixing construction alone would have been undone a
+moment later by the second writer. It now CARRIES `state.noise` across the
+rebuild — which is also the more honest operation, since a fighter's position in
+its own stream is not one of the profile-cached fields that pass exists to
+re-derive.
+
+⭐⭐ **EMMY'S EXCEPTION IS AUTHORED, NOT INHERITED FROM THE BUG.**
+`CharacterDefinition::preserves_mirror_symmetry` (authored in
+`authored/npc_noether.rs` as `.preserving_mirror_symmetry()`) drops the
+PARTICIPANT term and keys on the character instead, so her twins share a stream
+and nobody else's do. ⛔ it does **not** zero the seed — that would hand every
+mirror-preserving character one global stream — and it touches nothing but the
+choice of stream: no profile, no difficulty, no template.
+⛔⛔ **it synchronises NOTHING per tick.** The mirror is *identical cognition +
+symmetric information → symmetric behaviour*, so it BREAKS when their
+observations diverge, and that is correct — `the_same_seed_shown_a_different_world_may_decide_differently`
+is the falsifier for anyone who later tries to enforce it.
+⚠ **no `if character == Emmy` anywhere in the AI**: generic code reads a bool that
+the character authored, and the trait rides `ActorConfig` (a
+`rollback_component_clone`) so seating, room spawn and rewind rebuild all agree.
+
+⭐⭐ **MEASURED ON THE REAL STAGE, and the measurement is worth more than the fix
+statement.** `two_cpus_wearing_one_character_stop_being_a_perfect_reflection`
+drives a whole same-character two-CPU match through the shipped shell. The stage
+seats the pair at **x=224 and x=416 about a midline of 320** — genuinely mirrored
+spawns — and under the old shared stream the two bodies stayed an **EXACT mirror
+image for the entire match**: equal and opposite about the midline, identical y,
+to the float. ⇒ *"perfectly symmetric"* was literal, not impressionistic.
+
+⛔⛔ **AND THE FIRST DRAFT OF THAT TEST WAS VACUOUS, which is the reusable
+lesson.** It measured the DISTANCE between the two bodies and passed with the
+defect fully present — two fighters spawned apart drift regardless of what their
+brains do, so it was measuring collision. The metric that answers the question is
+**MIRROR ERROR**, `|(x0−mid)+(x1−mid)| + |y0−y1|`, which is ~0 for a reflection
+and grows for two fighters. ⇒ *when the report says "symmetric", measure symmetry,
+not difference.* Both halves are poison-checked: the fix, and the ladder
+projection's carry, each independently turn tests red when reverted.
+
+⚠ **Emmy's own mirror is NOT observable in the standalone smash app**, and that is
+a composition boundary rather than a gap: `game/ambition_demo_smash_app` does not
+compose `ambition_content`, so a roster naming `npc_noether` seats nobody. ⛔ do
+not teach the demo host Ambition's cast to close it. Each half of the exception is
+pinned where it is observable instead — her authoring in `ambition_content`, the
+fold in `ambition_characters`, the shared stream through real seating + activation
+in the monolith, and the emergent-not-enforced invariant in the fighter's own
+decision tests. The test's own doc block carries that table.
+
+⚠ **the catalog PREVIEW brain still seeds level-only, correctly** — a preview has
+no match and therefore no participant; the note at
+`character_catalog/resolver.rs` says so and forbids copying it back onto a
+construction road.
 
 ⭐ **the state acceptance was given against** — two-CPU match captured 2026-08-17
 through the shipped shell, AFTER D155 gave the game working knockback: 34%→180% in

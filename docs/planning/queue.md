@@ -4303,6 +4303,38 @@ FIGHTERS; what changed is everything around them.
    and now askable for the first time.
 ```
 
+⭐⭐ **RECONCILED 2026-08-17, AND THE PRODUCT QUESTION MOVED AGAIN — HARDER THAN
+THE POOL FIX DID.** Any judgement anyone has ever formed about how these
+fighters FEEL predates working knockback, and is therefore void:
+
+```text
+D155  NOBODY GOT LAUNCHED, and it was two bugs on the shared floor.
+      Every authored launch direction in the game was vertically INVERTED
+      (an up-tilt drove its victim into the floor at 5048 px/s), and a
+      tumbling launch was resolved as a LANDING on the tick it was applied,
+      zeroing the velocity. A fighter at 1427% moved zero pixels.
+      ⇒ every previous "watch a match" observation was made on a build where
+        the percent meter reached nothing and nobody was ever sent anywhere.
+
+D114  hitlag reached only the AVATAR road, so a hit between two ACTORS froze
+      NEITHER of them — i.e. every CPU-versus-CPU exchange, which is what a
+      watcher watches. Connects had no impact pause at all.
+
+D156  the Patent Clerk and Carl Stargan both RENDERED FACING BACKWARDS: the
+      facing was authored three times over and read by nothing.
+
+D146  dash left the vocabulary, shield became a real action, and the smash pad
+      got its own profile — so the thing a watcher drives changed too.
+```
+
+▢ **THE NEXT ACTION ON THIS ROW IS THEREFORE A CAPTURE, not a code change.**
+`capture_scene` with `--press touch:XxY` (D130) can photograph the two-CPU
+match; nobody has looked since launches began working. ⚠ and per
+[[reference_capture_scene_is_the_phone_proxy]] there are three ways it renders
+NOTHING, so check for actual pixels before believing a quiet result.
+```text
+```
+
 ⇒ **the cheap next step for this row is one capture of a two-CPU match**, using
 the nine-tap command in `capture_scene`'s header, to answer the question the row
 was opened to ask. ⛔ do not re-derive the tooling or re-measure the repertoire

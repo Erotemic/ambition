@@ -836,8 +836,27 @@ the rooms sampled, which is enough to teach people to skim the log.
 ⭐ the fix, if that reading holds: say it at DEBUG, or fire only when the press
 HAPPENED and the transition still did not.
 
-⚠ (2) is Bevy reporting a redundant set membership — cheap to fix, but it sits
-in `ContactDamage`/`WorldPrep`, which D33's boss carve is moving; do it after.
+✔ **(2) IS RESOLVED AS WON'T-FIX, WITH THE REASON — traced 2026-08-17.** It is a
+redundancy that exists because both memberships are individually correct:
+
+```text
+features/mod.rs:646   apply_actor_contact_damage.in_set(WorldPrepSet::ContactDamage)
+                      …and the whole tuple carries .in_set(…::WorldPrep)
+schedule.rs:150       WorldPrepSet::ContactDamage.in_set(…::WorldPrep)
+```
+
+⇒ the system reaches `WorldPrep` two ways — directly via the tuple, and via its
+member set — so Bevy drops the shorter edge and says so. **Neither declaration is
+wrong**: the tuple-level one is what every other system in that tuple needs, and
+the per-system one is the consumer contract (*"a consumer can say 'before bodies
+move' without naming this function"*).
+
+⚠ **and `WorldPrepSet::Integrate` is nested identically** (`schedule.rs:140-144`)
+with `integrate_sim_bodies` in the same tuple, so the same redundancy exists
+there and Bevy names only one of them — the message is a sample, not a census.
+⛔ so "fix it" would mean restructuring a `.chain()`ed tuple to exclude two
+members from a blanket set, which risks reordering a load-bearing simulation
+phase to silence a line that ends *"built successfully, however"*. Not worth it.
 
 ⚠ (3) is one authored level off-grid, and `tools/ambition_ldtk_tools` is the only
 road that may edit a `.ldtk`.

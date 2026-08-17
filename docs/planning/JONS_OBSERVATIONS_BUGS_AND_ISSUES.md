@@ -144,6 +144,7 @@
 
 
 * The smash UI for character select looks good, but the controls don't feel good, they are very hard to use with a gamepad. 
+  * ⊙ Possibly the SAME root as the two-controller item below, and worth trying before treating it as feel: under the default `UnifiedPrimary` policy the pad is not its own source — it and the keyboard both drive slot one — so a gamepad is navigating a screen that another source is also steering. Switching that demo to `JoinToClaim` is the cheap experiment.
 
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
   * ⊙ BUILT, TESTED, AND SWITCHED OFF. `InputAssignmentPolicy::JoinToClaim` makes the keyboard a source with its own slot, so keyboard + one pad is two players — your couch milestone 2, written into the code. But the enum's `#[default]` is `UnifiedPrimary` (*"today's behaviour exactly"*) and **the only three places that select `JoinToClaim` are unit tests**, so no shipped composition ever turns it on.

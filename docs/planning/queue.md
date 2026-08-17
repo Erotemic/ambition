@@ -791,6 +791,60 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢▢ **D155 — NOBODY GETS LAUNCHED. Knockback does not scale, and an up-tilt
+  does not send anyone up. (Jon, PLAYING, 2026-08-16 — HIGH)**
+
+Jon, verbatim: *"when a character is hit up, they actually get knocked up (or I
+guess attacks should have an authored launch direction), right now up tilts just
+keep the character on the ground. But being able to juggle is going to be
+important in smash and in ambition. Also in smash knockback is not really being
+applied well. Right now **alice is at 1427% and Booul is hitting her, but she's
+not going anywhere.** We need real knockback and DI. I thought we had it, maybe
+its just some parameter tweaks?"*
+
+⭐ **"I thought we had it" is CORRECT — every piece is present and wired. This is
+an APPLICATION fault, not a missing feature.** What was verified by reading
+(2026-08-16, `a77d0bda1`):
+
+* **the growth law exists and is the right shape.** `combat::util::scaled_knockback`
+  = `base + growth * victim_damage_taken / weight`, called from `hitbox/mod.rs`
+  via `resolved_hitbox_knockback_magnitude`.
+* **the moves DO author growth and launch directions.** The goblin's jab is
+  `damage 2, knockback 45.0, growth 1.05, launch_dir None`; its up-tilt is
+  `damage 4, knockback 70.0, growth 1.30, launch_dir Some((0.15, -1.0))` — i.e.
+  almost straight up (up is −y). `strike()` has taken `knockback`,
+  `knockback_growth` and `launch_dir` all along.
+* **the smash ruleset declares both**: `DeclaredCombatRules { di_max_angle:
+  SMASH_DI_MAX_ANGLE, knockback_growth: SMASH_KNOCKBACK_GROWTH, … }` at
+  `game/ambition_demo_smash/src/lib.rs:1778`.
+* **`hit_response::knockback_velocity` honours an authored `launch_dir`** and
+  applies DI, and has an explicit arm for it.
+
+⛔ **THE OBVIOUS SUSPECT IS ALREADY DEAD — do not spend the session on it.**
+`BodyHealth::damage_percent()` is `accumulated / health.max`, so a HUD percent
+and the formula's `damage_taken()` could easily have been different numbers. They
+are not: the smash roster sets `fighter_health_pool = SMASH_PERCENT_REFERENCE =
+100`, so 1427% IS 1427 accumulated damage, and `45 + 1.05 × 1427 ≈ 1542 px/s`
+is what the law should be producing. **Alice should be leaving the screen.**
+
+**⚠ EVERYTHING ABOVE IS A READING. The fault is downstream of the magnitude and
+needs a LIVE probe, not more source.** Suggested order:
+1. **Measure the magnitude that actually reaches the victim** in a real match —
+   is `HitKnockback::magnitude` big, or did the growth term vanish? A move's own
+   `knockback_growth` *wins outright* over the ruleset's; check which one is in
+   play and that it is not being read as `0.0` somewhere.
+2. **Then measure the velocity actually written to the body.** Both of Jon's
+   symptoms unify if the launch is applied and then LOST — a grounded body whose
+   vertical velocity is zeroed by ground contact would both refuse to be knocked
+   up by an up-tilt AND refuse to travel at 1427%.
+3. **Then DI.** `di_max_angle: 0.0` disables it entirely (Ambition's PvE answer);
+   confirm smash's value is non-zero AND that the victim's held control reaches
+   `di_input_local` — a correct angle with no input plumbed is silent.
+
+⚠ **the up-tilt half is the bigger design item.** Jon: *"being able to juggle is
+going to be important in smash AND in ambition"* — so whatever this turns out to
+be, the fix belongs to the shared hit-response floor, not to a smash parameter.
+
 - ▢ **D147–D154 — THE D140–D145 REVIEW FINDINGS. (external review, 2026-08-16,
   read against the `2381e3a7e` snapshot)**
 

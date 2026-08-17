@@ -248,6 +248,59 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     roster.fighter_body = Some(SMASH_FIGHTER_BODY);
 }
 
+/// **SMASH'S READING OF A CHARACTER** — a function from what the character
+/// AUTHORED to what this match's seat plays with.
+///
+/// ⭐⭐ **PURE, and that is the requirement** (Jon, 2026-08-16). Two of this
+/// ruleset's three adjustments already go through one named composition site —
+/// [`apply_smash_match_rules`] declares them and `MatchRules::body_over` /
+/// `MatchRules::pool_over` compose them. The third did not: the registration
+/// loop in `install_smash_content` reached into `definition.vitals` and ASSIGNED
+/// a weight, mid-loop, on the way past. That reach-in is now this function, and
+/// grepping the name below finds every place the smash ruleset interprets
+/// authored character data.
+///
+/// ⭐ **the orthogonality this expresses is not new here.** Character authoring
+/// and ruleset specificity are independent axes: data may live WITH the
+/// character while being owned SEMANTICALLY by the smash capability. Mary-O's
+/// move table already works exactly this way — it sits in her own crate, is
+/// unreachable in her own game, and speaks smash's vocabulary.
+///
+/// ⛔⛔ **IT TAKES NO POSITION ON WHERE WEIGHT ULTIMATELY BELONGS.** Jon
+/// deliberately deferred that (*"do not design the final universal
+/// character/game composition model from one weight customer"*), so this is one
+/// customer and one seam and no facet type. What it buys is that the eventual
+/// answer — character-owned, game-owned, or composed — is ONE edit either way.
+///
+/// ⚠ **the authored numbers and their reasoning are unchanged.** Weight is a
+/// SPREAD around the reference body rather than three absolute numbers: v3 is
+/// the middleweight the stage is tuned against, v2 is the lighter older build,
+/// George is the heavy. `scaled_knockback` divides the growth term by the
+/// victim's weight, so this is what decides who dies early and who survives to
+/// 150% — without it all three seat through `combatant` and weigh the same,
+/// which is three of the same fighter (D73 phase 1).
+///
+/// ⚠ **and it is still only three of fourteen**, for the same reason the percent
+/// reference used to be: it can only reach the characters this demo REGISTERS.
+/// That is the deferred question, stated rather than fixed.
+pub fn smash_reading_of_character(
+    definition: ambition_platformer2d::actors::character_runtime::CharacterDefinition,
+) -> ambition_platformer2d::actors::character_runtime::CharacterDefinition {
+    use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, Vitals};
+    let knockback_weight = match definition.id.as_str() {
+        SMASH_OPPONENT_ID => 0.85,
+        SMASH_GEORGE_BOOUL => 1.35,
+        _ => 1.0,
+    };
+    CharacterDefinition {
+        vitals: Vitals {
+            knockback_weight: Some(knockback_weight),
+            ..definition.vitals
+        },
+        ..definition
+    }
+}
+
 /// **THE PLATFORM-FIGHTER BODY** — the movement feel every fighter on this
 /// stage plays with, said ONCE.
 ///
@@ -2241,7 +2294,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2"),
             (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
         ] {
-            let mut definition =
+            let definition =
                 CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
             // ⛔⛔ **THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE**
             // (2026-07-31 found it; queue D131 moved it, 2026-08-16).
@@ -2263,23 +2316,20 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // These three now author what they ARE and nothing about how a
             // stocks match reads them.
             //
-            // **WEIGHT, so the roster is not three of the same fighter.**
+            // ⛔⛔ **AND NEITHER IS THE KNOCKBACK WEIGHT** (D146 slice 4,
+            // 2026-08-16). `definition.vitals.knockback_weight = Some(match id
+            // { .. })` stood on this line: a reach-in performed mid-loop, on the
+            // way past, while the ruleset's other two adjustments went through
+            // one named composition site. The values and their reasoning are
+            // unchanged — they are in
+            // [`smash_reading_of_character`], which is a pure function from what
+            // a character authored to what this match's seat plays with.
             //
-            // `scaled_knockback` divides the growth term by the victim's weight,
-            // so with `SMASH_KNOCKBACK_GROWTH` declared this is what decides who
-            // dies early and who survives to 150%. Until a character could
-            // author one it came from the roster ARCHETYPE — and all three of
-            // these seat through `combatant`, so they weighed the same and could
-            // not differ (D73 phase 1).
-            //
-            // ⚠ authored as a SPREAD around the reference body rather than as
-            // absolute numbers: v3 is the middleweight the stage is tuned
-            // against, v2 is the lighter older build, and George is the heavy.
-            definition.vitals.knockback_weight = Some(match id {
-                SMASH_OPPONENT_ID => 0.85,
-                SMASH_GEORGE_BOOUL => 1.35,
-                _ => 1.0,
-            });
+            // ⚠ **that move implies NO direction.** Whether per-character
+            // per-game properties belong to the character or to the game is
+            // deliberately still open; the seam exists so the answer is one edit
+            // either way.
+            let mut definition = smash_reading_of_character(definition);
             // ⛔⛔ **THE PLATFORM FIGHTER'S BODY IS NOT AUTHORED HERE ANY MORE**
             // (2026-07-31 authored it; D146 slice 1b moved it, 2026-08-16).
             //

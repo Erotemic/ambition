@@ -392,6 +392,14 @@ mod tests {
         a.blink = false;
         a.fly = false;
         a.shield = false;
+        // ⛔ **a move table is WHAT the attack is; the ability is WHETHER this
+        // body may attack at all** (D157, 2026-08-16). `combat_actions` gates
+        // the Attack/Special slots on `AbilitySet::attack` now — before that it
+        // derived them from the moveset alone, which is how Mary-O carried her
+        // smash repertoire into her own platformer. So a fixture that hands a
+        // body an attack MOVE has to say the body may attack, or the scheme
+        // resolves no Attack slot and every label here reads `None`.
+        a.attack = attack_move.is_some();
         let mut m = MovesetContract::default();
         if let Some(move_id) = attack_move {
             m.verbs = BTreeMap::from([("attack".to_string(), move_id.to_string())]);

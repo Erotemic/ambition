@@ -504,17 +504,32 @@ mod tests {
     /// bodies that could not move. This asserts the step that fixes that: what
     /// they author and what the bridge was handing them are the same set, so the
     /// semantics can move without any fighter changing.
+    ///
+    /// ⛔⛔ **AND STEP 2 THEN RETIRED THE BRIDGE, WHICH INVALIDATED THE ASSERTION
+    /// THIS TEST WAS BORN WITH** (2026-08-17, caught by a `--lib` sweep the
+    /// project gate does not run). It said `apply(None) == apply(Some(kit))`,
+    /// which was the whole POINT while the bridge stood and is FALSE the moment
+    /// it is gone: an absent claim now takes what the mode GRANTS, and a ceiling
+    /// grants nothing. ⇒ the equality is kept below as HISTORY — asserted
+    /// against `AbilitySet::NONE` rather than deleted — because *what the bridge
+    /// used to hand an unauthored fighter* is exactly the fact that made
+    /// dressing these two a prerequisite.
     #[test]
     fn what_the_duelists_author_is_exactly_what_the_bridge_was_handing_them() {
-        use ambition_platformer2d::engine_core::MatchAbilities;
+        use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities};
 
         let rules = MatchAbilities::at_most(VERSUS_FIGHTER_KIT);
-        let bridged = rules.apply(None);
         let authored = rules.apply(Some(VERSUS_FIGHTER_KIT));
         assert_eq!(
-            authored, bridged,
-            "authoring the kit changed what a duelist can do, so this is not the \
-             behaviour-neutral step it claims to be"
+            authored, VERSUS_FIGHTER_KIT,
+            "a duelist no longer gets the kit it authored, so the ceiling is \
+             narrowing something it claims merely to permit"
+        );
+        assert_eq!(
+            rules.apply(None),
+            AbilitySet::NONE,
+            "an unauthored fighter took the ceiling again — the migration bridge \
+             D151 retired is back, and permission is a grant once more"
         );
 
         // ⛔ non-vacuity: a kit of nothing would satisfy the equality above for

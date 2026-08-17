@@ -833,8 +833,22 @@ intro_wake_room      0             square_arena      0
 ⭐ so it is **room-dependent, not every boot** — my first note said "every boot"
 and that was wrong. It is still a WARN that fires for correct behaviour in half
 the rooms sampled, which is enough to teach people to skim the log.
-⭐ the fix, if that reading holds: say it at DEBUG, or fire only when the press
-HAPPENED and the transition still did not.
+⭐⭐ **the reading is now DEMONSTRATED, not inferred (2026-08-17).** Driving the
+press against that very zone shows the warning fires first, and the door then
+works perfectly:
+
+```text
+WARN … TOUCHING `pirate_cove_entry` (Door) … interact buffered = false
+capture_scene: pressed KeyF (1 of 1)
+room-transition begin seq=1 pirate_cove -> central_hub_complex
+room-loaded central_hub_complex
+```
+
+⇒ the warning describes **a door nobody has pressed yet**, which is every frame
+a player stands in a doorway. ⭐ the fix: say it at DEBUG, or fire only when the
+press HAPPENED and the transition still did not.
+⚠ this also answered a maintainer report in passing — *"in ambition I can't use
+F to go through doors anymore"* does not reproduce on the keyboard preset.
 
 ✔ **(2) IS RESOLVED AS WON'T-FIX, WITH THE REASON — traced 2026-08-17.** It is a
 redundancy that exists because both memberships are individually correct:

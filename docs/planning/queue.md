@@ -820,13 +820,21 @@ rather than because it is dead — the offline count agrees with its silence.
    aligned to 16px grid
 ```
 
-⚠ **(1) looks like a diagnostic firing on an ORDINARY state.** The body spawns
-at the arrival point, the arrival point is a `Door`, and a Door needs a press —
-so "touching and not transitioning" is simply what a fresh spawn looks like. A
-WARN that fires every boot for correct behaviour is the thing that teaches
-people to skim the log, and this repo has already paid for a suite nobody runs.
-⭐ if that reading is right the fix is to say it at DEBUG, or to fire only when
-the press HAPPENED and the transition still did not.
+⚠ **(1) is a diagnostic firing on an ORDINARY state — in SOME rooms.** The body
+spawns at the arrival point; where that point overlaps a `Door`, and a Door
+needs a press, "touching and not transitioning" is simply what a fresh spawn
+looks like. **Measured across four rooms rather than assumed:**
+
+```text
+goblin_cantina_lair  1 warning     pirate_cove       1 warning
+intro_wake_room      0             square_arena      0
+```
+
+⭐ so it is **room-dependent, not every boot** — my first note said "every boot"
+and that was wrong. It is still a WARN that fires for correct behaviour in half
+the rooms sampled, which is enough to teach people to skim the log.
+⭐ the fix, if that reading holds: say it at DEBUG, or fire only when the press
+HAPPENED and the transition still did not.
 
 ⚠ (2) is Bevy reporting a redundant set membership — cheap to fix, but it sits
 in `ContactDamage`/`WorldPrep`, which D33's boss carve is moving; do it after.

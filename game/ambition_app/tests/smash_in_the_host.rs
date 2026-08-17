@@ -4011,3 +4011,402 @@ fn a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button() {
     );
     eprintln!("[d146-shield] the CPU guarded after {guarded:?} updates");
 }
+
+// ─── D146 slice 3 — the smash pad is a PROFILE, not a new default ────────────
+//
+// Jon, 2026-08-16: *"I don't think the special button is mapped to a game pad
+// for smash. My preferred smash layout for an xbox controller is a=normal,
+// x=special, b=jump, y=grab (we don't have grab yet), left trigger is shield.
+// The rest of the bindings are normal I think."*
+//
+// …and the sentence that made it an architecture task rather than a table edit:
+// *"Well, B=jump is the way I like my smash controller, It's probably non
+// standard. **Will need to have control profiles eventually.**"*
+//
+// ⭐ so every case below drives a REAL PAD through the REAL host input chain in
+// a REAL match — `device -> game layout -> semantic action -> game rules`, end
+// to end — and the last one proves the layout LEAVES with the game. Asserting
+// that a button appears in a binding table would have proved none of it; Jon
+// asked for that specifically: *"Do not merely assert that X appears in a
+// binding table."*
+
+/// Put a value on a pad button through the raw device seam, the way every other
+/// gamepad probe in this repo does.
+fn pad_hold(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
+    app.world_mut()
+        .write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+            bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, button, value),
+        ));
+}
+
+/// Seat a keyboard person at slot 0 and a PAD player at slot 1 as `fighter`,
+/// start the match, and hand back the pad, the pad player's body, and the app.
+///
+/// ⚠ **slot 1 is the pad, and that is the couch policy's answer rather than a
+/// choice**: `first_free_device` hands out the lowest unclaimed source in card
+/// order, so card one takes the keyboard and card two takes the pad whichever
+/// hand pressed which button. The assertion below says so out loud, because a
+/// test that measured the KEYBOARD seat while believing it was the pad would
+/// pass the layout cases for entirely the wrong reason.
+fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+
+    let mut app = shell_host_app();
+    // ONE pad: under the couch policy that is two seats, the keyboard's and this
+    // one's.
+    let pad = app
+        .world_mut()
+        .spawn(bevy::input::gamepad::Gamepad::default())
+        .id();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    cycle_role(&mut app, 0, 1); // card one takes device 0 — the keyboard
+    cycle_role(&mut app, 1, 1); // card two takes device 1 — the pad
+    assert_eq!(
+        app.world().resource::<SmashSelect>().slot(1).occupant,
+        SlotOccupant::Controller { device: 1 },
+        "seat 1 is not on the pad, so every measurement below would be about the \
+         keyboard seat wearing the pad's name"
+    );
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, fighter);
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "the lobby refused to start a keyboard-versus-pad match"
+    );
+    wait_for_the_round_to_go_live(&mut app);
+
+    let body = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        assert!(rows.len() >= 2, "a two-seat match seated {} bodies", rows.len());
+        rows[1].1
+    };
+    (app, pad, body)
+}
+
+/// Every move id this body reaches through a `special*` verb, read off its OWN
+/// authored moveset.
+///
+/// ⭐ **derived, never a hand-listed id.** Which move George's neutral special
+/// is, is his sheet's business; what this test is about is whether the PAD
+/// reaches it. A literal `"bivalence"` here would go quiet the day he is
+/// re-authored and would still pass.
+fn authored_specials_of(app: &mut App, body: Entity) -> std::collections::BTreeSet<String> {
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
+    app.world()
+        .get::<ActorMoveset>(body)
+        .map(|moveset| {
+            moveset
+                .0
+                .verbs
+                .iter()
+                .filter(|(verb, _)| verb.starts_with("special"))
+                .map(|(_, id)| id.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Hold `button` and report the first authored move that starts, if any.
+///
+/// ⛔ `app.update()` is NOT one tick of sim time — the loop is a CEILING on
+/// patience, and the answer is whatever the property said, never the count.
+fn move_started_while_holding(
+    app: &mut App,
+    pad: Entity,
+    body: Entity,
+    button: GamepadButton,
+) -> Option<String> {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    pad_hold(app, pad, button, 1.0);
+    let mut fired = None;
+    for _ in 0..180 {
+        app.update();
+        if fired.is_none() {
+            fired = app
+                .world()
+                .get::<MovePlayback>(body)
+                .map(|playback| playback.spec.id.clone());
+        }
+    }
+    pad_hold(app, pad, button, 0.0);
+    for _ in 0..30 {
+        app.update();
+    }
+    fired
+}
+
+/// **X IS SPECIAL ON A PAD, AND IT REACHES THE FIGHTER'S AUTHORED SPECIAL.**
+///
+/// ⭐⭐ **this is the gap the whole slice exists to close.** Jon: *"I don't think
+/// the special button is mapped to a game pad for smash"* — and he was right, in
+/// a stronger way than he put it: `Special` had NO gamepad button in ANY
+/// composition. The default pad is fully assigned, so `presets.rs` deliberately
+/// declined to double-bind one and left it to a remap pass that never came. A
+/// pad player could not throw a special at all.
+///
+/// A game's `BindingLayout` is what makes it possible without a remap, because a
+/// layout PERMUTES an assigned pad rather than adding to it: X was Attack, Attack
+/// moved to A, and X is free for Special.
+///
+/// ⚠ **non-vacuity is the `authored_specials_of` set, not a literal id.** If the
+/// press reached nothing at all `fired` is `None`; if it reached the wrong verb
+/// the id is outside the set. Both fail with the id printed.
+#[test]
+fn on_the_smash_pad_x_fires_the_fighters_authored_special() {
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    let specials = authored_specials_of(&mut app, body);
+    assert!(
+        !specials.is_empty(),
+        "this fighter authors no special at all, so pressing X could not prove \
+         anything about reaching one"
+    );
+
+    let fired = move_started_while_holding(&mut app, pad, body, GamepadButton::West);
+    let fired = fired.expect(
+        "pressing X on the pad started NO move. Either the smash layout never \
+         reached this seat's InputMap, or Special still has no gamepad button",
+    );
+    assert!(
+        specials.contains(&fired),
+        "pressing X played `{fired}`, which is not one of this fighter's authored \
+         specials {specials:?} — X is bound to the wrong verb under the smash layout"
+    );
+}
+
+/// **THE LEFT TRIGGER SHIELDS, THROUGH THE SEMANTIC SHIELD ACTION.**
+///
+/// Jon: *"left trigger is shield"*. Slice 2 made Shield a real participant
+/// action with its own `BodyShieldState`; this is the pad half of it.
+///
+/// ⚠ **BOTH left shoulder buttons, on purpose and asserted separately.** "Left
+/// trigger" on an Xbox pad names the ANALOG trigger, which Bevy spells
+/// `LeftTrigger2` because it spells the BUMPER `LeftTrigger` — so the layout
+/// gives Shield both rather than guessing, which is also what a fighting game
+/// does. One action on two buttons is fine; two actions on one button is the
+/// hazard, and `every_button_the_smash_layout_claims_drives_exactly_one_verb`
+/// is where that is pinned.
+///
+/// ⚠ **and it must not be Special doing this.** A guard that came up because the
+/// trigger fired a shield-flavoured special would be exactly the masquerade
+/// slice 2 deleted, so the authored-move channel is asserted SILENT.
+#[test]
+fn on_the_smash_pad_the_left_trigger_raises_a_real_guard() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+    assert!(
+        !guard_is_up(&app, body),
+        "the guard is up before anybody touched a trigger"
+    );
+
+    for button in [GamepadButton::LeftTrigger, GamepadButton::LeftTrigger2] {
+        pad_hold(&mut app, pad, button, 1.0);
+        let mut played: Option<String> = None;
+        let raised = hold_until(&mut app, |app| {
+            app.world()
+                .get::<ambition_platformer2d::engine_core::body_clusters::BodyShieldState>(body)
+                .map(|shield| shield.active)
+                .unwrap_or(false)
+        });
+        // Whatever the guard did, ask the move channel the same question.
+        for _ in 0..30 {
+            app.update();
+            if played.is_none() {
+                played = app
+                    .world()
+                    .get::<MovePlayback>(body)
+                    .map(|playback| playback.spec.id.clone());
+            }
+        }
+        pad_hold(&mut app, pad, button, 0.0);
+
+        assert!(
+            raised.is_some(),
+            "holding {button:?} on the smash pad raised no guard — the layout's \
+             Shield binding did not reach this seat"
+        );
+        assert_eq!(
+            played, None,
+            "holding {button:?} started `{played:?}`. Shield holds a guard; it \
+             does not activate authored behaviour, and a trigger that fires a \
+             special is the masquerade Jon named"
+        );
+
+        let lowered = hold_until(&mut app, |app| !guard_is_up(app, body));
+        assert!(
+            lowered.is_some(),
+            "the guard never came down after {button:?} was released, so the \
+             next case would be measuring this one's leftovers"
+        );
+    }
+}
+
+/// **B JUMPS AND A ATTACKS.** Jon's *"a=normal … b=jump"*, on the body.
+///
+/// ⚠ **the two halves are ONE test on purpose**, because either alone passes a
+/// build where both buttons do both things — the same lesson as slice 2's
+/// masquerade pair. A jumps into an authored attack, B leaves the ground, and
+/// neither does the other's job.
+#[test]
+fn on_the_smash_pad_b_jumps_and_a_attacks() {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+
+    let (mut app, pad, body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+    let specials = authored_specials_of(&mut app, body);
+    let y = |app: &App| app.world().get::<BodyKinematics>(body).unwrap().pos.y;
+
+    // How far off its resting height this body gets while `button` is held.
+    //
+    // ⚠ **UNSIGNED, and that is the honest form rather than a shortcut.** Which
+    // way "up" is on the y axis is the ROOM's business — gravity has a direction
+    // and this engine lets it move — so a test that hardcoded a sign would be
+    // asserting a fact about the stage's orientation while claiming to assert
+    // one about a button. (Measured on this stage: a jump reads −131px, so the
+    // first draft's `peak - ground > 4.0` read 0.00 and called a working jump a
+    // broken layout.) The claim is *B leaves the ground*, and leaving is
+    // leaving.
+    fn excursion_while_holding(
+        app: &mut App,
+        pad: Entity,
+        body: Entity,
+        button: GamepadButton,
+        frames: usize,
+    ) -> f32 {
+        let rest = app.world().get::<BodyKinematics>(body).unwrap().pos.y;
+        pad_hold(app, pad, button, 1.0);
+        let mut furthest = 0.0f32;
+        for _ in 0..frames {
+            app.update();
+            let now = app.world().get::<BodyKinematics>(body).unwrap().pos.y;
+            furthest = furthest.max((now - rest).abs());
+        }
+        pad_hold(app, pad, button, 0.0);
+        // Land, so the next case is not measuring this one's arc.
+        for _ in 0..120 {
+            app.update();
+        }
+        furthest
+    }
+
+    // **B — the button that is Blink in Ambition and Jump here.**
+    let jumped = excursion_while_holding(&mut app, pad, body, GamepadButton::East, 60);
+    assert!(
+        jumped > 24.0,
+        "B never left the ground ({jumped:.2}px). Under the smash layout B is \
+         Jump; under the base preset it is Blink, so this is what a layout that \
+         did not reach the seat looks like"
+    );
+
+    // **A — the button that is Jump in Ambition and the normal attack here.**
+    //
+    // ⚠ **both halves, because either alone passes a build where A does both.**
+    // The move channel says A reaches an attack; the height says it is not ALSO
+    // still jumping. `y` is sampled over a short window on purpose — 30 frames
+    // into a jump this body is already ~127px up, and a short window is also the
+    // one least likely to catch a launch from the CPU across the stage.
+    let hopped = excursion_while_holding(&mut app, pad, body, GamepadButton::South, 30);
+    let fired = move_started_while_holding(&mut app, pad, body, GamepadButton::South).expect(
+        "pressing A on the pad started no move at all — A is Attack under the \
+         smash layout, and an unbound A is what the permutation failing looks like",
+    );
+    assert!(
+        !specials.contains(&fired),
+        "pressing A played `{fired}`, one of this fighter's SPECIALS {specials:?}. \
+         A is the normal attack; the special lives on X"
+    );
+    assert!(
+        hopped < 24.0,
+        "pressing A moved this fighter {hopped:.2}px vertically against the {jumped:.2}px \
+         B moved it — A is still Jump, so the layout swapped nothing"
+    );
+}
+
+/// ⭐⭐ **THE RULING: THE PROFILE LEAVES WITH THE GAME.**
+///
+/// Jon: *"B=jump is the way I like my smash controller, it's probably non
+/// standard."* Non-standard is precisely why it may not become the default —
+/// A=Jump stays right for Ambition, and the ONE regression that would matter
+/// most is a smash match teaching the whole host that B jumps.
+///
+/// This is the behavioural half of that claim; the pure half
+/// (`installing_the_smash_layout_does_not_move_the_generic_preset`, in
+/// `ambition_input::layout`) says the shared preset function is untouched. Here
+/// the same host that just played a smash match is asked what its seat's pad
+/// says afterwards, through the live `InputMap` the router actually reads.
+#[test]
+fn quitting_a_smash_match_gives_the_pad_back() {
+    use ambition_platformer2d::input::{
+        ActionBindings, PhysicalControl, Platformer2dInputActionMonolith,
+    };
+    use leafwing_input_manager::prelude::InputMap;
+
+    fn pad_verbs(app: &mut App, action: Platformer2dInputActionMonolith) -> Vec<PhysicalControl> {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &InputMap<Platformer2dInputActionMonolith>,
+            With<ambition_platformer2d::input::InputParticipant>,
+        >();
+        // Any seat: the layout is a fact about the GAME, so every participant
+        // in the composition carries the same answer.
+        q.iter(world)
+            .next()
+            .map(|map| {
+                ActionBindings::from_map(map)
+                    .controls(&action)
+                    .iter()
+                    .filter(|control| matches!(control, PhysicalControl::Button(_)))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    let (mut app, _pad, _body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
+
+    // Inside the match: Jon's pad.
+    assert_eq!(
+        pad_verbs(&mut app, Platformer2dInputActionMonolith::Jump),
+        vec![PhysicalControl::Button(GamepadButton::East)],
+        "inside a smash match Jump has to be on B, or nothing else here is a \
+         measurement of anything"
+    );
+    assert_eq!(
+        pad_verbs(&mut app, Platformer2dInputActionMonolith::Special),
+        vec![PhysicalControl::Button(GamepadButton::West)],
+        "inside a smash match Special has to be on X"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(shell_host::AMBITION_LAUNCHER_ROUTE),
+        "the match never ended, so the release below was never asked for"
+    );
+    // Give the recipe→map rebuild its frame.
+    for _ in 0..10 {
+        app.update();
+    }
+
+    assert_eq!(
+        pad_verbs(&mut app, Platformer2dInputActionMonolith::Jump),
+        vec![PhysicalControl::Button(GamepadButton::South)],
+        "⛔ ONE SMASH MATCH REDEFINED THE HOST'S PAD. A=Jump is Ambition's \
+         default and a mode's layout is a LOAN: the declaration goes back when \
+         its experience leaves, exactly like the stage's combat rules"
+    );
+    assert!(
+        pad_verbs(&mut app, Platformer2dInputActionMonolith::Special).is_empty(),
+        "Special kept a gamepad button after the smash experience left. The \
+         default pad is fully assigned and declines to double-bind one; only a \
+         layout may claim one, and only for as long as it is declared"
+    );
+}

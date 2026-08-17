@@ -612,26 +612,65 @@ dodge, and shield in the air is an air dodge — none of them a separate burst
 button, which is where they live here. It needed Shield to be a real action
 first; it is one now.
 
-**3 ▢ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT.**
-⛔ measured: `Special` has NO gamepad binding at all. The action enum says so in
-its own comment — *"a per-preset keyboard key (gamepad Special awaits the remap
-pass)"*. Today's pad map (`ambition_input/src/presets.rs`): Jump→South(A),
-Attack→West(X), Blink→East(B), Projectile→North(Y), Dash→RightTrigger2,
-Utility→LeftTrigger, Modifier→LeftTrigger2.
-
-Jon's smash layout: **A = normal, X = special, B = jump, Y = grab (does not
-exist yet), LT = shield.**
-
-⭐ **the seam exists and is the right one**: `BindingRecipe { base, overrides }`
-in `ambition_input/src/bindings.rs`, whose overrides are documented as *"a LAYER
-on the base, never a replacement"*. A smash profile is expressible without
-forking the preset — which is also the shape the *"control profiles eventually"*
-Jon named will want.
-⚠ **A=jump is right for Ambition and B=jump is right for his smash**, so this
-must NOT become a global preset edit. ⚠ `BindingOverride` is currently a
-SETTINGS type (a user remap); using it for a mode's layout conflates "the player
-rebound this" with "this mode ships this" — decide that before writing.
-⚠ **Y = grab is blocked**: grabs are not in the vocabulary yet (see below).
+**3 ✔ THE PAD LAYOUT, AS A PROFILE RATHER THAN A DEFAULT — CLOSED 2026-08-16.**
+Jon's layout, live on a pad in a real match: **A = normal, X = special, B = jump,
+Y = grab (blank, see below), LT = shield.** ⛔ and it is a DECLARATION, never a
+preset edit: A=Jump is still Ambition's default and the release gives the pad
+back when the experience leaves.
+⭐ **the middle term the stack was missing** — `device → game binding profile →
+semantic action → rules`. `BindingLayout` (`ambition_input/src/layout.rs`) is a
+THIRD layer in `BindingRecipe::build`: base preset, then the GAME's layout, then
+the USER's overrides. That order IS the precedence decision — a mode's pad is a
+better DEFAULT, not an override of the person holding the controller — pinned by
+`a_user_remap_beats_the_modes_layout`.
+⛔ **not a `Vec<BindingOverride>`, and the reason is shape as well as
+provenance.** An override can only move an action ONTO a control; it can never
+say *"under this profile that action has no pad button at all"*, which a
+permutation of a FULLY-ASSIGNED pad necessarily has to say.
+⭐ **keyed by BUTTON, so two properties fall out by construction**: no button can
+fire two actions (a layout written as four ADDITIONS would have left B meaning
+Jump AND Blink — the exact hazard `presets.rs` refused when it declined to
+double-bind Special), and an action the layout displaces without re-homing ends
+up unbound on the pad. Blink, Projectile, Utility and Modifier lose their pad
+buttons and keep their keys; none is a fighting-game verb. Menu actions are
+exempt from the clear (`is_menu_only`, exhaustive), because MenuSelect
+deliberately shares South with Jump.
+⭐ **this is the only thing that ever gave gamepad-Special a button.** The pinned
+policy is SCOPED rather than weakened: the default pad still declines to
+double-bind one, and a layout may claim one —
+`the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it` asserts
+both halves.
+⚠ **both left shoulder buttons shield.** "Left trigger" on an Xbox pad names the
+ANALOG trigger, which Bevy spells `LeftTrigger2` because it spells the BUMPER
+`LeftTrigger`; Shield takes both, which is also what the genre does.
+⛔⛔ **Y IS A DECLARED BLANK AND THE DEPENDENCY IS GRAB.** The layout CLAIMS
+North and binds nothing, so Projectile does not sit on the button a
+fighting-game player reaches for to grab. When a Grab action exists it is one
+line in `SMASH_PAD`. Blocked on the vocabulary item below.
+⛔ **a smash seat's bindings come from the PARTICIPANT, measured not assumed.**
+`realize_seat` spawns bodies with `Brain::Player(slot)` and no `InputMap` at
+all; the map lives on the `InputParticipant` entity — slot 0 from
+`spawn_primary_input_participant`, slots 1..n from
+`seat_input_participants_for_roster` (`gamepad_only()`). So the layout is
+carried by `apply_active_binding_layout_to_recipes` into EVERY participant's
+recipe, not just the primary, and the settings→recipe sync carries it forward
+(without that, opening the options screen mid-match would snap the seat back to
+Ambition's pad).
+Evidence, all driving a REAL pad through the REAL host chain in a REAL match
+(`smash_in_the_host`): `on_the_smash_pad_x_fires_the_fighters_authored_special`,
+`on_the_smash_pad_the_left_trigger_raises_a_real_guard`,
+`on_the_smash_pad_b_jumps_and_a_attacks`,
+`quitting_a_smash_match_gives_the_pad_back`; plus `ambition_input::layout`'s
+`every_button_the_smash_layout_claims_drives_exactly_one_verb`,
+`the_actions_smash_displaces_lose_the_pad_and_keep_the_keyboard`,
+`a_layout_rearranges_gameplay_and_leaves_the_menu_alone`,
+`installing_the_smash_layout_does_not_move_the_generic_preset`.
+⚠ **a jump on this stage reads −131px**: up is NEGATIVE y here, and the first
+draft of the B probe asserted a rise and read 0.00 on a working jump. The probe
+is unsigned now — which way up is, is the ROOM's business.
+▢ **NOT DONE, deliberately: the remap UX still has no gamepad-Special row.** A
+layout is a game's answer; a player who wants Special on a pad in AMBITION still
+cannot get one without editing settings by hand (P5).
 
 **Standing items this row touches but does not close:**
 * ▢ **the press vocabulary grows past sixteen** — Jon, on the kit census:

@@ -1424,6 +1424,40 @@ layer over, for effect art that has no body to inherit a facing from. Whatever
 carries it should be a small semantic POSE on the event — position, body-frame
 orientation, mirror, scale — rather than a fourth isolated field.
 
+⭐⭐ **THE SHAPE IS ALREADY HALF-BUILT, and using it is the whole design.**
+`build_move_events` (`crates/ambition_combat/src/moveset/mod.rs:~603`) already
+derives the authored offset from exactly TWO authorities:
+
+```rust
+body_frame.to_world(ae::Vec2::new(at.0 * pb.facing, at.1))
+//  ^ the owner's AccelerationFrame        ^ the move's COMMITTED facing
+```
+
+⇒ **orientation must come from those same two, never a third.** A pose derived
+anywhere else can disagree with the position it decorates, which is the bug
+class this repo keeps paying for (`[[reference_a_hand_kept_reconstruction_ledger]]`).
+
+**The route, end to end — no authored content changes at all:**
+1. `MoveEventMessage` (combat, `~line 180`) gains a POSE beside `world_offset`,
+   computed in the same expression: the mirror is `pb.facing < 0.0`, the angle is
+   the body frame's — `gravity_upright_angle` (`shared_tangle/src/gravity.rs:394`)
+   is what the SPRITE renderer already uses, so an effect and the body it hangs
+   off take one rule.
+2. `FxRequest` carries it (it already learned `source` and `sfx` this session).
+3. `VfxMessage::Effect` carries it — today it is exactly `{ pos, fx, scale }`.
+4. The renderer applies it: `sprite.flip_x` + a rotation, instead of
+   `Transform::from_translation` alone.
+
+⚠ **IDENTITY is the default**, so every non-move caller (hazards, breakables,
+projectiles, fireworks) is byte-identical and this cannot double or move
+anything — ⛔ unlike D149's swap, which added a side effect and needed the
+callers migrated in the same breath
+(`[[reference_routing_a_producer_onto_a_pairing_channel_double_fires]]`).
+⚠ **it IS a deliberate behaviour change for move effects**: a left-facing
+fighter's `air_slice` starts pointing left. Radial art is unaffected; nothing
+authored today can have compensated, because no mirror existed to compensate
+for.
+
 - ✔ **D140 — CLOSED 2026-08-16. A second match never started and never ended:
   "GO!" stayed up and nothing could win. (Jon, REPRODUCIBLE)**
 

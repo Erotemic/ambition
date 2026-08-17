@@ -208,28 +208,41 @@ fn a_typod_cosmetic_vfx_id_is_rejected_at_expansion() {
     );
 }
 
-/// CM5: the content-free dispatcher turns a `Vfx` event into an explosion
-/// burst at the owner's position.
+/// CM5: the content-free dispatcher turns a `Vfx` event into a PAIRED effect
+/// request at the owner's position.
+///
+/// ⭐⭐ **it asserts an `FxRequest` now, and that is the fix rather than a
+/// bookkeeping change** (D149). This used to read `VfxMessage::Effect` because
+/// the dispatcher wrote one directly — going around the very type whose job is
+/// pairing a visual with the cue its own name addresses. That bypass is what
+/// made every authored burst a hand-written PAIR across fourteen fighter
+/// tables; 74 of 145 authored `sfx(…)` calls existed only to restate a sound
+/// this request derives.
+///
+/// ⚠ **the sound is deliberately NOT asserted here**, and the reason is a crate
+/// boundary worth stating: `process_fx_requests` — which fans a request into the
+/// effect plus its cue — lives in `ambition_render` and is installed by the
+/// host, not by this crate. So the honest claim at THIS seam is *"the dispatcher
+/// asks for the pairing, with the right name, position and owner"*; that the
+/// pairing then happens is `a_requests_presentation_source_reaches_the_cue_it_pairs`
+/// next to the fan-out itself.
 #[test]
-fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
-    use ambition_vfx::VfxMessage;
+fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
-    struct Seen(Option<ambition_vfx::FxId>);
+    struct Seen(Option<ambition_vfx::FxRequest>);
 
-    fn capture(mut vfx: MessageReader<VfxMessage>, mut seen: ResMut<Seen>) {
-        for m in vfx.read() {
-            if let VfxMessage::Effect { fx, .. } = m {
-                seen.0 = Some(*fx);
-            }
+    fn capture(mut requests: MessageReader<ambition_vfx::FxRequest>, mut seen: ResMut<Seen>) {
+        for request in requests.read() {
+            seen.0 = Some(request.clone());
         }
     }
 
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<VfxMessage>();
+    app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ActorActionMessage>();
     app.init_resource::<Seen>();
     let owner = app
@@ -259,10 +272,21 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
             },
         });
     app.update();
+    let asked = app
+        .world()
+        .resource::<Seen>()
+        .0
+        .clone()
+        .expect("the Vfx event asked for no effect at all");
     assert_eq!(
-        app.world().resource::<Seen>().0,
-        Some(ambition_vfx::FxId::new("starburst")),
+        asked.fx,
+        ambition_vfx::FxId::new("starburst"),
         "the Vfx event put the authored NAME on the wire — no enum in between",
+    );
+    assert!(
+        asked.sfx.is_none(),
+        "the request named an OVERRIDE cue, so the move would still be dictating \
+         its own sound instead of taking the one its art already addresses"
     );
 }
 
@@ -1685,6 +1709,9 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
+    // The dispatcher asks for PAIRED effects now (D149), so the channel it
+    // writes has to exist or the system fails parameter validation.
+    app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
     let owner = app
         .world_mut()
@@ -1785,6 +1812,9 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
+    // The dispatcher asks for PAIRED effects now (D149), so the channel it
+    // writes has to exist or the system fails parameter validation.
+    app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
 
     let up = ae::Vec2::new(0.0, -1.0);
@@ -1861,6 +1891,9 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
+    // The dispatcher asks for PAIRED effects now (D149), so the channel it
+    // writes has to exist or the system fails parameter validation.
+    app.add_message::<ambition_vfx::FxRequest>();
     app.add_systems(Update, dispatch_move_events);
 
     let mut control = ActorControl::default();
@@ -1943,6 +1976,9 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ActorActionMessage>();
+        // The dispatcher asks for PAIRED effects now (D149), so the channel it
+        // writes has to exist or the system fails parameter validation.
+        app.add_message::<ambition_vfx::FxRequest>();
         app.add_systems(Update, dispatch_move_events);
 
         // No `control.0.fire`: the intent was cleared before the fire frame.

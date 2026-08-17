@@ -1427,7 +1427,10 @@ pub fn dispatch_move_events(
     // `MovePlayback::aim`.
     playbacks: Query<&MovePlayback>,
     mut sfx: SfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::VfxMessage>,
+    // ⭐ **the PAIRING channel, not the bare visual one** (D149). Presentation's
+    // `process_fx_requests` fans one request into the effect + the cue its own
+    // name addresses, so a move's author states the picture and gets the sound.
+    mut fx_requests: MessageWriter<ambition_vfx::FxRequest>,
     mut actions: MessageWriter<ActorActionMessage>,
 ) {
     for ev in events.read() {
@@ -1458,11 +1461,28 @@ pub fn dispatch_move_events(
                     .map(|k| k.pos)
                     .unwrap_or(ae::Vec2::ZERO)
                     + ev.world_offset;
-                vfx.write(ambition_vfx::VfxMessage::Effect {
-                    pos,
-                    fx: ambition_vfx::FxId::new(effect),
-                    scale: *scale,
-                });
+                // ⭐⭐ **AN `FxRequest`, NOT A BARE `VfxMessage` — so the SOUND
+                // comes with the picture** (D149). `FxRequest`'s own doc states
+                // the property: the bank ships one `vfx.<family>.<row>` cue per
+                // authored row, so *"an emitter that says which effect has
+                // already said which sound"*.
+                //
+                // ⛔ writing the visual directly is what made every authored
+                // burst a hand-written PAIR — measured across the fourteen
+                // tables, 74 of 145 authored `sfx(…)` calls existed only to
+                // restate the cue this line can derive. A fighter's author had
+                // to remember a backend detail, and several characters grew a
+                // test whose whole job was checking they had.
+                //
+                // ⚠ the `.loop` cues stay, and they are why the OVERRIDE arm is
+                // not speculative: a sustained effect wants a looping variant of
+                // its own row's sound, which is a real thing to say. `sfx: None`
+                // here means *say what the art says*.
+                fx_requests.write(
+                    ambition_vfx::FxRequest::new(pos, ambition_vfx::FxId::new(effect))
+                        .with_scale(*scale)
+                        .from_source(ev.presentation_source.clone()),
+                );
             }
             MoveEventKind::Effect(effect) => {
                 // Bridge to the content-technique seam by the effect KEY, and

@@ -492,6 +492,10 @@ fn fight_app() -> App {
     app.add_message::<crate::features::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    // `dispatch_move_events` asks for PAIRED effects now (D149) — a visual and
+    // the cue its own name addresses — so the request channel has to exist or
+    // the system fails parameter validation before it can run.
+    app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
     app.add_message::<crate::features::ActorStimulus>();
     app.add_message::<crate::combat::stocks::BodyKnockedOut>();

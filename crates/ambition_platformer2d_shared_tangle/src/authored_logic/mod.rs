@@ -50,17 +50,26 @@
 //! reads a component is coupled to an implementation detail the owning domain is
 //! entitled to change. The domain answers; the rule asks.
 //!
-//! # ⚠ THE DELETION GATE, stated because this slice has none
+//! # ✔ THE DELETION GATE — PAID, 2026-08-15
 //!
-//! This module is pure addition, and by this project's own rule that is not yet
-//! progress. The deletion it is aimed at is named and specific:
+//! This module opened as pure addition, which by this project's own rule is not
+//! yet progress, so it named the deletion it had to earn:
 //! `INTRO_FLAG_GATED_LOCK_WALLS` in `ambition_content` — a hand-kept const table
-//! pairing lock-wall ids with save flags, read by a bespoke system that walks
-//! every LDtk level to rediscover which wall is which. When a `LockWall` can
-//! carry its own authored gating condition, the table, the id matching and the
-//! walk all go. ⛔ **if that deletion does not land, this contract has not earned
-//! its place** and should be removed rather than left as vocabulary nobody
-//! speaks.
+//! pairing lock-wall ids with save flags, read by a bespoke system that walked
+//! every LDtk level to rediscover which wall is which. The gate was stated
+//! sharply: *if that deletion does not land, this contract has not earned its
+//! place.*
+//!
+//! ⭐ **it landed** — `7de08d7cf`, *"Put the reason a wall opens in the level
+//! instead of the compiler"*. A `LockWall` now carries its own authored gating
+//! condition, and the table, the id matching and the level walk all went with
+//! it. Confirmed absent from the tracked tree 2026-08-17; the only surviving
+//! mentions are prose like this one.
+//!
+//! ⚠ **the gate stays written down rather than deleted**, because it is the
+//! standard the SECOND half owes too. Commands are still pure addition, and the
+//! same question applies to them: name the bespoke Rust a command vocabulary
+//! deletes before building the vocabulary.
 
 use std::collections::BTreeMap;
 

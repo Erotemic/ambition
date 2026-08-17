@@ -87,8 +87,8 @@ its frozen baseline.
 
 | Lane | Owner | Executable next action |
 |---|---|---|
-| **D127 — M2 prepared rules** | one worker, main tree | M2 landed the prepared CALL (`PreparedCondition`/`PreparedCommand`) and deleted `KERNEL_FACES`'s pairing half; next is either the `when` half (needs a customer) or M5 diagnostics |
-| **D128 — Smash CPU showcase** | unstaffed | the ladder rig was re-run 2026-08-17 (d0 no longer self-KOs; d12 first self-KO 21.8s) — next is a real two-CPU match, not the rig |
+| **D127 — authored logic** | **unstaffed** | ⛔ M1 is complete and M2's prepared-call half LANDED (`7e7552c4b`); the `when … then` rule form is deliberately UNBUILT for want of a customer. ⇒ nothing here is dispatchable until a customer appears or M5 diagnostics are wanted — **do not re-open M1 or M2** |
+| **D128 — Smash CPU showcase** | **unstaffed; blocked on Jon's eye** | ⛔ the two-CPU match HAS been captured (2026-08-17, post-D155 knockback: 34%→180% in 13s, real exchanges, stock loop closes) and the ladder rig HAS been re-run — **do not dispatch either again**. ⇒ the one outstanding item is PRODUCT ACCEPTANCE: does a three-stock match at these numbers pace right? That is Jon's, not a lane's |
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
 rule — *workers never run `cargo`* — rested on one shared target dir against a
@@ -163,24 +163,27 @@ a fork of an authoring source.
 — the package is not installed in this environment, so a bare `python3 -m …`
 prints *"No module named"* and exits 1, which a naive error-count reads as clean.
 ⚠ and its diagnostics are INDENTED, so `grep -c '^error:'` returns 0 on a failing
-run.
-`sandbox.ldtk` and `mary_o.ldtk` emit `error:` diagnostics on every edit —
-cross-world `LoadingZone` targets (intro names sandbox's rooms and vice versa, so
-a SINGLE-FILE validator cannot resolve either) and `MaryOBlock`, which no entity
-manifest declares. ⛔⛔ **the errors do not block the write**, which is how they
-cost a correction: three `error:` lines filled a `| head -3` and hid the
-`wrote` line under them, so an edit that HAD landed was reported as refused.
-⇒ either the cross-world case needs a world-SET validator, or those targets need
-declaring; and `MaryOBlock` needs a manifest row. ⚠ neither is urgent, and both
-make every future LDtk edit noisier and less trustworthy than it should be.
+run. ⛔⛔ **the errors do not block the write**, which is how they cost a
+correction: three `error:` lines filled a `| head -3` and hid the `wrote` line
+under them, so an edit that HAD landed was reported as refused.
 
-**2. ⛔ THE SMASH LANE'S VISUAL FIXES SHIP UNSEEN — Jon's eyes are the only
-instrument.** The camera-close ease, the 3-2-1-GO card and the winner card are
-all measured (`close 360.9 → 68.9`) and none has been LOOKED at. Specifically
-unverified: that a centred 34pt card actually renders at
-`SMASH_ANNOUNCE_HUD_SLOT` in the hosted app, and that 5 Hz is the right close
-rate — that number is a judgement, not a measurement. ⇒ **worth one CPU-vs-CPU
-match watched by a human**, and cheap to correct if wrong.
+⇒ **this block is now the SHORT version; the row that owns the instrument is
+D163** (which also carries the retracted "duplicate pirate spawns" finding — ⛔ the
+coincident rider/mount pairs are AUTHORED and must not be deduplicated).
+⛔ **do not re-derive the counts here**: `MaryOBlock` is a false positive of
+validating the raw copy, and `mary_o.ldtk` is CLEAN through the canonical path.
+
+**2. ◐ THE SMASH LANE'S VISUAL FIXES HAVE NOW BEEN PHOTOGRAPHED — what is left is
+Jon's eye, not a capture.** ⛔ **stale as written on 2026-08-15 and corrected
+2026-08-17**: it said the camera-close ease, the 3-2-1-GO card and the winner card
+had *"none been LOOKED at"*. All three have since been captured through the
+shipped shell (D130 gave `capture_scene` `--press touch:XxY`; two-CPU matches were
+photographed 2026-08-16 and again 2026-08-17), the winner card is verified naming
+the fighter, and the countdown is verified drawing. ⇒ **what genuinely remains is
+one judgement, not an instrument**: whether 5 Hz is the right close rate — a
+number that was chosen, not measured. See D128's ACTIVE TRUTH block for the one
+outstanding product-acceptance item; ⛔ do not dispatch another capture to
+establish status.
 
 ⭐⭐ **THE SPRITE/BOX CLUSTER HAS A MEASURED SHAPE — started 2026-08-15, NOT
 finished.** Three reports (snake too big · player hurtbox mismatched · Sanic too
@@ -1173,9 +1176,9 @@ simply never got one, and the renderer faithfully shows whatever is there.
 ▢ **so this is mostly CONTENT, plus one guard.** Authoring the missing names is
 the work; what stops it recurring is a lint that REFUSES a zone name matching
 `^[a-z0-9]+(_[a-z0-9]+)+$`, in the same family as the repo's other authoring
-checks. ⚠ a lint is only worth adding if it can go green — 260 rows is a
-campaign, so it wants a ratchet (may fall, must not rise) rather than a gate
-that is red on day one.
+checks. ⚠ a lint is only worth adding if it can go green — **130 rows** (the
+corrected count; ⛔ not the doubled 260) is a campaign, so it wants a ratchet (may
+fall, must not rise) rather than a gate that is red on day one.
 
 ⛔ do not "prettify" the id by swapping underscores for spaces — that
 manufactures prose the author never wrote, and `wake_to_raid` has no good
@@ -1387,35 +1390,58 @@ lowest bubble; the label and the bubble did not know about each other at all.
 label — which is where within-family spacing was already happening for the
 plates, so this whole mechanism was a duplicate of it.
 
-- ✔ **D160 — CLOSED 2026-08-17. THE PROJECT GATE RAN NO `--lib` TESTS, NOT EVEN
-  `ambition_app`'S — it hid two regressions from the same session.**
+- ▢ **D160 — THE EXECUTABLE PROJECT GATE STILL RUNS NO `--lib` TESTS. The unit
+  tier is a DOCUMENTED PRE-PUSH OBLIGATION, not a gated one. (measured
+  2026-08-17; ⛔ this row was CLOSED that day on a false premise and REOPENED
+  2026-08-17 in the handoff pass)**
+
+⭐ **the active statement, current as of `7e7552c4b`:**
 
 ```text
-cargo check -p ambition_app --all-targets   COMPILES lib tests, never RUNS them
-cargo test  -p ambition_app --test app_it   runs ONE integration target
-⇒ every crate's `--lib` suite is outside the gate, `ambition_app`'s included
+scripts/gate_suite.py  →  cargo test -p ambition_app --test app_it --quiet
+                          …and NOTHING else. One integration target.
+cargo check -p ambition_app --all-targets  COMPILES lib tests, never RUNS them
+AGENTS.md              →  "run `cargo test --workspace --lib` before you push"
+⇒ every crate's `--lib` suite is outside the EXECUTABLE gate, `ambition_app`'s
+  included. It is a checklist item a human or agent must remember.
 ```
 
-**What it hid, both landed on `main` and both mine:**
+⛔⛔ **THE FALSE CLOSURE, named so it cannot be repeated.** This row claimed the
+sweep was *"added to the stated gate"* and `awaiting-maintainer-decision.md` §9
+inherited it as *"the project gate now runs `cargo test --workspace --lib`"*.
+What actually landed (`4e92acd04`) was a PARAGRAPH IN `AGENTS.md`. Two commands
+being run in one turn is not one command invoking the other — ⇒ **"in the gate"
+means a line in `scripts/gate_suite.py` (or a CI job), and nothing else.**
+
+▢ **what is genuinely unresolved, and it is NOT this row's to decide:** whether
+the per-turn suite should grow to carry the unit tier at all. That is
+`awaiting-maintainer-decision.md` §9 (*"what should the per-turn suite actually
+run?"*), live under Jon's 2026-08-08 ruling *"bias towards running less tests"*.
+⛔⛔ **do NOT enlarge `gate_suite.py` to make this row's old sentence true** —
+that smuggles a maintainer policy decision in as a bug fix. This row closes when
+either §9 is answered, or Jon says the pre-push checklist IS the intended
+meaning of "gate".
+
+**What the omission hid — both landed on `main` in one session, both REPAIRED in
+`ea5ca88df`, and re-verified green in the 2026-08-17 handoff pass:**
 * `ambition_sim_view::control_prompt` — 3 tests, red since `b33525f58` (D157's
   ability gate, three crates away). The fixture handed its body an attack MOVE
   and never said it may attack, so every label it asserted came back `None`.
   ⚠ found only because the D33 relocation agent happened to run that crate.
 * `ambition_app::app::versus_fighters` — **D151 step 2 retired the bridge that
   D151 step 1 had just asserted**, one hour apart, and nothing re-ran the guard.
+⛔ neither is to be "fixed" by restoring the retired compatibility bridge; the
+new ability/composition semantics are the point.
 
-⭐ **`cargo test --workspace --lib` is the unit tier and is FAST** — it found the
-second one in a single sweep. ✔ **added to the stated gate in `AGENTS.md`**,
-beside the two warnings already there that `-p <one_crate>` is not the gate and
-that `ambition_app` is not the whole of it. Both reds are repaired (`ea5ca88df`)
-and `--workspace --lib` is green.
 ⚠ this is the same shape as D134 (the workspace-policy suite nobody ran) and
 D137 (the doc ratchet in no gate): **a suite that exists and is not in the gate
 is a suite that goes red and stays red.** ⇒ when adding a check, say which
-command runs it per-turn, or it is decoration.
-⚠ **and BOTH failures were guards that were CORRECT when written** and became
-wrong when a rule moved under them — so this is not "someone wrote a bad test",
-it is the cost of not re-running the cheap tier.
+command runs it per-turn, or it is decoration. ⭐ **and this row is now its own
+third instance** — the fix WAS documentation, and documenting it read as gating
+it for a day.
+⚠ **BOTH failures were guards that were CORRECT when written** and became wrong
+when a rule moved under them — so this is not "someone wrote a bad test", it is
+the cost of not re-running the cheap tier.
 
 - ✔ **D159 — CLOSED 2026-08-17. A NAME PLATE PRINTED THROUGH A TAUNT: the
   speech bubble was a FOURTH FAMILY that never joined the one placement pass.**
@@ -4637,8 +4663,21 @@ These are real unresolved items but are deliberately **not** `▢` queue work.
   needs game/room/time context.
 - **D42 / D47 — character sizing/rig art:** currently principally authored
   rig/body-inset and visual-review work unless a reproduced engine defect appears.
-- **D114 — fighter-vs-fighter hit emphasis:** product feel for non-primary-seat
-  combat; see the decision inbox.
+- ⚠⚠ **D114 — fighter-vs-fighter hit emphasis: THE MECHANICAL HALF LANDED
+  2026-08-17 BY TAKING THE OPTION AN EARLIER DECISION FORBADE, AND THE PRODUCT
+  QUESTION IS STILL OPEN.** `818218949` added
+  `let sim_dt = if combat.is_in_hitlag() { 0.0 } else { dt };` to the ACTOR road,
+  so a hit between two actors now freezes both — a real gap, because
+  CPU-versus-CPU froze nobody. ⛔ but that is **a direct per-body zero-dt**, which
+  `awaiting-maintainer-decision.md` §6 records as an experiment that *"made
+  AI-vs-AI bouts degenerate"* and says **do not reintroduce**; the same trap is
+  named again in `engine/controlled-character-actor-kernel.md`. The prohibition
+  was **unseen, not overruled**. ⭐ it shipped with 153 lines of `hitlag_tests.rs`
+  and CPU matches still reach a verdict — ⚠ but *degenerate* was a FEEL word and
+  no test here can settle it. ⇒ **DO NOT record this as fixed, and do not revert
+  it on an agent's judgement.** One played CPU-vs-CPU match is the discriminator;
+  the revert is one line at `features/enemies/integration.rs` if Jon says so. See
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) §6.
 
 ---
 
@@ -4671,7 +4710,33 @@ needed `.chain()`; the comment above it already claimed the order).
 reconstruction, sequenced after the instance lifetime/provenance model — see
 [`engine/same-room-replay-is-a-second-constructor.md`](engine/same-room-replay-is-a-second-constructor.md).
 
-- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR BOTH HALVES; M2's PREPARED CALL landed 2026-08-17 and `KERNEL_FACES`'s offending half is deleted.**
+- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR BOTH HALVES; M2's PREPARED-CALL half landed 2026-08-17; the `when … then` RULE FORM is deliberately absent for want of a customer.**
+
+⭐⭐ **ACTIVE TRUTH — read this paragraph and stop; everything below it is
+EVIDENCE, in reverse-chronological layers, and several of its older `⇒ NEXT` /
+`⚠ STILL MISSING` claims were true when written and are not true now.** Checked
+against `7e7552c4b` on 2026-08-17:
+
+```text
+M0  ✔ complete
+M1  ✔ met for BOTH halves — conditions AND commands have a domain-owned
+       provider contract (PublishCondition / PublishCommand on App, private
+       catalogs, no central enum edited to add a provider)
+M2  ◐ the PREPARED CALL landed: PreparedCondition / PreparedCommand, private
+       fields, no public constructor, id+arity+kind validated at prepare time,
+       authored text NOT retained, an authored reference prepared into SimId.
+       ⛔ the generic `when … then` container was DESIGNED AND CUT on purpose —
+       zero adopters, so it would be falsifier 2's wrapper. It needs a REAL
+       CUSTOMER before it is built; do not "finish the rule form".
+M5  ▢ diagnostics, untouched
+```
+
+⇒ **two follow-ups are NAMED and are not this row's next action** (neither is
+cleanup work, and neither was done deliberately): `gated_lock_walls` still
+rebuilds its condition arguments every tick instead of holding a
+`PreparedCondition`, and `ambition_conversation::dialog::authored_commands` still
+owns a second text→`AuthoredArg` conversion that `prepared::prepare_args` now
+generalises.
 
 ⭐⭐ **M2 — ACCEPTANCE MET FOR ONE CALL, NOT FOR A `when … then` RULE, and the
 difference is deliberate.** `authored_logic::prepared` turns one authored line
@@ -4740,9 +4805,10 @@ said Yarn functions cannot be Bevy systems; `bevy_yarnspinner` runs the
 interpreter from an exclusive system and threads its `&mut World` down to
 `YarnFn::call_with_world`, and `SystemId<In<P>, O>` implements `YarnFn`. The
 verb reads the live world. ⚠ two honest limits recorded in the plan: Yarn's VM
-asserts exact arity so the verb takes exactly one argument, and
-`ParamKind::Reference` is refused rather than coerced from a quoted string —
-that refusal is M2's to replace.
+asserts exact arity so the verb takes exactly one argument (stands, and it is
+FUNCTION-only), and `ParamKind::Reference` was refused rather than coerced from a
+quoted string — ✔ **that refusal is discharged: M2 prepares a reference into a
+real `SimId`.**
 
 ✔✔ **AND THE CONDITION HALF NOW HAS A SECOND, VERY DIFFERENT CONSUMER
 (`61b4cd836`, 2026-08-16): AUTHORED DIALOGUE.** One verb —
@@ -4776,14 +4842,20 @@ boolean verb cannot express.
 count equals the registered function's parameter count and counts `Option`
 parameters, so a variadic bridge is **not expressible** — the verb takes exactly
 one argument, which every published condition wants. And a `ParamKind::Reference`
-argument is **REFUSED with a reason** rather than coerced from a quoted string:
+argument was **REFUSED with a reason** rather than coerced from a quoted string:
 ⭐ *a `.yarn` literal is not an identity, and answering confidently about
 whichever occurrence happens to share the spelling is worse than not answering.*
-The refusal is something M2 can replace; a wrong answer is something M2 would
-have to find first.
+✔ **the SECOND limit is DISCHARGED (2026-08-17), and the refusal was the right
+placeholder**: M2's `prepare` mints a reference as a real `SimId` through
+`SimId::encounter` / `SimId::placement` from an authored `encounter:<id>`, so a
+reference is now an identity rather than a spelling. ⚠ the arity limit stands and
+is FUNCTION-only — a Yarn *command* is dispatched by name with a parameter list
+and takes as many arguments as its descriptor declares.
 
-⚠ **THE STILL-MISSING HALF: COMMANDS HAVE NO PROVIDER CONTRACT.** Conclusive grep — no `PublishCommand`, no command
-catalog, nothing. ⭐ **that half is not "one more of the same"**: a condition is a
+◻ **HISTORY (2026-08-16, SUPERSEDED THE NEXT DAY by the command half below — do
+not work it): COMMANDS HAD NO PROVIDER CONTRACT.** Conclusive grep at the time — no `PublishCommand`, no command
+catalog, nothing. ⭐ kept because **the reasoning is what SHAPED the contract that
+landed**, not because anything here is outstanding: a condition is a
 *question about the world* and is safe precisely because it cannot change
 anything, while a command mutates and therefore owes **authority** (who may run
 it), **ordering** (when in the frame) and **rollback semantics**. ⇒ M4's warning
@@ -4843,9 +4915,11 @@ past before the set ran). Wire format 358 → 359 stable names, encoded types
 unchanged at 85, schema v35 → v36. ⚠ the JSON baseline's count field read 357
 against a 358-entry list beforehand — stale, corrected in passing.
 
-⛔⛔ **THE NAMED DELETION GATE WAS REFUSED, WITH CAUSE — `KERNEL_FACES` STAYS.**
+◻ **HISTORY (2026-08-16, and BOTH of its prerequisites were PAID on 2026-08-17 —
+`KERNEL_FACES`'s pairing half is DELETED; see the M2 block at the top of this
+row): THE NAMED DELETION GATE WAS REFUSED, WITH CAUSE.**
 It pairs an authored switch id with a *signal key*, which is the ENCOUNTER
-domain's vocabulary. Deleting it needs (1) a second command,
+domain's vocabulary. Deleting it needed (1) a second command,
 `encounter.signal(<encounter>, <signal>)`, and — decisively — (2) **an authored
 LDtk surface that carries a command WITH ITS ARGUMENTS**, which is *prepared
 arguments from authored source* and is **M2's job by this plan's own
@@ -4880,9 +4954,11 @@ so the bridge parses against the published descriptor's kind — and `Truth` acc
 exactly `true`/`false`, because a lenient parse maps an unrecognised spelling to
 `false`, and `false` on `set_flag` CLEARS.
 
-▢ **M2 is next, and the refusal above names its first customer**: prepared
-arguments from an authored source, so an LDtk entity can carry a command call the
-way a `LockWall` carries a flag.
+✔ **M2's PREPARED-CALL HALF LANDED (2026-08-17) AND THE REFUSAL ABOVE WAS ITS
+CUSTOMER**: prepared arguments from an authored source, so an LDtk switch now
+carries a command call (`on_activate: encounter.signal …`) the way a `LockWall`
+carries a flag. ⛔ **what is NOT next is the `when … then` rule form** — read the
+ACTIVE TRUTH block at the top of this row.
 
 ⚠ **duplicate-id panics at startup, by design** — *"the alternative is that the
 winner is whichever plugin happened to build last, which is a bug that only
@@ -6177,6 +6253,68 @@ verdict.
 
 - ▢ **D128 — Can this engine carry a serious platform fighter through ORDINARY authoring? (product-pressure vertical slice, opened 2026-08-15; FIRST PROOF LANDED)**
 
+⭐⭐⭐ **ACTIVE TRUTH — 2026-08-17, and it is the ONLY executable statement in this
+row. ⛔⛔ EVERYTHING BELOW IS EVIDENCE IN REVERSE-CHRONOLOGICAL LAYERS, AND EVERY
+`⇒ NEXT` / `⇒ the cheap next step` / `⛔ the next spend` sentence in it is
+SUPERSEDED BY THIS BLOCK.** This row accumulated seven separate "next" claims
+across three days; several of them were carried out and the instruction was left
+standing, which is how a compacted agent re-does landed work.
+
+```text
+THE ONE OUTSTANDING ITEM  product acceptance: PACING.
+                          Jon watches ONE two-CPU match and says whether three
+                          stocks at these numbers takes too long.
+                          ⛔ not a lane. Not measurable by any test here.
+```
+
+⭐ **the state that acceptance is asked against** — two-CPU match captured
+2026-08-17 through the shipped shell, AFTER D155 gave the game working
+knockback: 34%→180% in thirteen seconds, real exchanges with hit VFX, the stock
+loop closes on its own back to CHOOSE YOUR FIGHTER. ⇒ **every feel judgement
+recorded anywhere in this row before that date was made on a build where nobody
+was ever launched, and is void.**
+
+⛔ **the six named defects from the 2026-08-16 photo session — do not re-derive
+their status, and do not re-run the capture or the ladder rig to get it:**
+
+```text
+1 self-KO on every stock  ◐ substantially repaired — the CAUSE was architecture
+                            (RecoveryLens, 2026-08-15), and the 2026-08-17
+                            ladder re-run reads d0 no self-KO / d12 first at
+                            21.8s. ⛔ the RecoveryPolicy ledge-grab diagnosis is
+                            RETRACTED and banned; a photograph falsified half
+                            the CPU-suicide finding.
+2 camera loses the fighter ✔ CLOSED — `frame_the_cast` always framed every live
+                            seat; three downstream sites threw it away (room
+                            clamp, stable_center, 8 Hz ease). Guarded by
+                            `every_live_fighter_stays_inside_the_frame`.
+3 both seats respawn at    ▢ OPEN — `respawn_placement(stage_centre())` is still
+  ONE overlapping point       seat-independent. An offset by seat index + a test.
+4 winner card names a SEAT ✔ CLOSED by D140/D148 — the card reads
+                            `WINNER: Robot v3`, and a team keeps its team name.
+5 barks draw as a          ◐ the OVERLAP half closed via D158→D159 (a bubble is
+  screen-wide caption         a `WorldLabel` in the one ranked placement pass);
+                            the SCALE/placement half is unverified since.
+6 untextured olive quad    ▢ OPEN, unverified since 2026-08-16.
+7 VFX authored against no  ▢ OPEN — the Admiral's wheel is ~250px vs a ~45px
+  size reference              fighter.
+8 capture_scene prints no  ▢ OPEN — its `subject at (x,y)` line is
+  pose for a 2-CPU match      `PrimaryPlayerOnly`, and a CPU match has no
+                            primary player.
+```
+
+▢ **and one engineering item in this row is genuinely still open and is NOT
+product acceptance**: the **standalone** `game/ambition_demo_smash_app` binary
+composes no asset install at all (no `PlatformerAssetsPlugin`, re-verified
+2026-08-17), so nothing sheet-driven has art in that process. ⚠ Smash reached
+through the shell is a DIFFERENT composition and is fine — say which binary any
+claim is about.
+
+⛔ **what is answered and must not be re-asked**: *"do the two authored kits read
+as different fighters?"* — YES, measured inside four seconds. *"is the VFX/SFX
+road reachable?"* — YES (`ebc8877ee`, an effect is a name). *"has anybody watched
+a match?"* — YES, twice.
+
 ⭐⭐ **THE OUTCOME IS PINNED, NOT JUST THE MECHANISM — checked 2026-08-17, and
 that is the distinction this row kept blurring.** The 05:45 capture shows both
 fighters at **180% and 124% with 3/3 stocks**, i.e. nobody had lost one, which
@@ -6284,10 +6422,12 @@ settled it was the roster.
 ```text
 ```
 
-⇒ **the cheap next step for this row is one capture of a two-CPU match**, using
-the nine-tap command in `capture_scene`'s header, to answer the question the row
-was opened to ask. ⛔ do not re-derive the tooling or re-measure the repertoire
-first — both are done.
+◻ **HISTORY — this said *"the cheap next step for this row is one capture of a
+two-CPU match"*. IT WAS DONE, TWICE (2026-08-16 and again 2026-08-17 after
+knockback worked). ⛔ do not run it a third time to establish status; read the
+ACTIVE TRUTH block at the top of this row.** The invocation is still the nine-tap
+command in `capture_scene`'s header — ⚠ with the corrected cell literals, because
+the documented taps once seated the wrong pair.
 
 ✔✔ **DONE 2026-08-16, AND SOMEBODY HAS FINALLY WATCHED A MATCH.** Twenty-one
 frames across two matches through the shipped shell, `--route smash_select --include-ui` plus the

@@ -10,9 +10,15 @@ record is archived at
 submodule pushes fine; 13: the policy suite is green AND now runs in CI), and
 five had moved without anyone noticing — 1 is half-landed, 5's headline is
 falsified by a capture and re-measured by its own rig, 8's fork was decided and
-pinned by the D146 campaign, 9 was narrowed by D160, 11 is two-thirds executed.
+pinned by the D146 campaign, 11 is two-thirds executed.
 ⛔ **6 is the one that needs you most**: a landed fix took the option that row
 tells us not to take.
+
+⛔⛔ **AND 9 WAS NOT NARROWED — that claim is retracted 2026-08-17.** It said D160
+had put the workspace unit tier in the project gate; D160 put it in `AGENTS.md`
+as a pre-push instruction, and `scripts/gate_suite.py` is unchanged. 9 is open at
+its original width, plus the bare-lib half. ⇒ **a row's premise is worth
+re-checking against the tree, not against the row that claims to have moved it.**
 
 ⚠ **the same items also live in
 [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)**
@@ -359,23 +365,35 @@ Choose one:
 goblin double-jump, can a crawler ledge-grab. The engine has no opinion and
 should not invent one.
 
-### 9. What should the per-turn suite actually run? (measured 2026-08-14)
+### 9. What should the per-turn suite actually run? (measured 2026-08-14; premise re-checked 2026-08-17)
 
 **471 tests are hidden behind features in eight crates, nothing runs them
-automatically, and every one of them is green today.** So this is a question
-about future regressions, and the price is small but not zero.
+automatically, and every one of them is green today** — and, separately, **no
+executable gate runs any crate's bare `--lib` suite either** (see D160). So this
+is a question about future regressions, and the price is small but not zero.
 
-⭐⭐ **NARROWED 2026-08-17 by D160, which changed the premise.** The project gate
-now runs `cargo test --workspace --lib`, so **every crate's BARE lib suite is
-watched** — that half of "nothing runs them automatically" is no longer true.
-⇒ **what stays unwatched is only the WITH-FEATURES DELTA**, which is what the
-table below actually measures: `ambition_input` 54 → 115, `ambition_audio`
-25 → 64, `ambition_touch_input` 4 → 45. ⚠ note the delta is where the interesting
-tests live — a crate whose bare suite is 4 and whose real suite is 45 is being
-watched at under a tenth of its coverage.
+⛔⛔ **THIS ROW CARRIED A FALSE PREMISE FOR A DAY — corrected 2026-08-17 in the
+handoff pass. It said *"the project gate now runs `cargo test --workspace
+--lib`"*. IT DOES NOT.** `scripts/gate_suite.py` runs
+`cargo test -p ambition_app --test app_it` and nothing else; what D160 actually
+added was a **pre-push paragraph in `AGENTS.md`**. ⇒ so the question below is
+still the WHOLE question, not a narrowed one, and it now has a second half:
 
-⇒ so the decision is now the smaller one: **is the feature-gated delta worth a
-second gate pass, and if so which features?** — not "should anything run at all".
+```text
+BARE lib suites     watched by NO executable gate — a manual pre-push sweep only
+WITH-FEATURES delta watched by nothing at all: ambition_input 54 → 115,
+                    ambition_audio 25 → 64, ambition_touch_input 4 → 45
+```
+
+⇒ **two decisions, and the first is cheap**: (a) should the per-turn gate run the
+bare unit tier (`cargo test --workspace --lib`), or is a documented pre-push
+obligation the intended meaning of "gate"? and (b) is the feature-gated delta
+worth a second pass, and if so which features? ⚠ the delta is where the
+interesting tests live — a crate whose bare suite is 4 and whose real suite is 45
+is being watched at under a tenth of its coverage. ⛔ **nothing was added to
+`gate_suite.py` on the agent side**, deliberately: your 2026-08-08 ruling was
+*"bias towards running less tests"*, so growing the per-turn suite is yours to
+authorise, not an agent's to slip in as a repair.
 
 ⭐⭐ **AND HERE IS WHAT THE DELTA ACTUALLY HOLDS — a named consequence rather
 than a count (2026-08-17).** `game/ambition_demo_mary_o_app/tests/painted_blocks_still_change_their_art.rs`

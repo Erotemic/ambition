@@ -1175,6 +1175,28 @@ expiry and releasing projected state are a domain INVARIANT. An author should be
 able to write `Empowered::for_seconds(…, 2.0)` without knowing there is a system
 elsewhere that must be scheduled or the duration is infinite.
 
+⭐ **PROBED 2026-08-17 — the reviewer's split holds, and the standing defence
+does not answer it.**
+* **`run_empowerments` is PURELY LIFECYCLE.** Its body ticks `remaining` against
+  `WorldTime::scaled_dt`, decides `live`, and releases; a `None` remaining is a
+  HELD empowerment with no clock. There is no game-specific policy inside it.
+* ⚠ **but the existing doc already declined an engine-owned installation, with
+  reasons** (`empowerment.rs`, the `EmpowermentProjectionPlugin` note): Sanic
+  installs `run_empowerments` in `GameplayEffects` and deliberately does NOT
+  install `apply_contact_harm` (`defeat_badniks` already owns destroy-on-touch,
+  and two authorities killing one badnik was the bug it avoided), while Mary-O
+  installs both in `FeatureInteraction` with contact harm ordered AFTER expiry.
+  It concludes *"what is engine-owned is the INVARIANT, not the order."*
+* ⇒ **both are right about different halves, and that is the actionable shape.**
+  The declined request was *one installation point for the whole feature*, which
+  would have taken away a real per-game choice. The reviewer asks for less: the
+  ENGINE installs EXPIRY in a named set; a game that wants `apply_contact_harm`
+  orders it against that set. Nothing about contact harm becomes mandatory, and
+  forgetting the lifecycle stops being possible.
+* ⛔ **five adopters today**, each having remembered: smash, sanic (×2 incl. its
+  tests), mary_o (×2 incl. `star.rs`). A sixth game that forgets gets permanent
+  invulnerability — which is exactly how smash's respawn protection surfaced it.
+
 - ▢ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)**
 
 In the hall-loading repair: `for index in asset.spec.used_pages()` now skips a

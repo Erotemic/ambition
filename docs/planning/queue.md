@@ -879,8 +879,15 @@ no un-duplicated spawn at all. ⭐ two rooms in the same area failing the same w
 makes an editor-session accident near-certain rather than suspected, and it is a
 DIFFERENT world file from the lookout — so whatever ran, ran across worlds.
 ⚠ this project already records a 2026-07-06 editor session that dropped four
-mount refs in `sandbox.ldtk`; the same class, and worth checking whether it is
-the same session.
+mount refs in `sandbox.ldtk`; the same class.
+
+⛔ **NOT DATABLE FROM THE SUBMODULE, and that is the finding's honest bound**:
+`pirate_sky_arena` reads 6 spawns / 3 distinct at **every** commit of
+`intro.ldtk` in `ambition_map_assets`, including its OLDEST (`f74264c`,
+2026-08-08) — the migration that created the submodule. ⇒ the duplication came
+in WITH the migration and has been shipping since at least then; dating it
+further means digging the superproject's pre-migration history. ⭐ so this is
+not a fresh accident to catch, it is standing content nobody has looked at.
 
 ⚠ **2. `portal_lab` has no floor.** *"no `Solid` blocking the bottom edge and no
 `EdgeExit` on that side; the controlled body can leave the world."* A room the

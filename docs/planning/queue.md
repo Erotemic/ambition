@@ -1231,7 +1231,10 @@ character/body capability declarations become complete"*) made concrete:**
    asserts `apply(Some(kit)) == apply(None)` (so the step is provably neutral),
    that the kit can actually fight (so the equality is not comparing two empty
    sets), and that both fighters really carry it now.
-2. ▢ then make `None` mean *no authored claim*, and decide what that yields —
+2. ▢ **UNBLOCKED as of `a480c1381`** — `apply(None)` is now unreachable for the
+   only stage that declares a ceiling, so the arm can change without any fighter
+   losing anything. Then make `None` mean *no authored claim*, and decide what
+   that yields —
    ⚠ it must NARROW the body's own kit rather than REPLACE it, which `apply`
    cannot do today because it never receives that kit. That signature is the
    real work, not the `unwrap_or`.

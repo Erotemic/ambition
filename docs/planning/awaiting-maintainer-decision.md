@@ -129,8 +129,35 @@ since has touched the decision model, so the finding is *plausibly* intact — b
 the rig that produced it was measuring a fighter that could not deal damage, and
 a search that now has real hits to weigh may choose differently.
 
-▢ **re-run the A/B before designing around it.** It is the same rig, and the
-numbers above are the ones to beat. ⚠ the 3/3 stocks in that capture are also a
+✔ **RE-RUN 2026-08-17. The finding HOLDS in direction and is much smaller in
+size — and the headline sentence is now false at depth 0.**
+
+```text
+level  first_self_KO   survived   stocks_lost   peak%
+9/d0      none in 60s     >60s          0         0%     ⭐ no self-KO at all
+9/d12          21.8s      >60s          2         0%
+                        (was: d0 survived 47.8s · d12 survived 7.4s)
+```
+
+⇒ **the rollout still kills the fighter and depth 0 still does not**, so *"a
+twelve-tick search is choosing to leave the stage"* stands. But d12's first
+self-KO moved 7.4 s → **21.8 s**, and **d0 now loses ZERO stocks** where this row
+says *"a Smash duelist loses all three stocks to ITSELF at every authored
+rung."* ⚠ that sentence is now wrong at d0 and right everywhere the shipped
+ladder applies depth, which is **level ≥ 6** — so the upper half of the ladder is
+still the half that self-destructs, exactly as the row argued.
+
+⛔⛔ **AND THE `peak%` COLUMN IS 0% BY CONSTRUCTION — do not read it as evidence
+about duels.** The harness prints its own warning: *"opponent cannot attack, so
+every loss is a self-KO."* ⇒ this rig **cannot** speak to whether CPUs damage each
+other, and it **cannot** speak to decision 6's hitlag question either, because
+with an inert opponent there are no hits and therefore no hitlag. The
+`180% / 124%` capture above remains the evidence for the first; decision 6 still
+needs a played match.
+
+▢ what stays open is the row's actual question — **is CPU quality on the path to
+what Smash is for** — now costed better: the gap between a rung that self-KOs and
+one that does not is a single authored field. ⚠ the 3/3 stocks in that capture are also a
 data point in the other direction: at 180% neither had died to anything, itself
 included.
 

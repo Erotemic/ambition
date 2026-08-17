@@ -10,6 +10,29 @@ record is archived at
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
+⭐⭐ **HALF OF THIS IS ALREADY RESOLVED — reconciled 2026-08-17; the row reads as
+fully open and is not.** `projectile/systems.rs` now resolves victims through
+**`StrikeVictim`**, *"the SAME NAMED ROLE melee uses"*, owned by
+`ambition_combat::hitbox` beside the victim-geometry rule.
+
+```text
+INTANGIBILITY   ✔ CLOSED — a body carrying an EMPTY `DamageableVolumes` list
+                  now offers NO target, so a bolt no longer lands on (and is
+                  eaten by) a body a sword passes straight through
+PRECISION       ▢ OPEN — the overlap test is still the coarse `victim.aabb`
+```
+
+⭐ the file says so itself: *"the INTANGIBILITY half of that is closed in the
+loop below; the precision half is still open, and says so there."* ⚠ and the
+comment records why the old claim was false: the tuple that would have carried
+`DamageableVolumes` **had run out of arity**, so *"the claim was never anything
+but prose"* — sharing the type is what made it checkable.
+
+⇒ **what is left for you is only the precision half**, which is the genuine feel
+call: should a bolt respect the authored hurt volume, or keep hitting the coarse
+body box? The invulnerable-window and corpse cases no longer ride on it.
+
+
 Current source still has the split: projectile collision uses the victim's coarse
 `CenteredAabb`, while melee/feature reach can use the body's published authored
 silhouette. Boss projectiles are excluded from the coarse-body path because a

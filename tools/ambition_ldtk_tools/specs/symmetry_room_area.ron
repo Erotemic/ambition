@@ -35,7 +35,7 @@
         ( type: "Solid", px: [576, 576], size: [128, 128], fields: ( name: "kernel" ) ),
         // ---- DOWN arm: fixed down-gravity frame + climb + kernel-down switch. ----
         ( type: "GravityZone", px: [448, 880], size: [384, 352], fields: ( id: "grav_down", name: "gravity down", dir: "down" ) ),
-        ( type: "Switch", px: [606, 736], size: [68, 24], fields: ( id: "kernel_switch_down", name: "kernel gravity down", prompt: "Set ambient gravity DOWN", action: "SetGravityDown", target_encounter: "" ) ),
+        ( type: "Switch", px: [606, 736], size: [68, 24], fields: ( id: "kernel_switch_down", name: "kernel gravity down", prompt: "Set ambient gravity DOWN", action: "SetGravityDown", target_encounter: "", on_activate: "encounter.signal encounter:symmetry_attunement gravity_down" ) ),
         ( type: "Solid", px: [600, 768], size: [80, 18], fields: ( name: "ring_down" ) ),
         ( type: "PogoOrb", px: [704, 704], size: [36, 36], fields: ( name: "pogo_down" ) ),
         ( type: "Solid", px: [470, 1120], size: [132, 24], fields: ( name: "down_step_a" ) ),
@@ -44,7 +44,7 @@
         ( type: "NpcSpawn", px: [560, 1206], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (down)", dialogue_id: "emmy_noether", character_id: "npc_noether", patrol_radius: 0 ) ),
         // ---- LEFT arm: fixed left-gravity frame + climb + kernel-left switch. ----
         ( type: "GravityZone", px: [48, 448], size: [352, 384], fields: ( id: "grav_left", name: "gravity left", dir: "left" ) ),
-        ( type: "Switch", px: [520, 606], size: [24, 68], fields: ( id: "kernel_switch_left", name: "kernel gravity left", prompt: "Set ambient gravity LEFT", action: "SetGravityLeft", target_encounter: "" ) ),
+        ( type: "Switch", px: [520, 606], size: [24, 68], fields: ( id: "kernel_switch_left", name: "kernel gravity left", prompt: "Set ambient gravity LEFT", action: "SetGravityLeft", target_encounter: "", on_activate: "encounter.signal encounter:symmetry_attunement gravity_left" ) ),
         ( type: "Solid", px: [494, 600], size: [18, 80], fields: ( name: "ring_left" ) ),
         ( type: "PogoOrb", px: [540, 704], size: [36, 36], fields: ( name: "pogo_left" ) ),
         ( type: "Solid", px: [136, 470], size: [24, 132], fields: ( name: "left_step_a" ) ),
@@ -53,7 +53,7 @@
         ( type: "NpcSpawn", px: [32, 560], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (left)", dialogue_id: "emmy_noether_left", character_id: "npc_noether", patrol_radius: 0 ) ),
         // ---- UP arm: fixed up-gravity frame + climb + kernel-up switch. ----
         ( type: "GravityZone", px: [448, 48], size: [384, 352], fields: ( id: "grav_up", name: "gravity up", dir: "up" ) ),
-        ( type: "Switch", px: [606, 520], size: [68, 24], fields: ( id: "kernel_switch_up", name: "kernel gravity up", prompt: "Set ambient gravity UP", action: "SetGravityUp", target_encounter: "" ) ),
+        ( type: "Switch", px: [606, 520], size: [68, 24], fields: ( id: "kernel_switch_up", name: "kernel gravity up", prompt: "Set ambient gravity UP", action: "SetGravityUp", target_encounter: "", on_activate: "encounter.signal encounter:symmetry_attunement gravity_up" ) ),
         ( type: "Solid", px: [600, 494], size: [80, 18], fields: ( name: "ring_up" ) ),
         ( type: "PogoOrb", px: [540, 540], size: [36, 36], fields: ( name: "pogo_up" ) ),
         ( type: "Solid", px: [678, 136], size: [132, 24], fields: ( name: "up_step_a" ) ),
@@ -62,7 +62,7 @@
         ( type: "NpcSpawn", px: [678, 32], size: [42, 42], fields: ( prompt: "Talk to Emmy No-Ether (up)", dialogue_id: "emmy_noether_up", character_id: "npc_noether", patrol_radius: 0 ) ),
         // ---- RIGHT arm: fixed right-gravity frame + climb + kernel-right switch. ----
         ( type: "GravityZone", px: [880, 448], size: [352, 384], fields: ( id: "grav_right", name: "gravity right", dir: "right" ) ),
-        ( type: "Switch", px: [736, 606], size: [24, 68], fields: ( id: "kernel_switch_right", name: "kernel gravity right", prompt: "Set ambient gravity RIGHT", action: "SetGravityRight", target_encounter: "" ) ),
+        ( type: "Switch", px: [736, 606], size: [24, 68], fields: ( id: "kernel_switch_right", name: "kernel gravity right", prompt: "Set ambient gravity RIGHT", action: "SetGravityRight", target_encounter: "", on_activate: "encounter.signal encounter:symmetry_attunement gravity_right" ) ),
         ( type: "Solid", px: [768, 600], size: [18, 80], fields: ( name: "ring_right" ) ),
         ( type: "PogoOrb", px: [704, 540], size: [36, 36], fields: ( name: "pogo_right" ) ),
         ( type: "Solid", px: [1120, 678], size: [24, 132], fields: ( name: "right_step_a" ) ),

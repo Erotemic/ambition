@@ -9,9 +9,16 @@
 //! adds rules WITHOUT adding another lifecycle, objective evaluator, cleanup
 //! path, or presentation authority. Everything here is either generic
 //! vocabulary (the authority components at spawn), a command EMITTER (room
-//! entry → `Start`, kernel flips → `Signal`), or an effect CONSUMER (the
-//! celebration off the generic `Completed` event). The engine names none of
-//! it; the lifecycle reducer decides everything.
+//! entry → `Start`), or an effect CONSUMER (the celebration off the generic
+//! `Completed` event). The engine names none of it; the lifecycle reducer
+//! decides everything.
+//!
+//! ⭐⭐ **and the kernel flips are no longer here at all (D127 M2).** Each of the
+//! four kernel switches authors its own `on_activate` line in `symmetry_room` —
+//! `encounter.signal encounter:symmetry_attunement gravity_down` — which the
+//! engine prepares once when the room is read and performs through the
+//! authored-command contract. The `(switch id, signal key)` const table and the
+//! system that walked it are gone; what is left of the pairing is the level.
 
 use bevy::prelude::*;
 
@@ -20,7 +27,9 @@ use ambition_encounter::{
     EncounterLifecycle, EncounterObjective, EncounterParticipants, EncounterPhase, Objective,
 };
 use ambition_persistence::save_data::PersistedEncounterState;
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{
+    Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+};
 
 /// The puzzle's stable encounter id (and save-flag namespace).
 pub const SYMMETRY_ATTUNEMENT_ID: &str = "symmetry_attunement";
@@ -31,17 +40,24 @@ const SYMMETRY_ROOM_ID: &str = "symmetry_room";
 /// Save flag remembering a completed attunement across save/load.
 pub const SYMMETRY_ATTUNEMENT_FLAG: &str = "symmetry_attunement_complete";
 
-/// The four kernel-face facts the puzzle consumes: the CHAMBER's authored
-/// switch id (the LDtk `Switch.id` in `symmetry_room`) → the stable signal key
-/// content publishes for it. Keyed on switch IDENTITY, not on the `SetGravity*`
-/// action: the puzzle is about THESE four faces, and a gravity switch authored
-/// in some other room must not count as a visited symmetry (GPT-5.6 review,
-/// 2026-07-16 — location comes free with identity, no active-room check).
-const KERNEL_FACES: [(&str, &str); 4] = [
-    ("kernel_switch_down", "gravity_down"),
-    ("kernel_switch_left", "gravity_left"),
-    ("kernel_switch_up", "gravity_up"),
-    ("kernel_switch_right", "gravity_right"),
+/// **The four kernel-face facts the puzzle's win condition is made of.**
+///
+/// ⭐⭐ **this used to be a PAIR table — `switch id → signal key` — and the
+/// switch half is gone (D127 M2).** Which switch publishes which face is now
+/// authored on the `Switch` itself, as an `on_activate` line naming
+/// `encounter.signal`, so a fifth face is a placement in the level rather than a
+/// row in another crate's Rust. The engine reads it; see
+/// `ambition_platformer2d::actors::world::authored_switch_commands`.
+///
+/// ⚠ **what survived is an encounter stating its own win condition**, which is
+/// legitimate and is a different sentence from *"this switch does that"*: the
+/// puzzle is complete when all four symmetries have been visited, and only the
+/// puzzle knows that.
+const KERNEL_SIGNALS: [&str; 4] = [
+    "gravity_down",
+    "gravity_left",
+    "gravity_up",
+    "gravity_right",
 ];
 
 /// Spawn the attunement authority once: the generic component set and nothing
@@ -73,9 +89,9 @@ pub fn spawn_symmetry_attunement(
         ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(SYMMETRY_ATTUNEMENT_ID),
         lifecycle,
         EncounterObjective::win(Objective::All(
-            KERNEL_FACES
+            KERNEL_SIGNALS
                 .iter()
-                .map(|(_, signal)| Objective::ReceiveSignal((*signal).to_string()))
+                .map(|signal| Objective::ReceiveSignal((*signal).to_string()))
                 .collect(),
         )),
         EncounterParticipants::default(),
@@ -83,16 +99,24 @@ pub fn spawn_symmetry_attunement(
     scope.apply_to(&mut entity);
 }
 
-/// Command EMITTER: entering the Noether Chamber starts the attunement;
-/// every kernel-face gravity flip publishes its stable signal fact. The
-/// generic objective (`All` of the four signals) completes it — this adapter
-/// never touches the phase.
+/// Command EMITTER: entering the Noether Chamber starts the attunement.
+///
+/// ⭐⭐ **the kernel-face half of this system is DELETED, not moved.** It read a
+/// `SwitchActivated` message, matched its id against a Rust const table and
+/// emitted the paired signal. The four switches now carry their own
+/// `on_activate` lines and the engine performs them through the authored-command
+/// contract, so there is no adapter here at all — the level talks to the
+/// encounter domain directly.
+///
+/// ⚠ **what is left is room ENTRY**, which is a genuinely different shape: it is
+/// a level-triggered condition on the active room rather than an edge on a
+/// placement, and no authored surface expresses it yet. Naming that limit is
+/// better than inventing a second one to hide it.
 pub fn drive_symmetry_attunement(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_actor_monolith::rooms::RoomSet,
     >,
     encounters: Query<(&Encounter, &EncounterLifecycle)>,
-    mut switches: MessageReader<ambition_platformer2d_actor_monolith::features::SwitchActivated>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
 ) {
     let Some((_, lifecycle)) = encounters
@@ -109,14 +133,6 @@ pub fn drive_symmetry_attunement(
             EncounterCommandKind::Start,
         ));
     }
-    for switch in switches.read() {
-        if let Some((_, signal)) = KERNEL_FACES
-            .iter()
-            .find(|(switch_id, _)| *switch_id == switch.activation.id)
-        {
-            lifecycle_commands.write(EncounterCommand::signal(SYMMETRY_ATTUNEMENT_ID, *signal));
-        }
-    }
 }
 
 /// Effect CONSUMER: the generic `Completed` event pays the puzzle out —
@@ -124,16 +140,20 @@ pub fn drive_symmetry_attunement(
 /// here; the reducer already decided.
 pub fn celebrate_symmetry_attunement(
     mut events: MessageReader<EncounterEventMsg>,
-    mut banners: MessageWriter<ambition_platformer2d_actor_monolith::features::GameplayBannerRequested>,
+    mut banners: MessageWriter<
+        ambition_platformer2d_actor_monolith::features::GameplayBannerRequested,
+    >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
     for msg in events.read() {
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
-            banners.write(ambition_platformer2d_actor_monolith::features::GameplayBannerRequested::new(
-                "NOETHER ATTUNEMENT — every symmetry conserved".to_string(),
-                4.0,
-            ));
+            banners.write(
+                ambition_platformer2d_actor_monolith::features::GameplayBannerRequested::new(
+                    "NOETHER ATTUNEMENT — every symmetry conserved".to_string(),
+                    4.0,
+                ),
+            );
             save.data_mut().set_flag(SYMMETRY_ATTUNEMENT_FLAG, true);
         }
     }
@@ -160,3 +180,6 @@ impl Plugin for AmbitionEncounterContentPlugin {
         );
     }
 }
+
+#[cfg(test)]
+mod tests;

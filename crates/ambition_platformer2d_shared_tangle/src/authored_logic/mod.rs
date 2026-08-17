@@ -102,11 +102,13 @@ use bevy::prelude::{App, Resource, World};
 use crate::sim_id::SimId;
 
 pub mod commands;
+pub mod prepared;
 
 pub use commands::{
     AuthoredCommandPlugin, AuthoredCommandSet, CommandCatalog, CommandDescriptor, CommandId,
     CommandOutcome, CommandRunner, PublishCommand, RunAuthoredCommand,
 };
+pub use prepared::{PreparationError, PreparedCommand, PreparedCondition};
 
 /// **The one spelling rule both halves obey**: `<domain>.<leaf>`, exactly one
 /// dot, neither side empty.

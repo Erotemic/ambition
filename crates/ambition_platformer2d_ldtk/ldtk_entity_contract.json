@@ -815,6 +815,13 @@
           "default": "ResetEncounter",
           "sample": "FlipGravity",
           "note": "the converter passes this straight through into the interaction payload and cares about none of it. `encounter::systems` recognises the listed actions and IGNORES the rest, so an unlisted action is a switch that does nothing \u2014 but the refusal, if one is ever wanted, belongs to that consumer and not here."
+        },
+        {
+          "name": "on_activate",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "encounter.signal encounter:symmetry_attunement gravity_down",
+          "note": "one authored command call \u2014 `<domain>.<verb> <arg>\u2026`, whitespace-separated \u2014 performed when the switch is activated. Read off the raw LdtkProject by `world::authored_switch_commands`, not by this converter, and PREPARED once when the room is read: the id is checked against the published command catalog, the arity against the descriptor, and a `placement:`/`encounter:` reference is minted through SimId's own constructor. ABSENT means the switch belongs to its other consumers (encounter arming, reset, the sand sim) \u2014 which is why it is optional. A line this composition cannot perform is dropped with a warning at prepare time rather than on the tick."
         }
       ]
     },

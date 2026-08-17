@@ -519,6 +519,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // ⭐ it publishes no command — a domain adds its verbs from its own
             // plugin, exactly as it adds its questions.
             .add(ambition_platformer2d_shared_tangle::authored_logic::AuthoredCommandPlugin)
+            // The first authored-command CONSUMER: a `Switch` that names a verb
+            // in the level instead of in a const table. ⭐ it publishes nothing
+            // and names no domain — it performs whatever the composed catalog
+            // happens to know, which is why it can live here beside the
+            // machinery rather than inside whichever domain a level asks for.
+            .add(ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommandPlugin)
             .add(ambition_platformer2d_actor_monolith::world_facts::WorldFactConditionsPlugin)
             // The inventory domain's provider, added for the same reason and in
             // the same way. ⭐ it is the THIRD provider and it cost one line of

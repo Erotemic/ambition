@@ -87,7 +87,7 @@ its frozen baseline.
 
 | Lane | Owner | Executable next action |
 |---|---|---|
-| **D127 — M1 for COMMANDS** | one worker, main tree | build `world.set_flag` beside its published condition twin; delete `KERNEL_FACES` or refuse with cause |
+| **D127 — M2 prepared rules** | one worker, main tree | M2 landed the prepared CALL (`PreparedCondition`/`PreparedCommand`) and deleted `KERNEL_FACES`'s pairing half; next is either the `when` half (needs a customer) or M5 diagnostics |
 | **D128 — Smash CPU showcase** | unstaffed | the ladder rig was re-run 2026-08-17 (d0 no longer self-KOs; d12 first self-KO 21.8s) — next is a real two-CPU match, not the rig |
 
 ⭐ **the build lease is no longer exclusive, and the reason changed.** The old
@@ -4671,7 +4671,46 @@ needed `.chain()`; the comment above it already claimed the order).
 reconstruction, sequenced after the instance lifetime/provenance model — see
 [`engine/same-room-replay-is-a-second-constructor.md`](engine/same-room-replay-is-a-second-constructor.md).
 
-- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR BOTH HALVES — conditions and commands, provider AND consumer sides. M2 next.**
+- ▢ **D127 — Deterministic authored gameplay logic and orchestration. M0 COMPLETE; M1 MET FOR BOTH HALVES; M2's PREPARED CALL landed 2026-08-17 and `KERNEL_FACES`'s offending half is deleted.**
+
+⭐⭐ **M2 — ACCEPTANCE MET FOR ONE CALL, NOT FOR A `when … then` RULE, and the
+difference is deliberate.** `authored_logic::prepared` turns one authored line
+(`<id> <arg>…`) into a `PreparedCondition` / `PreparedCommand`: private fields,
+**no public constructor**, so the only door is a `prepare` that checks the id
+against the published catalog, the arity against the descriptor and every value
+against its declared kind. All four acceptance clauses are structural rather than
+promised — validation cannot be skipped (unconstructible otherwise); the runtime
+parses nothing (the prepared value does not RETAIN the text); the data is
+immutable (no `&mut` accessor exists at all); and a reference is a `SimId` minted
+through `SimId::encounter` / `SimId::placement` from an authored
+`encounter:<id>` — never `from_snapshot`. ⭐ **that is the refusal both M1 Yarn
+bridges recorded as "a thing M2 can replace", replaced.**
+
+⭐ **the deletion:** `KERNEL_FACES`'s `(switch id → signal key)` half and the
+`SwitchActivated` loop in `ambition_content::encounters` are gone. The four
+kernel switches author `on_activate: encounter.signal encounter:symmetry_attunement gravity_down`
+in `symmetry_room`, prepared once per room by `world::authored_switch_commands`
+and performed by `encounter.signal`, this contract's second command provider.
+⚠ **the spawn-side half survives with cause** — `KERNEL_SIGNALS` builds the
+encounter's own `Objective::All`, which is a puzzle stating its win condition
+rather than a table saying which switch does what. The end-to-end
+`symmetry_attunement` app fixture passes UNCHANGED, driven entirely by the level.
+
+⛔ **NO PROGRAM COUNTER APPEARED, and that is the answer to M0 Finding 4 for this
+slice**: a prepared call is one call, evaluated fresh, with nothing to rewind.
+The `when` half of a rule was designed and CUT — the one customer's condition
+list is empty in all four rows, and a shipped `when` with zero adopters is
+falsifier 2's wrapper. ⇒ **M2 is met for the representation; the rule FORM is
+still open and needs a customer before it is built.**
+
+⚠ **two follow-ups this slice named and did not do**, both small and both
+recorded so they are decisions rather than drift: `gated_lock_walls` still
+rebuilds its condition call from a `String` every tick instead of holding a
+`PreparedCondition` (its validation is still per-tick), and
+`ambition_conversation::dialog::authored_commands` still owns a second copy of
+the text→`AuthoredArg` conversion that `prepared::prepare_args` now generalises —
+a fork worth collapsing, which would also give authored `.yarn` prepared
+references for free.
 
 ⛔⛔ **THIS ROW SAID "M1 PARKED" FOR A DAY AFTER M1'S ACCEPTANCE WAS MET.**
 Corrected 2026-08-16 against HEAD, not against the plan's prose. M1 asks for two

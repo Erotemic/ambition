@@ -246,6 +246,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
         "derived.gated_lock_wall_cache",
         "authored gated walls for the active room; recomputed from the room set and LDtk project",
     );
+    // ⭐ its sibling, derived for the same two reasons: a pure function of (room
+    // set, LDtk project), and neither input can move inside a rollback window.
+    // ⚠ **and the values are PREPARED COMMANDS, which have no mutator at all** —
+    // a rewind that restored this would restore an identical value.
+    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::world::authored_switch_commands::AuthoredSwitchCommands>(
+        OWNER,
+        "derived.authored_switch_commands",
+        "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
+    );
     app.rollback_component_canonical::<ambition_platformer2d_shared_tangle::projectile::ProjectileGameplay>(
         OWNER,
         "projectile.gameplay",

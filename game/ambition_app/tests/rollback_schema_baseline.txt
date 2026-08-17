@@ -136,6 +136,7 @@ cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities, moveset, and action set
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
+derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
 derived.body_mode_capabilities	derived	BodyModeCapabilities	projected from the active body mode each frame
 derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel every movement step

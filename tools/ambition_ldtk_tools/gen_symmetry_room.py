@@ -132,10 +132,16 @@ for n in range(4):
     A(entity("GravityZone", zx, zy, zw, zh, {
         "id": f'"grav_{d}"', "name": f'"gravity {d}"', "dir": f'"{d}"'}))
     sx, sy, sw, sh = rotn(CANON_SWITCH, n)
+    # ⭐ `on_activate` is the puzzle's OWN rule, in the level. It used to be a
+    # (switch id -> signal key) row in a Rust const table in ambition_content;
+    # a regeneration that dropped this field would silently un-solve the
+    # Noether attunement, which is why it is generated rather than patched in.
     A(entity("Switch", sx, sy, sw, sh, {
         "id": f'"kernel_switch_{d}"', "name": f'"kernel gravity {d}"',
         "prompt": f'"Set ambient gravity {d.upper()}"',
-        "action": f'"SetGravity{DIR_SUFFIX[d]}"', "target_encounter": '""'}))
+        "action": f'"SetGravity{DIR_SUFFIX[d]}"', "target_encounter": '""',
+        "on_activate":
+            f'"encounter.signal encounter:symmetry_attunement gravity_{d}"'}))
     rx, ry, rw, rh = rotn(CANON_RING, n)
     A(entity("Solid", rx, ry, rw, rh, {"name": f'"ring_{d}"'}))
     px, py, pw, ph = rotn(CANON_POGO, n)

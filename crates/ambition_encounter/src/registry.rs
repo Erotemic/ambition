@@ -149,6 +149,9 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
         app.add_message::<crate::lifecycle::EncounterCommand>();
         app.add_message::<crate::events::EncounterEventMsg>();
+        // ⭐ this domain's authored VERB, published beside the message it writes.
+        // Adding it edited no central enum — see `authored_commands`.
+        crate::authored_commands::publish_authored_commands(app);
         let sim = app.sim_schedule();
         app.add_systems(
             sim,

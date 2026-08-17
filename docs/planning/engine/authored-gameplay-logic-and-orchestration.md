@@ -366,6 +366,9 @@ Prepare one small deterministic condition/command program from authored source.
 strings; the runtime parses no expression strings; program data is immutable
 during simulation.
 
+✔✔ **MET FOR THE PREPARED CALL, 2026-08-17 — and NOT for a `when … then` rule
+form, which was designed and cut.** See *The prepared half* below.
+
 ### M3 — two real customers
 
 Migrate/prove two materially different Ambition customers.
@@ -720,3 +723,139 @@ copied (`dialog::yarn_harness`).
   determinism, rollback/serialization, per-instance memory, execution cost,
   inspectability, and whether one existing actor policy reproduces cleanly is
   sufficient — this is not a dependency-adoption campaign.
+
+## The prepared half — LANDED (2026-08-17)
+
+**M2's four acceptance clauses hold, all four structurally, and the deletion the
+command half refused with cause has been paid.**
+
+### What shipped
+
+`ambition_platformer2d_shared_tangle::authored_logic::prepared`:
+
+```text
+PreparedCondition   a validated (ConditionId, Vec<AuthoredArg>)
+PreparedCommand     a validated (CommandId,   Vec<AuthoredArg>)
+PreparationError    source + reason, so a loader's diagnostic names the line
+ConditionCatalog::prepare / prepare_line / ask
+CommandCatalog::prepare  / prepare_line
+RunAuthoredCommand::prepared   the one bridge from preparation to the channel
+```
+
+The authored form is one line: `<domain>.<leaf> <arg>…`, whitespace-separated.
+⛔ no operators, no nesting, no quoting — adding quoting is the first inch of the
+expression language the non-goals refuse.
+
+### The four clauses, and why each is a SHAPE
+
+1. **Validation cannot be skipped.** Both types have private fields and **no
+   public constructor**. The only producers are `prepare`/`prepare_line`, which
+   check the id against the published catalog, the arity against the descriptor
+   and every value against its declared `ParamKind`. ⇒ *"prepared but never
+   validated"* is not a state this program can be in.
+2. **The runtime parses nothing, because it holds no text.** The authored source
+   is consumed by `prepare` and is **not retained** — there is no accessor that
+   returns it. A tick holds an id and prepared values and has nothing to parse.
+3. **Program data is immutable.** No `&mut` accessor, no public field, no
+   interior mutability. A holder can REPLACE a prepared call with another
+   validated one; nothing can edit one. ⭐ this is the catalogs' privacy argument
+   adapted from a registry to a value: they are safe because a tick cannot reach
+   the door, and a prepared call is safe because no door exists.
+4. **A reference is a `SimId` minted by `SimId`'s own constructors.** The
+   authored text names its namespace — `encounter:symmetry_attunement` — and
+   preparation dispatches to `SimId::encounter` / `SimId::placement`. ⛔ never
+   `SimId::from_snapshot`, which that module reserves for snapshot blobs and
+   which would skip the escaping the id encoding's injectivity depends on.
+   ⚠ **the author spelling the namespace is a choice with a recorded
+   alternative** (put it on the `ParamSpec`, so a field could say just
+   `symmetry_attunement`) — rejected because it needs `ParamKind::Reference` to
+   carry a payload, which breaks the one-line kind check both catalogs share.
+
+⭐⭐ **this is the refusal both M1 bridges recorded as *"a thing M2 can
+replace"*, replaced.** A prepared reference from authored source now exists.
+
+### The customer, and the deletion the command half owed
+
+```text
+provider 2 (commands)  ambition_encounter -> encounter.signal(<ref>, <key>)
+consumer   actor_monolith::world::authored_switch_commands
+authored   Switch.on_activate in symmetry_room, x4:
+           "encounter.signal encounter:symmetry_attunement gravity_down"
+deletion   KERNEL_FACES's (switch id -> signal key) half + the SwitchActivated
+           loop in ambition_content::encounters
+```
+
+⭐ **the end-to-end `symmetry_attunement` app fixture passes UNCHANGED**, driven
+entirely by the level: it presses the four kernel faces by id and the puzzle
+completes. Nothing in Rust says which face is which any more.
+
+⚠ **the spawn-side half of `KERNEL_FACES` survives with cause**, exactly as this
+document predicted: `KERNEL_SIGNALS` builds `Objective::All([ReceiveSignal(…)])`,
+an encounter stating its own win condition. That is a different sentence from
+*"this switch does that"*, and only the puzzle knows it.
+
+⭐ **and `encounter.signal` takes a REFERENCE rather than a name for a reason
+visible in behaviour**: a name that matches nothing produces a well-formed
+`EncounterCommand` addressed to a non-existent encounter, which the reducer drops
+in silence — the exact failure mode of a typo'd id in a const table. A reference
+is resolved against the live occurrences and an unresolvable one is `Refused`
+with a sentence. ⚠ and the id handed to the reducer is read **off the resolved
+occurrence**, never recovered from the reference's spelling.
+
+### ⛔ No program counter appeared — and the `when` half was CUT
+
+A prepared call is one call, evaluated fresh, with nothing to rewind. ⇒ M0
+Finding 4's *"the tree ships three different answers to 'is a program counter
+rollback state?'"* is answered for this slice by having none, and no shipped
+system changed.
+
+⛔ **a `when: Vec<PreparedCondition>` / `then: PreparedCommand` rule form was
+designed and deliberately not built.** The one customer that pays for M2 — a
+`Switch` naming a verb — has an EMPTY condition list in all four of its rows, and
+a shipped `when` with zero adopters is precisely falsifier 2's wrapper. The
+domain that owns a trigger decides when to ask; the substrate owns what is asked.
+⇒ **the rule FORM is still open and needs a real customer before it is built.**
+
+The store is a room-scoped derived resource (`AuthoredSwitchCommands`), declared
+`derived` to rollback on the same argument `GatedLockWallCache` makes: a pure
+function of (LDtk project, active room), neither of which can move inside a
+rollback window. **No wire format change**; `GGRS_ROLLBACK_SCHEMA_VERSION` stays
+36 and both baselines gain one derived row.
+
+### The falsifier, and the probe that proved it can fail
+
+`authored_logic::prepared::tests` publishes `gossip.spread` and
+`gossip.is_rumoured` **from the test module** — a domain nothing in the engine
+mentions — prepares a call from authored TEXT, asserts the world is unchanged
+while the line is merely PREPARED and again while the request is merely WRITTEN,
+and changed only after the dispatcher runs. Beside it,
+`preparation_refuses_before_the_tick_what_a_tick_would_otherwise_discover` walks
+nine wrong lines (unknown id, both arities, a non-truth, a reference with no
+namespace, an unknown namespace, an empty body, a malformed id, a blank line) and
+**prepares the good one in the same test**, so a preparer that refused everything
+fails too.
+
+⚠ **probed red, twice.** Neutering the arity check turned the refusal test and
+the condition-side assertion red; minting the reference with
+`SimId::from_snapshot(text)` instead of `SimId::encounter(body)` turned
+`an_authored_reference_goes_through_the_identity_vocabulary` red on
+`encounter:a:b` vs `encounter:a%3Ab`. Restored and re-verified green.
+
+At the customer end, `world::authored_switch_commands::tests` publishes
+`bystander.ring` from the test module, presses the switch and observes the bell
+silent before and ringing after; `a_line_no_composition_can_perform_never_reaches_the_prepared_set`
+pins *"validation occurs before runtime"* as a behaviour. And
+`ambition_content::encounters::tests` reads the **shipped** `sandbox.ldtk` and
+asserts the four kernel switches actually say it — the wiring pin, because
+`on_activate` is optional and losing it would be silent.
+
+### ⚠ Two follow-ups this slice named and did not do
+
+- **`gated_lock_walls` does not hold a `PreparedCondition` yet.** It still
+  rebuilds `AuthoredArg::Name(wall.gated_by.clone())` every tick, so its
+  validation is still per-tick — the condition half of *"validation occurs before
+  runtime"* is available and unadopted.
+- **`ambition_conversation::dialog::authored_commands` owns a second copy of the
+  text→`AuthoredArg` conversion** that `prepared::prepare_args` now generalises.
+  Collapsing the fork would also give authored `.yarn` prepared references for
+  free, which is the widening that file's header already anticipates.

@@ -149,6 +149,7 @@
     "cutscene.playback",
     "derived.actor_action_scheme",
     "derived.actor_steering",
+    "derived.authored_switch_commands",
     "derived.body_environment_contact",
     "derived.body_mode_capabilities",
     "derived.body_motion_facts",
@@ -383,10 +384,10 @@
     "resource.projectile_seq_counter",
     "resource.quest_registry",
     "resource.requested_clock_scale",
-    "resource.save_restored",
     "resource.sandbox_reset_requested",
     "resource.sandbox_save",
     "resource.sandbox_sim_state",
+    "resource.save_restored",
     "resource.sim_dt",
     "resource.sim_tick",
     "resource.slot_interaction_state",
@@ -402,7 +403,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 359,
+  "stable_schema_name_count": 360,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

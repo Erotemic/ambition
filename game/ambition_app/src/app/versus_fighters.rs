@@ -200,12 +200,42 @@ pub const CLOSE_GUARD: DuelistNumbers = DuelistNumbers {
     smash_windup_s: 0.17,
 };
 
+/// **WHAT A DUELIST'S BODY CAN DO, authored on the fighter rather than inherited
+/// from the stage's ceiling.**
+///
+/// ⛔⛔ **this is the kit both duelists ALREADY had; naming it changes nothing
+/// today, and that is the point.** `versus.rs` declares
+/// `MatchAbilities::at_most(…)` — a ceiling and no floor, meaning *"a character
+/// keeps what it authored, minus what this duel forbids"*. Neither duelist
+/// authored anything, so `MatchAbilities::apply(None)` took its `unwrap_or`
+/// branch and handed them the whole CEILING. The stage's stated rule and its
+/// behaviour disagreed, and the disagreement was invisible because the answer
+/// happened to be the one everybody wanted.
+///
+/// ⭐ **it is written down here so the bridge can be retired** (D151). That
+/// `None → permitted` arm turns PERMISSION into a GRANT — most damagingly in the
+/// use the type's own docs propose, where `permitted ⊃ granted` says *"the one
+/// character who authored a wall jump keeps it"* and an unauthored character
+/// takes the wall jump too. It cannot simply be deleted while it is the only
+/// thing dressing these two, so they get dressed first.
+///
+/// ⚠ `reset` and `interact` ride in from `basic()`, and they were already
+/// arriving by the same route. Preserved deliberately rather than tidied: this
+/// change is behaviour-neutral or it is not worth making.
+pub const VERSUS_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
+    ambition_platformer2d::engine_core::AbilitySet {
+        attack: true,
+        fast_fall: true,
+        ..ambition_platformer2d::engine_core::AbilitySet::basic()
+    };
+
 pub fn duelists() -> [CharacterDefinition; 2] {
     [
         // A reach fighter. Longer swings, a slower smash — wins by keeping the
         // other fighter at arm's length and punishing the approach.
         CharacterDefinition::new("arena_duelist_long", "Long Guard", VERSUS_PROVIDER)
             .with_sheet("robot")
+            .with_abilities(VERSUS_FIGHTER_KIT)
             // A round has to last long enough to be a round. At these damage
             // numbers 60 HP is roughly a dozen committed hits or thirty pokes,
             // which is the length that makes the jab/smash trade a DECISION
@@ -237,6 +267,7 @@ pub fn duelists() -> [CharacterDefinition; 2] {
         // to do anything, and is rewarded for being there.
         CharacterDefinition::new("arena_duelist_close", "Close Guard", VERSUS_PROVIDER)
             .with_sheet("mary_o_v2")
+            .with_abilities(VERSUS_FIGHTER_KIT)
             // Slightly frailer than the long guard, to pay for getting to swing
             // faster. Same round length, different price.
             .with_health(52, 0.9)
@@ -457,5 +488,52 @@ mod tests {
             "the two fighters are numerically identical, so the roster is one \
              character wearing two names"
         );
+    }
+    /// **DRESSING THE DUELISTS CHANGED NOTHING, and that is what makes it safe
+    /// to retire the bridge afterwards.** (D151)
+    ///
+    /// ⛔ the arm being retired is `MatchAbilities::apply`'s
+    /// `authored.unwrap_or(self.permitted)` — an unauthored character receives
+    /// the whole CEILING, so PERMISSION becomes a GRANT. It reads harmless until
+    /// the type is used the way its own docs propose (`permitted ⊃ granted`, so
+    /// one character keeps a wall jump nobody else has), at which point every
+    /// unauthored character silently keeps it too.
+    ///
+    /// ⚠ it could not simply be deleted, because it was the ONLY thing giving
+    /// these two fighters a kit — deleting it left the versus stage with two
+    /// bodies that could not move. This asserts the step that fixes that: what
+    /// they author and what the bridge was handing them are the same set, so the
+    /// semantics can move without any fighter changing.
+    #[test]
+    fn what_the_duelists_author_is_exactly_what_the_bridge_was_handing_them() {
+        use ambition_platformer2d::engine_core::MatchAbilities;
+
+        let rules = MatchAbilities::at_most(VERSUS_FIGHTER_KIT);
+        let bridged = rules.apply(None);
+        let authored = rules.apply(Some(VERSUS_FIGHTER_KIT));
+        assert_eq!(
+            authored, bridged,
+            "authoring the kit changed what a duelist can do, so this is not the \
+             behaviour-neutral step it claims to be"
+        );
+
+        // ⛔ non-vacuity: a kit of nothing would satisfy the equality above for
+        // the wrong reason. These two fighters throw punches.
+        assert!(
+            authored.attack && authored.move_horizontal && authored.jump,
+            "the versus kit cannot fight, so the equality above compares two \
+             empty sets rather than a real fighter's verbs"
+        );
+
+        // ⭐ and the fighters really do carry it now — the whole point is that
+        // the answer stops depending on the ceiling.
+        for duelist in duelists() {
+            assert_eq!(
+                duelist.abilities,
+                Some(VERSUS_FIGHTER_KIT),
+                "a duelist still authors no kit, so retiring the bridge would \
+                 leave it unable to act"
+            );
+        }
     }
 }

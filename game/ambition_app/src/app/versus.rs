@@ -295,11 +295,13 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // hand the robot lineage the `reset` its definition deliberately refuses
         // — `basic()` grants one — which is the trap that stopped this being a
         // grant in the first place.
-        fighter_abilities: Some(ae::MatchAbilities::at_most(ae::AbilitySet {
-            attack: true,
-            fast_fall: true,
-            ..ae::AbilitySet::basic()
-        })),
+        // ⭐ **the SAME set the duelists now author** (D151), named once in
+        // `versus_fighters` so a ceiling and the kit under it cannot drift into
+        // disagreeing. Restating it here is how the stage came to be the only
+        // thing dressing its own cast.
+        fighter_abilities: Some(ae::MatchAbilities::at_most(
+            super::versus_fighters::VERSUS_FIGHTER_KIT,
+        )),
         // **NONE, and it is a decision.** This stage's cast is
         // `versus_fighters::duelists()`, two characters authored FOR it, so the
         // body they play with is already the one they were tuned with — there is

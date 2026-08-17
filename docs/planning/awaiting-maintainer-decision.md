@@ -56,7 +56,29 @@ nothing was corrupted and no failure was mysterious; the entire cost was
 ⇒ so the question has changed shape. It is not "does this prevent a linker
 failure" (unestablished, and probably no) but **"is a second target directory
 worth roughly 100 GB to stop the editor and the agents from serialising against
-each other?"** ⚠ the volume is at 93% with ~137 GB free and the existing target
+each other?"**
+
+⭐⭐ **THE DISK HALF OF THIS IS RE-MEASURED 2026-08-17, and it moved a lot — in
+BOTH directions inside one day.**
+
+```text
+2026-08-14   volume 93% full, ~137 GB free, target 106 GB
+2026-08-17   volume 68% full,  156 GB free, target 210 GB
+             (target/debug/deps 151G · debug/incremental 35G · release 21G)
+```
+
+⚠ **the target directory DOUBLED in three days**, so "does not fit twice" is
+more true now, not less — even though free space went up. ⚠ and the free number
+is volatile rather than stable: the same volume hit **100% full** earlier on
+2026-08-17 (a `cargo test --workspace --tests` sweep), and 160 GB was recovered
+by deleting `target/debug/incremental`, which has since regrown to 35 GB.
+
+⇒ **so the honest framing for the disk half is not a headroom number but a
+policy**: `target/debug/incremental` is a safe, self-refilling 35 GB that can be
+deleted at any time, and it is roughly the size a rust-analyzer check directory
+would need. ⭐ the throughput half needs no re-measuring — the contention is
+still live and still reproducible: a plain `cargo check -p ambition_platformer2d_shared_tangle`
+this session printed `Blocking waiting for file lock on build directory`. ⚠ the volume is at 93% with ~137 GB free and the existing target
 dir is 106 GB, so this genuinely does not fit twice — which is why it is your
 call and not an agent's. A cheaper variant if the disk answer is no: leave the
 directory shared and accept that only one builder makes progress at a time.

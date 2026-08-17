@@ -4343,8 +4343,28 @@ read-model whose whole body-cluster group is optional). Widening the rule tonigh
 would have reddened a crate this slice did not analyse; it is recorded in that
 policy's rationale.
 
-- ▢ **D137 — THE DOC-LINK RATCHET IS RED, IT IS PROBABLY OURS, AND IT IS IN NO
-  GATE. (opened 2026-08-16)**
+- ✔ **D137 — CLOSED 2026-08-17. The doc-link ratchet was RED, is now GREEN, and
+  is now RUN BY CI. (opened 2026-08-16)**
+
+⭐ **the second half is wired**: a `--check` step at the end of
+`sandbox-headless-smoke`, which already installs Bevy's system dependencies,
+already builds the monolith and already has a warm cache — the ratchet runs
+`cargo doc` per crate, so the pure-Python `agent-kb-check` job could not host it.
+Last in the job, so a doc regression cannot mask a test failure.
+
+⛔⛔ **AND THE FLAG IS THE WHOLE GATE — `--check` IS LOAD-BEARING.** Measured
+by poisoning the baseline (`ambition_combat` 13 → 5) and running both ways:
+
+```text
+python3 scripts/check_doc_link_ratchet.py            ⛔ prints "ROSE from 5", exit 0
+python3 scripts/check_doc_link_ratchet.py --check    ⛔ prints "ROSE from 5", exit 1
+```
+
+⭐ the enforcing arm is `if risen and args.check`; the bare command is
+**advisory by design**. A step wired with the obvious invocation would have been
+a gate that CANNOT FAIL — which is worse than no gate, because it reads as
+coverage. ⚠ this is why the local-gate measurement (338 s) answered NO and CI
+answered YES: the cost was never the only question.
 
 ```text
 ambition_platformer2d_actor_monolith   131  ⛔ ROSE from 122

@@ -838,10 +838,28 @@ player-facing label DISTINCT from its id, and absent one it should draw nothing.
 manufactures prose the author never wrote, and `wake_to_raid` has no good
 rendering.
 
-⚠ second, smaller thing in the same frame: the clipped `wake_to…` sits in the
-HUD band at the top-right and is cut by the viewport, so a world label can leave
-the world area entirely. Worth checking against D159's pass, which now owns
-world-label placement.
+⛔ **AND A SECOND FINDING I WITHDREW — recorded because the withdrawal is the
+lesson.** I first wrote that the clipped `wake_to…` at the top-right proved a
+world label could escape the world area. **It does not.** These are WORLD-SPACE
+labels, so a label near the edge of the room is partly off-camera by
+construction: the very same `→ corridor` label is clipped in the first capture
+and fully visible in the second once the camera panned. ⭐ right observation,
+wrong conclusion — the two frames were already in hand and would have settled it
+before it was written down.
+
+⚠ **a separate, genuinely-authored one, found in the same sweep**: the hub room
+`central_hub_main` carries a SIGN whose text is a developer note —
+*"LDtk-authored central_hub_complex: hub chunk, doors, and continuous basement"*
+— rendered large and centred where `intro_wake_room` shows *"creator's basement
+lab"*. ⭐ **it is the only one**: scanning every `text` field in every `.ldtk`
+gives 268 sign texts and exactly ONE that reads as a dev note, so this is a
+single bad string and not a content-hygiene problem.
+
+▢ **left for Jon rather than fixed**, for two reasons: replacing it means
+WRITING player-facing prose for the hub, which is his voice to choose; and a
+`.ldtk` must be edited through `tools/ambition_ldtk_tools`, never by
+re-serialising the JSON. Deleting the sign outright is the other option and is
+also a content call.
 
 - ✔ **D157 — CLOSED 2026-08-16. MARY-O HAD HER WHOLE SMASH MOVESET IN HER
   PLATFORMER. The ability gate did not exist, and a test that reported it was

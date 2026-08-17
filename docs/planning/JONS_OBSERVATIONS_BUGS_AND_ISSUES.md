@@ -48,6 +48,7 @@
 * In mary-o secret blocks or invisible blocks (or question mark blocks which currently work correctly) need to change their tile sprite to spent blocks. A brick block with a quasar in 1-1 just keeps its brick texture. That needs to be fixed.
 
 * In mary-o she can only have 1 fireball out a time. We should allow her to have 2 out a time.
+  * ✔ `MAX_LIVE_SPARKS` is 2 and a test pins the count rather than the constant.
 
 * In mary-o 1-2 the flagpole doesn't have a flag. 
   * ✔ Fixed — the map authored the shaft but neither the banner nor the finial, so 1-2's pole was also missing its top knob, which you hadn't reported. A guard now fails any room that stands a shaft without both.

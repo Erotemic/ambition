@@ -529,13 +529,15 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
     let authored_speed = 120.0;
 
-    // A pure up-launcher: (0, 1) launches straight against gravity.
+    // A pure up-launcher authors (0, -1): local `y` is TOWARD THE FEET, so
+    // "away from the feet" is negative — the same convention every authored
+    // volume in the tree writes (`+y = gravity-down`, D155).
     let up = crate::combat::HitKnockback {
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
-        launch_dir: Some(ae::Vec2::new(0.0, 1.0)),
+        launch_dir: Some(ae::Vec2::new(0.0, -1.0)),
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -548,7 +550,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     );
     assert!(
         vel.x.abs() < 1e-3 && vel.y < 0.0,
-        "a (0,1) launcher throws straight up (world -y): {vel:?}"
+        "a (0,-1) launcher throws straight up (world -y): {vel:?}"
     );
     assert!(
         (vel.length() - authored_speed).abs() < 1e-3,
@@ -562,7 +564,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
-        launch_dir: Some(ae::Vec2::new(1.0, 1.0)),
+        launch_dir: Some(ae::Vec2::new(1.0, -1.0)),
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -575,7 +577,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     );
     assert!(
         vel.x > 0.0 && vel.y < 0.0,
-        "a (1,1) launcher throws up-and-away from the source: {vel:?}"
+        "a (1,-1) launcher throws up-and-away from the source: {vel:?}"
     );
     // Mirrored source ⇒ mirrored lateral, same rise.
     let mirrored = crate::combat::HitKnockback {
@@ -605,8 +607,10 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
-    let n = ae::Vec2::new(0.6, 0.8); // already unit-length
-    let local_expected = ae::Vec2::new(n.x * speed, -n.y * speed);
+    // ⭐ the authored vector IS the local launch direction, so the expected
+    // local velocity is just `n * speed` — no negation anywhere (D155).
+    let n = ae::Vec2::new(0.6, -0.8); // already unit-length
+    let local_expected = n * speed;
     for gravity_dir in [
         ae::Vec2::new(0.0, 1.0),
         ae::Vec2::new(1.0, 0.0),

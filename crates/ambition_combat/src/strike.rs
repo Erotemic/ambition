@@ -63,9 +63,17 @@ pub struct Hitbox {
     pub knockback: HitboxKnockback,
     /// Authored launch DIRECTION in the victim's gravity frame (CM1,
     /// smash-style fixed launch angles): `x` = lateral, mirrored to point away
-    /// from the hit's source; `y` = upward against gravity. Direction only —
-    /// the resolver applies the speed carried by `HitboxKnockback::LaunchSpeed`.
-    /// `None` uses the standard feel diagonal at that authored speed.
+    /// from the hit's source; **`y` = toward the feet**, the authoring
+    /// contract's own `+y = gravity-down`
+    /// ([`HitVolume::launch_dir`](ambition_entity_catalog::HitVolume)) — so an
+    /// up-launcher authors `(0, -1)` and a spike authors `(0, 1)`. Direction
+    /// only — the resolver applies the speed carried by
+    /// `HitboxKnockback::LaunchSpeed`. `None` uses the standard feel diagonal at
+    /// that authored speed.
+    ///
+    /// ⛔ this said "`y` = upward against gravity" until D155, disagreeing with
+    /// the authored data it carries; the resolver believed the doc and inverted
+    /// every authored launch in the game.
     pub launch_dir: Option<ae::Vec2>,
     /// The owner's gravity "down" baked at spawn — the frame a non-box `shape`
     /// is placed in, so an authored slash arc / cone rotates with the body's

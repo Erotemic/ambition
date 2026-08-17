@@ -47,10 +47,22 @@ pub struct HitKnockback {
     pub source_pos: Vec2,
     /// World-space impact position — used for VFX position.
     pub impact_pos: Vec2,
-    /// Authored launch DIRECTION in the victim's gravity frame (CM1): `x` =
-    /// lateral (mirrored to point away from the source by the resolver's
-    /// side sign), `y` = upward against gravity. `None` = the feel-tuned
-    /// default diagonal.
+    /// **Authored launch DIRECTION, a plain vector in the victim's own
+    /// acceleration frame** (CM1): `x` = lateral (mirrored to point away from
+    /// the source by the resolver's side sign), **`y` = toward the feet**, the
+    /// same `y` [`AccelerationFrame`](crate::reference_frame::AccelerationFrame)
+    /// uses everywhere else — so an up-launcher authors `(0, -1)` and a spike
+    /// authors `(0, 1)`. `None` = the feel-tuned default diagonal.
+    ///
+    /// ⛔⛔ **this doc used to say `y` = upward, and the resolver negated `y` to
+    /// match it — which inverted EVERY authored launch in the game** (D155). The
+    /// authoring contract is
+    /// [`HitVolume::launch_dir`](../../ambition_entity_catalog/struct.HitVolume.html)
+    /// — *"(+x = facing, +y = gravity-down)"* — and all ~100 authored literals
+    /// wrote against it, so every up-tilt, up-air and up-smash in the tree
+    /// spiked its victim into the floor while every down-air lifted them.
+    /// Jon, playing: *"up tilts just keep the character on the ground"*. Keeping
+    /// ONE meaning for local `y` is what makes that unrepresentable.
     pub launch_dir: Option<Vec2>,
 }
 
@@ -245,6 +257,11 @@ pub fn knockback_velocity(
     // replaces the default feel diagonal. Its magnitude is resolved according
     // to the event's explicit unit: feel-scaled contacts preserve the standard
     // feel speed, while authored melee preserves its absolute launch speed.
+    //
+    // ⭐ the authored vector IS the local launch direction — `n * speed`, with
+    // only `x` mirrored by the away-from-source side. No `y` negation: local `y`
+    // means toward the feet here exactly as it does in every other local vector
+    // the engine passes around (see [`HitKnockback::launch_dir`]).
     let authored = knockback
         .and_then(|k| k.launch_dir)
         .filter(|ld| ld.length_squared() > 1e-6);
@@ -252,7 +269,7 @@ pub fn knockback_velocity(
         (Some(ld), HitKnockbackMagnitude::FeelScale(scale)) => {
             let n = ld.normalize();
             let speed = Vec2::new(tuning.knockback_x, tuning.knockback_y).length() * scale.max(0.0);
-            Vec2::new(dir * n.x * speed, -n.y * speed)
+            Vec2::new(dir * n.x, n.y) * speed
         }
         (None, HitKnockbackMagnitude::FeelScale(scale)) => {
             let scale = scale.max(0.0);
@@ -263,8 +280,7 @@ pub fn knockback_velocity(
         }
         (Some(ld), HitKnockbackMagnitude::LaunchSpeed(speed)) => {
             let n = ld.normalize();
-            let speed = speed.max(0.0);
-            Vec2::new(dir * n.x * speed, -n.y * speed)
+            Vec2::new(dir * n.x, n.y) * speed.max(0.0)
         }
         (None, HitKnockbackMagnitude::LaunchSpeed(speed)) => {
             let default_dir =
@@ -452,6 +468,154 @@ mod di_tests {
         assert!(
             (a - b).abs() < 1e-4,
             "the same local hold turned {a} upright and {b} inverted"
+        );
+    }
+}
+
+#[cfg(test)]
+mod launch_direction_tests {
+    use super::*;
+
+    fn tuning() -> HitResponseTuning {
+        HitResponseTuning {
+            knockback_x: 100.0,
+            knockback_y: 100.0,
+            hitstun_time: 0.24,
+            hitstun_reference_launch: STANDARD_LAUNCH_SPEED,
+            hitstun_max_scale: MAX_HITSTUN_SCALE,
+            hitlag_time: 0.070,
+            di_max_angle: 0.0,
+        }
+    }
+
+    fn launched(launch_dir: Option<Vec2>, gravity_dir: Vec2, speed: f32) -> Vec2 {
+        let victim = Vec2::new(100.0, 200.0);
+        let frame = AccelerationFrame::new(gravity_dir);
+        let knockback = HitKnockback {
+            dir: 0.0,
+            magnitude: HitKnockbackMagnitude::LaunchSpeed(speed),
+            // Struck from the local left, so the away-from-source side is +x.
+            source_pos: victim - frame.side * 40.0,
+            impact_pos: victim,
+            launch_dir,
+        };
+        knockback_velocity(
+            victim,
+            1.0,
+            gravity_dir,
+            Some(&knockback),
+            Vec2::ZERO,
+            &tuning(),
+        )
+    }
+
+    /// ⛔⛔ **THE CONVENTION, and it is the whole of D155.**
+    ///
+    /// `launch_dir` is a plain vector in the victim's acceleration frame, where
+    /// `y` points TOWARD THE FEET — the authoring contract's own words
+    /// (`HitVolume::launch_dir`: *"(+x = facing, +y = gravity-down)"*), which
+    /// every authored volume in the tree wrote against. The resolver used to
+    /// negate `y` to satisfy a doc comment that claimed the opposite, so every
+    /// up-tilt, up-air and up-smash spiked its victim into the floor and every
+    /// down-air lifted them. Jon, playing: *"up tilts just keep the character on
+    /// the ground"*.
+    ///
+    /// ⭐ the poison is the SPIKE half. A test that only checked the up-launcher
+    /// would also pass on a resolver that ignored `launch_dir`'s sign entirely
+    /// and always launched up.
+    #[test]
+    fn an_authored_up_launcher_rises_and_an_authored_spike_drives_down() {
+        let down = Vec2::new(0.0, 1.0);
+        let rise = launched(Some(Vec2::new(0.0, -1.0)), down, 400.0);
+        assert!(
+            rise.y < -399.0 && rise.x.abs() < 1e-3,
+            "an authored (0,-1) up-launcher must throw the victim AGAINST \
+             gravity at the authored speed, got {rise:?}"
+        );
+        let spike = launched(Some(Vec2::new(0.0, 1.0)), down, 400.0);
+        assert!(
+            spike.y > 399.0 && spike.x.abs() < 1e-3,
+            "an authored (0,1) spike must drive the victim INTO the floor, got \
+             {spike:?} — if this and the rise agree, the sign is being dropped"
+        );
+    }
+
+    /// The authored vector IS the local launch, `x` mirrored to point away from
+    /// the source: no other transform sits between the table and the velocity.
+    #[test]
+    fn the_authored_vector_is_the_local_launch_under_every_gravity() {
+        let n = Vec2::new(0.6, -0.8);
+        let speed = 250.0;
+        for gravity_dir in [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(-1.0, 0.0),
+        ] {
+            let vel = launched(Some(n), gravity_dir, speed);
+            let frame = AccelerationFrame::new(gravity_dir);
+            let local = frame.to_local(vel);
+            assert!(
+                (local - n * speed).length() < 1e-3,
+                "authored {n:?} at {speed} must resolve to exactly that local \
+                 launch under gravity {gravity_dir:?}, got {local:?}"
+            );
+        }
+    }
+
+    /// **DI STEERS A REAL LAUNCH, and opposite holds go opposite ways.**
+    ///
+    /// The rotation law itself is `di_tests`; this is the whole-launch seam —
+    /// the same authored hit, the same victim, two opposite held directions, two
+    /// materially different trajectories at the SAME speed. `di_max_angle == 0`
+    /// is the parity arm, so a game that authors no budget is untouched.
+    ///
+    /// ⭐ live-verified too (D155): in the composed smash host a CPU victim
+    /// steered a `3269 px/s` up-tilt launch by `0.308 rad` against the declared
+    /// `SMASH_DI_MAX_ANGLE` of `0.31` — essentially the whole budget — with the
+    /// speed preserved to four figures.
+    #[test]
+    fn opposite_held_directions_steer_one_launch_two_ways() {
+        let down = Vec2::new(0.0, 1.0);
+        let victim = Vec2::new(100.0, 200.0);
+        let launched_holding = |hold: Vec2, budget: f32| {
+            let mut tuning = tuning();
+            tuning.di_max_angle = budget;
+            let knockback = HitKnockback {
+                dir: 0.0,
+                magnitude: HitKnockbackMagnitude::LaunchSpeed(400.0),
+                source_pos: victim - Vec2::new(40.0, 0.0),
+                impact_pos: victim,
+                launch_dir: Some(Vec2::new(0.0, -1.0)),
+            };
+            knockback_velocity(victim, 1.0, down, Some(&knockback), hold, &tuning)
+        };
+        let left = launched_holding(Vec2::new(-1.0, 0.0), 0.31);
+        let right = launched_holding(Vec2::new(1.0, 0.0), 0.31);
+        assert!(
+            left.x < -50.0 && right.x > 50.0,
+            "holding away from each other must send the victim two different              places: {left:?} vs {right:?}"
+        );
+        assert!(
+            (left.length() - right.length()).abs() < 1e-3 && (left.length() - 400.0).abs() < 1e-3,
+            "DI rotates a launch, it never resizes one: {left:?} vs {right:?}"
+        );
+        // PARITY: the same two holds with no budget are the same launch.
+        assert_eq!(
+            launched_holding(Vec2::new(-1.0, 0.0), 0.0),
+            launched_holding(Vec2::new(1.0, 0.0), 0.0),
+            "a game that authors no DI budget must not have acquired one"
+        );
+    }
+
+    /// An UNAUTHORED launch still rises — the feel diagonal is the default and
+    /// this fix must not have moved it. (Ambition's PvE hits are all this arm.)
+    #[test]
+    fn an_unauthored_launch_still_rises_away_from_the_source() {
+        let vel = launched(None, Vec2::new(0.0, 1.0), 300.0);
+        assert!(
+            vel.y < 0.0 && vel.x > 0.0,
+            "the default diagonal throws up and away from the source: {vel:?}"
         );
     }
 }

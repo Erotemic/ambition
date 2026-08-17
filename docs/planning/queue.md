@@ -1127,6 +1127,39 @@ Wanted: `None` means *no authored claim* (a baseline), never *the ruleset
 ceiling*. ⚠ **dovetails with D143** (the kit-less seat), and D144's now-explicit
 roster is what makes retiring it affordable.
 
+⭐⭐ **PROBED 2026-08-17, AND THE FINDING IS SHARPER THAN THE REVIEW'S: THE
+BRIDGE IS LOAD-BEARING RIGHT NOW. DO NOT DELETE IT.**
+
+* **One real `at_most` adopter**: `game/ambition_app/src/app/versus.rs:298`
+  (smash uses `levelled`). Its own comment states the intent —
+  *"a character keeps what it authored, minus what this duel forbids"*.
+* ⛔⛔ **and NEITHER of its two fighters authors any abilities.**
+  `versus_fighters::duelists()` builds `arena_duelist_long` and
+  `arena_duelist_close` with `with_sheet` / `with_health` / `with_action_set` /
+  `with_moveset` / `with_hurtboxes` / `with_voice` — and **no `with_abilities`**.
+  So `authored` is `None` for both, and the `None → permitted` arm is what hands
+  them their entire kit. **Retiring the bridge naively leaves both duelists with
+  NO abilities and breaks the mode outright.**
+* ⇒ the stage's stated intent and its actual behaviour already disagree: it says
+  a character keeps what it authored, and what these two actually get is the
+  ceiling, because they authored nothing.
+
+**THE SAFE ORDER, and it is the reviewer's own condition (*"as explicit
+character/body capability declarations become complete"*) made concrete:**
+1. ▢ author the two duelists' abilities explicitly — the kit they receive TODAY,
+   so the change is provably behaviour-neutral before any semantics move.
+2. ▢ then make `None` mean *no authored claim*, and decide what that yields —
+   ⚠ it must NARROW the body's own kit rather than REPLACE it, which `apply`
+   cannot do today because it never receives that kit. That signature is the
+   real work, not the `unwrap_or`.
+3. ▢ then guard that no seated character anywhere relies on the bridge, so the
+   next unauthored fighter fails loudly instead of silently inheriting a ceiling.
+
+⚠ **`MatchBody::over` is the shape to copy** (D146 slice 1b): it takes the base
+the fighter brought as a PARAMETER and states only what the mode owns, so its
+`authored.unwrap_or(built)` supplies a real base to layer on rather than
+manufacturing a claim. That is why the body authority does not have this defect.
+
 - ▢ **D152 — EMPOWERMENT EXPIRY IS A PER-GAME SCHEDULING FOOTGUN. (review finding
   6, move lifecycle ownership into the engine)**
 

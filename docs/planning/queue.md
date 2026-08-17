@@ -866,9 +866,29 @@ in separate ranges (`44xx` and `68xx`), which is the signature of an editor
 session duplicating a selection — the same family as the EntityRef nulling this
 project already tracks. **Count entities after an editor session, not just refs.**
 
+⛔⛔ **AND IT IS TWO ROOMS, BOTH PIRATE-SKY — `pirate_sky_arena` in
+`intro.ldtk` is duplicated ENTIRELY:**
+
+```text
+pirate_sky_lookout   10 spawns · 6 distinct  ⇒ 4 duplicated
+pirate_sky_arena      6 spawns · 3 distinct  ⇒ 3 duplicated — EVERY ONE
+```
+
+⇒ **seven duplicated enemy spawns across the two sky rooms**, and the arena has
+no un-duplicated spawn at all. ⭐ two rooms in the same area failing the same way
+makes an editor-session accident near-certain rather than suspected, and it is a
+DIFFERENT world file from the lookout — so whatever ran, ran across worlds.
+⚠ this project already records a 2026-07-06 editor session that dropped four
+mount refs in `sandbox.ldtk`; the same class, and worth checking whether it is
+the same session.
+
 ⚠ **2. `portal_lab` has no floor.** *"no `Solid` blocking the bottom edge and no
 `EdgeExit` on that side; the controlled body can leave the world."* A room the
-player falls out of.
+player falls out of. ⛔ **but this check is GENRE-DEPENDENT and mostly noise**:
+it also fires on `mary_o_1_1`, `mary_o_1_3` and `sanic_speedway`, where a
+bottomless pit is the design and an open top edge is just headroom. It is a real
+finding for an AMBITION exploration room and a false one for the platformer
+demos — which is another reason its warnings go unread.
 
 ⚠ **3. `SurfaceRamp` has no editor definition** — `defs.entities` is missing it,
 so a supported engine entity cannot be PLACED by an author. Fix is the tool's own

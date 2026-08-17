@@ -1096,7 +1096,7 @@ pub fn prepare_match(
 /// character authors verbs   +   the match's two statements   ⇒   this body
 /// authored, match says nothing     →  the character's own kit
 /// authored, match declares         →  (kit ∪ granted) ∩ permitted
-/// unauthored, match declares       →  the ceiling  (migration bridge — see `apply`)
+/// unauthored, match declares       →  what it GRANTS (a ceiling grants nothing)
 /// unauthored, match says nothing   →  whatever construction built
 /// ```
 ///

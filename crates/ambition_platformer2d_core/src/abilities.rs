@@ -651,15 +651,33 @@ impl MatchAbilities {
 
     /// The verbs a body seated under these rules actually has.
     ///
-    /// ⚠ **`None` means the character stated nothing, and it takes the mode's
-    /// ceiling** — the migration bridge, expressed as the DEFAULT rather than as
-    /// a branch. Almost every character in the repo authors no verbs, so
-    /// removing this would strip a crossover cast down to whatever construction
-    /// happened to build. It disappears one character at a time, and the day it
-    /// is unreachable this line is `unwrap_or(AbilitySet::NONE)`.
+    /// ⭐⭐ **`None` means the character CLAIMED NOTHING, and claiming nothing
+    /// gets nothing but what the mode GRANTS** (D151, 2026-08-17). This line
+    /// read `unwrap_or(self.permitted)` until today — a migration bridge that
+    /// turned PERMISSION into a GRANT, so an unauthored character walked off
+    /// with the whole ceiling.
+    ///
+    /// ⛔ **why that was worse than it looked.** It is most damaging in exactly
+    /// the use these docs propose: `granted = the common kit`,
+    /// `permitted = the common kit + wall jump`, meaning *"the one character who
+    /// authored a wall jump keeps it"*. Under the old default every character
+    /// who authored NOTHING took the wall jump too — so the ceiling could never
+    /// be widened for one fighter without widening it for everybody who had not
+    /// spoken.
+    ///
+    /// ⚠ **`levelled` is unaffected, and that is what made the change safe.**
+    /// Its `granted == permitted`, so `NONE ∪ granted ∩ permitted` is still the
+    /// whole kit — the smash stage seats fourteen fighters through it and not
+    /// one of them moves. Only `at_most` changes, and its single adopter's two
+    /// fighters were dressed first (`a480c1381`) precisely so this could land
+    /// without costing anybody a verb.
+    ///
+    /// ⇒ a CEILING-ONLY mode now promises nothing, which is what a ceiling
+    /// means. A mode that wants every fighter to have a floor says so with
+    /// [`Self::levelled`].
     pub fn apply(self, authored: Option<AbilitySet>) -> AbilitySet {
         authored
-            .unwrap_or(self.permitted)
+            .unwrap_or(AbilitySet::NONE)
             .union(self.granted)
             .intersect(self.permitted)
     }
@@ -868,18 +886,62 @@ mod tests {
         );
     }
 
-    /// **AN UNAUTHORED CHARACTER TAKES THE CEILING** — the migration bridge,
-    /// and the reason `apply` defaults rather than branches. Almost every
-    /// character in the repo authors no verbs.
+    /// **A CHARACTER THAT CLAIMS NOTHING GETS WHAT THE MODE GRANTS — AND A
+    /// CEILING GRANTS NOTHING.** (D151, 2026-08-17)
+    ///
+    /// ⛔ **this asserted the opposite until today**, and the opposite was the
+    /// migration bridge: `apply` defaulted an absent claim to `permitted`, so an
+    /// unauthored character walked off with the whole ceiling and PERMISSION
+    /// became a GRANT. It reads harmless while a mode's floor and ceiling are
+    /// the same set; it bites the moment they differ, which is exactly the use
+    /// the type's own docs propose.
+    ///
+    /// ⭐ **the two halves differ now, and that difference IS the type's
+    /// point**: `levelled` promises its kit to everybody, so an unauthored
+    /// fighter still receives it — which is why the smash stage's fourteen
+    /// fighters did not move when this changed. `at_most` promises nothing, so
+    /// an unauthored fighter receives nothing, loudly, instead of silently
+    /// inheriting a ceiling nobody offered it.
     #[test]
-    fn a_character_that_authors_nothing_takes_what_the_mode_permits() {
+    fn claiming_nothing_gets_what_the_mode_grants_and_a_ceiling_grants_nothing() {
         assert_eq!(
             MatchAbilities::at_most(fighter_kit()).apply(None),
-            fighter_kit()
+            AbilitySet::NONE,
+            "a ceiling-only mode handed a kit to a character that never asked \
+             for one — the migration bridge is back"
         );
         assert_eq!(
             MatchAbilities::levelled(fighter_kit()).apply(None),
-            fighter_kit()
+            fighter_kit(),
+            "a mode that GRANTS its kit stopped granting it, which is the half \
+             every seated fighter on the smash stage depends on"
+        );
+
+        // ⛔ the case the bridge actually hid: a floor NARROWER than the
+        // ceiling. `permitted ⊃ granted` is how a mode says "one fighter
+        // authored a wall jump and keeps it" — and under the old default every
+        // silent character kept it too.
+        let widened = MatchAbilities {
+            granted: fighter_kit(),
+            permitted: AbilitySet {
+                wall_jump: true,
+                ..fighter_kit()
+            },
+        };
+        assert!(
+            !widened.apply(None).wall_jump,
+            "a character that authored nothing took a verb the mode merely \
+             ALLOWED, so widening a ceiling for one fighter widens it for \
+             everyone who stayed silent"
+        );
+        assert!(
+            widened.apply(Some(AbilitySet {
+                wall_jump: true,
+                ..AbilitySet::NONE
+            }))
+            .wall_jump,
+            "the fighter who DID author the wall jump lost it, so the ceiling \
+             is not permitting what it says it permits"
         );
     }
 

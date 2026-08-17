@@ -4028,6 +4028,37 @@ is NOT repaired. Fixing what we broke is not the same as paying it down.
 workspace policy suite before it (D134), **nothing per-turn runs it** — the gate
 is `cargo check -p ambition_app --all-targets` + the app suite + Smash.
 
+✔✔ **THE RATCHET IS GREEN AS OF 2026-08-17 (`f7e34225d`)** — `ambition_characters`
+is back to its 39 baseline, so no crate has risen and `--check` exits 0 for the
+first time since this row was opened.
+
+⛔⛔ **AND THE LEDGER WAS ABOUT TO BE HANDED A 13-LINK IMPROVEMENT NOBODY
+EARNED.** The conversation carve (D33 step 2) took the monolith 122 → 109, and
+the script invited banking it. Those thirteen were not FIXED, they were RE-HOMED
+into a crate `CRATES` did not name. `ambition_conversation` is on the list now,
+which puts **11 still-broken links back on the books** and moves the honest total
+UP: 182 → **193**. ⇒ **a carve launders debt off any ledger keyed by crate name,
+and the ledger congratulates you for it** — the rule ("the destination joins in
+the same commit") is written into `CRATES` beside the entry.
+
+⛔⛔ **AND THE ROW'S REMAINING ASK — "put it in a gate" — IS ANSWERED NO, BY
+MEASUREMENT.**
+
+```text
+warm, nothing changed                     51 s
+after touching ONE crate                 338 s   (5.6 min)
+```
+
+`ambition_platformer2d_core` is upstream of the other four, so touching it
+invalidates all five doc builds — and a gate runs precisely AFTER edits, so 338 s
+is the honest number, not 51. Against a project gate that is already
+`cargo check -p ambition_app --all-targets` + a ~150 s app suite, this is not a
+per-turn check. ⭐ **the row's own prose predicted it** — *"a ratchet over the
+whole workspace is a slow check that nobody runs"* — and now it has the number.
+
+▢ **so the wanted shape is PRE-PUSH or CI, not per-turn.** ⚠ and note the cost
+GREW with the carve: five crates now, not four. Every future carve adds one.
+
 ⭐⭐ **and this is very likely a debt THIS session created**, which is why it is
 opened rather than merely noticed. 2026-08-16 deleted or moved an unusual amount:
 `ExplosionKind` + three tables, `move_vfx_kind`, `explosion_anim`,

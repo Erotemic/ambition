@@ -467,6 +467,58 @@ settles for `attack_side`, then `attack`, then `slash`, then `idle`), so an
 unauthored fighter frame costs a move its picture and never its gameplay. The
 gaps stay playable while the art catches up.
 
+⭐⭐ **AND THE FOLLOW-UP: THE LAST ROW IS DEFERRED ON PURPOSE. DO NOT RE-OPEN IT
+AS THOUGH IT WERE UNEXAMINED.**
+
+Jon, verbatim, on the *"where this fighter sits against this cast"* row: *"I do
+actually think that the knockback and character weight does belong on the
+character authoring side and not on the game side still. The authoring format of
+the character can give it a whole bunch of properties and **it's the game's
+prerogative if it wants to choose to use it or not.** But maybe this whole thing
+is just a big smell and there's a better compositional way to handle it. **Maybe
+we should shove the actual decision on how to do this for now as long as the seam
+isn't too difficult to maintain or hard to restitch if we decide to do a
+refactor.** … the correct move if you're actually making a single game is to put
+it all in the author side on the character and then you balance the characters,
+because the pool of characters that you're inserted into the game is the cast —
+the game itself just imports them, and runs its logic on them. But this weird
+we're-using-the-same-character-in-multiple-games really makes the boundary fuzzy
+and difficult to reason about how the correct compositionality should be
+implemented."*
+
+⭐ **OFFER / CONSUME beats OVERRIDE, and it dissolves the table row above.** A
+character DECLARES a pile of properties; a ruleset READS the subset it cares
+about. Then nobody overrides anything — weight stops being something the game
+does TO George and becomes something George SAYS about himself that a fighting
+ruleset happens to read and a platformer ignores.
+⭐ **the refinement that holds it up under balance pressure: the CHARACTER
+authors the PROPERTY, the RULESET owns the FUNCTION from property to effect.**
+George says he is heavy; the smash ruleset decides what heaviness DOES. Balancing
+is then tuning the function and choosing the cast — never rewriting a character.
+The cast-relative reference frame (George's 1.35 against v3's 1.0) is the only
+part that needed the game, and it dissolves too once the property is stated
+against a FIXED reference body rather than against whoever is on the grid today.
+⚠ **the genuinely fuzzy residue is hitbox/hurtbox GEOMETRY**, where one body
+needs different answers per genre. Offer/consume covers it — author both, each
+ruleset reads what it needs — but it is unproven and grabs/techs/hurtboxes are
+not authored yet. **One data point is not a shape.**
+
+⛔ **WHAT IS OWED WHILE THIS IS DEFERRED — restitch cost, and only that.** Jon's
+condition was *"as long as the seam isn't too difficult to maintain or hard to
+restitch."* The invariant to hold: **every game-adjusts-a-character edit goes
+through ONE NAMED COMPOSITION SEAM, never a reach-in.** Then the eventual
+refactor moves one function instead of hunting call sites.
+
+| adjustment | form today | restitch cost |
+|---|---|---|
+| abilities | `effective_abilities` — stated once | cheap |
+| body | `MatchRules::body_over` — stated once | cheap |
+| `knockback_weight` | `install_smash_content` MUTATES `definition.vitals` in a loop | ⛔ **a reach-in** |
+
+▢ normalize the third onto the same seam as the other two. **No direction is
+implied and no decision is taken by doing so** — it is the shape that makes
+either answer a one-edit change later.
+
 **THREE ITEMS, in the order they should be done. Everything below is MEASURED,
 not assumed — the reading was done 2026-08-16 before any of it was written.**
 

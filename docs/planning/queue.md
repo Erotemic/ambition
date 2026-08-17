@@ -1832,12 +1832,14 @@ change** — `moveset_authoring::strike_tag`, because `strike` tags every volume
 `slash_arc` and a poke wants `slash_poke`. No character-ID branch anywhere.
 
 ⛔⛔ **two traps found here, both silent, both now guarded:**
-**(1) a `MoveEventKind::Vfx` event plays NO SOUND.** The paired `vfx.<family>.<row>`
-cue is only looked up on the `FxRequest` path; a move's `Vfx` writes
-`VfxMessage::Effect` straight through and `spawn_effect` emits nothing. A
-perfectly correct effect name is a perfectly silent animation, visible only by
-watching with the volume up. ⇒ every burst is authored as a `Vfx`+`Sfx` PAIR and
-`every_burst_in_this_table_is_heard` asserts it.
+**(1) a `MoveEventKind::Vfx` event plays NO SOUND.** ⚠⚠ **NO LONGER TRUE — D149
+fixed it, and this row is kept as history.** It was: the paired
+`vfx.<family>.<row>` cue is only looked up on the `FxRequest` path, so a move's
+`Vfx` wrote `VfxMessage::Effect` straight through and a perfectly correct effect
+name was a perfectly silent animation. The dispatcher asks for the pairing now;
+⛔ the remedy this row recommended — authoring every burst as a `Vfx`+`Sfx` PAIR —
+is now the DEFECT, because the second half plays the sound twice. See D149, and
+`a_paired_burst_is_heard_exactly_once`.
 **(2) four oiler cues pack with a `.loop` suffix the sprite row does not carry**
 (`vfx.oiler.oil_geyser_stream.loop`, `gate_calibration`, `invariant_loop`,
 `portal_leak`), so the mechanically derived cue for those four misses the bank

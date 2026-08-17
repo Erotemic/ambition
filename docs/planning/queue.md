@@ -100,11 +100,21 @@ surviving cost is CPU contention, which is a scheduling choice, not a limit.
 with **no marker at all**, which means nobody has even ruled on them. Promote one
 whenever a lane returns; ⛔ do not let a lane finish with nothing dispatched.
 
+⭐⭐ **THIRTEEN ENTRIES IN THAT FILE WERE RULED ON 2026-08-17**, so re-read it
+before promoting from this table — several rows here are answered. Highlights:
+`F` still opens doors (DRIVEN headlessly, with the repro recorded); the title's
+60 FPS is not intentional; the quality-change character swap has three causes
+eliminated and the right road named; the stray sword, the bolt hurtbox and the
+Mary-O restart are all **decisions**, not defects, and are now cross-linked to
+`awaiting-maintainer-decision.md` — which is where their options live.
+⛔ **two of my own rulings that day were WRONG and are marked as withdrawn in
+place**: couch play is NOT switched off, and a clipped label is not a defect.
+
 | Observation | Why it is worth a lane |
 |---|---|
 | Super Sanic's spikes are clipped by the sprite renderer | ⭐ Jon called it structural himself — *"we should not be able to clip sprite artwork so easily"*. This is the only one that is an ENGINE gap rather than content |
 | Mary-O secret/invisible blocks keep their brick texture when spent (quasar brick in 1-1) | the spent-art road already works for `?`-blocks, so this is a road that skipped a case |
-| Mary-O allows one fireball; should allow two | small, and the number is content, not engine |
+| ~~Mary-O allows one fireball; should allow two~~ | ✔ **ALREADY DONE, ruled 2026-08-17** — `MAX_LIVE_SPARKS` is 2 and the guard counts LIVE SHOTS rather than reading the constant back, so a retune cannot make it vacuous |
 | ~~the multi-coin block's coin-pop VFX~~ | ✔ **RESOLVED 2026-08-15 and it was never missing** — it landed in `943a9aa0c`; four demo shells had no `VfxMessage` reader, so it drew in the full game and nowhere else. ⛔ the doc entry said otherwise for a day |
 | the snake and AI slop are far too big, and the snake sprite may not match its box | ⚠ related to the player-side sprite/box unit mismatch at the top of that file — the two may be one bug |
 | **Sanic is very small in his own game** (Jon, 2026-08-15) | ⭐⭐ **third body in the sprite/box cluster, and the one that makes it a CLUSTER rather than three bugs** — see the measurement below |

@@ -173,6 +173,11 @@ impl Default for ContactHarm {
 /// untouchable *now*"), and a system that stated it once would have to be
 /// consulted by everything that might overwrite it. Re-stating is what makes the
 /// claim true independently of who else writes.
+///
+/// ⛔ **do not add this to a game's schedule.** [`EmpowermentLifecyclePlugin`]
+/// installs it in [`EmpowermentExpiry`], and a second registration would tick
+/// `remaining` twice per frame — a two-second grant lasting one. Order against
+/// the SET instead.
 pub fn run_empowerments(
     time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
@@ -222,6 +227,13 @@ pub fn run_empowerments(
 /// ⚠ a corpse is skipped, and so is a body its own vulnerability rule protects
 /// (i-frames, a dodge roll, a parry). Both checks are the SHARED ones — a second
 /// opinion about who is hittable is the bug this file was rewritten to remove.
+///
+/// ⭐ **this half stays OPTIONAL and the game schedules it**, unlike expiry —
+/// Sanic deliberately does not install it, because `defeat_badniks` already owns
+/// destroy-on-touch and two authorities killing one badnik was the bug that
+/// choice avoids. A game that wants it and wants the frame an empowerment ends
+/// not to also be a frame it flattens something orders it
+/// `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
     mut hit_events: MessageWriter<HitEvent>,
     empowered: Query<(
@@ -326,7 +338,50 @@ pub fn apply_contact_harm(
 #[cfg(test)]
 mod tests;
 
-/// **Removing the empowerment releases the trait it was projecting.**
+/// **When an empowerment's clock advances**, as one named slot the engine fills
+/// and a game can order against.
+///
+/// ⭐ **the split the standing note was missing.** *"What is engine-owned is the
+/// INVARIANT, not the order"* is right about `apply_contact_harm`: whether a
+/// body's touch is destructive is a ruleset choice, and Sanic answers it
+/// differently from Mary-O for a reason. It was wrong about EXPIRY. Ticking
+/// `remaining`, deciding `live` and releasing the projection is not a policy any
+/// game gets to hold an opinion about — it is what `Empowered::for_seconds(…,
+/// 2.0)` MEANS. Leaving that to each composition made "for two seconds" mean
+/// "forever" in whichever game forgot, which is exactly how Smash's respawn
+/// protection surfaced it: the grant appeared and five seconds later still read
+/// `remaining: 2.0`.
+///
+/// So the engine installs [`run_empowerments`] here, and a game says only what
+/// it wants ORDERED against it — `apply_contact_harm` after expiry, a grant
+/// before it. Contact harm stays entirely optional; forgetting the lifecycle
+/// stops being possible.
+///
+/// ⚠ **the placement is `GameplayEffects`, and it could not be all three.** The
+/// five hand-installations sat in three mutually exclusive phases
+/// (`CombatSet::Settle` ⊂ `Combat` ⊂ `CoreSimulation` for Smash,
+/// `FeatureInteraction` for Mary-O, `GameplayEffects` for Sanic), and the hosted
+/// Ambition app builds all three plugins at once — so one set cannot occupy the
+/// literal slot each of them used, and per-game re-placement of a SHARED set is
+/// a schedule cycle, not an escape. `GameplayEffects` is the LAST of the three,
+/// which is what makes the choice ordering-preserving rather than arbitrary:
+///
+/// * every grant site (`place_respawning_fighters`, `begin_star_power`,
+///   `sync_super_form_traits`) is at or before it, so a grant still gets its
+///   projection stamped on the frame it is made;
+/// * every consumer of what this system WRITES — `Invulnerability` — reads it
+///   from `CombatSet::Resolve`, inside `CoreSimulation`, which precedes all
+///   three phases. So the grant→read latency is one frame from any of them, and
+///   moving between them changes nothing a body can observe.
+///
+/// What DID have to move is the one thing a game deliberately ordered AFTER
+/// expiry: Mary-O's `apply_contact_harm` and her star music, which now say so
+/// against this set instead of by adjacency in a chain.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct EmpowermentExpiry;
+
+/// **The empowerment lifecycle**: the clock that ends a timed grant, and the
+/// release that follows the component out of the world.
 ///
 /// ⛔ **this existed as a ritual, and the ritual was already being performed by
 /// hand.** `run_empowerments` writes `Invulnerability::EMPOWERED` from the
@@ -345,19 +400,25 @@ mod tests;
 /// however it happens: expiry, a granter taking it back, a despawn, or a
 /// rollback restoring a frame where the body was never empowered.
 ///
-/// ⚠ **the SCHEDULING deliberately stays with the games.** The review that found
-/// this asked for one engine-owned installation point for the whole feature, and
-/// that would take away a choice each game makes on purpose: Sanic installs
-/// `run_empowerments` in `GameplayEffects` and deliberately does NOT install
-/// `apply_contact_harm` (`defeat_badniks` already owns the destroy-on-touch
-/// reaction, and two authorities killing one badnik is the bug it was avoiding),
-/// while Mary-O installs both in `FeatureInteraction` with contact harm ordered
-/// after expiry. What is engine-owned is the INVARIANT, not the order.
-pub struct EmpowermentProjectionPlugin;
+/// ⭐ **and the SAME argument applies one level up**, which is what this plugin
+/// gained: an empowerment whose expiry depends on each composition remembering
+/// to schedule a system is a two-step ritual with the scheduling as step two.
+/// The clock is installed here now, in [`EmpowermentExpiry`] — read that set's
+/// docs for why the order is still each game's and where it sits.
+pub struct EmpowermentLifecyclePlugin;
 
-impl Plugin for EmpowermentProjectionPlugin {
+impl Plugin for EmpowermentLifecyclePlugin {
     fn build(&self, app: &mut App) {
+        use ambition_platformer2d_shared_tangle::schedule::{
+            Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+        };
         app.add_observer(release_empowerment_projection);
+        let sim = app.sim_schedule();
+        app.configure_sets(
+            sim,
+            EmpowermentExpiry.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+        );
+        app.add_systems(sim, run_empowerments.in_set(EmpowermentExpiry));
     }
 }
 

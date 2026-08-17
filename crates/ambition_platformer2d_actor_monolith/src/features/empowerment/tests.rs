@@ -58,7 +58,11 @@ fn app_with_striker_and_victim(
             BodyCombat::default(),
         ))
         .id();
-    app.add_systems(Update, (run_empowerments, apply_contact_harm).chain());
+    // ⭐ **the engine installs the clock; this fixture installs only the half a
+    // game chooses.** That is the D152 shape, and building the fixture the other
+    // way (hand-adding `run_empowerments`) would test a composition no game has.
+    app.add_plugins(EmpowermentLifecyclePlugin);
+    app.add_systems(Update, apply_contact_harm.after(EmpowermentExpiry));
     (app, striker, victim)
 }
 
@@ -214,7 +218,6 @@ fn a_vanished_striker_harms_nothing() {
 fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call() {
     let (mut app, striker, _victim) =
         app_with_striker_and_victim(Empowerment::UNTOUCHABLE, 10.0, ActorFaction::Enemy);
-    app.add_plugins(EmpowermentProjectionPlugin);
     app.update();
     assert!(
         app.world()
@@ -237,5 +240,66 @@ fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call()
             .any(),
         "removing the empowerment must release the EMPOWERED reason — otherwise \
          the body stays untouchable for the rest of its life",
+    );
+}
+
+/// **The footgun, closed: a composition that schedules NOTHING still ends a
+/// timed grant.**
+///
+/// This is the whole of D152. `Empowered::for_seconds(…, 2.0)` says two
+/// seconds, and until the engine installed the clock that sentence was only
+/// true in a game that separately remembered to add `run_empowerments` to its
+/// own schedule — five compositions had remembered, and Smash's respawn
+/// protection is how the sixth would have found out: the grant appeared and
+/// five seconds later still read `remaining: 2.0`.
+///
+/// So this app is deliberately impoverished. It adds the lifecycle plugin and
+/// nothing else — no phases, no ordering, no contact harm — because that is the
+/// composition of the game that has not read this file.
+///
+/// ⛔ `app.update()` is not one tick of sim time, so the property is polled to a
+/// ceiling rather than counted out in updates.
+#[test]
+fn a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing() {
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    // The ONLY thing this game does about empowerment.
+    app.add_plugins(EmpowermentLifecyclePlugin);
+    let body = app
+        .world_mut()
+        .spawn((
+            Empowered::for_seconds(Empowerment::UNTOUCHABLE, 0.25),
+            BodyHealth::new(Health::new(5)),
+        ))
+        .id();
+
+    // The premise, so nothing below can hold vacuously: the grant IS live and IS
+    // projecting before anything is asked to end it.
+    app.update();
+    assert!(
+        app.world().get::<Empowered>(body).is_some(),
+        "the grant must still be held after one tick, or the test proves nothing",
+    );
+    assert!(
+        untouchable(&app, body),
+        "and it must be projecting its reason, or 'it expired' means nothing",
+    );
+
+    let mut ticks = 1;
+    while app.world().get::<Empowered>(body).is_some() {
+        app.update();
+        ticks += 1;
+        assert!(
+            ticks < 600,
+            "a 0.25s grant is still held after {ticks} ticks — 'for seconds' has \
+             become 'forever', which is the footgun this set exists to close",
+        );
+    }
+    assert!(
+        !untouchable(&app, body),
+        "and the expiry released the reason it was projecting",
     );
 }

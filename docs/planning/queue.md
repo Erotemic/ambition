@@ -1327,8 +1327,8 @@ the fighter brought as a PARAMETER and states only what the mode owns, so its
 `authored.unwrap_or(built)` supplies a real base to layer on rather than
 manufacturing a claim. That is why the body authority does not have this defect.
 
-- ▢ **D152 — EMPOWERMENT EXPIRY IS A PER-GAME SCHEDULING FOOTGUN. (review finding
-  6, move lifecycle ownership into the engine)**
+- ✔ **D152 — EMPOWERMENT EXPIRY IS A PER-GAME SCHEDULING FOOTGUN. (review finding
+  6, move lifecycle ownership into the engine)** — CLOSED 2026-08-17.
 
 Predates the review; smash's respawn protection proved it real. Smash had to add
 `run_empowerments` to its own schedule or a two-second invulnerability becomes
@@ -1363,6 +1363,51 @@ does not answer it.**
 * ⛔ **five adopters today**, each having remembered: smash, sanic (×2 incl. its
   tests), mary_o (×2 incl. `star.rs`). A sixth game that forgets gets permanent
   invulnerability — which is exactly how smash's respawn protection surfaced it.
+
+⭐ **CLOSED 2026-08-17 — the engine installs the clock in `EmpowermentExpiry`;
+the ORDER is still each game's.** `EmpowermentProjectionPlugin` became
+`EmpowermentLifecyclePlugin` and now adds `run_empowerments.in_set(
+EmpowermentExpiry)` to the sim schedule beside the removal observer it already
+owned. All five hand-installations are gone. `apply_contact_harm` stayed
+optional and un-installed — Sanic still has none.
+
+⚠ **ONE LITERAL PLACEMENT COULD NOT BE PRESERVED, AND IT IS STRUCTURAL, NOT A
+SHORTCUT.** The five sat in THREE mutually exclusive phases — `CombatSet::Settle`
+⊂ `Combat` ⊂ `CoreSimulation` (smash), `FeatureInteraction` (mary_o),
+`GameplayEffects` (sanic) — and the hosted Ambition app builds all three plugins
+at once, each `run_empowerments` gated by its own `in_mode`. One shared set has
+one position, and per-game `configure_sets` re-placement is not the escape: three
+games nesting one set into three strictly ordered phases is a schedule cycle.
+⭐ **so the placement is `GameplayEffects`, the LAST of the three, which is what
+makes it ordering-PRESERVING rather than arbitrary.** Every grant site
+(`place_respawning_fighters`, `begin_star_power`, `sync_super_form_traits`) is at
+or before it, so a grant still gets its projection stamped on the frame it is
+made; and every consumer of what `run_empowerments` WRITES —
+`Invulnerability` — reads it from `CombatSet::Resolve` inside `CoreSimulation`,
+which precedes all three phases, so the grant→read latency is one frame from any
+of them. Nothing a body can observe moved.
+
+What each adopter says now:
+* **smash** — nothing. Its chain reads no grant, so it needs no edge; the note
+  it carried (*"probably an engine-side registration later"*) is what landed.
+* **sanic (lib)** — `EmpowermentExpiry.after(sync_super_form_traits)
+  .before(emit_sanic_skid_sfx)`, reproducing its exact chain slot. Still no
+  `apply_contact_harm`: `defeat_badniks` keeps destroy-on-touch.
+* **sanic (tests)** and **mary_o (`star.rs` tests)** — the plugin plus the same
+  one-line edge, instead of hand-adding the system.
+* **mary_o (lib)** — the two systems it deliberately ordered AFTER expiry
+  (`apply_contact_harm`, `play_star_music`) moved out of the `FeatureInteraction`
+  chain into `GameplayEffects.after(EmpowermentExpiry)`, so the intent is stated
+  rather than implied by adjacency. ⚠ costs nothing: the `HitEvent` contact harm
+  writes is consumed by `apply_feature_hit_events` in `CombatSet::Resolve`, which
+  precedes BOTH phases.
+
+Guard: `a_timed_empowerment_ends_in_a_composition_that_scheduled_nothing`
+(`features::empowerment::tests`) — an app whose ONLY empowerment statement is the
+plugin, polling `Empowered` to a 600-tick ceiling rather than counting updates.
+Seen RED with the plugin's `add_systems` stubbed out (*"it must be projecting its
+reason"*), along with four fixture tests, because the shared fixture now composes
+like a game instead of hand-adding `run_empowerments`.
 
 - ✔ **D153 — A MISSING REQUIRED SPRITE PAGE FAILS OPEN. (review finding 7, small)** — CLOSED 2026-08-17.
 
@@ -1415,7 +1460,7 @@ for the permanent-spinner fix this sits inside, green under both behaviours by
 construction. Fixtures build real specs through `AuthoredSheets::insert_ron` →
 `try_load_spec_for_target_authored`, so neither passes vacuously.
 
-- ▢ **D154 — AUTHORED VFX IS ONLY HALF BODY-LOCAL: POSITION IS TRANSFORMED,
+- ✔ **D154 — CLOSED 2026-08-17 (`97a5b76ea`). AUTHORED VFX WAS ONLY HALF BODY-LOCAL: POSITION WAS TRANSFORMED,
   ORIENTATION IS NOT. (review finding 8, take with the next directional pass)**
 
 `d6d5810b8` gave `MoveEventKind::Vfx` an `at` and a `scale`, and correctly

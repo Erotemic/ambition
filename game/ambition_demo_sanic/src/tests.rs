@@ -1141,26 +1141,25 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     // `sync_super_form_traits` now emits the transform cue on the worn-identity
     // edge, so the SFX channel must exist for the SfxWriter system param.
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    // BOTH halves, chained as the app chains them. `sync_super_form_traits`
+    // BOTH halves, ordered as the app orders them. `sync_super_form_traits`
     // states the super form's TRAITS and the engine's empowerment runs them —
     // running only the first would assert that a grant was made, which is
     // exactly the half-wiring that makes an opt-in component do nothing.
+    //
+    // ⭐ the second half is no longer this test's to install. The engine's
+    // lifecycle plugin brings the clock AND the projection cleanup, and this
+    // harness says only what the real composition says: the traits are stated
+    // before the engine projects them.
     {
         use bevy::ecs::schedule::IntoScheduleConfigs as _;
-        app.add_systems(
-            bevy::prelude::Update,
-            (
-                sync_super_form_traits,
-                ambition_platformer2d::actors::features::empowerment::run_empowerments,
-            )
-                .chain(),
-        );
-        // ...and the engine's projection cleanup, which the real composition
-        // installs in `PlatformerEnginePlugins`. Retracting the form REMOVES the
-        // empowerment, and releasing the reason it projected is the engine's
-        // job now rather than a second call beside every removal.
+        app.add_systems(bevy::prelude::Update, sync_super_form_traits);
         app.add_plugins(
-            ambition_platformer2d::actors::features::empowerment::EmpowermentProjectionPlugin,
+            ambition_platformer2d::actors::features::empowerment::EmpowermentLifecyclePlugin,
+        );
+        app.configure_sets(
+            bevy::prelude::Update,
+            ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry
+                .after(sync_super_form_traits),
         );
     }
     let player = app

@@ -479,12 +479,14 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
             .add(ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatPlugin)
-            // The empowerment PROJECTION cleanup — engine-owned because the
-            // invariant is (removing the component releases the trait it
-            // projected), while WHEN the empowerment runs stays each game's
-            // ordering choice.
+            // The empowerment LIFECYCLE — the clock that ends a timed grant and
+            // the release that follows the component out of the world. Both are
+            // invariants of what `Empowered::for_seconds(…, 2.0)` means, not
+            // rules a game gets an opinion about; what stays each game's choice
+            // is the ORDER (against `EmpowermentExpiry`) and whether it wants
+            // `apply_contact_harm` at all.
             .add(
-                ambition_platformer2d_actor_monolith::features::empowerment::EmpowermentProjectionPlugin,
+                ambition_platformer2d_actor_monolith::features::empowerment::EmpowermentLifecyclePlugin,
             )
             .add(RoomTransitionSchedulePlugin)
             // The readiness transaction + authorized commit that sits in the gap

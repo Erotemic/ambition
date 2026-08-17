@@ -647,19 +647,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
-            // **THE THING THAT MAKES A TIMED GRANT END**, and every game has to
-            // remember it separately.
-            //
-            // ⛔ found the hour respawn protection landed: the grant appeared,
-            // and five seconds later still read `remaining: 2.0` — untouched,
-            // because nothing in this composition ticks it. Mary-O and Sanic
-            // each register this system for their own pickups; Smash had no
-            // empowerment until now and so had never needed it. A component
-            // whose expiry depends on each game scheduling a system is a grant
-            // that silently becomes permanent in the game that forgets, which
-            // is worth a note here and probably an engine-side registration
-            // later.
-            ambition_platformer2d::actors::features::empowerment::run_empowerments,
+            // ⭐ **`run_empowerments` used to sit right here**, and the note
+            // beside it said a component whose expiry depends on each game
+            // scheduling a system is a grant that silently becomes permanent in
+            // the game that forgets — *"probably an engine-side registration
+            // later"*. That landed (queue D152): the engine installs the clock
+            // in `EmpowermentExpiry`, so the respawn protection this file grants
+            // ends whether or not anybody remembers. Nothing here reads the
+            // grant, so nothing here needs an ordering edge against it — the
+            // stamp lands in `GameplayEffects`, still ahead of the next frame's
+            // `CombatSet::Resolve` that consults it, exactly as it did from this
+            // slot.
             announce_the_winner,
         )
             .chain()
@@ -2330,8 +2328,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2"),
             (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
         ] {
-            let definition =
-                CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
+            let definition = CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
             // ⛔⛔ **THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE**
             // (2026-07-31 found it; queue D131 moved it, 2026-08-16).
             //

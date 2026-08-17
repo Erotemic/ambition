@@ -156,13 +156,18 @@ mod tests {
                 },
             ))
             .id();
-        app.add_systems(
+        // The grant, and the engine's clock ordered behind it — the same two
+        // statements the real composition makes. The clock itself is no longer
+        // this harness's to schedule: `EmpowermentLifecyclePlugin` installs it
+        // in `EmpowermentExpiry`, which is the whole point of D152.
+        app.add_systems(Update, begin_star_power);
+        app.add_plugins(
+            ambition_platformer2d::actors::features::empowerment::EmpowermentLifecyclePlugin,
+        );
+        app.configure_sets(
             Update,
-            (
-                begin_star_power,
-                ambition_platformer2d::actors::features::empowerment::run_empowerments,
-            )
-                .chain(),
+            ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry
+                .after(begin_star_power),
         );
         (app, body)
     }

@@ -1333,14 +1333,6 @@ impl Plugin for SanicRulesPlugin {
             // The super form's derived traits (invincibility + sparkles) track
             // the worn identity every frame — toggle- and monitor-agnostic.
             sync_super_form_traits,
-            // ...and the engine RUNS what that granted. Without this the form
-            // would carry an `Empowered` nothing consulted, so wearing it would
-            // grant no invulnerability at all — the exact silent half-wiring an
-            // opt-in component invites. `apply_contact_harm` is deliberately NOT
-            // here: `defeat_badniks` already owns the destroy-on-touch reaction,
-            // including its pop and its bounce, and two authorities killing the
-            // same badnik is what this change exists to stop.
-            ambition_platformer2d::actors::features::empowerment::run_empowerments,
             // Braking scrape on the skid onset (reads the published skid fact).
             emit_sanic_skid_sfx,
             // The goal, then the cycle: a clear captured this frame must be
@@ -1350,6 +1342,26 @@ impl Plugin for SanicRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
+        // **The super form states its TRAITS before the engine runs them.**
+        //
+        // `sync_super_form_traits` inserts/removes `Empowered` from the worn
+        // identity; the engine's `EmpowermentExpiry` set projects it onto
+        // `Invulnerability`. This edge is the whole of what used to be
+        // adjacency in the chain above — donning the form on frame N has to
+        // stamp the reason on frame N, or the invulnerability arrives a frame
+        // late.
+        //
+        // ⭐ **an ORDER, not an installation.** `apply_contact_harm` is still
+        // deliberately absent from this game: `defeat_badniks` already owns the
+        // destroy-on-touch reaction, including its pop and its bounce, and two
+        // authorities killing the same badnik is what that choice exists to
+        // stop. The engine owning EXPIRY takes nothing away from it.
+        app.configure_sets(
+            sim,
+            ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry
+                .after(sync_super_form_traits)
+                .before(emit_sanic_skid_sfx),
+        );
         let milestone_sfx = emit_sanic_milestone_sfx
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         // The badnik defeat runs BEFORE the engine's shared body-contact-damage
@@ -1718,7 +1730,7 @@ fn sync_super_form_traits(
             } else {
                 // The reason goes back with the form, and the ENGINE does that:
                 // removing `Empowered` releases `Invulnerability::EMPOWERED`
-                // through `EmpowermentProjectionPlugin`'s observer. This used to
+                // through `EmpowermentLifecyclePlugin`'s observer. This used to
                 // clear the bit by hand right here, which worked and was the
                 // two-step ritual — the second step being the one the next
                 // granter forgets.

@@ -2127,16 +2127,32 @@ impl Plugin for MaryORulesPlugin {
             // the untouchable fact AFTER the transformation beat has had its say
             // on the same flag this tick (see `star`'s module docs).
             star::begin_star_power,
-            ambition_platformer2d::actors::features::empowerment::run_empowerments,
-            // Contact harm AFTER the tick that may have ended the empowerment,
-            // so the frame it expires on is not also a frame it flattens
-            // something.
-            ambition_platformer2d::actors::features::empowerment::apply_contact_harm,
-            star::play_star_music,
             powerups::tag_mary_o_sparks,
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
+        // **The two systems that deliberately react AFTER the empowerment ends**,
+        // saying so against the engine's set instead of by sitting next to
+        // `run_empowerments` in the chain above (queue D152).
+        //
+        // Contact harm must not flatten anything on the frame the star expires,
+        // and the star's theme must be released on the frame `Empowered` leaves
+        // the body rather than one frame later. Both were expressed as
+        // adjacency; the clock they depended on is the engine's now, so they
+        // follow `EmpowermentExpiry` — which puts them in `GameplayEffects`
+        // instead of `FeatureInteraction`.
+        //
+        // ⚠ **and that costs nothing observable.** The `HitEvent` contact harm
+        // writes is consumed by `apply_feature_hit_events` in
+        // `CombatSet::Resolve`, inside `CoreSimulation` — which precedes BOTH
+        // phases, so the hit lands on the next frame either way.
+        let after_the_star = (
+            ambition_platformer2d::actors::features::empowerment::apply_contact_harm,
+            star::play_star_music,
+        )
+            .chain()
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            .after(ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
         // so they sit after the brain tick and before the shared movement phase
@@ -2204,6 +2220,10 @@ impl Plugin for MaryORulesPlugin {
             );
             app.add_systems(
                 sim,
+                after_the_star.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
+            app.add_systems(
+                sim,
                 bricks.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
             app.add_systems(
@@ -2224,6 +2244,7 @@ impl Plugin for MaryORulesPlugin {
             app.add_systems(sim, pipe_rules);
             app.add_systems(sim, cronies);
             app.add_systems(sim, powerups);
+            app.add_systems(sim, after_the_star);
             app.add_systems(sim, bricks);
             app.add_systems(sim, gait);
             app.add_systems(sim, brick_overlay);

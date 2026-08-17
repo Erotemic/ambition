@@ -142,6 +142,11 @@ pub fn rebuild_body_pose_views(
                 Option<&BodyCombat>,
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
                 Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+                // **This body's own resolved basis**, so the locomotion metric is
+                // measured along ITS run axis. ⛔ deliberately not the global
+                // `GravityField` read below: that one drives the facing flip and
+                // is a mirror of the PRIMARY body's frame.
+                Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
             ),
             (
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyModeState>,
@@ -196,7 +201,17 @@ pub fn rebuild_body_pose_views(
         .as_deref()
         .map_or(ambition_platformer2d_core::Vec2::Y, |g| g.dir);
     for (
-        (entity, kinematics, ground, motion_facts, flight, combat, anim_facts, blink_cam),
+        (
+            entity,
+            kinematics,
+            ground,
+            motion_facts,
+            flight,
+            combat,
+            anim_facts,
+            blink_cam,
+            body_frame,
+        ),
         (
             body_mode,
             env_contact,
@@ -245,6 +260,14 @@ pub fn rebuild_body_pose_views(
                 env_contact,
                 abilities,
                 shield,
+                body_frame.map_or_else(
+                    || {
+                        ambition_platformer2d_core::AccelerationFrame::new(
+                            ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
+                        )
+                    },
+                    |f| f.basis(),
+                ),
             ),
             _ => CharacterAnim::Idle,
         };

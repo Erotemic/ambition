@@ -23,6 +23,10 @@ struct PickClusters {
     env_contact: ae::BodyEnvironmentContact,
     abilities: ae::BodyAbilities,
     shield: ae::BodyShieldState,
+    /// The body's own reference basis. Defaults to ordinary down-gravity, so
+    /// every pre-existing case reads exactly as it did before the frame became
+    /// an input; a rotated-gravity case sets it.
+    frame: ae::AccelerationFrame,
 }
 
 impl PickClusters {
@@ -36,6 +40,7 @@ impl PickClusters {
             env_contact: Default::default(),
             abilities: Default::default(),
             shield: Default::default(),
+            frame: ae::AccelerationFrame::new(ae::Vec2::new(0.0, 1.0)),
         }
     }
 }
@@ -74,6 +79,7 @@ fn pick(
         &c.env_contact,
         &c.abilities,
         &c.shield,
+        c.frame,
     )
 }
 
@@ -466,6 +472,7 @@ fn pick_actor(
         &c.shield,
         swing,
         state,
+        c.frame,
     )
 }
 
@@ -704,4 +711,95 @@ fn the_floor_game_outranks_the_hit_row() {
         CharacterAnim::Hit,
         "a launched body holds the struck pose through its arc"
     );
+}
+
+// ── GRAVITY-RELATIVE LOCOMOTION METRIC ───────────────────────────────────────
+//
+// ⭐⭐ **Jon, from play (2026-08-17): "in the wall run room when gravity is
+// sideways and I walk on the wall, the walk animation does not play — but on the
+// ceiling, upside down, it works."** That asymmetry IS the diagnosis. The
+// grounded metric was `|vel.x|`, a WORLD-x magnitude, which coincides with the
+// body's run axis only while gravity is vertical — down and up both keep the run
+// axis on world-x, so those two read correctly and hide the defect. Turn gravity
+// sideways and the run axis becomes world-y, `|vel.x|` reads ~0, and a body at
+// full running speed is below `idle_below`.
+
+/// The four cardinal gravities, and a walking speed expressed in each one's own
+/// run axis. `side` is `down` rotated -90°, matching `AccelerationFrame::new`.
+fn walking_in_gravity(down: ae::Vec2, speed: f32) -> ae::BodyKinematics {
+    let frame = ae::AccelerationFrame::new(down);
+    ae::BodyKinematics {
+        vel: frame.side * speed,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones() {
+    let (anim, combat, blink_cam, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+
+    for down in [
+        ae::Vec2::new(0.0, 1.0),  // ordinary floor
+        ae::Vec2::new(0.0, -1.0), // ceiling: upside down — Jon reports this WORKS
+        ae::Vec2::new(1.0, 0.0),  // wall on the right — reported BROKEN
+        ae::Vec2::new(-1.0, 0.0), // wall on the left  — reported BROKEN
+    ] {
+        c.kinematics = walking_in_gravity(down, 120.0);
+        c.frame = ae::AccelerationFrame::new(down);
+        assert_eq!(
+            pick(&anim, &combat, &blink_cam, None, &c),
+            CharacterAnim::Walk,
+            "a body running along its own floor under gravity {down:?} played \
+             the idle row: the locomotion metric is measuring a WORLD axis \
+             rather than the body's run axis"
+        );
+    }
+}
+
+/// ⛔ **the poison.** Without it the fix could be "always report Walk when
+/// grounded", which would pass the test above and make standing still animate.
+#[test]
+fn a_grounded_body_standing_still_is_idle_in_every_gravity() {
+    let (anim, combat, blink_cam, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+
+    for down in [
+        ae::Vec2::new(0.0, 1.0),
+        ae::Vec2::new(0.0, -1.0),
+        ae::Vec2::new(1.0, 0.0),
+        ae::Vec2::new(-1.0, 0.0),
+    ] {
+        c.kinematics = walking_in_gravity(down, 0.0);
+        c.frame = ae::AccelerationFrame::new(down);
+        assert_eq!(
+            pick(&anim, &combat, &blink_cam, None, &c),
+            CharacterAnim::Idle,
+            "a motionless body under gravity {down:?} animated as walking"
+        );
+    }
+}
+
+/// ⛔ **and DRIFT ALONG THE FALL AXIS IS NOT WALKING.** The mirror of the bug:
+/// measuring total speed instead of the run component would make a body sliding
+/// down its own wall play the walk row. Only motion along `side` counts.
+#[test]
+fn motion_along_the_fall_axis_is_not_walking() {
+    let (anim, combat, blink_cam, mut c) = pick_inputs();
+    c.ground.on_ground = true;
+
+    for down in [ae::Vec2::new(0.0, 1.0), ae::Vec2::new(1.0, 0.0)] {
+        let frame = ae::AccelerationFrame::new(down);
+        c.kinematics = ae::BodyKinematics {
+            vel: frame.down * 120.0,
+            ..Default::default()
+        };
+        c.frame = ae::AccelerationFrame::new(down);
+        assert_eq!(
+            pick(&anim, &combat, &blink_cam, None, &c),
+            CharacterAnim::Idle,
+            "motion straight along the fall axis under gravity {down:?} read as \
+             walking: the metric is total speed, not the run component"
+        );
+    }
 }

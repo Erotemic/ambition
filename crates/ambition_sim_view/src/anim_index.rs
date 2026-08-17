@@ -47,6 +47,15 @@ pub struct ActorSpriteData {
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
     pub anim: Option<&'static ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
+    /// **The body's own resolved reference basis**, so the locomotion metric is
+    /// measured along ITS run axis rather than world-x.
+    ///
+    /// ⛔ not the global `GravityField`: that is a per-tick mirror of the PRIMARY
+    /// body's frame, so every NPC in a localized-gravity zone would be animated
+    /// against the player's gravity. `Option` because a body spawned mid-tick has
+    /// not been through the frame-resolution phase yet; it reads as ordinary
+    /// down-gravity, which is what it did before this was an input at all.
+    pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     /// Content-driven pose PIN. When present it wins over the picked pose — a
     /// content state machine (e.g. a shelled enemy's withdraw cycle) uses it to
     /// show a pose the disposition-agnostic picker can't infer. `Option`, so an
@@ -212,6 +221,10 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 shooting: a.anim.is_some_and(|f| f.shoot_anim_timer > 0.0),
                 rolling: a.anim.is_some_and(|f| f.rolling),
             },
+            a.frame.map_or_else(
+                || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
+                |f| f.basis(),
+            ),
         );
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
@@ -346,8 +359,8 @@ pub fn rebuild_boss_frame_index(
         Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
     )>,
 ) {
-    use ambition_characters::brain::BossAttackProfile;
     use ambition_boss_encounter::sprites::BossAnim;
+    use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
         let boss = feature.as_boss_ref();

@@ -84,8 +84,9 @@ pub enum Locomotion {
 ///
 /// Built per frame by [`pick_player_anim`] / [`pick_actor_anim`] (the thin
 /// per-body adapters), which is also where the per-body quirks live: the attack
-/// row a swing maps to, the locomotion speed metric (|vx| grounded vs |v|
-/// aerial), and the speed thresholds.
+/// row a swing maps to, the locomotion speed metric (the RUN component along the
+/// body's own `side` axis when grounded, vs total speed when aerial), and the
+/// speed thresholds.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct BodyAnimView {
     pub dead: bool,
@@ -135,7 +136,12 @@ pub struct BodyAnimView {
     pub skidding: bool,
     pub compact: CompactBody,
     pub locomotion: Locomotion,
-    /// Locomotion speed in the metric the style uses (|vx| grounded, |v| aerial).
+    /// Locomotion speed in the metric the style uses: grounded is the component
+    /// along the body's OWN run axis (`|vel · side|`), aerial is total speed.
+    ///
+    /// ⛔ it was `|vel.x|` until 2026-08-17, which is the same number only while
+    /// gravity is vertical — see [`body_view_from_body`] for the wall case that
+    /// exposed it.
     pub speed: f32,
     /// Grounded: `speed < idle_below` ⇒ Idle.
     pub idle_below: f32,
@@ -348,7 +354,8 @@ fn compact_from_mode(mode: ambition_platformer2d_core::player_state::BodyMode) -
 /// row, the presentation-timer reads the player feeds itself (shoot / aim /
 /// wall-jump / interact / dash-startup / landing / blink-in), and the locomotion
 /// metric + speed thresholds. `speed` is seeded with the grounded metric
-/// (`|vx|`); an aerial adapter overrides it with total speed.
+/// (the run component along the body's own `side` axis); an aerial adapter
+/// overrides it with total speed.
 pub fn body_view_from_body(
     kinematics: &ae::BodyKinematics,
     ground: &ae::BodyGroundState,
@@ -358,8 +365,25 @@ pub fn body_view_from_body(
     env_contact: &ae::BodyEnvironmentContact,
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
+    frame: ae::AccelerationFrame,
 ) -> BodyAnimView {
     use ambition_platformer2d_core::player_state::BodyMode;
+    // ⭐⭐ **THE THREE READS BELOW ARE FRAME-RELATIVE, AND EACH WAS A WORLD-AXIS
+    // TEST THAT ONLY LOOKED RIGHT UNDER VERTICAL GRAVITY.**
+    //
+    // Jon, from play (2026-08-17): on a wall, under sideways gravity, the walk
+    // row never played — but upside-down on a ceiling it did. That asymmetry is
+    // the whole diagnosis. `down` and `up` gravity both leave the run axis on
+    // world-x, so `|vel.x|` happened to BE the run speed and the defect stayed
+    // invisible for as long as the only rotated case anyone tested was inverted.
+    // Turn gravity sideways and the run axis becomes world-y: a body at full
+    // sprint reads `|vel.x| ≈ 0`, lands under `idle_below`, and stands still.
+    //
+    // ⚠ each of these reduces to its old form exactly when `down == (0, 1)`
+    // (`vel.dot((0,1)) == vel.y`), so ordinary rooms are untouched by construction
+    // rather than by re-tuning.
+    let along_run = kinematics.vel.dot(frame.side);
+    let along_fall = kinematics.vel.dot(frame.down);
     BodyAnimView {
         // The dodge↔ledge guard: a roll that is part of a ledge getup keeps the
         // dedicated `LedgeRoll` row instead of the grounded `DodgeRoll`.
@@ -380,15 +404,21 @@ pub fn body_view_from_body(
         // High-priority climb (ladder/vine) vs the low-priority compact silhouette
         // (slide/crawl/crouch) are distinct fields checked at distinct priorities.
         ladder_climbing: matches!(body_mode.body_mode, BodyMode::Climbing),
+        // Clinging without sliding fast: measured along the FALL axis, which is
+        // the axis a wall-slide accelerates down whichever way gravity points.
         wall_grab: !ground.on_ground
             && facts.wall_clinging
             && !facts.wall_climbing
-            && kinematics.vel.y.abs() < 40.0,
+            && along_fall.abs() < 40.0,
         gliding: facts.gliding,
         airborne: !ground.on_ground,
-        moving_up: kinematics.vel.y < -10.0, // top-left coords: vel.y < 0 = up
+        // Rising = moving AGAINST gravity. (Under `down == (0,1)` this is the
+        // old `vel.y < -10.0`, top-left coords, unchanged.)
+        moving_up: along_fall < -10.0,
         compact: compact_from_mode(body_mode.body_mode),
-        speed: kinematics.vel.x.abs(),
+        // ⛔ the grounded metric is the RUN component, not total speed: a body
+        // sliding straight down its own wall must stay Idle, not walk in place.
+        speed: along_run.abs(),
         ..Default::default()
     }
 }
@@ -407,6 +437,7 @@ pub fn pick_player_anim(
     env_contact: &ae::BodyEnvironmentContact,
     abilities: &ae::BodyAbilities,
     shield: &ae::BodyShieldState,
+    frame: ae::AccelerationFrame,
 ) -> CharacterAnim {
     // Movement/ability fields come from the shared cluster builder (identical to
     // every actor); the player overlays its combat-cluster hit read, its own
@@ -421,6 +452,7 @@ pub fn pick_player_anim(
         env_contact,
         abilities,
         shield,
+        frame,
     );
     // The player is ALIVE again by the time anything draws it — the respawn is
     // immediate — so its death cannot be read off liveness the way an actor's is.
@@ -538,6 +570,7 @@ pub fn pick_actor_anim(
     shield: &ae::BodyShieldState,
     swing: Option<&MeleeSwing>,
     state: ActorAnimState,
+    frame: ae::AccelerationFrame,
 ) -> CharacterAnim {
     let mut v = body_view_from_body(
         kinematics,
@@ -548,6 +581,7 @@ pub fn pick_actor_anim(
         env_contact,
         abilities,
         shield,
+        frame,
     );
     v.dead = !state.alive;
     v.hit = state.hit_flash;

@@ -10,8 +10,8 @@
 //! each gravity well produces the same local trace up to the room rotation.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
 use ambition_app::{AgentAction, Platformer2dSimHarness};
+use ambition_platformer2d::engine_core::{AccelerationFrame, Block, InputFrameMode, Vec2};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -584,5 +584,111 @@ fn symmetry_room_one_way_drop_through_is_c4_symmetric() {
                 },
             );
         }
+    }
+}
+
+/// **JON, FROM PLAY (2026-08-17): on a wall the walk animation never played.**
+///
+/// *"When gravity is sideways and I walk on the 'floor' — i.e. on the wall — the
+/// walk animation does not play. If I am on the ceiling, upside down, the walk
+/// animation works."*
+///
+/// ⭐⭐ **that asymmetry was the whole diagnosis.** The grounded locomotion metric
+/// was `|vel.x|`, a WORLD-x magnitude. Down-gravity and up-gravity both leave the
+/// body's run axis on world-x, so `|vel.x|` happened to BE the run speed and the
+/// two vertical arms read correctly — which is exactly why this survived: the
+/// only rotated case anyone had exercised was the inverted one, and inverted is
+/// the rotation that does not move the run axis. On a wall the run axis becomes
+/// world-y, `|vel.x|` reads ~0, and a body at full speed sits below `idle_below`.
+///
+/// ⛔ **this is the WIRING half and it is not redundant with the unit test.**
+/// `a_grounded_body_walks_in_every_gravity_not_just_the_vertical_ones` pins the
+/// picker as a FUNCTION. The picker reads the frame through an `Option` that
+/// falls back to down-gravity when absent, so a body that never receives a
+/// `ResolvedMotionFrame` would animate exactly as it did before the fix and the
+/// unit test would still be green. Only driving the real room proves the frame
+/// arrives.
+#[test]
+fn the_walk_row_plays_on_every_arms_floor_including_the_walls() {
+    use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+
+    // The same open step-A support the run/jump symmetry cases use.
+    let spot = StartSpot {
+        local_x: -104.0,
+        support_y: 1120.0 - ROOM_CENTER.y,
+    };
+
+    let mut drawn: Vec<(&'static str, CharacterAnim, f32)> = Vec::new();
+    for arm in arms() {
+        let mut sim = open_arm_sim(arm, spot);
+        // Run along this arm's own floor, in ITS local frame.
+        for _ in 0..12 {
+            sim.step(local_action(Vec2::new(1.0, 0.0)));
+        }
+
+        let obs = sim.observation();
+        // ⚠ assert the body is ACTUALLY MOVING before reading the row. Without
+        // this, an arm that failed to accelerate would report Idle and be
+        // indistinguishable from the animation defect — the test would "catch"
+        // a bug that isn't there and hide the one that is.
+        let run_speed = local_vel(arm.dir, obs.player_vel).x.abs();
+        assert!(
+            run_speed > 20.0,
+            "{} arm: the body never got moving along its floor (local run speed \
+             {run_speed}), so the animation read below would prove nothing",
+            arm.name
+        );
+        assert!(
+            obs.on_ground,
+            "{} arm: the body left its floor, so this is no longer a grounded \
+             locomotion case",
+            arm.name
+        );
+        drawn.push((arm.name, player_pose_anim(&mut sim), run_speed));
+    }
+
+    // The reported symptom, stated exactly: a body running on its own floor is
+    // never drawn standing still. (Which MOVING row it is — Walk or Run — is the
+    // player picker's speed threshold and not what this is about.)
+    for (name, anim, speed) in &drawn {
+        assert_ne!(
+            *anim,
+            CharacterAnim::Idle,
+            "{name} arm: a body running along its own floor at {speed} px/s drew \
+             the idle row. The locomotion metric is measuring a world axis rather \
+             than this body's run axis — or its ResolvedMotionFrame never reached \
+             the picker. All four arms: {drawn:?}"
+        );
+    }
+
+    // ⭐ and the stronger claim the room exists to make: the walls are not a
+    // special case. Same local input, same local speed ⇒ same drawn row, in every
+    // arm. This is what fails if only SOME rotation is handled.
+    let (first_name, first_anim, _) = drawn[0];
+    for (name, anim, _) in &drawn {
+        assert_eq!(
+            *anim, first_anim,
+            "{name} arm drew {anim:?} where the {first_name} arm drew \
+             {first_anim:?}, for the same local input on an equivalent floor. \
+             Gravity direction is not supposed to be visible to the animation \
+             picker at all. All four arms: {drawn:?}"
+        );
+    }
+}
+
+/// Read the row the renderer would actually draw for the player this tick.
+fn player_pose_anim(
+    sim: &mut Platformer2dSimHarness,
+) -> ambition_platformer2d::sprite_sheet::character::CharacterAnim {
+    let world = sim.world_mut();
+    let mut q = world.query::<&ambition_platformer2d::sim_view::BodyPoseView>();
+    let rows: Vec<_> = q.iter(world).map(|v| v.anim).collect();
+    match rows.as_slice() {
+        [one] => *one,
+        other => panic!(
+            "expected exactly one player pose view, found {}: the pose read-model \
+             is what the renderer draws from, so this test cannot speak without it",
+            other.len()
+        ),
     }
 }

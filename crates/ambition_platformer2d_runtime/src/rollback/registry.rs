@@ -289,7 +289,26 @@ use super::{
 /// unchanged (a bare clone, no checksum), but a row KEY is part of the wire
 /// identity, so two peers whose schemas differ here cannot agree about a snapshot
 /// and the version has to say so.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 34;
+/// ⚠ **v35 (2026-08-17): `resource.stocks_match_settled` CHANGED VALUE UNDER AN
+/// UNCHANGED KEY, which is the case this counter exists for.** D147 moved the
+/// stocks verdict out of `ambition_combat::stocks` and into
+/// `features::stocks_match`, and on the way it stopped being a timeless boolean
+/// and became *the outcome for match X* — it now carries the `MatchInstance`
+/// (session plus the tick the cast was built on) that the receipt beside it
+/// publishes.
+///
+/// ⭐ **the row KEY did not move, and that is exactly what makes the bump
+/// necessary rather than optional.** v34 above records the mirror-image case: a
+/// rename where the projection was unchanged. Here the spelling two peers
+/// negotiate is identical and the bytes behind it are not, so nothing else in
+/// the handshake could tell an old peer from a new one — they would agree to
+/// disagree about the same name.
+///
+/// ⚠ caught by `scripts/rollback_codec_shape.py`, not by the schema baseline:
+/// the baseline watches the registered SET and the key was still there. **A
+/// payload change under a stable key is invisible to it by construction**, which
+/// is why the codec-shape tracker is a separate instrument.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 35;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

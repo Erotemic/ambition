@@ -970,8 +970,9 @@ whole-launch seam by
 juggling for free, which is what Jon asked for (*"important in smash AND in
 ambition"*).
 
-- ▢ **D147–D154 — THE D140–D145 REVIEW FINDINGS. (external review, 2026-08-16,
-  read against the `2381e3a7e` snapshot)**
+- ◐ **D147–D154 — THE D140–D145 REVIEW FINDINGS. (external review, 2026-08-16,
+  read against the `2381e3a7e` snapshot)** — D147 and D148 CLOSED 2026-08-17;
+  both reproduced when probed.
 
 ⚠⚠ **PROVENANCE, and it governs how to start each one.** These eight came from a
 STRUCTURAL SOURCE REVIEW. The reviewer states plainly that they *"couldn't
@@ -997,42 +998,69 @@ as policy (Jon's own ruling; only the `None` bridge below is at issue), the new
 camera work, and the smash submodule gitlinks (map/SFX/sprite all match their
 archived `main` heads; the music renderer being ahead is the known unrelated dirt).
 
-- ▢ **D147 — GENERIC MATCH ACTIVATION KNOWS THE STOCKS RULESET'S PRIVATE LATCH.
-  (review finding 1, HIGH, refactor)**
+- ✔ **D147 — CLOSED 2026-08-17. GENERIC MATCH ACTIVATION KNEW THE STOCKS
+  RULESET'S PRIVATE LATCH. (review finding 1, HIGH, refactor)**
 
 D140 fixed the never-ending second match by inserting
 `StocksMatchSettled(false)` inside the GENERIC `activate_the_prepared_match`.
-It works and it is committed, but the dependency points the wrong way: the
-generic activation road now knows that one particular ruleset keeps a
-process-global boolean latch that needs clearing. The comment written at the
-time already concedes the smell — *"a composition that never installed the stocks
-ruleset still activates matches"* — and installs the resource anyway.
+It worked and the dependency pointed the wrong way: the generic activation road
+knew that one particular ruleset keeps a process-global boolean latch needing a
+reset, and installed the resource even where the ruleset was never composed —
+the comment written at the time conceded exactly that.
 
-Wanted: activation publishes a match identity; the stocks ruleset OBSERVES that
-lifecycle and initialises its own state. ⭐ the stronger form the reviewer
-proposes is to stop modelling `StocksMatchSettled(bool)` as a timeless global at
-all — it is *the stocks outcome for match X*, and keyed that way it goes stale by
-construction when the identity changes, with nobody to remember to reset it.
-⚠ this is the coupling that will tax every future match rule, which is why it is
-first.
+⭐ **PROBED FIRST, and the coupling is LOAD-BEARING**: with that one line
+commented out, `a_second_match_on_the_same_stage_counts_in_and_ends` goes red on
+match two with zero winners announced. So this REPLACED it rather than deleting
+it.
 
-- ▢ **D148 — A TEAM VICTORY CAN ANNOUNCE THE LAST SURVIVING TEAMMATE INSTEAD OF
-  THE TEAM. (review finding 2, HIGH, a real bug with a stated repro)**
+**Took the reviewer's stronger form.** `StocksMatchSettled` is not a timeless
+global — it is *the stocks outcome for match X*. It carries the `MatchInstance`
+it is about (the session, and the tick the cast was built on: the two facts that
+distinguish one activation from the next), so a new match reads as undecided BY
+CONSTRUCTION. Nobody retracts it, nothing is ordered against activation, and
+activation names no ruleset. The type moved with its meaning — out of
+`ambition_combat::stocks`, which owns the COUNT, into `features::stocks_match`
+beside `decide_stocks_match`, which owns the QUESTION and holds the latch's only
+two readers; the orphan rule carried the snapshot impl along, and the rollback
+registration now sits beside `ActiveMatch`, the receipt the verdict names.
 
-The D140 winner text means to say `WINNER: Red` for a team and a fighter's own
-name for a solo. It decides which by COUNTING CURRENTLY RESIDENT FIGHTER BODIES
-on the winning side: one body ⇒ print that body's name.
+Guards: `the_previous_matchs_verdict_does_not_settle_this_one`,
+`a_verdict_from_another_session_does_not_settle_this_match`,
+`adopting_a_seat_topology_does_not_un_decide_the_match` (the last is why the key
+is the activation's two facts rather than the whole receipt — `seat_topology` is
+mutated on a LIVE match). D140's own guards stay green with no activation-side
+retraction left in the tree, which is the measurement that the keyed form
+carries its behaviour. `797aa480d`.
 
-Repro to run FIRST: Red = Alice + Bob, Blue = George + Pirate. Eliminate Alice
-early so her body despawns. Bob wins. At victory the ECS census finds exactly one
-Red body, so the banner reads `WINNER: Bob` — contradicting the rule the code
-itself states.
+- ✔ **D148 — CLOSED 2026-08-17. A TEAM VICTORY ANNOUNCED THE LAST SURVIVING
+  TEAMMATE INSTEAD OF THE TEAM. (review finding 2, HIGH, a real bug)**
 
-⭐ **the general error is the familiar one: BODY RESIDENCY used to recover stable
-match-participant identity.** The frozen roster / prepared-match semantics already
-hold the answer. Wants a regression fixture with a two-person team whose teammate
-was eliminated earlier — the census-based version passes every single-elimination
-test, which is why it shipped.
+**REPRODUCED, and the guard was seen RED on today's tree.** The card states its
+own rule — a team keeps its own name, only a side of ONE is swapped for the
+fighter's — and then decided which by COUNTING THE BODIES standing on the
+winning side. `take_eliminated_fighters_out_of_play` despawns an eliminated
+fighter, so a two-person team that lost a member early has one body at victory.
+Measured at the app level through the real shell: a two-versus-two where Red's
+seat 1 was knocked out and despawned before Blue was wiped read
+`WINNER: Robot v3` against a side called `Red`.
+
+⭐ **body residency recovering match-participant identity**, the error this
+campaign keeps hitting. How many fighters a side HAS was frozen when the match
+was prepared; how many are STANDING is the match itself. `PreparedMatch::
+seats_on_side` is the frozen answer, named by the same `stocks::side_label` the
+outcome names sides with.
+
+Guard: `a_team_victory_names_the_team_and_not_its_last_survivor` (its non-vacuity
+half asserts seat 1 left play BEFORE the decision — without that it would pass on
+the broken code). The solo half of the rule stays asserted by the four-way and
+second-match guards, both of which expect a fighter's NAME, so a fix that always
+printed the side would go red there. `f0da10217`.
+
+⚠ **the guard was rewritten once, and why is worth keeping**: the first version
+let four CPUs fight between the scripted launches, and a hitlag change landing in
+another crate flipped the winner. A claim about the WORDING of a card must not
+depend on combat tuning — every elimination is now caused by the test on a fixed
+schedule.
 
 - ▢ **D149 — MOVE VFX BYPASSES `FxRequest`, SO FOURTEEN MOVESETS HAND-PAIR EVERY
   SOUND. (review finding 3, MED-HIGH, refactor after D146)**

@@ -522,6 +522,69 @@ fn only_a_launch_over_the_authored_threshold_tumbles() {
     );
 }
 
+/// ⛔⛔ **A LAUNCH OFF THE FLOOR IS NOT A LANDING** (D155, Jon playing: *"alice is
+/// at 1427% and Booul is hitting her, but she's not going anywhere"*).
+///
+/// Every other case above launches a body that is ALREADY AIRBORNE — they each
+/// set `on_ground = false` first — so the one situation a platform fighter is
+/// actually in when it gets hit, standing on the stage, was never stepped. A
+/// launched body carried its stale resting contact into the same step's
+/// `tick_knockdown`, which read `on_ground == true`, called that *touched down
+/// while still tumbling*, and resolved it to a KNOCKDOWN: `vel = ZERO` on the
+/// tick the launch was applied. Measured in the live host: a standing fighter at
+/// 1427% took a `3269 px/s` launch and moved **zero pixels**.
+///
+/// ⭐ the reason it hid for so long is the threshold. A hit UNDER
+/// `tumble_speed` never armed the tumble, so it launched correctly — which is
+/// every hit in Ambition and every weak hit in smash. Only a launch big enough
+/// to be worth watching was deleted.
+#[test]
+fn a_launch_that_tumbles_a_standing_body_throws_it_instead_of_knocking_it_down() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    // ⚠ RESTING, not merely near the floor: loop on the property.
+    let mut standing = false;
+    for _ in 0..600 {
+        step_fighter(&world, &mut scratch, InputState::default());
+        if scratch.ground.on_ground {
+            standing = true;
+            break;
+        }
+    }
+    assert!(
+        standing,
+        "the body never came to rest, so nothing below is about a STANDING body"
+    );
+
+    scratch.flight.pending_launch = Vec2::new(540.0, -720.0);
+    let events = step_fighter(&world, &mut scratch, InputState::default());
+
+    assert!(
+        events.operations.contains(&MovementOp::Tumble),
+        "this launch has to clear the tumble threshold or the case is not the          one that broke: {:?}",
+        events.operations
+    );
+    assert!(
+        !events.operations.contains(&MovementOp::Knockdown),
+        "the tick a body is LAUNCHED is not the tick it lands: {:?}",
+        events.operations
+    );
+    assert_eq!(
+        scratch.axis().knockdown_timer,
+        0.0,
+        "a body thrown off the floor is not prone"
+    );
+    assert!(
+        !scratch.ground.on_ground,
+        "a thrown body is not resting on anything"
+    );
+    assert!(
+        scratch.kinematics.vel.y < -600.0,
+        "and the launch itself has to survive the step that applied it: {:?}",
+        scratch.kinematics.vel
+    );
+}
+
 /// **Landing while tumbling is a knockdown, and the prone body has no control.**
 /// Without this a launch is just a shove: nothing to punish, nothing to escape.
 #[test]

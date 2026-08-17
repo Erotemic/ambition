@@ -244,7 +244,31 @@ fn accept_external_launch(
             // reaction that resolved the knockback holds neither. Asking it at
             // the one gateway every launch already passes through is what keeps
             // it from being a follow-up call some caller forgets.
-            super::knockdown::launch_into_tumble(&mut axis.state, axis.params, launch.length());
+            if super::knockdown::launch_into_tumble(&mut axis.state, axis.params, launch.length()) {
+                // ⛔⛔ **A THROWN BODY IS NOT RESTING ON ANYTHING, AND SAYING SO
+                // HERE IS THE OTHER HALF OF D155.** This arm answered only half
+                // of the question this function's own doc poses — *"only the
+                // model knows whether a launch means LEAVE THE SURFACE or
+                // override the run"* — and the surface-momentum arm below
+                // answers both. Without it a launched body carried its stale
+                // resting contact into the same step's `tick_knockdown`, which
+                // read `on_ground == true`, called that a landing *while still
+                // tumbling*, and resolved the whole thing to a KNOCKDOWN —
+                // `kinematics.vel = ZERO` on the tick the launch was applied.
+                //
+                // ⭐ measured (D155): a standing fighter at 1427% took a
+                // `3269 px/s` launch, moved ZERO pixels, and lay prone for
+                // `KNOCKDOWN_TIME`. Jon, playing: *"alice is at 1427% and Booul
+                // is hitting her, but she's not going anywhere."* A hit below
+                // the tumble threshold was launched correctly the whole time,
+                // which is exactly why this only ever showed up at high percent.
+                //
+                // ⚠ gated on the tumble answer rather than on the launch's
+                // direction on purpose: a shove that does not throw you leaves
+                // you planted, and a body whose authored `tumble_speed` is `0.0`
+                // — every body in Ambition today — is byte-identical to before.
+                clusters.ground.on_ground = false;
+            }
         }
         MotionModel::SurfaceMomentum(momentum) => {
             let mut body = SurfaceBody {

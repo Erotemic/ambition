@@ -2,11 +2,12 @@
 //!
 //! ## Why this exists (queue row AC12)
 //!
-//! A screen carries at least three families of world text — authored signage
-//! from the room file, actor nameplates, and door/fixture plates — and each
-//! family used to place itself. `sync_actor_nameplates` ranked and faded
-//! nameplates *against other nameplates*; the LDtk authoring tool
-//! (`edit.space_debug_labels`) spaced DebugLabels *against other DebugLabels*.
+//! A screen carries several families of world text — authored signage from the
+//! room file, actor nameplates, door/fixture plates, and the line a fighter
+//! just said — and each family used to place itself. `sync_actor_nameplates`
+//! ranked and faded nameplates *against other nameplates*; the LDtk authoring
+//! tool (`edit.space_debug_labels`) spaced DebugLabels *against other
+//! DebugLabels*.
 //! Neither could see the other, so a signage label and an actor plate could be
 //! drawn through each other and both passes would correctly report "no
 //! overlaps found".
@@ -15,6 +16,14 @@
 //! placement MODEL. Spacing within a family cannot stop a cross-family overlap.
 //! So placement moves here, and every label — whoever spawns it — participates
 //! by carrying a [`WorldLabel`].
+//!
+//! ⭐ **that prediction came true once more before anybody read it back.** The
+//! speech bubble was a fourth family that never joined: it stacked itself, the
+//! plates were placed here, both passes reported no overlaps, and a fighter's
+//! name printed straight through his own taunt (D159). Joining it was the whole
+//! fix — [`WorldLabelFamily::Speech`] — and it took the bubble's own stacking
+//! rule out with it, because within-family spacing is something this pass
+//! already does.
 //!
 //! ## The two mechanisms, and why they are different
 //!
@@ -62,10 +71,29 @@ pub enum WorldLabelFamily {
     /// A plate naming a static world fixture — a door, a non-door loading
     /// zone. Static, so it yields only to signage.
     Fixture,
-    /// A plate naming an actor. It tracks a moving body, so it is the family
-    /// that yields: a nudge here is indistinguishable from the motion the
+    /// A plate naming an actor. It tracks a moving body, so it yields to
+    /// everything static: a nudge here is indistinguishable from the motion the
     /// label already has.
     Actor,
+    /// A line somebody just said — a speech bubble.
+    ///
+    /// ⭐ **LAST, so it yields to the actor plate rather than the other way
+    /// round**, on this module's own test: *which family can move without
+    /// anything visibly jumping?* A plate is permanent furniture attached to a
+    /// body; displacing it means it hops up and back down once per taunt, on an
+    /// element the eye is using to keep track of who is who. A bubble is born
+    /// in motion — it rises through `SPEECH_BUBBLE_BASE_RISE` for its whole
+    /// ~2.2s life and fades while it does — and it is gone before the frame
+    /// stops being interesting. There is no reading of "displacement is
+    /// invisible here" under which the plate is the better candidate.
+    ///
+    /// ⚠ **and this variant is what replaced a fourth placement rule.** Speech
+    /// bubbles used to stack themselves (`restack_speech_bubbles`, D158) while
+    /// plates were placed here, so each pass truthfully reported "no overlaps
+    /// found" about a frame in which a name printed through a taunt — the
+    /// failure this module's header describes, arriving one family later
+    /// (D159).
+    Speech,
 }
 
 /// Marks a `Text2d` entity as a world-space label and carries everything the
@@ -282,11 +310,19 @@ pub struct WorldLabelLayoutSettings {
     pub enabled: bool,
     /// Empty space required between two labels' boxes, world px.
     pub padding_px: f32,
-    /// One displacement step, world px. Applied upward (+Y in Bevy space).
-    pub step_px: f32,
-    /// How many steps a label may take before it is hidden instead. A label
-    /// that has walked far from the thing it names has stopped naming it.
-    pub max_steps: u32,
+    /// How far a label may travel from its anchor before it is hidden instead,
+    /// world px, upward (+Y in Bevy space). A label that has walked far from
+    /// the thing it names has stopped naming it.
+    ///
+    /// ⭐ **a distance, not a step count, and that is D159's lesson applied to
+    /// this pass's own arithmetic.** Displacement used to advance in a fixed
+    /// 11px quantum, so clearing one ~22px line of text cost three steps and a
+    /// budget of "six steps" bought two lines of clearance, not six. A label
+    /// now lifts to exactly clear whatever is in its way, and this is the one
+    /// number that says how far is too far. Sized for four lines of world text
+    /// in one cluster — a four-fighter free-for-all's taunts, the widest
+    /// supported match.
+    pub max_displacement_px: f32,
     /// Opacity multiplier for a label overlapping a driven body. Low enough
     /// that the body reads through it, high enough that the label is still
     /// legible on a dark background — it yields, it does not vanish.
@@ -310,8 +346,7 @@ impl Default for WorldLabelLayoutSettings {
         Self {
             enabled: true,
             padding_px: 3.0,
-            step_px: 11.0,
-            max_steps: 6,
+            max_displacement_px: 96.0,
             occluded_opacity: 0.3,
             opacity_ease_secs: 0.09,
             min_body_coverage: 0.05,
@@ -427,19 +462,31 @@ pub(crate) fn resolve_label_layout(
         }
 
         let half = label.size * 0.5;
+        let mut candidate = LabelBox {
+            center: label.anchor,
+            half,
+        };
         let mut resolved = None;
-        for step in 0..=settings.max_steps {
-            let candidate = LabelBox {
-                center: label.anchor + Vec2::new(0.0, step as f32 * settings.step_px),
-                half,
-            };
-            if !occupied
+        // **Lift to just clear whatever is actually in the way.** Each pass
+        // rises above the HIGHEST box it currently overlaps, which strictly
+        // raises the highest blocker it can still meet — so this settles in at
+        // most one pass per already-placed label, and the bound says so rather
+        // than trusting the float arithmetic to.
+        for _ in 0..=occupied.len() {
+            let blocked_to = occupied
                 .iter()
-                .any(|placed| candidate.overlaps(placed, settings.padding_px))
-            {
+                .filter(|placed| candidate.overlaps(placed, settings.padding_px))
+                .map(|placed| placed.center.y + placed.half.y)
+                .max_by(f32::total_cmp);
+            let Some(top) = blocked_to else {
                 resolved = Some(candidate);
                 break;
+            };
+            let lifted = top + half.y + settings.padding_px;
+            if lifted - label.anchor.y > settings.max_displacement_px {
+                break;
             }
+            candidate.center.y = lifted;
         }
 
         let placed = match resolved {
@@ -543,7 +590,9 @@ fn controlled_body_boxes(view: Option<&ControlledBodiesView>, world: &ae::World)
 /// which is the wrong signal for shipped world signage.
 fn font_weight_for(family: WorldLabelFamily) -> UiFontWeight {
     match family {
-        WorldLabelFamily::Signage => UiFontWeight::Regular,
+        // A spoken line is prose — a sentence — so it takes the same weight the
+        // rule gives a designer's authored sentence, not a plate's.
+        WorldLabelFamily::Signage | WorldLabelFamily::Speech => UiFontWeight::Regular,
         WorldLabelFamily::Fixture | WorldLabelFamily::Actor => UiFontWeight::Semibold,
     }
 }
@@ -901,8 +950,7 @@ mod tests {
     fn settings() -> WorldLabelLayoutSettings {
         WorldLabelLayoutSettings {
             padding_px: 0.0,
-            step_px: 10.0,
-            max_steps: 3,
+            max_displacement_px: 30.0,
             ..Default::default()
         }
     }
@@ -977,7 +1025,7 @@ mod tests {
     #[test]
     fn a_label_that_cannot_be_placed_is_hidden_rather_than_stacked() {
         let cfg = WorldLabelLayoutSettings {
-            max_steps: 0,
+            max_displacement_px: 0.0,
             ..settings()
         };
         let mut labels = vec![
@@ -1179,10 +1227,9 @@ mod tests {
         fn settings() -> WorldLabelLayoutSettings {
             WorldLabelLayoutSettings {
                 padding_px: 0.0,
-                // 30px steps keep every comparison clear of the `<` boundary in
-                // `LabelBox::overlaps`, so no expectation below sits on a tie.
-                step_px: 30.0,
-                max_steps: 3,
+                // Room for several lifts of a 15px-tall label, so no expectation
+                // below is really an assertion about the budget running out.
+                max_displacement_px: 30.0,
                 ..Default::default()
             }
         }
@@ -1269,7 +1316,8 @@ mod tests {
         /// differ" would pass for a pair that differ and are both wrong. Each
         /// number below is derived from the box arithmetic: with 60x15 labels at
         /// y=0 and y=5, the nearer label holds its anchor and the farther one
-        /// steps up by 30 until it clears the 15px sum of half-heights.
+        /// lifts to exactly clear it — the 15px sum of half-heights above the
+        /// nearer label's centre.
         ///
         /// ⚠ **and the falsifier is inside the test.** The second run swaps only
         /// the two views' camera targets — same spawn order, same entities, same
@@ -1279,11 +1327,11 @@ mod tests {
         #[test]
         fn each_view_lays_out_its_own_labels_against_its_own_focus() {
             // Looking from below, "a" (y=0) is nearer, so it holds its anchor and
-            // "b" steps from 5 to 35 to clear it.
-            let looking_from_below = [0.0, 35.0];
+            // "b" lifts from 5 to 15 — 7.5 above a's top edge, its own half-height.
+            let looking_from_below = [0.0, 15.0];
             // Looking from above, "b" (y=5) is nearer, so it holds ITS anchor and
-            // "a" steps from 0 to 30.
-            let looking_from_above = [30.0, 5.0];
+            // "a" lifts from 0 to 20.
+            let looking_from_above = [20.0, 5.0];
             assert_ne!(
                 looking_from_below, looking_from_above,
                 "the fixture must give the two views genuinely different layouts, \
@@ -1345,7 +1393,7 @@ mod tests {
             };
             assert_eq!(
                 [at(&world, keyed), at(&world, unkeyed)],
-                [0.0, 35.0],
+                [0.0, 15.0],
                 "an unkeyed label must be laid out by the only view, exactly as a \
                  keyed one is. Skipping it would leave every authored sign in the \
                  game frozen at its spawn transform, drawn but never placed"

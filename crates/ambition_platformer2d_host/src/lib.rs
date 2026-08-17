@@ -580,6 +580,11 @@ impl Plugin for HostVfxPresentationPlugin {
             Update,
             ambition_render::fx::vfx_spawn_messages
                 .after(ambition_render::fx::process_fx_requests)
+                // A speech bubble is spawned here and PLACED by the shared
+                // world-label pass, so the edge buys the sync point that lets a
+                // line born this frame be placed this frame rather than drawing
+                // once at its raw anchor (D159).
+                .before(ambition_render::rendering::WorldLabelLayoutSet)
                 .run_if(session_world_exists),
         )
         .add_systems(
@@ -596,9 +601,16 @@ impl Plugin for HostVfxPresentationPlugin {
                 ambition_render::fx::update_effects,
                 ambition_render::fx::update_impacts,
                 ambition_render::fx::update_speech_bubbles,
-                ambition_render::fx::update_speech_bubble_outlines,
             )
                 .chain()
+                // ⛔ **`update_speech_bubbles` PUBLISHES an anchor, it does not
+                // place a bubble** (D159). A speech bubble is a `WorldLabel`, so
+                // the shared placement pass is the single writer of its
+                // transform and colour — and a pass that ran before this one
+                // would place every line against last frame's anchor. This is
+                // the same hard edge `ActorNameplateSet` already declares for
+                // the plate family.
+                .before(ambition_render::rendering::WorldLabelLayoutSet)
                 .run_if(session_world_exists),
         );
     }

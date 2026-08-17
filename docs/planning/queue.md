@@ -947,12 +947,16 @@ the real `vfx_spawn_messages`, 8.2px apart), and
 `--warmup 1200`: three simultaneous taunts, all legible. `cargo check
 --workspace --all-targets`, `ambition_render` (129) and `app_it` (412) green.
 
-▢ **two SEPARATE overlaps the same capture shows, neither of them this bug.**
-(1) `SPEECH_BUBBLE_STACK_X_RANGE` is 160, but a taunt renders ~336 world units
-WIDE — so two lines 202 apart in x do not stack and DO overlap horizontally. The
-gate is a point radius and the thing that collides is a wide box. (2) a
-fighter's world NAME LABEL prints through the lowest bubble; the label and the
-bubble do not know about each other at all.
+✔ **two SEPARATE overlaps the same capture shows, neither of them this bug —
+both CLOSED as D159 below.** (1) `SPEECH_BUBBLE_STACK_X_RANGE` was 160 while a
+taunt renders ~336 world units WIDE, so two lines 202 apart in x did not stack
+and DID overlap horizontally: the gate was a point radius and the thing that
+collides is a wide box. (2) a fighter's world NAME LABEL printed through the
+lowest bubble; the label and the bubble did not know about each other at all.
+⇒ **the column described above is gone.** A bubble is now a `WorldLabel` of family
+`Speech` and the one ranked placement pass places it against every other world
+label — which is where within-family spacing was already happening for the
+plates, so this whole mechanism was a duplicate of it.
 
 - ✔ **D160 — CLOSED 2026-08-17. THE PROJECT GATE RAN NO `--lib` TESTS, NOT EVEN
   `ambition_app`'S — it hid two regressions from the same session.**
@@ -1041,6 +1045,18 @@ against the mechanism that now answers them, same measured anchors:
 `speakers_at_different_heights_do_not_print_through_each_other`,
 `a_live_line_and_a_line_born_this_frame_are_placed_together`,
 `a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through`.
+
+⭐ **RE-CAPTURED with D128's invocation at `--warmup 1200`** (`target/d159/match.png`,
+1280x720, 16 676 distinct colours — real pixels, not one of the three ways it
+renders nothing): **FOUR taunt lines stacked and every one legible, and BOTH
+name plates — "George Booul" and "Pirate Admiral" — clear of the column and of
+each other.** The frame D158 closed on had three lines with one printed through
+another and a plate inside a taunt; this one has four lines, two plates and no
+collision anywhere.
+
+✅ `cargo check -p ambition_app --all-targets`, `cargo test --workspace --lib`,
+`cargo test -p ambition_app --test app_it` (412) and `ambition_render --lib`
+(131) all green.
 
 - ✔ **D155 — CLOSED 2026-08-16. NOBODY GETS LAUNCHED: knockback did not scale
   and an up-tilt did not send anyone up. TWO bugs, both on the shared floor.**

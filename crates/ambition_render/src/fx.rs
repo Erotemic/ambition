@@ -137,46 +137,35 @@ pub struct FireworkBurstSpec {
     scale: f32,
 }
 
-/// One floating line of speech, live on screen or queued to appear this frame.
+/// One floating line of speech.
 ///
-/// ⚠ **`stack_offset` is measured from this speaker's OWN head, so it is not
-/// the number that decides legibility.** Two lines are readable when the
-/// heights they LAND at differ — see [`SpeechBubbleVisual::elevation`].
+/// ⛔ **it does NOT know where it is drawn, and that is the point (D159).** A
+/// bubble is a [`WorldLabel`](crate::rendering::label_layout::WorldLabel) of
+/// family [`Speech`](crate::rendering::label_layout::WorldLabelFamily::Speech),
+/// so it publishes the anchor and the opacity it WANTS and the one ranked
+/// placement pass decides where the line actually lands — against every other
+/// bubble, every name plate and every authored sign at once. This struct is
+/// only the line's clock.
 #[derive(Component)]
 pub struct SpeechBubbleVisual {
     pos: ae::Vec2,
     age: f32,
     duration: f32,
-    stack_offset: f32,
-    target_stack_offset: f32,
 }
 
+/// Marker on the shadow copies drawn behind a bubble's text. Their colour is
+/// painted by the placement pass along with the line they shadow
+/// (`paint_outlines`), so this exists to say which children are the shadow
+/// pass rather than to drive one.
 #[derive(Component)]
 pub struct SpeechBubbleOutline;
 
-/// A bubble this frame's messages asked for, not yet spawned. It carries the
-/// same [`SpeechBubbleVisual`] the live ones do so that stacking can treat both
-/// populations as ONE column — the fork that let D158 through was two
-/// near-identical make-room routines, each blind to the other's members.
-struct PendingSpeechBubble {
-    visual: SpeechBubbleVisual,
-    text: String,
-}
-
 const SPEECH_BUBBLE_DURATION: f32 = 2.2;
 const SPEECH_BUBBLE_BASE_RISE: f32 = 14.0;
-const SPEECH_BUBBLE_STACK_STEP: f32 = 28.0;
-/// How many lines one cluster of speakers shows at once. A four-fighter
-/// free-for-all is the widest supported mode, so the column is four deep; the
-/// FIFTH speaker retires the top line rather than printing through the one
-/// below it (see [`restack_speech_bubbles`]).
-const SPEECH_BUBBLE_STACK_DEPTH: f32 = 4.0;
-const SPEECH_BUBBLE_STACK_MAX: f32 = SPEECH_BUBBLE_STACK_STEP * (SPEECH_BUBBLE_STACK_DEPTH - 1.0);
-const SPEECH_BUBBLE_STACK_INITIAL_NUDGE: f32 = 12.0;
-const SPEECH_BUBBLE_STACK_SPEED: f32 = 80.0;
-const SPEECH_BUBBLE_STACK_X_RANGE: f32 = 160.0;
-const SPEECH_BUBBLE_STACK_Y_RANGE: f32 = 96.0;
-const SPEECH_BUBBLE_PUSH_FADE_AFTER: f32 = 0.85;
+/// The alpha a bubble's text and its shadow are drawn at when the line is at
+/// full strength. The placement pass multiplies the line's fade into these.
+const SPEECH_BUBBLE_TEXT_ALPHA: f32 = 0.95;
+const SPEECH_BUBBLE_OUTLINE_ALPHA: f32 = 0.88;
 
 /// One ember of the live blink-destination indicator. Spawned in a small
 /// rotating ring at the predicted teleport landing while the blink button is
@@ -336,7 +325,6 @@ pub fn vfx_spawn_messages(
     >,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
     // Speech bubbles quote their text with real typographic quotes, so they
     // need a real face. `None` falls back to Bevy's ASCII-only subset, which is
     // the honest outcome when a composition loads no fonts at all.
@@ -344,11 +332,10 @@ pub fn vfx_spawn_messages(
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let world = &world.0;
-    let mut pending_speech_bubbles: Vec<PendingSpeechBubble> = Vec::new();
-    // The lines already on screen. Held here so that stacking sees them and
-    // this frame's arrivals as one column — a bubble that makes room only
-    // against its own population lands on a member of the other one (D158).
-    let mut live_speech_bubbles: Vec<_> = speech_bubbles.iter_mut().collect();
+    let bubble_font = ui_fonts
+        .as_deref()
+        .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
+        .unwrap_or_default();
     for message in messages.read() {
         match message.clone() {
             VfxMessage::Burst {
@@ -406,61 +393,14 @@ pub fn vfx_spawn_messages(
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, spawn_scope, world, from, to);
             }
+            // ⭐ **just spawn it.** No make-room routine, no column: the line
+            // publishes the anchor it wants and the shared placement pass
+            // separates it from every other bubble AND from the name plates it
+            // used to print through (D159).
             VfxMessage::SpeechBubble { pos, text } => {
-                pending_speech_bubbles.push(PendingSpeechBubble {
-                    visual: SpeechBubbleVisual::new(pos, SPEECH_BUBBLE_DURATION),
-                    text,
-                });
-                let mut column: Vec<&mut SpeechBubbleVisual> = live_speech_bubbles
-                    .iter_mut()
-                    .map(|(visual, _, _)| &mut **visual)
-                    .chain(
-                        pending_speech_bubbles
-                            .iter_mut()
-                            .map(|bubble| &mut bubble.visual),
-                    )
-                    .filter(|visual| {
-                        !visual.is_retired() && speech_bubbles_should_stack(visual.pos, pos)
-                    })
-                    .collect();
-                restack_speech_bubbles(&mut column);
+                spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font);
             }
         }
-    }
-    // Re-place the live lines the column moved. Cheap and only when somebody
-    // spoke: without it a pushed bubble would hold its old height until
-    // `update_speech_bubbles` next runs.
-    if !pending_speech_bubbles.is_empty() {
-        for (visual, transform, color) in live_speech_bubbles.iter_mut() {
-            apply_speech_bubble_visual(
-                world,
-                visual.pos,
-                visual.age,
-                visual.duration,
-                visual.stack_offset,
-                transform,
-                color,
-            );
-        }
-    }
-    let bubble_font = ui_fonts
-        .as_deref()
-        .map(|fonts| fonts.text_font(18.0, crate::ui_fonts::UiFontWeight::Regular))
-        .unwrap_or_default();
-    for bubble in pending_speech_bubbles {
-        // A line the column had no room for never appears at all — spawning it
-        // would only draw a corpse at alpha zero for one frame.
-        if bubble.visual.is_retired() {
-            continue;
-        }
-        spawn_speech_bubble(
-            &mut commands,
-            spawn_scope,
-            world,
-            bubble.visual,
-            &bubble.text,
-            &bubble_font,
-        );
     }
 }
 
@@ -597,121 +537,8 @@ impl SpeechBubbleVisual {
             pos,
             age: 0.0,
             duration,
-            stack_offset: 0.0,
-            target_stack_offset: 0.0,
         }
     }
-
-    /// **Where this line LANDS**, in world units above y = 0.
-    ///
-    /// World y is down-positive and [`apply_speech_bubble_visual`] draws at
-    /// `pos.y - rise`, so this is `target_stack_offset - pos.y`. It reads the
-    /// *target* offset rather than the animated one: stacking decides where a
-    /// line is headed, and the glide is presentation on top of that.
-    ///
-    /// ⛔ **this — not `stack_offset` — is what two lines must differ in.** A
-    /// bubble's offset is measured from its own speaker's head, and in a
-    /// platform fighter somebody is always in the air. Measured off the match
-    /// D158 was found in: taunts anchor at `y = 225.44` from the stage floor
-    /// and at `y = 196.62` from a jump — 28.8 apart, one step. So pushing the
-    /// grounded speaker's line 28 up landed it 0.8 from the airborne
-    /// speaker's untouched line, with both offsets perfectly distinct.
-    ///
-    /// ⚠ `SPEECH_BUBBLE_BASE_RISE` is deliberately OUTSIDE this. It is the
-    /// slow float every line does while it fades — shared, bounded by 14, and
-    /// largest on the oldest lines, which are the ones already highest. Folding
-    /// it in would spend a third of the column's depth on a drift that never
-    /// closes a gap.
-    fn elevation(&self) -> f32 {
-        self.target_stack_offset - self.pos.y
-    }
-
-    /// Raise this line to land at `elevation`, never lowering it.
-    ///
-    /// A bubble that actually moves is also aged toward its fade, so a pushed
-    /// line clears out soon instead of loitering above its speaker — the
-    /// behaviour `SPEECH_BUBBLE_PUSH_FADE_AFTER` has always bought, now spent
-    /// only when there was a real push.
-    fn lift_to(&mut self, elevation: f32) {
-        let target = elevation + self.pos.y;
-        if target <= self.target_stack_offset {
-            return;
-        }
-        self.target_stack_offset = target;
-        self.stack_offset = self
-            .stack_offset
-            .max(target.min(self.stack_offset + SPEECH_BUBBLE_STACK_INITIAL_NUDGE));
-        self.age = self
-            .age
-            .max((self.duration - SPEECH_BUBBLE_PUSH_FADE_AFTER).max(0.0));
-    }
-
-    /// End this line now. Alpha at full age is zero, so it stops drawing on the
-    /// very frame it is retired and `update_speech_bubbles` despawns it next.
-    fn retire(&mut self) {
-        self.age = self.duration;
-    }
-
-    fn is_retired(&self) -> bool {
-        self.age >= self.duration
-    }
-}
-
-/// **One cluster of speakers is ONE column, swept once, in elevation.** (D158)
-///
-/// `column` is every bubble near the arriving one — live entities and this
-/// frame's arrivals alike, the arrival included. Sorted bottom-up, each line is
-/// lifted to clear the one beneath it by `SPEECH_BUBBLE_STACK_STEP`; the lowest
-/// stays where it is, so a new line still appears at its own speaker's head.
-///
-/// ⭐ **the arrival is a member, not a privileged newcomer.** Pushing only the
-/// *existing* bubbles is what let a newcomer land on a line that had already
-/// hit the ceiling, and it is why the two make-room routines this replaces
-/// could each clear the other population and still collide.
-///
-/// The column is `SPEECH_BUBBLE_STACK_DEPTH` lines deep. A line squeezed past
-/// the top is RETIRED rather than clamped onto its neighbour: with four
-/// fighters every line fits, and a fifth speaker costs the oldest line — which
-/// was within `SPEECH_BUBBLE_PUSH_FADE_AFTER` of dying anyway. Overlapping text
-/// is never the outcome.
-fn restack_speech_bubbles(column: &mut [&mut SpeechBubbleVisual]) {
-    // Stable, so lines that land at the same height keep their arrival order:
-    // the younger one stays at the speaker's head and the older one rises.
-    column.sort_by(|a, b| {
-        a.elevation()
-            .total_cmp(&b.elevation())
-            .then(a.age.total_cmp(&b.age))
-    });
-    let Some(bottom) = column.first().map(|bubble| bubble.elevation()) else {
-        return;
-    };
-    let ceiling = bottom + SPEECH_BUBBLE_STACK_MAX;
-    let mut floor = bottom;
-    let mut full = false;
-    for bubble in column.iter_mut().skip(1) {
-        let wanted = bubble.elevation().max(floor + SPEECH_BUBBLE_STACK_STEP);
-        if full || wanted > ceiling {
-            // Sorted ascending, so nothing above this one fits either.
-            full = true;
-            bubble.retire();
-            continue;
-        }
-        bubble.lift_to(wanted);
-        floor = bubble.elevation();
-    }
-}
-
-fn speech_bubbles_should_stack(existing: ae::Vec2, incoming: ae::Vec2) -> bool {
-    (existing.x - incoming.x).abs() <= SPEECH_BUBBLE_STACK_X_RANGE
-        && (existing.y - incoming.y).abs() <= SPEECH_BUBBLE_STACK_Y_RANGE
-}
-
-fn advance_speech_bubble_stack_offset(stack_offset: f32, target_stack_offset: f32, dt: f32) -> f32 {
-    let remaining = target_stack_offset - stack_offset;
-    if remaining <= 0.0 {
-        return stack_offset;
-    }
-    stack_offset + remaining.min(SPEECH_BUBBLE_STACK_SPEED * dt)
 }
 
 fn speech_bubble_progress(age: f32, duration: f32) -> f32 {
@@ -721,8 +548,11 @@ fn speech_bubble_progress(age: f32, duration: f32) -> f32 {
     (age / duration).clamp(0.0, 1.0)
 }
 
-fn speech_bubble_rise(age: f32, duration: f32, stack_offset: f32) -> f32 {
-    SPEECH_BUBBLE_BASE_RISE * speech_bubble_progress(age, duration) + stack_offset
+/// The slow float every line does while it fades. Shared, bounded by 14, and
+/// applied to the ANCHOR the line asks for — the placement pass adds whatever
+/// further lift the frame turns out to need.
+fn speech_bubble_rise(age: f32, duration: f32) -> f32 {
+    SPEECH_BUBBLE_BASE_RISE * speech_bubble_progress(age, duration)
 }
 
 fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
@@ -735,19 +565,25 @@ fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
     alpha.clamp(0.0, 1.0)
 }
 
-fn apply_speech_bubble_visual(
+/// **Say where the line wants to be and how strongly it wants to be seen — and
+/// stop there.**
+///
+/// ⛔ it writes neither the `Transform` nor the `TextColor`. The placement pass
+/// is the single writer of both for every [`WorldLabel`], and two writers
+/// sharing one placement is how a label drifts: a pass that reads back the
+/// transform it moved last frame accumulates its own correction.
+fn publish_speech_bubble_label(
     world: &ae::World,
-    pos: ae::Vec2,
-    age: f32,
-    duration: f32,
-    stack_offset: f32,
-    transform: &mut Transform,
-    color: &mut TextColor,
+    bubble: &SpeechBubbleVisual,
+    label: &mut crate::rendering::label_layout::WorldLabel,
 ) {
-    let rise = speech_bubble_rise(age, duration, stack_offset);
-    let alpha = speech_bubble_alpha(age, duration);
-    transform.translation = world_to_bevy(world, pos + ae::Vec2::new(0.0, -rise), WORLD_Z_FX + 8.0);
-    *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha));
+    let rise = speech_bubble_rise(bubble.age, bubble.duration);
+    label.anchor = world_to_bevy(
+        world,
+        bubble.pos + ae::Vec2::new(0.0, -rise),
+        WORLD_Z_FX + 8.0,
+    );
+    label.owner_opacity = speech_bubble_alpha(bubble.age, bubble.duration);
 }
 
 pub fn update_speech_bubbles(
@@ -759,42 +595,17 @@ pub fn update_speech_bubbles(
     mut query: Query<(
         Entity,
         &mut SpeechBubbleVisual,
-        &mut Transform,
-        &mut TextColor,
+        &mut crate::rendering::label_layout::WorldLabel,
     )>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut bubble, mut transform, mut color) in &mut query {
+    for (entity, mut bubble, mut label) in &mut query {
         bubble.age += dt;
-        bubble.stack_offset =
-            advance_speech_bubble_stack_offset(bubble.stack_offset, bubble.target_stack_offset, dt);
         if bubble.age >= bubble.duration {
             commands.entity(entity).despawn();
             continue;
         }
-        apply_speech_bubble_visual(
-            &world.0,
-            bubble.pos,
-            bubble.age,
-            bubble.duration,
-            bubble.stack_offset,
-            &mut transform,
-            &mut color,
-        );
-    }
-}
-
-pub fn update_speech_bubble_outlines(
-    bubbles: Query<(&SpeechBubbleVisual, &Children)>,
-    mut outline_colors: Query<&mut TextColor, With<SpeechBubbleOutline>>,
-) {
-    for (bubble, children) in &bubbles {
-        let outline_alpha = 0.88 * speech_bubble_alpha(bubble.age, bubble.duration);
-        for child in children.iter() {
-            if let Ok(mut outline_color) = outline_colors.get_mut(child) {
-                *outline_color = TextColor(Color::srgba(0.0, 0.0, 0.0, outline_alpha));
-            }
-        }
+        publish_speech_bubble_label(&world.0, &bubble, &mut label);
     }
 }
 
@@ -891,10 +702,10 @@ pub fn spawn_speech_bubble(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
-    // Where the line starts its life, INCLUDING whatever the column already
-    // decided about it: a bubble that arrived into an occupied stack is lifted
-    // before it is ever drawn.
-    visual: SpeechBubbleVisual,
+    // The speaker's head, in world space. Where the line is DRAWN is not
+    // decided here and cannot be: the placement pass separates it from every
+    // other world label on the next pass over the frame.
+    pos: ae::Vec2,
     text: &str,
     // The face the bubble draws in. Threaded rather than repaired a frame later
     // (the way `label_layout` patches world labels) because a bubble lives about
@@ -913,38 +724,39 @@ pub fn spawn_speech_bubble(
     let Some(session_scope) = session_scope else {
         return;
     };
-    let mut transform = Transform::default();
-    let mut color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95));
-    apply_speech_bubble_visual(
-        world,
-        visual.pos,
-        visual.age,
-        visual.duration,
-        visual.stack_offset,
-        &mut transform,
-        &mut color,
+    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily};
+
+    let visual = SpeechBubbleVisual::new(pos, SPEECH_BUBBLE_DURATION);
+    let text_color = Color::srgba(1.0, 1.0, 1.0, SPEECH_BUBBLE_TEXT_ALPHA);
+    let outline_color = Color::srgba(0.0, 0.0, 0.0, SPEECH_BUBBLE_OUTLINE_ALPHA);
+    let mut bubble = commands.spawn_session_scoped(
+        session_scope,
+        (
+            Text2d::new(bubble_text.clone()),
+            TextFont {
+                font_size: 18.0,
+                ..font.clone()
+            },
+            TextColor(text_color),
+            Name::new(format!("Speech bubble: {text}")),
+        ),
     );
-    let outline_color = TextColor(Color::srgba(
-        0.0,
-        0.0,
-        0.0,
-        0.88 * speech_bubble_alpha(visual.age, visual.duration),
-    ));
-    commands
-        .spawn_session_scoped(
-            session_scope,
-            (
-                Text2d::new(bubble_text.clone()),
-                TextFont {
-                    font_size: 18.0,
-                    ..font.clone()
-                },
-                color,
-                transform,
-                visual,
-                Name::new(format!("Speech bubble: {text}")),
-            ),
-        )
+    // ⛔ **the owner id has to be UNIQUE, not merely descriptive.** The pass
+    // hands placements back through a map keyed on it, so two lines sharing an
+    // id would read the SAME placement and print through each other — which is
+    // the defect, arriving by a different door. Two speakers can say the same
+    // words from the same spot; only the entity is theirs alone.
+    let owner_id = format!("speech:{}", bubble.id().index());
+    let mut label = WorldLabel::new(owner_id, WorldLabelFamily::Speech, Vec3::ZERO)
+        .with_colors(text_color, Some(outline_color));
+    publish_speech_bubble_label(world, &visual, &mut label);
+    bubble
+        .insert((
+            Transform::from_translation(label.anchor),
+            Visibility::Visible,
+            label,
+            visual,
+        ))
         .with_children(|parent| {
             for offset in [
                 BVec2::new(-1.25, 0.0),
@@ -958,7 +770,9 @@ pub fn spawn_speech_bubble(
                         font_size: 18.0,
                         ..font.clone()
                     },
-                    outline_color,
+                    // Painted every frame by the placement pass along with the
+                    // line it shadows; this is only the first frame's value.
+                    TextColor(outline_color),
                     Transform::from_xyz(offset.x, offset.y, -0.1),
                     SpeechBubbleOutline,
                     Name::new("Speech bubble outline"),
@@ -1410,203 +1224,344 @@ mod tests {
         );
     }
 
+    // ── Speech-bubble placement (D158, then D159) ────────────────────────────
+    //
+    // ⭐ **these guards read the DRAWN boxes, and there is only one placement
+    // model left to read.** D158 fixed bubble-vs-bubble collisions with a
+    // private column measured in elevation; D159 found the same frame still
+    // wrong because a name plate is placed by
+    // [`layout_world_labels`](crate::rendering::label_layout) and a bubble was
+    // not, so each pass truthfully reported "no overlaps found". The column is
+    // gone: a bubble is a `WorldLabel` and the shared ranked pass separates it
+    // from every other world label, its own family included. So the D158
+    // SCENARIOS survive here — same measured anchors, same questions — asked of
+    // the mechanism that now answers them.
+
+    use crate::rendering::label_layout::{
+        label_size, LabelBox, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin,
+        WorldLabelLayoutSet, WorldLabelLayoutSettings,
+    };
+
+    /// The stage the anchors below were measured on.
+    fn stage() -> ambition_platformer2d_core::World {
+        ambition_platformer2d_core::movement::containment::walled_box(
+            ae::Vec2::new(1600.0, 900.0),
+            16.0,
+        )
+    }
+
+    /// The composed frame these guards read: the shared placement pass, the
+    /// bubble clock and the message subscriber, wired the way
+    /// `HostVfxPresentationPlugin` wires them.
+    struct SpeechFrame {
+        app: App,
+        settings: WorldLabelLayoutSettings,
+    }
+
+    impl SpeechFrame {
+        fn new() -> Self {
+            use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+            let mut app = App::new();
+            app.init_resource::<Time>();
+            app.add_message::<ambition_vfx::VfxMessage>();
+            app.add_plugins(WorldLabelLayoutPlugin);
+            app.add_systems(
+                Update,
+                (vfx_spawn_messages, update_speech_bubbles)
+                    .chain()
+                    .before(WorldLabelLayoutSet),
+            );
+            app.world_mut().spawn((
+                SessionRoot(SessionScopeId(0)),
+                ambition_platformer2d_core::RoomGeometry(stage()),
+            ));
+            // The pass ranks per VIEW, so a composition without one places
+            // nothing at all — a fixture that forgot this would pass by
+            // drawing nobody.
+            app.world_mut().spawn((
+                ambition_sim_view::LocalView,
+                ambition_sim_view::LocalViewId::FIRST,
+                ambition_sim_view::CameraViewState::default(),
+            ));
+            Self {
+                app,
+                settings: WorldLabelLayoutSettings::default(),
+            }
+        }
+
+        fn say(&mut self, pos: ae::Vec2, text: &str) {
+            self.app
+                .world_mut()
+                .write_message(ambition_vfx::VfxMessage::SpeechBubble {
+                    pos,
+                    text: text.into(),
+                });
+        }
+
+        /// A name plate at a speaker's head, published exactly the way
+        /// `sync_actor_nameplates` publishes one.
+        fn plate(&mut self, name: &str, pos: ae::Vec2) {
+            let anchor = world_to_bevy(&stage(), pos, WORLD_Z_FX + 8.0);
+            self.app.world_mut().spawn((
+                Text2d::new(name.to_string()),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Transform::from_translation(anchor),
+                Visibility::Visible,
+                WorldLabel::new(name, WorldLabelFamily::Actor, anchor),
+            ));
+        }
+
+        /// ⚠ **`app.update()` is NOT a tick of sim time**, so the clock is
+        /// advanced explicitly. Ageing is what makes "the older line" mean
+        /// anything, and it is what moves a line's anchor as it floats.
+        fn tick(&mut self, secs: f32) {
+            self.app
+                .world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_secs_f32(secs));
+            self.app.update();
+        }
+
+        /// Every world label still drawn, as the box it occupies — measured
+        /// with the same [`label_size`] the pass measured it with, so the
+        /// assertion asks the placement model rather than re-deriving it.
+        fn drawn(&mut self) -> Vec<(String, LabelBox)> {
+            let settings = self.settings.clone();
+            self.app
+                .world_mut()
+                .query_filtered::<(&Text2d, &TextFont, &Transform, &Visibility), With<WorldLabel>>()
+                .iter(self.app.world())
+                .filter(|(_, _, _, visibility)| **visibility != Visibility::Hidden)
+                .map(|(text, font, transform, _)| {
+                    (
+                        text.as_str().to_string(),
+                        LabelBox {
+                            center: transform.translation.truncate(),
+                            half: label_size(None, text.as_str(), font.font_size, &settings) * 0.5,
+                        },
+                    )
+                })
+                .collect()
+        }
+
+        /// The drawn speech lines only.
+        fn drawn_lines(&mut self) -> Vec<(String, LabelBox)> {
+            self.drawn()
+                .into_iter()
+                .filter(|(text, _)| text.starts_with('\u{201c}'))
+                .collect()
+        }
+    }
+
+    /// No two drawn labels occupy the same pixels — the property, stated where
+    /// the reader looks.
+    #[track_caller]
+    fn assert_no_overlap(drawn: &[(String, LabelBox)]) {
+        for (i, (a_text, a)) in drawn.iter().enumerate() {
+            for (b_text, b) in drawn.iter().skip(i + 1) {
+                assert!(
+                    !a.overlaps(b, 0.0),
+                    "{a_text:?} and {b_text:?} were drawn through each other: \
+                     {a:?} and {b:?}"
+                );
+            }
+        }
+    }
+
+    const TAUNT: &str = "Either you are on the stage or you are not.";
+    const BELAY: &str = "Belay that, ye barnacle!";
+
     /// **Two lines from two speakers never print through each other.** (D158)
     ///
-    /// ⛔ **`stack_offset` being distinct is NOT the property, and on the broken
-    /// tree it always WAS distinct.** The offset is measured from each
-    /// speaker's own head, so a step of 28 up from a speaker standing on the
-    /// floor lands exactly on the untouched line of a speaker hovering 28
-    /// above them. A platform fighter puts somebody in the air constantly, so
-    /// this is the ordinary geometry, not a corner.
+    /// ⭐ **the anchors below are MEASURED**, from the two-CPU smash match Jon
+    /// photographed: a taunt from the stage floor anchors at `y = 225.44` and
+    /// taunts from mid-air at `y = 208.84` and `y = 196.62`.
     ///
-    /// ⭐ **the anchors below are MEASURED**, from the same two-CPU smash match
-    /// Jon photographed: a taunt from the stage floor anchors at `y = 225.44`
-    /// and taunts from mid-air at `y = 208.84` and `y = 196.62`. The floor-to-
-    /// air gap of 28.8 is one stack step, which is why the old push cancelled
-    /// itself out and printed the two lines 0.8 apart.
-    ///
-    /// ⚠ the same-frame hypothesis this replaces was REFUTED by probe: the
-    /// pending queue already separated three arrivals in one frame into
-    /// `0 / 28 / 56`. The fork mattered for a different reason (see the
-    /// behavioural guard below), not because same-frame arrivals ignored each
-    /// other.
+    /// ⛔ **D158's own failure is unreachable from here, by construction.** Its
+    /// column pushed each line by an offset measured from that speaker's OWN
+    /// head, so a step up from a grounded speaker landed on the untouched line
+    /// of a speaker hovering one step above — every offset distinct, every line
+    /// on top of another. The pass has no per-speaker offset to be right about:
+    /// it compares the BOXES the lines land in, in one space.
     #[test]
     fn speakers_at_different_heights_do_not_print_through_each_other() {
         let floor = |x: f32| ae::Vec2::new(x, 225.44);
         let airborne = |x: f32| ae::Vec2::new(x, 208.84);
-        // A jump that puts the speaker exactly one stack step up — the anchor
-        // arithmetic that cancelled the push dead.
+        // A jump that put the speaker exactly one old stack step up — the
+        // anchor arithmetic that cancelled D158's push dead.
         let higher = |x: f32| ae::Vec2::new(x, 196.62);
 
-        // The pair the trace caught, in both orders: whichever spoke first, the
-        // two lines must end up a step apart.
-        assert_legible(&speak(&[floor(150.7), airborne(180.6)]));
-        assert_legible(&speak(&[airborne(180.6), floor(150.7)]));
-        assert_legible(&speak(&[floor(150.7), higher(160.0)]));
-        assert_legible(&speak(&[higher(160.0), floor(150.7)]));
-        // The photographed frame: George from the floor twice, then the pirate
-        // from the air.
-        assert_legible(&speak(&[floor(150.7), floor(158.3), airborne(180.6)]));
-        // And the same three arriving as one burst, which is how two CPUs
-        // taunting on the same tick reach the renderer.
-        assert_legible(&speak(&[floor(131.1), airborne(180.6), higher(135.7)]));
-    }
-
-    /// **Four fighters all get a line; a fifth speaker costs the oldest.**
-    ///
-    /// `SPEECH_BUBBLE_STACK_MAX` is three steps, so the column is four deep —
-    /// exactly the widest supported match. Measured pre-fix, a fifth line at
-    /// one anchor clamped onto the fourth (`-107.4, -107.4, …`, an exact tie);
-    /// now it is retired instead, because a line nobody can read is worth less
-    /// than the one it would sit on.
-    #[test]
-    fn a_four_fighter_free_for_all_fits_and_a_fifth_retires_the_oldest_line() {
-        let one_tile = |n: usize| {
-            (0..n)
-                .map(|i| ae::Vec2::new(400.0 + i as f32 * 4.0, 300.0))
-                .collect::<Vec<_>>()
-        };
-
-        let four = speak(&one_tile(4));
-        assert_eq!(
-            live(&four).len(),
-            4,
-            "a four-fighter free-for-all lost a line"
-        );
-        assert_legible(&four);
-
-        let five = speak(&one_tile(5));
-        assert_eq!(
-            live(&five).len(),
-            4,
-            "the fifth speaker must cost exactly one line, not stack onto one"
-        );
-        assert!(
-            five[0].is_retired(),
-            "the line that left should be the OLDEST, not whoever just spoke"
-        );
-        assert_legible(&five);
-
-        // Four fighters at four heights — the column depth is measured from
-        // where the lines land, not from anyone's own head.
-        let assorted = [
-            ae::Vec2::new(131.1, 225.44),
-            ae::Vec2::new(150.7, 208.84),
-            ae::Vec2::new(180.6, 196.62),
-            ae::Vec2::new(196.0, 180.0),
+        let pairs = [
+            [floor(150.7), airborne(180.6)],
+            [airborne(180.6), floor(150.7)],
+            [floor(150.7), higher(160.0)],
+            [higher(160.0), floor(150.7)],
         ];
-        let mixed = speak(&assorted);
-        assert_eq!(
-            live(&mixed).len(),
-            4,
-            "four differently-sized fighters lost a line"
-        );
-        assert_legible(&mixed);
-    }
+        for pair in pairs {
+            let mut frame = SpeechFrame::new();
+            frame.say(pair[0], TAUNT);
+            frame.tick(1.0 / 60.0);
+            frame.say(pair[1], BELAY);
+            frame.tick(1.0 / 60.0);
+            let lines = frame.drawn_lines();
+            assert_eq!(lines.len(), 2, "a line went missing: {lines:?}");
+            assert_no_overlap(&lines);
+        }
 
-    /// **A line already on screen and a line born this frame are ONE column.**
-    ///
-    /// The behavioural half, driven through the real `vfx_spawn_messages` and
-    /// read off the `Transform` the renderer would use. This is what the two
-    /// deleted make-room routines could not give: each swept its own
-    /// population, so a bubble cleared every member of the other list and could
-    /// still land on one of them.
-    #[test]
-    fn a_live_line_and_a_new_line_share_one_column() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
-
-        let mut app = App::new();
-        app.add_message::<ambition_vfx::VfxMessage>();
-        app.add_systems(Update, vfx_spawn_messages);
-        app.world_mut().spawn((
-            SessionRoot(SessionScopeId(0)),
-            ambition_platformer2d_core::RoomGeometry(
-                ambition_platformer2d_core::movement::containment::walled_box(
-                    ae::Vec2::new(1600.0, 900.0),
-                    16.0,
-                ),
-            ),
-        ));
-
-        // The measured anchors: George taunting from the stage floor, then the
-        // pirate taunting from mid-air one stack step above him.
-        let floor = ae::Vec2::new(150.7, 225.44);
-        let airborne = ae::Vec2::new(180.6, 196.62);
-        app.world_mut()
-            .write_message(ambition_vfx::VfxMessage::SpeechBubble {
-                pos: floor,
-                text: "Either you are on the stage or you are not.".into(),
-            });
-        app.update();
-        // ⚠ `app.update()` is not a tick of sim time — nothing here ages. The
-        // second line arrives on a LATER frame, so it meets a live entity
-        // rather than a queued neighbour, which is the whole point.
-        app.world_mut()
-            .write_message(ambition_vfx::VfxMessage::SpeechBubble {
-                pos: airborne,
-                text: "Belay that, ye barnacle!".into(),
-            });
-        app.update();
-
-        let mut drawn: Vec<f32> = app
-            .world_mut()
-            .query::<(&SpeechBubbleVisual, &Transform)>()
-            .iter(app.world())
-            .map(|(_, transform)| transform.translation.y)
-            .collect();
-        assert_eq!(drawn.len(), 2, "both taunts should be on screen");
-        drawn.sort_by(f32::total_cmp);
-        assert!(
-            drawn[1] - drawn[0] >= SPEECH_BUBBLE_STACK_STEP - LEGIBLE_SLACK,
-            "two taunts drew {:.1}px apart — one printed through the other",
-            drawn[1] - drawn[0]
-        );
-    }
-
-    const LEGIBLE_SLACK: f32 = 1e-3;
-
-    /// Speak one line per entry, each arriving into whatever stack the previous
-    /// ones left — the real column, one arrival at a time.
-    ///
-    /// ⚠ a beat passes between arrivals, because it does in a match and because
-    /// that is what makes "older" mean anything: two lines that land at the
-    /// same height are separated by age, so the newcomer keeps the speaker's
-    /// head and the one that has been up a while floats off.
-    fn speak(arrivals: &[ae::Vec2]) -> Vec<SpeechBubbleVisual> {
-        let mut column: Vec<SpeechBubbleVisual> = Vec::new();
-        for &pos in arrivals {
-            for bubble in column.iter_mut() {
-                bubble.age += 0.05;
+        // The photographed frame: George from the floor twice, then the pirate
+        // from the air — and the same three arriving as ONE burst, which is how
+        // two CPUs taunting on the same tick reach the renderer.
+        for burst in [false, true] {
+            let mut frame = SpeechFrame::new();
+            let arrivals = [
+                (floor(150.7), TAUNT),
+                (floor(158.3), BELAY),
+                (airborne(180.6), "Arr."),
+            ];
+            for (pos, text) in arrivals {
+                frame.say(pos, text);
+                if !burst {
+                    frame.tick(1.0 / 60.0);
+                }
             }
-            column.push(SpeechBubbleVisual::new(pos, SPEECH_BUBBLE_DURATION));
-            let mut near: Vec<&mut SpeechBubbleVisual> = column
-                .iter_mut()
-                .filter(|bubble| {
-                    !bubble.is_retired() && speech_bubbles_should_stack(bubble.pos, pos)
-                })
-                .collect();
-            restack_speech_bubbles(&mut near);
+            frame.tick(1.0 / 60.0);
+            let lines = frame.drawn_lines();
+            assert_eq!(lines.len(), 3, "a line went missing: {lines:?}");
+            assert_no_overlap(&lines);
         }
-        column
     }
 
-    fn live(column: &[SpeechBubbleVisual]) -> Vec<&SpeechBubbleVisual> {
-        column.iter().filter(|b| !b.is_retired()).collect()
+    /// **A line already on screen and a line born this frame are placed
+    /// together.** (D158)
+    ///
+    /// The behavioural half. What the two deleted make-room routines could not
+    /// give was that each swept its own population, so a bubble cleared every
+    /// member of the other list and could still land on one of them. The pass
+    /// has one population by construction — it iterates the labels that exist.
+    #[test]
+    fn a_live_line_and_a_line_born_this_frame_are_placed_together() {
+        let mut frame = SpeechFrame::new();
+        frame.say(ae::Vec2::new(150.7, 225.44), TAUNT);
+        frame.tick(1.0 / 60.0);
+        // A beat passes, so the second line meets a LIVE entity rather than a
+        // queued neighbour, which is the whole point.
+        frame.tick(0.2);
+        frame.say(ae::Vec2::new(180.6, 196.62), BELAY);
+        frame.tick(1.0 / 60.0);
+
+        let lines = frame.drawn_lines();
+        assert_eq!(lines.len(), 2, "both taunts should be on screen: {lines:?}");
+        assert_no_overlap(&lines);
     }
 
-    /// Every line still on screen lands at least a stack step from its
-    /// neighbours — the property, stated where the reader looks.
-    #[track_caller]
-    fn assert_legible(column: &[SpeechBubbleVisual]) {
-        let mut heights: Vec<f32> = live(column).iter().map(|b| b.elevation()).collect();
-        heights.sort_by(f32::total_cmp);
-        for pair in heights.windows(2) {
-            assert!(
-                pair[1] - pair[0] >= SPEECH_BUBBLE_STACK_STEP - LEGIBLE_SLACK,
-                "two lines landed {:.1} apart (all of them: {heights:?}) — that is \
-                 text printed through text",
-                pair[1] - pair[0]
-            );
+    /// **Four fighters all get a line, and a fifth speaker never costs
+    /// legibility.** (D158)
+    ///
+    /// A four-fighter free-for-all is the widest supported match, so four lines
+    /// at four heights is the load the placement budget is sized for. The
+    /// fifth is the honest limit: a line the pass cannot place is HIDDEN, never
+    /// drawn onto its neighbour.
+    #[test]
+    fn a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through() {
+        // Four fighters at four heights — the same assorted anchors D158
+        // measured, which is where its per-speaker offsets cancelled.
+        let assorted = [
+            (ae::Vec2::new(131.1, 225.44), TAUNT),
+            (ae::Vec2::new(150.7, 208.84), BELAY),
+            (ae::Vec2::new(180.6, 196.62), "Arr."),
+            (ae::Vec2::new(196.0, 180.0), "Get off the stage."),
+        ];
+        let mut frame = SpeechFrame::new();
+        for (pos, text) in assorted {
+            frame.say(pos, text);
+            frame.tick(1.0 / 60.0);
         }
+        let lines = frame.drawn_lines();
+        assert_eq!(
+            lines.len(),
+            4,
+            "a four-fighter free-for-all lost a line: {lines:?}"
+        );
+        assert_no_overlap(&lines);
+
+        // A fifth speaker: whatever the budget allows is drawn, and nothing
+        // that is drawn is drawn through anything else.
+        frame.say(ae::Vec2::new(210.0, 200.0), "Five of us?");
+        frame.tick(1.0 / 60.0);
+        let lines = frame.drawn_lines();
+        assert!(
+            lines.len() >= 4,
+            "the fifth speaker cost more than one line: {lines:?}"
+        );
+        assert_no_overlap(&lines);
+    }
+
+    /// **A name plate and a speech bubble at one anchor do not print through
+    /// each other.** (D159)
+    ///
+    /// ⭐ **the cross-FAMILY half, and no amount of bubble-vs-bubble stacking
+    /// could ever have seen it.** Jon photographed it: the "George Booul" plate
+    /// sitting inside *"Either you are on the stage or you are not."* The plate
+    /// was placed by the shared pass and the bubble placed itself, so both
+    /// passes correctly reported "no overlaps found" about a wrong frame —
+    /// exactly the failure `label_layout`'s header was written to describe.
+    #[test]
+    fn a_name_plate_and_a_speech_bubble_do_not_print_through_each_other() {
+        let speaker = ae::Vec2::new(150.7, 225.44);
+        let mut frame = SpeechFrame::new();
+        frame.plate("George Booul", speaker);
+        frame.say(speaker, TAUNT);
+        frame.tick(1.0 / 60.0);
+
+        let drawn = frame.drawn();
+        assert_eq!(
+            drawn.len(),
+            2,
+            "the fixture must draw both the plate and the taunt: {drawn:?}"
+        );
+        assert_no_overlap(&drawn);
+    }
+
+    /// **The plate holds its ground and the LINE moves.** (D159)
+    ///
+    /// The ranking argument, asserted rather than described: a plate is
+    /// permanent furniture on a body the eye is tracking, so displacing it
+    /// would make it hop once per taunt; a bubble is born rising and gone in
+    /// two seconds. `WorldLabelFamily`'s declaration order says so and this is
+    /// what says it is still true.
+    #[test]
+    fn the_bubble_yields_to_the_name_plate_and_not_the_other_way_round() {
+        let speaker = ae::Vec2::new(150.7, 225.44);
+        let plate_anchor = world_to_bevy(&stage(), speaker, WORLD_Z_FX + 8.0);
+
+        let mut frame = SpeechFrame::new();
+        frame.plate("George Booul", speaker);
+        frame.say(speaker, TAUNT);
+        frame.tick(1.0 / 60.0);
+
+        let drawn = frame.drawn();
+        let plate = drawn
+            .iter()
+            .find(|(text, _)| text == "George Booul")
+            .expect("the plate must be drawn");
+        assert_eq!(
+            plate.1.center,
+            plate_anchor.truncate(),
+            "the name plate was displaced; it is the family that must NOT move"
+        );
+        let line = drawn
+            .iter()
+            .find(|(text, _)| text.starts_with('\u{201c}'))
+            .expect("the taunt must be drawn");
+        assert_ne!(
+            line.1.center,
+            plate_anchor.truncate(),
+            "the taunt stayed on its raw anchor, so nothing placed it"
+        );
     }
 }

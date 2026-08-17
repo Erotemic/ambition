@@ -2205,6 +2205,41 @@ non-resolver is the deliberate `"definitely_not_a_real_room"` negative test. ⇒
 making the test harness resolve strictly is now a small, bounded change with one
 known opt-out, not the open-ended risk it looked like. ▢ **ready to run.**
 
+⚠⚠ **BUT THERE IS A WRITTEN COUNTER-ARGUMENT IN THE CODE, AND IT NAMES THIS
+EXACT HARNESS — read it before running this** (measured 2026-08-17,
+`game/ambition_app/src/app/resources.rs:~240`). The strict/tolerant split is
+deliberate and reasoned:
+
+> *"a PROGRAMMATIC override comes from a library caller (`Platformer2dSimHarness`,
+> the RL harness) that may legitimately name a room outside this composition;
+> falling back is the tolerant, correct answer."* — while a CLI flag *"was typed,
+> just now, by somebody who wanted that room"*, so it is already strict.
+
+⇒ **so this row proposes reversing a recent, explicit decision**, and doing it
+silently would be the thing this campaign keeps catching elsewhere.
+
+⭐ **and the measurement answers the objection: the tolerance has ZERO
+beneficiaries today.** Every `with_start_room` literal in the tree is a real room
+id —
+
+```text
+combat_calibration_lab ×8 · duel_arena ×5 · central_hub_complex ×4 · portal_lab ×3
+under_town_pipes · tiny_chamber · symmetry_room · mockingbird_arena
+hall_of_characters · goblin_encounter        … and one deliberate negative:
+definitely_not_a_real_room ×1
+```
+
+⇒ **count the adopters, applied to a BEHAVIOUR rather than a capability**: not
+one caller relies on falling back. The written argument protects a hypothetical
+future library caller in a composition that lacks the room.
+
+▢ **so the shape that honours both is strict-by-default with a NAMED opt-out**
+(the negative test takes it, and a future foreign-composition caller has
+somewhere to say so) — not a silent flip. ⚠ `StartRoomMustResolve` is opt-in with
+exactly TWO adopters today (`capture_scene`, `tests/shield_ring_probe.rs`)
+against **24 files** that call `with_start_room`, which is the asymmetry the row
+is really about: the RUNTIME is already strict and the HARNESS is not.
+
 ⭐ **PROMOTED FROM THE RESERVOIR 2026-08-14, and the promotion IS the work that
 was missing.** Measured: seven focused plans for this frontier already exist and
 are already good —

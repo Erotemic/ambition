@@ -3193,6 +3193,34 @@ to make the tool quiet — that is the laundering this row already paid for once
 ⭐ the honest sequence is: account for the edit-cost regressions FIRST, then
 re-freeze everything together and the size gain locks in with them.
 
+⭐⭐ **AND THAT ACCOUNTING IS NOW HALF DONE — `--diff` costs seconds and runs no
+build.** The edit-cost regressions split cleanly into two causes, and only one
+of them is this row's doing:
+
+```text
+crate                    +dependents   +lines     +seconds
+ambition_geometry              +0     +60,697     +257.8s   ← workspace GROWTH
+ambition_asset_manager         +0     +61,964     +292.0s   ← workspace GROWTH
+ambition_encounter            +17     +34,969     +218.6s   ← STRUCTURAL
+ambition_dialog               +12     +30,649     +206.0s   ← STRUCTURAL
+ambition_platformer2d         +12     +18,541     +128.1s   ← STRUCTURAL
+ambition_touch_input          +12     +18,553     +128.1s   ← STRUCTURAL
+```
+
+⭐ **`+0 dependents` means nobody new depends on it — its closure simply got
+bigger**, i.e. ~61k lines of ordinary feature growth landed above it in eight
+days. The monolith's −10,890 today sits INSIDE that, which is why the workspace
+total is up while this crate is down.
+
+⛔ **the `+N dependents` rows are the carves' own bill.** Relocating and carving
+gives the destination new dependents, so the crate BELOW gets more expensive to
+edit even as the monolith gets cheaper — the inverse of the laundering trap, and
+the reason a per-crate ledger cannot score this row on its own.
+
+▢ **so the re-freeze is blocked on a judgement, not on more measurement**: is
+`encounter` gaining 17 dependents an acceptable price for the monolith losing
+10,890 lines? ⭐ that is answerable now and was not this morning.
+
 ⛔⛔ **THE ROW'S SCOREBOARD SAID DECOMPOSITION WAS LOSING GROUND — and it was,
 for eight days. ⭐ RESOLVED THE SAME DAY; the arc is below.** The
 compile ratchet's baseline was frozen 2026-08-09. Since then:

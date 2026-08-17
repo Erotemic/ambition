@@ -3434,6 +3434,20 @@ ambition_platformer2d_actor_monolith   131  ⛔ ROSE from 122
 ambition_characters                     51  ⛔ ROSE from 39
 ```
 
+⭐ **RE-MEASURED 2026-08-17: still red, and it had crept further.**
+`ambition_characters` had reached **53** — this campaign added two more while
+renaming the smash brain's closing verb. Both repaired (`ed6bf307c`), so the
+crate is back to the 51 above:
+* a link through `movement::abilities::…`, which is a PRIVATE module — the
+  function is published by a `pub use` one level up, and the doc named the
+  definition rather than the address.
+* a bare `StateMachineCfg::Smash`, which is a REAL variant that simply is not in
+  scope where that doc sits. ⚠ worth knowing, because it reads as a deletion and
+  is not one: the ratchet cannot tell "this no longer exists" from "you did not
+  say where it lives", and only the first is rot.
+⚠ the remaining 51 vs 39 (and 131 vs 122) is the debt the row was opened for and
+is NOT repaired. Fixing what we broke is not the same as paying it down.
+
 ⛔ **`python3 scripts/check_doc_link_ratchet.py --check` fails**, and like the
 workspace policy suite before it (D134), **nothing per-turn runs it** — the gate
 is `cargo check -p ambition_app --all-targets` + the app suite + Smash.

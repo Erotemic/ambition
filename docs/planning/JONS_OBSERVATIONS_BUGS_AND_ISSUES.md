@@ -133,6 +133,7 @@
 
 
 * There isn't a quit to title option in the smash menu selection.
+  * ⊙ `PauseEntry::QuitToTitle` exists and smash's `visible` feature does install the shell that shows it, so which screen did you mean — the pause menu, or the character SELECT screen (which is the demo's own UI and has no such row)?
 
 
 * The smash UI for character select looks good, but the controls don't feel good, they are very hard to use with a gamepad. 

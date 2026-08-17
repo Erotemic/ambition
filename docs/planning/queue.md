@@ -954,8 +954,8 @@ gate is a point radius and the thing that collides is a wide box. (2) a
 fighter's world NAME LABEL prints through the lowest bubble; the label and the
 bubble do not know about each other at all.
 
-- ▢ **D160 — THE PROJECT GATE RUNS NO `--lib` TESTS, NOT EVEN `ambition_app`'S.
-  (measured 2026-08-17, after it hid two regressions from the same session)**
+- ✔ **D160 — CLOSED 2026-08-17. THE PROJECT GATE RAN NO `--lib` TESTS, NOT EVEN
+  `ambition_app`'S — it hid two regressions from the same session.**
 
 ```text
 cargo check -p ambition_app --all-targets   COMPILES lib tests, never RUNS them
@@ -972,8 +972,10 @@ cargo test  -p ambition_app --test app_it   runs ONE integration target
   D151 step 1 had just asserted**, one hour apart, and nothing re-ran the guard.
 
 ⭐ **`cargo test --workspace --lib` is the unit tier and is FAST** — it found the
-second one in a single sweep. ▢ **add it beside `app_it` in the stated gate**
-(`AGENTS.md`), which is a one-line change to what a turn owes.
+second one in a single sweep. ✔ **added to the stated gate in `AGENTS.md`**,
+beside the two warnings already there that `-p <one_crate>` is not the gate and
+that `ambition_app` is not the whole of it. Both reds are repaired (`ea5ca88df`)
+and `--workspace --lib` is green.
 ⚠ this is the same shape as D134 (the workspace-policy suite nobody ran) and
 D137 (the doc ratchet in no gate): **a suite that exists and is not in the gate
 is a suite that goes red and stays red.** ⇒ when adding a check, say which

@@ -156,6 +156,17 @@ touch the stall fuse — that one is answered by committing something.
   the app compiled. App-level tests build into ONE `app_it` target, so
   `--test <file_name>` will not resolve: `cargo test -p ambition_app --test
   app_it -- <module>`.
+* ⛔⛔ **AND NOTHING IN THE GATE RUNS A `--lib` TEST — run
+  `cargo test --workspace --lib` before you push.** `cargo check --all-targets`
+  COMPILES the unit tier and never RUNS it, and `--test app_it` runs one
+  integration target, so **every crate's unit tests are outside the gate,
+  `ambition_app`'s included**. Measured 2026-08-17 (queue D160) after it hid two
+  regressions from one session: an ability-gate change three crates away left
+  `ambition_sim_view::control_prompt` red for hours, and one slice of a refactor
+  invalidated the guard the previous slice had written an hour earlier. ⭐ the
+  unit tier is FAST — this costs a sweep, not a suite. ⚠ both failures were
+  guards that were CORRECT when written and went wrong when a rule moved under
+  them, which is exactly what the cheap tier is for.
 * ⛔ **AND `ambition_app` IS NOT THE WHOLE GATE EITHER — run
   `cargo test -p ambition_demo_smash_app` when you touch character, movement or
   combat.** Two crates have been found red while every check the run performed

@@ -864,11 +864,27 @@ report about exactly that newly-live road. Whoever picks up that observation
 should read this plan first.
 
 ⚠ **found only because the earlier stranded-plan audit was SCOPED WRONG** — it
-swept `docs/planning/engine/*.md` and never looked at the top level, so it
-reported one stranded plan and there were two. ⭐ the other three top-level docs
-unreferenced by any ledger (`frontend-audio-is-per-experience`,
-`engine_rename_campaign`, `authoring-loop-program-2026-07-31`) carry no open
-steps, so this is the only one.
+swept `docs/planning/engine/*.md` and never looked at the top level.
+
+⛔ **and my first version of this row then got the REST wrong too**: I wrote that
+the other three unreferenced top-level docs carry no open steps.
+[`frontend-audio-is-per-experience.md`](frontend-audio-is-per-experience.md)
+carries one, and it is waiting for exactly the thing Jon asked for:
+
+> ▢ *"Use route declarations for music changes inside one experience … The
+> architecture is already capable of this; **add a real consumer when the product
+> wants the transition**."*
+
+⭐ **Jon's *"when you challenge PCA in the C4 symmetry room we should change the
+music to a smash track"* IS that consumer.** ⚠ two mechanisms exist and they are
+not the same layer — an encounter's authored `music_track` (validated against the
+registry) and this doc's route declarations (stage theme vs winner-card theme).
+The PCA challenge is an encounter, so the encounter road is probably right, but
+**this doc is the one that says a process-global switch is the wrong shape**, and
+whoever wires it should read it before picking.
+
+⇒ so **TWO stranded top-level plans, not one**; `engine_rename_campaign` and
+`authoring-loop-program-2026-07-31` are the ones genuinely without open steps.
 
 ▢ **this row is a POINTER, not a re-plan** — the plan is good and does not need
 restating. It needed to be reachable.

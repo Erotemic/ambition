@@ -95,6 +95,29 @@ remembered**: `SimId` is now `#[require(SimIdCounter)]`, so *"identified"* and
 *"able to be descended from"* are one condition rather than two facts six mint
 sites had to keep in step.
 
+## ⛔⛔ A rollback registration reddens TWO baselines, and one is invisible per-crate
+
+Measured 2026-08-17, after `rollback-wire-format-is-frozen` sat RED on `main` for
+hours and nobody's per-crate run could see it.
+
+```text
+game/ambition_app/tests/rollback_schema_baseline.txt      inside `app_it`
+scripts/baselines/rollback-schema-baseline.json           the ABSENCE CONTRACTS
+                                                          (check_absence_contracts.py --check)
+```
+
+**Neither appears in any `cargo test -p <crate>` run.** Registering a component,
+*or moving a registered type between crates*, moves both — D147 moved
+`StocksMatchSettled` across a crate boundary and reddened the json alone, which
+is how it stayed red.
+
+⚠ **and the `.txt` is `include_str!`d**: after editing it, `touch` the test file
+or the run compares against the stale embedded copy and fails reporting
+`0 added, 0 removed` — which reads like an ordering bug and is not one.
+
+⇒ when you register rollback state, or move a registered type, check **both**
+before pushing. See also [`../queue.md`] D147/D150.
+
 ⚠ **rollback cost, verified independently rather than taken on report** — this is
 the widest-reaching change of 2026-08-08 and it touches every `SimId` carrier:
 

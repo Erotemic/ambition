@@ -1496,8 +1496,16 @@ actually be (no double jump? no blink?) is still open and is not answered here.
 Both halves are guarded in one file, because each is one edit away from breaking
 the other.
 
-- ▢ **D138 — OILER FIGHTS IN HIS OLD BODY: the SVG rig is his portrait and
-  nothing else. (Jon, 2026-08-16)**
+- ✔ **D138 — CLOSED 2026-08-17, CONFIRMED BY JON: *"Oiler fights in his new body
+  now."* The row below is the state BEFORE the fix and is kept for its
+  reasoning.** Verified against HEAD: `regen_sprites.sh` no longer lists `oiler`
+  in `review_cues` — the entry there is now an explicit ⛔ refusal (*"oiler is
+  NOT here any more — see `tackon_targets`. His body comes from the direct-SVG
+  rig; leaving the review cue in place would have this loop overwrite the rig's
+  sheet with the toon render on every full run"*), and `oiler` sits in
+  `tackon_targets` instead.
+  ⚠ **found while arming the 72h goal, and it is the reason that sweep exists**:
+  a stale ▢ row aims an autonomous run at work that is already done.
 
 Jon, verbatim: *"Oiler's sprite is still his python based one not his SVG based
 one. I would like to completely move the SVG one. Note the SVG is used as the

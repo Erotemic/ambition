@@ -3995,6 +3995,38 @@ ordering — it is being unmutable at runtime by construction**, exactly this wa
 A command registry a system could write to is rollback state, and then every
 authored verb is in the snapshot.
 
+⛔⛔ **BUT M1-FOR-COMMANDS HAS NO CUSTOMER YET, AND THAT IS THE ACTUAL BLOCKER —
+counted 2026-08-17.** The condition half's full ecosystem, publishers separated
+from consumers:
+
+```text
+PUBLISH (a domain answering a question)   world_facts · items/conditions ·
+                                          items/pickup    →  3 questions
+CONSUME (something asking one)            dialog/authored_conditions.rs
+                                          world/gated_lock_walls.rs   →  2
+```
+
+⭐ **two independent consumers is a real ecosystem, not a demo** — so the
+contract earned its place twice: once by the deletion above, once by adoption.
+
+⭐⭐ **and yet neither consumer wants a command, which is why `PublishCommand`
+does not exist.** Both ask a question and then perform an effect **they own
+intrinsically** — a wall opens; a dialogue line is offered. The effect is not a
+choice an author made, so there is nothing for a command vocabulary to carry.
+
+⇒ **a command catalog is needed exactly when the AUTHOR picks the effect** —
+which is what this row's own examples are: *"when two switches are active, power
+a lift"*, *"when an item is placed here, open a gate"*. Today **no authored
+surface lets an author choose an effect at all**, so building the catalog first
+would be vocabulary with zero speakers — the precise thing
+`authored_logic`'s header forbids, and the standard it holds ITSELF to.
+
+▢ **so M1-for-commands is BLOCKED ON A CUSTOMER, not on design.** The first
+question is not *what shape is a command* but *which authored thing gets to name
+its own effect first* — pick that, and the three below stop being hypothetical.
+⭐ the rule that caught this is *count the ADOPTERS, not the capability* — a
+shipped capability can have zero.
+
 ▢ **and then the three the row already names, in the order they bite:**
 1. **rollback semantics** — M4's *"rollback is a design input, not a cleanup
    afterwards"* lands here. A command that mutates during a predicted frame must

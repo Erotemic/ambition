@@ -1219,8 +1219,18 @@ BRIDGE IS LOAD-BEARING RIGHT NOW. DO NOT DELETE IT.**
 
 **THE SAFE ORDER, and it is the reviewer's own condition (*"as explicit
 character/body capability declarations become complete"*) made concrete:**
-1. ▢ author the two duelists' abilities explicitly — the kit they receive TODAY,
-   so the change is provably behaviour-neutral before any semantics move.
+1. ◐ **DONE, pending validation** — the two duelists author
+   `VERSUS_FIGHTER_KIT` (`game/ambition_app/src/app/versus_fighters.rs`), the
+   kit they were already receiving: `basic()` + `attack` + `fast_fall`, `reset`
+   and `interact` riding in from `basic()` exactly as they already did.
+   ⭐ **and `versus.rs`'s `at_most(…)` now REFERENCES that constant** instead of
+   restating the set inline, so the ceiling and the kit beneath it cannot drift
+   into disagreeing — restating it is how the stage became the only thing
+   dressing its own cast.
+   Guard: `what_the_duelists_author_is_exactly_what_the_bridge_was_handing_them`
+   asserts `apply(Some(kit)) == apply(None)` (so the step is provably neutral),
+   that the kit can actually fight (so the equality is not comparing two empty
+   sets), and that both fighters really carry it now.
 2. ▢ then make `None` mean *no authored claim*, and decide what that yields —
    ⚠ it must NARROW the body's own kit rather than REPLACE it, which `apply`
    cannot do today because it never receives that kit. That signature is the

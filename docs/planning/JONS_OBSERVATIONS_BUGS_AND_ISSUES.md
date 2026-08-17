@@ -90,6 +90,8 @@
   * ✔ The invisible-payout half is fixed too — `a_discovered_hidden_block_reveals_itself` passes at HEAD; it had never run, because Mary-O's eight art assertions are behind `--features visible`.
 
 * The pirates in the cover are horribly miss-sized. The heavies need to get a little smaller (this should probably be something done in data by the sprite renderer, not in code) and the other pirates need to probably scale up 2x, They are as tall as the player robot who is supposed to be chibi
+  * ⊙ Same root as the snake/AI-slop item above, and blocked on the same call: the drawn quad does not derive from the body, so per-character `collision_scale` tunes a BOX while you are looking at ART. That item's own note says deciding the quad-from-bbox route *"also fixes the Hall's size spread"*, which is this complaint.
+  * ⚠ the numbers confirm they are not comparable: heavies 1.95, other pirates 1.60, `robot` 2.10 — the robot's is the LARGEST, yet he reads chibi, because each scale multiplies its OWN sheet's frame size rather than a shared unit.
 
 
 * The pirates in the pirate sky no longer ride their sharks. 

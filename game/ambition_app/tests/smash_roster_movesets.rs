@@ -1026,3 +1026,116 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
          off the list"
     );
 }
+
+/// **EVERY FIGHTER'S GROWTH IS IN THE STAGE'S UNITS — not just the stand-ins'.**
+///
+/// ⛔⛔ **the guard for this existed and swept the wrong population.**
+/// `ambition_demo_smash::moveset`'s `an_authored_growth_is_the_stage_declaration_in_the_stage_units`
+/// iterates `fighter_moveset()`, which is the ELEVEN-VERB FALLBACK the two robot
+/// stand-ins carry. Every fighter who authors a real table — which is all
+/// fourteen, since D144 — was outside the only check that looks for this.
+///
+/// What it looks for is a UNIT SLIP, and the slip is expensive: a volume's
+/// `knockback_growth` is absolute px/s per point, while the ruleset's is a
+/// FRACTION of the move's base. Both are `f32`, both are called "growth", and an
+/// authored move outranks the ruleset — so fraction-shaped numbers make a move
+/// grow ~40× slower than the stage declared while every test stays green. That
+/// is twice now that it surfaced as *"there does not seem to be any knockback"*.
+///
+/// ⭐ **a BAND, not an equality, and the original guard's own doc says why**:
+/// *"A move MAY deliberately differ — that is what authoring is for — but it has
+/// to differ by a factor a reader can see, not by a unit."* Its `< 0.01`
+/// tolerance forbade the very latitude that sentence grants. George Booul's
+/// table sits at 0.85–1.05× of the declaration (`130 → 2.20`, `50 → 1.05`),
+/// which is a fighter being tuned; a unit slip is 40×. Measured 2026-08-17
+/// before widening the sweep, which is why those rows are not "fixed" here.
+#[test]
+fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
+    /// How far from the declaration an authored growth may sit and still be
+    /// read as a deliberate choice. Four is far wider than any fighter needs
+    /// (the widest today is 1.05) and far tighter than the ~40 a unit slip
+    /// produces, so it discriminates the two without policing taste.
+    const MAX_TUNING_FACTOR: f32 = 4.0;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
+    let grid = SmashRoster::assemble(registry);
+    let declared = ambition_demo_smash::SMASH_KNOCKBACK_GROWTH;
+
+    let mut volumes_seen = 0usize;
+    let mut fighters_seen = 0usize;
+    let mut offenders: Vec<String> = Vec::new();
+
+    for id in grid.ids() {
+        let Some(prepared) = registry.get(id) else {
+            continue;
+        };
+        let Some(moveset) = prepared.kit.projectable_moveset() else {
+            continue;
+        };
+        let mut this_fighter = 0usize;
+        for mv in &moveset.moves {
+            for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
+                // A volume that launches nothing has no base to grow from, so
+                // the ratio is undefined rather than wrong.
+                if volume.knockback <= 0.0 {
+                    continue;
+                }
+                // ⛔⛔ **ZERO IS A SENTINEL, NOT A SLIP, and the first version of
+                // this guard failed on it.** `resolved_hitbox_knockback_magnitude`
+                // reads `if growth > 0.0 { growth } else { base * ruleset_growth }`
+                // — so an unauthored growth DEFERS to the stage's declaration and
+                // is already correct by construction. Every fighter carries seven
+                // prefab-derived swings (`attack`, `attack_up`, the aerials) at
+                // `knockback: 120, growth: 0`, and flagging those would have made
+                // this guard fire on the whole grid for the one case that needs no
+                // fixing. The slip this hunts is an AUTHORED number in the wrong
+                // unit, which is a different thing from no number at all.
+                if volume.knockback_growth <= 0.0 {
+                    continue;
+                }
+                this_fighter += 1;
+                let expected = volume.knockback * declared;
+                let ratio = volume.knockback_growth / expected;
+                if ratio < 1.0 / MAX_TUNING_FACTOR || ratio > MAX_TUNING_FACTOR {
+                    offenders.push(format!(
+                        "{id}/{} launches at {} and grows {}/point, but the stage \
+                         declares {declared} of base = {expected}/point ({ratio:.3}× off)",
+                        mv.id, volume.knockback, volume.knockback_growth,
+                    ));
+                }
+            }
+        }
+        if this_fighter > 0 {
+            fighters_seen += 1;
+            volumes_seen += this_fighter;
+        }
+    }
+
+    // ⛔ **the non-vacuity half, and it is the point of widening the sweep.** The
+    // guard this replaces passed for years while looking at one table nobody
+    // fights with. A sweep that reached no fighter, or one fighter, would pass
+    // here for exactly the same reason.
+    assert!(
+        fighters_seen >= 10,
+        "the growth sweep reached only {fighters_seen} fighters with launching \
+         volumes — it is measuring a population, and this one is too small to be \
+         the grid"
+    );
+    assert!(
+        volumes_seen >= 100,
+        "the growth sweep examined {volumes_seen} launching volumes across the \
+         whole grid, which is fewer than one fighter's kit"
+    );
+    assert!(
+        offenders.is_empty(),
+        "a growth that is off by a FACTOR is the fraction-vs-absolute unit slip, \
+         and it silently opts the move out of the percent loop:\n  {}",
+        offenders.join("\n  ")
+    );
+}

@@ -2081,7 +2081,13 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// match rather than at the end of it. Tripling at 100% is the genre's shape.
 /// See `moveset.rs` for the unit trap that made the authored moves ignore this
 /// entirely, which is the half that actually read as zero.
-const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
+/// ⚠ **`pub` so the ROSTER-WIDE guard can read it.** `moveset.rs`'s unit check
+/// only ever swept `fighter_moveset()` — the eleven-verb fallback the two robot
+/// stand-ins carry — so the fourteen fighters who author their own tables were
+/// outside the one guard that exists to catch this. The host census
+/// (`smash_roster_movesets`) sweeps all of them and needs the declaration to
+/// compare against.
+pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";

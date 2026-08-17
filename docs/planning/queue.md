@@ -1084,6 +1084,37 @@ Wanted: the authored thing is a presentation effect (`effect`, `position`,
 must exist; they are not a reason to hand-pair the normal ones fourteen times.
 ⚠ this removes ceremony only — not one fighter mechanic changes.
 
+⭐⭐ **PROBED 2026-08-17. Accurate, and the size + the two blockers are measured.**
+
+**The site**: `dispatch_move_events` (`crates/ambition_combat/src/moveset/mod.rs:1450`)
+— the `MoveEventKind::Vfx` arm writes `ambition_vfx::VfxMessage::Effect { pos, fx,
+scale }` straight out, while `FxRequest` (`ambition_vfx/src/vfx.rs:299`) exists
+one module over and `process_fx_requests` (`ambition_render/src/fx.rs:190`) fans
+it to VFX + the effect's own paired cue.
+
+**THE SIZE — 145 authored `sfx(…)` calls across the fourteen tables split three
+ways, and only one third is ceremony:**
+
+| | count | disposition |
+|---|---|---|
+| `vfx.*` with no `.loop` — restates the default pairing | **74** | ▢ DELETABLE, this is the win |
+| `vfx.*.loop` — a looping variant of the art's own cue | 20 | ⭐ genuine OVERRIDE, must survive |
+| `player.*` / `enemy.*` / `pca.*` — independent sounds | 50 | ⚠ not paired with any vfx; untouched |
+
+⇒ so `sfx = default | override(…) | silent` is exactly the vocabulary the corpus
+needs, and the `.loop` rows are the proof the override arm is not speculative.
+
+⛔⛔ **TWO BLOCKERS — this is NOT a one-line swap.**
+1. **`FxRequest` carries no presentation source.** `dispatch_move_events` scopes
+   its SFX by `ev.presentation_source` (`sfx.write_from(...)` when scoped), and
+   `FxRequest` is `{ pos, fx, scale, sfx }`. Routing move VFX through it as-is
+   DROPS that scoping. `FxRequest` has to learn the source first — and a new
+   message channel owes three things, so check what else reads it.
+2. **`process_fx_requests` is installed by `ambition_platformer2d_host`
+   (`lib.rs:572`), not by the combat crate.** Any headless fixture that asserts
+   on `VfxMessage` after a move event would see nothing once the write becomes an
+   `FxRequest`. Inventory those fixtures before switching the arm.
+
 - ▢ **D150 — A PROJECTILE CHANGES ALLEGIANCE WHEN ITS FIRER DESPAWNS. (review
   finding 4, EXISTING but newly urgent — a D145 follow-up, not a D145 defect)**
 

@@ -2646,6 +2646,35 @@ stopped importing `features` — *the same bug, one level up.* ⇒ **when you na
 ordering so a module can leave, the NAME has to live somewhere the module can
 still reach after it has left.**
 
+⭐⭐ **RE-MEASURED 2026-08-17: THE CARVE IS STILL READY, and the numbers are
+now exact.**
+
+```text
+conversation -> monolith    0 real `use` statements      ⇒ the new crate need
+                                                          not depend on the one
+                                                          it leaves. THIS is the
+                                                          direction that decides
+                                                          a carve.
+monolith -> conversation    1 `use` (features/ecs/interact.rs:19,
+                            `DialogueDispatch`) + 35 inline paths
+                                                        ⇒ ordinary, and becomes
+                                                          the monolith depending
+                                                          on a crate.
+size                        2,734 lines = ~2,023 code + 711 test
+                            (the row said 1,836; it grew, it did not rot)
+```
+
+⛔⛔ **AND A MEASUREMENT TRAP WORTH MORE THAN THE NUMBERS.** `grep -r "crate::"`
+over this module reports edges to `participant_seat`, `features`,
+`character_runtime`, `items` and `dialog` — and **every single one is a DOC
+COMMENT**. This repository's `//!` and `///` blocks cite paths so heavily that a
+path-grep measures PROSE, not dependency. I nearly filed this row as stale on
+that reading. ⇒ **measure `use` statements, never `crate::` occurrences.**
+
+⚠ the remaining cost is the one the repo already knows: a new crate is a new dep
+edge, which is FIVE lockfiles and the contracts job — see
+[[reference_a_new_dep_edge_fails_the_contracts_job]].
+
 ⭐ **`ConversationPlugin` owns** `ActiveConversation`, the `ConversationCutBark`
 port channel, the `ConversationEnded` ledger install, the `Update` presentation
 pair and its three sim systems. ⚠ **only ONE of the seven `NarrativeInputPlugin`

@@ -144,11 +144,11 @@
 
 
 * The smash UI for character select looks good, but the controls don't feel good, they are very hard to use with a gamepad. 
-  * ⊙ Possibly the SAME root as the two-controller item below, and worth trying before treating it as feel: under the default `UnifiedPrimary` policy the pad is not its own source — it and the keyboard both drive slot one — so a gamepad is navigating a screen that another source is also steering. Switching that demo to `JoinToClaim` is the cheap experiment.
+  * ⛔ WITHDRAWN — I suggested the pad was not its own source under the default policy. It is: smash claims `JoinToClaim` on its own routes, so that explanation does not apply and this stays a feel report.
 
 * In smash it should be easy for 2 controllers to select their own characters, or turn other characters off or into cpus, any controller should be able to turn a slot into a player if there is a controller connected to it.
-  * ⊙ BUILT, TESTED, AND SWITCHED OFF. `InputAssignmentPolicy::JoinToClaim` makes the keyboard a source with its own slot, so keyboard + one pad is two players — your couch milestone 2, written into the code. But the enum's `#[default]` is `UnifiedPrimary` (*"today's behaviour exactly"*) and **the only three places that select `JoinToClaim` are unit tests**, so no shipped composition ever turns it on.
-  * ⊙ Enabling it is one `insert_resource` in the smash app, and it is YOUR call because it is exactly what your milestone 8 protects: solo play must not discover that plugging a controller in created a second empty chair.
+  * ▢ ⛔ I first wrote here that this was built and switched off. **That was wrong — I truncated my own grep with `| head`.** Smash DOES claim `InputAssignmentPolicy::JoinToClaim`, route-scoped, while the select or gameplay route is up (`demo_smash/src/lib.rs:1508`), and releases it on leaving. So keyboard + one pad should already be two players and the enum default never applies here.
+  * ⊙ Which means the report is about something further in: does the second source get a SLOT and fail to claim a character, or never appear at all? Say which and it narrows to seats vs the select screen.
 
 
 *  Note, in ambition I can't use "F" to go through doors anymore, and in smash, I see the new emmy sprite on the select screen, but her character is the old sprite in the match.

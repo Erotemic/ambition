@@ -6,7 +6,7 @@ here. Engineering questions go to the queue/tracks; answered questions move to
 record is archived at
 [`../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md`](../archive/planning-superseded/2026-08-13/awaiting-maintainer-decision.md).
 
-## Open decisions — 12
+## Open decisions — 11
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 

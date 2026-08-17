@@ -1719,3 +1719,157 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
          left standing"
     );
 }
+
+/// **A TEAM WINS AS A TEAM, EVEN AFTER ONE OF ITS MEMBERS IS GONE.** (D148)
+///
+/// The winner card states its own rule: a team keeps its own name, and only a
+/// side of ONE is swapped for the fighter's. It decided which by COUNTING THE
+/// BODIES still standing on the winning side — and
+/// `take_eliminated_fighters_out_of_play` despawns an eliminated fighter, so a
+/// two-person team that lost a member early has exactly one body left at
+/// victory and the card called it a solo.
+///
+/// ⭐ **body residency used to recover match-participant identity**, which is
+/// the error this campaign keeps paying for. How many fighters a side HAS is a
+/// fact about the match that was PREPARED; how many are standing is a fact about
+/// right now, and the two stop agreeing the first time somebody dies.
+///
+/// ⚠ **the non-vacuity guard is the early elimination.** A run where the
+/// teammate was still standing at the end would satisfy the assertion for the
+/// wrong reason — the census would have found two bodies and printed the team
+/// anyway — so this asserts that seat 1's body was GONE before the match was
+/// decided. That is the state the census-based version got wrong, and without
+/// it this test would have passed on the broken code.
+///
+/// ⚠ the solo half of the rule is asserted by
+/// `a_four_way_free_for_all_ends_when_one_fighter_is_left` and
+/// `a_second_match_on_the_same_stage_counts_in_and_ends`, both of which expect a
+/// FIGHTER'S NAME — so a "fix" that always printed the side would go red there.
+#[test]
+fn a_team_victory_names_the_team_and_not_its_last_survivor() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat, StocksMatchDecided};
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Decisions(Vec<Option<String>>);
+
+    let mut app = build_demo_app();
+    app.init_resource::<Decisions>();
+    app.add_systems(
+        Update,
+        |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
+            for outcome in decided.read() {
+                seen.0.push(outcome.winner.clone());
+            }
+        },
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // Two teams of two. `smash_roster*` gives every seat its own side by
+    // default (`seat 1`, `seat 2`, …) — this is the team match Jon named, and
+    // it is the shape the card's own rule was written for.
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(
+        [
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ],
+        &[5, 5, 5, 5],
+    );
+    roster.fighter_stocks = Some(1);
+    for (index, participant) in roster.participants.iter_mut().enumerate() {
+        participant.team = Some(if index < 2 { "Red" } else { "Blue" }.to_string());
+    }
+    let countdown = roster.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let seats_now = |app: &mut App| -> Vec<usize> {
+        let world = app.world_mut();
+        let mut query = world.query::<&MatchSeat>();
+        let mut seats: Vec<usize> = query.iter(world).map(|seat| seat.0).collect();
+        seats.sort_unstable();
+        seats
+    };
+    let launch = |app: &mut App, seat_wanted: usize| {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+        for (seat, mut kin) in query.iter_mut(world) {
+            if seat.0 == seat_wanted {
+                kin.vel = ambition_platformer2d::engine_core::Vec2::new(
+                    2_400.0 * if seat_wanted % 2 == 0 { 1.0 } else { -1.0 },
+                    -200.0,
+                );
+            }
+        }
+    };
+
+    let mut seated = 0usize;
+    // Red's teammate goes FIRST and is fully out of the world before Blue is
+    // touched, so the census has one Red body to find when the match ends.
+    let mut teammate_launched = false;
+    let mut blue_launched = false;
+    let mut teammate_gone_before_the_end = false;
+    for tick in 0..(countdown + 900) {
+        app.update();
+        if app.world().resource::<Decisions>().0.len() == 1 {
+            for _ in 0..10 {
+                app.update();
+            }
+            break;
+        }
+        if tick == countdown {
+            seated = seats_now(&mut app).len();
+        }
+        if !teammate_launched && tick > countdown + 30 {
+            launch(&mut app, 1);
+            teammate_launched = true;
+        }
+        if teammate_launched && !blue_launched && !seats_now(&mut app).contains(&1) {
+            // Seat 1's body is despawned: Red is now one body and two
+            // participants, which is the state the card got wrong.
+            teammate_gone_before_the_end = true;
+            launch(&mut app, 2);
+            launch(&mut app, 3);
+            blue_launched = true;
+        }
+    }
+
+    assert_eq!(
+        seated, 4,
+        "the stage seated {seated} fighters, so this was not a two-versus-two"
+    );
+    assert!(
+        teammate_gone_before_the_end,
+        "seat 1 was never taken out of play, so Red still had two bodies standing \
+         when the match ended and this measured the case that always worked"
+    );
+    let decided = app.world().resource::<Decisions>().0.clone();
+    assert_eq!(
+        decided,
+        vec![Some("Red".to_string())],
+        "a two-versus-two where both of Blue went out announced {decided:?}"
+    );
+    let slot: ambition_platformer2d::presentation::HudSlotId =
+        ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into();
+    let card = app
+        .world()
+        .get_resource::<ambition_platformer2d::presentation::HudReadouts>()
+        .and_then(|readouts| readouts.get(&slot))
+        .map(ambition_platformer2d::presentation::HudReadout::text)
+        .expect("the end of a match writes the announce card");
+    assert_eq!(
+        card,
+        ambition_demo_smash::victory_banner(Some("Red")),
+        "the card reads {card:?} — Red won as a TEAM and it named the one \
+         teammate whose body happened to still be standing"
+    );
+}

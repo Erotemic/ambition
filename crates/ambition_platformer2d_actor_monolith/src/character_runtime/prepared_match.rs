@@ -527,6 +527,31 @@ impl PreparedMatch {
         &self.seats
     }
 
+    /// **How many fighters this match GAVE a side**, named the way the ruleset
+    /// names sides.
+    ///
+    /// ⛔⛔ **the question every consumer got wrong by asking the world instead**
+    /// (D148). A scoreboard wanting to know whether a side is a person or a team
+    /// counted the bodies standing on it — and an eliminated fighter is
+    /// DESPAWNED, so a two-person team that lost a member early has one body at
+    /// victory and gets announced as that member. Measured, not reasoned: the
+    /// card read `WINNER: Robot v3` for a side called `Red`.
+    ///
+    /// ⭐ **the plan is the frozen answer.** Who is IN a match was decided when
+    /// it was prepared and cannot change while it runs; who is still STANDING is
+    /// the match itself. The two stop agreeing the first time somebody dies,
+    /// which is exactly when a scoreboard starts asking.
+    ///
+    /// ⚠ the label rule is [`stocks::side_label`](crate::combat::stocks::side_label)
+    /// — the same call `decide_stocks_match` folds bodies into sides with, so a
+    /// side named by the outcome is a side this can count.
+    pub fn seats_on_side(&self, side: &str) -> usize {
+        self.seats
+            .iter()
+            .filter(|seat| crate::combat::stocks::side_label(seat.seat, seat.team.as_ref()) == side)
+            .count()
+    }
+
     /// The first `SimTick` this plan may build on. See [`Self::effective_from`].
     pub fn effective_from(&self) -> u64 {
         self.effective_from

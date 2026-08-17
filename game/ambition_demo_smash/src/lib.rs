@@ -1137,10 +1137,19 @@ fn return_to_the_select_screen_when_the_match_ends(
 /// match arrived on the stage still holding the last one's winner (D140).
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
+    // **WHO IS IN THIS MATCH — the FROZEN answer** (D148). Whether a side is a
+    // person or a team is a fact about the match that was prepared, and the plan
+    // is the only thing that still knows it once fighters start being removed.
+    prepared: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
+    >,
     // **THE CAST, so the card can say a NAME.** The engine decides a SIDE — a
     // team, or `seat 2` when nobody declared one — and a side is the right
     // answer to "who won" and the wrong thing to put on a screen. The bodies
     // still standing are the ones that know their names.
+    //
+    // ⚠ read for the NAME only. It used to decide the team-or-person question
+    // too, by counting the rows on the winning side — see below.
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
@@ -1154,22 +1163,39 @@ fn announce_the_winner(
         // only happens for a side of one — which is the only case where the
         // side and the fighter are the same thing.
         //
+        // ⛔⛔ **and "a side of one" is asked of the PLAN, not of the bodies**
+        // (D148). This counted the fighters still standing on the winning side,
+        // which is a different question the moment anybody dies:
+        // `take_eliminated_fighters_out_of_play` despawns an eliminated body, so
+        // Red = Alice + Bob with Alice knocked out early has exactly ONE Red
+        // body at victory and the card announced `WINNER: Bob` — contradicting
+        // the rule stated one paragraph above it. Body residency recovering
+        // match-participant identity, which is the error this campaign keeps
+        // paying for.
+        //
         // ⚠ **and the fallback is the SIDE, not a panic.** A simultaneous
         // ring-out despawns every body, so a card can legitimately be asked to
         // name a winner with nobody left standing to ask.
         let named = outcome.winner.as_deref().map(|side| {
-            let mut on_the_winning_side = fighters.iter().filter(|(seat, team, _)| {
-                ambition_platformer2d::combat::stocks::side_label(seat.0, *team) == side
-            });
-            match (on_the_winning_side.next(), on_the_winning_side.next()) {
-                // A side of ONE is a person, and a person has a name.
-                (Some((_, _, name)), None) => name.as_str().to_string(),
-                // A real team won together — naming one of its members would
-                // put a player's name on somebody else's victory — or nobody is
-                // left standing to ask (a simultaneous ring-out despawns every
-                // body). Either way the side is the honest answer.
-                _ => side.to_string(),
-            }
+            // A composition with no prepared plan cannot say how big a side is,
+            // and the honest answer for an unknown size is the side's own name.
+            let solo = prepared
+                .as_deref()
+                .is_some_and(|prepared| prepared.seats_on_side(side) == 1);
+            let name = solo
+                .then(|| {
+                    fighters
+                        .iter()
+                        .find(|(seat, team, _)| {
+                            ambition_platformer2d::combat::stocks::side_label(seat.0, *team) == side
+                        })
+                        .map(|(_, _, name)| name.as_str().to_string())
+                })
+                .flatten();
+            // A real team won together — naming one of its members would put a
+            // player's name on somebody else's victory — or nobody is left
+            // standing to ask. Either way the side is the honest answer.
+            name.unwrap_or_else(|| side.to_string())
         });
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,

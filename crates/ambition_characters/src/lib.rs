@@ -32,5 +32,6 @@ pub mod perception;
 pub mod prepared;
 #[cfg(any(test, feature = "test-support"))]
 pub mod prepared_fixtures;
+pub mod smash_repertoire;
 mod snapshot_impls;
 pub mod technique;

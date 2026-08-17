@@ -2829,12 +2829,80 @@ probe-falsified by breaking the composition rather than reasoned about. ⭐ that
 is the shape that beats a hand-listed chain, which pins the function and not the
 wiring.
 
-⇒ ▢ **STEP 2 IS NOW UNBLOCKED AND MEASURED**: `conversation/` holds zero non-doc
-`crate::` paths and every surviving coupling is an inward caller edge, so
-extracting it to its own crate really is a Cargo.toml. ⚠ decide whether it is
-WORTH it before doing it — 1,836 of 117k lines, and a new crate does not shrink
-`capability-footprint`'s closure. The blocker was the finding; the extraction is
-optional.
+✔✔ **STEP 2 LANDED 2026-08-17 — `crates/ambition_conversation` EXISTS AND THE
+CARVE REALLY WAS A CARGO.TOML.** The measurements held on re-verification: zero
+`use crate::` in the whole module, ten files, 2,734 lines. ⭐ **not one line
+inside the moved code changed shape** — `use super::authority::…` resolves to the
+crate root exactly as it resolved to the parent module, so every internal path
+survived `mod.rs` → `lib.rs` untouched. The single edit inside the carved code
+was a `warn!` `target:` string that still spelled the monolith. Everything else
+was manifests and `crate::conversation::` → `ambition_conversation::` at the
+CALLERS: seven files in the monolith, two in `ambition_platformer2d_runtime`, six
+in `ambition_content`. **Name from the module's own header, which proposed it in
+2026-08-07**; the `ambition_platformer2d_*` prefix belongs to crates that are
+platformer-shaped, and conversation continuity is not.
+
+⭐ **NOTHING had to move to `shared_tangle` first.** Step 1.5 had already put the
+only shared vocabulary the crate reaches upward for — `FeatureInteractionSet`,
+`SimScheduleExt`, `SimId` — below the monolith, which is precisely the lesson it
+was recorded for. Everything else the crate names (`ambition_characters`,
+`ambition_combat`, `ambition_dialog`, `ambition_input`, `ambition_interaction`,
+`ambition_platformer2d_core`, `ambition_time`) was already beneath it. The carve
+found no second pin.
+
+⛔⛔ **AND IT COST A CRITICAL-PATH HOP — `critical_path_crates` 12 → 13, which
+this plan predicted would stay at 12.** MEASURED, not inferred: recomputing the
+first-party height with `ambition_conversation` folded back into the monolith
+gives 12 and with it carved gives 13. The lengthened chain is `conversation →
+ambition_dialog → ambition_ui_nav → ambition_input → ambition_platformer2d_core →
+ambition_geometry` — inserting a layer under `ambition_dialog` pushed that whole
+tail down one hop. ⭐ **this is exactly the regression that number is guarded for:
+every size metric can improve while the serial chain, and so the wall clock, gets
+worse.** ⚠ read it in HOPS — rustc releases a dependent at the predecessor's
+`rmeta`, so a chain edge serialises only the frontend, and this repo has already
+measured a naive chain-of-durations overshooting a real build by 2.2x.
+⚠ **the ratchet baseline was deliberately NOT re-frozen**: it is frozen at
+`208cf8acf937` (2026-08-09) and reports NINE findings, eight of them eight days
+of unrelated growth. Re-freezing under a carve commit would launder them.
+⚠ **and this crate's seconds are a PLACEHOLDER** — it is unpriced, estimated at
+the population median 2.9059 ms/line, and size predicts compile cost with
+R² = 0.12. `scripts/compile_collect.py` is what makes it real.
+
+⇒ **the five-lockfile / contracts cost arrived exactly as documented and cost
+nothing to pay.** Root, `fixtures/minimal_game` and `examples/capability_demo`
+changed and are committed; `examples/portal_tutorial` did not move (predicted);
+`fixtures/external_consumer` was re-resolved and is gitignored, so it is
+correctly absent from the diff. `capability-footprint-may-not-grow` went RED on
+`ambition_conversation entered the consumer's closure` and the baseline moved in
+the same commit — **15 → 16 unwanted crates, and the carve did not CAUSE that, it
+NAMED it**: the same code was already linked inside the monolith under a name the
+counter could not see. `ambition_workspace_policy` went red on
+`engine.runtime-manifest-allow` — **the fourth time that list has lagged a runtime
+dep by one file**, which its own comments record three times already.
+
+⭐ **the "is it really a carve" check is CARGO ITSELF, and the probe is the
+finding.** Adding `[dependencies] ambition_platformer2d_actor_monolith` back to
+the new crate does not fail a policy — **cargo refuses to resolve the workspace
+at all**, naming the cycle. ⛔ so a denylist for that edge would be a check that
+cannot fail. ⭐⭐ **but `[dev-dependencies]` is a real hole and cargo allows it on
+purpose** (the monolith relies on that itself), so one test reaching back for a
+fixture would rebuild the whole monolith to build this crate's tests. ONE policy
+guards that — `engine.conversation-does-not-depend-on-what-it-left`, probe-
+falsified by adding the dev-dep and watching it fire. The source-text twin that
+was drafted alongside it was DELETED before landing: it guarded the same hole
+twice, and this repo's own rule is that a guard with no failure behind it is
+ceremony.
+
+⇒ ▢ **STEP 3 IS STILL OPEN AND IS NOT WHAT IT LOOKED LIKE.** `ambition_dialog`
+does NOT become a `[dev-dependency]` of the monolith, because `dialog.rs` (135
+lines, `ui`-gated) is still a production namer. ⭐ that file is the next slice and
+it is clean — **zero `crate::` edges**, naming only `ambition_dialog`,
+`ambition_input` and `shared_tangle`. Its cost is a `ui` feature on the carved
+crate forwarding to `ambition_dialog/ui`, which is why it stayed out of a move
+that was otherwise a manifest. ⛔ and it buys no footprint either: the monolith's
+edge to `ambition_conversation` is unconditional, so `ambition_dialog` and
+`ambition_ui_nav` reach a movement-only game regardless. Shedding the capability
+needs OPTIONALITY at the monolith's edge, not another move.
 
 ⇒ **every other leaf is NOT YET on this plan's own scorecard:** `menu` is the
 sole namer of `ambition_menu`, but the crate also arrives through render and the
@@ -3845,6 +3913,37 @@ measure the cost and let him decide.
 - ▢ **D136 — COMPOSITION BOUNDARIES ARE ASSUMED, NOT STATED — so whoever
   installs a thing first decides who pays for it. (PROMOTED from `tracks.md`
   2026-08-16, with five instances measured in one night as its evidence)**
+
+⭐⭐ **THREE MORE INSTANCES 2026-08-17, and one of them is the row's thesis
+RESOLVED for a single capability — which is what a worked example looks like.**
+
+```text
+D152  empowerment EXPIRY was every game's to install, and five games each
+      remembered. A sixth that forgot got PERMANENT invulnerability.
+      ⇒ resolved: the ENGINE installs the lifecycle in a named set; the ORDER
+        stays each game's. "What is engine-owned is the INVARIANT, not the
+        order" — which is exactly this row's distinction, stated by the code.
+      ⚠ and the honest residue: the five sat in THREE MUTUALLY EXCLUSIVE
+        phases, so one shared set has one position and per-game re-placement
+        would be a schedule CYCLE. Not every boundary can be stated without
+        moving something.
+
+D149  `process_fx_requests` is installed by the HOST, not by the crate that
+      writes the channel. So a headless fixture in `ambition_combat` that
+      asserted on the visual went BLIND the moment the producer moved onto the
+      paired request — the crate could no longer test its own effect.
+      ⇒ a capability whose CONSUMER lives above its PRODUCER cannot be
+        verified where it is written.
+
+D33   the conversation carve (in flight) is this row in its Cargo form: a
+      module with zero outward imports that was nonetheless pinned — first by
+      the SCHEDULE (fixed in step 1.5), now by nothing.
+```
+
+⇒ **the pattern across all three is that the boundary is discovered by whoever
+trips over it**, which is the row's title restated. ⭐ **D152 is the template**:
+name the invariant, install it below, leave the ORDER to the composition — and
+say out loud which part could not be preserved.
 
 Plan: [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 Card text: *"Make optional capabilities honest in Cargo dependency closure and

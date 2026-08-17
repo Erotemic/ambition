@@ -234,6 +234,21 @@ terminates. ⚠ **but "degenerate" in the original report was a FEEL word**, and
 test in this repository can tell a good AI-vs-AI bout from a bad one — which is
 precisely why this was your decision and not an agent's.
 
+⚠ **AND THE WARNING WAS WRITTEN DOWN TWICE, in two documents, by different
+slices.** P0's owner doc,
+[`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md)
+(2026-08-14), says of the same fork:
+
+> *"That difference is deliberate and is the open half of **D114**, a feel
+> question, not a fork to collapse. Merging the three into one system would force
+> one clock and **decide D114 by refactor**."*
+
+⇒ so this was not one stray prohibition in one file — **the roadmap's own P0
+owner names the same trap in the same words**, and the landed change is exactly
+"decide it by refactor". ⭐ that makes the flag stronger, not the fix wronger:
+two documents agreeing raises the odds the feel concern is real, and neither
+document was consulted.
+
 ▢ **the ask is small: play one CPU-versus-CPU match and say whether it feels like
 the bad experiment.** If yes, the revert is one line at
 `features/enemies/integration.rs`. If no, this row closes and the third option it

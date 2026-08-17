@@ -3981,6 +3981,35 @@ it), **ordering** (when in the frame) and **rollback semantics**. ⇒ M4's warni
 half directly, and M2 can only ever prepare a PREDICATE until the command
 vocabulary exists.
 
+⭐⭐ **THE CONDITION SIDE'S LOAD-BEARING TRICK, MEASURED 2026-08-17 — the command
+half has to reproduce it or it cannot be waived from rollback.**
+`ConditionCatalog::publish` is **PRIVATE**; the only way in is the
+`PublishCondition` trait on `App`; and **a simulation tick holds a `World`, never
+an `App`**. So *"immutable once the simulation starts"* is a property of the
+TYPE, not a promise in a comment — and that is precisely what earns the catalog
+its rollback waiver. Its own doc says making `publish` public *"for convenience
+would silently convert the waiver into a lie."*
+
+⇒ **so the command catalog's FIRST design constraint is not authority or
+ordering — it is being unmutable at runtime by construction**, exactly this way.
+A command registry a system could write to is rollback state, and then every
+authored verb is in the snapshot.
+
+▢ **and then the three the row already names, in the order they bite:**
+1. **rollback semantics** — M4's *"rollback is a design input, not a cleanup
+   afterwards"* lands here. A command that mutates during a predicted frame must
+   either be rewound or be provably idempotent; decide which BEFORE the
+   vocabulary, because it decides the vocabulary.
+2. **ordering** — a condition is safe at any point in the frame because it reads;
+   a command has a phase. Name it as a SET, below the monolith, or the first
+   carve that moves an authored domain re-pins it (D33 step 1.5's lesson).
+3. **authority** — who may run it. ⚠ note the condition side got this free by
+   being read-only, so there is no precedent to copy here; it is genuinely new.
+
+⚠ **duplicate-id panics at startup, by design** — *"the alternative is that the
+winner is whichever plugin happened to build last, which is a bug that only
+appears when a host changes its plugin order."* Commands owe the same.
+
 Plan: [`engine/authored-gameplay-logic-and-orchestration.md`](engine/authored-gameplay-logic-and-orchestration.md)
 (new, 2026-08-15). Maintainer-identified capability gap: **authoring is strong for
 nouns — characters, items, rooms, encounters, sprites, music, platforms, portals,

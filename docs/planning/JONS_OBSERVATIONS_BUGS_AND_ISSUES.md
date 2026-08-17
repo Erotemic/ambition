@@ -38,6 +38,7 @@
 * A sword respects an authored hurtbox and a bolt never has — `step_projectiles` tests the coarse `CenteredAabb` while melee consults `DamageableVolumes`. [agent-found]
 
   ▢ Found 2026-08-08 and deliberately not fixed, because it changes how bolts connect and the feel call is yours.
+  * ⊙ Tracked as decision 1 in `awaiting-maintainer-decision.md` — that is where the options are written out.
 
 * In smash if you throw out an attack you hurt yourself.
   * ✔ Fixed — the swing also broadcast a body-scanning volume that came back around to its owner; bodies are now resolved by identity and a test poisons the old route.

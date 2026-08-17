@@ -42,6 +42,21 @@ jobs:
         # unseen (found: ambition_vfx, architecture_boundaries stale for many
         # commits). When re-enabling, add a `cargo test --workspace` gate.
         run: cargo test -p ambition_platformer2d_core
+      - name: cargo test -p ambition_workspace_policy
+        # The 187 repository-structure rules: dependency boundaries, source
+        # scans, module-size limits, architecture ratchets and their poison
+        # tests. It was RED with 12 engine-scope violations on 2026-08-15 and is
+        # green now, and until this step nothing ran it at all — not
+        # `run_tests.py`, not CI, not the goal guard. Three slices landed
+        # violations in one day and nothing caught them, which is the whole
+        # argument for a gate.
+        #
+        # It belongs in THIS job rather than the headless one because it
+        # inspects the workspace as parsed manifests and source text and
+        # deliberately links no production crate — its own manifest says
+        # "running the policy suite must not compile `ambition_app`" — so it
+        # needs a toolchain and nothing else. ~5s.
+        run: cargo test -p ambition_workspace_policy
 
   sandbox-headless-smoke:
     name: ambition_platformer2d_actor_monolith headless smoke

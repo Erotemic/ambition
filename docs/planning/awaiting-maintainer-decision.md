@@ -466,6 +466,33 @@ not resolve it until that submodule commit is pushed. The two migrated worlds
 remote or vendoring assets out of their submodule, and both are yours to decide.
 Everything else in that slice is pushed and green.
 
+### 13. ✔ MOSTLY CLOSED 2026-08-17 — the suite is green and CI now watches it
+
+⭐ **measured, not assumed**: `cargo test -p ambition_workspace_policy` is
+**34 passed / 0 failed**, `engine_policies` among them, and the five rules this
+row named are all still IN `engine.toml` (187 rules total) — so the twelve
+violations were FIXED rather than waived away.
+
+⭐⭐ **and item 1 was fixed the way this row asked for**, which is the part worth
+noting: the `gate_portal` determinism flag was a false positive on code that
+collected and then sorted, and the row said *"a waiver would be the wrong answer
+here — make `phases` a `BTreeMap` so ordered iteration is a property of the
+type."* It is now `BTreeMap<String, GatePortalPhase>`, and the file carries a
+comment guarding against a revert to `HashMap`.
+
+⭐ **the second half — "nothing watches it" — was still true this morning.** Not
+`run_tests.py`, not CI, not the goal guard. It now runs in CI's `engine-tests`
+job. That job rather than the headless one because the crate inspects the
+workspace as parsed manifests and source text and links no production crate (its
+own manifest: *"running the policy suite must not compile `ambition_app`"*), so
+it needs a toolchain and nothing else, and it costs ~5s.
+
+▢ **what is genuinely left for you** is only the original question this row
+asked — whether every one of the 187 rules deserves enforcement — and it is much
+cheaper to answer now that the answer costs nothing: they all pass.
+
+⚠ the original text follows.
+
 ### 13. The workspace policy suite is red, and nothing watches it
 
 ⚠ **measured 2026-08-15: `cargo test -p ambition_workspace_policy` reports 12

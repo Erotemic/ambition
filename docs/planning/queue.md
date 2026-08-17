@@ -2429,7 +2429,7 @@ call sites, every literal resolves as a real room id **except that one** (76 roo
 ids vs 77 level names across the shipped worlds; 75 overlap), and the only other
 non-resolver is the deliberate `"definitely_not_a_real_room"` negative test. ⇒
 making the test harness resolve strictly is now a small, bounded change with one
-known opt-out, not the open-ended risk it looked like. ▢ **ready to run.**
+known opt-out, not the open-ended risk it looked like. ✔ **RAN 2026-08-17.**
 
 ⚠⚠ **BUT THERE IS A WRITTEN COUNTER-ARGUMENT IN THE CODE, AND IT NAMES THIS
 EXACT HARNESS — read it before running this** (measured 2026-08-17,
@@ -2486,7 +2486,7 @@ by passing no start room at all rather than asking tolerantly for one.
 would NOT have caught a fallback and was therefore the likeliest silent
 passenger. All five arenas real.
 
-▢ **so the shape that honours both is strict-by-default with a NAMED opt-out**
+✔ **so the shape that honours both is strict-by-default with a NAMED opt-out**
 (the negative test takes it, and a future foreign-composition caller has
 somewhere to say so) — not a silent flip. ⚠ `StartRoomMustResolve` is opt-in with
 exactly TWO adopters today (`capture_scene`, `tests/shield_ring_probe.rs`)
@@ -2501,6 +2501,12 @@ names a room now asks for it strictly — including the two shared helpers
 `tests/common::fixed_60hz_room_options` (which fans out to ~20 more fixtures) and
 `ambition_app_tools`' `headless` + `rl_smoke` binaries. `cargo test --workspace
 --lib` 4867 passed / 0 failed; `app_it` 412 passed / 0 failed.
+⭐ **and the defect this item was opened for is gone**: the test that asked for
+`central_hub_basement` — an LDtk LEVEL name, never a room id — now names a real
+room, and carries a comment saying what it used to say. Every remaining mention
+of that string in the tree is prose about the history.
+⇒ **both markers above were stale and are flipped**; nothing in this sub-item is
+outstanding.
 
 ⭐ **the migration was also a TEST of the room ids, and they all held**: not one
 call site changed behaviour, so nothing in the tree had been quietly testing

@@ -304,7 +304,16 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
     assert grew > 100.0
     assert grew > before["worst_edit_cost_seconds"]["seconds"] * ratchet.HEADROOM_FRACTION
 
-    findings = ratchet.evaluate(after, baseline())
+    # ⛔ evaluated against `before` -- the live snapshot this carve was applied
+    # to -- and NOT against the frozen baseline file. This test is about the
+    # MODEL's reasoning: that the naive line view calls a dense carve a win
+    # while the cost model calls it a regression. Comparing against the frozen
+    # file made the verdict depend on how far the tree had drifted from it, and
+    # in 2026-08 the monolith drifted +10,393 lines past its baseline, so
+    # `live - 10,000` was still above the frozen number and the CARVED finding
+    # stopped appearing. The test went red for a reason that had nothing to do
+    # with the reasoning it exists to pin.
+    findings = ratchet.evaluate(after, before)
     assert any(
         severity == "REGRESSED" and label.startswith("worst_edit_cost_seconds")
         for severity, label in findings

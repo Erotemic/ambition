@@ -151,3 +151,5 @@
   * ▢ The emmy sprite half is untouched.                           
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
+  * ▢ Three causes ELIMINATED, one left. Not missing art — v3 and v2 both have all three runtime files (`_spritesheet.ron/.png`, `_portraits.png`) in every tier. Not the `_actor.ron` sidecar that v3 lacks in the derived tiers — the asset manager says it is *"installed today, not yet consumed"*. Not a per-tier sheet collision — all four tiers are byte-identical in shape: 166 targets, the same 4 colliding rig targets (`goblin`, `robot`, `sandbag`, `toon`), no character id among them.
+  * ⊙ The surviving hypothesis: `robot` IS one of those four shared rig targets, and the registry picks ONE survivor per target — so if changing quality re-races the manifest load, the survivor can flip. Does it swap back if you change quality again, or stay v2?

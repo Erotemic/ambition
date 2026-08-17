@@ -90,19 +90,6 @@ jobs:
         # missing add_message that only fires when the visible plugin
         # path runs).
         run: cargo run -p ambition_app_tools --bin headless -- 60
-      - name: doc-link ratchet (D137)
-        # ⛔ `--check` IS LOAD-BEARING. Without it the script prints
-        # "⛔ ROSE from N" for a regression and still EXITS 0 — the default
-        # mode is advisory, and the enforcing arm is `if risen and args.check`.
-        # A step wired without the flag would be a gate that cannot fail,
-        # which is worse than no gate because it reads as coverage.
-        #
-        # Here rather than in `agent-kb-check` because the ratchet runs
-        # `cargo doc` per crate, so it needs this job's Rust toolchain, its
-        # Bevy system dependencies and its warm `sandbox-headless` cache.
-        # Last, because a doc-link regression should not mask a test failure.
-        run: python3 scripts/check_doc_link_ratchet.py --check
-
   format-and-clippy:
     name: rustfmt + clippy
     runs-on: ubuntu-24.04

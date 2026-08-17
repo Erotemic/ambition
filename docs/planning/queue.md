@@ -4940,11 +4940,22 @@ policy's rationale.
 - ✔ **D137 — CLOSED 2026-08-17. The doc-link ratchet was RED, is now GREEN, and
   is now RUN BY CI. (opened 2026-08-16)**
 
-⭐ **the second half is wired**: a `--check` step at the end of
-`sandbox-headless-smoke`, which already installs Bevy's system dependencies,
-already builds the monolith and already has a warm cache — the ratchet runs
-`cargo doc` per crate, so the pure-Python `agent-kb-check` job could not host it.
-Last in the job, so a doc regression cannot mask a test failure.
+⛔⛔ **CORRECTION 2026-08-17 — THE SECOND HALF WAS ALREADY DONE, AND I DID NOT
+CHECK.** This row said the ratchet was "in no gate". **It has been in CI all
+along**, with `--check`, in `format-and-clippy` — added by `ccf254ff2`, *"A
+number that may fall and must not rise"*. I added a duplicate step to
+`sandbox-headless-smoke`, then found the original while auditing my own work and
+removed the duplicate.
+
+⚠ **the tell was in my own output and I misread it**: the grep that listed
+invocations printed `.github/workflows/test.yml` TWICE, and I attributed both
+lines to the step I had just written instead of asking why there were two. ⇒
+**check the file as it was BEFORE the edit** (`git show <commit>~1:<path>`),
+which is the only reading that cannot be confused by your own change.
+
+⭐ **what WAS genuinely missing is now wired**: `cargo test -p
+ambition_workspace_policy` in `engine-tests` — verified absent from both the
+workflow and `run_tests.py` at the parent commit before adding it.
 
 ⛔⛔ **AND THE FLAG IS THE WHOLE GATE — `--check` IS LOAD-BEARING.** Measured
 by poisoning the baseline (`ambition_combat` 13 → 5) and running both ways:

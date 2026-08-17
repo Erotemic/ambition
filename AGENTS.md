@@ -275,10 +275,15 @@ Five of its facts belong in your face rather than behind a link:
   the flag for its whole existence) and `check_doc_link_ratchet.py`. Each ends
   with the enforcing arm behind `args.check`, and the printed output is
   IDENTICAL either way — so a red run above a green job reads like a warning.
-  ⭐ the doc-link ratchet now runs in CI **with** `--check`, at the end of
-  `sandbox-headless-smoke`: that job already has the toolchain, Bevy's system
-  dependencies and a warm cache, and the ratchet shells out to `cargo doc`, so
-  the pure-Python job could not host it.
+  ⭐ the doc-link ratchet **already runs in CI with** `--check`, in
+  `format-and-clippy` (added by `ccf254ff2`). ⛔⛔ I added a SECOND copy of it to
+  `sandbox-headless-smoke` on 2026-08-17 without looking, then found the original
+  while auditing my own work and removed the duplicate — **grep the workflow, at
+  the PARENT commit, before wiring a script into it**: after your own edit the
+  file shows two hits and it is easy to read both as yours.
+  ⭐ what WAS missing and is now wired: `cargo test -p ambition_workspace_policy`
+  in `engine-tests`, verified absent from the workflow AND from `run_tests.py`
+  at the parent commit first.
   ⚠ `compile_ratchet.py` is the COUNTEREXAMPLE and says so at its own call site —
   it exits 1 by default because *"Gates that require a special enforcement flag
   are too easy to run in advisory mode accidentally."* Check which kind you have

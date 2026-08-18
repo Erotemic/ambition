@@ -1546,6 +1546,23 @@ sheet cropped on a 256px grid.
 report that has never been seen to speak has not been shown to be silent* — and
 *a real collision is not a real defect until you name the reader.*
 
+✔ **AND A FIFTH BOOT WARNING, FOUND WHILE MEASURING THE ABOVE AND FIXED
+2026-08-18.** `mary_o::quasar: overlay not attached: no current sprite frame
+(atlas true, image loaded = false)`, twice on every Mary-O boot. ⭐ **the code
+disagreed with the paragraph directly above it**, which reads: *"Both are 'not
+yet' conditions that normally clear within a frame or two of the sprite loading,
+so they are only worth a word if they PERSIST — which is exactly the case where
+the overlay never appears and nothing says so."* Both arms `warn!`d on the FIRST
+frame the condition held, so an ordinary texture decode printed the failure the
+comment is about.
+⇒ the condition is counted per candidate and reported ONCE past
+`QUASAR_ATTACH_GRACE_FRAMES` (60 — a second at 60fps, far past any decode).
+⚠ **poison-verified both ways**: unmodified, a 150-frame boot now prints ZERO
+warnings and still logs `overlay attached`; with attachment made impossible it
+prints exactly ONE — where the old code would have printed ~150.
+⭐ same shape as the doorway diagnostic: **a comment that states the intent is
+not enforcement of it**, and the fix is a threshold, not a filter.
+
 - ◻ **D162's original triage of the other three stands (2026-08-17).**
 
 ```text

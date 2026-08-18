@@ -28,6 +28,8 @@
 //! hurt" and "am I wearing a star" are different questions, and a set of reasons
 //! is what lets one field answer both without either answer being a guess.
 
+use std::collections::HashMap;
+
 use bevy::{
     asset::embedded_asset,
     image::TextureAtlasLayout,
@@ -176,6 +178,18 @@ impl Material2d for MaryOQuasarMaterial {
     }
 }
 
+/// **How long a Mary-O overlay may be "not yet" before it is a report.**
+///
+/// The two blocking conditions — no `custom_size`, no resolvable sprite frame —
+/// are both ordinary while the texture decodes, and a boot prints them for a
+/// frame or two. One second at 60fps is far past any decode, so a candidate
+/// still waiting here is one whose overlay is never going to appear.
+///
+/// ⚠ **counted per candidate and reported ONCE**, not re-warned every frame
+/// after the threshold: a diagnostic that fires sixty times a second for a
+/// standing condition is the same noise problem one frame earlier.
+const QUASAR_ATTACH_GRACE_FRAMES: u32 = 60;
+
 #[derive(Component, Debug, Clone, Copy)]
 struct MaryOQuasarSource {
     overlay: Entity,
@@ -204,7 +218,11 @@ fn attach_quasar_overlays(
         ),
         (With<PlayerVisual>, Without<MaryOQuasarSource>),
     >,
+    // How long each candidate has been un-attachable, and whether it has already
+    // been reported. See [`QUASAR_ATTACH_GRACE_FRAMES`].
+    mut waiting: Local<HashMap<Entity, (u32, bool)>>,
 ) {
+    waiting.retain(|entity, _| candidates.get(*entity).is_ok());
     for (source_entity, worn, transform, sprite, anchor, session_owner) in &candidates {
         if !is_mary_o_form(worn.id()) {
             continue;
@@ -213,23 +231,39 @@ fn attach_quasar_overlays(
         // conditions that normally clear within a frame or two of the sprite
         // loading, so they are only worth a word if they PERSIST — which is
         // exactly the case where the overlay never appears and nothing says so.
+        //
+        // ⛔⛔ **that is what the paragraph above always SAID, and the code did
+        // not do it.** Both arms `warn!`d on the first frame the condition held,
+        // so an ordinary boot printed *"overlay not attached: no current sprite
+        // frame (atlas true, image loaded = false)"* twice while the texture was
+        // still decoding — the "not yet" the comment excuses, reported as if it
+        // were the failure the comment is about. ⇒ the condition is COUNTED now
+        // and reported once it outlasts any plausible decode.
+        let mut report = |reason: std::fmt::Arguments| {
+            let (frames, reported) = waiting.entry(source_entity).or_insert((0, false));
+            *frames += 1;
+            if *frames >= QUASAR_ATTACH_GRACE_FRAMES && !*reported {
+                *reported = true;
+                warn!(
+                    target: "mary_o::quasar",
+                    "overlay STILL not attached after {frames} frames: {reason}"
+                );
+            }
+        };
         let Some(render_size) = sprite.custom_size else {
-            warn!(
-                target: "mary_o::quasar",
-                "overlay not attached: the Mary-O sprite has no custom_size"
-            );
+            report(format_args!("the Mary-O sprite has no custom_size"));
             continue;
         };
         let Some((uv_rect, frame_texel)) = current_sprite_frame(sprite, &texture_layouts, &images)
         else {
-            warn!(
-                target: "mary_o::quasar",
-                "overlay not attached: no current sprite frame (atlas {:?}, image loaded = {})",
+            report(format_args!(
+                "no current sprite frame (atlas {:?}, image loaded = {})",
                 sprite.texture_atlas.is_some(),
                 images.get(&sprite.image).is_some(),
-            );
+            ));
             continue;
         };
+        waiting.remove(&source_entity);
         info!(
             target: "mary_o::quasar",
             "overlay attached to {source_entity} ({})",

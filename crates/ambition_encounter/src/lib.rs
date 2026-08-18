@@ -50,3 +50,7 @@ pub use waves::{
     active_encounter_camera_zoom, EncounterRun, EncounterWaves, ENCOUNTER_INTER_WAVE_DELAY_SECONDS,
     WAVES_EXHAUSTED_SIGNAL,
 };
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

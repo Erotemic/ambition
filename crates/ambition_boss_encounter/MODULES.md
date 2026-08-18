@@ -17,12 +17,13 @@
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
 | [`registry`](src/registry.rs) | `BossEncounterRegistry` — the read-only boss DATA CATALOG. |
 | [`rewards`](src/rewards.rs) | Boss reward-chest sync — the ECS mirror of "this boss placement is cleared, so its authored `DropChest` reward exists in the room". |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_boss_encounter`. |
 | [`roster`](src/roster.rs) | The lib's generic boss-encounter base. |
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

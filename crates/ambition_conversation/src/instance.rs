@@ -50,8 +50,8 @@
 //!   top under a player who is mid-sentence. That is the exact defect the
 //!   projection's attachment memo exists to prevent.
 //!
-//! ⚠ **the desync probe in `rollback::domains::actors` hashes more than this on
-//! purpose, and that is not a contradiction.** Its question is *"do two peers
+//! ⚠ **the desync probe in `crate::rollback_registration` hashes more than
+//! this on purpose, and that is not a contradiction.** Its question is *"do two peers
 //! agree about the live conversation"*, which covers every authoritative field;
 //! this type's question is *"is this the same conversation"*. `input_owner` is a
 //! yes to the first and a no to the second.

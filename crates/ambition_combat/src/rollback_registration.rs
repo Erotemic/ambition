@@ -1,88 +1,76 @@
-//! **The combat domain's rollback schema** (Campaign 2, R3).
+//! Rollback declaration owned by `ambition_combat`.
 //!
-//! Combat's authoritative state: slots, volumes, hit bookkeeping, and the message buffers a rewound tick must not replay.
-//!
-//! ⚠ **relocation only.** The registrations were extracted mechanically and the
-//! schema baseline verifies the result is byte-identical — a retyped call is
-//! exactly the mistake that would slip through review and not through the
-//! baseline.
-//!
-//! ⚠ the owner label stays `ambition_platformer2d_runtime` because this module is in it, and
-//! must be: `ambition_combat` sits below the runtime in the crate graph. R1's
-//! recorded decision is that this is the right shape for every domain below the
-//! runtime; crates above it own their schemas directly.
+//! This module names this domain's concrete rewindable state while the host
+//! supplies the backend through [`RollbackRegistrar`]. It deliberately contains
+//! no `bevy_ggrs` dependency and no host/composition logic.
 
-use bevy::prelude::App;
-
-use super::super::AmbitionRollbackApp;
-// The byte-writer vocabulary these projections are built from.
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::{
     checksum_bytes, put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2,
 };
-// The bespoke checksum projections these registrations name. They live beside
-// the central function because several domains once shared them; a projection
-// used by exactly one domain should follow it here, which is a later tidy and
-// not part of a relocation commit.
 
-const OWNER: &str = "ambition_platformer2d_runtime";
+const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register everything the combat domain needs rewound.
-pub(in crate::rollback) fn register(app: &mut App) {
-    app.rollback_resource_clone::<ambition_combat::targeting::FactionRelations>(
+pub fn register_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    registrar.rollback_resource_clone::<crate::targeting::FactionRelations>(
         OWNER,
         "resource.faction_relations",
     );
-    app.rollback_resource_clone::<ambition_combat::targeting::FriendlyFire>(
+    registrar.rollback_resource_clone::<crate::targeting::FriendlyFire>(
         OWNER,
         "resource.friendly_fire",
     );
-    app.rollback_resource_clone_checksum::<ambition_combat::events::PendingPlayerHitEvents>(
+    registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "resource.pending_player_hit_events",
-        "bevy_ggrs clone snapshot + entity-free staged-hit checksum projection",
+        "entity-free staged-hit checksum projection",
         pending_player_hits_checksum,
     );
-    app.rollback_resource_map_entities::<ambition_combat::events::PendingPlayerHitEvents>(
+    registrar.rollback_resource_map_entities::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "map.resource.pending_player_hit_events",
     );
-    app.rollback_component_clone_entity_ref::<ambition_combat::moveset::StrikeVolume>(
+    registrar.rollback_component_clone_entity_ref::<crate::moveset::StrikeVolume>(
         OWNER,
         "combat.strike_volume",
         |volume| volume.owner,
     );
-    app.rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(OWNER, "map.strike_volume");
-    app.rollback_component_clone_checksum::<ambition_combat::on_hit::HitboxOnHit>(
+    registrar.rollback_map_entities::<crate::moveset::StrikeVolume>(OWNER, "map.strike_volume");
+    registrar.rollback_component_clone_checksum::<crate::on_hit::HitboxOnHit>(
         OWNER,
         "combat.hitbox_on_hit",
-        "bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection",
+        "entity-less world-contact fired-state checksum projection",
         |on_hit| if on_hit.world_fired() { 1 } else { 0 },
     );
-    app.rollback_component_canonical::<ambition_combat::components::BodyMelee>(
+    registrar.rollback_component_canonical::<crate::components::BodyMelee>(
         OWNER,
         "actor.body_melee",
     );
-    app.rollback_component_canonical::<ambition_combat::components::ActorDisposition>(
+    registrar.rollback_component_canonical::<crate::components::ActorDisposition>(
         OWNER,
         "actor.disposition",
     );
-    app.rollback_component_cursor::<ambition_combat::components::ActorAggression>(
+    registrar.rollback_component_cursor::<crate::components::ActorAggression>(
         OWNER,
         "actor.aggression",
     );
-    app.rollback_map_entities::<ambition_combat::components::ActorAggression>(
+    registrar.rollback_map_entities::<crate::components::ActorAggression>(
         OWNER,
         "map.actor_aggression",
     );
-    app.rollback_component_canonical::<ambition_combat::targeting::MatchTeam>(
+    registrar.rollback_component_canonical::<crate::targeting::MatchTeam>(
         OWNER,
         "actor.match_team",
     );
-    app.rollback_component_canonical::<ambition_combat::components::FighterStocks>(
+    registrar.rollback_component_canonical::<crate::components::FighterStocks>(
         OWNER,
         "entity:fighter_stocks",
     );
-    app.rollback_component_canonical::<ambition_combat::stocks::FighterEliminated>(
+    registrar.rollback_component_canonical::<crate::stocks::FighterEliminated>(
         OWNER,
         "entity:fighter_eliminated",
     );
@@ -90,7 +78,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // stock count. It is the RULESET's verdict rather than the engine's count,
     // it is keyed to a `MatchInstance`, and it lives beside `ActiveMatch` now —
     // in [`super::actors`], where the receipt it names is registered (D147).
-    app.rollback_component_canonical::<ambition_combat::components::RulesetOwnsDeath>(
+    registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",
     );
@@ -99,11 +87,11 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // the body while it is open. Both change mid-run, so both rewind: without
     // them a rewound branch resimulates with a body the world has stopped
     // touching for a death that has not happened in that branch.
-    app.rollback_component_canonical::<ambition_combat::death_rules::OutOfPlay>(
+    registrar.rollback_component_canonical::<crate::death_rules::OutOfPlay>(
         OWNER,
         "actor.out_of_play",
     );
-    app.rollback_component_canonical::<ambition_combat::death_rules::DeathInterlude>(
+    registrar.rollback_component_canonical::<crate::death_rules::DeathInterlude>(
         OWNER,
         "actor.death_interlude",
     );
@@ -112,121 +100,121 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // REMOVES it, so a rewind past an elimination has to put it back or the
     // replayed branch runs with a fighter that is out of a match it has not lost
     // yet. See `ActiveCombatant`.
-    app.rollback_component_canonical::<ambition_combat::components::ActiveCombatant>(
+    registrar.rollback_component_canonical::<crate::components::ActiveCombatant>(
         OWNER,
         "actor.active_combatant",
     );
-    app.rollback_component_cursor::<ambition_combat::components::ActorTarget>(
+    registrar.rollback_component_cursor::<crate::components::ActorTarget>(
         OWNER,
         "actor.target",
     );
-    app.rollback_map_entities::<ambition_combat::components::ActorTarget>(
+    registrar.rollback_map_entities::<crate::components::ActorTarget>(
         OWNER,
         "map.actor_target",
     );
-    app.rollback_component_resolved::<ambition_combat::moveset::MovePlayback>(
+    registrar.rollback_component_resolved::<crate::moveset::MovePlayback>(
         OWNER,
         "actor.move_playback",
     );
-    app.rollback_map_entities::<ambition_combat::moveset::MovePlayback>(OWNER, "map.move_playback");
-    app.rollback_component_canonical::<ambition_combat::components::BossPatternTimer>(
+    registrar.rollback_map_entities::<crate::moveset::MovePlayback>(OWNER, "map.move_playback");
+    registrar.rollback_component_canonical::<crate::components::BossPatternTimer>(
         OWNER,
         "boss.pattern_timer",
     );
-    app.rollback_component_canonical::<ambition_combat::components::BossPhase>(OWNER, "boss.phase");
-    app.rollback_component_canonical::<ambition_combat::components::BodyEnvelope>(
+    registrar.rollback_component_canonical::<crate::components::BossPhase>(OWNER, "boss.phase");
+    registrar.rollback_component_canonical::<crate::components::BodyEnvelope>(
         OWNER,
         "actor.body_envelope",
     );
-    app.rollback_component_clone::<ambition_combat::components::CombatCapabilities>(
+    registrar.rollback_component_clone::<crate::components::CombatCapabilities>(
         OWNER,
         "combat.capabilities",
     );
-    app.rollback_component_clone::<ambition_combat::components::CombatTuning>(
+    registrar.rollback_component_clone::<crate::components::CombatTuning>(
         OWNER,
         "combat.tuning",
     );
-    app.rollback_component_clone::<ambition_combat::components::ActorIdentity>(
+    registrar.rollback_component_clone::<crate::components::ActorIdentity>(
         OWNER,
         "actor.identity",
     );
-    app.rollback_component_clone::<ambition_combat::components::ActorInteraction>(
+    registrar.rollback_component_clone::<crate::components::ActorInteraction>(
         OWNER,
         "actor.interaction",
     );
-    app.rollback_component_clone::<ambition_combat::components::ActorRenderSize>(
+    registrar.rollback_component_clone::<crate::components::ActorRenderSize>(
         OWNER,
         "actor.render_size",
     );
-    app.rollback_component_clone::<ambition_combat::components::ActorSpriteOffset>(
+    registrar.rollback_component_clone::<crate::components::ActorSpriteOffset>(
         OWNER,
         "actor.sprite_offset",
     );
-    app.rollback_component_clone::<ambition_combat::components::BossDeathAnimation>(
+    registrar.rollback_component_clone::<crate::components::BossDeathAnimation>(
         OWNER,
         "boss.death_animation",
     );
-    app.rollback_component_clone::<ambition_combat::components::CombatKit>(OWNER, "combat.kit");
-    app.rollback_component_clone::<ambition_combat::components::DamageableVolumes>(
+    registrar.rollback_component_clone::<crate::components::CombatKit>(OWNER, "combat.kit");
+    registrar.rollback_component_clone::<crate::components::DamageableVolumes>(
         OWNER,
         "feature.damageable_volumes",
     );
-    app.rollback_component_clone::<ambition_combat::components::FeatureId>(OWNER, "feature.id");
-    app.rollback_component_clone::<ambition_combat::components::FeatureName>(OWNER, "feature.name");
-    app.rollback_component_clone::<ambition_combat::components::BreakableFeature>(
+    registrar.rollback_component_clone::<crate::components::FeatureId>(OWNER, "feature.id");
+    registrar.rollback_component_clone::<crate::components::FeatureName>(OWNER, "feature.name");
+    registrar.rollback_component_clone::<crate::components::BreakableFeature>(
         OWNER,
         "feature.breakable",
     );
-    app.rollback_component_clone::<ambition_combat::components::ChestFeature>(
+    registrar.rollback_component_clone::<crate::components::ChestFeature>(
         OWNER,
         "feature.chest",
     );
-    app.rollback_component_clone::<ambition_combat::components::Opened>(OWNER, "feature.opened");
-    app.rollback_component_clone_probed::<ambition_combat::components::RespawnTimer>(
+    registrar.rollback_component_clone::<crate::components::Opened>(OWNER, "feature.opened");
+    registrar.rollback_component_clone_probed::<crate::components::RespawnTimer>(
         OWNER,
         "feature.respawn_timer",
         |timer| timer.0.to_bits() as u64,
     );
-    app.rollback_component_clone_probed::<ambition_combat::components::StandTimer>(
+    registrar.rollback_component_clone_probed::<crate::components::StandTimer>(
         OWNER,
         "feature.stand_timer",
         |timer| timer.0.to_bits() as u64,
     );
-    app.rollback_component_clone::<ambition_combat::hazard_runtime::HazardFeature>(
+    registrar.rollback_component_clone::<crate::hazard_runtime::HazardFeature>(
         OWNER,
         "feature.hazard",
     );
-    app.rollback_component_clone::<ambition_combat::components::PogoPolicy>(
+    registrar.rollback_component_clone::<crate::components::PogoPolicy>(
         OWNER,
         "feature.pogo_policy",
     );
-    app.rollback_component_clone::<ambition_combat::components::PogoTargetContributor>(
+    registrar.rollback_component_clone::<crate::components::PogoTargetContributor>(
         OWNER,
         "feature.pogo_target_contributor",
     );
-    app.rollback_component_clone::<ambition_combat::components::PogoTargetVolumes>(
+    registrar.rollback_component_clone::<crate::components::PogoTargetVolumes>(
         OWNER,
         "feature.pogo_target_volumes",
     );
-    app.rollback_component_clone::<ambition_combat::held_items::HeldItem>(OWNER, "actor.held_item");
-    app.rollback_component_clone::<ambition_combat::moveset::ActorMoveset>(OWNER, "actor.moveset");
-    app.rollback_component_clone::<ambition_combat::moveset::MovesetMelee>(
+    registrar.rollback_component_clone::<crate::held_items::HeldItem>(OWNER, "actor.held_item");
+    registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
+    registrar.rollback_component_clone::<crate::moveset::MovesetMelee>(
         OWNER,
         "actor.moveset_melee",
     );
-    app.rollback_component_clone::<ambition_combat::components::PickupFeature>(
+    registrar.rollback_component_clone::<crate::components::PickupFeature>(
         OWNER,
         "feature.pickup",
     );
-    app.rollback_component_clone::<ambition_combat::components::Collected>(
+    registrar.rollback_component_clone::<crate::components::Collected>(
         OWNER,
         "feature.collected",
     );
-    app.rollback_component_clone::<ambition_combat::components::RuntimeStagedActor>(
+    registrar.rollback_component_clone::<crate::components::RuntimeStagedActor>(
         OWNER,
         "marker.runtime_staged_actor",
     );
-    app.declare_rollback_derived_resource::<ambition_combat::rules::ResolvedCombatTuning>(
+    registrar.declare_rollback_derived_resource::<crate::rules::ResolvedCombatTuning>(
         OWNER,
         "derived.resolved_combat_tuning",
         "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
@@ -239,92 +227,113 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // forbids in a blob; the `map_entities` pass below re-points that handle the
     // way `RidingOn`'s does. Same shape, for the same reason: a component on the
     // dependent body naming the other one.
-    app.rollback_component_clone_entity_ref::<ambition_combat::capture::CapturedBy>(
+    registrar.rollback_component_clone_entity_ref::<crate::capture::CapturedBy>(
         OWNER,
         "capture.captured_by",
         |held| held.captor,
     );
-    app.rollback_map_entities::<ambition_combat::capture::CapturedBy>(OWNER, "map.captured_by");
+    registrar.rollback_map_entities::<crate::capture::CapturedBy>(OWNER, "map.captured_by");
     // ⚠ the three capture REQUESTS are same-frame transients. A resimulated tick
     // re-derives them from the authored timeline it is replaying, so a buffer
     // that survived the rewind would apply a pummel twice.
-    app.clear_message_on_rollback::<ambition_combat::capture::CaptureAttemptRequested>(
+    registrar.clear_message_on_rollback::<crate::capture::CaptureAttemptRequested>(
         OWNER,
         "message.capture_attempt_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::capture::CapturePummelRequested>(
+    registrar.clear_message_on_rollback::<crate::capture::CapturePummelRequested>(
         OWNER,
         "message.capture_pummel_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::capture::CaptureThrowRequested>(
+    registrar.clear_message_on_rollback::<crate::capture::CaptureThrowRequested>(
         OWNER,
         "message.capture_throw_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::hitbox::LandedBodyHit>(
+    registrar.clear_message_on_rollback::<crate::hitbox::LandedBodyHit>(
         OWNER,
         "message.landed_body_hit",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::HitEvent>(OWNER, "message.hit_event");
-    app.clear_message_on_rollback::<ambition_combat::stocks::BodyKnockedOut>(
+    registrar.clear_message_on_rollback::<crate::events::HitEvent>(OWNER, "message.hit_event");
+    registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(
         OWNER,
         "message.body_knocked_out",
     );
-    app.clear_message_on_rollback::<ambition_combat::stocks::FighterStockSpent>(
+    registrar.clear_message_on_rollback::<crate::stocks::FighterStockSpent>(
         OWNER,
         "message.fighter_stock_spent",
     );
-    app.clear_message_on_rollback::<ambition_combat::stocks::StocksMatchDecided>(
+    registrar.clear_message_on_rollback::<crate::stocks::StocksMatchDecided>(
         OWNER,
         "message.stocks_match_decided",
     );
-    app.clear_message_on_rollback::<ambition_combat::on_hit::OnHitEffectMessage>(
+    registrar.clear_message_on_rollback::<crate::on_hit::OnHitEffectMessage>(
         OWNER,
         "message.on_hit_effect",
     );
-    app.clear_message_on_rollback::<ambition_combat::moveset::MoveEventMessage>(
+    registrar.clear_message_on_rollback::<crate::moveset::MoveEventMessage>(
         OWNER,
         "message.move_event",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::ActorStimulus>(
+    registrar.clear_message_on_rollback::<crate::events::ActorStimulus>(
         OWNER,
         "message.actor_stimulus",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::GameplayBannerRequested>(
+    registrar.clear_message_on_rollback::<crate::events::GameplayBannerRequested>(
         OWNER,
         "message.gameplay_banner_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::GameplaySfxRequested>(
+    registrar.clear_message_on_rollback::<crate::events::GameplaySfxRequested>(
         OWNER,
         "message.gameplay_sfx_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::ResetRoomFeaturesEvent>(
+    registrar.clear_message_on_rollback::<crate::events::ResetRoomFeaturesEvent>(
         OWNER,
         "message.reset_room_features",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::SetFlagRequested>(
+    registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
         OWNER,
         "message.set_flag_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::ActorStimulus>(
+    registrar.clear_message_on_rollback::<crate::events::ActorStimulus>(
         OWNER,
         "message.actor_stimulus",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::GameplayBannerRequested>(
+    registrar.clear_message_on_rollback::<crate::events::GameplayBannerRequested>(
         OWNER,
         "message.gameplay_banner_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::GameplaySfxRequested>(
+    registrar.clear_message_on_rollback::<crate::events::GameplaySfxRequested>(
         OWNER,
         "message.gameplay_sfx_requested",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::ResetRoomFeaturesEvent>(
+    registrar.clear_message_on_rollback::<crate::events::ResetRoomFeaturesEvent>(
         OWNER,
         "message.reset_room_features",
     );
-    app.clear_message_on_rollback::<ambition_combat::events::SetFlagRequested>(
+    registrar.clear_message_on_rollback::<crate::events::SetFlagRequested>(
         OWNER,
         "message.set_flag_requested",
     );
+    // Strike entities and hit-once bookkeeping are combat state even when their
+    // presentation is VFX-driven.
+    registrar.require_rollback::<crate::strike::Hitbox>(OWNER, "entity:hitbox");
+    registrar.rollback_component_clone_entity_ref::<crate::strike::Hitbox>(
+        OWNER,
+        "combat.hitbox",
+        |hitbox| hitbox.owner,
+    );
+    registrar.rollback_map_entities::<crate::strike::Hitbox>(OWNER, "map.hitbox");
+    registrar.rollback_component_clone_entity_set::<crate::strike::HitboxHits>(
+        OWNER,
+        "combat.hitbox_hits",
+        |hits| hits.hit.iter().copied().collect(),
+    );
+    registrar.rollback_map_entities::<crate::strike::HitboxHits>(OWNER, "map.hitbox_hits");
+    registrar.rollback_component_clone_probed::<crate::strike::HitboxLifetime>(
+        OWNER,
+        "combat.hitbox_lifetime",
+        |lifetime| lifetime.remaining_s.to_bits() as u64,
+    );
+
 }
 
 /// Entity-free canonical projection of the staged victim-hit FIFO.
@@ -334,8 +343,8 @@ pub(in crate::rollback) fn register(app: &mut App) {
 /// but everything that decides what the hit DOES participates, so a diverged
 /// queue surfaces as a sync-test mismatch at the staging frame instead of one
 /// frame later as mystery damage.
-fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayerHitEvents) -> u64 {
-    use ambition_combat::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
+fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents) -> u64 {
+    use crate::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
     let mut bytes = Vec::new();
     put_u64(&mut bytes, pending.0.len() as u64);
     for event in &pending.0 {

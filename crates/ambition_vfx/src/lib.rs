@@ -17,9 +17,9 @@ use bevy::prelude::*;
 
 // The kernel, not the platformer. This crate takes `Vec2`, `Aabb`,
 // `CombatVolume` and `VolumeShape` — shapes and boxes, nothing with a
-// genre in it — and used to reach them through
-// `ambition_platformer2d_core`, which made a presentation-neutral VFX
-// vocabulary declare a platformer dependency it did not have.
+// genre in it — and used to reach them through the platformer core. Gameplay
+// geometry stays on `ambition_geometry`; the only direct core edge now is the
+// backend-neutral rollback declaration vocabulary in `rollback_registration`.
 use ambition_geometry as ae;
 use ambition_projectile_spec::ProjectileSpawn;
 
@@ -126,3 +126,7 @@ pub struct EffectRequest {
     pub owner: Entity,
     pub effect: Effect,
 }
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

@@ -586,6 +586,7 @@ dependencies = [
  "ambition_combat",
  "ambition_content_pack",
  "ambition_persistence",
+ "ambition_platformer2d_core",
  "bevy",
  "ron 0.11.0",
  "serde",
@@ -1093,6 +1094,7 @@ name = "ambition_vfx"
 version = "0.1.0"
 dependencies = [
  "ambition_geometry",
+ "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "ambition_sfx",
  "bevy",

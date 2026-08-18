@@ -21,8 +21,8 @@ ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_
     "portal_ldtk",
 ] }
 # Conversation continuity, named directly since it left the actor monolith
-# (2026-08-17). `rollback/domains/actors.rs` registers the authority and the two
-# message buffers; `room_transition/commit.rs` reads whether one is live.
+# (2026-08-17). The domain now owns its rollback declaration; this host composes
+# that offer and `room_transition/commit.rs` reads whether a conversation is live.
 ambition_conversation = { path = "../ambition_conversation" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
@@ -48,9 +48,10 @@ ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu" }
 ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
-# Cutscene PLAYBACK is rollback state (it gates participant input), so the
-# rollback domain that registers it needs the type. The stepper itself stays
-# bevy-free and knows nothing about rollback.
+# Cutscene PLAYBACK is rollback state (it gates participant input). The cutscene
+# crate owns that declaration through the backend-neutral registrar; this host
+# names the crate only to compose the installed domain's offer. The stepper
+# itself remains backend-agnostic.
 ambition_cutscene = { path = "../ambition_cutscene" }
 # The room-transition readiness transaction is an `ambition_load` plan: the
 # barrier, its work items, and the one-shot commit authorization. `ambition_load`

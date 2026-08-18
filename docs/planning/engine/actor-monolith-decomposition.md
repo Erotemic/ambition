@@ -887,86 +887,55 @@ removes one of several paths and the closure does not move — which is exactly
 what the `ambition_ui_nav` removal measured, and what the aborted
 `ambition_conversation` footprint claim got wrong.
 
-### And for two of them the runtime's ONLY reason is the rollback schema
+### Rollback ownership is no longer the blocker; capability composition remains
 
-`ambition_cutscene` is named in `rollback/domains/cutscene.rs` and nowhere else
-in the runtime. `ambition_items` is named in `rollback/domains/items.rs` and
-nowhere else. The registrations are the whole edge.
+✔ **RESOLVED 2026-08-18:** the concrete rollback declarations no longer live in
+`ambition_platformer2d_runtime`. `RollbackRegistrar` is a backend-neutral floor
+trait, each gameplay crate owns its own `register_rollback_state` function, and
+the GGRS host implements the trait through `GgrsRollbackRegistrar`. The former
+`runtime/rollback/domains/*` adapter census is deleted. This falsifies the old
+argument below that generic `bevy_ggrs` registration forced the type list to stay
+in the runtime: genericity constrains where monomorphisation happens, not who
+owns the list.
 
-⚠ **`central-rollback-does-not-enumerate-domains` is GREEN over this**, and
-correctly so by its own terms — it reads exactly one file,
-`rollback/src/rollback/mod.rs`, and Campaign 2 deliberately moved the
-registrations to `rollback/domains/*.rs`. The contract guards against the
-central FUNCTION regrowing. Nothing guards the consumer-visible consequence,
-which is that the runtime still names every gameplay domain one directory down.
+The measured dependency pressure that motivated the investigation is **not
+magically erased by that ownership repair**. `ambition_cutscene` and
+`ambition_items` are still direct runtime dependencies today because the engine
+host composes their public rollback offers. That is now a much narrower question:
+
+```text
+old coupling:
+    runtime names Cutscene/Item concrete types + projections + backend install
+
+current coupling:
+    domain owns concrete types + projections
+    runtime host calls domain::register_rollback_state(&mut registrar)
+```
+
+So the rollback **authority inversion is closed**. Making an optional capability
+remove even that one composition edge belongs to the capability-installation
+campaign: the composition site that elects to install a capability should also
+elect to install its rollback offer. Do not move concrete registrations back up
+to chase the footprint number, and do not introduce a type-erased second snapshot
+layer merely to make the call dynamic.
 
 ### What this changes about the campaign
 
-- **The compile-unit trigger stands.** 112k lines in one recompilation unit with
-  incremental compilation off is reason enough, and every carve here still pays
-  that.
-- **The dependency-leak trigger points at the wrong crate.** A movement-only
-  game's fifteen unwanted crates are mostly the RUNTIME's, and the largest single
-  mechanism is the central rollback schema enumerating every domain.
-- **`ambition_platformer2d_ldtk` is the only capability whose ONLY dependent is
-  the monolith** — but it is not therefore sheddable. ⛔ measured: the single
-  production reference is `world/ldtk_world/mod.rs`'s blanket
-  `pub use ambition_platformer2d_ldtk::*`, which looks like a stale facade and is
-  not one. **Seven production files in SEVEN different root modules** consume
-  LDtk types through it — `assets/platformer_assets`, `encounter/{loading,systems}`,
-  `features`, `menu/map`, `persistence/settings`, `session/setup`. The monolith
-  genuinely uses LDtk; there is no slice here, and **no footprint win is
-  available from this plan as written.**
-- **The maintainer answer is settled: capabilities are optional.** The open
-  work is architectural: identify coherent capability boundaries and make them
-  optional through the runtime as well as the monolith, rather than scattering
-  conditional compilation through unrelated systems. See
-  [`../maintainer-decisions.md`](../maintainer-decisions.md).
+- **The compile-unit trigger stands.** The monolith remains a large recompilation
+  unit; domain-owned rollback declarations neither worsen nor solve that.
+- **The dependency-leak trigger is now narrower.** The runtime no longer owns
+  gameplay rollback semantics. Remaining optional-capability edges are
+  composition decisions, and should disappear when capability installation is
+  made truly optional end-to-end.
+- **The maintainer answer remains settled: capabilities are optional.** Use the
+  domain-owned rollback seam as part of that composition rather than re-opening
+  rollback architecture. See [`../maintainer-decisions.md`](../maintainer-decisions.md).
 
 ⚠ **the baseline's own split is stale**:
-`scripts/baselines/capability-footprint-baseline.json` lists all fifteen under
-`reachable_via_ambition_platformer2d_actor_monolith_alone`. Only one is. Left
-unchanged here because the ratchet's live invariant (the SET may not grow) is
-still enforced correctly and rewriting the annotation is a separate, careful
-edit — but do not reason from that field.
-
-### Could a domain register its OWN rollback schema? Measured: not without a cost
-
-The finding above — that `rollback/domains/{cutscene,items}.rs` is the runtime's
-ONLY reason to name those crates — suggests an obvious inversion: let each domain
-declare its own schema, the way `ambition_content` already declares
-`content.cut_rope_heavy_object_cycle`. Ten runtime edges would invert at once.
-
-**It does not work below the runtime, and the reason is structural.**
-
-- `ambition_content` can do it because it sits **above** the runtime. Every
-  crate in the never-asked-for list except `ambition_persistence` sits **below**
-  it, so a domain naming `AmbitionRollbackApp` is a cycle.
-- The vocabulary cannot simply move down. `registry.rs` is *"a thin Ambition
-  registration layer over `bevy_ggrs`"* and imports it directly; moving the trait
-  to `ambition_platformer2d_core` would drag `bevy_ggrs` to the FLOOR, so a
-  movement-only game would link a rollback backend to compile a jump.
-- ⭐ **the declaration/installation split already exists — in one direction
-  only.** `register_app_descriptor` records the descriptor in every composition
-  and installs `bevy_ggrs` machinery only under a GGRS host, which is why a
-  fixed-tick game already carries exact schema identity without paying for
-  snapshots. But both halves live inside the same generic trait method, so a
-  caller must name the runtime to reach either.
-- ⛔ **and the halves cannot be separated by data alone.** Installation is
-  generic per type (`ComponentSnapshotPlugin::<T>`), and `T` cannot be recovered
-  from a descriptor's `type_name` string. Splitting them needs the domain to
-  supply a monomorphised `fn(&mut App)` — whose body names `bevy_ggrs`, which
-  puts the dependency back on the domain.
-
-**So rollback inversion is not a free file move.** The maintainer has already
-settled that capabilities should be optional; the remaining design problem is to
-place declaration/installation seams so domain crates do not acquire the
-rollback backend merely to declare participation, while the runtime does not
-regain knowledge of every optional domain. Treat that as its own architecture
-problem rather than re-opening the product decision.
-
-⚠ recorded so the naive inversion is not attempted as a slice. It looks like a
-free dependency win from the table and it is not one.
+`scripts/baselines/capability-footprint-baseline.json` historically grouped many
+of these dependencies under the monolith even when the runtime was another
+route. The ratchet's live invariant (the SET may not grow) remains useful; do not
+infer ownership from that annotation.
 
 ## ⭐⭐ Measured 2026-08-15: the internal module graph, and the ONE thing an import count cannot see
 

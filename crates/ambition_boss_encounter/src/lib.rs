@@ -158,3 +158,7 @@ pub struct ContentEncounterVictorySet;
 /// completion rewards).
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentQuestRewardSet;
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

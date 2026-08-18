@@ -70,32 +70,27 @@ The design must avoid simply pushing `bevy_ggrs` into every leaf crate. Prefer a
 small engine-owned registration vocabulary or capability fragment that domains
 can implement without depending on the transport/integration backend.
 
-#### ⭐⭐ MEASURED 2026-08-15 — the declaration splits in two, and only one half can federate
+#### ⭐⭐ MEASURED 2026-08-15 — semantics and installation both federate
 
-A bounded slice took `GatePortalPhases` as a representative customer (chosen
-because its correct rollback semantics had just been established by a real
-desync fix). The result is a **partial success with a named upstream blocker**,
-which is more useful than either a green or a redesign:
+A bounded slice took `GatePortalPhases` as a representative customer because its
+correct rollback semantics had just been established by a real desync fix. The
+first reading was that only the semantic half could move because `bevy_ggrs`'s
+registration API is generic over the concrete type. The falsifier on the same day
+showed that conclusion was wrong: genericity constrains where monomorphisation
+happens, not which crate owns the list of types.
 
-- ✔ **SEMANTICS — the codec and the value projection — already federate, and now
-  do for this customer.** `SnapshotState` moved down to
-  `ambition_platformer2d_core::snapshot` on 2026-07-30, and
+- ✔ **SEMANTICS — codec and value projection — federate.** `SnapshotState` moved
+  down to `ambition_platformer2d_core::snapshot` on 2026-07-30, and
   `ambition_platformer2d_world::snapshot_impls` records that the move deleted
-  **2,688 lines** from the runtime. The gate-portal projection was simply authored
-  in the old place; it now lives with its domain. ⭐ **deleted from the generic
-  runtime with it: the whole gameplay vocabulary** — `GatePortalPhase::Off |
-  Opening { elapsed } | On | Closing { elapsed }`, the field access, and the
-  key-ordering rule. What remains there is one generic call naming the type.
-- ⛔ **INSTALLATION cannot federate, and the cause is upstream.** Every
-  `bevy_ggrs` 0.21 registration entry point — `rollback_resource_with_clone`, the
-  copy strategy **and the `Reflect` strategy** — is generic over the concrete
-  type, with no `ComponentId`/`TypeId`-keyed path in the pinned checkout. Something
-  must monomorphize it, and that something must name `bevy_ggrs`. ⚠ exactly **two**
-  crates in the workspace may: `ambition_platformer2d_runtime` and
-  `game/ambition_app`.
+  **2,688 lines** from the runtime. The gate-portal projection now lives with its
+  domain, so adding a phase variant breaks an exhaustive match beside the type.
+- ✔ **INSTALLATION federates through a generic trait call.** The domain invokes a
+  backend-neutral `RollbackRegistrar` method with its concrete `T`; the runtime's
+  `GgrsRollbackRegistrar` implementation performs the generic `bevy_ggrs` call.
+  The domain therefore supplies the monomorphized type without gaining a netcode
+  dependency.
 
-✔✔ **RESOLVED 2026-08-15: THE SHAPE WORKS, AND THE EARLIER CONCLUSION WAS
-WRONG.** A domain now registers its own rollback state without any netcode
+✔✔ **THE SHAPE WORKS.** A domain registers its own rollback state without any netcode
 dependency, and the generic runtime no longer names it.
 
 `RollbackRegistrar` lives in `ambition_platformer2d_core::snapshot` and depends on
@@ -129,8 +124,25 @@ for `init_resource`. The runtime still knows the type exists; it no longer knows
 anything about **rewinding** it, which is the boundary that mattered.
 
 ⇒ **the general rule this establishes:** federate *semantics* per domain **and**
-*installation* through a backend-neutral vocabulary. ⛔ the remaining central list
-is now a migration backlog, not an API constraint.
+*installation* through a backend-neutral vocabulary.
+
+✔✔ **MIGRATION COMPLETED 2026-08-18.** `RollbackRegistrar` now exposes the
+backend-neutral forms used by the current gameplay domains (canonical/clone
+component and resource state, cursor/resolved projections, entity-reference
+localization and remapping, rollback anchors, message clearing, derived-state
+claims, and value probes). Each gameplay crate owns one
+`register_rollback_state` declaration beside its types. The former
+`runtime/rollback/domains/*` adapter census is deleted; the runtime retains only
+GGRS implementation/session machinery, runtime-adjacent registrations, and the
+composition calls that hand installed domains a registrar. No gameplay crate
+gains `bevy_ggrs` or a runtime dependency.
+
+⭐ **the boundary after completion:** the host may know that an installed domain
+offers rollback state; it does not know the concrete types or projections inside
+that offer. Adding a rewindable type changes the owning domain, not a runtime
+census. If a future domain needs a genuinely new rollback semantic, extend the
+backend-neutral vocabulary only when that customer appears rather than growing a
+parallel snapshot abstraction.
 
 ---
 

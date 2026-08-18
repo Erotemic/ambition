@@ -7,9 +7,10 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`fx`](src/fx.rs) | **An effect is a NAME.** |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_vfx`. |
 | [`vfx`](src/vfx.rs) | The visual-effects MESSAGE vocabulary — the presentation-neutral data a simulation system emits to ask for a cue, with NO renderer attached. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -217,11 +217,11 @@ impl RoomOccurrenceOutlook {
 /// which is why every consumer takes it as an `Option` and a composition that
 /// never picks anything up carries an empty ledger through its whole life.
 ///
-/// ⛔ **the TYPE NAME is load-bearing and cannot be changed here.**
-/// `ambition_platformer2d_runtime::rollback::domains::primitives` names this
-/// path in its declaration, and that module is owned by another lane. The name
-/// says `AuthoredOccurrences` because that is what it was when it held one
-/// derived set; what it holds now is stated by [`OccurrenceWhereabouts`].
+/// The rollback declaration now lives with this domain in
+/// `crate::rollback_registration`; renaming this type therefore no longer
+/// requires a generic runtime census edit. The name still says
+/// `AuthoredOccurrences` because that is what it was when it held one derived
+/// set; what it holds now is stated by [`OccurrenceWhereabouts`].
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct AuthoredOccurrences {
     rows: BTreeMap<SimId, OccurrenceWhereabouts>,

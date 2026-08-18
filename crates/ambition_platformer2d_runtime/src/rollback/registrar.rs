@@ -1,45 +1,36 @@
 //! **The GGRS side of the domain-owned registration seam.**
 //!
-//! [`AmbitionRollbackApp`](super::AmbitionRollbackApp) is a typed façade over
-//! `bevy_ggrs`, and it works — but it is an extension trait on `App`, declared
-//! in THIS crate, so only crates that may depend on this crate can speak it. Every
-//! domain that sits BELOW the runtime therefore had its registration line hoisted
-//! up here, and the runtime accumulated a census of gameplay types it otherwise
-//! knows nothing about.
+//! Domains own the concrete state they need rewound and speak only the
+//! backend-neutral [`RollbackRegistrar`] vocabulary. This module owns the other
+//! half: translating that vocabulary into the existing `bevy_ggrs` registration,
+//! checksum, mapping, probe, and load-clear machinery.
 //!
-//! ⛔ **the reason given for that was that `bevy_ggrs` 0.21 registration is
-//! generic over the concrete type, with no `TypeId`-keyed path — so something
-//! must monomorphize it, and only this crate may name `bevy_ggrs`.** Both halves
-//! are still true. Neither implies the list of types lives here: the
-//! monomorphizing call site can be a TRAIT METHOD the domain invokes.
+//! ⭐ **the split is deliberate.** Generic registration over `T` requires a
+//! monomorphizing call site; it never required a netcode crate to own the list of
+//! `T`s. A domain invokes a generic trait method, this wrapper performs the GGRS
+//! operation, and no gameplay crate gains a `bevy_ggrs` dependency.
 //!
-//! ⭐ so the vocabulary moved to the floor
-//! ([`ambition_platformer2d_core::snapshot::RollbackRegistrar`]) where a domain
-//! can name it, and this file is the half that could not move — the implementor
-//! that names `bevy_ggrs`. `bevy_ggrs` stays sequestered in this crate and
-//! `ambition_app`; the domain gains no dependency at all.
+//! ⚠ **a wrapper around `&mut App` is required by the orphan rule.** The trait
+//! lives in the floor and `bevy_app::App` is foreign, so the runtime cannot
+//! implement the trait directly for `App`.
 //!
-//! ⚠ **it is a WRAPPER around `&mut App`, and it has to be.** The trait is
-//! foreign (it lives in the floor) and `bevy_app::App` is foreign, so
-//! `impl RollbackRegistrar for App` in this crate is an orphan-rule violation:
-//! `error[E0117]: only traits defined in the current crate can be implemented for
-//! types defined outside of the crate`. A local newtype is the fix, and it is not
-//! a workaround — it is a place to put the host's own registration policy later.
-//!
-//! ⛔ **this must never grow a list.** A registrar that carried a table of the
-//! domains it registers would be the same census in a new file. The host calls
-//! each domain's `register_*_rollback_state`, and the domain names its own types.
+//! ⛔ **this file must never grow a list of domains or concrete gameplay types.**
+//! It owns HOW a rollback declaration is installed, never WHAT the declarations
+//! are.
 
-use bevy::prelude::App;
-use bevy::prelude::Resource;
+use bevy::ecs::component::Mutable;
+use bevy::ecs::entity::MapEntities;
+use bevy::ecs::message::Message;
+use bevy::prelude::{App, Component, Entity, Resource};
 
-use ambition_platformer2d_core::snapshot::RollbackRegistrar;
+use ambition_platformer2d_core::snapshot::{
+    RollbackRegistrar, SnapshotCursor, SnapshotResolve, SnapshotState,
+};
+
+use super::AmbitionRollbackApp as _;
 
 /// A `bevy_ggrs`-backed [`RollbackRegistrar`], borrowed from the host's `App` for
 /// the duration of one registration pass.
-///
-/// ⚠ borrowed rather than owned so the host can hand it to a domain mid-build
-/// and keep using the `App` afterwards; the borrow ends with the pass.
 pub struct GgrsRollbackRegistrar<'a> {
     app: &'a mut App,
 }
@@ -52,21 +43,218 @@ impl<'a> GgrsRollbackRegistrar<'a> {
 }
 
 impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
+    fn rollback_component_canonical<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + SnapshotState,
+    {
+        self.app.rollback_component_canonical::<T>(owner, name);
+        self
+    }
+
+    fn rollback_component_cursor<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone + SnapshotCursor,
+    {
+        self.app.rollback_component_cursor::<T>(owner, name);
+        self
+    }
+
+    fn rollback_component_resolved<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone + SnapshotResolve,
+    {
+        self.app.rollback_component_resolved::<T>(owner, name);
+        self
+    }
+
+    fn rollback_component_clone<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        self.app.rollback_component_clone::<T>(owner, name);
+        self
+    }
+
+    fn rollback_component_clone_entity_ref<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Entity,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        self.app
+            .rollback_component_clone_entity_ref::<T>(owner, name, referenced);
+        self
+    }
+
+    fn rollback_component_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<Entity>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        self.app
+            .rollback_component_clone_entity_set::<T>(owner, name, referenced);
+        self
+    }
+
+    fn rollback_component_clone_entity_map<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<(u64, Entity)>,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        self.app
+            .rollback_component_clone_entity_map::<T>(owner, name, referenced);
+        self
+    }
+
+    fn rollback_component_clone_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        self.app
+            .rollback_component_clone_probed::<T>(owner, name, projection);
+        self
+    }
+
+    fn rollback_component_clone_state<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone + SnapshotState,
+    {
+        self.app.rollback_component_clone_state::<T>(owner, name);
+        self
+    }
+
+    fn rollback_component_clone_checksum<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        projection: &'static str,
+        checksum: for<'a> fn(&'a T) -> u64,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + Clone,
+    {
+        super::registry::install_component_clone_checksum::<T>(
+            self.app,
+            owner,
+            name,
+            format!("bevy_ggrs clone snapshot + {projection}"),
+            checksum,
+        );
+        self
+    }
+
+    fn rollback_resource_canonical<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        self.app.rollback_resource_canonical::<T>(owner, name);
+        self
+    }
+
+    fn rollback_resource_optional_canonical<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + SnapshotState,
+    {
+        self.app
+            .rollback_resource_optional_canonical::<T>(owner, name);
+        self
+    }
+
+    fn rollback_resource_clone<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + Clone,
+    {
+        self.app.rollback_resource_clone::<T>(owner, name);
+        self
+    }
+
+    fn rollback_resource_clone_entity_set<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<Entity>,
+    ) -> &mut Self
+    where
+        T: Resource + Clone,
+    {
+        self.app
+            .rollback_resource_clone_entity_set::<T>(owner, name, referenced);
+        self
+    }
+
+    fn rollback_resource_clone_entity_set_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<Entity>,
+        facts: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource + Clone,
+    {
+        self.app
+            .rollback_resource_clone_entity_set_probed::<T>(owner, name, referenced, facts);
+        self
+    }
+
     fn rollback_resource_clone_checksum<T>(
         &mut self,
         owner: &'static str,
         name: &'static str,
         projection: &'static str,
-        checksum: for<'b> fn(&'b T) -> u64,
+        checksum: for<'a> fn(&'a T) -> u64,
     ) -> &mut Self
     where
         T: Resource + Clone,
     {
-        // ⚠ **the recorded `detail` is composed, not quoted.** The domain says
-        // what the checksum SEES; this side says how the value is STORED, which
-        // is the only half that names a backend. Joined, it is byte-identical to
-        // what the schema baseline already records — the seam moves the caller,
-        // not the wire form.
         super::registry::install_resource_clone_checksum::<T>(
             self.app,
             owner,
@@ -74,6 +262,96 @@ impl RollbackRegistrar for GgrsRollbackRegistrar<'_> {
             format!("bevy_ggrs clone snapshot + {projection}"),
             checksum,
         );
+        self
+    }
+
+    fn rollback_map_entities<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component<Mutability = Mutable> + MapEntities,
+    {
+        self.app.rollback_map_entities::<T>(owner, name);
+        self
+    }
+
+    fn rollback_resource_map_entities<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource + MapEntities,
+    {
+        self.app.rollback_resource_map_entities::<T>(owner, name);
+        self
+    }
+
+    fn require_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Component,
+    {
+        self.app.require_rollback::<T>(owner, name);
+        self
+    }
+
+    fn clear_message_on_rollback<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: Message,
+    {
+        self.app.clear_message_on_rollback::<T>(owner, name);
+        self
+    }
+
+    fn declare_rollback_derived_component<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Component,
+    {
+        self.app
+            .declare_rollback_derived_component::<T>(owner, name, reason);
+        self
+    }
+
+    fn declare_rollback_derived_resource<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        reason: &'static str,
+    ) -> &mut Self
+    where
+        T: Resource,
+    {
+        self.app
+            .declare_rollback_derived_resource::<T>(owner, name, reason);
+        self
+    }
+
+    fn declare_dynamic_anchor<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        detail: &'static str,
+    ) -> &mut Self
+    where
+        T: 'static,
+    {
+        self.app
+            .declare_dynamic_anchor::<T>(owner, name, detail);
         self
     }
 }

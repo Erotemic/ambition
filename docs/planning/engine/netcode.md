@@ -122,7 +122,7 @@ before pushing. See also [`../queue.md`] D147/D150.
 the widest-reaching change of 2026-08-08 and it touches every `SimId` carrier:
 
 * `SimIdCounter` was **already** snapshot-registered
-  (`rollback/domains/primitives.rs:51`, `rollback_component_canonical`), so **no
+  (`ambition_platformer2d_shared_tangle::rollback_registration`, `rollback_component_canonical`), so **no
   new type entered the schema.** Confirmed: the schema version is still **18** and
   neither `rollback_schema_baseline.txt` nor `scripts/baselines/rollback-schema-baseline.json` has moved
   since `a7013ef82`, which predates the change.

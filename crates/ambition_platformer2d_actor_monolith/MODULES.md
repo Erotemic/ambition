@@ -35,6 +35,7 @@
 | [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
 | [`session`](src/session/mod.rs) | Ambition-game session lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
 | [`shrine`](src/shrine.rs) | Healing / save-point shrine. |
@@ -43,7 +44,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask — and tell — about flags.** |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -252,27 +252,69 @@ ABSENCE_CONTRACTS: list[dict] = [
         "id": "central-rollback-does-not-enumerate-domains",
         "paths": ["crates/ambition_platformer2d_runtime/src/rollback/mod.rs"],
         "patterns": [
-            r"ambition_platformer2d_actor_monolith::",
-            r"ambition_characters::",
-            r"ambition_combat::",
-            r"ambition_encounter::",
-            r"ambition_items::",
-            r"ambition_platformer2d_shared_tangle::",
-            r"ambition_portal2d::",
-            r"ambition_projectiles::",
-            r"ambition_vfx::",
+            # The host may compose a domain's ONE public rollback offer. It may
+            # not reach through that seam to name any concrete gameplay type.
+            {
+                "grep": r"ambition_platformer2d_actor_monolith::",
+                "match": r"ambition_platformer2d_actor_monolith::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_boss_encounter::",
+                "match": r"ambition_boss_encounter::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_characters::",
+                "match": r"ambition_characters::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_combat::",
+                "match": r"ambition_combat::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_conversation::",
+                "match": r"ambition_conversation::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_cutscene::",
+                "match": r"ambition_cutscene::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_encounter::",
+                "match": r"ambition_encounter::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_items::",
+                "match": r"ambition_items::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_platformer2d_shared_tangle::",
+                "match": r"ambition_platformer2d_shared_tangle::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_portal2d::",
+                "match": r"ambition_portal2d::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_projectiles::",
+                "match": r"ambition_projectiles::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_sprite_sheet::",
+                "match": r"ambition_sprite_sheet::(?!register_rollback_state\b)",
+            },
+            {
+                "grep": r"ambition_vfx::",
+                "match": r"ambition_vfx::(?!register_rollback_state\b)",
+            },
         ],
         "reason": (
-            "Campaign 2 R5. `register_engine_rollback_state` went from ~1,870 "
-            "lines naming nine gameplay domains to 690 that aggregate their "
-            "adapters — and the way that un-does itself is one convenient line "
-            "at a time, because adding a registration where the others used to "
-            "be is always the shortest path. A new registration belongs in "
-            "`rollback/domains/<domain>.rs`; if the domain has no module yet, "
-            "adding one is the work. What may still be named here is "
-            "runtime-adjacent state — engine_core, persistence, sfx, sim_view, "
-            "time, world — which is the aggregation R4 asks this function to "
-            "contain rather than the enumeration it asks it to lose."
+            "Domain-owned rollback migration. The runtime may compose a domain's "
+            "single `register_rollback_state` offer, but the concrete types and "
+            "their projections belong in the crate that owns them. A new "
+            "gameplay registration therefore changes the owning crate, not a "
+            "runtime `domains/` census. Runtime-adjacent state — engine_core, "
+            "persistence, sfx, sim_view, time, and host/session machinery — may "
+            "still be registered directly here."
         ),
     },
     {
@@ -1174,22 +1216,17 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
     qualified by the file's crate. Two crates could otherwise both claim
     `crate::Foo` and the ratchet would see one entry where there are two.
     """
-    # The central function AND the domain adapters (Campaign 2).
+    # The central runtime-adjacent registrations plus domain-owned offers.
     #
-    # ⚠ this read one file until 2026-07-31, and Campaign 2 moves registrations
-    # OUT of it by design — so the first migrated domain reported five names as
-    # having "left the schema" when they had only left the file. That is the same
-    # mistake `encoded_types` above already learned once: the wire format is not a
-    # synonym for one path, and a guard that keeps reading the old one reports a
-    # green empty set forever.
+    # ⚠ this read one file until 2026-07-31. Campaign 2 first moved registrations
+    # into `runtime/rollback/domains/`, then the domain-owned registrar migration
+    # removed that directory entirely: the concrete declarations now live with
+    # their types. The wire format was never a synonym for either central path.
     #
     # Deliberately NOT a glob over the whole `rollback/` directory: `codec.rs`,
     # `session.rs` and friends contain dotted string literals that are not
     # registration names, and a ratchet that swallows them measures noise.
     registration_paths = [root / "crates/ambition_platformer2d_runtime/src/rollback/mod.rs"]
-    registration_paths.extend(
-        sorted((root / "crates/ambition_platformer2d_runtime/src/rollback/domains").glob("**/*.rs"))
-    )
     # ⛔⛔ AND IT HAPPENED AGAIN, ONE LEVEL FURTHER OUT (2026-08-15). The two
     # paragraphs above describe registrations leaving one FILE. They have now
     # left the runtime CRATE: `RollbackRegistrar` lets a domain register its own

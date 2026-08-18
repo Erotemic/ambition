@@ -17,14 +17,11 @@
 //! schedule graph, and its component is still in the snapshot schema. This is
 //! the other half: the composition never mentions LDtk unless the game has one.
 //!
-//! ⚠ **why this plugin lives in the runtime crate and not in
-//! `ambition_platformer2d_ldtk`.** The rollback registration vocabulary
-//! (`AmbitionRollbackApp::rollback_component_clone_checksum`) is this crate's;
-//! `ambition_platformer2d_core::snapshot::RollbackRegistrar` — the floor that
-//! lets a domain register itself — carries only the RESOURCE method today, and
-//! the LDtk index is a COMPONENT on the session root. So the format's rollback
-//! row is registered here, next to every other domain adapter, and this plugin
-//! is the single thing a game adds to say *"I have an LDtk world"*.
+//! ⚠ **why this plugin still lives in the runtime crate.** The LDtk crate now
+//! owns the rollback declaration itself through the backend-neutral
+//! `RollbackRegistrar`; this plugin owns only host composition. A game adds one
+//! thing to say *"I have an LDtk world"*: install the runtime spine, borrow the
+//! host's GGRS registrar, and hand it to the format-owned declaration.
 
 use bevy::app::{App, Plugin};
 
@@ -42,6 +39,7 @@ pub struct LdtkWorldPlugin;
 impl Plugin for LdtkWorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_platformer2d_ldtk::LdtkRuntimeSpinePlugin);
-        crate::rollback::domains::ldtk::register(app);
+        let mut registrar = crate::rollback::GgrsRollbackRegistrar::new(app);
+        ambition_platformer2d_ldtk::register_rollback_state(&mut registrar);
     }
 }

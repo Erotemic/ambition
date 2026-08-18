@@ -90,3 +90,7 @@ pub use view::{
 
 pub use plugin::{PortalPlugin, PortalSimulationPlugin};
 pub use schedule::PortalSet;
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

@@ -41,9 +41,9 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 7 (§6, §7, §9, §11, §12 and §13 are ANSWERED, kept below as records)
+## Open decisions — 4 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
-### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
+### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
 ⭐⭐ **HALF OF THIS IS ALREADY RESOLVED — reconciled 2026-08-17; the row reads as
 fully open and is not.** `projectile/systems.rs` now resolves victims through
@@ -63,9 +63,15 @@ comment records why the old claim was false: the tuple that would have carried
 `DamageableVolumes` **had run out of arity**, so *"the claim was never anything
 but prose"* — sharing the type is what made it checkable.
 
-⇒ **what is left for you is only the precision half**, which is the genuine feel
-call: should a bolt respect the authored hurt volume, or keep hitting the coarse
-body box? The invulnerable-window and corpse cases no longer ride on it.
+⭐⭐ **RULED: the projectile respects the AUTHORED HURT VOLUME — the same geometry
+melee uses.** One victim-geometry rule for everything, so a crouching or
+ledge-hanging fighter reads the same to a bolt and to a sword, and an authored
+hurtbox finally means one thing.
+⛔⛔ **this is a real feel change on shipped content, and it is intended**: a shot
+that connects today against a body whose authored volume is tighter than its AABB
+will start missing. That is the point, not a regression to file.
+⚠ per-volume overlap now runs on every projectile tick — **measure it rather than
+assuming it is free**, and say so at the loop.
 
 
 Current source still has the split: projectile collision uses the victim's coarse
@@ -274,7 +280,7 @@ noted beside.
 ⛔ **whatever is built, simulation entity and presentation share ONE lifetime** —
 that was the original defect and it is not re-litigated by the persistence rule.
 
-### 8. Which platform-fighter verbs does each creature author?
+### 8. ⏸ DEFERRED 2026-08-17 — the absence list waits for a bigger cast
 
 ⭐⭐ **THE FORK IS DECIDED AND PINNED — reconciled 2026-08-17. Only the absence
 list below is still yours.** The recommended option, *universal baseline with
@@ -304,9 +310,14 @@ the rest do not"* is no longer the situation: the scaffold is gone and the
 EFFECTIVE set is uniform across the cast whether or not a given character
 authors one.
 
-▢ **what is left is exactly the part this row already calls yours**: the
-per-creature absence list — which creature should NOT shield, dodge, ledge-grab
-or double-jump, so that the omission means something.
+⏸ **DEFERRED BY JON 2026-08-17.** Fourteen fighters is a small sample and the kits
+were only just completed, so everyone keeps the uniform effective kit and
+**personality comes from MOVESETS rather than from missing verbs** until enough
+matches have been played to know who feels wrong.
+⭐ nothing is blocked and nothing is lost: the grant scaffold is already deleted,
+so an omission MEANS something the day one is authored — the mechanism is ready
+and only the content decision waits. ⛔ do not propose an absence list unprompted,
+and ⛔ do not author an absence for balance reasons in the meantime.
 
 
 **Authoring verbs is currently a nerf, and that is why only two characters do
@@ -369,7 +380,7 @@ delta is where the interesting ones live (`ambition_input` 54 → 115,
   authored-logic Yarn falsifiers. `cargo test -p ambition_conversation --features
   ui --lib` is the only command that compiles them.
 
-### 10. Camera shake is measured in "px" and behaves as world units
+### 10. ✔ ANSWERED 2026-08-17 — shake stays constant IN THE WORLD; the name changes
 
 **Found 2026-08-15 while closing D118's C4.** Not a bug report — a feel question
 with two defensible answers, which is why it is yours.
@@ -403,8 +414,15 @@ units. One of the two is wrong and I cannot tell which from the code.
   is `amplitude_world` and the constant is not `PX_PER_S`. Cheapest option, and
   it stops the next reader making my mistake.
 
-⚠ **I did not change it.** The zoom range in the shipped game is narrow enough
-that nobody has reported it, and picking silently would be choosing a feel.
+⭐⭐ **RULED: constant in the world — keep the behaviour, fix the NAME.** A shake
+is a physical displacement of the viewpoint, so a camera showing more world
+registers it as smaller; a camera that pulls out as a fight grows should calm the
+screen rather than thrash it harder.
+⇒ **what changes is `amplitude_px` → `amplitude_world` and
+`HIT_SHAKE_GAIN_PX_PER_S` with it.** ⛔ the maths is not touched.
+⭐ and the rename is now unambiguous rather than merely tidier: by the same day's
+ruling **one world unit IS a base-grid pixel**, so `_px` would stay permanently
+confusable while `_world` says exactly which quantity this is.
 
 ### 11. ✔ ANSWERED 2026-08-17 — split-screen layout is ADAPTIVE WITH HYSTERESIS
 

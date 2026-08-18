@@ -886,6 +886,15 @@ wanted  a character DECLARES its height in one shared unit; render size derives
 4. **promotion did not schedule the other eight milestones.** A slice becomes
    work when something asks for it.
 
+⛔⛔ **BOSSES AND GIANT BODIES ARE IN SCOPE — ruled 2026-08-17, and it roughly
+DOUBLES this slice.** A boss is a character that happens to be large: same units,
+same contract, and a multi-part body declares the height of the whole SILHOUETTE.
+The boss sheet path computes its own render height today
+(`collision.max_axis * collision_scale`, authored at 4.5 / 1.8 / 1.6 / 1.25) and
+must derive from the declared height instead. ⭐ taken deliberately over an
+ordinary-cast-first slice, because an exemption meant to be temporary is exactly
+the kind that becomes permanent — **an exemption list is a TODO list.**
+
 ⛔ **`collision_scale` stops being a SIZE knob and is NOT deleted in this slice.**
 Its own doc says what it actually is — *"a multiplier on the actor's collision
 AABB… authored per-character to compensate for the fraction of each frame the

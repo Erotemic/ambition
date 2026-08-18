@@ -5282,8 +5282,8 @@ are visible rather than discovered again:
                                  message claimed; see below
 2  test_robot_slash_hitboxes     numbers drifted under the assertions (154 >= 156)
 2  test_character_notes          freeform notes do not round-trip
-1  test_actor_contract           `perfect_cellular_automaton` is a registered
-                                 target with no local actor metadata
+✔  test_actor_contract           FIXED — the CHECK was wrong twice, not the
+                                 content; see below
 1  test_geometry_gui             a drag lands 5 units off
 1  test_rig_codegen_and_scale    generated vs rigdoc render disagree
 1  test_portrait_product         hunny_horror publishes the wrong clip set
@@ -5306,6 +5306,29 @@ the real gap in place**: the isbuiltin rule was asserted NOWHERE, which is how
 two tests could lean on it, break when it tightened, and read as an environment
 problem. It has its own poison-verified test now, and the suite is **8 failed /
 619 passed** (renderer `2b9d160`).
+
+⭐⭐ **AND THE NEXT ONE DOWN WAS THE SAME DISEASE.**
+`test_every_registered_character_target_has_local_actor_metadata` was red on the
+Perfect Cellular Automaton, and the content was fine both times:
+
+```text
+its EXEMPTION was dead      it skipped `rigged.TARGETS` because rig-doc targets
+                            "do not yet carry actor metadata" — that set is
+                            EMPTY, and every rig-doc character but one carries
+                            metadata perfectly well
+its QUESTION was a proxy    "has a module-level ACTOR_METADATA constant", where
+                            PCA authors its metadata in its `.rig.json` and
+                            hands it to `build_sheet` at render time
+```
+
+⇒ the guard asks whether a character publishes metadata by SOME road now, and
+the target exposes `actor_metadata()` — a function, not a constant, because the
+constant would parse the rig document at IMPORT time for every discovery.
+⛔ **and the helper's first draft guessed the attribute name** (`module_name`,
+`module`; the record carries `module_path`), returned `{}`, and left the test red
+for a NEW reason that looked exactly like the old one. **A guessed attribute
+fails as silence.** Poison-verified. Suite **7 failed / 620 passed** (renderer
+`24b10cb`).
 
 ⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
 YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,

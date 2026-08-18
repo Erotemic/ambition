@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `712e2e3dc` (2026-08-18 local project date).
+**Snapshot:** `ef923a644` (2026-08-18 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -386,6 +386,30 @@ streaming, a generic residency scheduler and byte shaving do not.
 - **Super Smash Siblings:** serious platform-fighter customer and possible future
   first-class game, but not the project focus. Its remaining body-generic work is
   in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
+
+  ⭐⭐ **GRABS — the third leg of the rock-paper-scissors core — are LIVE as of
+  2026-08-18, and they are what makes D166 the next architectural move.** A cold
+  coordinator needs four lines and no commit list:
+
+  ```text
+  landed        acquisition · the hold · pose · pummel · throw · release ·
+                a bounded hold with a captive escape channel · a control-hold
+                claim registry so one authority cannot free another's body
+  proven        a REAL match, driven: 14 holds, 2 pummels, all ended by throw
+                (`cargo run -p ambition_demo_smash_app --bin capture_probe -- 60 --force`)
+  open          WHEN a CPU presses Grab. It owns one, chooses one and presses
+                one — mostly at ~110px against a 42px reach. Fighter capture
+                POLICY, not a bug in the mechanic.
+  ⛔ do not     price a grab's damage to fix that. Tried: "worth its forward
+                throw's damage" made the CPU grab from 110px in every exchange,
+                nine attempts, none in range, zero holds. A grab deals NO damage.
+  ```
+
+  ⇒ the value of a hold depends on the throw it sets up, the escape risk, the
+  percent and the stage — and the generic option scorer, shared by every actor
+  in every game this engine runs, has no term for it and should not grow one.
+  **That is D166's customer**, and the five other pressures capture put on
+  generic structures are listed in that row.
 - **TwinTrack:** strongest current pressure test for independent views and
   observer/reference-frame presentation; split-screen should exercise the same
   multi-view model Ambition uses.

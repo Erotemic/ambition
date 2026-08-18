@@ -5863,6 +5863,35 @@ already sits exactly on the last row, with zero headroom to dip into.
 canvas would preserve the feet and keep them under the ground. ⚠ pre-existing on
 the grown form: its walk frames are byte-identical through the rig refactor.
 
+✔✔ **FIXED 2026-08-18** (renderer `a17b8bf`), and the cause was a SIGN. `+dy` is
+DOWN, and the trailing leg carried `leg_back_dy=+1.0` at toe-off: the foot
+pushing off was extended THROUGH the standing line rather than lifted off it.
+The passing pose's `bob=+0.4` was the same mistake at a third the size — the
+middle beat of a walk is its HIGHEST.
+
+```text
+            idle foot   walk#0   walk#1   walk#2        after
+small        32.33u      +1.00    +0.33    +1.00     →  +0.00
+grown        31.67u      +1.33    +0.67    +1.33     →  +0.00
+```
+
+⇒ four numbers in two pose tables. Seven frames left the clipping guard's list:
+`mary_o_v2` 14→13, `mary_o_v2_tall` 11→8, `mary_o_v2_fire` 6→3. ⭐ the three
+CANONICAL images are byte-identical through it, which is what a change confined
+to the walk beats should look like.
+
+⭐ **the guard asserts against her OWN idle, not against the frame height** —
+her standing line is a property of the form and moves with per-form scale, so
+"below the frame" would have been a proxy for "below the floor". Poison-verified.
+
+▢ **what is still cut on her, and it is NOT a pose**: the small form's idle
+already reaches `32.33u` in a `32u` frame, so a sliver of flat sole is lost on
+every frame of that form — while the GROWN form lands at `31.67u`, a unit of
+headroom. The two forms disagree about where a sole goes by 0.67u, which is a
+per-form scale rounding in the placement, and it is the one thing left between
+her and a clean bottom edge. `grow`/`shrink` (both sheets) and `death#0` (top)
+are separate frames with their own reasons.
+
 ⛔⛔ **AND THE FIRST TWO CRITERIA WERE BOTH WRONG — including the one this row
 originally published.**
 

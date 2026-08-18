@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 7 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 8 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -340,6 +340,43 @@ specs to silence it would answer this by accident. ⛔ 13 of the 52 are a
 different thing — specs for levels in another world file, which the command
 cannot see because it takes one `--ldtk`; that is a usage limit, worth a second
 flag whichever way you rule.
+
+### 17. How much floating text should a room show? (D161's residue)
+
+Every loading zone now carries authored prose instead of an id, so the original
+complaint is gone. What the measurement turned up on the way is a different
+question: **rooms are dense with floating text, from two independent sources.**
+
+```text
+room                    DebugLabels   always-on zone labels
+gate_stack_lower             14              3
+drain_alley                  13              2
+combat_calibration_lab        8              2
+first_system_boss             6              1
+intro_wake_room               2              1
+...12 rooms carry both; 3 more have a zone label and no signage
+```
+
+⚠ **`DebugLabel` is doing player-facing work** — *"creator's basement lab"* and
+*"→ corridor"* in the opening room are DebugLabels with `category: Custom`, not
+debug output. So the name says one thing and the usage says another, and nothing
+decides which rooms are dressed for a player.
+
+Two questions, either answerable in a sentence:
+
+```text
+is DebugLabel authored SIGNAGE or a debug affordance?
+  — if signage, it wants a better name and a pass for the rooms with 13 of them
+  — if debug, those rooms are showing debug text to players
+
+should a NON-Door zone draw an unconditional label at all?
+  — a Door's nameplate is proximity-gated and clearly wants its prose
+  — 24 of the 151 named zones are EdgeExit and draw theirs always, beside
+    signage that may already say it (the other 127 are Doors)
+```
+
+⇒ no longer urgent — nothing on screen is an id — so this is polish, recorded
+rather than guessed.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

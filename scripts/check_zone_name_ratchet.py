@@ -18,11 +18,16 @@ manufactures prose the author never wrote, and `wake_to_raid` has no good
 rendering. ⛔ and drawing NOTHING when a name looks like an id is a regression
 for the doors that legitimately want a label.
 
-⚠ **PER FILE, because one world would otherwise hide every other.** 102 of the
-130 live in `sandbox.ldtk`, which is a developer sandbox where an id is
-defensible; the 26 in `intro.ldtk` are the flagship's opening world, which is
-where Jon saw this. A single total lets 26 become 40 while the sandbox sheds 14
-and the number improves.
+⚠ **PER FILE, because one world would otherwise hide every other.** A single
+total lets one world's 26 become 40 while another sheds 14 and the number
+"improves".
+
+⛔⛔ **AND A FILE'S NAME IS NOT ITS AUDIENCE.** The bulk of these lived in
+`sandbox.ldtk` and I first wrote them off as a developer sandbox where an id is
+defensible. `sandbox.ldtk` holds `central_hub_complex`, which the world manifest
+names as `entry_room` — so 17 were in the game's FIRST ROOM and 12 in the level
+below it, both already carrying authored prose alongside. One query against the
+manifest would have said so.
 
 ⛔⛔ **DEDUPE BY REAL PATH.** Every world under `game/*/assets/worlds/` is a
 SYMLINK into `game/ambition_map_assets/`, so a naive walk counts each world two
@@ -102,9 +107,18 @@ def measure() -> tuple[dict[str, int], int, int]:
     return counts, total, id_shaped
 
 
-def load_baseline() -> dict[str, int]:
+def load_baseline() -> dict[str, int] | None:
+    """The recorded per-world counts, or `None` when no baseline exists.
+
+    ⛔ **`None` and `{}` are different and the difference only shows up on
+    SUCCESS.** An empty dict is the state where every zone has an authored name
+    — the goal — and returning `{}` for "no file" made that indistinguishable
+    from "never recorded", so the check would have started failing at the exact
+    moment it was satisfied.
+    """
+
     if not os.path.exists(BASELINE):
-        return {}
+        return None
     with open(BASELINE, encoding="utf-8") as handle:
         return json.load(handle).get("worlds", {})
 
@@ -141,7 +155,7 @@ def main() -> int:
         return 0
 
     baseline = load_baseline()
-    if not baseline:
+    if baseline is None:
         print(f"\nFAIL: no baseline at {os.path.relpath(BASELINE, REPO)}; run --update")
         return 1
 

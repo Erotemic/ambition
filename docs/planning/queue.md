@@ -1434,8 +1434,8 @@ diagnostic REPORTS is a bad value to gate it on.**
 and 5 `warn_once!`, and boot prints four. This is per-call judgement about
 whether the condition is ORDINARY, not a policy about warnings.
 
-- ▢ **D161 — A LOADING ZONE PRINTS ITS AUTHORING ID AT THE PLAYER, and the same
-  frame shows the game already knows how to do it properly. (opened 2026-08-17,
+- ✔ **D161 — CLOSED 2026-08-18. No loading zone prints an authoring id any more:
+  130 → 0, and a per-world ratchet in CI keeps it there. (opened 2026-08-17,
   found by CAPTURE of `intro_wake_room` — the flagship's OPENING room)**
 
 ⭐⭐ **the contrast is in ONE frame**, which is what makes this a defect rather
@@ -1520,37 +1520,45 @@ manufactures prose the author never wrote, and `wake_to_raid` has no good
 rendering. ⚠ and drawing nothing when the name looks like an id is a REGRESSION
 for the doors that legitimately want a label; the answer is to author them.
 
-✔✔ **AUTHORED 2026-08-18 — 130 → 73, and every room a player meets early is
-clean.** The 28 in `intro`, `hall_of_characters` and `you_have_to_cut_the_rope`,
-then 29 more in the hub, now follow the convention each level's own author
-already used: **the destination, spelled as words, from the zone's own
-`target_room`** — an authored fact, not the id with its underscores removed.
-⭐ per LEVEL, not one house style: `central_hub_main` says *"to scroll lab"*, its
-basement says *"hazards"*, and the new names match whichever they are joining.
+✔✔ **AUTHORED 2026-08-18 — 130 → 0. Every loading zone in the project carries
+prose a player can read.** All 151 that have a name have an authored one, and
+each follows the convention its own level's author already used: `central_hub_main`
+says *"to scroll lab"*, its basement says *"hazards"*, and the new names joined
+whichever they landed beside. ⭐ the destination came from the zone's own
+`target_room` — an authored fact — never from the zone id with its underscores
+taken out, which `wake_to_raid` shows has no good rendering.
 
-⛔⛔ **AND I FIRST WROTE OFF THE REMAINING 102 AS "a developer sandbox where a
-diagnostic id is defensible" — WRONG, AND CHECKABLE IN ONE QUERY.** `sandbox.ldtk`
-holds `central_hub_complex`, which the world manifest names as `entry_room`. So
-17 of them were in the game's FIRST ROOM and 12 more in the level below it, both
-already carrying authored prose alongside — a player's opening screen showed
-*"to scroll lab"* next to `military_tower_door`, which is Jon's report exactly.
-⇒ **a file's NAME is not its audience.** The 73 that remain are spread across 46
-peripheral test rooms, at most ten in any one.
+⛔⛔ **AND I WROTE OFF THE BULK OF THEM AS "a developer sandbox where a
+diagnostic id is defensible" — WRONG, AND ONE QUERY SAID SO.** `sandbox.ldtk`
+holds `central_hub_complex`, which the world manifest names as `entry_room`, so
+17 were in the game's FIRST ROOM and 12 in the level below it, both already
+carrying authored prose alongside — *"to scroll lab"* next to
+`military_tower_door`, which is Jon's report exactly. ⇒ **a file's NAME is not
+its audience.** The 44 that looked most peripheral were rooms the hub has a door
+to.
 
 ✔ **the ratchet is `scripts/check_zone_name_ratchet.py`** (baseline
-`dev/zone_name_ratchet_baseline.json`), PER WORLD so the sandbox's 102 cannot
-mask a rise in a shipped one, and it FAILS when it observes nothing at all.
-⛔⛔ it dedupes by real path — the same doubling that first published this
-population as 302/260/38 is one naive `glob` away, because every world under
-`game/*/assets/worlds/` is a symlink into `game/ambition_map_assets/`.
+`dev/zone_name_ratchet_baseline.json`, now an empty map — the success state),
+PER WORLD so one file cannot mask another, and it FAILS when it observes no
+zones at all. ⛔⛔ it dedupes by real path: every world under
+`game/*/assets/worlds/` is a symlink into `game/ambition_map_assets/`, which is
+one naive `glob` away from the doubling that first published this population as
+302/260/38. ⚠ and `None` ≠ `{}` in its baseline loader — an empty map is the
+GOAL, and conflating it with "never recorded" would have made the check start
+failing at the moment it was satisfied. Runs in CI.
 
 ⚠ **and one thing the row had wrong, found by looking:** the correct
 `→ corridor` in that same frame is a **DebugLabel**, not a zone name. So the
 opening room's real problem is partly DUPLICATION — the room already carries
 authored signage — and naming the zone "to raid corridor" sits beside it rather
 than replacing it. ▢ whether a non-Door zone should draw an unconditional world
-label AT ALL (19 of them do) is the design question left; it is no longer an
-id-on-screen question.
+label AT ALL (**24** named zones are `EdgeExit`, and those draw always) is asked as §17 in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), together
+with what the measurement turned up beside it: **12 rooms carry BOTH authored
+signage and always-on zone labels**, and `gate_stack_lower` has fourteen
+DebugLabels. ⚠ `DebugLabel` is doing player-facing work — *"creator's basement
+lab"* is one — so its name says one thing and its usage another. ⇒ polish, not
+urgency: nothing on screen is an id.
 
 ⛔ **AND A SECOND FINDING I WITHDREW — recorded because the withdrawal is the
 lesson.** I first wrote that the clipped `wake_to…` at the top-right proved a

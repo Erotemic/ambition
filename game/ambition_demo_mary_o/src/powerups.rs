@@ -375,7 +375,90 @@ impl SpentPowerBlocks {
 /// are regenerated regularly, every regeneration re-measures the alpha bbox, and
 /// a scale pinned to today's pixel count (it was `48.0 / 63.0`) silently changes
 /// her height the first time a crop moves by one pixel.
-pub(crate) const MARY_O_STANDING_HEIGHT: f32 = 48.0;
+pub(crate) const MARY_O_STANDING_HEIGHT: f32 = SMALL_FORM_HEIGHT;
+
+/// **One block tall — the small form, and the ruler for this whole demo.**
+///
+/// Jon, 2026-08-18: *"slop and snakes should be as tall as small MaryO is 16
+/// units tall (height of one block). Big should be 32 units."* A tile is 16 world
+/// units (`defaultGridSize: 16`), so small Mary-O stands exactly one block and
+/// grown stands two — the classic proportion this demo is an homage to.
+///
+/// ⛔⛔ **this was 48.0 — THREE blocks — and the change is a 3x reduction.** The
+/// old value's own doc called it *"the ONE number the level is tuned around (tile
+/// gaps, pipe clearances, jump arcs)"*, and that is exactly right: at three tiles
+/// tall she could not fit the one-tile gaps a Mario level is built from, so the
+/// world was authored around a protagonist at triple the classic scale.
+/// ⛔⛔ **SET TO 16 AND REVERTED THE SAME HOUR — the value is 48 and the TARGET is
+/// 16, and what stands between them is measured below rather than guessed.**
+/// Changing this alone does not shrink Mary-O, it breaks her level:
+///
+/// * **the ART is 1.40:1, not 1:2.** Her authored boxes are 120 px short and
+///   168 px tall, so a per-form scale reaching a 32-unit grown form also widens
+///   her 1.43x — refused within the hour by `her_forms_are_all_the_same_width`,
+///   whose reason is a gameplay rule (*"growing must not change her width"*, or a
+///   grow wedges her in a gap she fit). Jon's own fix: rework the SMALL art to
+///   half the grown height at the same width ⇒ `SHORT_FORM.collision_top_px`
+///   70 → **106** (190 − 84), which is a sprite regen, not a constant edit.
+///   ⭐ `BODY_BOX_WIDTH = 64` is ALREADY shared by all three forms, so *"collision
+///   and hurt width identical for small and tall"* is satisfied today.
+/// * **the LEVEL is authored at the 48-unit scale.**
+///   `the_pipe_leads_into_a_sealed_vault_and_back_out` measures a vault whose
+///   return-pipe mouth needs **60 units of reach** from its floor — which a
+///   32-unit grown form cannot make either. ⇒ this is a level-wide rescale, not
+///   one clearance, and it must land WITH the art or the vault becomes a one-way
+///   trip.
+///
+/// ⇒ the three have to move together: art, this constant, and the level.
+pub const SMALL_FORM_HEIGHT: f32 = 48.0;
+
+/// **Two blocks tall — the grown and fire forms.**
+///
+/// ⛔⛔ **AUTHORED, not derived from the small form's art, and that is a change of
+/// shape.** All three forms used to share ONE pixel scale, so the grown height
+/// was whatever the sheet's own ratio produced: 63 px small and 88 px tall is
+/// **1.40:1**, which at a 16-unit small form would land grown at 22.3 rather than
+/// the 32 Jon asked for. ⇒ each form derives its OWN scale from its OWN authored
+/// height, which is the D165 contract (*the art scales to the declared height*)
+/// applied per form rather than per character.
+///
+/// ⚠ the consequence to know: grown Mary-O's art is now drawn at a LARGER
+/// world-per-pixel than the small form's, because her sheet is only 1.4x taller
+/// in pixels while she must stand 2x taller in the world.
+pub(crate) const GROWN_FORM_HEIGHT: f32 = 32.0;
+
+/// The authored standing height of one of her three forms, in world units.
+///
+/// ⭐ the fire form matches the GROWN one deliberately — a spark is a loadout
+/// change, and a height change on that swap would move her feet or clip a
+/// ceiling. `powerups`' own tests pin that equality.
+pub(crate) fn form_height(target: &str) -> f32 {
+    if target == SMALL_SHEET_TARGET {
+        SMALL_FORM_HEIGHT
+    } else {
+        GROWN_FORM_HEIGHT
+    }
+}
+
+/// **World units per sheet pixel** — ONE scale, shared by all three forms.
+///
+/// ⛔⛔ **A PER-FORM SCALE WAS TRIED HERE AND REVERTED THE SAME HOUR, and the
+/// test that refused it is the reason to keep reading.** Jon asked for small = 16
+/// and grown = 32, a clean 1:2; the SHEETS are 63 px and 88 px, a 1.40:1. So a
+/// per-form scale reaching 32 has to draw the grown art 1.43x larger per pixel —
+/// and since the sheets author ONE body width for all three forms, that widens
+/// her by the same 1.43x on the way up. `her_forms_are_all_the_same_width` caught
+/// it immediately, and its reason is a gameplay rule rather than a tidiness one:
+/// *"growing must not change her width"*, or a grow wedges her in a gap she fit.
+///
+/// ⇒ **the 1:2 proportion is an ART question, not an arithmetic one.** Reaching
+/// grown = 32 at an unchanged width needs the grown sheet REDRAWN to twice the
+/// small form's pixel height; scaling to it distorts her or fattens her. Until
+/// then one shared scale keeps her proportions honest and grown lands where the
+/// art puts it (22.3 at a 16-unit small form).
+pub(crate) fn form_world_per_pixel(_target: &str) -> f32 {
+    mary_o_world_per_pixel()
+}
 
 /// **World units per sheet pixel**, asked of the art rather than remembered.
 ///
@@ -455,7 +538,7 @@ pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
     ambition_platformer2d::character_sprites::posed_body_geometry(
         target,
         CharacterAnim::Idle,
-        mary_o_world_per_pixel(),
+        form_world_per_pixel(target),
     )
     .map(|geometry| geometry.collision)
     .unwrap_or_else(ae::movement::default_player_body_size)

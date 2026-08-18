@@ -1043,6 +1043,44 @@ in his own game, and the cove pirates against the robot. If declaring heights do
 not settle them, the quad-from-bbox route comes back **with evidence** rather than
 with an argument.
 
+✔ **SLICE 1 LANDED 2026-08-18 — the vocabulary exists and its first customer
+states its height.** `Vitals::canonical_height` (world pixels, 16 to a tile) plus
+`world_per_pixel_for_height`, and the robot lineage now DECLARES 48 rather than
+spelling the division. ⭐ **no behaviour changed**: 48 / body_px.y is exactly what
+it computed before, which is the point of a slice that introduces a unit.
+
+⭐⭐ **AND THE UNIT WAS ALREADY THERE, WHICH MAKES THE RULING CHEAPER THAN IT
+LOOKED.** `DEFAULT_PLAYER_BODY_HEIGHT` is 48 world pixels — exactly three tiles at
+`defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*. So
+Jon's *"one world unit = one base-grid pixel"* DECLARES what the engine already
+used; nothing converts.
+
+⛔⛔ **WHAT WAS MISSING WAS NOT A UNIT BUT AN AUTHORED NUMBER — three characters
+were each deriving the same scale by hand, and not even on one axis:**
+
+```text
+player_robot_lineage.rs:203   world_per_pixel = DEFAULT_PLAYER_BODY_HEIGHT / px.y   ← height
+ai_slop.rs:177                world_per_pixel = AI_SLOP_BODY_WIDTH      / px.x      ← WIDTH
+snake.rs:412                  snake_world_per_pixel(), an opaque helper
+```
+
+⇒ the slop's HEIGHT is whatever its art's aspect ratio produces, because nobody
+ever stated it. That is the same defect as `collision_scale` one layer up.
+
+⛔⛔ **AND THE NEXT SLICE IS NOT THE ONE THIS ROW ASSUMED — Jon's own note
+redirects it.** *"Their collision bodies are the right size in world units now
+(snake 1.00x Mary-O's width, slop 1.09x), and what is left is that the drawn quad
+is 2.46x the body inside it."* ⇒ **the COLLISION derivation is already correct for
+the characters he complained about; the QUAD is what is wrong**, and the quad
+comes from the legacy road (`render_size`, sprite metadata carrying
+`collision_scale`) rather than from the art. ⭐ so slice 2 is **moving those
+characters onto the published road** — `BodySource::SpriteAuthored`, where the
+collision box, the quad and its offset all follow from the art at one scale and
+none can drift from the other two — not authoring more heights.
+⚠ read `spawn_actors.rs:733`'s comment before touching it: the shared
+`ActorRenderSize` exists precisely so a hostile flip cannot re-apply
+`collision_scale` and balloon the sprite a second time.
+
 - ▢ **D164 — A LIVE PLAN WITH FOUR OPEN STEPS IS REACHABLE FROM NO LEDGER ROW,
   and Jon's quality-swap report sits on its road. (opened 2026-08-17)**
 

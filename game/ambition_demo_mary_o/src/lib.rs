@@ -1524,7 +1524,12 @@ pub fn install_mary_o_content(app: &mut App) {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
-                    .with_sprite_authored_body(powerups::mary_o_world_per_pixel())
+                    // ⭐ each form scales its own art to its own AUTHORED height
+                    // (16 units small, 32 grown) rather than sharing one scale —
+                    // the sheet's 1.4:1 pixel ratio cannot express a 1:2 world
+                    // proportion. See `powerups::GROWN_FORM_HEIGHT`.
+                    .with_canonical_height(powerups::form_height(sheet))
+                    .with_sprite_authored_body(powerups::form_world_per_pixel(sheet))
                     .with_voice(voice)
                     .with_moveset(smash_moveset::mary_o_moveset()),
             );

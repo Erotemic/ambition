@@ -200,10 +200,23 @@ fn definition_from(
     // the answer, not an omission to fix here.
     if let Some(body_px) = ambition_platformer2d::character_sprites::authored_body_pixel_size(sheet)
     {
-        let world_per_pixel = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y;
-        definition = definition
-            .with_sprite_authored_body(world_per_pixel)
-            .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
+        // ⭐ the robot's canonical height IS the engine's default playable body:
+        // 48 world pixels, exactly three tiles. Stated through the one named
+        // derivation now rather than spelled as a division here — the same
+        // arithmetic the AI slop and the snake were each doing separately, on
+        // two different axes (D165).
+        let canonical_height = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT;
+        if let Some(world_per_pixel) =
+            ambition_characters::actor::definition::world_per_pixel_for_height(
+                canonical_height,
+                body_px.y,
+            )
+        {
+            definition = definition
+                .with_canonical_height(canonical_height)
+                .with_sprite_authored_body(world_per_pixel)
+                .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
+        }
     }
     // ⭐⭐ **THE CURRENT INCARNATION CARRIES THE MOVES.** (Jon's redirect §15.)
     //

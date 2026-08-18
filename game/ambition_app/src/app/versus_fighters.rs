@@ -306,6 +306,11 @@ impl WithHealth for CharacterDefinition {
             // zone), so a weight here would divide a term that is always zero
             // and read as a tuning knob that does nothing.
             knockback_weight: None,
+            // ⚠ and no canonical HEIGHT, for a different reason: these two are
+            // arena duellists drawn from the shared duelist art, so how tall
+            // they stand is the sheet's answer rather than a character fact
+            // anyone has authored. `None` says exactly that.
+            canonical_height: None,
         };
         self
     }

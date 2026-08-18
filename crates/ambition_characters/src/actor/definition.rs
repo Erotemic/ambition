@@ -115,6 +115,52 @@ pub struct Vitals {
     /// could not differ, which is a per-character fact in every platform fighter
     /// that has one (D73 phase 1).
     pub knockback_weight: Option<f32>,
+    /// **HOW TALL THIS CHARACTER STANDS, in world pixels — sixteen to a tile.**
+    ///
+    /// The one unit every body is read against, so two characters' sizes are
+    /// comparable numbers rather than two unrelated ones. A tile is 16
+    /// (`defaultGridSize` across every shipped world) and the default playable
+    /// body is [`ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT`] = 48,
+    /// i.e. exactly three tiles — so this DECLARES the unit the engine already
+    /// used rather than introducing one.
+    ///
+    /// ⛔⛔ **what it replaces is not a value but an ARITHMETIC nobody could
+    /// compare.** Every character's drawn size came from a scale that multiplied
+    /// its OWN sheet's frame size, so `1.95`, `1.60` and `2.10` were three
+    /// unrelated numbers — and the largest of them belonged to the character that
+    /// reads smallest on screen. Where a desired size WAS expressed it was
+    /// expressed ad hoc and not even on one axis: the robot lineage derived its
+    /// scale from a height constant, the AI slop from a WIDTH constant, the snake
+    /// from an opaque helper.
+    ///
+    /// ⭐ **it is a CONTRACT: the art scales to it** (Jon, 2026-08-17), so the
+    /// cast is consistent by construction and a badly framed sheet cannot make a
+    /// character huge. A tight tolerance WARNS when the resulting scale drifts
+    /// far from 1.0 — ⛔ warns, does not refuse: a sheet that disagrees still
+    /// ships, drawn at the right size, with the pipeline saying so.
+    ///
+    /// `None` leaves the body whatever its construction established — today the
+    /// legacy `collision_scale` road. ⚠ authoring this does NOT delete
+    /// `collision_scale`, whose real job is compensating for how much of a frame
+    /// the art occupies after auto-crop; height replaces only the second job it
+    /// drifted into, which was being the size knob.
+    pub canonical_height: Option<f32>,
+}
+
+/// The art-pixel → world-unit scale that draws a sheet at its character's
+/// authored [`Vitals::canonical_height`].
+///
+/// ⭐ **this is the arithmetic three characters were each doing by hand**, on two
+/// different axes, from constants that could not be compared with each other.
+/// Naming it once is what makes a size an authored number instead of a scale
+/// nobody could reverse.
+///
+/// `sheet_pixel_height` is the body's height in the sheet's own pixels (what
+/// `posed_body_geometry` reports at `world_per_pixel = 1.0`). Returns `None`
+/// when the sheet reports no height, because dividing by it would be a silent
+/// infinity rather than an answer.
+pub fn world_per_pixel_for_height(canonical_height: f32, sheet_pixel_height: f32) -> Option<f32> {
+    (sheet_pixel_height > 0.0).then(|| canonical_height / sheet_pixel_height)
 }
 
 /// Where a body's collision geometry comes from (§4.11, §5).
@@ -646,6 +692,18 @@ impl CharacterDefinition {
     /// the other two. See [`BodySource`].
     pub fn with_sprite_authored_body(mut self, world_per_pixel: f32) -> Self {
         self.body = Some(BodySource::SpriteAuthored { world_per_pixel });
+        self
+    }
+
+    /// **State how tall this character stands**, in world pixels — 16 to a tile.
+    /// See [`Vitals::canonical_height`] for what the unit is and why it is a
+    /// contract rather than a hint.
+    ///
+    /// ⚠ this states the FACT; deriving the art scale from it is
+    /// [`world_per_pixel_for_height`], because only the caller holding the sheet
+    /// knows how tall the body is in that sheet's own pixels.
+    pub fn with_canonical_height(mut self, height: f32) -> Self {
+        self.vitals.canonical_height = Some(height);
         self
     }
 

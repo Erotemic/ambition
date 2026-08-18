@@ -994,9 +994,11 @@ cannot get one without editing settings by hand (P5).
   *"16 is the current target, but we will need to do more (trips, grabs, falls,
   techs, etc…)"*. `SMASH_KIT` in `smash_roster_movesets.rs` is the list, and the
   ratchet reads its length, so adding a press raises the bar by itself.
-* ◐ **D143** — the stage's `unarmed_melee` still does not reach a kit-less seat.
-  Unreachable from the grid now that all fourteen author tables; real for the
-  next character seated without one.
+* ✔ **D143** — CLOSED 2026-08-18. The stage's `unarmed_melee` reaches a kit-less
+  seat: the publisher was reading its own deferred `insert_resource` write, so
+  the floor was `None` on the frame that decides the match. Unreachable from the
+  grid today (all fourteen author tables); it was real for the next character
+  seated without one, and the guard now fails if the floor goes missing.
 * ⊙ **the PCA's own kit** still has no `double_jump`, `fast_fall` or `dodge` as a
   CREATURE — it gets them on the stage from the floor. Whether the automaton
   should have them in its own room is Jon's.
@@ -2097,9 +2099,14 @@ as policy (Jon's own ruling), the camera work, and the smash submodule gitlinks.
   ⛔ **the guard is the SEQUENCE — two matches in ONE app.** A test that builds a
   fresh app per match cannot fail this, which is why the existing ones passed.
 
-- ◐ **D143 — the stage's unarmed declaration does not reach the seat. NO LONGER
-  REACHABLE FROM THE GRID (2026-08-16), and the plumbing gap stands. (found while
-  answering Jon's moveset census)**
+- ✔ **D143 — CLOSED 2026-08-18. The stage's unarmed declaration reaches the seat;
+  the publisher was reading its own deferred write. (found while answering Jon's
+  moveset census)**
+
+⇒ **what is left of this row is not plumbing.** Whether the peaceful cast should
+be armed by the stage at all, or re-authored as fighters, is Jon's and is filed
+in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md). The
+defect was real under either answer, and it is fixed under either answer.
 
 ⭐ **the four fighters it was about now author sixteen moves each** (D144), so
 nothing on the shipped grid depends on the unarmed floor any more. What is still

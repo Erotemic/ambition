@@ -5273,11 +5273,34 @@ in the one place nobody reads. ⭐ **and the optional dep is still a preconditio
 not a wasted step**: with it unconditional the counter could not move no matter
 what those two did.
 
-▢ **the next slice is those two lines**, and it is not free: each crate needs its
-own `portal` / `ldtk_runtime` feature to forward, and every consumer that
-actually wants them has to ask. ⚠ **the reader migrations are done and are not
-what is left** — this is a manifest change across several crates, and the
-capability-footprint contract is the thing that will say whether it worked.
+⛔⛔ **AND THOSE TWO LINES CANNOT SIMPLY BE DELETED — probed, 2026-08-18.**
+Dropping `ldtk_runtime`/`portal` from `ambition_sim_view` fails to compile, and
+**not in `sim_view`**: the MONOLITH itself does not build without `ldtk_runtime`.
+Its own subsystem-gate comment already admits this — *"Code inside these
+subsystems is not yet cfg-gated end-to-end, so disabling them today only works
+when paired with `--features visible`"* — so the manifest lines are a SYMPTOM of
+that, not the cause.
+
+⭐ **and the ungated surface is much smaller than that sentence suggests.**
+Measured: **two files**, and one of them is a comment.
+
+```text
+assets/loading.rs   30 LINES — one `use bevy_asset_loader::prelude::AssetCollection`
+                    and one field `Handle<bevy_ecs_ldtk::assets::LdtkProject>`
+session/setup.rs    a doc comment mentioning `bevy_ecs_ldtk`; no code
+```
+
+⇒ **the slice is: gate `Platformer2dStartupAssets` behind `ldtk_runtime`**, then
+its four consumers, each of which needs its own feature to gate on:
+
+```text
+ambition_platformer2d_provider  lifecycle.rs:1181   Res<'w, …>  (NOT optional — the one to look at first)
+ambition_platformer2d_actor_monolith  session/setup.rs:20,91   Option<&…>
+game/ambition_app  setup_systems.rs:82, plugins.rs:292,327     Option<Res<…>> + `init_collection`
+```
+
+⚠ **the counter is the acceptance test**, and nothing before that last consumer
+lands will move it — which is why this is written as one slice rather than four.
 
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):

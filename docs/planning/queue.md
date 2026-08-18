@@ -5288,8 +5288,8 @@ underneath it.
 ```text
 ✔  seat-independent respawn placement           FIXED 2026-08-18 (defect 3)
 ✔  standalone smash-app asset composition       FIXED 2026-08-18
-◐  the residual presentation defects            5 CONFIRMED live · 6 NOT reproduced
-                                                7 open · 8 FIXED + verified live
+◐  the residual presentation defects            5 FIXED + photographed · 6 NOT reproduced
+                                                7 not reproduced · 8 FIXED + verified live
 ✔  same-character CPU symmetry — FIXED 2026-08-17, see below
 ⛔ NOT on this list: stock count, knockback, damage. Ruled. Do not retune them.
 ⛔ NOT on this list: another ladder run.
@@ -5464,18 +5464,31 @@ their status, and do not re-run the capture or the ladder rig to get it:**
                               than deleted; the height is that test's subject.
 4 winner card names a SEAT ✔ CLOSED by D140/D148 — the card reads
                             `WINNER: Robot v3`, and a team keeps its team name.
-5 barks draw as a          ◐ the OVERLAP half closed via D158→D159 (a bubble is
-  screen-wide caption         a `WorldLabel` in the one ranked placement pass);
-                              the SCALE/placement half is **CONFIRMED STILL LIVE,
-                              2026-08-18**, by a fresh capture: three bark lines
-                              stacked across the middle of a 1280x720 stage
-                              — *"Belay that, ye barnacle!"* twice around
-                              *"Either you are on the stage or you are not."* —
-                              spanning ~530px each and sitting directly over the
-                              play area while both fighters stand below them.
-                              ⇒ scale + placement, as the row said; the bubbles
-                              no longer OVERLAP each other, they overlap the
-                              GAME.
+5 barks draw as a          ✔ **CLOSED 2026-08-18, photographed both ways.**
+  screen-wide caption         The OVERLAP half closed via D158→D159 (a bubble is
+                              a `WorldLabel` in the one ranked placement pass).
+                              The SCALE half was still live and is now fixed:
+
+```text
+before   the bark block spans 535px of a 1280px frame, straight across the
+         play area, both fighters underneath it — one 265-WORLD-UNIT line on a
+         640-wide stage, 41% of it
+after    185px, wrapped into a centred column over the speakers  (−65%)
+```
+
+                              ⛔⛔ **the cause was that a bark had NO WIDTH AT
+                              ALL** — `spawn_speech_bubble` set `font_size` and
+                              nothing else, so a line laid out however long its
+                              words made it. D158→D159 stopped bubbles
+                              overlapping EACH OTHER; nothing stopped one
+                              overlapping the GAME.
+                              ⚠ **width only, never height**: `TextBounds`' own
+                              doc says characters outside the bounds after
+                              wrapping are TRUNCATED, so a height bound would
+                              silently eat the end of a long bark — worse than a
+                              wide one. ⭐ and the four outline children take the
+                              SAME bound, or the shadow is four ghosts at four
+                              offsets.
 6 untextured olive quad    ▢ **NOT REPRODUCED — three frames, BOTH rosters,
                               2026-08-18.** Captured George Booul vs Pirate
                               Admiral (warmup 300, 420) and then **Player Robot

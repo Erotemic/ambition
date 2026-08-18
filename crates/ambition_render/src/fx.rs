@@ -6,6 +6,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use bevy::text::TextBounds;
 use std::f32::consts::TAU;
 
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_FX};
@@ -698,6 +699,14 @@ pub fn update_impacts(
     }
 }
 
+/// **How wide a bark may be, in world units.**
+///
+/// The smash stage is 640 wide, so this is under a fifth of it — a block over
+/// one fighter's head rather than a banner across the fight. Measured against
+/// the defect: the offending line was 265 units, and at 18pt roughly six units
+/// a character this wraps a 44-character bark into three readable rows.
+const SPEECH_BUBBLE_MAX_WIDTH: f32 = 120.0;
+
 pub fn spawn_speech_bubble(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -737,6 +746,24 @@ pub fn spawn_speech_bubble(
                 font_size: 18.0,
                 ..font.clone()
             },
+            // ⛔⛔ **UNBOUNDED, A BARK IS ONE LINE HOWEVER LONG IT IS.**
+            // Photographed 2026-08-18 on a 640-wide stage: *"Either you are on
+            // the stage or you are not."* laid out as a single **265-unit**
+            // line — 41% of the stage, straight across the play area, with both
+            // fighters underneath it. D158→D159 stopped bubbles overlapping
+            // EACH OTHER; nothing stopped one overlapping the GAME.
+            //
+            // ⚠ **width only.** `TextBounds`' own doc says characters outside
+            // the bounds after wrapping are TRUNCATED, so a height bound would
+            // silently eat the end of a long bark — the one thing worse than a
+            // wide one.
+            TextBounds {
+                width: Some(SPEECH_BUBBLE_MAX_WIDTH),
+                height: None,
+            },
+            // Wrapped lines centre under each other, so the bubble stays a
+            // block over its speaker rather than a left-aligned ladder.
+            TextLayout::new_with_justify(Justify::Center),
             TextColor(text_color),
             Name::new(format!("Speech bubble: {text}")),
         ),
@@ -770,6 +797,13 @@ pub fn spawn_speech_bubble(
                         font_size: 18.0,
                         ..font.clone()
                     },
+                    // ⭐ the shadow must wrap EXACTLY as the line it shadows;
+                    // a different bound here is four ghosts at four offsets.
+                    TextBounds {
+                        width: Some(SPEECH_BUBBLE_MAX_WIDTH),
+                        height: None,
+                    },
+                    TextLayout::new_with_justify(Justify::Center),
                     // Painted every frame by the placement pass along with the
                     // line it shadows; this is only the first frame's value.
                     TextColor(outline_color),

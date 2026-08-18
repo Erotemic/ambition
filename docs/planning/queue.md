@@ -5462,9 +5462,18 @@ their status, and do not re-run the capture or the ladder rig to get it:**
 6 untextured olive quad    ▢ OPEN, unverified since 2026-08-16.
 7 VFX authored against no  ▢ OPEN — the Admiral's wheel is ~250px vs a ~45px
   size reference              fighter.
-8 capture_scene prints no  ▢ OPEN — its `subject at (x,y)` line is
-  pose for a 2-CPU match      `PrimaryPlayerOnly`, and a CPU match has no
-                            primary player.
+8 capture_scene prints no  ✔ CLOSED 2026-08-18 — it now reports the SEATED
+  pose for a 2-CPU match      bodies when nobody is driving, one line per seat,
+                              sorted by SEAT rather than by query order (Bevy
+                              iterates by archetype, so an unsorted list would
+                              make two captures of one match differ because the
+                              rows moved). ⛔ and when there is neither a primary
+                              player nor a seated body it says `NO SUBJECT …
+                              this image proves nothing about a pose` — the old
+                              `if let Some` printed nothing, so "no pose line"
+                              and "no subject" were indistinguishable in a tool
+                              whose whole job is to stop a verification
+                              photographing the wrong thing quietly.
 ```
 
 ▢ **and one engineering item in this row is genuinely still open and is NOT

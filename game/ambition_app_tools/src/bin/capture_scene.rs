@@ -1271,6 +1271,15 @@ fn request_capture(
         &ambition_platformer2d::platformer::body::BodyKinematics,
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
+    // ⛔⛔ **A CPU MATCH HAS NO PRIMARY PLAYER, so the pose line above printed
+    // NOTHING and the capture read as fine** (D128 defect 8). Silence from the
+    // one measurement that says "these two captures should match" is the failure
+    // this tool exists to prevent, and it was reporting it by omission.
+    // ⇒ the seated bodies are the subjects when nobody is driving.
+    seated_q: Query<(
+        &ambition_platformer2d::actor::MatchSeat,
+        &ambition_platformer2d::platformer::body::BodyKinematics,
+    )>,
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
@@ -1408,6 +1417,32 @@ fn request_capture(
             "capture_scene: subject at ({:.4}, {:.4}) after {} warmup tick(s)",
             kin.pos.x, kin.pos.y, runtime.frames
         );
+    } else {
+        // ⭐ **SEAT ORDER, not query order.** Bevy iterates by archetype, so an
+        // unsorted list would compare two captures of the same match and find
+        // them different because the rows moved.
+        let mut seated: Vec<_> = seated_q
+            .iter()
+            .map(|(seat, kin)| (seat.0, kin.pos))
+            .collect();
+        seated.sort_by_key(|(seat, _)| *seat);
+        if seated.is_empty() {
+            // ⛔ SAY SO. "No pose line" and "no subject" were indistinguishable,
+            // and this tool's whole job is to stop a verification photographing
+            // the wrong thing quietly.
+            println!(
+                "capture_scene: NO SUBJECT — no primary player and no seated body \
+                 after {} warmup tick(s); this image proves nothing about a pose",
+                runtime.frames
+            );
+        } else {
+            for (seat, pos) in seated {
+                println!(
+                    "capture_scene: seat {seat} at ({:.4}, {:.4}) after {} warmup tick(s)",
+                    pos.x, pos.y, runtime.frames
+                );
+            }
+        }
     }
     // **A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.** (GPT 5.6, 2026-07-29)
     //

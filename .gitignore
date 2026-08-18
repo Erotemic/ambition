@@ -182,3 +182,13 @@ untracked
 # this is a view of them, which is also why it stays in THIS repo rather than
 # following the ledgers into the submodule.
 /dev/compile_report.html
+
+# Profiler output, dropped at the repository root by whichever run asked for it
+# (`line_profiler`'s `.lprof` binary plus its rendered text, and the timestamped
+# copies a comparison run leaves behind). A profile is a MEASUREMENT of one run
+# on one machine — the thing worth keeping from it is the finding, which belongs
+# in `dev/` where the engineering memory lives, not an 80 KB dump of line timings
+# whose numbers mean nothing without the machine that produced them.
+/profile_output.lprof
+/profile_output.txt
+/profile_output_*.txt

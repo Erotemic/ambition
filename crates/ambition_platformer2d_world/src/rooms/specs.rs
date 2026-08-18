@@ -209,6 +209,13 @@ pub struct EncounterTriggerSpec {
 /// off the project, and for why it is not `ambition_encounter::LockWallSpec`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EncounterLockWallSpec {
+    /// The wall's authored `id`, or empty when it has none. Only the GATED
+    /// reader needs it — an encounter's own wall is identified by its area.
+    pub id: String,
+    /// The authored `gated_by` condition, when this wall is a gate rather than
+    /// an encounter's. ⚠ absent is meaningful and common: a `LockWall` with no
+    /// `gated_by` belongs to the encounter whose phase drives it, or is inert.
+    pub gated_by: Option<String>,
     /// World-space minimum corner of the wall.
     pub min: ae::Vec2,
     /// World-space size of the wall.

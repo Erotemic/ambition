@@ -5208,6 +5208,33 @@ loader tests red, and those tests drive the REAL road (shipped world → convert
 → rooms → loader) rather than a hand-built `RoomSpec`, so a converter that stops
 emitting fails there instead of at runtime.
 
+✔✔ **AND THE GATED LOCK WALLS FOLLOWED, SAME DAY — 3 → 2.** They read the SAME
+`LockWall` marker, so once it emitted, the only thing missing was two fields:
+`EncounterLockWallSpec` gained `id` and `gated_by`, and
+`authored_gated_lock_walls` takes a `&RoomSpec`.
+
+⭐ **the active-room-id argument went with it, and that is the finding.** The old
+signature was `(project, active_room_id)` — it walked levels to find the one it
+wanted. **A room IS the filter**; the id parameter existed only because the input
+was a whole project. The system already held the room set to name the active
+room and then asked LDtk what was in it.
+
+⛔⛔ **AND THE CHANGE SIGNAL HAD TO MOVE WITH THE DATA.** The cache watched
+`ActiveLdtkProject::is_changed()` — the hot-reload case its own test was written
+for. Watching the room set instead is not optional bookkeeping: a reload that
+rebuilds rooms under an UNCHANGED room id would otherwise serve a stale wall set
+forever. `swapping_the_project_alone_invalidates_the_cached_walls` became
+`swapping_the_room_set_alone_…` and now pins exactly that.
+⚠ **and the fixture had to grow a `PlayerStart`** — the converter refuses an area
+without one, and the old hand-walk never asked. A fixture that could not survive
+the real pipeline is a fixture that was testing less than it looked.
+⭐ poison-verified: dropping `gated_by` from the emission turns three of the five
+red.
+
+▢ **two holders left** — `world/mod.rs` and `world/authored_switch_commands.rs`,
+the latter the same shape again (a `Switch` marker's `on_activate` field, read off
+the project while `convert_switch` already emits the switch).
+
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):
 

@@ -188,9 +188,8 @@ impl LdtkProject {
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
         let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
             Vec::new();
-        let mut encounter_triggers: Vec<
-            ambition_platformer2d_world::rooms::EncounterTriggerSpec,
-        > = Vec::new();
+        let mut encounter_triggers: Vec<ambition_platformer2d_world::rooms::EncounterTriggerSpec> =
+            Vec::new();
         let mut lock_walls: Vec<ambition_platformer2d_world::rooms::EncounterLockWallSpec> =
             Vec::new();
         let mut metadata = ambition_platformer2d_world::rooms::RoomMetadata::default();

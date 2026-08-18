@@ -85,54 +85,39 @@ pub struct GatedLockWall {
     pub size: ambition_platformer2d_core::Vec2,
 }
 
-/// **Every `LockWall` in `active_room_id` that authors a `gated_by`.**
+/// **Every `LockWall` in `room` that authors a `gated_by`.**
 ///
-/// ⭐ **pure, and takes the project rather than the world**, so the LDtk-walking
-/// policy stays testable without an ECS. That separation is inherited from the
-/// content system this replaces and was the good part of it.
+/// ⭐ **pure, and takes the ROOM rather than the world**, so the selection policy
+/// stays testable without an ECS. That separation is inherited from the content
+/// system this replaces and was the good part of it.
 ///
-/// ⚠ a `LockWall` with no `gated_by` is not this system's business — it is
-/// either an encounter's (whose phase drives it) or inert. Skipping silently is
-/// correct: the field is optional precisely so the other consumers keep working.
+/// ⚠ **it used to take an `LdtkProject` and an active-room id**, walking levels
+/// to find the one it wanted. `LockWall` is an ordinary room emission now
+/// (D136), so the room IS the filter and the id argument was the map format
+/// leaking into a signature — this file no longer names the LDtk crate.
 pub fn authored_gated_lock_walls(
-    project: &ambition_platformer2d_ldtk::LdtkProject,
-    active_room_id: &str,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Vec<GatedLockWall> {
-    let mut out = Vec::new();
-    for level in &project.levels {
-        if level.active_area() != active_room_id {
-            continue;
-        }
-        for entity in level.all_entity_instances() {
-            if entity.identifier != "LockWall" {
-                continue;
+    room.lock_walls
+        .iter()
+        .filter_map(|wall| {
+            // ⚠ a `LockWall` with no `gated_by` is not this system's business —
+            // it is either an encounter's (whose phase drives it) or inert.
+            // Skipping silently is correct: the field is optional precisely so
+            // the other consumers keep working.
+            let gated_by = wall.gated_by.as_ref()?;
+            let id = wall.id.trim();
+            if id.is_empty() {
+                return None;
             }
-            let Some(id) = ambition_platformer2d_ldtk::field_string(entity, "id") else {
-                continue;
-            };
-            let Some(gated_by) = ambition_platformer2d_ldtk::field_string(entity, "gated_by")
-            else {
-                continue;
-            };
-            let gated_by = gated_by.trim();
-            if gated_by.is_empty() {
-                continue;
-            }
-            out.push(GatedLockWall {
-                id: id.trim().to_string(),
-                gated_by: gated_by.to_string(),
-                min: ambition_platformer2d_core::Vec2::new(
-                    entity.px[0] as f32,
-                    entity.px[1] as f32,
-                ),
-                size: ambition_platformer2d_core::Vec2::new(
-                    entity.width as f32,
-                    entity.height as f32,
-                ),
-            });
-        }
-    }
-    out
+            Some(GatedLockWall {
+                id: id.to_string(),
+                gated_by: gated_by.clone(),
+                min: ambition_platformer2d_core::Vec2::new(wall.min.x, wall.min.y),
+                size: ambition_platformer2d_core::Vec2::new(wall.size.x, wall.size.y),
+            })
+        })
+        .collect()
 }
 
 /// Per-frame cache — see the module header on why its three inputs are three.
@@ -153,24 +138,37 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
     // ⚠ the room set is a COMPONENT on the session root, not a resource — the
     // `SessionWorldRef` a normal system takes is a `Single<Ref<T>, With<SessionRoot>>`.
     // An exclusive system has to ask for it the long way.
-    let active_room_id = {
+    // ⭐ **the walls come out of the ROOM now** (D136) — the same pass that took
+    // `EncounterTrigger`/`LockWall` off the raw project. This function already
+    // held the room set to find the active room; it just also asked LDtk what
+    // was in it.
+    let (active_room_id, walls, rooms_changed) = {
         let mut rooms = world.query_filtered::<
-            &crate::rooms::RoomSet,
+            bevy::prelude::Ref<crate::rooms::RoomSet>,
             bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
         >();
         let Some(set) = rooms.iter(world).next() else {
             return;
         };
-        set.active_spec().id.clone()
+        let spec = set.active_spec();
+        (
+            spec.id.clone(),
+            authored_gated_lock_walls(spec),
+            set.is_changed(),
+        )
     };
     if world.get_resource::<ConditionCatalog>().is_none() {
         return;
     }
 
-    // ── refresh the cache if any of its three inputs moved ───────────────────
-    let project_changed = world
-        .get_resource_ref::<ambition_platformer2d_ldtk::ActiveLdtkProject>()
-        .is_some_and(|project| project.is_changed());
+    // ── refresh the cache if any of its inputs moved ─────────────────────────
+    //
+    // ⚠ **the change signal moved with the data.** It used to watch
+    // `ActiveLdtkProject::is_changed()` — a hot reload replacing the project.
+    // The walls come off the room set now, so THAT is what has to be watched:
+    // a hot reload that rebuilds rooms under an unchanged room ID would
+    // otherwise leave a stale cache, which is the exact case the old signal
+    // existed for.
     // ⭐⭐ **THE SAVE IS NO LONGER AN INPUT, AND DROPPING IT IS WHAT THE
     // MIGRATION BOUGHT.** The old content system cached the walls that should be
     // SOLID, so a flag flip changed the cached set and the cache had to watch the
@@ -183,11 +181,7 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
         let cache = world.get_resource::<GatedLockWallCache>();
         cache.is_none_or(|cache| cache.room.as_deref() != Some(active_room_id.as_str()))
     };
-    if project_changed || stale {
-        let walls = world
-            .get_resource::<ambition_platformer2d_ldtk::ActiveLdtkProject>()
-            .map(|project| authored_gated_lock_walls(&project.0, &active_room_id))
-            .unwrap_or_default();
+    if rooms_changed || stale {
         let mut cache = world.get_resource_or_insert_with(GatedLockWallCache::default);
         cache.walls = walls;
         cache.room = Some(active_room_id.clone());

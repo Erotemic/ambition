@@ -51,16 +51,14 @@ pub(super) fn convert_consumed_elsewhere(_ctx: &LdtkEntityCtx<'_>) -> Result<Roo
 pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
     Ok(RoomEmission {
-        encounter_triggers: vec![
-            ambition_platformer2d_world::rooms::EncounterTriggerSpec {
-                // Empty is meaningful: the loader falls back to the AREA id,
-                // which is a fact the IR does not have.
-                id: field_string(entity, "id").unwrap_or_default(),
-                min,
-                size,
-                camera_zoom: field_f32(entity, "camera_zoom"),
-            },
-        ],
+        encounter_triggers: vec![ambition_platformer2d_world::rooms::EncounterTriggerSpec {
+            // Empty is meaningful: the loader falls back to the AREA id,
+            // which is a fact the IR does not have.
+            id: field_string(entity, "id").unwrap_or_default(),
+            min,
+            size,
+            camera_zoom: field_f32(entity, "camera_zoom"),
+        }],
         ..RoomEmission::default()
     })
 }
@@ -68,9 +66,19 @@ pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomE
 /// **An encounter's lock wall, into the room IR.** See
 /// [`convert_encounter_trigger`] for why this stopped being read off the project.
 pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
-    let (_entity, _name, min, size) = ctx.parts();
+    let (entity, _name, min, size) = ctx.parts();
     Ok(RoomEmission {
-        lock_walls: vec![ambition_platformer2d_world::rooms::EncounterLockWallSpec { min, size }],
+        lock_walls: vec![ambition_platformer2d_world::rooms::EncounterLockWallSpec {
+            id: field_string(entity, "id").unwrap_or_default(),
+            // ⚠ empty is NOT the same as absent here, and both mean "not a
+            // gate": `authored_gated_lock_walls` skips a wall without a
+            // condition because it belongs to an encounter instead.
+            gated_by: field_string(entity, "gated_by")
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+            min,
+            size,
+        }],
         ..RoomEmission::default()
     })
 }

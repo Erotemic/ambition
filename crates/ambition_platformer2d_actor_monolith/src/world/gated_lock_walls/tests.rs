@@ -54,15 +54,29 @@ fn project_with_one_wall(gated_by: Option<&str>) -> LdtkProject {
                 c_wid: 64,
                 c_hei: 48,
                 grid_size: 16,
-                entity_instances: vec![LdtkEntityInstance {
-                    iid: "LockWall-test-alice".into(),
-                    identifier: "LockWall".into(),
-                    pivot: vec![0.0, 0.0],
-                    px: [800, 624],
-                    width: 96,
-                    height: 112,
-                    field_instances: fields,
-                }],
+                entity_instances: vec![
+                    // ⚠ a real level has one and the converter REFUSES an area
+                    // without it ("no PlayerStart"). The fixture used to be read
+                    // by a hand-walk that never asked, so it could omit one.
+                    LdtkEntityInstance {
+                        iid: "PlayerStart-test-alice".into(),
+                        identifier: "PlayerStart".into(),
+                        pivot: vec![0.0, 0.0],
+                        px: [96, 96],
+                        width: 16,
+                        height: 16,
+                        field_instances: Vec::new(),
+                    },
+                    LdtkEntityInstance {
+                        iid: "LockWall-test-alice".into(),
+                        identifier: "LockWall".into(),
+                        pivot: vec![0.0, 0.0],
+                        px: [800, 624],
+                        width: 96,
+                        height: 112,
+                        field_instances: fields,
+                    },
+                ],
                 int_grid_csv: Vec::new(),
                 grid_tiles: Vec::new(),
             }],
@@ -70,10 +84,43 @@ fn project_with_one_wall(gated_by: Option<&str>) -> LdtkProject {
     }
 }
 
+/// The fixture project, CONVERTED — the road production takes.
+///
+/// ⭐ **the fixture stays an `LdtkProject` on purpose.** The walls come off the
+/// room IR now (D136), and a test that hand-built a `RoomSpec` would prove the
+/// reader while skipping the part that moved: `LockWall` becoming an emission
+/// that carries `id` and `gated_by`. Converting here means a converter that
+/// stops emitting either field fails in these tests.
+fn room_with_one_wall(
+    gated_by: Option<&str>,
+    room_id: &str,
+) -> ambition_platformer2d_world::rooms::RoomSpec {
+    project_with_one_wall(gated_by)
+        .to_room_set_with_entry(
+            "alice_relay",
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
+        .unwrap_or_else(|errors| panic!("fixture converts to rooms: {errors:?}"))
+        .rooms
+        .into_iter()
+        .find(|room| room.id == room_id)
+        .unwrap_or_else(|| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id,
+                ambition_platformer2d_core::World::new(
+                    room_id,
+                    ambition_platformer2d_core::Vec2::new(1024.0, 768.0),
+                    ambition_platformer2d_core::Vec2::new(96.0, 96.0),
+                    Vec::new(),
+                ),
+            )
+        })
+}
+
 /// **The walk finds an authored gated wall, with its footprint.**
 #[test]
 fn an_authored_gated_wall_is_found_with_its_footprint() {
-    let walls = authored_gated_lock_walls(&project_with_one_wall(Some(FLAG)), "alice_relay");
+    let walls = authored_gated_lock_walls(&room_with_one_wall(Some(FLAG), "alice_relay"));
     assert_eq!(walls.len(), 1);
     assert_eq!(walls[0].id, "alice_private_return_lock");
     assert_eq!(walls[0].gated_by, FLAG);
@@ -96,13 +143,13 @@ fn an_authored_gated_wall_is_found_with_its_footprint() {
 /// `gated_by`, and they must keep working.
 #[test]
 fn a_wall_with_no_authored_gate_is_left_to_its_other_consumer() {
-    assert!(authored_gated_lock_walls(&project_with_one_wall(None), "alice_relay").is_empty());
+    assert!(authored_gated_lock_walls(&room_with_one_wall(None, "alice_relay")).is_empty());
 }
 
 /// **Only the active room's walls.**
 #[test]
 fn walls_in_another_room_are_not_found() {
-    assert!(authored_gated_lock_walls(&project_with_one_wall(Some(FLAG)), "drain_alley").is_empty());
+    assert!(authored_gated_lock_walls(&room_with_one_wall(Some(FLAG), "drain_alley")).is_empty());
 }
 
 /// A world with the system, its inputs, and the one condition it asks.
@@ -119,17 +166,12 @@ fn world_with_one_gated_wall() -> App {
     );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
+        // ⭐ **the wall lives in the ROOM now, not in a project beside it.** The
+        // fixture used to hold both — a bare room plus an `ActiveLdtkProject`
+        // the system walked — which is exactly the split this change removed.
         crate::rooms::RoomSet::from_parts(
             "alice_relay",
-            vec![crate::rooms::RoomSpec::new(
-                "alice_relay",
-                ambition_platformer2d_core::World::new(
-                    "alice_relay",
-                    ambition_platformer2d_core::Vec2::new(1024.0, 768.0),
-                    ambition_platformer2d_core::Vec2::ZERO,
-                    Vec::new(),
-                ),
-            )],
+            vec![room_with_one_wall(Some(FLAG), "alice_relay")],
             Vec::new(),
         ),
     );
@@ -172,16 +214,19 @@ fn the_wall_stands_until_its_authored_condition_is_satisfied() {
     assert_eq!(standing(&app), 0, "the condition is satisfied; the wall opens");
 }
 
-/// **A REPLACED PROJECT INVALIDATES THE CACHE.**
+/// **A REPLACED ROOM SET INVALIDATES THE CACHE.**
 ///
 /// ⛔⛔ **this is the regression the original cache shipped WITHOUT**, and it is
-/// carried across deliberately: a hot reload that swaps the LDtk project under an
-/// unchanged room id and save state kept serving walls computed from the project
-/// that is no longer loaded. The cache has three inputs and the project is the
-/// one that is easy to forget, because the other two are the ones you think about
-/// while writing the feature.
+/// carried across deliberately: a hot reload that swaps the authored source
+/// under an unchanged room id and save state kept serving walls computed from
+/// data that is no longer loaded.
+///
+/// ⚠ **the input it watches MOVED with the data** (D136). It used to be
+/// `ActiveLdtkProject::is_changed()`; the walls come off the room set now, so
+/// that is what the cache watches, and this test is what says the signal
+/// followed the data instead of being dropped on the way.
 #[test]
-fn swapping_the_project_alone_invalidates_the_cached_walls() {
+fn swapping_the_room_set_alone_invalidates_the_cached_walls() {
     let mut app = world_with_one_gated_wall();
     app.update();
     assert_eq!(standing(&app), 1);
@@ -191,18 +236,24 @@ fn swapping_the_project_alone_invalidates_the_cached_walls() {
     app.update();
     assert_eq!(standing(&app), 1);
 
-    // Same room id, same save, different project.
-    app.world_mut()
-        .resource_mut::<ActiveLdtkProject>()
-        .0
-        .levels[0]
-        .layer_instances[0]
-        .entity_instances
-        .clear();
+    // Same room id, same save, different authored content.
+    {
+        let mut rooms = app.world_mut().query_filtered::<
+            &mut crate::rooms::RoomSet,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+        >();
+        let mut set = rooms
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("the fixture installs a room set");
+        for room in &mut set.rooms {
+            room.lock_walls.clear();
+        }
+    }
     app.update();
     assert_eq!(
         standing(&app),
         0,
-        "the wall set must track the replaced project"
+        "the wall set must track the replaced room set"
     );
 }

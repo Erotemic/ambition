@@ -4006,9 +4006,11 @@ and the plan, not here:**
   repairs, so it is not a second reconstruction authority.
   ⚠ **schema 33 → 34 for a RENAME and nothing else**; ⭐ the save file is not
   rollback state — the three values it serializes were already registered.
-  ▢ **still open after this**: a runtime mint NOT in a hand at save time (lying in
-  a room, in flight) is undescribed and lost, because the description remembers no
-  position; `Consumed` round-trips and still has no live producer;
+  ⛔⛔ **PROMOTED TO A PREREQUISITE 2026-08-17**: a runtime mint NOT in a hand at
+  save time (lying in a room, in flight) is undescribed and lost, because the
+  description remembers no position — **and Jon's dropped-weapon ruling makes that
+  exact case a product requirement** (a unique weapon stays where it fell). So this
+  is the blocking item, not a noted residue. Also still open: `Consumed` round-trips and still has no live producer;
   `load_save_at_startup` is presentation-only, so a headless composition never
   writes a file; and the body resumes at the shrine while the objects resume at the
   autosave's instant.
@@ -4524,9 +4526,14 @@ renderer, and the honest form is the one this repo already uses for rosters:
 state the invariant once over what discovery finds, not once per sheet.
 
 ⚠ **the fix is two separable things and they should not be confused**: (a) a
-CHECK that refuses to publish a clipped frame, and (b) re-authoring the 23 sheets
-that are already clipped — some of which may want a bigger logical frame rather
-than smaller art. (a) is engine work; (b) is art work and partly Jon's call.
+CHECK that refuses to publish a clipped frame, and (b) the 23 sheets that are
+already clipped.
+✔✔ **(b) IS RULED 2026-08-17: CASE BY CASE, DRIVEN BY THE WARNING.** A sheet is
+fixed when its clipping is actually VISIBLE in play, and whether it is fixed by
+growing the logical frame or by re-authoring the art is a per-sheet call.
+⛔ **do not open a 23-sheet campaign and do not bulk-grow frames.** ⇒ what is left
+of this row is (a) plus the standing guard, and the population stays known-bad by
+design — which is exactly why the ordering rule below is load-bearing.
 
 ⛔⛔ **AND IT ORDERS AGAINST THE SIZING CLUSTER ABOVE.**
 [`engine/sprite-renderer.md`](engine/sprite-renderer.md)'s engine-facing

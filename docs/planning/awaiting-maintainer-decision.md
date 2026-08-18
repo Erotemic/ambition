@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 8 (§6, §9, §11, §12 and §13 are ANSWERED, kept below as records)
+## Open decisions — 7 (§6, §7, §9, §11, §12 and §13 are ANSWERED, kept below as records)
 
 ### 1. Projectile collision: authored hurt volume or coarse body box? (former D23)
 
@@ -254,18 +254,25 @@ hitstop?"* **was** this question, and the ruling answers **yes, on both roads**.
 per-population `decay_reaction_timers` calls into one system (the controlled site
 decays on `frame_dt`, the other two on sim `dt`).
 
-### 7. How long should a dropped held weapon persist? (former D50)
+### 7. ✔ ANSWERED 2026-08-17 — a dropped weapon persists PER ITEM, not by one rule
 
 The lifetime bug is fixed for ability/currency/health drops: the entity and its
 visual now share room scope. The remaining laser-sword observation is a product
 rule for **held-item drops** after a fight:
 
-- disappear when leaving the room;
-- remain in the world when returning; or
-- use another explicit persistence policy.
+⭐⭐ **RULED: authored per item.** A story or unique weapon stays in the world
+where it fell; an ordinary dropped one is room-scoped like the other drops.
+⭐ consistent with the same day's inventory ruling, where UNIQUENESS is what
+decides whether a thing needs its own identity.
 
-Whichever rule is chosen, simulation entity and presentation must share the same
-lifetime.
+⛔⛔ **AND IT PROMOTES A KNOWN RESIDUE INTO A PREREQUISITE.** A minted instance
+**not in a hand** at save time — lying in a room, in flight — is undescribed and
+lost today, because the description remembers no POSITION (D133's open item). A
+persisting dropped weapon IS that case, so it must be built first rather than
+noted beside.
+⚠ it also needs a per-item authoring field that does not exist yet.
+⛔ **whatever is built, simulation entity and presentation share ONE lifetime** —
+that was the original defect and it is not re-litigated by the persistence rule.
 
 ### 8. Which platform-fighter verbs does each creature author?
 

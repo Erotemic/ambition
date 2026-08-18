@@ -186,13 +186,30 @@ A credible 1.0 should make these statements unsurprising:
 The overall direction is intentional, but several high-level choices remain open:
 
 - how large-world residency/background simulation should be partitioned;
-- the exact instance-ID/persistence model shared across actors/items/world objects;
-- how much capability progression is body-owned versus participant-owned;
 - the navigation representation for dynamic platformer worlds;
-- how much character AI should be deterministic versus model-backed;
 - which presentation/tooling domains deserve independent ecosystem crates;
 - which capabilities should remain internal plugins versus independently consumable
   Bevy crates.
+
+**Three of these were RULED on 2026-08-17** and are recorded in
+[`../maintainer-decisions.md`](../maintainer-decisions.md) rather than left here:
+
+- **the instance-ID/persistence model** — the OCCURRENCE owns, and inventory is a
+  **set with a count**, not a count, with uniqueness deciding whether a stack's
+  members need distinct identities (Morrowind-style). ⛔ the general form is
+  deliberately not built yet.
+- **capability progression, body versus participant** — it **splits by what the
+  verb IS**: physical verbs are body-owned because they are facts about anatomy;
+  knowledge, keys and theorems are participant-owned because they are facts about
+  the mind. ⛔ the open cost is a vocabulary that classifies a NEW verb at the
+  verb, not at the call site.
+- **deterministic versus model-backed character AI** — ⭐⭐ the question dissolves:
+  **a real model-backed character is a REMOTE PLAYER**, joining through the
+  participant/netcode seam, playing in realtime and taking rollback exactly as a
+  human peer does. There is no non-deterministic system inside the tick to draw a
+  boundary around. ⚠ RL agents and simpler models may be modelled differently, and
+  that half stays open. ⛔ **DEFERRED** — Jon: *"this will not be important"* — and
+  models writing dialogue is the near-term use, unaffected.
 
 Focused plans own these questions. Do not resolve them by inference merely to
 make the roadmap look complete.

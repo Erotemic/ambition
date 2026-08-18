@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`attack_geometry`](src/attack_geometry/mod.rs) | Pure boss-attack volume math (no ECS, no mutation). |
+| [`attack_geometry`](src/attack_geometry/mod.rs) | Pure attack/body volume math (no ECS, no mutation). |
 | [`behavior`](src/behavior.rs) | Boss behavior-profile vocabulary (data-driven). |
 | [`catalog`](src/catalog.rs) | App-local composition of provider-authored boss data. |
 | [`clusters`](src/clusters.rs) | Authoritative ECS components for a boss actor + the `BossMut` / `BossRef` views the per-tick systems mutate / read in place. |

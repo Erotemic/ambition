@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`authority`](src/authority.rs) | **What the simulation believes about the live conversation.** |
+| [`dialog`](src/dialog.rs) | Sim-side dialogue glue. |
 | [`hold`](src/hold.rs) | **The hold: a projection of the authority onto the body being talked to.** |
 | [`instance`](src/instance.rs) | **Which conversation this is, in a form a corrected timeline agrees with.** |
 | [`ledger`](src/ledger.rs) | **What the narrative told the simulation, and the tick each fact applies from.** |
@@ -15,7 +16,7 @@
 | [`rules`](src/rules.rs) | **When a conversation ends, and the bark that says so.** |
 | [`ui_bridge`](src/ui_bridge.rs) | **The seam between the authority and the text box.** |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

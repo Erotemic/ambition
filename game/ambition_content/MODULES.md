@@ -19,6 +19,7 @@
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`dormancy`](src/dormancy.rs) | **Which of Ambition's named cast may stop thinking — declared, per actor.** |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
+| [`emmy_noether_moveset`](src/emmy_noether_moveset.rs) | **Emmy Ethereal's repertoire** — a theorem, as a fighter. |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil — CONTENT (a self-gating room plugin: feature-gated, visible-binary only, active only while its authored room is; R3.3 room-mechanics-by-kind). |
 | [`falling_sand_sim`](src/falling_sand_sim.rs) | Falling-sand room SIMULATION — the deterministic, headless-safe half. |
@@ -28,7 +29,6 @@
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`ninja_shadow_oni_leader_moveset`](src/ninja_shadow_oni_leader_moveset.rs) | **The Shadow Oni Leader's repertoire** — the counter-puncher, written from his own barks. |
-| [`emmy_noether_moveset`](src/emmy_noether_moveset.rs) | **Emmy Ethereal's repertoire** — a theorem, as a fighter. |
 | [`oiler_moveset`](src/oiler_moveset.rs) | **Oiler's repertoire** — the maintenance mechanic, as a fighter. |
 | [`pack`](src/pack.rs) | Ambition's own content pack — the compile that IS the load path. |
 | [`patent_clerk_moveset`](src/patent_clerk_moveset.rs) | **The Patent Clerk's repertoire** — the heavyweight, written from the row's own `gameplay_description` rather than from taste. |

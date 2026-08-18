@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`authored_commands`](src/authored_commands.rs) | **`encounter.signal` — the encounter domain's authored verb.** |
 | [`content_schema`](src/content_schema.rs) | The `encounter_waves` authored-content schema, owned by this capability. |
 | [`entity`](src/entity.rs) | The encounter as a first-class ENTITY. |
 | [`events`](src/events.rs) | `EncounterEvent` — the output stream of the encounter lifecycle reducer and the wave director. |
@@ -21,7 +22,7 @@
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 | [`waves`](src/waves.rs) | Wave POLICY: the spawn-cadence director for wave/arena encounters. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

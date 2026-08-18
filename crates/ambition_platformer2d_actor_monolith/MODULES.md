@@ -23,18 +23,14 @@
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
-| [`dialog`](src/dialog.rs) | Sim-side dialogue glue. |
 | [`encounter`](src/encounter/mod.rs) | Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases. |
 | [`enemy_projectile`](src/enemy_projectile/mod.rs) | Enemy-fired projectile glue (pirate volleys etc). |
-| [`equipment`](src/equipment.rs) | **Worn equipment → granted actions**, reconciled continuously. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Actor-sim item adapters. |
-| [`menu`](src/menu/mod.rs) | Unified menu content for the Ambition game. |
 | [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`participant_seat`](src/participant_seat.rs) | **The `ParticipantId` ↔ `PlayerSlot` correspondence, in ONE place.** |
-| [`persistence`](src/persistence/mod.rs) | Compatibility adapter for persistence paths that still sit inside the gameplay-core UI surface. |
 | [`physics`](src/physics.rs) | Shared world physics facade. |
 | [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
@@ -45,9 +41,9 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
-| [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask about flags.** |
+| [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask — and tell — about flags.** |
 
-_40 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_settings_menu** — The renderer-agnostic settings + system menu IR (E1e carve out of `ambition_platformer2d_actor_monolith::menu::ir`).
+**ambition_settings_menu** — The renderer-agnostic settings + system menu IR (E1e carve out of `ambition_menu`).
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

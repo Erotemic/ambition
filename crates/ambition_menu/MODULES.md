@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`backend`](src/backend.rs) | Menu backend selection vocabulary. |
-| [`map`](src/map.rs) | Map / minimap state — the renderer-agnostic source of truth the Map tab renders. |
+| [`map`](src/map/mod.rs) | Map / minimap state AND the Map tab that renders it. |
 | [`render`](src/render/mod.rs) | Renderers for a [`crate::MenuPageModel`]. |
 
 _3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

@@ -5278,8 +5278,8 @@ player-visible bug in its own noise.** The rest, untriaged and recorded so they
 are visible rather than discovered again:
 
 ```text
-2  test_svg_parts_cache          native resvg-py is absent — an ENVIRONMENT gap
-                                 that should SKIP, not fail
+✔  test_svg_parts_cache          FIXED — and it was NOT the environment gap its
+                                 message claimed; see below
 2  test_robot_slash_hitboxes     numbers drifted under the assertions (154 >= 156)
 2  test_character_notes          freeform notes do not round-trip
 1  test_actor_contract           `perfect_cellular_automaton` is a registered
@@ -5291,6 +5291,21 @@ are visible rather than discovered again:
 
 ⛔ **do not bulk-fix these**; each is a different question, and two of them are
 about whether the assertion or the art is right — which is a look-at-it call.
+
+⭐⭐ **AND THE ONE THAT LOOKED LIKE THE CHEAPEST WAS THE MOST MISLEADING, which
+is why the list above quotes what each failure SAYS rather than what it means.**
+The two SVG-cache failures read *"SVG sprite rendering requires native
+resvg-py"*, so the obvious repair was to skip them when the wheel is missing.
+**`resvg_py` 0.3.3 was installed the whole time.** `_native_resvg_callable`
+requires `inspect.isbuiltin` — *"never a Python compatibility shim"* — so the
+tests' pure-Python fake was refused BY DESIGN, the rasterizer fell through to
+CairoSVG, and CairoSVG's absence raised a message about resvg. Two layers from
+the cause.
+⇒ ⛔⛔ **skipping them would have "fixed" a dependency that was present, and left
+the real gap in place**: the isbuiltin rule was asserted NOWHERE, which is how
+two tests could lean on it, break when it tightened, and read as an environment
+problem. It has its own poison-verified test now, and the suite is **8 failed /
+619 passed** (renderer `2b9d160`).
 
 ⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
 YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,

@@ -2678,10 +2678,33 @@ catalogues: **the ENGINE owns the invariant, the composition owns the order.**
 There is no engine-side hook to contribute a release to every scope; that seam is
 the work.
 
-⚠ **what is NOT yet measured is whether it is observable.** Within a session
-`restore_occurrence_baseline` resets the ledger on `ResetToCheckpoint`; whether
-an experience change emits one is what would settle it. ⇒ a two-experience
-headless run that consumes an occurrence, leaves, returns, and asks the ledger.
+⭐⭐ **TRACED TO ONE BOOLEAN, AND IT IS THE SAME BUG THEY ALREADY FIXED ONE
+LEVEL DOWN.** The ledger's restore is not the problem — `adopt_rows` REPLACES
+(`self.rows = rows`), so an empty save correctly clears it. What survives is the
+GATE:
+
+```text
+restore_durable_horizon   returns early on `SaveRestored`
+SaveRestored              set true in `restore_inventory_from_save`, and set
+                          false NOWHERE — one write in the tree, `restored.0 = true`
+                          ⇒ experience 2 in a process never re-runs the restore and
+                            inherits experience 1's AuthoredOccurrences,
+                            OccurrenceBaseline, CustodyBaseline, MintedItemBaseline
+```
+
+⛔⛔ **and the latch's own doc already states the rule it breaks**: *"the flag
+now means 'the loaded save has been applied to THIS WORLD'"*. A new experience is
+a new world. ⭐ **they fixed exactly this for ROLLBACK on 2026-08-04** — *"a
+rewind past the restore undid its EFFECT and kept the record of having applied
+it"* — and registered the latch as rollback state so it rewinds with what it
+guards. The experience boundary is the same sentence with a different clock.
+
+⇒ **so the fix is one value, not four ledgers**: the latch must die when the
+world it refers to does, which is what `ExperienceScopeBuilder::resetting` means.
+⛔ still not a line to add in two places — the scopes are per game, and the third
+game's omission would be silent. The engine installs the latch
+(`durable_save_horizon.rs`) and should declare its reset in the same breath;
+**that hook is the work**, and it is D136's thesis with a concrete customer.
 
 ⇒ the hazard that started this leg, recorded on `ItemCustody`:
 carrying an **authored** placement out of its room and back yields the carried

@@ -55,7 +55,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch"]
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = ["ambition_platformer2d_ldtk/portal"]
+portal = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics
@@ -63,7 +63,7 @@ portal = ["ambition_platformer2d_ldtk/portal"]
 # pipeline (`visible` / `visible_web_base`) alongside this flag.
 #
 portal_render = ["portal"]
-portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
+portal_ldtk = ["portal", "ldtk_runtime", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/portal_ldtk"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -223,7 +223,11 @@ dev_hot_reload = ["bevy/file_watcher"]
 # assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
 # not require recompiling Rust. Enabling this feature also embeds the checked-in
 # map and falls back to it if the external map cannot be read or parsed.
-static_map = ["ambition_asset_manager/static_map", "ambition_platformer2d_ldtk/static_map"]
+static_map = [
+    "ambition_asset_manager/static_map",
+    "dep:ambition_platformer2d_ldtk",
+    "ambition_platformer2d_ldtk/static_map",
+]
 
 # Embed a bounded "core visual" subset (UI fonts + primary character sheets +
 # core entity sprite PNGs) into the binary via `include_bytes!`, and register
@@ -265,6 +269,7 @@ android_dev = ["android", "dev_tools"]
 ldtk_runtime = [
     "dep:bevy_ecs_ldtk",
     "dep:bevy_asset_loader",
+    "dep:ambition_platformer2d_ldtk",
     "ambition_platformer2d_ldtk/ldtk_runtime",
 ]
 # The runtime audio subsystem. Composes `authored_audio`: Kira playback
@@ -419,7 +424,17 @@ ambition_vfx = { path = "../ambition_vfx" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_items = { path = "../ambition_items" }
-ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
+# ⭐⭐ **OPTIONAL as of 2026-08-18, and it is now the FEATURE GRAPH that holds
+# this edge rather than a `use`** (D136). Every production module that named this
+# crate — the encounter loader and its system, the gated lock walls, the switch
+# commands — reads the room IR instead; the last mention in `src/` is a doc
+# comment. So the only thing keeping it in a movement-only game's closure was
+# this line being unconditional, which is exactly the pattern the subsystem-gate
+# comment below describes: *"Deps are flipped to `optional = true` so toggling
+# these features actually moves crates in/out of the dep graph."*
+# ⚠ the four features that forward into it name `dep:` explicitly, and the tests
+# take it back through `[dev-dependencies]`.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false, optional = true }
 # Device -> ControlFrame input layer (Platformer2dInputActionMonolith / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
 # `crate::persistence::settings` re-exports its `settings` module so existing
@@ -489,6 +504,12 @@ serde_json = "1"
 # The binaries moved to the `ambition_app` crate (Stage 20 / A3).
 
 [dev-dependencies]
+# ⚠ **the tests still build LDtk fixtures**, and the production dependency went
+# `optional` (see above). `#[cfg(test)]` code reaches a dev-dependency, so the
+# encounter / gated-lock-wall / switch-command tests keep converting a real
+# project into rooms — which is the point of those fixtures — without putting the
+# crate back on the shipping surface.
+ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-features = false }
 # ⛔ **the barrier-bypassing test seams, and DEV-ONLY is the whole point.**
 # `prepare_and_finalize_for_test` and `insert_prepared` were `#[cfg(test)]
 # pub(crate)` while they lived in this crate; the P1.7 move put the model and

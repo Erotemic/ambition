@@ -25,25 +25,15 @@ fn test_room_with_platforms(
     world: ae::World,
     platforms: Vec<MovingPlatformState>,
 ) -> crate::rooms::RoomSpec {
-    crate::rooms::RoomSpec {
-        id: "test".into(),
-        world,
-        loading_zones: Vec::new(),
-        metadata: crate::rooms::RoomMetadata::default(),
-        camera_zones: Vec::new(),
-        kinematic_paths: Vec::new(),
-        moving_platforms: platforms,
-        props: Vec::new(),
-        ground_items: Vec::new(),
-        portal_gun_spawns: Vec::new(),
-        shrines: Vec::new(),
-        gravity_zones: Vec::new(),
-        enemy_spawns: Vec::new(),
-        boss_spawns: Vec::new(),
-        debug_labels: Vec::new(),
-        mount_links: Vec::new(),
-        placements: Vec::new(),
-    }
+    // ⚠ **built through the constructor, not spelled field by field.** The
+    // exhaustive literal this replaces had to be edited every time the room IR
+    // grew a family, and it says nothing about platforms by listing fifteen
+    // empty vectors — the ONE field this fixture cares about was buried among
+    // them. `RoomSpec::new` is the room-with-nothing-authored, which is exactly
+    // what a platform test wants underneath its platforms.
+    let mut room = crate::rooms::RoomSpec::new("test", world);
+    room.moving_platforms = platforms;
+    room
 }
 
 #[test]

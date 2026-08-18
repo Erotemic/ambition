@@ -5251,15 +5251,33 @@ it to `ambition_platformer2d_ldtk`"* in a `//!` line. ⇒ **no production module
 the actor monolith names the LDtk crate any more** — 5 → 0 in one sitting,
 verified by grep over `src/` with tests and comments excluded.
 
-▢ **WHAT ACTUALLY HOLDS THE EDGE NOW IS THE FEATURE GRAPH, NOT A `use`.**
-`Cargo.toml` forwards four features into it (`portal`, `portal_ldtk`,
-`static_map`, `ldtk_runtime`) plus the tests, so the dependency cannot simply
-become a `dev-dependency`: feature forwarding requires a normal one. ⚠ **this is
-the same shape the row already recorded once** — *"cutting the monolith's edge
-alone was never going to move this number"* — and it is why the
-capability-footprint counter will not move until the dep is made `optional` and
-those four forwards are gated. ⇒ **that is the next slice, and it is a
-feature-graph change, not a reader migration**; the reader migrations are done.
+✔ **THE DEP IS `optional` NOW** — the four forwards name `dep:` and the tests
+take it back through `[dev-dependencies]`, which is exactly the pattern the
+subsystem-gate comment in that file already describes.
+
+⛔⛔ **AND IT MOVED THE COUNTER BY NOTHING — 44 crates / 17 unwanted before and
+after — which is the finding, not a disappointment.** Asked why, `cargo tree -f
+"{p} :: {f}"` says the sentinel builds the monolith with
+**`ldtk_runtime, portal, portal_ldtk` already on**, so an optional dep is simply
+enabled. **Two crates hard-code those features with no gate of their own:**
+
+```text
+ambition_sim_view              features = ["ldtk_runtime", "input", "portal"]
+ambition_platformer2d_runtime  features = ["headless", "input", "portal_ldtk"]
+```
+
+⇒ **that is this row's thesis with a name.** The observation crate and the
+runtime each decided that a movement-only game wants LDtk and portals, and wrote
+it into a manifest — *"who is this for?"* answered by whoever declared it first,
+in the one place nobody reads. ⭐ **and the optional dep is still a precondition,
+not a wasted step**: with it unconditional the counter could not move no matter
+what those two did.
+
+▢ **the next slice is those two lines**, and it is not free: each crate needs its
+own `portal` / `ldtk_runtime` feature to forward, and every consumer that
+actually wants them has to ask. ⚠ **the reader migrations are done and are not
+what is left** — this is a manifest change across several crates, and the
+capability-footprint contract is the thing that will say whether it worked.
 
 ⇒ **what still holds the edge, and the cost of each**, in the order they must
 fall (the last two cannot be cfg-gated cheaply — the code has to move):

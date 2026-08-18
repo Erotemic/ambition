@@ -1130,52 +1130,33 @@ none can drift from the other two — not authoring more heights.
 `ActorRenderSize` exists precisely so a hostile flip cannot re-apply
 `collision_scale` and balloon the sprite a second time.
 
-- ▢ **D164 — A LIVE PLAN WITH FOUR OPEN STEPS IS REACHABLE FROM NO LEDGER ROW,
-  and Jon's quality-swap report sits on its road. (opened 2026-08-17)**
+- ✔ **D164 — CLOSED 2026-08-18. Two top-level plans looked stranded and were
+  already indexed; the audit had enumerated the wrong three files.**
 
 [`sprite-residency-and-live-quality.md`](sprite-residency-and-live-quality.md)
-— *"Status: step 1 LANDED 2026-08-08; steps 2–5 planned"*, untouched since, and
-**referenced by neither `queue.md` nor `roadmap.md` nor the README**.
-
-```text
-1 ✔ tier stamp + return edge + Apply transition          landed 3bf154974
-2 ▢ migrate consumers to ultrapack; delete per-sheet runtime roots
-3 ▢ residency cohorts in pack_plan.yaml (session / room / encounter)
-4 ▢ packaging — stop shipping duplicate representations
-5 ▢ ASTC, last  ⛔ compression must not mask duplicate tiers or mixed paths
-```
-
-⭐ **why it matters now rather than eventually**: step 1 is what made a quality
-change RETIRE and re-materialize the bodies already on screen instead of only the
-next room — and Jon's *"changing video quality swapped robot v3 for v2"* is a
-report about exactly that newly-live road. Whoever picks up that observation
-should read this plan first.
-
-⚠ **found only because the earlier stranded-plan audit was SCOPED WRONG** — it
-swept `docs/planning/engine/*.md` and never looked at the top level.
-
-⛔ **and my first version of this row then got the REST wrong too**: I wrote that
-the other three unreferenced top-level docs carry no open steps.
+(steps 2–5 open) and
 [`frontend-audio-is-per-experience.md`](frontend-audio-is-per-experience.md)
-carries one, and it is waiting for exactly the thing Jon asked for:
+(one open step) are both listed with ▢ entries in
+[`tracks.md`](tracks.md) — **since `594a548bf`, 2026-08-13, four days before this
+row was opened to say they were reachable from nowhere.**
 
-> ▢ *"Use route declarations for music changes inside one experience … The
-> architecture is already capable of this; **add a real consumer when the product
-> wants the transition**."*
+⛔⛔ **the row's evidence was "referenced by neither `queue.md` nor `roadmap.md`
+nor the README", which is TRUE and does not support the conclusion.** `tracks.md`
+is the standing backlog, and the README's own orientation points at it for
+exactly this class of work — so the one index that should have been checked first
+was the one not in the list. ⇒ **an ABSENCE claim is only as strong as the set of
+places you looked, and a hand-written set of places is a guess.** Same shape as
+the doubled zone-name count in D161: the method was wrong, not the arithmetic.
 
-⭐ **Jon's *"when you challenge PCA in the C4 symmetry room we should change the
-music to a smash track"* IS that consumer.** ⚠ two mechanisms exist and they are
-not the same layer — an encounter's authored `music_track` (validated against the
-registry) and this doc's route declarations (stage theme vs winner-card theme).
-The PCA challenge is an encounter, so the encounter road is probably right, but
-**this doc is the one that says a process-global switch is the wrong shape**, and
-whoever wires it should read it before picking.
-
-⇒ so **TWO stranded top-level plans, not one**; `engine_rename_campaign` and
-`authoring-loop-program-2026-07-31` are the ones genuinely without open steps.
-
-▢ **this row is a POINTER, not a re-plan** — the plan is good and does not need
-restating. It needed to be reachable.
+⭐ **what the row got right and is worth keeping**: whoever picks up Jon's
+*"changing video quality swapped robot v3 for v2"* should read the residency plan
+first, because step 1 is what made a quality change retire and re-materialize
+bodies already on screen. And his *"when you challenge PCA in the C4 symmetry
+room we should change the music to a smash track"* is the consumer the audio
+plan's open step is waiting for — ⚠ two mechanisms exist at different layers
+(an encounter's authored `music_track` vs route declarations), the PCA challenge
+is an encounter, and that doc is the one saying a process-global switch is the
+wrong shape.
 
 - ▢ **D163 — THE LDtk VALIDATOR IS ALMOST ALL NOISE, AND ONE OF ITS WARNINGS
   INVITES DESTROYING AUTHORED CONTENT. (opened 2026-08-17)**

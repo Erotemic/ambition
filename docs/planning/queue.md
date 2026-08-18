@@ -5268,6 +5268,30 @@ with respect to the drawing. ⇒ **for a sheet with authored hitboxes in draw
 space, the ART is the only thing that can give** — worth checking before
 proposing a canvas change for any of the other ~15 authoring sources.
 
+⚠⚠ **AND THE RENDERER'S OWN SUITE IS RED AND HAS BEEN — 10 failures, measured
+2026-08-18 while fixing the above.** It was 11; `test_no_raw_imagedraw` is now
+green, and triaging it found a REAL defect on the protagonist (the boot
+thruster's nozzle ellipse REPLACED the bloom's alpha instead of compositing, so
+the plume lost its glow at the nozzle — 61 of 396 player frames). ⇒ **a guard
+that has been red for a while protects nothing, and this one was hiding a
+player-visible bug in its own noise.** The rest, untriaged and recorded so they
+are visible rather than discovered again:
+
+```text
+2  test_svg_parts_cache          native resvg-py is absent — an ENVIRONMENT gap
+                                 that should SKIP, not fail
+2  test_robot_slash_hitboxes     numbers drifted under the assertions (154 >= 156)
+2  test_character_notes          freeform notes do not round-trip
+1  test_actor_contract           `perfect_cellular_automaton` is a registered
+                                 target with no local actor metadata
+1  test_geometry_gui             a drag lands 5 units off
+1  test_rig_codegen_and_scale    generated vs rigdoc render disagree
+1  test_portrait_product         hunny_horror publishes the wrong clip set
+```
+
+⛔ **do not bulk-fix these**; each is a different question, and two of them are
+about whether the assertion or the art is right — which is a look-at-it call.
+
 ⭐⭐ **and 23 sheets are far fewer than 23 CAUSES — they collapse by source
 YAML.** Eight of them (`robot`, `player_extended`, both player `*_review` sheets,
 `robot_caster`/`diver`/`miner`/`runner`) are all auto-emitted from

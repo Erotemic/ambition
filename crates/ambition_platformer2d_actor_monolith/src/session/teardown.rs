@@ -29,10 +29,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeRetired, Sessio
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 use crate::abilities::traversal::possession::PossessionState;
-use ambition_boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
 use crate::encounter::SwitchActivationQueue;
 use crate::RoomTransitionCooldown;
+use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterRegistry, EncounterView};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
@@ -73,6 +73,25 @@ pub struct SessionScopedResources<'w> {
     /// Retirement between production and consumption must not deliver a
     /// session-A activation into session B.
     switch_activations: ResMut<'w, SwitchActivationQueue>,
+    /// ⛔⛔ **"the loaded save has been applied to THIS WORLD" — and the world
+    /// it refers to has just been retired.** That sentence is the latch's own
+    /// doc, and it is the whole argument for resetting it here (D125).
+    ///
+    /// It is set true ONCE, in `restore_inventory_from_save`, and was set false
+    /// nowhere in the tree. So the second session in a process never re-ran the
+    /// restore and inherited the first's `AuthoredOccurrences`,
+    /// `OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline` — a
+    /// suppressed occurrence surviving into a new game.
+    ///
+    /// ⭐ **resetting the LATCH is the whole fix**: `adopt_rows` REPLACES rather
+    /// than merges, so the next session's restore rewrites all four ledgers from
+    /// the save, empty or not. One value, not four.
+    ///
+    /// ⚠ the identical bug was fixed one level down on 2026-08-04 — a rewind
+    /// past the restore undid its EFFECT and kept the record of having applied
+    /// it — by registering this latch as rollback state. The experience boundary
+    /// is the same sentence with a different clock.
+    save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
 }
 
 /// Reset the session-scoped resource mirrors when any session scope retires.
@@ -99,6 +118,7 @@ pub fn reset_session_scoped_resources_on_retire(
     *resources.sim_state = RoomTransitionCooldown::default();
     *resources.slot_interactions = SlotInteractionState::default();
     *resources.switch_activations = SwitchActivationQueue::default();
+    *resources.save_restored = crate::session::durable_horizon::SaveRestored::default();
 }
 
 /// Installs [`reset_session_scoped_resources_on_retire`] into the exact-scope

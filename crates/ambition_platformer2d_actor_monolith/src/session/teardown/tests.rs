@@ -6,10 +6,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScop
 
 use super::*;
 use crate::abilities::traversal::possession::PossessionState;
-use ambition_boss_encounter::BossEncounterRegistry;
 use crate::control::SlotInteractionState;
 use crate::encounter::SwitchActivationQueue;
 use crate::RoomTransitionCooldown;
+use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterRegistry, SwitchActivation};
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
@@ -26,6 +26,7 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<RoomTransitionCooldown>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<SwitchActivationQueue>();
+    app.init_resource::<crate::session::durable_horizon::SaveRestored>();
     app.add_systems(Update, reset_session_scoped_resources_on_retire);
 
     // Populate the mirrors with distinctive session-A state.
@@ -58,7 +59,51 @@ fn app_with_populated_mirrors() -> App {
             action: "reset".to_owned(),
             target_encounter: "session_a_encounter".to_owned(),
         });
+    // Session A applied its save.
+    app.world_mut()
+        .resource_mut::<crate::session::durable_horizon::SaveRestored>()
+        .0 = true;
     app
+}
+
+/// **The save-applied latch dies with the world it describes.**
+///
+/// ⛔⛔ **it did not, and that is D125's second carried risk.** `SaveRestored`
+/// means *"the loaded save has been applied to THIS WORLD"*, is set true in
+/// exactly one place, and was set false NOWHERE — so the second session in a
+/// process returned early from both restores and inherited session A's
+/// `AuthoredOccurrences`, `OccurrenceBaseline`, `CustodyBaseline` and
+/// `MintedItemBaseline`. A consumed occurrence stayed consumed into a new game.
+///
+/// ⭐ **resetting the latch is the whole fix**: `AuthoredOccurrences::adopt_rows`
+/// REPLACES rather than merges, so session B's restore rewrites all four ledgers
+/// from the save, empty or not. One value, not four.
+#[test]
+fn retirement_clears_the_save_applied_latch() {
+    let mut app = app_with_populated_mirrors();
+
+    // No retirement yet: session A's latch stands, so nothing re-applies the
+    // save underneath a live world.
+    app.update();
+    assert!(
+        app.world()
+            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .0,
+        "the latch must survive an ordinary frame; clearing it mid-session would \
+         re-apply the save over live state"
+    );
+
+    app.world_mut()
+        .write_message(SessionScopeRetired(SessionScopeId(0)));
+    app.update();
+
+    assert!(
+        !app.world()
+            .resource::<crate::session::durable_horizon::SaveRestored>()
+            .0,
+        "the world the save was applied to has retired, so the next session must \
+         re-run its restore rather than inherit this one's ledgers"
+    );
 }
 
 #[test]

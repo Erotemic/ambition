@@ -2699,28 +2699,37 @@ rewind past the restore undid its EFFECT and kept the record of having applied
 it"* — and registered the latch as rollback state so it rewinds with what it
 guards. The experience boundary is the same sentence with a different clock.
 
-⇒ **so the fix is one value, not four ledgers**: the latch must die when the
-world it refers to does. Two shapes, and the cost is what separates them:
+✔✔ **FIXED 2026-08-18, and neither of the shapes I costed was needed — the
+codebase had already designated the place.** `session::teardown`'s
+`reset_session_scoped_resources_on_retire` reads `SessionScopeRetired` and
+already clears TEN process-global mirrors, with exactly this rationale: *"the
+mirrors are process-global rather than per-scope, so a single reset on retirement
+is correct"*. `SaveRestored` is that, and it is now the eleventh.
 
 ```text
-A  key it on the session generation, the way
-   `restore_checkpoint_on_session_start` already keys `applied_for`
-   ⛔ SaveRestored is ROLLBACK-REGISTERED, so changing its shape is a schema
-     bump and TWO baselines
-B  keep the bool; add a system that clears it when the session scope changes
-   ⭐ no schema change; the clearing is a session event, not a per-tick one
+RouteActivated    → active_scope.begin()          ⇒ a new experience DOES mint a scope
+RouteDeactivated  → GameMode, Dialogue, RoomTransition, Cutscene all reset,
+                    "every one of them describes a live world, and this one has
+                     just been retired"           ⇒ SaveRestored belongs in that list
 ```
 
-⚠ **what I could NOT confirm, and it decides between them:** I found no
-PRODUCTION caller of `ActiveSessionScope::begin()` — every hit is test setup. So
-"the session generation changes per experience" is an assumption, not a
-measurement, and A rests on it. ⇒ **the next step is a two-experience headless
-run**: it settles observability AND tells you whether a new scope is minted.
+⭐ **one value fixes all four ledgers**, because `adopt_rows` REPLACES rather
+than merges: the next session's restore rewrites `AuthoredOccurrences`,
+`OccurrenceBaseline`, `CustodyBaseline` and `MintedItemBaseline` from the save,
+empty or not. ⭐ **no schema bump** (the latch's shape is unchanged, so its
+rollback registration is untouched) and **no new hook** — the two options I had
+costed, keying it on the session generation or adding a scope-watcher, were both
+more machinery than the seam that already existed.
 
-⛔ and neither is a line to add in two places — the scopes are authored per game,
-so the third game's omission would be silent. The engine installs the latch
-(`durable_save_horizon.rs`) and should declare its reset in the same breath,
-which is D136's thesis with a concrete customer.
+⇒ **and the shell system says why it belongs there rather than in a game's
+scope**, in Jon's own framing: *"A rule every caller must obey is a rule three
+callers will eventually break. The lifecycle that ended the session is the one
+place that cannot forget."*
+
+⚠ guarded by `retirement_clears_the_save_applied_latch`, which asserts BOTH terms
+— the latch survives an ordinary frame (clearing it mid-session would re-apply
+the save over live state) and is cleared on retirement. Falsified: removing the
+one line fails it by name.
 
 ⇒ the hazard that started this leg, recorded on `ItemCustody`:
 carrying an **authored** placement out of its room and back yields the carried

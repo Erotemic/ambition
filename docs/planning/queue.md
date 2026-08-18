@@ -2139,9 +2139,41 @@ it is not there yet and `None` is what gets published. ⚠ the probe above reads
 the resource AFTER the match is live, which is why it sees `true`; nothing has
 yet read it at publish time.
 
-**Next step**: instrument the publisher (or assert on `MatchParticipant::
-action_set` in the roster the shipped screen actually publishes, rather than one
-a fixture built) and confirm the ordering before changing anything.
+✔✔ **INSTRUMENTED AND FIXED 2026-08-18 — and the cause was closer than the
+guess.** The row supposed the declaration was installed with the GAMEPLAY route
+and therefore absent at publish time. It is installed by **the same system**,
+fifty lines below the read, through a DEFERRED `Commands::insert_resource`. So on
+the frame the match is decided the resource does not exist. Measured on the
+shipped select screen through its own taps:
+
+```text
+PROBE at publish: DeclaredCombatRules present = false, unarmed_melee = <no resource>
+```
+
+⇒ `smash_declared_combat_rules()` is the one source now: the publisher takes the
+floor from the value it is about to declare, and inserts that same value. ⭐ and
+reading the resource would have been wrong even once it existed — **on a second
+visit it holds the PREVIOUS match's declaration**, a stale answer dressed as a
+live one. A function has no such tense. ⚠ the `rules` system parameter is gone
+with the read it existed for.
+
+✔ **AND THE GUARD THAT COULD NOT FAIL NOW CAN.**
+`the_match_gives_every_seat_a_kit_that_can_hit` spelled the swipe out by hand;
+it calls `smash_declared_combat_rules().unarmed_melee` instead, so both sides
+hold one copy. Poison-verified: with the stage's floor removed the test reports
+the seat with no kit, which it could never do before.
+
+⛔⛔ **AND A TEST THAT SEATS A PEACEFUL FIGHTER CANNOT BE WRITTEN TODAY** — I
+tried, and it failed with *"fewer than two peaceful rows on the shipped grid"*.
+D144 armed every selectable fighter, so **the floor has no subject**, exactly as
+this row's own header says. ⇒ the guard is necessarily about the MECHANISM
+rather than about a character, and that is a property of the roster, not a
+weakness in the test.
+⚠ **one false positive on the way, worth keeping**: filtering the grid by *"no
+default melee"* selected `player_robot_v3`, which has an empty default action
+set and sixteen AUTHORED moves — it arms itself by a different road, and the
+publisher branches on exactly that. **"No default melee" is not "unarmed"**, and
+a census that conflates them accuses the healthiest fighter on the grid.
 
 ⚠ **and the product question rides along, already filed**: whether the peaceful
 cast should be armed by the stage at all or be re-authored as fighters is Jon's

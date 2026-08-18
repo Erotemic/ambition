@@ -776,6 +776,63 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
 /// ACCUMULATES, and the number keeps counting past 100% because a platform
 /// fighter's does. Clamping the fill is a rendering decision; clamping the
 /// number would be a lie about the game.
+
+/// **THE COMBAT RULES THIS STAGE DECLARES**, in one place so the publisher and
+/// its guard cannot hold different copies.
+///
+/// ⛔⛔ **they did.** The roster publisher read the `DeclaredCombatRules`
+/// RESOURCE for its unarmed floor while the same system inserted that resource
+/// fifty lines later through a deferred `Commands::insert_resource` — so on the
+/// frame the match is decided the resource does not exist and `None` was
+/// published (measured on the shipped select screen: `present = false`). Every
+/// kit-less fighter reached the stage unable to hit anybody.
+/// ⚠ and the guard could not catch it, because it passed the swipe in BY HAND:
+/// *"a fixture that manufactures the value under test cannot fail on its
+/// absence."* Both now call this.
+///
+/// ⚠ **reading the resource would be wrong even when it exists**: on a second
+/// visit it holds the PREVIOUS match's declaration. A function has no such tense.
+pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::DeclaredCombatRules {
+    ambition_platformer2d::combat::rules::DeclaredCombatRules {
+        // ⛔ BY OWNER. The versus route declares combat rules too, and a
+        // giveback that removed this by TYPE would delete ITS live rules the
+        // moment smash left — the lesson the roster and the prepared match each
+        // taught once already.
+        declared_by: SMASH_EXPERIENCE.to_string(),
+        di_max_angle: SMASH_DI_MAX_ANGLE,
+        knockback_growth: SMASH_KNOCKBACK_GROWTH,
+        // ⭐⭐ **A DOWN-AIR IS A SPIKE HERE**, not a pogo (ledger D82). The robot's
+        // down-air is ONE authored swing that says it can rebound its attacker;
+        // Ambition takes it up on that, and a platform fighter must not — a
+        // d-air that bounced you back to safety offstage would be the opposite
+        // of a kill. Same move, two games, and the difference is declared rather
+        // than authored twice.
+        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
+        // ⚠ teams already decide who may hit whom. Switching global friendly
+        // fire on to let two humans trade would make TEAMMATES hittable too.
+        friendly_fire: false,
+        // ⭐⭐ **THE STAGE'S FLOOR, DECLARED** (P3.24/P2.20, 2026-08-12). This
+        // lived in `select::smash_fighter_kit()` — a helper this crate applied to
+        // every seat whose character says nothing — while EXPLORATION answered
+        // the same question with a different swipe. Two spellings of "what does
+        // an unarmed body swing", neither owned by anybody.
+        //
+        // ⛔ these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
+        // damage, 34 reach. A stage's floor is faster, harder and longer than an
+        // exploration provoke's, and moving it here is not the place to decide
+        // that differently.
+        unarmed_melee: Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
+            ambition_platformer2d::character::SwipeSpec {
+                windup_s: 0.22,
+                active_s: 0.08,
+                damage: 4,
+                reach_px: 34.0,
+                recover_s: 0.26,
+            },
+        )),
+    }
+}
+
 pub fn publish_smash_hud(
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
@@ -1737,7 +1794,6 @@ fn start_the_battle_when_asked(
     // lives. `Option` because this system runs before the resource exists on the
     // very first frame of a boot, and a screen with no rules yet has no floor to
     // hand out either.
-    rules: Option<bevy::prelude::Res<ambition_platformer2d::combat::rules::DeclaredCombatRules>>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
@@ -1772,6 +1828,8 @@ fn start_the_battle_when_asked(
         .map_or(0, |active| active.activation_id.0 as u64)
         .rotate_left(17)
         ^ select.participating() as u64;
+    let declared_rules = smash_declared_combat_rules();
+
     let Some(decided) = select.roster_seeded(
         &fighters,
         seed,
@@ -1787,9 +1845,18 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
-        rules
-            .as_deref()
-            .and_then(|rules| rules.unarmed_melee.clone()),
+        // ⭐⭐ **FROM THE DECLARATION THIS FUNCTION IS ABOUT TO MAKE, not from the
+        // resource** (D143). `rules` was read here and the swipe never arrived:
+        // this same system inserts `DeclaredCombatRules` fifty lines below, and
+        // `Commands::insert_resource` is DEFERRED — so on the frame that decides
+        // the match the resource does not exist yet and `None` was published.
+        // Measured on the shipped select screen through its own taps:
+        // `DeclaredCombatRules present = false`.
+        // ⚠ and reading the resource would be wrong even once it existed: on a
+        // SECOND visit it holds the PREVIOUS match's declaration, which is a
+        // stale answer dressed as a live one. `declared_rules` is the value this
+        // match declares, so the roster and the resource cannot disagree.
+        declared_rules.unarmed_melee.clone(),
     ) else {
         return;
     };
@@ -1821,55 +1888,7 @@ fn start_the_battle_when_asked(
         ),
     );
     commands.insert_resource(decided);
-    // **DI ON, and the stage says so itself.**
-    //
-    // ⛔ the law, the tuning field and the victim's live stick were all wired —
-    // and this demo declared no combat rules at all, so `di_max_angle` fell to
-    // the world baseline of `0.0` and directional influence was OFF on the one
-    // stage built to need it. The versus route has had it since AE6; the game
-    // that IS the platform-fighter test case did not.
-    //
-    // DECLARE, don't borrow: `project_combat_rules` folds this over the world's
-    // baseline every tick, nothing global is written, and removing the resource
-    // with the experience IS the exit (see the scope in `SmashExperiencePlugin`).
-    commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
-        // ⛔ BY OWNER. The versus route declares combat rules too, and a
-        // giveback that removed this by TYPE would delete ITS live rules the
-        // moment smash left — the lesson the roster and the prepared match each
-        // taught once already.
-        declared_by: SMASH_EXPERIENCE.to_string(),
-        di_max_angle: SMASH_DI_MAX_ANGLE,
-        knockback_growth: SMASH_KNOCKBACK_GROWTH,
-        // ⭐⭐ **A DOWN-AIR IS A SPIKE HERE**, not a pogo (ledger D82). The robot's
-        // down-air is ONE authored swing that says it can rebound its attacker;
-        // Ambition takes it up on that, and a platform fighter must not — a
-        // d-air that bounced you back to safety offstage would be the opposite
-        // of a kill. Same move, two games, and the difference is declared rather
-        // than authored twice.
-        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
-        // ⚠ teams already decide who may hit whom. Switching global friendly
-        // fire on to let two humans trade would make TEAMMATES hittable too.
-        friendly_fire: false,
-        // ⭐⭐ **THE STAGE'S FLOOR, DECLARED** (P3.24/P2.20, 2026-08-12). This
-        // lived in `select::smash_fighter_kit()` — a helper this crate applied to
-        // every seat whose character says nothing — while EXPLORATION answered
-        // the same question with a different swipe. Two spellings of "what does
-        // an unarmed body swing", neither owned by anybody.
-        //
-        // ⛔ these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
-        // damage, 34 reach. A stage's floor is faster, harder and longer than an
-        // exploration provoke's, and moving it here is not the place to decide
-        // that differently.
-        unarmed_melee: Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
-            ambition_platformer2d::character::SwipeSpec {
-                windup_s: 0.22,
-                active_s: 0.08,
-                damage: 4,
-                reach_px: 34.0,
-                recover_s: 0.26,
-            },
-        )),
-    });
+    commands.insert_resource(declared_rules);
     // ⭐⭐ **AND THE PAD THIS GAME IS PLAYED ON** (D146 slice 3). Jon:
     // *"my preferred smash layout for an xbox controller is a=normal,
     // x=special, b=jump, y=grab (we don't have grab yet), left trigger is

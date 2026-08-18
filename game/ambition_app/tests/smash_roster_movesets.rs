@@ -269,15 +269,14 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
             0,
             ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
             &Default::default(),
-            Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
-                ambition_platformer2d::character::SwipeSpec {
-                    windup_s: 0.22,
-                    active_s: 0.08,
-                    damage: 4,
-                    reach_px: 34.0,
-                    recover_s: 0.26,
-                },
-            )),
+            // ⭐⭐ **FROM THE SHIPPED DECLARATION, not a copy of it** (D143).
+            // This used to spell the swipe out here, which made the test unable
+            // to fail on the thing that was actually broken: the publisher was
+            // reading a resource that did not exist yet and passing `None`, and
+            // a fixture that MANUFACTURES the value under test cannot fail on
+            // its absence. Both sides call one function now, so a stage that
+            // stops declaring a floor turns this red instead of passing.
+            ambition_demo_smash::smash_declared_combat_rules().unarmed_melee,
         )
         .expect("two decided seats are a match");
     for participant in &roster.participants {

@@ -2700,11 +2700,27 @@ it"* — and registered the latch as rollback state so it rewinds with what it
 guards. The experience boundary is the same sentence with a different clock.
 
 ⇒ **so the fix is one value, not four ledgers**: the latch must die when the
-world it refers to does, which is what `ExperienceScopeBuilder::resetting` means.
-⛔ still not a line to add in two places — the scopes are per game, and the third
-game's omission would be silent. The engine installs the latch
-(`durable_save_horizon.rs`) and should declare its reset in the same breath;
-**that hook is the work**, and it is D136's thesis with a concrete customer.
+world it refers to does. Two shapes, and the cost is what separates them:
+
+```text
+A  key it on the session generation, the way
+   `restore_checkpoint_on_session_start` already keys `applied_for`
+   ⛔ SaveRestored is ROLLBACK-REGISTERED, so changing its shape is a schema
+     bump and TWO baselines
+B  keep the bool; add a system that clears it when the session scope changes
+   ⭐ no schema change; the clearing is a session event, not a per-tick one
+```
+
+⚠ **what I could NOT confirm, and it decides between them:** I found no
+PRODUCTION caller of `ActiveSessionScope::begin()` — every hit is test setup. So
+"the session generation changes per experience" is an assumption, not a
+measurement, and A rests on it. ⇒ **the next step is a two-experience headless
+run**: it settles observability AND tells you whether a new scope is minted.
+
+⛔ and neither is a line to add in two places — the scopes are authored per game,
+so the third game's omission would be silent. The engine installs the latch
+(`durable_save_horizon.rs`) and should declare its reset in the same breath,
+which is D136's thesis with a concrete customer.
 
 ⇒ the hazard that started this leg, recorded on `ItemCustody`:
 carrying an **authored** placement out of its room and back yields the carried

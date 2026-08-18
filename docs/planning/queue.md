@@ -1461,7 +1461,67 @@ authority and is Rust, so siblings are a proxy — exact today (the manifest lis
 precisely the four files in `assets/worlds`), and if they diverge a world on disk
 but absent from the manifest would pass here and fail at load.
 
-- ✔ **D162 — CLOSED 2026-08-17. Four standing boot warnings, all triaged.**
+- ▢ **D162 — REOPENED 2026-08-18: the SheetRegistry dismissal rested on a
+  reporter that never ran, and running it finds THREE real ones.** (was CLOSED
+  2026-08-17, four standing boot warnings triaged)
+
+⛔⛔ **"✔ DISMISSED — no character id collides" was measured from a silence that
+meant "I did not run".** `report_shadowed_character_sheets` owns the
+catalog-aware half — the crate's own comment says the sheet crate *"cannot make
+this call and must not learn to"* — and it is a `Startup` system.
+**`init_sheet_registry` is ALSO a `Startup` system, and Startup is UNORDERED**, so
+it ran with `Res<SheetRegistry>` absent, took the `else { return; }` on its
+`Option`, and printed nothing on every route. Instrumented to emit one line per
+shadowed target it printed **ZERO on both `mary_o_gameplay` and
+`ambition_gameplay`** while the registry logged 39 shadowed targets in the same
+boot.
+
+⇒ moved to `PostStartup`. ⚠ **and "the catalog knows this name" turned out not to
+be the question either** — of the 39, `toon` (15) is not a catalog id but
+`robot` (15), `goblin` (8) and `sandbag` (1) all ARE, because those names are
+shared RIG adapters that happen to also name a character. That filter would have
+reported 24 legitimate rig shares as defects.
+
+⭐⭐ **THE HARMFUL CASE IS THAT THE CHARACTER'S OWN SHEET LOST** — which is
+exactly the founding defect (`pirate_heavy_broadside_bess` loaded the right image
+and cropped it with a stale manifest's grid, a day and a bisect). Asked that way,
+against `ShadowedTarget::loser_image`, **three survive and every one is real:**
+
+```text
+robot     robot_spritesheet.png      256x256  LOSES to robot_archivist        230x256
+goblin    goblin_spritesheet.png     239x253  LOSES to goblin_brute_hammer    232x256
+sandbag   sandbag_spritesheet.png    128x128  LOSES to sandbag_armored_review 256x256
+```
+
+⛔⛔ **AND THE HARM IS NOT DEMONSTRATED — I nearly wrote that it was.** The
+obvious next sentence is *"so v0 the robot crops with the archivist's grid"*, and
+it is WRONG: `record_for_target`, which `posed_body_geometry` and the animation
+path use, is backed by `record_index()`, and that index keys by **filename root**
+— it even overwrites `record.target` with the file root. **The character geometry
+road cannot collide.** What collides is the target-keyed `SheetRegistry`
+RESOURCE, and its four consumers resolve slash, shrine, projectile and boss
+sheets:
+
+```text
+bosses/sync.rs          registry.body_metrics(<boss target>)
+slash_visuals.rs        registry.get(<slash sheet>)
+shrine_visuals.rs       registry.get("shrine")
+projectile_visuals.rs   sheets.get(<projectile target>)
+```
+
+⇒ **so: three real collisions, in a registry whose readers do not appear to
+resolve those three names.** ▢ what is left is (a) retire the stale manifest in
+each pair — a content call the registry cannot make — and (b) decide whether the
+target-keyed resource should key by file root like its static twin, which would
+make the whole class impossible rather than reportable.
+⚠ **the sandbag pair is the loudest if anything ever does resolve it**: a 128px
+sheet cropped on a 256px grid.
+
+⭐⭐ **two reusable halves, and the second is the one I nearly skipped**: *a
+report that has never been seen to speak has not been shown to be silent* — and
+*a real collision is not a real defect until you name the reader.*
+
+- ◻ **D162's original triage of the other three stands (2026-08-17).**
 
 ```text
 SheetRegistry "39 targets"   ✔ DISMISSED — 166 targets, 4 geometry collisions,

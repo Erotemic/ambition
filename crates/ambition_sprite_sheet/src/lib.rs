@@ -731,12 +731,34 @@ impl SheetRegistry {
         //
         // ⇒ so: one summary here, the detail on [`Self::shadowed_targets`], and
         // the catalog-aware filter is a separate slice that consumes it.
+        //
+        // ✔✔ **THAT SLICE EXISTS NOW, AND THIS LINE IS NO LONGER THE ALARM.**
+        // `report_shadowed_character_sheets` (in `ambition_app`) reads
+        // `shadowed_targets()` against the character catalog and warns only when
+        // a shadowed target is a character id — the case that cost a day. It is
+        // registered on `Startup`, and it is silent, because **no character id
+        // currently collides** (D162: 166 targets, 4 geometry collisions, every
+        // one a shared rig).
+        //
+        // ⛔⛔ **so this summary was shouting on EVERY boot about a condition a
+        // better-informed reader had already cleared** — *"39 target(s) claimed
+        // twice"* on a line that then explains it is probably fine. A warning
+        // that ends by talking you out of itself is training people to skim the
+        // channel, which is what the D36 note above was trying to prevent.
+        //
+        // ⚠ **DEBUG, not deleted, and not narrowed.** Every fact stays in the
+        // message; only the volume changes — the level split this repo's own
+        // doorway-diagnostic lesson landed on. A composition with no catalog
+        // (a headless tool, a demo mounting no cast) still gets the whole list
+        // one log level away, which is exactly the *"say nothing rather than
+        // report every rig target as suspicious"* policy the consumer states.
         if !registry.shadowed.is_empty() {
-            warn!(
+            debug!(
                 "SheetRegistry: {} target(s) claimed twice with different frame \
                  geometry — a shared RIG target (`toon`, `robot`, `goblin`) is \
-                 legitimate and harmless, but a CHARACTER id here means the \
-                 survivor crops with the wrong grid. First: {}. Full list: \
+                 legitimate and harmless, and a CHARACTER id here is the harmful \
+                 case, which `report_shadowed_character_sheets` warns about \
+                 against the catalog. First: {}. Full list: \
                  `SheetRegistry::shadowed_targets()`.",
                 registry.shadowed.len(),
                 registry.shadowed[0],

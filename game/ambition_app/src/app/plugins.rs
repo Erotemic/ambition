@@ -430,7 +430,17 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // grid, and reports the count once; deciding which of those MATTER needs to
     // know which targets something resolves art by, and that is a catalog fact.
     // This is the caller that owns both, so the filter lives here.
-    app.add_systems(bevy::prelude::Startup, report_shadowed_character_sheets);
+    // ⛔⛔ **`PostStartup`, and `Startup` was a CHECK THAT COULD NOT FIRE.**
+    // `init_sheet_registry` is itself a `Startup` system, and Startup systems
+    // are UNORDERED — so this ran with `Res<SheetRegistry>` absent, took the
+    // `else { return; }` on its `Option`, and said nothing on every route.
+    // Measured: instrumented to print one line per shadowed target, it printed
+    // ZERO on both `mary_o_gameplay` and `ambition_gameplay` while the registry
+    // itself was logging 39 shadowed targets in the same boot.
+    // ⚠ its silence therefore meant "I did not run", and read as "nothing
+    // collides" — which is what a report that can only ever be empty always
+    // reads as.
+    app.add_systems(bevy::prelude::PostStartup, report_shadowed_character_sheets);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     // No UI-widget-framework plugin is installed here, and there is no
@@ -947,7 +957,34 @@ fn report_shadowed_character_sheets(
         return;
     };
     for shadowed in registry.shadowed_targets() {
-        if catalog.get(&shadowed.target).is_some() {
+        // Is this target one a CHARACTER resolves art by? A rig name like
+        // `toon` is not, and is dropped here.
+        let Some(entry) = catalog.get(&shadowed.target) else {
+            continue;
+        };
+        // ⛔⛔ **and "the catalog knows this name" is NOT enough** — measured
+        // 2026-08-18, once this system was ordered late enough to run at all.
+        // Of the 39 shadowed targets, `toon` (15) is not a catalog id, but
+        // `robot` (15), `goblin` (8) and `sandbag` (1) ALL are: those names are
+        // shared RIG adapters that happen to also name a character. Warning on
+        // "the catalog knows it" would have reported 24 legitimate rig shares
+        // as defects, which is the noise this filter exists to remove.
+        //
+        // ⭐ **the harmful case is that the character's OWN sheet LOST.** The
+        // founding defect — `pirate_heavy_broadside_bess`, a day and a bisect —
+        // was her image loading and being cropped by a stale manifest's grid.
+        // That is exactly "the record this character names is the loser", and
+        // it is a question the pair (catalog entry, ShadowedTarget) can answer.
+        let names_the_loser = std::path::Path::new(&entry.spritesheet)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| {
+                std::path::Path::new(&shadowed.loser_image)
+                    .file_name()
+                    .and_then(|loser| loser.to_str())
+                    == Some(name)
+            });
+        if names_the_loser {
             bevy::log::warn!("SheetRegistry: {shadowed}");
         }
     }

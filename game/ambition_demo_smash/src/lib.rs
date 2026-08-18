@@ -491,9 +491,31 @@ where
     roster.published_by(SMASH_EXPERIENCE)
 }
 
-pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {
+/// Horizontal spread between adjacent respawn points, in stage pixels.
+///
+/// Two 32px tiles — wider than a standing body, so two fighters returning on the
+/// same frame land clear of each other rather than inside one another. ⭐ derived
+/// against [`PLATFORM_WIDTH`]: seat `n` sits at most `(n/2 + 0.5)` spacings from
+/// the centre, so even eight seats stay within ±224px of a 480px platform.
+const RESPAWN_SEAT_SPACING_PX: f32 = 64.0;
+
+/// **Where a fighter comes back, and it is not where its opponent comes back.**
+///
+/// ⛔⛔ **this took no seat at all**, so every fighter respawned on one point:
+/// two knockouts on the same frame put both bodies inside each other over the
+/// centre of the stage, at the exact moment neither has information or options.
+/// (D128 defect 3.)
+///
+/// ⭐ **seats alternate outward from the centre** — 0 left, 1 right, 2 further
+/// left, 3 further right — so the arrangement is symmetric at any roster size
+/// and no seat is privileged. An offset that simply grew with the index would
+/// push seat 3 twice as far out as seat 1 for no reason a player could read.
+pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
+    // 0,1 → half a spacing out; 2,3 → one and a half; and so on.
+    let rank = (seat / 2) as f32 + 0.5;
+    let side = if seat % 2 == 0 { -1.0 } else { 1.0 };
     Vec2::new(
-        stage_centre.x,
+        stage_centre.x + side * rank * RESPAWN_SEAT_SPACING_PX,
         // Toward the sky. The stage's own down is the gravity the room authored;
         // this demo is screen-down like every other platform fighter, and a
         // gravity-flipped stocks stage is a thing the ENGINE would have to
@@ -940,6 +962,10 @@ fn place_respawning_fighters(
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
         &mut ambition_platformer2d::actors::features::MotionModel,
+        // ⭐ the SEAT, so two fighters returning on one frame do not land inside
+        // each other. `Option` because a body without one is not a seated
+        // fighter, and this system must not stop placing it.
+        Option<&ambition_platformer2d::actor::MatchSeat>,
     )>,
 ) {
     for event in spent.read() {
@@ -949,9 +975,12 @@ fn place_respawning_fighters(
         if event.eliminated {
             continue;
         }
-        let Ok((clusters, mut model)) = bodies.get_mut(event.body) else {
+        let Ok((clusters, mut model, seat)) = bodies.get_mut(event.body) else {
             continue;
         };
+        // A body with no seat falls back to seat 0's point — the same place it
+        // used to get, so an unseated body is no worse off than before.
+        let seat = seat.map_or(0, |seat| seat.0);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
         // Velocity is zeroed by the reset itself, which is what a fighter that
@@ -960,7 +989,7 @@ fn place_respawning_fighters(
         ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
-            respawn_placement(stage_centre()),
+            respawn_placement(stage_centre(), seat),
             // This demo's fighters run the engine's default air game; a stage
             // that tuned it would pass its own number here, which is the point
             // of the parameter.
@@ -2645,13 +2674,70 @@ mod tests {
         );
     }
 
+    /// **Two fighters do not come back to the same point.**
+    ///
+    /// ⛔⛔ **they did** — `respawn_placement` took no seat, so a double knockout
+    /// put both bodies over the centre of the stage inside one another, at the
+    /// exact moment neither has information or options (D128 defect 3).
+    ///
+    /// ⭐ the arrangement is symmetric about the centre and stays ON the
+    /// platform, which is the pair of properties that makes it a placement
+    /// rather than an offset: an eight-seat roster is still a fair start.
+    #[test]
+    fn every_seat_comes_back_to_its_own_point_on_the_platform() {
+        let centre = stage_centre();
+        let seats: Vec<Vec2> = (0..8).map(|seat| respawn_placement(centre, seat)).collect();
+
+        for (a, first) in seats.iter().enumerate() {
+            for second in seats.iter().skip(a + 1) {
+                assert!(
+                    (first.x - second.x).abs() >= RESPAWN_SEAT_SPACING_PX - 0.01,
+                    "two seats respawn within {RESPAWN_SEAT_SPACING_PX}px of each \
+                     other, which is narrower than a standing body: {first:?} vs {second:?}"
+                );
+            }
+        }
+
+        // Symmetric about the centre: seat 0 and seat 1 straddle it evenly, so
+        // no seat is handed the better return.
+        assert!(
+            ((seats[0].x - centre.x) + (seats[1].x - centre.x)).abs() < 0.01,
+            "the first two seats are not symmetric about the stage centre"
+        );
+
+        // ⚠ and every one of them is still over the platform, not past its lip —
+        // an offset that grew without bound would respawn seat 7 into the blast
+        // zone, which is a worse bug than the overlap it fixed.
+        let half = PLATFORM_WIDTH / 2.0;
+        for (seat, at) in seats.iter().enumerate() {
+            assert!(
+                (at.x - centre.x).abs() < half,
+                "seat {seat} respawns {:.0}px from centre, past the {half:.0}px platform edge",
+                (at.x - centre.x).abs()
+            );
+            assert!(
+                at.y < centre.y,
+                "seat {seat} respawns at or below the stage"
+            );
+        }
+    }
+
     /// **A respawn is ABOVE the stage, not on it.** A fighter that comes back on
     /// the floor comes back inside the opponent who just knocked it off.
+    ///
+    /// ⚠ this asserted `respawn.x == centre.x` until 2026-08-18, which was the
+    /// SEAT-INDEPENDENCE defect stated as an invariant — every fighter returning
+    /// to one point is exactly what D128 defect 3 was. The height is this test's
+    /// subject; the column belongs to
+    /// `every_seat_comes_back_to_its_own_point_on_the_platform`.
     #[test]
     fn a_respawn_is_above_the_stage_centre() {
         let centre = Vec2::new(400.0, 300.0);
-        let respawn = respawn_placement(centre);
-        assert_eq!(respawn.x, centre.x);
+        let respawn = respawn_placement(centre, 0);
+        assert!(
+            (respawn.x - centre.x).abs() <= RESPAWN_SEAT_SPACING_PX,
+            "a respawn is within a seat spacing of the centre, not off across the stage"
+        );
         assert!(
             respawn.y < centre.y,
             "the respawn is at or below the stage floor, so a returning fighter \
@@ -2726,7 +2812,7 @@ mod tests {
     fn a_respawn_lands_over_the_platform() {
         let room = smash_stage();
         let platform = room.world.blocks[0].aabb;
-        let respawn = respawn_placement(stage_centre());
+        let respawn = respawn_placement(stage_centre(), 0);
         assert!(
             respawn.x >= platform.left() && respawn.x <= platform.right(),
             "a respawning fighter is dropped past the edge of the platform it is \

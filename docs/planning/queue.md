@@ -5437,8 +5437,23 @@ their status, and do not re-run the capture or the ladder rig to get it:**
                             seat; three downstream sites threw it away (room
                             clamp, stable_center, 8 Hz ease). Guarded by
                             `every_live_fighter_stays_inside_the_frame`.
-3 both seats respawn at    ▢ OPEN — `respawn_placement(stage_centre())` is still
-  ONE overlapping point       seat-independent. An offset by seat index + a test.
+3 both seats respawn at    ✔ CLOSED 2026-08-18 — `respawn_placement` takes the
+  ONE overlapping point       SEAT. Seats alternate outward from the centre
+                              (0 left, 1 right, 2 further left…), so the
+                              arrangement is symmetric at any roster size and no
+                              seat is privileged; a growing offset would push
+                              seat 3 twice as far out as seat 1 for no reason a
+                              player could read. Guarded by
+                              `every_seat_comes_back_to_its_own_point_on_the_platform`,
+                              which pins three properties — no two within a body
+                              width, symmetric about the centre, and every seat
+                              still ON the platform (an unbounded offset would
+                              respawn seat 7 into the blast zone, a worse bug
+                              than the overlap). ⚠ and the existing
+                              `a_respawn_is_above_the_stage_centre` asserted
+                              `respawn.x == centre.x` — the defect stated as an
+                              invariant — so that clause was corrected rather
+                              than deleted; the height is that test's subject.
 4 winner card names a SEAT ✔ CLOSED by D140/D148 — the card reads
                             `WINNER: Robot v3`, and a team keeps its team name.
 5 barks draw as a          ◐ the OVERLAP half closed via D158→D159 (a bubble is

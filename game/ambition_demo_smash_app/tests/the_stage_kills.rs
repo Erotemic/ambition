@@ -290,7 +290,8 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
     // that respawns at its blast position is outside the stage and falls again.
     {
         use ambition_platformer2d::actor::BodyKinematics;
-        let respawn = ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre());
+        let respawn =
+            ambition_demo_smash::respawn_placement(ambition_demo_smash::stage_centre(), 0);
         let pos = app
             .world()
             .get::<BodyKinematics>(launched)

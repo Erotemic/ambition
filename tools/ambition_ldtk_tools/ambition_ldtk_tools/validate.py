@@ -586,6 +586,65 @@ def game_entity_manifest_for(path: Path) -> Path:
     return path.with_suffix("").with_name(path.stem + GAME_ENTITY_MANIFEST_SUFFIX)
 
 
+#: Where games mount their world files. Small and known, so the search below is
+#: bounded rather than a walk of the tree.
+GAME_ASSET_WORLD_GLOB = "game/*/assets/worlds"
+
+
+def game_entity_manifest_candidates(path: Path) -> list[Path]:
+    """Every place `path`'s sidecar manifest could legitimately live.
+
+    ⛔⛔ **THE WORLD FILES ARE SYMLINKS, AND THE SIDECAR SITS BESIDE THE LINK.**
+    `game/<demo>/assets/worlds/mary_o.ldtk` is a symlink into
+    `game/ambition_map_assets/`, and `mary_o.entities.json` sits beside the
+    LINK — because the manifest belongs to the GAME that mounts the world, not
+    to the shared asset repository that stores it.
+
+    ⇒ so validating the real path found no manifest and reported **26 perfectly
+    good entities as unknown**, while validating the symlink passed. Same file,
+    same content, opposite verdict, and nothing said why. Searching both is what
+    makes the answer depend on the world rather than on which spelling of its
+    path you happened to type.
+    """
+
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    def offer(candidate: Path) -> None:
+        if candidate.exists():
+            resolved = candidate.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                candidates.append(candidate)
+
+    offer(game_entity_manifest_for(path))
+
+    # Then beside any game-mounted symlink that resolves to this same file.
+    try:
+        target = path.resolve()
+    except OSError:
+        return candidates
+    for root in _repo_roots(path):
+        for worlds_dir in root.glob(GAME_ASSET_WORLD_GLOB):
+            link = worlds_dir / path.name
+            try:
+                if link.is_symlink() and link.resolve() == target:
+                    offer(game_entity_manifest_for(link))
+            except OSError:
+                continue
+    return candidates
+
+
+def _repo_roots(path: Path) -> list[Path]:
+    """Ancestors of `path` that look like the repository root."""
+
+    roots = []
+    for parent in path.resolve().parents:
+        if (parent / "game").is_dir() and (parent / "crates").is_dir():
+            roots.append(parent)
+    return roots
+
+
 def read_game_entity_manifest(manifest_path: Path) -> tuple[set[str], list[str]]:
     """Identifiers a game declares its own converters handle, and any errors.
 
@@ -654,9 +713,7 @@ def validate(
     supported_entities = set(KNOWN_ENTITIES)
     manifests = list(game_entity_manifests or [])
     if not manifests:
-        sidecar = game_entity_manifest_for(path)
-        if sidecar.exists():
-            manifests.append(sidecar)
+        manifests.extend(game_entity_manifest_candidates(path))
     for manifest_path in manifests:
         if not manifest_path.exists():
             errors.append(f"game entity manifest {manifest_path} does not exist")
@@ -674,8 +731,16 @@ def validate(
     # secondary targets (would require importing the full per-level
     # bounds + solid set from the secondary file); secondary-bound
     # zones get a single existence check instead.
+    # ⭐⭐ `None` means DISCOVER; an explicit `[]` means "validate this file
+    # truly alone". Every entry point — `validate`, `repair`, and the write-side
+    # `repair_and_validate` that every `entity`/`level` edit runs — reaches this
+    # one line, which is why the default lives here and not in one CLI's
+    # argument parsing. It was in the parser first, and `repair` walked straight
+    # past it and failed the write.
+    if secondary_worlds is None:
+        secondary_worlds = sibling_worlds(path)
     secondary_index: dict[str, set[str]] = defaultdict(set)
-    for secondary_path in secondary_worlds or []:
+    for secondary_path in secondary_worlds:
         if not secondary_path.exists():
             warnings.append(
                 f"secondary world {secondary_path} does not exist; skipping"
@@ -1254,6 +1319,40 @@ def _check_intro_authoring_hygiene(project, warnings):
     warnings.extend(issue.message for issue in authoring_hygiene_issues(project))
 
 
+def sibling_worlds(path: Path) -> list[Path]:
+    """The other `.ldtk` files beside `path` — the set the runtime merges.
+
+    ⭐⭐ **why this is a DEFAULT and not a flag nobody remembers.** A
+    `LoadingZone` may name a room that lives in another world file; the runtime
+    merges those (`merge_secondary_worlds`) so the target resolves at play time.
+    A validator handed ONE file cannot see them, so it reported four perfectly
+    good doors as *"targets unknown room/activeArea"* — and those four errors
+    were the whole of this validator's error output, which taught everyone to
+    read a red exit as noise. ⛔ a check that is always wrong is worse than no
+    check: it also blocked `entity set-field`, whose write goes through this
+    validate pass.
+
+    ⚠ **the runtime's real authority is the WORLD MANIFEST**
+    (`ambition_content::worlds::world_manifest`), which is Rust and cannot be
+    read from here. Siblings are the proxy, and today it is exact — the manifest
+    lists precisely the four files in `assets/worlds`. ⇒ **if they ever
+    diverge**, a world present on disk but absent from the manifest would let a
+    target pass here that the runtime would not resolve. That is the failure to
+    watch for; `--no-sibling-worlds` reports cross-world targets again.
+    """
+
+    try:
+        directory = path.resolve().parent
+    except OSError:
+        return []
+    here = path.resolve()
+    return sorted(
+        candidate
+        for candidate in directory.glob("*.ldtk")
+        if candidate.resolve() != here
+    )
+
+
 def validate_issues(
     path: Path,
     schema_path: Path | None = None,
@@ -1324,7 +1423,16 @@ def main(argv=None):
             "Additional .ldtk source files whose levels the runtime merges on top of `path` "
             "(see ldtk_world/loading.rs::SECONDARY_WORLD_FILES). The validator uses these to "
             "resolve cross-file LoadingZone target_room references without false-positiving. "
-            "May be passed multiple times."
+            "May be passed multiple times. Defaults to the sibling .ldtk files beside PATH; "
+            "pass --no-sibling-worlds to validate PATH truly alone."
+        ),
+    )
+    parser.add_argument(
+        "--no-sibling-worlds",
+        action="store_true",
+        help=(
+            "Do not auto-discover sibling .ldtk files as secondary worlds. Use when you mean "
+            "to validate one file in isolation and want cross-world targets reported."
         ),
     )
     parser.add_argument(
@@ -1370,11 +1478,17 @@ def main(argv=None):
                 file=sys.stderr,
             )
             return 1
+    if args.secondary_world:
+        secondary: list[Path] | None = list(args.secondary_world)
+    elif args.no_sibling_worlds:
+        secondary = []
+    else:
+        secondary = None  # discovered below the API, so every caller agrees
     issues = validate_issues(
         args.path,
         args.schema,
         args.require_schema,
-        secondary_worlds=args.secondary_world,
+        secondary_worlds=secondary,
         game_entity_manifests=args.game_entities,
     )
     if args.format == "json":

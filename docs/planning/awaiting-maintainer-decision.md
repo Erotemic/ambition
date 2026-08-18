@@ -89,37 +89,6 @@ Choose one:
 
 This is feel, not missing engineering evidence.
 
-### 14. Two things the one-brick rescale forced, both wanting your eye
-
-Both fell out of the rig refactor and are recorded rather than guessed at,
-because each trades against something you tuned by looking at her.
-
-**a. The shared collision width went 64 px → 56 px.** Your ruling is one width
-for every form (*"we keep the width of collision the same for big and small"*),
-and the sheet's own guard wants the box narrower than the drawing so she never
-collides on her hat or her sleeves. Those two together are decided by the
-NARROWEST form, and the one-brick short form's whole drawing is **60 px** wide —
-so the old 64 collided on empty air beside her. 56 clears her and still hugs the
-grown torso (~62 px).
-
-⚠ **the cost is that the grown form's box narrowed too**, which is the price of
-the identical-width rule. The alternative is widening the short form's ART to
-~68 px, and her width is exactly what you tuned by eye, so it is your call.
-
-**b. Her one-brick box has 6 px of empty air above her hat.** (Her world size
-is settled: `SMALL_FORM_HEIGHT = T`, one tile small and two grown, whole suite
-green — the "level-wide rescale" this was blocked on was a unit error, not
-content. This is only about the 6 px inside her own sheet.) The box top is set
-by the height contract (small is one brick, grown is two, so short height ×2 =
-grown height exactly), not measured off the art. MEASURED: grown form 0 px of
-headroom, fire form −14 px (its flame frills clear the box on purpose), short
-form **+6 px**. So she is drawn very slightly shorter than one brick and will
-bump a ceiling with the air over her head.
-
-⇒ closing it means either raising her crown ~6 px — which moves the 40/40/20
-head/body/legs split you specified — or accepting the 6 px. The test bounds it at
-8 px so it cannot quietly grow while you decide.
-
 ### 2. Advance the measurement-submodule pointer?
 
 `dev/ambition_dev_measurements` contains useful committed measurement history.
@@ -261,6 +230,37 @@ choosing to leave the stage), and it blocks ladder calibration entirely. The
 question for you is priority: is CPU quality on the path to what Smash is for,
 or is it acceptable that CPUs are currently sparring partners that suicide?
 Detail in [`engine/fighter-brain.md`](engine/fighter-brain.md).
+
+### 14. Two things the one-brick rescale forced, both wanting your eye
+
+Both fell out of the rig refactor and are recorded rather than guessed at,
+because each trades against something you tuned by looking at her.
+
+**a. The shared collision width went 64 px → 56 px.** Your ruling is one width
+for every form (*"we keep the width of collision the same for big and small"*),
+and the sheet's own guard wants the box narrower than the drawing so she never
+collides on her hat or her sleeves. Those two together are decided by the
+NARROWEST form, and the one-brick short form's whole drawing is **60 px** wide —
+so the old 64 collided on empty air beside her. 56 clears her and still hugs the
+grown torso (~62 px).
+
+⚠ **the cost is that the grown form's box narrowed too**, which is the price of
+the identical-width rule. The alternative is widening the short form's ART to
+~68 px, and her width is exactly what you tuned by eye, so it is your call.
+
+**b. Her one-brick box has 6 px of empty air above her hat.** (Her world size
+is settled: `SMALL_FORM_HEIGHT = T`, one tile small and two grown, whole suite
+green — the "level-wide rescale" this was blocked on was a unit error, not
+content. This is only about the 6 px inside her own sheet.) The box top is set
+by the height contract (small is one brick, grown is two, so short height ×2 =
+grown height exactly), not measured off the art. MEASURED: grown form 0 px of
+headroom, fire form −14 px (its flame frills clear the box on purpose), short
+form **+6 px**. So she is drawn very slightly shorter than one brick and will
+bump a ceiling with the air over her head.
+
+⇒ closing it means either raising her crown ~6 px — which moves the 40/40/20
+head/body/legs split you specified — or accepting the 6 px. The test bounds it at
+8 px so it cannot quietly grow while you decide.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

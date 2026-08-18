@@ -129,6 +129,16 @@ jobs:
         # It also fails when a crate produces NO rustdoc output, because zero
         # warnings from a build that did not happen is not a score.
         run: python scripts/check_doc_link_ratchet.py --check
+      - name: loading-zone name ratchet
+        # ⛔ A `LoadingZone`'s `name` is RENDERED TO THE PLAYER, and 130 of 151
+        # were authoring ids — so the flagship's opening room greeted a player
+        # with `wake_room_arrival` under the robot (ledger D161). Nothing could
+        # fail for it: the string is content, not code.
+        #
+        # ⚠ a RATCHET, per world, so the developer sandbox's remaining 102
+        # cannot mask a rise in a shipped one. It also fails when it observes NO
+        # zones at all, because a moved directory reads as a perfect score.
+        run: python scripts/check_zone_name_ratchet.py --check
 
   agent-kb-check:
     name: agent knowledge-base check

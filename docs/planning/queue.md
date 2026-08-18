@@ -1260,9 +1260,30 @@ every `spawn_overlap` warning the project was carrying was a rider on its mount.
 still warn, so the exemption keys on the reference rather than on the coincidence
 it exists to catch.
 
-▢ **still open:** resolve `LoadingZone` targets across worlds or suppress them
-with a written reason (4 cross-world, plus 26 that only appear when validating
-the raw `map_assets` copy instead of the canonical symlinked path).
+✔ **AND THE 30 ERRORS ARE 0, 2026-08-18 — RESOLVED, NOT SUPPRESSED.** Both
+causes were the validator being handed less than the runtime has:
+
+```text
+4 cross-world targets   the runtime MERGES sibling worlds; a validator given one
+                        file cannot see them ⇒ secondary worlds now DEFAULT to the
+                        siblings beside the file (`--no-sibling-worlds` opts out)
+26 unknown entities     `mary_o.entities.json` sits beside the SYMLINK in the game's
+                        assets dir, not beside the real file in `map_assets` ⇒ the
+                        sidecar search now looks in both, so the verdict depends on
+                        the world and not on which spelling of its path you typed
+```
+
+⛔⛔ **the default belongs in the LIBRARY, not a CLI parser — it was in the
+parser first and `repair` walked straight past it**, so a `entity set-field`
+write still failed on the errors it was meant to clear. Every entry point
+(`validate`, `repair`, the write-side `repair_and_validate`) reaches one line.
+
+⭐ **both terms measured, because a check that always passes is the failure mode
+here**: `--no-sibling-worlds` still reports the cross-world targets, and hiding
+the sidecar still produces all 26. ⚠ the world MANIFEST is the runtime's real
+authority and is Rust, so siblings are a proxy — exact today (the manifest lists
+precisely the four files in `assets/worlds`), and if they diverge a world on disk
+but absent from the manifest would pass here and fail at load.
 
 - ✔ **D162 — CLOSED 2026-08-17. Four standing boot warnings, all triaged.**
 
@@ -1371,6 +1392,29 @@ fall, must not rise) rather than a gate that is red on day one.
 manufactures prose the author never wrote, and `wake_to_raid` has no good
 rendering. ⚠ and drawing nothing when the name looks like an id is a REGRESSION
 for the doors that legitimately want a label; the answer is to author them.
+
+✔✔ **AUTHORED 2026-08-18 — every player-facing world is clean; 130 → 102, and
+all 102 that remain are `sandbox.ldtk`.** The 28 in `intro`, `hall_of_characters`
+and `you_have_to_cut_the_rope` now follow the convention the sandbox's own author
+already used 21 times: **`"to <destination>"`, named from the zone's own
+`target_room`** — an authored fact, not the id with its underscores removed.
+⭐ sandbox keeps its ids deliberately: it is a developer level, where a
+diagnostic name is the useful one.
+
+✔ **the ratchet is `scripts/check_zone_name_ratchet.py`** (baseline
+`dev/zone_name_ratchet_baseline.json`), PER WORLD so the sandbox's 102 cannot
+mask a rise in a shipped one, and it FAILS when it observes nothing at all.
+⛔⛔ it dedupes by real path — the same doubling that first published this
+population as 302/260/38 is one naive `glob` away, because every world under
+`game/*/assets/worlds/` is a symlink into `game/ambition_map_assets/`.
+
+⚠ **and one thing the row had wrong, found by looking:** the correct
+`→ corridor` in that same frame is a **DebugLabel**, not a zone name. So the
+opening room's real problem is partly DUPLICATION — the room already carries
+authored signage — and naming the zone "to raid corridor" sits beside it rather
+than replacing it. ▢ whether a non-Door zone should draw an unconditional world
+label AT ALL (19 of them do) is the design question left; it is no longer an
+id-on-screen question.
 
 ⛔ **AND A SECOND FINDING I WITHDREW — recorded because the withdrawal is the
 lesson.** I first wrote that the clipped `wake_to…` at the top-right proved a

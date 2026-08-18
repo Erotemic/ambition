@@ -175,6 +175,15 @@ A straightforward assertion does not need to be deliberately broken merely to
 prove that assertions can fail. Add a non-vacuity control when vacuity is a
 realistic failure mode.
 
+⛔⛔ **AND THERE IS A THRESHOLD, because "when vacuity is realistic" was being
+read as "always".** Jon, 2026-08-18, verbatim: *"minimize poison tests unless you
+have less than 60% certainty. if it's probably right, don't waste the cycles a
+vacuous false negative is not costly."* ⇒ **if you are confident the guard bites,
+write it and move on.** Poisoning a test you already believe in buys a number for
+a commit message and costs a build cycle; a test that turns out vacuous is a cheap
+mistake, caught the next time the code moves under it. Reserve the poison for the
+cases where you genuinely cannot predict whether the assertion can fail.
+
 ## Living-plan writing
 
 Write the current model first. Preserve durable rationale, acceptance criteria,

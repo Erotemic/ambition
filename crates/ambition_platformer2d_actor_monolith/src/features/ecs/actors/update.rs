@@ -1548,7 +1548,100 @@ pub(super) fn attack_kit_of(
             });
         }
     }
+    // **AND THE GRAB**, which the three loops above cannot reach: it answers its
+    // own button, not a direction on one of theirs.
+    if let Some(grab) = capture_candidate(moveset, grounded) {
+        kit.push(grab);
+    }
     kit
+}
+
+/// **The authored GRAB, priced as an option like any other technique.**
+///
+/// ⛔⛔ **nothing here reads a character id, a role, or a hand-written distance,
+/// and that is the requirement rather than a nicety.** A grab's reach is the
+/// rect its own capture attempt sustains; what landing it is worth is the throw
+/// the same fighter authored to follow it. A CPU that knew "George grabs at
+/// 44px" would be a CPU that stops working the day George is retuned, and a
+/// second fighter would need a second constant.
+///
+/// Three things the ordinary derivation cannot supply, because a grab lands no
+/// hit volume and `frame_data` reads volumes:
+///
+/// ```text
+/// coverage / reach   the capture ATTEMPT's rect — where this grab can catch
+/// max_damage         the FORWARD THROW's damage — what catching is worth
+/// ignores_guard      true; the shield is not the answer to a grab
+/// ```
+///
+/// ⚠ **a fighter with no authored grab yields nothing**, and its kit is exactly
+/// what it was. A fighter with a grab and no forward throw yields a grab worth
+/// zero damage, which prices honestly: catching somebody it cannot throw is not
+/// worth much.
+fn capture_candidate(
+    moveset: &crate::combat::moveset::ActorMoveset,
+    grounded: bool,
+) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::fighter::options::{
+        AttackBinding, AttackCandidate, AttackVerb,
+    };
+    use ambition_characters::smash_capture::{
+        CaptureAttemptParams, CaptureThrowParams, CAPTURE_ATTEMPT, CAPTURE_THROW,
+    };
+
+    let spec = moveset.0.move_for_directional_verb(
+        ambition_entity_catalog::GRAB_VERB,
+        AttackDir::Neutral,
+        grounded,
+    )?;
+    // The attempt SUSTAINS across the Active window, so it rides `sustain_effect`
+    // rather than the event list — see `author_standing_grab`.
+    let attempt: CaptureAttemptParams = spec
+        .windows
+        .iter()
+        .filter_map(|window| window.sustain_effect.as_ref())
+        .find(|effect| effect.key == CAPTURE_ATTEMPT)
+        .and_then(|effect| effect.params.hydrate().ok())?;
+    // The throw fires at an INSTANT, so it rides the event list.
+    let throw_damage = moveset
+        .0
+        .move_for_verb(ambition_entity_catalog::CAPTURE_THROW_FORWARD_VERB)
+        .and_then(|throw| {
+            throw.events.iter().find_map(|event| {
+                let ambition_entity_catalog::MoveEventKind::Effect(effect) = &event.kind else {
+                    return None;
+                };
+                (effect.key == CAPTURE_THROW)
+                    .then(|| effect.params.hydrate::<CaptureThrowParams>().ok())
+                    .flatten()
+            })
+        })
+        .map(|throw: CaptureThrowParams| throw.damage)
+        .unwrap_or(0);
+
+    let mut frames = spec.frame_data();
+    frames.coverage = Some(ambition_entity_catalog::MoveCoverage {
+        min: (
+            attempt.offset.0 - attempt.half_extents.0,
+            attempt.offset.1 - attempt.half_extents.1,
+        ),
+        max: (
+            attempt.offset.0 + attempt.half_extents.0,
+            attempt.offset.1 + attempt.half_extents.1,
+        ),
+    });
+    frames.reach = attempt.offset.0 + attempt.half_extents.0;
+    frames.max_damage = throw_damage;
+    frames.ignores_guard = true;
+    Some(AttackCandidate {
+        move_id: spec.id.clone(),
+        frames,
+        binding: AttackBinding {
+            verb: AttackVerb::Grab,
+            direction: AttackDir::Neutral,
+        },
+    })
 }
 
 /// Build a `BrainSnapshot` for an enemy actor's per-tick brain call.

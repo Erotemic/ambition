@@ -214,6 +214,12 @@ pub enum AttackVerb {
     Smash,
     /// The special button (`"special"` and its directional variants).
     Special,
+    /// The GRAB button (`"grab"`).
+    ///
+    /// ⚠ **no directional variants, and a CENTRED stick.** A grab is a button,
+    /// not a stick gesture — a deflection beside it would arm a flick the next
+    /// ordinary attack would inherit as an accidental smash.
+    Grab,
 }
 
 /// One attack the caller's kit offers. The caller resolves these from the body's

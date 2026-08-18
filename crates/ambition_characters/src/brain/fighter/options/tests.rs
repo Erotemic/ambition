@@ -17,6 +17,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         recovery_s,
         cancel_windows: Vec::new(),
         reach,
+        ignores_guard: false,
         // ⚠ **the fixture's move is a FORWARD POKE, and now it says so.** `reach`
         // is only the `+x` face of the authored volumes, so a fixture that set it
         // alone described a move with no hittable region at all once the scorer

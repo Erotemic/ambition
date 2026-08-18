@@ -26,19 +26,19 @@
 
 use super::update::attack_kit_of;
 
-use ambition_characters::actor::ActorFaction;
 use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
+use ambition_characters::actor::ActorFaction;
 use ambition_characters::brain::fighter::{FighterBrainProfile, FighterCfg, FighterState};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
 use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_combat::moveset::{ActorMoveset, MovePlayback};
-use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
     WindowTag,
 };
+use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 use std::collections::BTreeMap;
 
@@ -49,6 +49,12 @@ use std::collections::BTreeMap;
 /// better answer to a gap. Startup and duration are held equal across the two so
 /// nothing but reach separates them.
 fn strike(id: &str, reach_offset: f32) -> MoveSpec {
+    strike_hitting_for(id, reach_offset, 5)
+}
+
+/// [`strike`], with the damage stated — for a fixture that needs an attack
+/// somebody would actually rather land than a grab.
+fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
     MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -68,7 +74,7 @@ fn strike(id: &str, reach_offset: f32) -> MoveSpec {
                     offset: (reach_offset, 0.0),
                     half_extents: (6.0, 12.0),
                 },
-                damage: 5,
+                damage,
                 knockback: 0.0,
                 knockback_growth: 0.0,
                 launch_dir: None,
@@ -137,6 +143,64 @@ fn scene(gap: f32) -> WorldView {
     }
 }
 
+/// A body with a stubby jab and an AUTHORED GRAB — a real one, built through the
+/// same helpers a character's own file uses, so the kit reads the same shape a
+/// fighter really publishes.
+///
+/// ⚠ **the jab out-damages the throw** (14 against 11), which is the genre's own
+/// arrangement and the only one that asks a real question. A fixture whose only
+/// attack was weaker than the grab's payoff would have the fighter grab always,
+/// and that is a property of the fixture rather than of the scorer — measured
+/// 2026-08-18 before this fixture was fair.
+fn jab_and_grab() -> MovesetContract {
+    use ambition_characters::smash_capture::{
+        author_standing_grab, author_throw, capture_beat, grab_shell, CaptureAttemptParams,
+        CaptureThrowParams,
+    };
+    let grab = author_standing_grab(
+        // ⚠ **George's real numbers.** A grab is SLOW and its whiff is long; a
+        // fixture that gave it a jab's startup would be asking whether the
+        // scorer prefers a strictly better move, which is not a question.
+        grab_shell("grab", "grab", 0.16, 0.06, 0.30),
+        CaptureAttemptParams {
+            offset: (20.0, 0.0),
+            half_extents: (24.0, 13.0),
+            hold_offset: (20.0, -2.0),
+        },
+    );
+    let throw = author_throw(
+        capture_beat("fthrow", "throw", 0.30),
+        0.18,
+        CaptureThrowParams {
+            damage: 11,
+            knockback: 130.0,
+            knockback_growth: 2.0,
+            launch_dir: (1.0, -0.35),
+        },
+    );
+    MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "jab".to_string()),
+            (
+                ambition_entity_catalog::GRAB_VERB.to_string(),
+                "grab".to_string(),
+            ),
+            (
+                ambition_entity_catalog::CAPTURE_THROW_FORWARD_VERB.to_string(),
+                "fthrow".to_string(),
+            ),
+        ]),
+        moves: vec![strike_hitting_for("jab", 22.0, 14), grab, throw],
+    }
+}
+
+/// [`scene`], with the foe's guard up or down.
+fn scene_guarding(gap: f32, guarding: bool) -> WorldView {
+    let mut view = scene(gap);
+    view.actors[0].shield_raised = guarding;
+    view
+}
+
 /// Run the real decision until it emits an attack edge, and return that frame.
 ///
 /// The brain deliberately does not press on the tick it decides — a committed
@@ -162,16 +226,24 @@ fn frame_when_the_fighter_attacks(
             Some(view),
             &mut frame,
         );
-        if frame.melee_pressed || frame.special_pressed {
+        if frame.melee_pressed || frame.special_pressed || frame.grab_pressed {
             return frame;
         }
     }
-    panic!("the fighter never attacked a hostile foe inside its reach in 240 ticks");
+    panic!("the fighter never acted on a hostile foe inside its reach in 240 ticks");
 }
 
 /// Put the emitted frame on a real body and let the production systems resolve
 /// it, returning the move the body ends up playing.
 fn move_played_for(frame: ambition_characters::actor::control::ActorControlFrame) -> String {
+    move_played_for_moveset(frame, jab_and_uptilt())
+}
+
+/// [`move_played_for`], for a body carrying `moveset`.
+fn move_played_for_moveset(
+    frame: ambition_characters::actor::control::ActorControlFrame,
+    moveset: MovesetContract,
+) -> String {
     let mut app = App::new();
     app.add_systems(
         Update,
@@ -185,7 +257,7 @@ fn move_played_for(frame: ambition_characters::actor::control::ActorControlFrame
         .world_mut()
         .spawn((
             ActorControl(frame),
-            ActorMoveset(jab_and_uptilt()),
+            ActorMoveset(moveset),
             AttackGestureState::default(),
             AttackGestureTuning::default(),
             ResolvedAttackGesture::default(),
@@ -205,7 +277,7 @@ fn move_played_for(frame: ambition_characters::actor::control::ActorControlFrame
     app.world()
         .get::<MovePlayback>(body)
         .map(|playback| playback.spec.id.clone())
-        .expect("a melee edge on a body with a moveset starts a move")
+        .expect("an attack or grab edge on a body with a moveset starts a move")
 }
 
 /// **The kit is what the body can press, and every entry can be pressed.**
@@ -291,5 +363,138 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
         move_played_for(frame),
         "jab",
         "at jab range the scored move is the jab, and the direction must not be invented"
+    );
+}
+
+/// **⭐ THE GRAB ENTERS THE KIT FROM ITS OWN AUTHORED DATA.**
+///
+/// A CPU could not choose a grab at all: the kit enumerated the three attack
+/// buttons, and a grab answers its own. Everything the scorer needs about one
+/// has to come from the authored capture itself, because `frame_data` derives
+/// reach, coverage and power from HIT VOLUMES and a grab lands none.
+///
+/// ⛔ **no character id, no role, no hand-written distance.** A CPU that knew
+/// "George grabs at 44px" would stop working the day George is retuned, and a
+/// second fighter would need a second constant.
+#[test]
+fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
+    let moveset = ActorMoveset(jab_and_grab());
+    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
+    let grab = kit
+        .iter()
+        .find(|candidate| candidate.move_id == "grab")
+        .expect("the kit offers no grab, so no CPU could ever choose one");
+    let coverage = grab
+        .frames
+        .coverage
+        .expect("a grab with no coverage cannot be scored against a distance");
+    assert_eq!(
+        (coverage.min, coverage.max),
+        ((-4.0, -13.0), (44.0, 13.0)),
+        "the grab's reach is not the rect its own capture attempt sustains"
+    );
+    assert_eq!(
+        grab.frames.max_damage, 11,
+        "the grab is priced at zero, so catching somebody is worth nothing — \
+         what it is worth is the throw this fighter authored to follow it"
+    );
+    assert!(
+        grab.frames.ignores_guard,
+        "the planner still thinks a shield stops a grab"
+    );
+    assert_eq!(
+        grab.binding.verb,
+        ambition_characters::brain::fighter::options::AttackVerb::Grab,
+        "the grab is bound to some other button"
+    );
+}
+
+/// **⭐⭐ THE THIRD LEG OF THE TRIANGLE, IN THE PLANNER.**
+///
+/// Attack beats grab, grab beats shield, shield beats attack. Measured through
+/// the real option scorer and the real rollout, with the fighter's read of its
+/// opponent as the only thing that changes:
+///
+/// ```text
+/// reads SHIELD   → grab   (the one answer a guard has no answer to)
+/// reads ATTACK   → jab    (14 damage now beats a throw's 11 later)
+/// ```
+///
+/// ⚠⚠ **THREE THINGS ABOUT THIS FIXTURE ARE LOAD-BEARING, and each was measured
+/// wrong first.**
+///
+/// * **the gap is one BOTH moves reach.** At 30px the jab's shadow whiffs
+///   (reach 28) and the grab wins for a reason that has nothing to do with
+///   guards — a fixture that read as "the CPU answers a shield" while measuring
+///   "the CPU uses the move that reaches".
+/// * **the jab out-damages the throw.** With a 5-damage jab against an
+///   11-damage throw the grab wins everywhere, which is a property of the
+///   fixture and not of the scorer. George's real kit has moves above his
+///   throw, so this is the genre's own arrangement.
+/// * **the shield lives in the ROLLOUT, not in the option score.** The option
+///   features are identical for a guarding and an open opponent by design, so
+///   an assertion at that layer cannot see this at all.
+#[test]
+fn a_read_that_says_guard_is_answered_with_the_grab_and_otherwise_is_not() {
+    use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
+    use ambition_characters::brain::fighter::options::generate_options;
+    use ambition_characters::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
+    use ambition_characters::brain::fighter::situation::classify;
+    use ambition_characters::brain::fighter::FighterBrainProfile;
+
+    // Close enough that BOTH the jab and the grab reach. See the doc.
+    const GAP: f32 = 20.0;
+    let moveset = ActorMoveset(jab_and_grab());
+    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
+    let profile = FighterBrainProfile::for_level(8);
+
+    for (read, expected) in [(Choice::Shield, "grab"), (Choice::Attack, "jab")] {
+        let mut delayed = ambition_characters::perception::DelayedPerception::default();
+        delayed.observe(scene_guarding(GAP, read == Choice::Shield));
+        let perceived = delayed.perceive().expect("the fixture published a view");
+        let situation = classify(perceived);
+        let options = generate_options(perceived, situation, &kit, &profile.utility_weights);
+        // What this fighter has learned its opponent does here. The shadow's
+        // foe acts on it, which is the only way a guard ever exists to answer.
+        let mut habits = HabitModel::default();
+        for _ in 0..20 {
+            habits.observe(situation, read);
+        }
+        let refined = refine_by_rollout(
+            perceived,
+            situation,
+            &options,
+            &habits,
+            &profile,
+            &ShadowTuning::default(),
+            60.0,
+            6,
+            None,
+        )
+        .expect("a level-8 fighter rolls out");
+        assert_eq!(
+            refined.move_id.as_deref(),
+            Some(expected),
+            "reading {read:?} from its opponent, the fighter chose \
+             {:?} rather than {expected}",
+            refined.move_id
+        );
+    }
+}
+
+/// The grab the CPU chose is the grab the BODY plays — the same seam
+/// `the_scored_move_is_the_move_the_body_plays` pins for an attack, asked of the
+/// button that had no path at all until now.
+#[test]
+fn the_chosen_grab_is_the_move_the_body_plays() {
+    let moveset = ActorMoveset(jab_and_grab());
+    let kit = attack_kit_of(Some(&moveset), true, Some(&fighter_brain()));
+    let mut brain = fighter_brain();
+    let frame = frame_when_the_fighter_attacks(&mut brain, kit, &scene_guarding(30.0, true));
+    assert!(frame.grab_pressed, "the fixture did not reach a grab press");
+    assert_eq!(
+        move_played_for_moveset(frame, jab_and_grab()),
+        "grab",
+        "the CPU pressed Grab and the body swung something else"
     );
 }

@@ -1135,6 +1135,11 @@ impl MoveSpec {
             recovery_s,
             cancel_windows,
             reach,
+            // ⚠ **a derivation cannot answer this one.** A capture is recognised
+            // by its effect KEY, which belongs to the ruleset that authors it,
+            // not to this catalog — so the layer that builds a fighter's option
+            // kit sets it and nothing here guesses.
+            ignores_guard: false,
             coverage,
             max_damage,
             max_knockback,
@@ -1243,6 +1248,17 @@ pub struct MoveFrameData {
     /// one is what made every vertical move in every kit look like a short poke —
     /// see [`MoveCoverage`].
     pub reach: f32,
+    /// **A guard does not stop this move.**
+    ///
+    /// ⭐ derived by nobody and set by the caller that knows: a hit volume is
+    /// blockable and a CAPTURE is not, and only the layer that recognises a
+    /// capture effect can say which this is. Default `false`, so every ordinary
+    /// move keeps the answer it always had.
+    ///
+    /// ⚠ genre-neutral on purpose. Unblockables, command grabs and armour
+    /// breaks are the same fact to a planner: *the shield is not the answer to
+    /// this one*.
+    pub ignores_guard: bool,
     /// **The region this move can hit**, body-local, `None` when it lands no
     /// Active volume at all (a buff, a summon, a pure-motion recovery).
     ///

@@ -19,6 +19,7 @@ fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> Mo
         recovery_s: 0.2,
         cancel_windows: Vec::new(),
         reach,
+        ignores_guard: false,
         // A forward poke of that length — the shape these fixtures mean.
         coverage: (reach > 0.0).then(|| ambition_entity_catalog::MoveCoverage {
             min: (0.0, -12.0),

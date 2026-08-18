@@ -995,11 +995,16 @@ fn my_move_lands(
     if !in_reach || !overlapping {
         return None;
     }
-    if foe.shield_raised && foe.on_ground {
+    if foe.shield_raised && foe.on_ground && !frames.ignores_guard {
         // Blocked: the swing is spent (mark via damage 0 — caller still marks
         // landed), no damage, no launch.
         return Some(0);
     }
+    // ⭐ **and a GRAB is the exception, which is the third leg of the triangle
+    // showing up in the planner.** Attack beats grab, grab beats shield, shield
+    // beats attack. While every option was priced as blocked, a shielding
+    // opponent made the whole kit worth zero and the CPU picked by tie-break —
+    // so the one answer the genre has to a guard was the one it could not see.
     Some(frames.max_damage)
 }
 

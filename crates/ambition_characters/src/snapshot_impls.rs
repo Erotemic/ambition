@@ -420,6 +420,7 @@ impl SnapshotCursor for crate::brain::Brain {
                                 crate::brain::fighter::options::AttackVerb::Basic => 0,
                                 crate::brain::fighter::options::AttackVerb::Smash => 1,
                                 crate::brain::fighter::options::AttackVerb::Special => 2,
+                                crate::brain::fighter::options::AttackVerb::Grab => 3,
                             },
                         );
                         put_u8(out, attack_dir_tag(pending.binding.direction));

@@ -789,6 +789,10 @@ fn aim_the_stick(
     // is the partial deflection a tilt/aerial is made of.
     let push = match binding.verb {
         AttackVerb::Smash => 1.0,
+        // A grab takes no stick at all: its only direction is Neutral, so this
+        // multiplies a zero. Stated rather than folded into the arm below,
+        // because "a grab is aimed like a tilt" would be a false sentence.
+        AttackVerb::Grab => 0.0,
         // ⚠ a SPECIAL has no tilt/smash distinction — `move_for_directional_verb`
         // only needs the direction to clear the deadzone — but it takes the same
         // partial deflection so that a special press can never leave a flick
@@ -825,6 +829,12 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
         }
         AttackVerb::Special => {
             frame.special_pressed = true;
+        }
+        AttackVerb::Grab => {
+            // The same edge a person's Grab button writes. Everything
+            // downstream — the authored grab move, eligibility, arbitration,
+            // the relationship — reads one answer.
+            frame.grab_pressed = true;
         }
     }
 }

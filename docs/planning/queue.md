@@ -343,40 +343,40 @@ after    both                         → actor::step_body(.., combat, tuning, c
 compute wrongly, and one of them did for months; passing `&BodyCombat` means the
 rule is asked, not remembered.
 
-✔✔ **AND THE THREE `decay_reaction_timers` CALLS NOW AGREE ON A CLOCK
-(2026-08-18) — which is what that fold actually was.** They iterate different
-populations in different phases, so merging the SYSTEMS would have been a god
-function; what they were forking on was the time domain:
+⛔⛔ **THE "FOLD THE THREE `decay_reaction_timers` CALLS" ITEM IS REFUSED WITH
+CAUSE — 2026-08-18, and the refusal cost seven boss tests to establish.** They
+iterate different populations in different phases, so merging the SYSTEMS would
+build a god function; what they fork on is the CLOCK, and that fork is correct:
 
 ```text
-before   actor tick    world_time.sim_dt()   scaled — slows with bullet-time
-         boss tick     world_time.sim_dt()   scaled
-         controlled    time.delta_secs()     RAW — the one body that would not slow
-after    all three     the sim clock
+actor tick    world_time.sim_dt()   scaled — slows with bullet-time
+boss tick     world_time.sim_dt()   scaled
+controlled    time.delta_secs()     RAW — and this is DELIBERATE
 ```
 
-⛔⛔ **AND ITS `Res<Time>` WAIVER CLAIMED THE OPPOSITE WAS ALREADY TRUE** —
-*"the reaction timers still compute their own scaled dt manually"* — while the
-file contained **no scaling of any kind**. ⇒ **a waiver that describes a
-protection the code does not have is worse than no waiver**, because it is
-exactly what stops the next reader from checking. The waiver now says what is
-true: the double-tap gesture windows are real-time by design (slowing the world
-must not widen a double-tap) and the reaction timers take `sim_dt`.
+⭐⭐ **because HITSTOP IS A `sim_clock` REQUESTER.** A connect asks the sim clock
+down, so decaying `hitstop_timer` on `sim_dt()` slows the timer that ENDS the
+freeze by the freeze itself, and stretches the i-frame and hitstun windows
+measured against the same scale. ⇒ i-frames are a promise to the player in REAL
+seconds; a bullet-time moment must not hand out longer invulnerability, which is
+the same reason the double-tap windows are unscaled.
 
-⚠ **nothing changes today, and that is why it survived**: `ClockState::time_scale`
-has no production writer, so `sim_dt == raw` on every shipping path and no
-behavioural test could have failed. ⇒ guarded instead by
-`every_reaction_timer_decay_names_the_sim_clock`, which **walks the crate for
-call sites rather than listing them** — a fourth population is covered the day it
-is written — and checks a bare `dt` for PROVENANCE, since accepting it on its
-name would let `let dt = time.delta_secs()` back in. Falsified: reverting the one
-line fails it, naming file and line.
+⛔⛔ **AND THE `Res<Time>` WAIVER SAID SOMETHING FALSE, WHICH IS HOW THIS
+HAPPENED.** It claimed *"the reaction timers still compute their own scaled dt
+manually"* — no such scaling exists or should. I read the false sentence, checked
+the code, and "corrected" the code to match a rule the sentence implied.
+`boss_contact_iframes`, `boss_lifecycle` and `boss_motion_parity` refuted it
+within one run. ⇒ ⭐ **a false justification does not mean the decision under it
+is false**, and consolidating a fork nobody explained is how a deliberate one
+gets undone. The waiver now carries the real reason, and
+`the_reaction_timer_clock_forks_on_purpose` pins BOTH sides — a fork guarded on
+one side only drifts back.
 
 ⭐ **verified NOT a determinism defect on the way**, which was the first
 suspicion: `BodyCombat` is rollback-registered and this decay runs in the sim
 schedule, but production pins `TimeUpdateStrategy::ManualDuration` to the sim
 tick whenever rollback participants exist, so the raw delta was deterministic —
-wrong clock, not a desync.
+a different clock, not a desync.
 ⭐ **placement was decided by reading the destination's contract, not by
 convenience** — `ambition_characters` says its job is *"the same brain +
 control-frame contract drives players, NPCs, enemies, and bosses"*, and
@@ -1262,6 +1262,39 @@ segments     polygon resolution, default 8, minimum 2
    the wrong road; it is also a product call whether to invite authors into a
    capability that has gone unused since it was written. Fix with the tool's own
    `ambition-ldtk def register-entity`, not by hand.
+
+   ⛔⛔ **AND THAT REASONING COVERS ONLY `SurfaceRamp` — MEASURED 2026-08-18, the
+   warning names EIGHT entities and the other seven are a different problem
+   entirely.** They are defined AND placed in four of the six worlds:
+
+```text
+entity           placed   defined in
+GravityZone          10   hall_of_characters · sandbox · sanic_speedway · mary_o
+GroundItem           16   ″
+Portal               14   ″
+PortalGunSpawn        3   ″
+ShrineSpawn           1   ″
+SurfaceChain          4   ″
+SurfaceLoop           1   ″
+SurfaceRamp           0   — nowhere
+```
+
+```text
+world                          defs   missing
+hall_of_characters / sandbox     33   SurfaceRamp only
+mary_o                           35   SurfaceRamp only
+sanic_speedway                   33   SurfaceRamp only
+intro.ldtk                       26   ALL EIGHT   ← the flagship
+you_have_to_cut_the_rope.ldtk    26   ALL EIGHT
+```
+
+⇒ **an author working in the FLAGSHIP world cannot place a Portal, a
+`GravityZone` or a `GroundItem`** — supported, converted, and used next door in
+`sandbox`. That is not a product call about an unused capability; it is two
+files out of step with four. ⭐ the spec is a copy of what `sandbox` already
+declares, so this is a reconciliation (`def upsert-entity`), not a design.
+⚠ `SurfaceRamp` stays out: 0 placements anywhere, so the row's original
+reasoning applies to it and only it.
 
 ⇒ **the row is the instrument, not the content.** A validator whose errors are
 100% noise and whose loudest warning flags a designed relationship is worse than

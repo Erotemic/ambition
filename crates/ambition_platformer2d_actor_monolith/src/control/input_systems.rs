@@ -38,7 +38,6 @@ pub struct InputTimersAdvanced;
 /// `GameMode::Playing`. Writes `fast_fall_pressed` back to `Res<ControlFrame>`.
 pub fn input_timer_system(
     time: Res<Time>,
-    world_time: Res<ambition_time::WorldTime>,
     feel_tuning: Res<crate::time::feel::Platformer2dFeelTuningMonolith>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     frames: Query<&crate::physics::ResolvedMotionFrame>,
@@ -69,25 +68,28 @@ pub fn input_timer_system(
     // every player body, so a co-op or clone body that took a hit no longer keeps
     // its damage blink lit forever.
     //
-    // ⭐⭐ **AND ON THE SIM CLOCK, which is what the other two populations
-    // already use** (D117). The actor and boss ticks pass `world_time.sim_dt()`;
-    // this site passed the raw frame delta, so the controlled body was the one
-    // population whose i-frames, hitstun, recoil lock, hitstop and landing lag
-    // would ignore bullet-time.
+    // ⛔⛔ **THE RAW FRAME DELTA HERE IS DELIBERATE, AND MOVING IT TO THE SIM
+    // CLOCK BREAKS SEVEN BOSS TESTS — measured 2026-08-18, D117.**
     //
-    // ⛔⛔ **the `Res<Time>` waiver for this file CLAIMED this was already
-    // handled** — *"the reaction timers still compute their own scaled dt
-    // manually"* — and the file contained no scaling of any kind. A waiver that
-    // describes a protection the code does not have is worse than none: it is
-    // exactly what stops the next reader from checking.
+    // The actor and boss ticks pass `world_time.sim_dt()`, and this site looks
+    // like the odd one out. It is not. **Hitstop is a `sim_clock` requester** —
+    // a connect asks `RequestedClockScale.sim_clock` down, and `scaled_dt =
+    // raw_dt × time_scale` follows. So decaying `hitstop_timer` on `sim_dt()`
+    // slows the timer that ENDS the freeze by the freeze itself, and the same
+    // scale stretches the i-frame and hitstun windows measured against it.
     //
-    // ⚠ no behaviour changes today, and that is why it was invisible:
-    // `ClockState::time_scale` has no production writer, so `sim_dt == raw` in
-    // every shipping path. This is the difference landing before the scale does.
-    // ⭐ the GESTURE windows below deliberately keep the raw delta — a
-    // double-tap is a real-time act, and slowing the world must not widen it.
+    // ⭐ i-frames are a promise to the PLAYER in real seconds — a bullet-time
+    // moment must not hand out longer invulnerability — which is the same
+    // reason the double-tap windows below are unscaled.
+    //
+    // ⚠ **what WAS wrong is the waiver, not the clock.** The `Res<Time>`
+    // allowlist entry for this file claimed *"the reaction timers still compute
+    // their own scaled dt manually"*, and no such scaling exists or should. A
+    // waiver that describes a protection the code does not have is what stops
+    // the next reader from checking — and it is why this was "fixed" once,
+    // against seven passing tests, before the reason was written down.
     for mut combat in &mut home_feel_q {
-        combat.decay_reaction_timers(world_time.sim_dt());
+        combat.decay_reaction_timers(frame_dt);
     }
     let interaction = slot_gestures.primary_mut();
     // Fast-fall = double-tap local-down for the controlled body. Raw cardinal

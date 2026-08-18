@@ -5,20 +5,26 @@ use super::*;
 use crate::avatar::components::PlayerSlot;
 use ambition_time::ProperTimeScale;
 
-/// **Every body's reaction timers decay on the SIM clock — discovered, not listed.**
+/// **The reaction-timer clock forks on purpose, and each side is pinned.**
 ///
-/// ⛔⛔ **the controlled body was the odd one out and nothing could see it.** The
-/// actor and boss ticks passed `world_time.sim_dt()`; `input_timer_system` passed
-/// the raw frame delta, so a player's i-frames, hitstun, recoil lock, hitstop and
-/// landing lag would have been the one population that ignored bullet-time. It
-/// survived review because `ClockState::time_scale` has no production writer —
-/// `sim_dt == raw` in every shipping path, so no behavioural test could fail.
+/// ⛔⛔ **I "fixed" this fork and it cost seven boss tests.** The actor and boss
+/// ticks decay on `world_time.sim_dt()`; the CONTROLLED body decays on the raw
+/// frame delta, which reads as the one population that would ignore bullet-time
+/// — so I moved it onto the sim clock. `boss_contact_iframes`,
+/// `boss_lifecycle` and `boss_motion_parity` went red immediately, and they were
+/// right: **hitstop is a `sim_clock` requester.** A connect asks the sim clock
+/// down, so decaying `hitstop_timer` on `sim_dt()` slows the timer that ENDS
+/// the freeze by the freeze itself, and stretches the i-frame and hitstun
+/// windows measured against the same scale.
 ///
-/// ⭐ **so the guard is on the CLOCK EACH CALL SITE NAMES**, and it finds the
-/// sites by walking the crate rather than naming them: a fourth population added
-/// later is covered the day it is written, which a hand-listed chain would not be.
+/// ⭐ **i-frames are a promise in REAL seconds** — a bullet-time moment must not
+/// hand out longer invulnerability — the same reason the double-tap gesture
+/// windows are unscaled.
+///
+/// ⇒ so this pins BOTH sides, because a fork with only one side guarded drifts
+/// back. It finds its subjects by walking the crate rather than listing them.
 #[test]
-fn every_reaction_timer_decay_names_the_sim_clock() {
+fn the_reaction_timer_clock_forks_on_purpose() {
     fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
@@ -37,14 +43,18 @@ fn every_reaction_timer_decay_names_the_sim_clock() {
     let mut files = Vec::new();
     walk(&src, &mut files);
 
-    let mut sites = 0usize;
-    let mut wrong = Vec::new();
+    // The one site that decays on the UNSCALED clock, and why.
+    const CONTROLLED: &str = "control/input_systems.rs";
+
+    let mut scaled = Vec::new();
+    let mut unscaled = Vec::new();
     for path in &files {
         let rel = path
             .strip_prefix(&src)
             .ok()
             .and_then(|p| p.to_str())
-            .unwrap_or("<non-utf8>");
+            .unwrap_or("<non-utf8>")
+            .to_string();
         if rel.ends_with("tests.rs") || rel.contains("/tests/") {
             continue;
         }
@@ -56,39 +66,39 @@ fn every_reaction_timer_decay_names_the_sim_clock() {
             if trimmed.starts_with("//") || trimmed.starts_with("*") {
                 continue;
             }
-            let Some(rest) = line.split_once(".decay_reaction_timers(") else {
+            let Some((_, arg)) = line.split_once(".decay_reaction_timers(") else {
                 continue;
             };
-            sites += 1;
-            let arg = rest.1;
-            // The sim clock, however this site spells it: passed straight in as
-            // `world_time.sim_dt()`, or a local already bound from it.
-            //
-            // ⚠ **a bare `dt` is checked for PROVENANCE, not accepted on its
-            // name** — otherwise `let dt = time.delta_secs()` two lines up would
-            // satisfy this guard while reintroducing exactly the bug it exists
-            // to catch.
-            let names_sim_clock = arg.contains("sim_dt")
+            // A bare `dt` counts as the sim clock only if the file BINDS it from
+            // there — accepting it on its name would let `let dt =
+            // time.delta_secs()` satisfy this while reintroducing the fork.
+            let sim = arg.contains("sim_dt")
                 || (arg.starts_with("dt)") && contents.contains("let dt = world_time.sim_dt()"));
-            if !names_sim_clock {
-                wrong.push(format!(
-                    "{rel}:{}: decays on `{}`",
-                    lineno + 1,
-                    arg.trim_end_matches(");")
-                ));
+            let site = format!("{rel}:{}", lineno + 1);
+            if sim {
+                scaled.push(site);
+            } else {
+                unscaled.push(site);
             }
         }
     }
 
     assert!(
-        sites >= 3,
-        "expected at least the controlled/actor/boss decay sites; found {sites} —          the scan is broken, not the code"
+        scaled.len() >= 2,
+        "expected the actor and boss decays to use the sim clock; found {scaled:?} —          the scan is broken, not the code"
     );
     assert!(
-        wrong.is_empty(),
-        "these reaction-timer decays do not name the sim clock, so their bodies \
-         would ignore bullet-time while every other body slowed:\n  {}",
-        wrong.join("\n  ")
+        unscaled.iter().all(|s| s.starts_with(CONTROLLED)),
+        "a body outside the controlled road decays reaction timers on an UNSCALED \
+         clock, so it will not slow with bullet-time: {unscaled:?}"
+    );
+    assert!(
+        unscaled.iter().any(|s| s.starts_with(CONTROLLED)),
+        "the CONTROLLED body's reaction timers moved onto the sim clock. That looks \
+         like a consolidation and is not: hitstop is a sim_clock requester, so \
+         `hitstop_timer` would then be slowed by the very freeze it ends, and the \
+         i-frame window would stretch with it. Seven boss tests fail on this. See \
+         the note beside the call in {CONTROLLED}."
     );
 }
 
@@ -479,23 +489,32 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
-        // ⛔⛔ **THIS JUSTIFICATION WAS FALSE AND THAT IS THE LESSON.** It read
-        // *"the reaction timers still compute their own scaled dt manually"*,
-        // and the file contained no scaling of any kind — the controlled body's
-        // i-frames, hitstun, recoil lock, hitstop and landing lag decayed on the
-        // raw frame delta while the actor and boss populations used
-        // `world_time.sim_dt()`. A waiver that claims a protection the code does
-        // not have is worse than no waiver: it is precisely what stops the next
-        // reader from looking. Fixed 2026-08-18 (D117) — that call now takes
-        // `sim_dt()`, so the sentence below is true rather than aspirational.
+        // ⛔⛔ **THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
+        // SEVEN BOSS TESTS.** It read *"the reaction timers still compute their
+        // own scaled dt manually"*, and the file contains no scaling — so the
+        // obvious repair was to move the decay onto `world_time.sim_dt()` like
+        // the actor and boss ticks. `boss_contact_iframes`, `boss_lifecycle`
+        // and `boss_motion_parity` went red at once, and they were right:
+        // **hitstop is a `sim_clock` requester**, so `hitstop_timer` would be
+        // slowed by the freeze it exists to end, and the i-frame and hitstun
+        // windows would stretch with it.
         //
-        // ⭐ what legitimately remains on the raw clock here: the DOUBLE-TAP
-        // gesture windows (a double-tap is a real-time act; slowing the world
-        // must not widen it) and the presentation flash, which is meant to run
-        // while paused.
+        // ⇒ the CLOCK was always right and only the SENTENCE was wrong. That is
+        // the trap worth remembering: a false justification does not mean the
+        // decision under it is false, and "consolidating" a fork nobody
+        // explained is how a deliberate one gets undone.
+        //
+        // ⭐ what is on the raw clock here, and why: reaction timers (i-frames
+        // are a promise in REAL seconds — bullet-time must not hand out longer
+        // invulnerability), the double-tap gesture windows (slowing the world
+        // must not widen a double-tap), and the presentation flash, which is
+        // meant to run while paused. Pinned by
+        // `the_reaction_timer_clock_forks_on_purpose`.
         (
             "control/input_systems.rs",
-            "double-tap gesture windows + presentation flash are real-time by design;              reaction timers use WorldTime::sim_dt",
+            "reaction timers, double-tap windows and the presentation flash are all \
+             REAL-time by design; hitstop scales the sim clock, so a timer that ends \
+             hitstop cannot be measured on it",
         ),
         // Hot reload polls disk in wall-clock cadence.
         (

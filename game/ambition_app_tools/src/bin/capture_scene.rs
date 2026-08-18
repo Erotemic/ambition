@@ -36,6 +36,24 @@
 //! are grid cells, and the grid re-flows when the host's roster changes size
 //! OR ORDER. The role buttons, tokens and START do not depend on the roster at
 //! all.
+//!
+//! ⭐ **RE-DERIVE THEM BY PHOTOGRAPHING THE SCREEN**, which is cheaper than
+//! reading the roster: `--route smash_select --warmup 120 --include-ui` with NO
+//! presses draws the whole grid with its names. Measured 2026-08-18, 1280x720:
+//!
+//! ```text
+//!            x=425          x=532        x=640        x=747       x=855
+//!   y=120    Player Robot   George       Mary-O       Sanic       Pirate
+//!            v3             Booul                                 Admiral
+//!   y=243    Shadow Oni     Alice        Bob          Oiler       Perfect Cellular
+//!            Leader                                               Automaton
+//!   y=367    Goblin         Emmy         Carl         Patent      RANDOM
+//!                           Ethereal     Stargan      Clerk
+//! ```
+//!
+//! ⇒ so seating a DIFFERENT pair is one coordinate each, and a recipe that has
+//! rotted announces itself as a match that never starts rather than as a wrong
+//! fighter.
 //! `smash_in_the_host::the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters`
 //! drives exactly these numbers through the real host and fails when one stops
 //! landing on the widget it names.

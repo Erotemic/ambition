@@ -5476,31 +5476,38 @@ their status, and do not re-run the capture or the ladder rig to get it:**
                               ⇒ scale + placement, as the row said; the bubbles
                               no longer OVERLAP each other, they overlap the
                               GAME.
-6 untextured olive quad    ▢ **NOT REPRODUCED 2026-08-18 — two fresh captures,
-                              and the roster is the difference.** The report is
-                              *"beside Player Robot v3"*; the documented tap
-                              recipe seats **George Booul vs the Pirate
-                              Admiral**, and at warmup 300 and 420 there is no
-                              body-sized uniform quad at all — frame 300 holds
-                              2,910 non-blue non-grey pixels in the WHOLE image,
-                              861 of them the salmon HUD text.
-                              ⭐ the only untextured-looking thing is a 54x42
-                              cluster of green squares at `(126,205,154)` beside
-                              George — which matches NO `feature_color` constant
-                              (nearest is pickup MINT at distance 64) and reads
-                              as the Boolean ghost's own authored effect.
+6 untextured olive quad    ▢ **NOT REPRODUCED — three frames, BOTH rosters,
+                              2026-08-18.** Captured George Booul vs Pirate
+                              Admiral (warmup 300, 420) and then **Player Robot
+                              v3 vs Pirate Admiral**, the roster the report
+                              names. A systematic scan — every 40x40 window at
+                              20px stride, flagging any that is >95% one colour
+                              — finds **nothing but the two background hill
+                              tones** `(13,21,35)` and `(9,13,26)` in either
+                              match frame. No body-sized uniform quad exists.
+                              ⭐ the only green is fragments: 54x42 of
+                              `(126,205,154)` in one frame, a single 9x2 of
+                              `(66,108,87)` in the other — and they appear in a
+                              match WITHOUT George Booul, so they are not his.
                               ⛔ **and the suspect the row named is wrong
-                              regardless**: that fallback is a FEATURE path whose
-                              whole colour table is hazard RED, actor BLUE/red,
-                              breakable BROWN, chest AMBER, pickup MINT, switch
-                              RED — no olive — while the only `from_color` in
-                              `fx.rs` is a 3.5–5px grey-blue DUST particle.
-                              ⇒ **reproduce it on the ROBOT v3 roster or close
-                              it**; it may already have been fixed since
-                              2026-08-16, and two days of "suspect the effect
-                              path" was a hypothesis nobody had photographed.
-7 VFX authored against no  ▢ OPEN — the Admiral's wheel is ~250px vs a ~45px
-  size reference              fighter.
+                              regardless**: that fallback is a FEATURE path
+                              whose whole colour table is hazard RED, actor
+                              BLUE/red, breakable BROWN, chest AMBER, pickup
+                              MINT, switch RED — no olive — while the only
+                              `from_color` in `fx.rs` is a 3.5–5px grey-blue
+                              DUST particle.
+                              ⇒ **close it or re-report it with a frame.** It
+                              was real when seen; it is not there now, and two
+                              days of "suspect the effect path" was a hypothesis
+                              nobody had photographed.
+7 VFX authored against no  ▢ OPEN, and NOT reproduced either — 2026-08-18's
+  size reference              frames caught no wheel. The only large VFX in them
+                              is a **60x87** yellow ring around the Admiral at
+                              0%/2%, which is proportionate to a ~45px fighter
+                              and is plausibly the spawn/`Empowered` indicator
+                              rather than the wheel. ⇒ the ~250px measurement
+                              needs a frame DURING the attack; warmups 300 and
+                              420 do not land on one.
 8 capture_scene prints no  ✔ CLOSED 2026-08-18, VERIFIED LIVE on a real
   pose for a 2-CPU match      two-CPU match: `seat 0 at (350.4803, 276.0000)` /
                               `seat 1 at (233.9185, 276.0000)`, where it printed

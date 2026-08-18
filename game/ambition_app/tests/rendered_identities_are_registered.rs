@@ -59,6 +59,15 @@ fn target_dir() -> PathBuf {
 /// scanner and not of the targets: the snakes were readable the whole time, and
 /// the ratchet was pinning the reader's blind spot rather than the authors'
 /// cleverness. `carl_runga` and `martin_cutta` left for the same reason.
+///
+/// ⚠ **IF THIS SAYS 8 AND NAMES `mary_o_v2_svg_poc`, THE HAND-CHECK IS ALREADY
+/// DONE — 2026-08-18.** That target is an uncommitted proof of concept living in
+/// the renderer worktree, and its own module docstring states what it is: *"this
+/// target intentionally coexists with `mary_o_v2`… so the editable SVG + rigid
+/// bone workflow can be judged without changing game-facing Mary-O output"*. Its
+/// character is `mary_o_v2`, which HAS a row. ⇒ raise this to 8 **in the same
+/// commit that lands the POC**, or leave both out; raising it while the POC is
+/// still untracked turns CI red, because a fresh checkout has seven.
 const COMPUTED_ID_TARGETS: usize = 7;
 
 /// Every `character_id` VALUE spelled out in one target's source, in file order.

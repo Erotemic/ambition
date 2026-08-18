@@ -4841,6 +4841,42 @@ which is the deadlock its author declined. It warns rather than raises because 5
 trip it and a fatal check would stop everyone regenerating anything until the
 roster is redrawn; whoever fixes the art can make it fatal. Seven tests.
 
+⭐⭐ **A THIRD CRITERION, MEASURED 2026-08-18, AND IT SETTLES CUT-vs-RESTING
+WITHOUT A HEURISTIC AT ALL: draw the same painter into a TALLER CANVAS and see
+whether ink appears past the boundary.** Denominator-free like the taper test,
+but it does not infer — it observes the pixels that were being thrown away.
+Cheap, because the painter is a function and the canvas size is its argument.
+
+⛔ **the taper test is right about Mary-O's walk and WRONG about her idle**, so
+"is this sheet clipped" is not even a per-sheet question:
+
+```text
+small idle    lowest ink 32.00u of 32   0 px past the edge   RESTING — flat soles on the floor
+small walk#0  lowest ink 33.00u         78 px past the edge  CUT
+grown walk#0  lowest ink 32.83u        115 px past the edge  CUT
+```
+
+⇒ flat shoe soles on a bottom-anchored frame arrive at the boundary at full
+width and never taper, so idle reads as cut and is not. ⚠ `bottom_center_canvas`
+is a plain paste (`y = frame.height - sprite.height`), NOT an ink re-anchor, so
+there is no publish step that could put the lost pixels back.
+
+⛔⛔ **AND THE CUT IS THE SYMPTOM OF AN ART DEFECT, NOT A FRAMING ONE — EVERY
+WALK FRAME PUTS HER FOOT BELOW HER OWN STANDING LINE, ON BOTH FORMS:**
+
+```text
+                idle foot   walk#0    walk#1    walk#2    skid#0
+small            32.00u     +1.00     +0.50     +1.00     +0.50
+grown            31.67u     +1.17     +0.33     +1.17      —
+```
+
+⇒ she walks THROUGH the floor by up to a fifth of a tile, and the clipping is
+just the canvas noticing. The small form clips at all only because its idle
+already sits exactly on the last row, with zero headroom to dip into.
+⭐ **so the fix is the walk pose's leg reach, not a bigger frame** — a taller
+canvas would preserve the feet and keep them under the ground. ⚠ pre-existing on
+the grown form: its walk frames are byte-identical through the rig refactor.
+
 ⛔⛔ **AND THE FIRST TWO CRITERIA WERE BOTH WRONG — including the one this row
 originally published.**
 

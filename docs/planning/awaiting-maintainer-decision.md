@@ -258,7 +258,16 @@ headroom, fire form −14 px (its flame frills clear the box on purpose), short
 form **+6 px**. So she is drawn very slightly shorter than one brick and will
 bump a ceiling with the air over her head.
 
-⇒ closing it means either raising her crown ~6 px — which moves the 40/40/20
+**c. Every walk frame puts her foot BELOW her standing line — on both forms.**
+MEASURED: small dips +0.50 to +1.00 units under its own idle foot line, grown
++0.33 to +1.17. She walks through the floor by up to a fifth of a tile, and the
+renderer's clipping warning on those frames is just the canvas noticing (the
+small form has zero headroom, so any dip is also amputated). ⚠ pre-existing on
+the grown form — its walk frames came through the rig refactor byte-identical.
+⇒ the fix is the walk pose's leg reach, which changes an animation you have
+seen, so it is listed rather than done.
+
+⇒ closing (b) means either raising her crown ~6 px — which moves the 40/40/20
 head/body/legs split you specified — or accepting the 6 px. The test bounds it at
 8 px so it cannot quietly grow while you decide.
 

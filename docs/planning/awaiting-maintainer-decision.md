@@ -244,6 +244,16 @@ build it was formed on**, and D155 invalidated every judgement that predates it.
 ⚠ the process failure is not excused by the outcome: the commit consulted neither
 document, so the prohibition was *unseen rather than overruled*.
 
+⭐⭐ **AND ANSWERING THIS UNBLOCKED D117, which is the consequence to act on.**
+This decision gated TIME INTEGRATION and nothing wider: the controlled and actor
+roads still have two body integrators, and unifying them means merging their
+limbs — hitlag-dt gating and ledge carry are the home road's, the flight limb is
+the actor road's. *"Does the merged integrator freeze an actor body on its own
+hitstop?"* **was** this question, and the ruling answers **yes, on both roads**.
+⇒ D117's last structural item is now executable, and so is folding the three
+per-population `decay_reaction_timers` calls into one system (the controlled site
+decays on `frame_dt`, the other two on sim `dt`).
+
 ### 7. How long should a dropped held weapon persist? (former D50)
 
 The lifetime bug is fixed for ability/currency/health drops: the entity and its

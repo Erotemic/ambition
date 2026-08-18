@@ -310,23 +310,24 @@ still carrying half the roster.
 and the snake box both come down to sprite and collision numbers never having
 been converted to a common unit.
 
-- ⏸ **D117 — Finish the controlled-character actor kernel. RESTING, blocked on
-  the hit-emphasis decision.**
+- ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
+  the decision it rested on is ANSWERED.**
 
-⛔ **this row said "the current architecture priority" while the focused plan
-said the system is at a reasonable resting point.** Both cannot be the execution
-authority, and agents were silently skipping the row rather than resolving it.
-Resolved 2026-08-14 in favour of the plan, because the plan is the one measured
-against HEAD: control authority CONVERGED (one `tick_controlled_brains`), and
-`tick_actor_brains` reads as a sequence after three extractions. The only
-structural work left in this milestone is the movement/TIME integrator fork,
-which needs the hit-emphasis/proper-time decision — [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) **#6** (renumbered 2026-08-14; that file once had two sections numbered 5).
+⭐⭐ **the blocker is gone.** This row waited on the hit-emphasis / proper-time
+question (`awaiting-maintainer-decision.md` **#6**), and Jon ruled it on
+2026-08-17: hitlag freezes the BODY that is in it, on both roads. *"Does the
+merged integrator freeze an actor body on its own hitstop?"* WAS that question,
+and the answer is yes. ⇒ **the movement/TIME integrator fork is executable now**,
+as is folding the three per-population `decay_reaction_timers` calls into one
+(the controlled site decays on `frame_dt`, the other two on sim `dt`).
+
+⭐ **what is already done, measured against HEAD**: control authority CONVERGED
+(one `tick_controlled_brains`), and `tick_actor_brains` reads as a sequence after
+three extractions. The integrator fork is the last structural item.
 
 ⛔ **do not manufacture another helper extraction to make the function shorter.**
-"Bevy accepts the signature" was never the goal, and neither is a line count. If
-a concrete semantic phase extraction appears that reduces mixed authority AND
-unblocks another subsystem AND needs no time-integration decision, take it and
-say so here; otherwise this row waits. The top executable rows are D116 and D118.
+"Bevy accepts the signature" was never the goal, and neither is a line count. Take
+a phase extraction only when it reduces mixed authority.
 
 Use
 [`engine/controlled-character-actor-kernel.md`](engine/controlled-character-actor-kernel.md),

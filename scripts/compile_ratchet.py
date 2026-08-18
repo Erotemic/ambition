@@ -899,6 +899,36 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
     return findings
 
 
+def _vs_baseline(current: dict, frozen: dict) -> str:
+    """`largest_unit_lines` against its frozen value — printed even when inside budget.
+
+    ⛔⛔ **A WIN CAN BE GIVEN BACK IN SILENCE, and this row watched it happen.**
+    The monolith went 111,429 (frozen) → 110,932 after a carve, celebrated as
+    "under baseline for the first time", and was at 112,357 one day later —
+    **+928 OVER the baseline**. The ratchet said nothing, correctly: the number
+    carries a 2% growth budget and 112,357 sits inside it.
+
+    ⭐ so the gate is right and the REPORT was incomplete. A budget answers *"is
+    this a regression worth failing on"*; it does not answer *"are we where we
+    thought we were"*. This annotates the second question and gates nothing —
+    ⛔ deliberately NOT a tightened budget, because Jon's ruling stands: *"the
+    compile ratchet is an INSTRUMENT, NOT A TARGET"*, and a tighter budget would
+    make it more of one.
+    """
+
+    frozen_unit = frozen.get("largest_unit") or {}
+    was = frozen_unit.get("lines")
+    now = current.get("largest_unit", {}).get("lines")
+    if not isinstance(was, int) or not isinstance(now, int) or was <= 0:
+        return ""
+    delta = now - was
+    budget = int(was * frozen.get("headroom_fraction", HEADROOM_FRACTION))
+    inside = " within budget" if abs(delta) <= budget else " OUTSIDE budget"
+    same_crate = frozen_unit.get("crate") == current.get("largest_unit", {}).get("crate")
+    note = "" if same_crate else " (different crate than the frozen one)"
+    return f"   [frozen {was:,}, {delta:+,}, budget ±{budget:,}{inside}]{note}"
+
+
 def report(current: dict, frozen: dict) -> None:
     worst_seconds = current.get("worst_edit_cost_seconds", {})
     dearest = current.get("largest_unit_seconds", {})
@@ -916,7 +946,7 @@ def report(current: dict, frozen: dict) -> None:
     print(f"  critical_path_crates    {current['critical_path_crates']:>9}  "
           f"longest serial chain")
     print(f"  largest_unit_lines      {current['largest_unit']['lines']:>9,}  "
-          f"{current['largest_unit']['crate']}")
+          f"{current['largest_unit']['crate']}{_vs_baseline(current, frozen)}")
     print(f"  worst_edit_cost_lines   {current['worst_edit_cost']['lines']:>9,}  "
           f"{current['worst_edit_cost']['crate']} "
           f"({current['worst_edit_cost']['crates']} crates)")

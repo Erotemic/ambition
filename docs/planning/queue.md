@@ -3053,6 +3053,15 @@ sharper statement of this row's own warning than the warning was.
  +86  session/teardown + control/input_systems   D125's latch fix + its note
 ```
 
+✔ **AND THE REPORT NOW SAYS IT** — `largest_unit_lines` prints
+`[frozen 111,429, +928, budget ±2,228 within budget]`. ⛔ **the GATE is
+unchanged**: same 8 findings, same exit code. A budget answers *"is this worth
+failing on"*; it does not answer *"are we where we thought we were"*, and only
+the second question was unasked. ⛔⛔ **deliberately NOT a tightened budget** —
+Jon's ruling stands (*"the compile ratchet is an INSTRUMENT, NOT A TARGET"*) and
+a tighter budget makes it more of one. Five tests pin it, including that a
+DIFFERENT crate taking the title is flagged rather than compared as one number.
+
 ⭐⭐ **the largest contributor is NOT a violation of this row's standing rule,
 and reading the destination's contract is what settled it.**
 `authored_switch_commands` is a runtime interpreter of authored world IR, and

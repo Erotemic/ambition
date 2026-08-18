@@ -421,3 +421,49 @@ def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
         f"finding is the gate here, not magnitude"
     )
     assert "UNPRICED" in severities
+
+
+class TestLargestUnitAgainstBaseline:
+    """**A win can be given back in SILENCE, and the report is what says so.**
+
+    ⛔⛔ the monolith went 111,429 (frozen) → 110,932 after a carve, was
+    celebrated as *"under baseline for the first time"*, and stood at 112,357 one
+    day later — **+928 OVER**. The gate said nothing, correctly: the number
+    carries a 2% growth budget and 112,357 is inside it.
+
+    ⭐ so the GATE is right and the REPORT was incomplete. A budget answers *"is
+    this worth failing on"*; it does not answer *"are we where we thought we
+    were"*. ⛔ this annotates the second question and gates NOTHING — deliberately
+    not a tightened budget, because *"the compile ratchet is an INSTRUMENT, NOT A
+    TARGET"* and a tighter budget would make it more of one.
+    """
+
+    @staticmethod
+    def _pair(was: int, now: int, was_crate: str = "mono", now_crate: str = "mono"):
+        frozen = {"largest_unit": {"lines": was, "crate": was_crate}, "headroom_fraction": 0.02}
+        current = {"largest_unit": {"lines": now, "crate": now_crate}}
+        return current, frozen
+
+    def test_a_regression_inside_the_budget_is_still_reported(self):
+        # The exact case that was invisible: over the frozen line, under the budget.
+        text = ratchet._vs_baseline(*self._pair(111_429, 112_357))
+        assert "111,429" in text and "+928" in text
+        assert "within budget" in text, "the annotation must say the gate is right"
+
+    def test_an_improvement_reads_as_one(self):
+        text = ratchet._vs_baseline(*self._pair(111_429, 110_932))
+        assert "-497" in text and "within budget" in text
+
+    def test_outside_the_budget_says_so(self):
+        text = ratchet._vs_baseline(*self._pair(111_429, 120_000))
+        assert "OUTSIDE budget" in text
+
+    def test_a_different_crate_taking_the_title_is_flagged(self):
+        # Comparing two crates' line counts as if they were one number is how a
+        # carve looks like an improvement while the work merely moved.
+        text = ratchet._vs_baseline(*self._pair(111_429, 90_000, "mono", "somebody_else"))
+        assert "different crate" in text
+
+    def test_a_missing_or_zero_baseline_annotates_nothing(self):
+        assert ratchet._vs_baseline({"largest_unit": {"lines": 1}}, {}) == ""
+        assert ratchet._vs_baseline(*self._pair(0, 10)) == ""

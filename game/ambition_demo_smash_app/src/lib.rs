@@ -27,6 +27,36 @@ pub fn build_demo_app() -> App {
         ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default(),
     );
     compose_smash_shell(&mut app);
+    // ⛔⛔ **NOTHING SHEET-DRIVEN HAD ART IN THIS PROCESS** (D128). Every other
+    // demo shell installs the asset umbrella and the generic presentation after
+    // its composition registers catalogs — `ambition_demo_mary_o_app` and
+    // `ambition_demo_sanic_app` both do, and their twin comments call each other
+    // the regression test for the helper an external consumer depends on. This
+    // shell was the third and never joined.
+    //
+    // ⭐ **AFTER `compose_smash_shell`, because the plugin READS the catalogs it
+    // registers** — the plugin's own doc says so, and it panics naming the
+    // composition-order mistake rather than booting art-less.
+    //
+    // ⚠ **`visible` only, deliberately.** `build_demo_app` is also the harness
+    // for this crate's regression tests, and they assert on a stepping
+    // simulation rather than on pixels; sanic draws the same line by keeping its
+    // asset install in `build_windowed_demo_app`.
+    #[cfg(feature = "visible")]
+    {
+        // No world manifest: the stage is authored in Rust, so this demo ships
+        // no `.ldtk` and a world-less catalog contributes no world rows while
+        // every other entry still lands — the same shape as sanic.
+        app.add_plugins(
+            ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
+                ambition_demo_smash::SMASH_EXPERIENCE,
+            )
+            // Startup binding precedes activation, so the theme comes from the
+            // authored stage rather than a session root that does not exist yet.
+            .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
+        );
+        app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
+    }
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));

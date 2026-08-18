@@ -5476,12 +5476,33 @@ their status, and do not re-run the capture or the ladder rig to get it:**
                               photographing the wrong thing quietly.
 ```
 
-▢ **and one engineering item in this row is genuinely still open and is NOT
-product acceptance**: the **standalone** `game/ambition_demo_smash_app` binary
-composes no asset install at all (no `PlatformerAssetsPlugin`, re-verified
-2026-08-17), so nothing sheet-driven has art in that process. ⚠ Smash reached
-through the shell is a DIFFERENT composition and is fine — say which binary any
-claim is about.
+✔ **CLOSED 2026-08-18 — the standalone `game/ambition_demo_smash_app` binary
+composed no asset install at all** (no `PlatformerAssetsPlugin`), so nothing
+sheet-driven had art in that process. ⚠ Smash reached through the shell is a
+DIFFERENT composition and was always fine — say which binary any claim is about.
+
+⭐⭐ **it was the THIRD demo shell and the only one that never joined.**
+`ambition_demo_mary_o_app` and `ambition_demo_sanic_app` both install the asset
+umbrella and the generic presentation after their composition registers
+catalogs, and their twin comments call each other *"the regression test for the
+helper an external consumer now depends on"*. ⇒ the fix is the reference shape,
+not a new idea: `PlatformerAssetsPlugin::for_experience(SMASH_EXPERIENCE)`
+`.with_room(smash_stage().metadata)` then `PlatformerPresentationPlugin`, AFTER
+`compose_smash_shell` because the plugin READS the catalogs it registers.
+
+⚠ **`visible` only, deliberately** — `build_demo_app` is also this crate's test
+harness, and its 33 regression tests assert on a stepping simulation rather than
+on pixels. Sanic draws the same line by keeping its asset install in
+`build_windowed_demo_app`.
+
+⚠⚠ **WHAT IS AND IS NOT VERIFIED, because the difference matters here.**
+✔ 33 headless tests still pass and both feature configurations compile.
+⛔ **the plugin's `build()` was NOT executed** — the crate's tests are gated out
+under `visible`, so `cargo test --features visible` links and runs ZERO of them.
+⇒ the ordering rests on matching two working shells and on the plugin's own
+panic, which names the composition-order mistake rather than booting art-less.
+▢ **a windowed run is what closes the loop**, and it is the one thing this
+session could not do.
 
 ⛔ **what is answered and must not be re-asked**: *"do the two authored kits read
 as different fighters?"* — YES, measured inside four seconds. *"is the VFX/SFX

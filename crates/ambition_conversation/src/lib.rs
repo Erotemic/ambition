@@ -131,3 +131,7 @@ pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
     publish_the_narrative_end, ConversationEnded,
 };
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

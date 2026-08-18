@@ -26,7 +26,8 @@ description = "A SENTINEL capability: one self-contained mechanic that contribut
 #
 # It sits ABOVE `ambition_platformer2d_runtime` on purpose: R1's recorded decision is that a
 # domain BELOW the runtime has its rollback schema registered on its behalf
-# (see `rollback/domains/vfx.rs`), and only a crate above it owns one directly.
+# (see `ambition_vfx::register_rollback_state`); the domain owns the declaration
+# and the host supplies the rollback backend.
 # "A capability registers its own rollback state" is only testable up here.
 [dependencies]
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }

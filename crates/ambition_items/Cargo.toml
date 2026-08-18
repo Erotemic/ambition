@@ -10,6 +10,8 @@ description = "Reusable item catalog and shop primitives for Ambition-style plat
 crate-type = ["rlib"]
 
 [dependencies]
+# Backend-neutral rollback declaration vocabulary only; no runtime/GGRS dependency.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_characters = { path = "../ambition_characters" }
 # `equipment` derives a body's live moveset from its granted verbs.
 ambition_combat = { path = "../ambition_combat" }

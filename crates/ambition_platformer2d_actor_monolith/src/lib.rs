@@ -332,3 +332,7 @@ pub fn remember_safe_player_position_from_kinematics(
 
 #[cfg(test)]
 mod safe_pos_tests;
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

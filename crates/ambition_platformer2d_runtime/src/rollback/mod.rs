@@ -29,7 +29,6 @@ pub enum AmbitionLoadWorldSet {
 
 mod codec;
 mod codecs;
-pub(crate) mod domains;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod local_session;
@@ -192,60 +191,45 @@ impl Plugin for AmbitionRollbackPlugin {
 
 const ENGINE: &str = "ambition_platformer2d_runtime";
 
-/// The complete engine-owned GGRS rollback registration set. Domain content
-/// appends its own entries through [`AmbitionRollbackApp`].
+/// Compose the rollback schema for the engine host.
+///
+/// Gameplay domains own their concrete declarations through
+/// [`ambition_platformer2d_core::snapshot::RollbackRegistrar`]. This function
+/// installs those public offers, then records the runtime/foundation state whose
+/// ownership genuinely belongs at this host boundary.
 pub fn register_engine_rollback_state(app: &mut App) {
     use ambition_platformer2d_core::body_clusters as bc;
     use AmbitionRollbackApp as _;
 
-    // **DOMAIN ADAPTERS** (Campaign 2). Each owns one gameplay domain's schema;
-    // this function aggregates them and stops naming their types. The projectile
-    // domain went first — 15 registrations, no reverse dependency, and a state
-    // model nothing else writes. `rollback_schema_baseline` is what says the move
-    // changed nothing.
-    domains::encounter::register(app);
-    domains::combat::register(app);
-    domains::actors::register(app);
-    domains::characters::register(app);
-    domains::primitives::register(app);
-    domains::vfx::register(app);
-    domains::items::register(app);
-    domains::portal::register(app);
-    domains::cutscene::register(app);
-    domains::projectiles::register(app);
-    domains::lifecycle::register(app);
-    domains::authored_logic::register(app);
-
-    // **DOMAINS THAT REGISTER THEMSELVES.** The adapters above are modules in
-    // THIS crate standing in for domains that cannot reach the registration
-    // vocabulary; the calls below are the real shape — the domain crate names
-    // its own types and its own projections, and this function only hands it a
-    // registrar.
-    //
-    // ⭐ what made the difference is that the vocabulary moved to the floor
-    // (`ambition_platformer2d_core::snapshot::RollbackRegistrar`) and the
-    // `bevy_ggrs` half stayed here behind
-    // [`registrar::GgrsRollbackRegistrar`]. ⛔ `bevy_ggrs` registration being
-    // generic over the concrete type never argued for the LIST living here — it
-    // argued only that SOMETHING must monomorphize, and a trait method the
-    // domain calls does that at the domain's call site.
-    //
-    // ⛔ do not turn this into a table. A `&[fn(&mut App)]` here would be the
-    // same central census with a different syntax; each line is one crate
-    // asserting that it owns rollback state, and a domain that adds state edits
-    // its OWN crate plus this one line.
-    // ⚠ `&mut *app` is an explicit REBORROW: `app` is itself a `&mut App`, and
-    // moving it into the registrar would end this function's use of it.
-    ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(
-        &mut registrar::GgrsRollbackRegistrar::new(&mut *app),
-    );
+    // **DOMAIN-OWNED ROLLBACK DECLARATIONS.** The runtime supplies one GGRS
+    // registrar; each capability names its own concrete types and projections.
+    // This is composition, not a type census: adding state to an existing domain
+    // edits only that domain, and the runtime contains no gameplay type paths.
+    {
+        let mut registrar = registrar::GgrsRollbackRegistrar::new(&mut *app);
+        ambition_encounter::register_rollback_state(&mut registrar);
+        ambition_combat::register_rollback_state(&mut registrar);
+        ambition_platformer2d_actor_monolith::register_rollback_state(&mut registrar);
+        ambition_characters::register_rollback_state(&mut registrar);
+        ambition_boss_encounter::register_rollback_state(&mut registrar);
+        ambition_conversation::register_rollback_state(&mut registrar);
+        ambition_sprite_sheet::register_rollback_state(&mut registrar);
+        ambition_platformer2d_shared_tangle::register_rollback_state(&mut registrar);
+        ambition_vfx::register_rollback_state(&mut registrar);
+        ambition_items::register_rollback_state(&mut registrar);
+        ambition_portal2d::register_rollback_state(&mut registrar);
+        ambition_cutscene::register_rollback_state(&mut registrar);
+        ambition_projectiles::register_rollback_state(&mut registrar);
+        ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(&mut registrar);
+    }
 
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
     //
-    // ⚠ the actor anchors that used to head this chain moved to
-    // `domains::actors`; what remains is the primitives-owned set.
+    // ⚠ actor-owned anchors now live in
+    // `ambition_platformer2d_actor_monolith::register_rollback_state`; only
+    // foundation/runtime-owned rows remain below.
     // In-flight strike volumes (moveset melee windows, DamageBox effects,
     // world AOEs). These are Commands-spawned mid-swing with a hit-once
     // set, so they MUST rewind like projectiles: a rollback window that
@@ -253,12 +237,13 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // against a fresh empty `HitboxHits` and the same swing hits the same
     // victim twice (the Phase-5 second-hit desync — an armed strike
     // re-staged its player hit on every late resim pass).
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
 
     // Canonical live-session root. Authored definitions are immutable and bound
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
     //
-    // ⚠ the actor-owned members of this group moved to `domains::actors`; the
+    // ⚠ actor-owned members moved to
+    // `ambition_platformer2d_actor_monolith::register_rollback_state`; the
     // geometry is `ambition_platformer2d_core`'s and stays.
     app.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
         ENGINE,
@@ -301,7 +286,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
         // not by this crate. `ambition_platformer2d_world` owns both halves of it
         // now: `GatePortalPhases` documents why an integrator whose input rewinds
         // must rewind with it, and `register_gate_portal_rollback_state` (called
-        // with the domain adapters at the top of this function) performs the
+        // with the domain-owned declarations at the top of this function) performs the
         // registration through the floor's `RollbackRegistrar` vocabulary. ⛔ it
         // carries a VALUE projection, not a presence probe — see that function.
         .rollback_resource_clone::<crate::InputStreamRecorder>(
@@ -349,7 +334,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // transaction owns it — when nothing around it can. Every planned family
     // carries both since Phase 4; losing the stamp across a rewind would read
     // as OwnershipLost at the next boundary verification.
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
     app.rollback_component_canonical::<bc::BodyAbilities>(ENGINE, "body.abilities")
         .rollback_component_canonical::<bc::BodyGroundState>(ENGINE, "body.ground")
         .rollback_component_canonical::<bc::BodyWallState>(ENGINE, "body.wall")
@@ -385,7 +370,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // it has already fired at.
     //
     // ⚠ this chain ENDS here: its combat registrations moved to
-    // `domains::combat` and the tail it used to flow into is now a separate
+    // `ambition_combat::register_rollback_state` and the tail it used to flow into is now a separate
     // statement.
 
     // Actor, combat, and brain state.
@@ -396,7 +381,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // an oversight, not a policy split (deep review 2026-07-19 §2.2).
     //
     // ⚠ the character-owned members of this group moved to
-    // `domains::characters`; `ActorRoll` is the primitives crate's.
+    // `ambition_characters::register_rollback_state`; `ActorRoll` is the primitives crate's.
     // A live match's per-body state. Registered together because they are
     // one decision — match activation — landing on a body, and a rewind that
     // kept some and dropped others would produce a fighter that is half in
@@ -412,7 +397,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // deciding frame must be able to UN-decide the match — a latch that
     // survives it would swallow the re-announcement on the replay and the
     // ruleset would never hear that the match ended.
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
     app.rollback_component_canonical::<ambition_platformer2d_core::geometry::CenteredAabb>(
         ENGINE,
         "actor.centered_aabb",
@@ -554,7 +539,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // (`RoomScopedEntity`, `SessionScopedEntity`) are registered, and losing the
     // tag on recreation would leak the entity past its room's teardown.
     //
-    // ⚠ this group's character-owned head moved to `domains::characters`.
+    // ⚠ this group's character-owned head moved to `ambition_characters::register_rollback_state`.
     // Same reasoning once more, for the tag on the player's body. The portal host
     // asks `With<PlayerVisual>, Without<PortalSceneBody>` to decide what to tag
     // as a portal scene body, so a recreated player that came back without the
@@ -585,7 +570,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // it, and a runtime-spawned pickup is exactly the thing a rewind
     // re-creates — dropping it would leave the resimulated loot invisible while
     // the original was drawn, which is the bug this component exists to fix.
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
     app.rollback_component_clone::<ambition_platformer2d_core::body_clusters::AbilityBase>(
         ENGINE,
         "body.ability_base",
@@ -641,12 +626,12 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // straight back. Snapshotting it would give one body two restorable positions.
     //
     // ⚠ this DECLARED-DERIVED group lost its actor-owned head to
-    // `domains::actors`; the rest belongs to `ambition_characters`.
+    // `ambition_platformer2d_actor_monolith::register_rollback_state`; the rest belongs to `ambition_characters`.
     // Recomputed every tick from the authored doc plus the move/pose clocks before
     // anything tests against it, so there is nothing to restore -- and registering
     // it would invite someone to MUTATE it, which is how a hurtbox stops being a
     // pure function of authoritative state (§4.11).
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
     app.declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(
         ENGINE,
         "derived.global_transform",
@@ -729,7 +714,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // announcement too: a `BodyKnockedOut` left in the buffer would be re-read on
     // the replay and spend a second stock for one knockout, and a stale
     // `FighterStockSpent` would have a ruleset respawn a fighter that never fell.
-    // ⚠ this chain's head moved to a domain adapter (Campaign 2).
+    // ⚠ this chain's gameplay-owned head moved to its domain-owned rollback declaration.
     app.clear_message_on_rollback::<ambition_platformer2d_world::rooms::RoomLoaded>(
         ENGINE,
         "message.room_loaded",

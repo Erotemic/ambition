@@ -29,6 +29,7 @@
 | [`physics`](src/physics.rs) | Shared secondary-physics settings resource. |
 | [`prelude`](src/prelude.rs) | Convenience imports for reusable platformer-runtime call sites. |
 | [`projectile`](src/projectile/mod.rs) | Reusable, game-agnostic projectile physics primitive. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_platformer2d_shared_tangle`. |
 | [`schedule`](src/schedule.rs) | Runtime schedule vocabulary that is independent of Ambition content. |
 | [`shrine`](src/shrine.rs) | Shared presentation pulse state for save/heal shrines. |
 | [`sim_id`](src/sim_id.rs) | **`SimId` — the one identity vocabulary for snapshot, replay, and netcode.** |
@@ -38,7 +39,7 @@
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
 | [`world_log`](src/world_log.rs) | `[game-mode]` / `[world-event]` — the coarse world-state log. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

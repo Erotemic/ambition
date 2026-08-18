@@ -41,3 +41,7 @@ pub mod shrine;
 /// The ONE identity vocabulary for snapshot / replay / netcode (N3.1).
 pub mod sim_id;
 mod snapshot_impls;
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

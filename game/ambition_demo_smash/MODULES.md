@@ -6,12 +6,13 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`capture`](src/capture.rs) | **The Smash ruleset's capture adapter: authored effect keys → typed requests.** |
 | [`george_booul_moveset`](src/george_booul_moveset.rs) | **George Booul's repertoire** — the excluded middle, as a fighter. |
 | [`moveset`](src/moveset.rs) | **A platform fighter's actual moves**, authored on the character. |
 | [`select`](src/select.rs) | **Character select: where a match is DECIDED before it is seated.** |
 | [`select_screen`](src/select_screen.rs) | **What the select screen LOOKS like, and how a cursor works it.** |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -17,11 +17,13 @@
 | [`perception`](src/perception.rs) | `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4). |
 | [`prepared`](src/prepared.rs) | **One registration per character.** (§4.1, §4.6, §5) |
 | [`prepared_fixtures`](src/prepared_fixtures.rs) | Fixture builders shared by preparation's own tests and the registration tests one crate up. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_characters`. |
+| [`smash_capture`](src/smash_capture.rs) | **THE CAPTURE VOCABULARY — grab, pummel, throw, authored once.** |
 | [`smash_repertoire`](src/smash_repertoire.rs) | **THE STANDARD SMASH REPERTOIRE — the vocabulary and the bookkeeping, once.** |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | **THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES** — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

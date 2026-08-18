@@ -1,31 +1,19 @@
-//! **The actors domain's rollback schema** (Campaign 2, R3).
+//! Rollback declaration owned by the actor runtime.
 //!
-//! Actor state: features, rooms, the character runtime's seating and match bookkeeping, perception, time control, and the session reset's own record.
-//!
-//! ⚠ **relocation only.** The registrations were extracted mechanically and the
-//! schema baseline verifies the result is byte-identical — a retyped call is
-//! exactly the mistake that would slip through review and not through the
-//! baseline.
-//!
-//! ⚠ the owner label stays `ambition_platformer2d_runtime` because this module is in it, and
-//! must be: `ambition_platformer2d_actor_monolith` sits below the runtime in the crate graph. R1's
-//! recorded decision is that this is the right shape for every domain below the
-//! runtime; crates above it own their schemas directly.
+//! The actor runtime names only state defined in this crate. Cross-domain rows
+//! that used to share the runtime adapter now live with their actual owners.
+//! The host supplies GGRS machinery through [`RollbackRegistrar`].
 
-use bevy::prelude::App;
-
-use super::super::AmbitionRollbackApp;
-// The byte-writer vocabulary these projections are built from.
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
-// Bespoke checksum projections these registrations name. They stayed beside the
-// central function because the helpers predate the domain split; a projection
-// used by exactly one domain should follow it, and that is a tidy rather than
-// part of a relocation (R3: a move moves nothing else).
 
-const OWNER: &str = "ambition_platformer2d_runtime";
+const OWNER: &str = env!("CARGO_PKG_NAME");
 
 /// Register everything the actors domain needs rewound.
-pub(in crate::rollback) fn register(app: &mut App) {
+pub fn register_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
     // ⭐ **THE INSTRUMENT'S OWN CHANNELS REWIND TOO** — and they were invisible
     // until the whole workspace was compiled with every feature at once. These
     // three exist only under `causal`, so the default job never sees them and
@@ -40,29 +28,29 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // that reports nothing.
     #[cfg(feature = "causal")]
     {
-        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::causal::BodyMovementOps>(
+        registrar.clear_message_on_rollback::<crate::causal::BodyMovementOps>(
             OWNER,
             "message.causal_body_movement_ops",
         );
-        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::BodyHitResolved>(
+        registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyHitResolved>(
             OWNER,
             "message.causal_body_hit_resolved",
         );
-        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::BodyReactionApplied>(
+        registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyReactionApplied>(
             OWNER,
             "message.causal_body_reaction_applied",
         );
     }
 
-    app.require_rollback::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat>(
+    registrar.require_rollback::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "entity:transform_beat",
     );
-    app.require_rollback::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(
+    registrar.require_rollback::<crate::rooms::RoomSet>(
         OWNER,
         "root:room_set",
     );
-    app.require_rollback::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(
+    registrar.require_rollback::<crate::items::pickup::GroundItem>(
         OWNER,
         "entity:ground_item",
     );
@@ -72,11 +60,11 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // dies with its room, and nothing about whether a rewind can reproduce it.
     // A block bonked on a mispredicted frame therefore left an item standing in
     // a future that was abandoned. (GPT review of 5cc4337..47d7de3, finding 1.)
-    app.require_rollback::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
+    registrar.require_rollback::<crate::items::world_item::WorldItem>(
         OWNER,
         "entity:world_item",
     );
-    app.require_rollback::<ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>(
+    registrar.require_rollback::<crate::gravity::GravityFlipSwitch>(
         OWNER,
         "entity:gravity_flip_switch",
     );
@@ -86,30 +74,39 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // it. Its own component is waived as authored geometry — the heal reads it
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
-    app.require_rollback::<ambition_platformer2d_actor_monolith::shrine::HealShrine>(
+    registrar.require_rollback::<crate::shrine::HealShrine>(
         OWNER,
         "entity:heal_shrine",
     );
-    app.rollback_component_clone_checksum::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(
+    registrar.rollback_component_clone_checksum::<crate::rooms::RoomSet>(
         OWNER,
         "root.room_set",
-        "bevy_ggrs clone snapshot + active/start room identity checksum",
+        "active/start room identity checksum",
         room_set_checksum,
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::rooms::ActiveRoomMetadata>(
+    registrar.rollback_component_clone::<crate::rooms::ActiveRoomMetadata>(
         OWNER,
         "root.active_room_metadata",
     );
     // ⛔ `root.ldtk_runtime_index` used to be registered here. It is not an
-    // actor fact and not an every-game fact — it is an authoring format's, and
-    // registering it beside `RoomSet` put an LDtk component in the wire format
-    // of five games that install no LDtk world. It lives in [`super::ldtk`]
-    // now, called only by `crate::ldtk_world::LdtkWorldPlugin`.
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::rooms::RoomMusicRequest>(
+    // actor fact and not an every-game fact — it is an authoring format's. Its
+    // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's
+    // opt-in `LdtkWorldPlugin` installs that domain offer only for LDtk games.
+    registrar.rollback_component_clone::<crate::rooms::RoomMusicRequest>(
         OWNER,
         "root.room_music_request",
     );
-    app.rollback_resource_optional_canonical::<ambition_platformer2d_actor_monolith::character_runtime::ActiveMatch>(
+    // The shot's launch-time combat allegiance is intentionally owned here, not
+    // by `ambition_projectiles`: the reusable projectile model is forbidden to
+    // depend on the character/combat vocabulary from which this stamp is built.
+    // The old central runtime adapter reached the type through
+    // `runtime::projectile_schedule`; domain-owned registration instead follows
+    // the concrete type to the actor-side projectile integration that owns it.
+    registrar.rollback_component_canonical::<crate::projectile::ProjectileAllegiance>(
+        OWNER,
+        "projectile.allegiance",
+    );
+    registrar.rollback_resource_optional_canonical::<crate::character_runtime::ActiveMatch>(
         OWNER,
         "resource.active_match",
     );
@@ -118,221 +115,101 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // above publishes — so a rewind that restores one and not the other would
     // restore a verdict about a match that is not running. Registered together,
     // they rewind together.
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::features::stocks_match::StocksMatchSettled>(
+    registrar.rollback_resource_canonical::<crate::features::stocks_match::StocksMatchSettled>(
         OWNER,
         "resource.stocks_match_settled",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::features::GameplayElapsed>(
+    registrar.rollback_resource_canonical::<crate::features::GameplayElapsed>(
         OWNER,
         "resource.gameplay_elapsed",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::time::time_control::RequestedClockScale>(
+    registrar.rollback_resource_canonical::<crate::time::time_control::RequestedClockScale>(
         OWNER,
         "resource.requested_clock_scale",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::time::time_control::RegimePolicy>(
+    registrar.rollback_resource_canonical::<crate::time::time_control::RegimePolicy>(
         OWNER,
         "resource.clock_regime_policy",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::control::SlotInteractionState>(
+    registrar.rollback_resource_canonical::<crate::control::SlotInteractionState>(
         OWNER,
         "resource.slot_interaction_state",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested>(
+    registrar.rollback_resource_canonical::<crate::session::reset::NewGameResetRequested>(
         OWNER,
         "resource.sandbox_reset_requested",
     );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>(
+    registrar.rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,
             "resource.pending_lifecycle_commit",
         );
-    app.rollback_resource_canonical::<ambition_platformer2d_actor_monolith::RoomTransitionCooldown>(
+    registrar.rollback_resource_canonical::<crate::RoomTransitionCooldown>(
         OWNER,
         "resource.sandbox_sim_state",
     );
-    app.rollback_resource_clone_entity_set::<ambition_platformer2d_actor_monolith::abilities::traversal::possession::PossessionState>(
+    registrar.rollback_resource_clone_entity_set::<crate::abilities::traversal::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
             |state| state.possessed.into_iter().chain(state.home).collect(),
         );
-    app.rollback_resource_map_entities::<ambition_platformer2d_actor_monolith::abilities::traversal::possession::PossessionState>(
+    registrar.rollback_resource_map_entities::<crate::abilities::traversal::possession::PossessionState>(
             OWNER,
             "map.resource.possession_state",
         );
-    // **The conversation the simulation is having.**
-    //
-    // ⛔ registered because the continuity rules RESIMULATE: they run in the sim
-    // schedule, which under a rollback host is the GGRS schedule. Before this
-    // existed those rules read `ambition_dialog::DialogState`, which is not
-    // rewound, and the hold they applied was half rollback state
-    // (`ScriptedControl`) and half not (`HeldByConversation`) — so a rewind could
-    // leave a body held by the dialogue's account and free by the simulation's.
-    //
-    // ⚠ **two registrations, exactly as `PossessionState` above.** The clone is
-    // the snapshot; the entity map is what fixes the two body handles when
-    // `LoadWorld` remaps. Registering only the first would restore a conversation
-    // pointing at whatever those entity ids mean AFTER the load.
-    // ⛔ **the entity set alone reported two DIVERGENT conversations as
-    // identical.** It localizes through the two bodies' stable sim identities,
-    // which is right for the half it covers and silent about the rest — and the
-    // rest is authoritative: `input_owner` decides whose controls the box
-    // captures, and the instance id decides which node runs and whether a
-    // stamped narrative record applies at all. A peer disagreeing about any of
-    // them looked like agreement.
-    //
-    // ⭐ **the instance id is hashed WHOLE rather than field by field**, so a new
-    // ingredient of conversation identity joins the fingerprint by construction.
-    // Listing its parts here was a second place to keep in step, and the kind
-    // that goes quietly stale.
-    //
-    // ⭐ **which is what happened to the dialogue context, hashed separately here
-    // until D29.** Hashing it was a correct reading of the DESYNC question and a
-    // standing signal that the type whose whole job is identity did not carry it;
-    // it does now, so the context arrives inside `live.instance` and the three
-    // lines are gone rather than kept as a second opinion that can only agree.
-    //
-    // ⚠ **`input_owner` stays, and that is not the same judgement.** It is
-    // deliberately NOT part of conversation identity — it publishes nothing into
-    // Yarn and a correction re-derives it every tick — but a peer disagreeing
-    // about which seats the box captures is resimulating a different game. This
-    // probe asks "do two peers agree about the live conversation", which is
-    // broader than "is this the same conversation".
-    //
-    // ⚠ **no raw entity numbers in the fingerprint.** Those differ across a load
-    // by design, which is exactly why the entity half is probed through
-    // identities. This is the complement, not a second answer to it.
-    app.rollback_resource_clone_entity_set_probed::<ambition_conversation::ActiveConversation>(
-        OWNER,
-        "resource.active_conversation",
-        |conversation| conversation.referenced_entities(),
-        |conversation| {
-            use std::hash::{Hash, Hasher};
-            let Some(live) = conversation.live() else {
-                // Distinct from a live conversation that hashes to nothing:
-                // "nobody is talking" is a state the probe must be able to
-                // name.
-                return 0;
-            };
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            live.instance.hash(&mut hasher);
-            match live.input_owner {
-                ambition_conversation::ConversationInputOwner::Participant(id) => {
-                    (1u8, id.slot()).hash(&mut hasher)
-                }
-                ambition_conversation::ConversationInputOwner::Primary => {
-                    (2u8, 0u8).hash(&mut hasher)
-                }
-                ambition_conversation::ConversationInputOwner::AllParticipants => {
-                    (3u8, 0u8).hash(&mut hasher)
-                }
-            }
-            // ⚠ `speaker_name` is deliberately absent: it is a DISPLAY
-            // string, and a localization changing it is not a desync.
-            hasher.finish()
-        },
-    );
-    app.rollback_resource_map_entities::<ambition_conversation::ActiveConversation>(
-        OWNER,
-        "map.resource.active_conversation",
-    );
-    // **The narrative end, as the conversation ledger RELEASES it.**
-    //
-    // ⛔ **clearing this message was once the whole bug, and clearing it is now
-    // correct — because the producer changed.** It used to be written by
-    // presentation watching the live Yarn runner, a system that does not execute
-    // between resimulated ticks: clearing it on load dropped the end entirely,
-    // and every replayed tick ran with a conversation the original timeline had
-    // already finished. It is now written by `release_narrative_inputs`, a SIM
-    // system, from a ledger that is deliberately not rollback state. So the
-    // resimulated tick is handed the fact again rather than remembering it —
-    // which is exactly what clearing a message on load is for.
-    //
-    // ⭐ **the durable record is the ledger; the message is its delivery.** The
-    // ledger stays out of the schema for the same reason the device input stream
-    // does: a rewind restores what the simulation decided, never what it was
-    // told.
-    app.clear_message_on_rollback::<ambition_conversation::ConversationEnded>(
-        OWNER,
-        "message.conversation_ended",
-    );
-    // **The continuity → cast port.** The break rule asks for a bark; the cast
-    // answers on the same tick. Cleared on load like every other in-tick sim
-    // channel: a resimulated break asks again, and a request from a branch the
-    // host abandoned must not reach the cast at all.
-    app.clear_message_on_rollback::<ambition_conversation::ConversationCutBark>(
-        OWNER,
-        "message.conversation_cut_bark",
-    );
-    app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
+    registrar.rollback_resource_clone::<crate::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",
     );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::character_runtime::MatchSeat>(
+    registrar.rollback_component_canonical::<crate::character_runtime::MatchSeat>(
         OWNER,
         "actor.match_seat",
     );
-    app.rollback_component_cursor::<ambition_platformer2d_actor_monolith::features::ActorMotionPath>(
+    registrar.rollback_component_cursor::<crate::features::ActorMotionPath>(
         OWNER,
         "actor.motion_path",
     );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::features::ActorStatus>(
+    registrar.rollback_component_canonical::<crate::features::ActorStatus>(
         OWNER,
         "actor.status",
     );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::features::ecs::perception::Perception>(
+    registrar.rollback_component_canonical::<crate::features::ecs::perception::Perception>(
         OWNER,
         "actor.perception",
     );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionMemory>(
+    registrar.rollback_component_canonical::<crate::features::ecs::perception::PerceptionMemory>(
             OWNER,
             "actor.perception_memory",
         );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::features::TemporaryControl>(
+    registrar.rollback_component_canonical::<crate::features::TemporaryControl>(
         OWNER,
         "actor.temporary_control",
     );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::features::ActorSurfaceState>(
+    registrar.rollback_component_canonical::<crate::features::ActorSurfaceState>(
         OWNER,
         "actor.surface_state",
     );
-    app.rollback_component_cursor::<ambition_boss_encounter::BossEncounter>(
-        OWNER,
-        "boss.encounter",
-    );
-    app.rollback_component_canonical::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(
+    registrar.rollback_component_canonical::<crate::avatar::PlayerSafetyState>(
         OWNER,
         "player.safety_state",
     );
-    app.rollback_component_clone::<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>(
-        OWNER,
-        "player.blink_camera_state",
-    );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::control::LocalPlayer>(
+    registrar.rollback_component_clone::<crate::control::LocalPlayer>(
         OWNER,
         "player.local_marker",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ActorConfig>(
+    registrar.rollback_component_clone::<crate::features::ActorConfig>(
         OWNER,
         "actor.config",
     );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat>(
+    registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
         |beat| beat.remaining.to_bits() as u64,
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatRequested>(
+    registrar.rollback_component_clone::<crate::features::transform_beat::TransformBeatRequested>(
         OWNER,
         "actor.transform_beat_requested",
     );
-    app.rollback_component_clone::<ambition_sprite_sheet::character::ActorAnimOverride>(
-        OWNER,
-        "actor.anim_override",
-    );
-    app.rollback_component_clone::<ambition_boss_encounter::BossConfig>(
-        OWNER,
-        "boss.config",
-    );
-    app.rollback_component_clone_entity_map::<ambition_platformer2d_actor_monolith::features::LimbRig>(
+    registrar.rollback_component_clone_entity_map::<crate::features::LimbRig>(
         OWNER,
         "limb.rig",
         |rig| {
@@ -342,58 +219,58 @@ pub(in crate::rollback) fn register(app: &mut App) {
                 .collect()
         },
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::LimbRig>(
+    registrar.rollback_map_entities::<crate::features::LimbRig>(
         OWNER,
         "map.limb_rig",
     );
-    app.rollback_component_clone_entity_ref::<ambition_platformer2d_actor_monolith::features::Limb>(
+    registrar.rollback_component_clone_entity_ref::<crate::features::Limb>(
         OWNER,
         "limb.member",
         |limb| limb.of,
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::Limb>(
+    registrar.rollback_map_entities::<crate::features::Limb>(
         OWNER,
         "map.limb_member",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::LimbRouteState>(
+    registrar.rollback_component_clone::<crate::features::LimbRouteState>(
         OWNER,
         "limb.route_state",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::LimbIntents>(
+    registrar.rollback_component_clone::<crate::features::LimbIntents>(
         OWNER,
         "limb.intents",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::CanPilot>(
+    registrar.rollback_component_clone::<crate::features::CanPilot>(
         OWNER,
         "mount.can_pilot",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mass>(
+    registrar.rollback_component_clone::<crate::features::Mass>(
         OWNER,
         "mount.mass",
     );
-    app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::features::MountSlot>(
+    registrar.rollback_component_clone_entity_set::<crate::features::MountSlot>(
         OWNER,
         "mount.slot",
         |slot| slot.rider.into_iter().collect(),
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::MountSlot>(
+    registrar.rollback_map_entities::<crate::features::MountSlot>(
         OWNER,
         "map.mount_slot",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mountable>(
+    registrar.rollback_component_clone::<crate::features::Mountable>(
         OWNER,
         "mount.mountable",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mounted>(
+    registrar.rollback_component_clone::<crate::features::Mounted>(
         OWNER,
         "mount.mounted",
     );
-    app.rollback_component_clone_entity_ref::<ambition_platformer2d_actor_monolith::features::RidingOn>(
+    registrar.rollback_component_clone_entity_ref::<crate::features::RidingOn>(
         OWNER,
         "mount.riding_on",
         |riding| riding.mount,
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::RidingOn>(
+    registrar.rollback_map_entities::<crate::features::RidingOn>(
         OWNER,
         "map.riding_on",
     );
@@ -406,24 +283,20 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // armed was quietly disarmed by a rollback. The insert is a simulation
     // decision now (`arm_requested_challenges`), so it belongs in the snapshot
     // like every other simulation decision.
-    app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::features::PendingChallenge>(
+    registrar.rollback_component_clone_entity_set::<crate::features::PendingChallenge>(
         OWNER,
         "actor.pending_challenge",
         |pending| pending.challenger.into_iter().collect(),
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::PendingChallenge>(
+    registrar.rollback_map_entities::<crate::features::PendingChallenge>(
         OWNER,
         "map.pending_challenge",
     );
-    app.rollback_component_clone::<ambition_boss_encounter::BossOverrides>(
-        OWNER,
-        "boss.overrides",
-    );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet>(
+    registrar.rollback_component_clone::<crate::items::pickup::StashedActionSet>(
         OWNER,
         "actor.stashed_action_set",
     );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::avatar::PersonaBaseline>(
+    registrar.rollback_component_clone_probed::<crate::avatar::PersonaBaseline>(
         OWNER,
         "actor.persona_baseline",
         |baseline| {
@@ -446,7 +319,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
             hasher.finish() ^ baseline.generation.get().rotate_left(32)
         },
     );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::character_runtime::ProjectedCharacterKit>(
+    registrar.rollback_component_clone_probed::<crate::character_runtime::ProjectedCharacterKit>(
         OWNER,
         "actor.projected_character_kit",
         |projected| {
@@ -459,37 +332,33 @@ pub(in crate::rollback) fn register(app: &mut App) {
             hasher.finish() ^ projected.generation.get().rotate_left(32)
         },
     );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::character_runtime::BodyPoseClock>(
+    registrar.rollback_component_clone_probed::<crate::character_runtime::BodyPoseClock>(
         OWNER,
         "actor.body_pose_clock",
         |clock| checksum_bytes(clock.pose.as_bytes()) ^ clock.elapsed_s.to_bits() as u64,
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::character_runtime::AuthoredHurtboxes>(
+    registrar.rollback_component_clone::<crate::character_runtime::AuthoredHurtboxes>(
         OWNER,
         "actor.authored_hurtboxes",
     );
-    app.rollback_component_clone::<ambition_sprite_sheet::character::SpritePosedBody>(
-        OWNER,
-        "actor.sprite_posed_body",
-    );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::encounter::SwitchOn>(
+    registrar.rollback_component_clone_probed::<crate::encounter::SwitchOn>(
         OWNER,
         "feature.switch_on",
         |on| u64::from(on.0),
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchFeature>(
+    registrar.rollback_component_clone::<crate::encounter::SwitchFeature>(
         OWNER,
         "feature.switch",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::PickupCollectLock>(
+    registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::PickupArt>(
+    registrar.rollback_component_clone::<crate::features::PickupArt>(
         OWNER,
         "feature.pickup_art",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(
+    registrar.rollback_component_clone::<crate::items::pickup::GroundItem>(
         OWNER,
         "item.ground_item",
     );
@@ -506,17 +375,17 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // body is holding it through that body's stable identity — a restore that
     // hands the item to the wrong holder changes this census and would not
     // change a presence count.
-    app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::items::pickup::ItemCustody>(
+    registrar.rollback_component_clone_entity_set::<crate::items::pickup::ItemCustody>(
         OWNER,
         "item.item_custody",
         |custody| match custody {
-            ambition_platformer2d_actor_monolith::items::pickup::ItemCustody::InWorld => Vec::new(),
-            ambition_platformer2d_actor_monolith::items::pickup::ItemCustody::Held { holder } => {
+            crate::items::pickup::ItemCustody::InWorld => Vec::new(),
+            crate::items::pickup::ItemCustody::Held { holder } => {
                 vec![*holder]
             }
         },
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::items::pickup::ItemCustody>(
+    registrar.rollback_map_entities::<crate::items::pickup::ItemCustody>(
         OWNER,
         "map.item_custody",
     );
@@ -529,7 +398,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // the component existing, because a dropped coin is transient — spawned and
     // despawned inside the route — and the one-shot sweep in `rollback_coverage`
     // cannot see it. That is B3b's first blind spot, demonstrating itself.
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupMagnet>(
+    registrar.rollback_component_clone_probed::<crate::features::ecs::pickups::PickupMagnet>(
         OWNER,
         "item.pickup_magnet",
         |magnet| {
@@ -571,7 +440,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // ⭐ the general rule this is an instance of: **a derived marker stops being
     // derived the moment something EDGE-TRIGGERS off it.** "Recomputed every tick"
     // is only safe while nothing remembers the previous tick's answer.
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::dormancy::Dormant>(
+    registrar.rollback_component_clone::<crate::features::ecs::dormancy::Dormant>(
         OWNER,
         "actor.dormant",
     );
@@ -597,11 +466,11 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // component's presence while losing its distance would put a different world
     // to sleep. Two guards, one shallower than the other, and the deeper one
     // caught a registration that looked complete.
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy>(
+    registrar.rollback_component_clone_probed::<crate::features::ecs::dormancy::DormancyPolicy>(
         OWNER,
         "actor.dormancy_policy",
         |policy| {
-            use ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy;
+            use crate::features::ecs::dormancy::DormancyPolicy;
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             match policy {
@@ -616,11 +485,11 @@ pub(in crate::rollback) fn register(app: &mut App) {
             hasher.finish()
         },
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>(
+    registrar.rollback_component_clone::<crate::features::ecs::SpawnedThisAttempt>(
         OWNER,
         "lifecycle.spawned_this_attempt",
     );
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
+    registrar.rollback_component_clone_probed::<crate::items::world_item::WorldItem>(
         OWNER,
         "item.world_item",
         |item| {
@@ -643,7 +512,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
             // timelines of one session. The id and the exclusive slot are what
             // a divergent spawn would change.
             match &item.payload {
-                ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload::Equip(
+                crate::items::world_item::WorldItemPayload::Equip(
                     row,
                 ) => {
                     row.id.hash(&mut hasher);
@@ -660,7 +529,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // `ComponentSnapshotPlugin` for one type ("plugin was already added"), and
     // 56 app tests died on that one line. Two games owning one engine type is
     // duplicate authority; the engine owns it.
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::empowerment::Empowered>(
+    registrar.rollback_component_clone_probed::<crate::features::empowerment::Empowered>(
         OWNER,
         "feature.empowered",
         |empowered| {
@@ -677,7 +546,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // The motion PLAN and its cursor travel together — `ItemMotion`'s own doc
     // says a cursor without its plan is meaningless — so one registration
     // restores both halves of where the pickup is in its arc.
-    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>(
+    registrar.rollback_component_clone_probed::<crate::items::item_motion::ItemMotion>(
         OWNER,
         "item.motion",
         |motion| {
@@ -704,97 +573,84 @@ pub(in crate::rollback) fn register(app: &mut App) {
             hasher.finish()
         },
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>(
+    registrar.rollback_component_clone::<crate::gravity::GravityFlipSwitch>(
         OWNER,
         "gravity.flip_switch",
     );
-    app.rollback_component_clone::<ambition_boss_encounter::EncounterDef>(
-        OWNER,
-        "encounter.definition",
-    );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::MountedBrainCache>(
+    registrar.rollback_component_clone::<crate::features::MountedBrainCache>(
         OWNER,
         "mount.brain_cache",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::MountedSize>(
+    registrar.rollback_component_clone::<crate::features::MountedSize>(
         OWNER,
         "mount.authored_size",
     );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::avatar::body_integration::PlayerBodyFrameOutput>(
+    registrar.declare_rollback_derived_component::<crate::avatar::body_integration::PlayerBodyFrameOutput>(
         OWNER,
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
     );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::body_mode::BodyModeCapabilities>(
+    registrar.declare_rollback_derived_component::<crate::body_mode::BodyModeCapabilities>(
         OWNER,
         "derived.body_mode_capabilities",
         "projected from the active body mode each frame",
     );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::control::PlayerInputFrame>(
+    registrar.declare_rollback_derived_component::<crate::control::PlayerInputFrame>(
         OWNER,
         "derived.player_input_frame",
         "copied from GGRS PlayerInputs at the head of every frame",
     );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::character_runtime::ResolvedHurtboxes>(
+    registrar.declare_rollback_derived_component::<crate::character_runtime::ResolvedHurtboxes>(
         OWNER,
         "derived.resolved_hurtboxes",
         "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::features::ActorSteering>(
+    registrar.declare_rollback_derived_resource::<crate::features::ActorSteering>(
         OWNER,
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
     );
-    app.rollback_component_cursor::<ambition_boss_encounter::sprites::BossAnimFrame>(
-        OWNER,
-        "component.boss_anim_frame",
-    );
-    app.declare_rollback_derived_component::<ambition_platformer2d_actor_monolith::features::BossAnimationFrameSample>(
+    registrar.declare_rollback_derived_component::<crate::features::BossAnimationFrameSample>(
         OWNER,
         "derived.boss_animation_frame_sample",
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",
     );
-    app.declare_rollback_derived_component::<ambition_boss_encounter::EncounterProgress>(
-        OWNER,
-        "derived.encounter_progress",
-        "recomputed from lifecycle and participant health every tick",
-    );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionPeers>(
+    registrar.declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionPeers>(
         OWNER,
         "derived.perception_peers",
         "perception snapshot rebuilt every tick before brains read it",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionProjectiles>(
+    registrar.declare_rollback_derived_resource::<crate::features::ecs::perception::PerceptionProjectiles>(
         OWNER,
         "derived.perception_projectiles",
         "perception snapshot rebuilt every tick before brains read it",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::encounter::EncounterSwitchIndex>(
+    registrar.declare_rollback_derived_resource::<crate::encounter::EncounterSwitchIndex>(
         OWNER,
         "derived.encounter_switch_index",
         "rebuilt from SwitchFeature + SwitchOn components each frame",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::affordances::PlayerAffordances>(
+    registrar.declare_rollback_derived_resource::<crate::affordances::PlayerAffordances>(
         OWNER,
         "derived.player_affordances",
         "affordance read model recomputed per frame from body state",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::affordances::intent::PlayerIntent>(
+    registrar.declare_rollback_derived_resource::<crate::affordances::intent::PlayerIntent>(
         OWNER,
         "derived.player_intent",
         "affordance read model recomputed per frame from control input",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::affordances::interactable_proximity::NearestInteractable>(
+    registrar.declare_rollback_derived_resource::<crate::affordances::interactable_proximity::NearestInteractable>(
         OWNER,
         "derived.nearest_interactable",
         "proximity read model recomputed per frame",
     );
-    app.declare_rollback_derived_resource::<ambition_platformer2d_actor_monolith::affordances::pogo_proximity::PogoTargetBelow>(
+    registrar.declare_rollback_derived_resource::<crate::affordances::pogo_proximity::PogoTargetBelow>(
         OWNER,
         "derived.pogo_target_below",
         "proximity read model recomputed per frame",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::BrainCommand>(
+    registrar.clear_message_on_rollback::<crate::features::BrainCommand>(
         OWNER,
         "message.brain_command",
     );
@@ -803,96 +659,106 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // load for the same reason as every other released fact: the resimulated
     // tick is handed it again from the ledger rather than remembering it from
     // the branch that was abandoned.
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ChallengeRequested>(
+    registrar.clear_message_on_rollback::<crate::features::ChallengeRequested>(
         OWNER,
         "message.challenge_requested",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ReleaseProvocation>(
+    registrar.clear_message_on_rollback::<crate::features::ReleaseProvocation>(
         OWNER,
         "message.release_provocation",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::SpawnActorRequest>(
+    registrar.clear_message_on_rollback::<crate::features::SpawnActorRequest>(
         OWNER,
         "message.spawn_actor_request",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::ActorDiedMessage>(
+    registrar.clear_message_on_rollback::<crate::ActorDiedMessage>(
         OWNER,
         "message.actor_died",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted>(
+    registrar.clear_message_on_rollback::<crate::session::reset::NewGameResetCommitted>(
         OWNER,
         "message.sandbox_reset_committed",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::WalletShieldSpent>(
+    registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::WalletShieldSpent>(
         OWNER,
         "message.wallet_shield_spent",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>(
+    registrar.clear_message_on_rollback::<crate::avatar::PlayerHealRequested>(
         OWNER,
         "message.player_heal_requested",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>(
+    registrar.clear_message_on_rollback::<crate::avatar::trail::TrailContinuityBreak>(
         OWNER,
         "message.trail_continuity_break",
     );
-    app.clear_message_on_rollback::<ambition_boss_encounter::PayloadReleased>(
-        OWNER,
-        "message.payload_released",
-    );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::encounter::SwitchActivated>(
+    registrar.clear_message_on_rollback::<crate::encounter::SwitchActivated>(
         OWNER,
         "message.switch_activated",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::body::MountDied>(
-        OWNER,
-        "message.mount_died",
-    );
-    // P0.2: the boss phase-transition edge, same shape as `MountDied` directly
-    // above — announced by `update_boss_encounters` in `BossAdvance` and
-    // consumed by `boss_phase_transition_feedback` in `BossHazards`, a same-frame
-    // handshake inside one sim schedule. A cursor GGRS did not rewind could let
-    // the feedback fire for a transition the resimulation never committed to,
-    // which here means a `DamageBox` shockwave on a timeline the boss never
-    // phased on.
-    app.clear_message_on_rollback::<ambition_boss_encounter::BossPhaseChanged>(
-        OWNER,
-        "message.boss_phase_changed",
-    );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>(
+    registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
         OWNER,
         "message.room_replay_requested",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest>(
+    registrar.clear_message_on_rollback::<crate::time::time_control::ClockResetRequest>(
         OWNER,
         "message.clock_reset_request",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest>(
+    registrar.clear_message_on_rollback::<crate::time::time_control::ClockScaleRequest>(
         OWNER,
         "message.clock_scale_request",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::encounter::SwitchActivated>(
+    registrar.clear_message_on_rollback::<crate::encounter::SwitchActivated>(
         OWNER,
         "message.switch_activated",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_shared_tangle::body::MountDied>(
-        OWNER,
-        "message.mount_died",
-    );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>(
+    registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
         OWNER,
         "message.room_replay_requested",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest>(
+    registrar.clear_message_on_rollback::<crate::time::time_control::ClockResetRequest>(
         OWNER,
         "message.clock_reset_request",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest>(
+    registrar.clear_message_on_rollback::<crate::time::time_control::ClockScaleRequest>(
         OWNER,
         "message.clock_scale_request",
     );
+    // Save application is a rollback-relevant latch because the state it guards
+    // rewinds even though the literal Update systems that set it do not resimulate.
+    registrar.rollback_resource_clone::<crate::session::durable_horizon::SaveRestored>(
+        OWNER,
+        "resource.save_restored",
+    );
+
+    // The minted-item description is captured at checkpoint commit and cannot be
+    // recomputed from live state after the minted occurrence leaves residency.
+    registrar.rollback_resource_clone_checksum::<
+        crate::items::pickup::minted_horizon::MintedItemBaseline,
+    >(
+        OWNER,
+        "resource.minted_item_baseline",
+        "entity-free minted-instance-description checksum projection",
+        crate::items::pickup::minted_horizon::MintedItemBaseline::checksum,
+    );
+
+    registrar.declare_rollback_derived_resource::<
+        crate::world::gated_lock_walls::GatedLockWallCache,
+    >(
+        OWNER,
+        "derived.gated_lock_wall_cache",
+        "authored gated walls for the active room; recomputed from the room set and LDtk project",
+    );
+    registrar.declare_rollback_derived_resource::<
+        crate::world::authored_switch_commands::AuthoredSwitchCommands,
+    >(
+        OWNER,
+        "derived.authored_switch_commands",
+        "authored switch verbs prepared for the active room; recomputed from the room set and LDtk project",
+    );
+
 }
 
-fn room_set_checksum(rooms: &ambition_platformer2d_actor_monolith::rooms::RoomSet) -> u64 {
+fn room_set_checksum(rooms: &crate::rooms::RoomSet) -> u64 {
     let mut bytes = Vec::new();
     put_u64(&mut bytes, rooms.active as u64);
     put_u64(&mut bytes, rooms.start as u64);

@@ -393,3 +393,7 @@ impl LdtkProject {
         warnings
     }
 }
+
+// Domain-owned rollback declaration; the host supplies the backend registrar.
+mod rollback_registration;
+pub use rollback_registration::register_rollback_state;

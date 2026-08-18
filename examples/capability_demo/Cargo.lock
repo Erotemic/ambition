@@ -337,6 +337,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_combat",
+ "ambition_platformer2d_core",
  "ambition_content_pack",
  "ambition_persistence",
  "bevy",
@@ -801,6 +802,7 @@ name = "ambition_vfx"
 version = "0.1.0"
 dependencies = [
  "ambition_geometry",
+ "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "ambition_sfx",
  "bevy",

@@ -10,6 +10,8 @@ description = "Reusable, content-free effect vocabulary: the Effect enum + Effec
 crate-type = ["rlib"]
 
 [dependencies]
+# Backend-neutral rollback declaration vocabulary only; no runtime/GGRS dependency.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # ECS surface only (Component / Message / Commands / Entity / Name via prelude).
 # No render/audio/windowing — this crate stays reusable and headless.
 bevy = { version = "0.18.1", default-features = false }
@@ -21,9 +23,10 @@ ambition_geometry = { path = "../ambition_geometry" }
 #
 # ⭐ this was `ambition_platformer2d_shared_tangle`, a 16,927-line crate from
 # which this one imported exactly ONE type. That single edge was the last path
-# from here to `ambition_platformer2d_core`; dropping it is what makes this
-# crate's headless, presentation-neutral claim true of its BUILD and not just of
-# its manifest.
+# from here to `ambition_platformer2d_core`; dropping the shared-tangle edge is
+# what made this crate headless and presentation-neutral. The direct
+# `ambition_platformer2d_core` edge above is
+# only the backend-neutral rollback vocabulary; it pulls no render/audio host.
 #
 # ⚠ the comment that stood here also claimed `ProjectileFaction`, which this
 # crate has never used — a manifest describing a dependency it does not have,

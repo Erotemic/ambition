@@ -630,10 +630,11 @@ impl RollbackRegistry {
     /// would have been declared incompatible because one of them had moved a
     /// registration to a different module, or moved the TYPE to a different one.
     ///
-    /// That is not hypothetical: Campaign 2 exists to move every registration
-    /// out of the central runtime into domain adapters, and R3 asks each move to
-    /// "verify the resulting schema fingerprint is unchanged" — which was
-    /// impossible while the fingerprint hashed who did the registering. The
+    /// That is not hypothetical: Campaign 2 first moved every gameplay
+    /// registration into runtime-side domain adapters, and the completed
+    /// domain-owned migration then moved those declarations into their owning
+    /// crates. Both moves require the schema fingerprint to stay unchanged —
+    /// which was impossible while the fingerprint hashed who registered a row. The
     /// decomposition campaign then hit the same wall one level out, because a
     /// carve moves the TYPE and not only its registration. `owner` left in v5;
     /// [`wire_type_identity`] is the second half of that decision, in v20.
@@ -724,6 +725,41 @@ fn descriptor_owned<T: 'static>(
         kind,
         type_name: std::any::type_name::<T>().to_string(),
         detail,
+    }
+}
+
+/// **The one install body behind `rollback_component_clone_checksum`**.
+///
+/// Shared by the App facade and the domain-facing registrar so moving a
+/// registration into its owner cannot accidentally change snapshot, checksum,
+/// or localization-probe behavior.
+pub(in crate::rollback) fn install_component_clone_checksum<T>(
+    app: &mut App,
+    owner: &'static str,
+    name: &'static str,
+    detail: String,
+    checksum: for<'a> fn(&'a T) -> u64,
+) where
+    T: Component<Mutability = Mutable> + Clone,
+{
+    if register_app_descriptor(
+        app,
+        descriptor_owned::<T>(
+            owner,
+            name,
+            RollbackEntryKind::ComponentCloneCustomChecksum,
+            detail,
+        ),
+    ) == RollbackRegistrationOutcome::Inserted
+    {
+        RollbackApp::rollback_component_with_clone::<T>(app);
+        RollbackApp::checksum_component(app, checksum);
+        record_probe(
+            app,
+            crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                crate::rollback::census_with::<T>(world, checksum)
+            }),
+        );
     }
 }
 
@@ -1396,27 +1432,13 @@ impl AmbitionRollbackApp for App {
     where
         T: Component<Mutability = Mutable> + Clone,
     {
-        if register_app_descriptor(
+        install_component_clone_checksum::<T>(
             self,
-            descriptor::<T>(
-                owner,
-                name,
-                RollbackEntryKind::ComponentCloneCustomChecksum,
-                detail,
-            ),
-        ) == RollbackRegistrationOutcome::Inserted
-        {
-            RollbackApp::rollback_component_with_clone::<T>(self);
-            RollbackApp::checksum_component(self, checksum);
-            // The SAME projection GGRS was just handed, so the probe measures
-            // exactly what the session's aggregate measures.
-            record_probe(
-                self,
-                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
-                    crate::rollback::census_with::<T>(world, checksum)
-                }),
-            );
-        }
+            owner,
+            name,
+            detail.to_string(),
+            checksum,
+        );
         self
     }
 

@@ -373,18 +373,202 @@ pub struct RequiredRollbackState {
 /// is a runtime-owned WRAPPER around `App`, which is orphan-clean and costs the
 /// floor no Bevy-app dependency at all.
 pub trait RollbackRegistrar {
-    /// Snapshot a resource by `Clone` and fold `checksum` over it every frame.
+    /// The methods below intentionally fail closed by default.
     ///
-    /// `projection` describes **what the checksum sees**, in the domain's own
-    /// words (e.g. `"key-ordered phase/elapsed checksum projection"`). ⛔ it
-    /// does NOT describe the storage mechanism — the implementor owns that half
-    /// of the recorded schema detail, which is what keeps this signature free of
-    /// any backend's name.
+    /// Production backends such as the GGRS registrar implement the complete
+    /// vocabulary. Narrow capturing registrars used by domain tests may implement
+    /// only the operation the test is observing; if the domain starts asking for
+    /// any additional rollback operation, the default panics immediately instead
+    /// of silently dropping rollback state.
+    fn rollback_component_canonical<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_canonical for {name}")
+    }
+
+    fn rollback_component_cursor<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + Clone
+            + SnapshotCursor,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_cursor for {name}")
+    }
+
+    fn rollback_component_resolved<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + Clone
+            + SnapshotResolve,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_resolved for {name}")
+    }
+
+    fn rollback_component_clone<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone for {name}")
+    }
+
+    fn rollback_component_clone_entity_ref<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _referenced: fn(&T) -> bevy_ecs::entity::Entity,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_entity_ref for {name}")
+    }
+
+    fn rollback_component_clone_entity_set<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _referenced: fn(&T) -> Vec<bevy_ecs::entity::Entity>,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_entity_set for {name}")
+    }
+
+    fn rollback_component_clone_entity_map<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _referenced: fn(&T) -> Vec<(u64, bevy_ecs::entity::Entity)>,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_entity_map for {name}")
+    }
+
+    fn rollback_component_clone_probed<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _projection: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_probed for {name}")
+    }
+
+    fn rollback_component_clone_state<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + Clone
+            + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_state for {name}")
+    }
+
+    /// Clone-snapshot a component and checksum the domain projection.
     ///
-    /// ⛔⛔ **a value projection, never a presence probe.** The reason a domain
-    /// reaches for this method instead of a plain clone registration is that the
-    /// VALUE decides something — a restore that puts back the right *set* of
-    /// keys with the wrong numbers in them is the defect, not the fix.
+    /// `projection` describes only what the checksum sees. The backend owns the
+    /// storage half of the schema detail, so a domain never has to name GGRS.
+    fn rollback_component_clone_checksum<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _projection: &'static str,
+        _checksum: for<'a> fn(&'a T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable> + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_component_clone_checksum for {name}")
+    }
+
+    fn rollback_resource_canonical<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_canonical for {name}")
+    }
+
+    fn rollback_resource_optional_canonical<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + SnapshotState,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_optional_canonical for {name}")
+    }
+
+    fn rollback_resource_clone<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_clone for {name}")
+    }
+
+    fn rollback_resource_clone_entity_set<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _referenced: fn(&T) -> Vec<bevy_ecs::entity::Entity>,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_clone_entity_set for {name}")
+    }
+
+    fn rollback_resource_clone_entity_set_probed<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _referenced: fn(&T) -> Vec<bevy_ecs::entity::Entity>,
+        _facts: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + Clone,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_clone_entity_set_probed for {name}")
+    }
+
+    /// Clone-snapshot a resource and checksum the domain projection.
+    ///
+    /// `projection` describes only what the checksum sees. The backend owns the
+    /// storage half of the schema detail, so a domain never has to name GGRS.
     fn rollback_resource_clone_checksum<T>(
         &mut self,
         owner: &'static str,
@@ -394,4 +578,131 @@ pub trait RollbackRegistrar {
     ) -> &mut Self
     where
         T: bevy_ecs::resource::Resource + Clone;
+
+    fn rollback_map_entities<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component<Mutability = bevy_ecs::component::Mutable>
+            + bevy_ecs::entity::MapEntities,
+    {
+        panic!("RollbackRegistrar does not support rollback_map_entities for {name}")
+    }
+
+    fn rollback_resource_map_entities<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource + bevy_ecs::entity::MapEntities,
+    {
+        panic!("RollbackRegistrar does not support rollback_resource_map_entities for {name}")
+    }
+
+    fn require_rollback<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component,
+    {
+        panic!("RollbackRegistrar does not support require_rollback for {name}")
+    }
+
+    fn clear_message_on_rollback<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::message::Message,
+    {
+        panic!("RollbackRegistrar does not support clear_message_on_rollback for {name}")
+    }
+
+    fn declare_rollback_derived_component<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _reason: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::component::Component,
+    {
+        panic!("RollbackRegistrar does not support declare_rollback_derived_component for {name}")
+    }
+
+    fn declare_rollback_derived_resource<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _reason: &'static str,
+    ) -> &mut Self
+    where
+        T: bevy_ecs::resource::Resource,
+    {
+        panic!("RollbackRegistrar does not support declare_rollback_derived_resource for {name}")
+    }
+
+    fn declare_dynamic_anchor<T>(
+        &mut self,
+        _owner: &'static str,
+        name: &'static str,
+        _detail: &'static str,
+    ) -> &mut Self
+    where
+        T: 'static,
+    {
+        panic!("RollbackRegistrar does not support declare_dynamic_anchor for {name}")
+    }
+}
+
+#[cfg(test)]
+mod rollback_registrar_default_method_tests {
+    use super::RollbackRegistrar;
+
+    #[derive(Clone)]
+    struct DummyResource;
+
+    impl bevy_ecs::resource::Resource for DummyResource {}
+
+    struct CapturingRegistrar {
+        called: bool,
+    }
+
+    impl RollbackRegistrar for CapturingRegistrar {
+        fn rollback_resource_clone_checksum<T>(
+            &mut self,
+            _owner: &'static str,
+            _name: &'static str,
+            _projection: &'static str,
+            _checksum: for<'a> fn(&'a T) -> u64,
+        ) -> &mut Self
+        where
+            T: bevy_ecs::resource::Resource + Clone,
+        {
+            self.called = true;
+            self
+        }
+    }
+
+    fn dummy_checksum(_: &DummyResource) -> u64 {
+        0
+    }
+
+    #[test]
+    fn a_narrow_registrar_only_implements_the_operation_it_captures() {
+        let mut registrar = CapturingRegistrar { called: false };
+        registrar.rollback_resource_clone_checksum::<DummyResource>(
+            "test",
+            "resource.dummy",
+            "dummy projection",
+            dummy_checksum,
+        );
+        assert!(registrar.called);
+    }
 }

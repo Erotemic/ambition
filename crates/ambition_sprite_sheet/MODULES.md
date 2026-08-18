@@ -16,10 +16,11 @@
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring with fallback-friendly loading. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sprite_sheet`. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -13,10 +13,11 @@
 | [`ledger`](src/ledger.rs) | **What the narrative told the simulation, and the tick each fact applies from.** |
 | [`opening`](src/opening.rs) | **Deciding that a conversation happens, and opening it.** |
 | [`plugin`](src/plugin.rs) | **What `conversation` registers, owned by `conversation`.** |
+| [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_conversation`. |
 | [`rules`](src/rules.rs) | **When a conversation ends, and the bark that says so.** |
 | [`ui_bridge`](src/ui_bridge.rs) | **The seam between the authority and the text box.** |
 
-_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

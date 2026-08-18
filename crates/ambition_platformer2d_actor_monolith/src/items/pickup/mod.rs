@@ -341,10 +341,10 @@ const MINTED_ITEM_HALF_EXTENT: Vec2 = Vec2::splat(PICKUP_HALF);
 ///
 /// ⚠ **rollback state, not a cache.** It gates whether the item is drawn,
 /// simulated, or collectible on a later frame, so a rewind that restored the
-/// wrong custody would leave an axe both in a hand and on the floor. Registered
-/// in `rollback::domains::actors` as `entity:item_custody` (clone + entity-set
-/// probe) with a paired `rollback_map_entities`, because the holder handle is
-/// remapped on load.
+/// wrong custody would leave an axe both in a hand and on the floor. This
+/// domain registers it in `crate::rollback_registration` as
+/// `entity:item_custody` (clone + entity-set probe), paired with
+/// `rollback_map_entities` because the holder handle is remapped on load.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ItemCustody {
     /// Lying in the world: drawn, simulated by [`ground_item_physics`], and

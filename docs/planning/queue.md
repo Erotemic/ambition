@@ -1067,6 +1067,30 @@ Deriving the hip from the form alone silently dropped crouch — 14,780 pixels
 moved on the approved form — and scaling x by the crouch-widened width moved
 every skid and crouch frame. Neither was visible without differencing renders.
 
+✔✔ **AND MARY-O IS ONE BRICK NOW — the rescale that was "blocked" was a UNIT
+CONVERSION.** `SMALL_FORM_HEIGHT` is `T` (32 world units, one tile) instead of
+48, so she stands one block small and two grown, which is Jon's ruling.
+
+⛔⛔ **THE BLOCKER WAS AN ARITHMETIC ERROR IN THIS LEDGER, AND IT COST A REVERT.**
+The earlier attempt read Jon's *"16 units"* as this demo's world unit, set the
+constant to 16, watched the flagship vault break, and concluded a level-wide
+rescale was owed. But `defaultGridSize: 16` is the LDtk AUTHORING grid; the
+generated 1-1 those vault measurements live in is authored on `T = 32` world
+units per tile. So one block here is 32, and 48 was never "three blocks" — it
+was 1.5 tiles.
+
+```text
+read as 16   small 16, grown 32   vault clearance 76 vs 32 -> mouth floats 44 above her   ✗
+read as T    small 32, grown 64   vault clearance 76 vs 64 -> fits, 12 inside a 16 slack  ✔
+```
+
+⇒ ⭐⭐ **the level needed no re-authoring at all** — `a_pipe_you_enter_always_has_a_pipe_you_come_out_of`
+passes at the new size, and so does the whole workspace. The *"60 units of reach"*
+that this row called a second blocker was measured in the same mistaken unit.
+⭐ **what DID have to land first was the art**, and it did: at 1.40:1 no single
+scale reaches 1:2 without widening her 1.43x, which `her_forms_are_all_the_same_width`
+refuses on a gameplay rule. The rig work made the ratio exactly 2.0.
+
 ⚠ **two things this forced are WAITING ON JON**, recorded as §14 in
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md): the shared
 collision width went 64 → 56 px (one width for every form and "narrower than the
@@ -1226,8 +1250,19 @@ segments     polygon resolution, default 8, minimum 2
 ⇒ **the row is the instrument, not the content.** A validator whose errors are
 100% noise and whose loudest warning flags a designed relationship is worse than
 none: it taught me, in one sitting, to reach for `entity delete` on a feature.
-▢ teach `spawn_overlap` about `mounted_on`, and either resolve `LoadingZone`
-targets across worlds or suppress them with a written reason.
+
+✔ **`spawn_overlap` KNOWS ABOUT MOUNTS, 2026-08-18.** A pair joined by a riding
+reference (`mounted_on`) is exempt, because position-identical is what a mount
+IS and only the FIELDS can tell a relationship from a duplicate. MEASURED both
+terms on shipped content: sandbox **5 → 0**, intro **3 → 0**, mary_o 0 → 0 — so
+every `spawn_overlap` warning the project was carrying was a rider on its mount.
+⭐ the paired test is the one that matters: two unrelated spawns at ONE pixel
+still warn, so the exemption keys on the reference rather than on the coincidence
+it exists to catch.
+
+▢ **still open:** resolve `LoadingZone` targets across worlds or suppress them
+with a written reason (4 cross-world, plus 26 that only appear when validating
+the raw `map_assets` copy instead of the canonical symlinked path).
 
 - ✔ **D162 — CLOSED 2026-08-17. Four standing boot warnings, all triaged.**
 

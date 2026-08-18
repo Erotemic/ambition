@@ -119,3 +119,60 @@ def test_spawn_overlap_warning_covers_mixed_spawn_kinds():
     assert len(overlap_warnings) == 1, (
         f"mixed spawn-kind overlap not flagged; got {overlap_warnings}"
     )
+
+
+def make_mount_pair(rider_iid: str, mount_iid: str, px: tuple[int, int]):
+    """A rider and its mount, authored at the SAME pixel — which is what a mount is."""
+    rider = make_spawn(rider_iid, "EnemySpawn", px, (48, 80))
+    rider["fieldInstances"] = [
+        {
+            "__identifier": "mounted_on",
+            "__type": "EntityRef",
+            "__value": {
+                "entityIid": mount_iid,
+                "layerIid": "Ambition-1",
+                "levelIid": "mount_room-1",
+                "worldIid": "test-world",
+            },
+        }
+    ]
+    return [rider, make_spawn(mount_iid, "EnemySpawn", px, (48, 80))]
+
+
+def test_spawn_overlap_exempts_a_rider_sitting_on_its_mount():
+    # The sky levels author every shark-riding pirate this way. Before the
+    # exemption this fired on all seven of them, and that warning is what
+    # talked a session into reaching for `entity delete` on the very content
+    # Jon had already reported missing once.
+    project = {
+        "levels": [make_level("mount_room", make_mount_pair("rider", "shark", (192, 240)))]
+    }
+    warnings: list[str] = []
+    _check_intro_authoring_hygiene(project, warnings)
+    overlap_warnings = [w for w in warnings if "overlap" in w.lower()]
+    assert overlap_warnings == [], (
+        f"a rider on its mount was reported as an overlap: {overlap_warnings}"
+    )
+
+
+def test_spawn_overlap_still_fires_when_the_pair_names_nobody():
+    # The exemption must key on the REFERENCE, not on the coincidence of two
+    # spawns sharing a pixel — otherwise it silences the real duplicate it
+    # exists to catch.
+    project = {
+        "levels": [
+            make_level(
+                "stacked_room",
+                [
+                    make_spawn("a", "EnemySpawn", (192, 240), (48, 80)),
+                    make_spawn("b", "EnemySpawn", (192, 240), (48, 80)),
+                ],
+            )
+        ]
+    }
+    warnings: list[str] = []
+    _check_intro_authoring_hygiene(project, warnings)
+    overlap_warnings = [w for w in warnings if "overlap" in w.lower()]
+    assert len(overlap_warnings) == 1, (
+        f"two unrelated spawns at one pixel should still warn; got {overlap_warnings}"
+    )

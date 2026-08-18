@@ -24,6 +24,25 @@ def entity_name(entity: dict[str, Any]) -> str:
     return f"{entity.get('__identifier')} {entity.get('iid', '<no-iid>')}"
 
 
+#: Fields whose value is an `EntityRef` naming another entity this one is
+#: authored ON TOP OF. A pair joined by one of these is a RELATIONSHIP, not a
+#: duplicate, and the author put them at the same pixel on purpose.
+RIDING_REF_FIELDS = ("mounted_on",)
+
+
+def referenced_iids(entity: dict[str, Any]) -> set[str]:
+    """Every entity iid this one names through a riding reference."""
+
+    iids: set[str] = set()
+    for name in RIDING_REF_FIELDS:
+        value = field_value(entity.get("fieldInstances"), name)
+        if isinstance(value, dict):
+            ref = value.get("entityIid")
+            if ref:
+                iids.add(str(ref))
+    return iids
+
+
 def rect(entity: dict[str, Any]) -> tuple[float, float, float, float]:
     px = entity.get("px") or [0, 0]
     return (
@@ -98,7 +117,7 @@ def spawn_overlap_issues(project: dict[str, Any]) -> list[Issue]:
     spawn_gap_px = 4.0
     spawn_kinds = {"NpcSpawn", "EnemySpawn", "BossSpawn"}
     issues: list[Issue] = []
-    spawns_by_level: dict[str, list[tuple[str, str, str | None, float, float, float, float]]] = defaultdict(list)
+    spawns_by_level: dict[str, list[tuple[str, str, str | None, float, float, float, float, str, set[str]]]] = defaultdict(list)
     for level in project.get("levels") or []:
         level_id = level.get("identifier", "<unknown>")
         for layer in level.get("layerInstances") or []:
@@ -109,13 +128,34 @@ def spawn_overlap_issues(project: dict[str, Any]) -> list[Issue]:
                     continue
                 ex, ey, ew, eh = rect(entity)
                 spawns_by_level[level_id].append(
-                    (str(ident), entity_name(entity), layer_id, ex, ey, ew, eh)
+                    (
+                        str(ident),
+                        entity_name(entity),
+                        layer_id,
+                        ex,
+                        ey,
+                        ew,
+                        eh,
+                        str(entity.get("iid") or ""),
+                        referenced_iids(entity),
+                    )
                 )
     for level_id, items in spawns_by_level.items():
         for i in range(len(items)):
             for j in range(i + 1, len(items)):
-                ka, la, a_layer, ax, ay, aw, ah = items[i]
-                kb, lb, _b_layer, bx, by, bw, bh = items[j]
+                ka, la, a_layer, ax, ay, aw, ah, a_iid, a_refs = items[i]
+                kb, lb, _b_layer, bx, by, bw, bh, b_iid, b_refs = items[j]
+                # ⛔⛔ **A RIDER AND ITS MOUNT ARE AUTHORED AT THE SAME PIXEL.**
+                # Without this, every shark-riding pirate in the sky levels
+                # reads as a doubled spawn — and this warning is what talked a
+                # previous session into reaching for `entity delete` on the
+                # exact content Jon had already reported missing once, after an
+                # editor session dropped the mount refs.
+                #
+                # ⭐ position-identical is what a mount IS, so position alone can
+                # never tell the two apart. The FIELDS can: one names the other.
+                if (b_iid and b_iid in a_refs) or (a_iid and a_iid in b_refs):
+                    continue
                 inflate = spawn_gap_px / 2.0
                 if strict_rects_intersect(
                     (ax - inflate, ay - inflate, aw + 2 * inflate, ah + 2 * inflate),

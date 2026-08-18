@@ -1730,6 +1730,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
+        canonical_height: None,
     };
     app.insert_resource(prepared(heavy));
     app.add_systems(Update, apply_worn_character_gameplay);
@@ -1917,6 +1918,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
                 max_health: Some(DUELIST_MAX_HEALTH),
                 mass: Some(DUELIST_MASS),
                 knockback_weight: None,
+                canonical_height: None,
             },
         ),
         // Authors NOTHING physical. This is the ordinary case — most characters
@@ -2041,6 +2043,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
             max_health: None,
             mass,
             knockback_weight: None,
+            canonical_height: None,
         };
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
@@ -2240,6 +2243,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
         max_health: Some(60),
         mass: Some(2.0),
         knockback_weight: None,
+        canonical_height: None,
     }));
 
     let mut app = App::new();

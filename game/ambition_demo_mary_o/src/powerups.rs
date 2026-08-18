@@ -29,6 +29,7 @@ use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, Conta
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::provider::MARY_O_CHARACTER_ID;
+use crate::T;
 
 /// The worn-character id of the GROWN form: a distinct SHEET
 /// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
@@ -377,40 +378,43 @@ impl SpentPowerBlocks {
 /// her height the first time a crop moves by one pixel.
 pub(crate) const MARY_O_STANDING_HEIGHT: f32 = SMALL_FORM_HEIGHT;
 
-/// **One block tall — the small form, and the ruler for this whole demo.**
+/// **One tile tall — the small form, and the ruler for this whole demo.**
 ///
 /// Jon, 2026-08-18: *"slop and snakes should be as tall as small MaryO is 16
-/// units tall (height of one block). Big should be 32 units."* A tile is 16 world
-/// units (`defaultGridSize: 16`), so small Mary-O stands exactly one block and
-/// grown stands two — the classic proportion this demo is an homage to.
+/// units tall (height of one block). Big should be 32 units."* Small Mary-O
+/// stands exactly one block and grown stands two — the classic proportion this
+/// demo is an homage to.
 ///
-/// ⛔⛔ **this was 48.0 — THREE blocks — and the change is a 3x reduction.** The
-/// old value's own doc called it *"the ONE number the level is tuned around (tile
-/// gaps, pipe clearances, jump arcs)"*, and that is exactly right: at three tiles
-/// tall she could not fit the one-tile gaps a Mario level is built from, so the
-/// world was authored around a protagonist at triple the classic scale.
-/// ⛔⛔ **SET TO 16 AND REVERTED THE SAME HOUR — the value is 48 and the TARGET is
-/// 16, and what stands between them is measured below rather than guessed.**
-/// Changing this alone does not shrink Mary-O, it breaks her level:
+/// ⛔⛔ **THE BLOCK IS `T`, AND READING JON'S "16" AS THIS UNIT IS WHAT MADE THE
+/// RESCALE LOOK IMPOSSIBLE.** `defaultGridSize: 16` is the LDtk AUTHORING grid;
+/// the generated 1-1 that this constant sizes her against is authored on
+/// [`T`](crate::T) = 32 world units per tile, and that is the road the vault
+/// measurements live in. So "one block" here is **32**, not 16 — and the
+/// difference is not cosmetic:
 ///
-/// * **the ART is 1.40:1, not 1:2.** Her authored boxes are 120 px short and
-///   168 px tall, so a per-form scale reaching a 32-unit grown form also widens
-///   her 1.43x — refused within the hour by `her_forms_are_all_the_same_width`,
-///   whose reason is a gameplay rule (*"growing must not change her width"*, or a
-///   grow wedges her in a gap she fit). Jon's own fix: rework the SMALL art to
-///   half the grown height at the same width ⇒ `SHORT_FORM.collision_top_px`
-///   70 → **106** (190 − 84), which is a sprite regen, not a constant edit.
-///   ⭐ `BODY_BOX_WIDTH = 64` is ALREADY shared by all three forms, so *"collision
-///   and hurt width identical for small and tall"* is satisfied today.
-/// * **the LEVEL is authored at the 48-unit scale.**
-///   `the_pipe_leads_into_a_sealed_vault_and_back_out` measures a vault whose
-///   return-pipe mouth needs **60 units of reach** from its floor — which a
-///   32-unit grown form cannot make either. ⇒ this is a level-wide rescale, not
-///   one clearance, and it must land WITH the art or the vault becomes a one-way
-///   trip.
+/// ```text
+/// read as 16   small 16, grown 32   a 3x reduction   vault clearance 76 vs 32 -> mouth floats 44 above her
+/// read as T    small 32, grown 64   a 1.5x reduction vault clearance 76 vs 64 -> fits, 12 inside the 16 slack
+/// ```
 ///
-/// ⇒ the three have to move together: art, this constant, and the level.
-pub const SMALL_FORM_HEIGHT: f32 = 48.0;
+/// ⇒ ⭐⭐ **the level did not need rescaling after all; it needed her measured in
+/// its own units.** The earlier attempt set this to 16, watched the vault break,
+/// and concluded a level-wide rescale was owed. What was actually owed was one
+/// unit conversion — and 48 was never "three blocks" either, it was 1.5 tiles.
+///
+/// ⛔ **the ART had to move first, and it has.** Her authored boxes were 120 px
+/// short and 168 px tall — a 1.40:1 that no single scale can turn into 1:2, so
+/// reaching a two-tile grown form also widened her 1.43x, which
+/// `her_forms_are_all_the_same_width` refuses for a gameplay reason (*"growing
+/// must not change her width"*, or a grow wedges her in a gap she fit). Jon's own
+/// fix — rework the SMALL art to half the grown height at the same width — landed
+/// with the rig refactor: `SHORT_FORM.collision_top_px` is 106 (190 − 84), the
+/// ratio is exactly 2.0, and `BODY_BOX_WIDTH` is shared by all three forms, so
+/// *"collision and hurt width identical for small and tall"* holds.
+///
+/// ⇒ the three still have to agree — art, this constant, and the level — and
+/// with the art at 1:2 and the constant in tiles, the level already does.
+pub const SMALL_FORM_HEIGHT: f32 = T;
 
 /// **Two blocks tall — the grown and fire forms.**
 ///

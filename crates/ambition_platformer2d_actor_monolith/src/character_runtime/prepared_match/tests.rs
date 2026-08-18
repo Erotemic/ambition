@@ -1743,6 +1743,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         max_health: Some(60),
         mass: Some(1.0),
         knockback_weight: None,
+        canonical_height: None,
     };
     app.register_character(tank);
 
@@ -1817,12 +1818,14 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
             max_health: Some(1),
             mass: Some(1.0),
             knockback_weight: None,
+            canonical_height: None,
         };
         let mut fighter = CharacterDefinition::new("fighter", "Fighter", "demo");
         fighter.vitals = crate::character_runtime::Vitals {
             max_health: Some(100),
             mass: Some(1.0),
             knockback_weight: None,
+            canonical_height: None,
         };
         app.register_character(glass);
         app.register_character(fighter);
@@ -2669,6 +2672,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
+        canonical_height: None,
     };
     app.register_character(heavy);
     app.insert_resource(MatchParticipantRoster {
@@ -3080,6 +3084,7 @@ fn one_character_definition_seats_two_independent_fighters() {
         max_health: Some(40),
         mass: Some(1.0),
         knockback_weight: None,
+        canonical_height: None,
     };
     app.register_character(fretjaw);
     app.insert_resource(MatchParticipantRoster {

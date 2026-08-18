@@ -843,6 +843,67 @@ cannot get one without editing settings by hand (P5).
   of). D144 moved the shared copy down to `ambition_characters`; unifying the
   fork is its own change and would expose what the fork hides.
 
+- ▢ **D165 — THE CHARACTER AUTHORING PACKAGE IS PROMOTED, AND ITS FIRST SLICE IS
+  A CANONICAL HEIGHT IN SHARED WORLD UNITS. (opened 2026-08-17 by maintainer
+  direction)**
+
+Plan: [`engine/character-authoring-package.md`](engine/character-authoring-package.md)
+— 1,061 lines, nine settled-direction sections, twelve named open questions, and
+until today referenced by no ledger **by its own instruction**. Jon promoted it:
+*"a character pack might be a good way to author character height in some shared
+world units so we can get a sense of the scale at which characters should
+render."*
+
+⭐⭐ **THE SLICE IS CHOSEN SO THE PACKAGE FORMAT IS DEFINED BY A REAL CUSTOMER**
+rather than argued up front — which is exactly what those twelve open questions
+were waiting for. The customer is three of Jon's own reports that are one defect.
+
+```text
+today   collision_scale multiplies each sheet's OWN frame size
+        heavies 1.95 · other pirates 1.60 · robot 2.10
+        ⇒ the LARGEST number is the character who reads chibi, and the three
+          numbers cannot be compared with each other at all
+wanted  a character DECLARES its height in one shared unit; render size derives
+```
+
+**The four rulings that specify it** (all 2026-08-17, in
+[`maintainer-decisions.md`](maintainer-decisions.md)):
+
+1. **the unit is ONE BASE-GRID PIXEL**, 16 to a tile — `defaultGridSize: 16` is
+   confirmed across the shipped worlds, and it is what collision AABBs already
+   effectively use, so this is mostly **declaring what is already implied**.
+   ⚠ a quality tier scales the ART, never the declared height.
+2. **height is a CONTRACT**: art scales to it, so the cast is consistent by
+   construction and a badly-framed sheet cannot make a character huge. A tight
+   tolerance **WARNS** when the scale factor drifts. ⛔⛔ **warns, does not
+   refuse** — that word is Jon's, and it is what separates this from a gate.
+   ⚠ *"maybe a tight tolerance"* attaches to the NUMBER: pick it from the measured
+   population and state it; ⛔ do not invent a round one.
+3. **landmarks are OPTIONAL SLOTS** — head/feet/hands/sockets authored where
+   useful, and every consumer must work without them. ⛔ never make one required
+   to satisfy a consumer; that inverts the rule. ⚠ *"we may eventually have
+   skeletons available in game"*, and a skeleton subsumes hand-authored landmarks.
+4. **promotion did not schedule the other eight milestones.** A slice becomes
+   work when something asks for it.
+
+⛔ **`collision_scale` stops being a SIZE knob and is NOT deleted in this slice.**
+Its own doc says what it actually is — *"a multiplier on the actor's collision
+AABB… authored per-character to compensate for the fraction of each frame the
+character art occupies after auto-crop"* — i.e. a PADDING compensation being used
+as a size control. Height replaces the second job, not the first.
+
+⚠ **the known trap, measured on the earlier attempt**: sizing the quad from the
+body bbox WITHOUT also cropping the drawn region was tried and reverted because it
+stretches the art badly. And the observation file records that it needs **four**
+coupled sites, not the three the design doc names — **there are two render-size
+publishers, and fixing one leaves both of the characters Jon complained about
+untouched.** ⇒ find both before editing either.
+
+⇒ **acceptance is Jon's three reports, not a number**: the snake and AI slop, Sanic
+in his own game, and the cove pirates against the robot. If declaring heights does
+not settle them, the quad-from-bbox route comes back **with evidence** rather than
+with an argument.
+
 - ▢ **D164 — A LIVE PLAN WITH FOUR OPEN STEPS IS REACHABLE FROM NO LEDGER ROW,
   and Jon's quality-swap report sits on its road. (opened 2026-08-17)**
 

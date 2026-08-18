@@ -1,11 +1,17 @@
 # Character authoring package — one character home, federated game facets
 
-**State:** OPEN DIRECTION / ACTIONABLE MIGRATION PLAN.
+**State:** OPEN DIRECTION / ACTIONABLE MIGRATION PLAN. **PROMOTED to the live
+ledger 2026-08-17 as D165, with canonical height as its first slice.**
 
 This plan introduces a character-authoring boundary without requiring a flag-day
-rewrite of the roster. It deliberately does **not** add itself to `tracks.md` or
-the live queue; execution can select slices from this document when current work
-reaches them.
+rewrite of the roster.
+
+⚠ **it used to say it deliberately did not add itself to `tracks.md` or the live
+queue, and that is SUPERSEDED** — Jon promoted it on 2026-08-17 because current
+work reached it: the ruling that every character scale must multiply one SHARED
+unit needs a home, and this package is it. ⛔ **promotion did not schedule the
+other eight milestones.** A slice becomes work when something asks for it; the
+ledger row is [`../queue.md`](../queue.md) D165 and it names which slice is live.
 
 Related current doctrine and plans:
 
@@ -866,12 +872,30 @@ machinery where it fits instead of growing a parallel character-only compiler.
 
 ## O3 — Which body facts are truly shared across games?
 
-Examples requiring evidence:
+✔✔ **PARTLY ANSWERED 2026-08-17 — `canonical height` got its evidence and its
+ruling, and the rest of the list stands open.**
+
+- **canonical height — SHARED, and it is the first slice.** The evidence this
+  question asked for arrived as three separate maintainer reports that turned out
+  to be one defect: the snake and AI slop too big, Sanic too small in his own
+  game, the cove pirates mis-sized against a chibi robot. Cause: every
+  `collision_scale` multiplies its OWN sheet's frame size, so heavies 1.95,
+  pirates 1.60 and `robot` 2.10 are not comparable numbers — the robot's is the
+  largest and he reads chibi.
+- **the unit is ONE BASE-GRID PIXEL**, 16 to a tile (`defaultGridSize: 16` across
+  the shipped worlds), which is what the collision AABBs already effectively use.
+  ⚠ a quality tier scales the ART, never the declared height.
+- **height is a CONTRACT**: art scales to it, and a tight tolerance **warns** when
+  the scale drifts. ⛔ warns, does not refuse.
+- **landmarks are OPTIONAL SLOTS** — authored where an author has something to
+  say, and a consumer must work without them. ⛔ never make one required.
+  ⚠ Jon: *"we may eventually have skeletons available in game"*, and a skeleton
+  subsumes hand-authored landmarks rather than extending them.
+
+Still requiring evidence:
 
 - physical mass;
-- canonical height/width;
 - locomotion hull;
-- hand/head/feet landmarks;
 - default movement tuning;
 - intrinsic capabilities.
 

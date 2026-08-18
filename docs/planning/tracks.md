@@ -25,6 +25,13 @@ Use this order unless Jon or the live queue says otherwise:
 
 D73 is closed. Do not promote its deleted archetype/roster/mirror work again.
 
+⭐ **`engine/character-authoring-package.md` is NOT in this reservoir — it went
+straight to the queue as D165 on 2026-08-17** (maintainer direction), with a
+canonical character height in shared world units as its first slice. It is noted
+here only because it was invisible from every ledger for weeks, and this is one of
+the two files a replenishing agent reads. ⛔ do not copy its content here: the
+plan owns the design and D165 owns which slice is live.
+
 ## Engine 1.0 successor reservoir
 
 The umbrella is

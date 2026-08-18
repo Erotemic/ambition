@@ -5933,8 +5933,41 @@ are visible rather than discovered again:
 ✔  test_robot_slash_hitboxes x2   froze one build of the art as the requirement
 ✔  test_geometry_gui         x1   held a reference the drag handler REPLACES
 ✔  test_portrait_product     x1   froze which clips a boss draws from
-▢  test_rig_codegen_and_scale x1  ⭐ THE ONE REAL ONE — see below
+✔  test_rig_codegen_and_scale x1  ⭐ THE ONE REAL ONE — fixed, see below
 ```
+
+✔✔ **AND THE ONE REAL ONE IS CLOSED — 2026-08-18** (renderer `6162a4a`). A
+target generated from a rig document rendered a **different image from the
+document it was generated from**: `RigDocument.render_at` downsamples its
+supersampled frame through `resize_transparent_sprite(..., reducing_gap=3.0)`,
+and its own comment says why — *a Lanczos kernel has negative lobes, so reducing
+a silhouette laid over transparency leaves faint non-zero-alpha pixels several
+texels outside it*, which is the pale halo. `rigdoc_codegen` emitted
+`img.resize(..., LANCZOS)`: exactly the call the interpreter had deliberately
+stopped making.
+
+```text
+alpha difference across the body   15        tolerance   2
+```
+
+⇒ **the halo fix landed on ONE of two roads.** Every character published from a
+rig document has been shipping the artifact the interpreter removed. The
+generated render now takes the same path, including the `SS == 1` short-circuit.
+
+⚠ **and one of the seven above was mis-triaged by ME before being fixed**:
+`test_oiler_svg_rig` raised rather than skipped when `resvg_py` is absent, unlike
+its three sibling SVG suites which all open with `pytest.importorskip`. ⛔ that
+is NOT the trap this row records two paragraphs down — there the package was
+INSTALLED and the message was two layers from the cause. Here `pip show` finds
+neither `resvg_py` nor `cairosvg`, so the skip is honest, and in an environment
+that HAS the wheel the guard passes and the tests run exactly as before. **Check
+which world you are in before adding a skip; the check is one command.**
+
+⇒ the renderer suite is now **1 failed / 559 passed**, and the last one is the
+Mary-O visual baseline standing against an uncommitted side-view strap edit in
+the worktree. ⛔ **that hash cannot be re-recorded on its own**: recording it
+without the art that moved it leaves the committed baseline disagreeing with the
+committed art. It belongs to whoever lands the art, in the same commit.
 
 ⛔ **do not bulk-fix these**; each is a different question, and two of them are
 about whether the assertion or the art is right — which is a look-at-it call.

@@ -41,7 +41,7 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — 5 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
+## Open decisions — 6 (§1, §6, §7, §9, §10, §11, §12 and §13 are ANSWERED; §8 is DEFERRED)
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 
@@ -284,6 +284,37 @@ without moving `foot_y`, which does not exist yet. Say the word and it is small.
 ⇒ closing (b) means either raising her crown ~6 px — which moves the 40/40/20
 head/body/legs split you specified — or accepting the 6 px. The test bounds it at
 8 px so it cannot quietly grow while you decide.
+
+### 15. Whose hitstop owns the SCREEN when nobody is playing?
+
+Small, and it only exists in CPU-vs-CPU. ⛔ **not a defect** — I filed it as one
+("presentation hitstop is slot-0 only") and corrected it the same day, because
+the part that matters already works: D114 made both movement roads spend hitlag,
+so **both bodies stop on a connect**. That is the impact you see.
+
+What slot 0 additionally requests is the SIM CLOCK freezing — particles, VFX,
+other bodies — a flourish on top. And slot 0 is right for that system: its other
+arms are bullet-time and blink-hold, which are per-PLAYER feel affordances by
+ADR 0010/0011. A second player emits its own intent against its own clock.
+
+⚠ **in a CPU-vs-CPU match there is no `PrimaryPlayer` at all**, so nobody asks.
+That file already carries your 2026-08-07 freeze from exactly this shape — a
+paused match forced the clock to zero, nobody was left to ask for the neutral
+pace back, and the world ran at scale 0.0 forever (*"the characters are just
+stuck in air"*). ⇒ whatever answers this must also be able to hand the clock
+back.
+
+Defensible answers, none obviously right:
+
+```text
+nobody's           CPU matches simply never screen-freeze — simplest, and the
+                   bodies still stop, so the hit still reads
+the most recent    whichever fighter just connected owns the freeze
+the framed one     the fighter the camera is following owns it
+```
+
+⇒ recorded rather than guessed. If you have no view, "nobody's" is the one that
+cannot regress the 0.0-forever failure, because it never asks.
 
 ### 6. ✔ ANSWERED 2026-08-17 — hitlag freezes the body that is in it (former D114)
 

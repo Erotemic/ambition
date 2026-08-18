@@ -2687,8 +2687,10 @@ Reading `emit_player_time_intent_system`
    air"*).
 ⇒ **so "whose hitstop owns the SCREEN when nobody is playing" is a real question
 with several defensible answers** — nobody's, the most recent hit's, the framed
-fighter's — and not a bug with an obvious fix. ▢ recorded as a fork; do not
-guess it.
+fighter's — and not a bug with an obvious fix. ▢ **now asked, as §15 in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)** — it had
+been "recorded as a fork" in this row alone since 2026-08-17, which is where
+questions go to wait for nobody. ⛔ do not guess it.
 
 ✔✔ **THE SELF-KO CAUSE IS FIXED (2026-08-15), and it was ARCHITECTURE, not
 tuning.** The measured defect — depth 12 survives 7.4s while depth 0 survives

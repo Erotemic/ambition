@@ -460,6 +460,78 @@ mod tests {
         );
     }
 
+    /// **⛔ A PUMMEL DAMAGES ITS CAPTIVE AND DOES NOT BREAK THE HOLD.**
+    ///
+    /// The one that would catch the whole category error. If a pummel were
+    /// routed through the ordinary hit path it would arm `hitstun_timer`,
+    /// `release_interrupted_captures` would fire on the next tick, and the
+    /// pummel would release the grab it belongs to — a mechanic that destroys
+    /// itself on its own first beat. So this runs BOTH systems and asserts the
+    /// hold survives, which is the property the shortcut breaks.
+    #[test]
+    fn a_pummel_damages_the_captive_and_leaves_the_hold_standing() {
+        let mut app = App::new();
+        app.add_message::<ambition_combat::capture::CapturePummelRequested>();
+        app.add_systems(
+            Update,
+            (apply_capture_pummels, release_interrupted_captures).chain(),
+        );
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        for body in [captor, victim] {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(ambition_characters::actor::BodyCombat::default());
+        }
+        app.world_mut().entity_mut(victim).insert((
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
+                current: 100,
+                max: 100,
+                invulnerable: Default::default(),
+            }),
+            surface_state(0.0),
+            CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
+                pummels_landed: 0,
+            },
+        ));
+
+        for _ in 0..2 {
+            app.world_mut()
+                .write_message(ambition_combat::capture::CapturePummelRequested {
+                    captor,
+                    damage: 3,
+                });
+            app.update();
+        }
+
+        let held = app
+            .world()
+            .get::<CapturedBy>(victim)
+            .expect("the pummel released the grab it belongs to");
+        assert_eq!(held.pummels_landed, 2, "the hold did not count its pummels");
+        assert_eq!(
+            app.world()
+                .get::<ambition_characters::actor::BodyHealth>(victim)
+                .unwrap()
+                .damage_taken(),
+            6,
+            "the percent meter did not advance, so a pummel is free"
+        );
+        let combat = app
+            .world()
+            .get::<ambition_characters::actor::BodyCombat>(victim)
+            .unwrap();
+        assert_eq!(
+            (combat.hitstun_timer, combat.recoil_lock_timer),
+            (0.0, 0.0),
+            "a pummel armed a hit reaction — that is the ordinary hit path, and \
+             it is what makes the grab release itself one tick later"
+        );
+    }
+
     /// **A CAPTOR ALREADY HOLDING SOMEBODY TAKES NOBODY ELSE.**
     ///
     /// Half of the "one captor, one captive" invariant. Without it a grab whose
@@ -680,5 +752,48 @@ pub fn release_interrupted_captures(
         }
         let mut surface = surfaces.get_mut(victim).ok();
         release_capture(&mut commands, victim, held, surface.as_deref_mut());
+    }
+}
+
+/// **A pummel lands on the body this captor already holds.**
+///
+/// ⛔⛔ **NOT through the ordinary hit path, and that is a correctness claim
+/// rather than a shortcut.** An ordinary hit consults the shield, the post-hit
+/// invulnerability window and spatial strike ownership, then arms `hitstun` and
+/// a recoil lock. Every one of those is wrong here:
+///
+/// * the defensive question was ALREADY ANSWERED when the capture was
+///   established — asking it again would let a shield that could not stop the
+///   grab stop the pummel;
+/// * there is no volume to own: the target was selected, not reacquired;
+/// * ⛔ and arming `hitstun_timer` would trip
+///   [`release_interrupted_captures`], so the pummel would release the very
+///   grab it belongs to. **A pummel that breaks its own hold is the symptom
+///   that says the wrong semantic path was used**, and it would look like a
+///   flaky mechanic rather than a category error.
+///
+/// ⇒ so: damage, meter, and nothing else. No knockback, no hitstun, no recoil
+/// lock, no i-frames, and the relationship untouched.
+///
+/// ⭐ [`BodyHealth::damage`] is reused rather than reimplemented — it already
+/// advances the unbounded percent meter a platform fighter launches off, and a
+/// second damage road would be a second answer to "how hurt is this body".
+pub fn apply_capture_pummels(
+    mut requests: MessageReader<ambition_combat::capture::CapturePummelRequested>,
+    mut captives: Query<(&mut CapturedBy, &mut ambition_characters::actor::BodyHealth)>,
+) {
+    for request in requests.read() {
+        // The captor names itself; the victim comes from the relationship. A
+        // pummel cannot miss, because acquisition already decided who it hits.
+        let Some((mut held, mut health)) = captives
+            .iter_mut()
+            .find(|(held, _)| held.captor == request.captor)
+        else {
+            continue;
+        };
+        health.damage(request.damage);
+        // Saturating: a hold long enough to overflow a u8 has other problems,
+        // and wrapping to zero would tell a CPU policy the hold just started.
+        held.pummels_landed = held.pummels_landed.saturating_add(1);
     }
 }

@@ -693,6 +693,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // so without this second call a body grabbed now would hang where
                 // it stood until the next frame, one visible frame of a captive
                 // standing free inside somebody's grab animation.
+                // The pummel lands BEFORE the pose sync below, so the damage and
+                // the frame the captive is drawn in belong to the same tick.
+                ambition_platformer2d::actors::features::ecs::capture::apply_capture_pummels,
                 ambition_platformer2d::actors::features::ecs::capture::constrain_captive_bodies,
             )
                 .chain()

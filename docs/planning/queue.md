@@ -3028,6 +3028,40 @@ to make the tool quiet — that is the laundering this row already paid for once
 ⭐ the honest sequence is: account for the edit-cost regressions FIRST, then
 re-freeze everything together and the size gain locks in with them.
 
+⚠⚠ **AND IT DID DRIFT BACK — MEASURED 2026-08-18, ONE DAY LATER, AND PAST THE
+BASELINE RATHER THAN UP TO IT:**
+
+```text
+111,429   frozen baseline (2026-08-09)
+110,932   four modules relocated  355874fe1   ⭐ UNDER, for one day
+112,357   2026-08-18                          ⚠ +1,425 back, +928 OVER baseline
+```
+
+⛔ **and the ratchet says NOTHING about it**, because `largest_unit_lines`
+carries a +2,228 growth budget and 112,357 sits inside it. ⇒ **the win was never
+protected and the instrument was never going to report its loss** — which is a
+sharper statement of this row's own warning than the warning was.
+
+⭐ **where the 1,425 went, so nobody has to re-derive it:**
+
+```text
++552  world/authored_switch_commands   D127 M2's authored-rule work
++433  features/ecs
++117  character_runtime/prepared_match
++115  time/time_control                a guard test (D117)
+ +83  world_facts.rs
+ +86  session/teardown + control/input_systems   D125's latch fix + its note
+```
+
+⭐⭐ **the largest contributor is NOT a violation of this row's standing rule,
+and reading the destination's contract is what settled it.**
+`authored_switch_commands` is a runtime interpreter of authored world IR, and
+`ambition_platformer2d_world` opens with *"Backend-agnostic authored world IR …
+simulation crates interpret them through explicit lowering seams"* — an IR crate
+refusing an interpreter in its own words. ⇒ same move as the four relocations'
+three refusals: the contract turned a plausible destination into an obviously
+wrong one at zero cost.
+
 ⭐⭐ **AND THAT ACCOUNTING IS NOW HALF DONE — `--diff` costs seconds and runs no
 build.** The edit-cost regressions split cleanly into two causes, and only one
 of them is this row's doing:

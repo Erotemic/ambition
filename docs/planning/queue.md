@@ -1291,10 +1291,19 @@ you_have_to_cut_the_rope.ldtk    26   ALL EIGHT
 ⇒ **an author working in the FLAGSHIP world cannot place a Portal, a
 `GravityZone` or a `GroundItem`** — supported, converted, and used next door in
 `sandbox`. That is not a product call about an unused capability; it is two
-files out of step with four. ⭐ the spec is a copy of what `sandbox` already
-declares, so this is a reconciliation (`def upsert-entity`), not a design.
-⚠ `SurfaceRamp` stays out: 0 placements anywhere, so the row's original
-reasoning applies to it and only it.
+files out of step with four.
+
+✔ **RECONCILED 2026-08-18.** The seven were copied into `intro` and
+`you_have_to_cut_the_rope` through `def upsert-entity`, from a spec extracted
+from what `sandbox` already declares — including each entity's authoring `docs`,
+which is the part an author actually reads. All six worlds now carry 33+ defs
+and differ only in `SurfaceRamp`. Verified: EntityRefs unchanged (4 and 0),
+entity instances unchanged, every world validates with **0 errors**.
+⚠ **`SurfaceRamp` stays out on purpose** — 0 placements in any world, so the
+row's original *"a product call whether to invite authors into a capability that
+has gone unused"* applies to it and only it. That is now the ONE thing the
+`defs.entities` warning reports, everywhere, which makes the warning a signal
+again.
 
 ⇒ **the row is the instrument, not the content.** A validator whose errors are
 100% noise and whose loudest warning flags a designed relationship is worse than
